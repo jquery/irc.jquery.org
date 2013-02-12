@@ -18,8 +18,9 @@ You can also send private messages (PMs) to other users but this
 should only be done on very special occasions, or if you already know
 the person you're PMing.
 
-The [#jQuery](irc://irc.freenode.net/#jquery) channel on the Freenode
-network is very active, whimsical and especially patient with novices.
+The [#jQuery](irc://irc.freenode.net/#jquery) channel on the
+[Freenode](http://freenode.net) network is very active, whimsical and
+especially patient with novices.
 
 ### Downloading A Client
 
