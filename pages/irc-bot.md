@@ -5,18 +5,21 @@
 The IRC bot, b-ot, is a helpful little minion that you can use inside the IRC room to get quick access to info from around the web.
 
 ## Using the bot
+
 b-ot comes with a number of commands. All commands consist of the <code>`</code> (backtick) plus the trigger word. Most commands also have a shorthand single letter trigger.
 
-You can also direct the bot to answer at someone other than yourself by appending 
+You can also direct the bot to answer at someone other than yourself by appending
 
 	wesbos      `api slideUp @ajpiano
 	b-ot        ajpiano: .slideUp(): Hide the matched elements with a sliding motion. http://api.jquery.com/slideUp/
 
 ## Commands you can use in #jQuery
+
 It is acceptable to use any of the following commands in #jQuery. Please be mindful and do not spam the chatroom with commands.
 
 ### jQuery API
-Quick access and search of the jQuery API. 
+
+Quick access and search of the jQuery API.
 
 **trigger:** \`api <term>
 
@@ -27,6 +30,7 @@ Quick access and search of the jQuery API.
 	b-ot        wesbos: .index(): Search for a given element from among the matched elements. http://api.jquery.com/index/
 
 ### caniuse
+
 An interface for [caniuse.com](http://caniuse.com/). Use this to find out browser compatibility for HTML5/CSS3 features.
 
 **trigger:**  \`c or \`caniuse <term>
@@ -54,7 +58,7 @@ Check if a domain name is available. Uses the [domai.nr](http://domai.nr) API.
 
 ### down
 
-Check if a website is down. Mimics the functionality of [downforeveryoneorjustme.com](http://www.downforeveryoneorjustme.com/). 
+Check if a website is down. Mimics the functionality of [downforeveryoneorjustme.com](http://www.downforeveryoneorjustme.com/).
 
 This command accepts domain names, ports and paths. It will tell you if the site is really down as well as the status code.
 
@@ -74,7 +78,7 @@ This command accepts domain names, ports and paths. It will tell you if the site
 ### ideone
 ### kickflip
 ### seen
-View the last time a user was on the IRC network. 
+View the last time a user was on the IRC network.
 
 ### shared
 ### spotify
@@ -83,7 +87,9 @@ View the last time a user was on the IRC network.
 ### weather
 
 ## Commands you can use in your own IRC Channel
+
 Some of these commands will be disabled in #jQuery
+
 ### crew
 ### uptime
 ### urbandictionary
