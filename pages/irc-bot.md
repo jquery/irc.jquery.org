@@ -1,6 +1,6 @@
----
-title: IRC Bot Commands
----
+<script>{
+	"title": "IRC Bot Commands"
+}</script>
 
 The IRC bot, b-ot, is a helpful little minion that you can use inside the IRC room to get quick access to info from around the web.
 

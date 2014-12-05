@@ -1,6 +1,6 @@
----
-title: IRC Help
----
+<script>{
+  "title": "IRC Help"
+}</script>
 
 ## Getting Connected
 
