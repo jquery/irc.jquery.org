@@ -62,6 +62,26 @@ Here are some general points to help you get the most out of your #jQuery experi
 
 * Photographs. Famous plaid-clad people occasionally frequent #jQuery and most will be happy to pose for a photograph with you. Be respectful, say thank you and know when to leave them be.
 
+## Code of Conduct
+
+### General Behavior:
+
+* Trolling other users isn't tolerated.  We define "trolling" as purposefully inciting arguments for the purposes of angering/harassing other users or derailing the channel.  Disagreements can (and do!) happen, just remember there's a human on the other end.
+
+* Derogatory remarks against any race, religion, lifestyle, orientation, etc. will not be tolerated.
+
+* Kicks, quiets, bans, and other corrective actions are applied at the discretion of whoever has those powers.  If you feel you or somebody else was unfairly treated, please message the op in private.  Airing your grievances in the channel is rarely productive.
+
+* Please refrain from "backseat modding".  If you feel there's an issue that requires intervention, please privately message an op.  You can find a list by running /msg chanserv access list #jquery.
+
+* If an op asks you to do something, do it.  If you don't want to, PM the op directly to discuss it.
+
+* Bans and quiets generally expire after 24 hours - sometimes all that's needed is a cool of period.
+
+Finally, follow this CoC in spirit, not just by letter.  Any attempt (purposeful or not) to skirt the rules by claiming your actions weren't expressly prohibited will generally lead to further corrective action.
+
+In short: Don't be a jerk.  If you have an issue, privately message an op to discuss it.
+
 ## Asking Good Questions
 
 The best way to get your issue resolved quickly is to get straight to the point and explain the problem clearly with a reduced test case.
