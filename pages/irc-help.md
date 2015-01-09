@@ -64,8 +64,6 @@ Here are some general points to help you get the most out of your #jQuery experi
 
 ## Code of Conduct
 
-### General Behavior:
-
 * Trolling other users isn't tolerated.  We define "trolling" as purposefully inciting arguments for the purposes of angering/harassing other users or derailing the channel.  Disagreements can (and do!) happen, just remember there's a human on the other end.
 
 * Derogatory remarks against any race, religion, lifestyle, orientation, etc. will not be tolerated.
