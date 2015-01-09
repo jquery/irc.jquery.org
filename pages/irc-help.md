@@ -64,21 +64,21 @@ Here are some general points to help you get the most out of your #jQuery experi
 
 ## Code of Conduct
 
-* Trolling other users isn't tolerated.  We define "trolling" as purposefully inciting arguments for the purposes of angering/harassing other users or derailing the channel.  Disagreements can (and do!) happen, just remember there's a human on the other end.
+* Trolling other users isn't tolerated. We define "trolling" as purposefully inciting arguments for the purposes of angering/harassing other users or derailing the channel. Disagreements can (and do!) happen, just remember there's a human on the other end.
 
-* Derogatory remarks against any race, religion, lifestyle, orientation, etc. will not be tolerated.
+* Derogatory remarks against any race, religion, lifestyle, orientation, etc. will not be tolerated, nor will behaviors like stalking, harassment, or ban evasion.
 
-* Kicks, quiets, bans, and other corrective actions are applied at the discretion of whoever has those powers.  If you feel you or somebody else was unfairly treated, please message the op in private.  Airing your grievances in the channel is rarely productive.
+* Kicks, quiets, bans, and other corrective actions are applied at the discretion of whoever has those powers. If you feel you or somebody else was unfairly treated, please message the op in private. Airing your grievances in the channel is rarely productive.
 
-* Please refrain from "backseat modding".  If you feel there's an issue that requires intervention, please privately message an op.  You can find a list by running /msg chanserv access list #jquery.
+* Please refrain from "backseat modding". If you feel there's an issue that requires intervention, please privately message an op. You can find a list by running `/msg chanserv access list #jquery`.
 
-* If an op asks you to do something, do it.  If you don't want to, PM the op directly to discuss it.
+* If an op asks you to do something, do it. If you don't want to, PM the op directly to discuss it.
 
-* Bans and quiets generally expire after 24 hours - sometimes all that's needed is a cool of period.
+* Bans and quiets generally expire after 24 hours - sometimes all that's needed is a cool off period.
 
-Finally, follow this CoC in spirit, not just by letter.  Any attempt (purposeful or not) to skirt the rules by claiming your actions weren't expressly prohibited will generally lead to further corrective action.
+Finally, follow this CoC in spirit, not just by letter. Any attempt (purposeful or not) to skirt the rules by claiming your actions weren't expressly prohibited will generally lead to further corrective action.
 
-In short: Don't be a jerk.  If you have an issue, privately message an op to discuss it.
+In short: Don't be a jerk. If you have an issue, privately message an op to discuss it.
 
 ## Asking Good Questions
 
