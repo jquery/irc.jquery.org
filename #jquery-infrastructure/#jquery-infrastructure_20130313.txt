@@ -1,0 +1,105 @@
+[10:41:09] <jzaefferer> ryanneufeld: are you around and could help with a Jenkins issue?
+[10:41:57] <ryanneufeld> jzaefferer: in a bit
+[10:42:07] <ryanneufeld> jzaefferer: what's the problem?
+[10:43:22] <jzaefferer> ryanneufeld: I've documented it here: https://github.com/jquery/infrastructure/issues/162
+[10:44:11] <jzaefferer> specifically this SO answer https://github.com/jquery/infrastructure/issues/162 seems important, since our servers don't have any swap space at all
+[11:03:40] <ryanneufeld> ugh, MT has terrible memory management
+[11:04:30] <ryanneufeld> jzaefferer: how much ram does that process neeD?
+[11:04:41] <jzaefferer> I have no clue
+[11:04:45] <jzaefferer> this used to work
+[11:05:16] <jzaefferer> we've updated phantom and jenkins recently, so one of those updates might be related
+[11:05:38] <ryanneufeld> node /tools/testswarm-browserstack/src/cli.js --config /tools/testswarm-browserstack/config.json --run-loop 60
+[11:05:45] <ryanneufeld> loop 60?
+[11:06:30] <ryanneufeld> also it seems jenkins is already using 500MB of ram
+[11:06:41] <ryanneufeld> which shouldn't be an issue either
+[11:06:58] <ryanneufeld> so this machine has 8GB of ram and that's not enough?
+[11:07:43] <ryanneufeld> I take that back, jenkins has 2.5GB allocated to it
+[11:08:31] <ryanneufeld> jzaefferer: there is 5 testswarm processes running rightnow
+[11:11:35] <jzaefferer> ryanneufeld: what "testswarm process" are you referring to?
+[11:11:41] <ryanneufeld> the node
+[11:11:44] <ryanneufeld> Feb15   1:50 node /tools/testswarm-browserstack/src/cli.js --config /tools/testswarm-browserstack/config.json --run-loop 60
+[11:11:53] <jzaefferer> okay
+[11:11:57] <ryanneufeld> that one has been running since Feb 15
+[11:11:58] <jzaefferer> there shouldn't be five, I think
+[11:12:01] <ryanneufeld> is that correct?
+[11:12:12] <jzaefferer> but as long as the system isn't out of memory, this doesn't matter
+[11:12:22] <jzaefferer> the thing is that Jenkins fails to build up a new process
+[11:12:30] <jzaefferer> while there's plenty of system memory
+[11:12:48] <jzaefferer> Java memory handling is special, but I don't really understand enough of what's going on here
+[11:13:03] <jzaefferer> I guess there's no way to get swap space to avoid the issue, so we need to find some other way
+[11:13:18] <ryanneufeld> yeah
+[11:13:29] <ryanneufeld> the way MT does that is kind of a pain
+[11:13:34] <ryanneufeld> cause when the machine runs out of ram
+[11:13:35] <ryanneufeld> it just fails
+[11:14:11] <ryanneufeld> jzaefferer: is it safe to restart jenkins?
+[11:14:34] <jzaefferer> ryanneufeld: should be, yeah. You can do a shutdown within Jenkins so that it can finish jobs that are currently running
+[11:14:44] <ryanneufeld> not sure if I have a login
+[11:14:46] <jzaefferer> nothing running right now though
+[11:14:47] * ryanneufeld trys
+[11:14:51] <jzaefferer> so just restart it
+[11:15:04] <ryanneufeld> ah
+[11:15:05] <ryanneufeld> I do
+[11:15:17] <jzaefferer> I've clicked the "prepare for shutdown" button
+[11:15:30] <jzaefferer> ah, you killed it already :-)
+[11:15:33] <ryanneufeld> k
+[11:15:49] <ryanneufeld> gonna killa it
+[11:15:51] <ryanneufeld> *kill it
+[11:15:58] <ryanneufeld> and make sure none of it's children are alive
+[11:16:06] <ryanneufeld> that sounded vaguely mobish
+[11:17:47] <ryanneufeld> jzaefferer: how much ram do you want it to use?
+[11:17:56] <jzaefferer> *shrugs*
+[11:18:19] <jzaefferer> let's try with more mem?
+[11:19:04] <ryanneufeld> gave it 3GB
+[11:19:18] <ryanneufeld> and it took 3.5
+[11:19:20] <ryanneufeld> okay
+[11:19:37] <ryanneufeld> lets watch it for a week or so?
+[11:23:20] <jzaefferer> I'll run a jQuery UI job to see if it runs
+[11:23:42] <ryanneufeld> I'm running one for jqm 1.1
+[11:23:43] <ryanneufeld> just to see
+[11:24:07] <jzaefferer> ah, okay
+[11:24:11] <jzaefferer> was wondering where that came from
+[11:24:17] <ryanneufeld> Yeah, that was me :p
+[11:24:24] <ryanneufeld> also I upgraded to 1.505
+[11:25:51] <ryanneufeld> jzaefferer: so, keep an eye on it
+[11:26:04] <ryanneufeld> I'm starting to see the appeal of travis though :p
+[11:28:38] <jzaefferer> I don't know why mobile's phantomjs build take so frickin long to run :/
+[11:28:58] <jzaefferer> or why its testing 1.1 stable anyway
+[11:29:06] <jzaefferer> no one is working on that anymore, right?
+[11:29:43] <ryanneufeld> I manually triggered that one
+[11:30:24] <ryanneufeld> jzaefferer: it's qunit tests that are running right now
+[11:37:15] <jzaefferer> I still see the jQuery Mobile build runnin
+[11:37:17] <jzaefferer> *running
+[11:37:22] <ryanneufeld> yeah
+[11:37:25] <ryanneufeld> it takes a long time
+[11:37:47] <ryanneufeld> jzaefferer: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Phantom%201.1-stable/264/console
+[11:37:52] <ryanneufeld> you can see the output there
+[11:38:20] <jzaefferer> well, this was working before, so its really not that interesting
+[11:38:29] <jzaefferer> I'll cancel that build
+[11:41:24] <jzaefferer> ryanneufeld: didn't help: http://swarm.jquery.org:8080/job/jQuery%20UI/1012/console
+[11:41:31] <jzaefferer> to test, run a jQuery UI build
+[11:41:45] <ryanneufeld> ping gnarf http://www.win.tue.nl/~aeb/linux/lk/lk-9.html perhaps we could use the overcommit configuration to help with not having any swap?
+[11:43:08] <ryanneufeld> jzaefferer: hmm... so phantomjs is crashing
+[11:53:04] <ryanneufeld> jzaefferer: what does the dump file tell you?
+[11:53:11] <ryanneufeld> I'm not able to actually read it
+[11:53:18] <ryanneufeld> ./minidump_stackwalk /tmp/0bbdeff8-b1d8-03cd-2a61fa45-415455cb.dmp .
+[11:53:42] <ryanneufeld> -bash: ./minidump_stackwalk: No such file or directory
+[11:53:45] <ryanneufeld> jzaefferer: ^^
+[13:07:27] <scott_gonzalez> gnarf: nopt actually looks nicer than optimist.
+[14:55:50] <jzaefferer> ryanneufeld: minidump_stackwalk is in my user dir on that server. There's instructions for installing and using that here: https://github.com/ariya/phantomjs/wiki/Crash-Reporting
+[15:28:13] <ryanneufeld> jzaefferer: I followed those, in my home directory
+[15:28:16] <ryanneufeld> it didn't work
+[15:28:17] <ryanneufeld> :S
+[15:31:02] <jzaefferer> weird
+[15:31:05] <jzaefferer> I got it working once
+[15:31:56] <jzaefferer> ryanneufeld: I got this as output: https://gist.github.com/jzaefferer/342f32ba75157b71dc54
+[15:32:50] <ryanneufeld> jzaefferer: crash address 0xbbadbeef
+[15:32:54] <ryanneufeld> bad beef...
+[15:32:59] <ryanneufeld> that'll get you every time
+[17:33:14] <Krinkle> ryanneufeld: jzaefferer: Now there is only 1 testswarm-browserstack process.
+[17:34:03] <Krinkle> You can sometimes see 2 processes with that word in it, but only one is the run-loop deamon. That deamon periodically spawns a child and when it finishes, after some time, spawns a new one, but never more than one
+[17:34:13] <Krinkle> meaning the total should never be more than 2 (1 parent, 1 chidl)
+[17:35:36] <ryanneufeld> i swa 5
+[17:40:36] <ryanneufeld> Krinkle: When I ran htop, i was seeing 5 or six of them
+[17:40:55] <Krinkle> did they go away automatically or did you kill them?
+[17:44:51] <ryanneufeld> went away when i restarted jenkins
+[18:11:27] <Krinkle> that'd be a coincidence as it isn't connected to jenkins (related, but not aware or linked in any way)

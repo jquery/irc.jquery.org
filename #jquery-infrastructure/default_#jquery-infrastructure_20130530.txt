@@ -1,0 +1,234 @@
+[07:58:56] <jzaefferer> hey Krinkle
+[07:59:15] <Krinkle> jzaefferer: Hi
+[08:00:07] <Krinkle> I'm currently on holiday with colleges in London (monday to saturday). I'll be on IRC when I can though. 
+[08:00:27] <jzaefferer> ah, okay
+[08:00:39] <jzaefferer> probably not enough to work on Jenkins/TestSwarm though?
+[08:00:49] <Krinkle> colleagues*
+[08:00:50] <jzaefferer> Will you be in Portland?
+[08:00:54] <Krinkle> jzaefferer: Yes
+[08:01:02] <Krinkle> jzaefferer: (Yes, I'll be in Portland)
+[08:01:29] <Krinkle> jzaefferer: I can't work on TestSwarm this week. I'll be on stand-by if something goes wrong, but I don't intend to work on it extensively at this moment.
+[08:01:38] <jzaefferer> Okay, well, if we don't get things going before then, we can probably finish the Jenkins migration when we're in Portland
+[08:01:41] <Krinkle> jzaefferer: I gathered you've started migration? How's it coming along.
+[08:01:52] <jzaefferer> I'm stuck
+[08:01:57] <Krinkle> Finishing it in portland sounds good.
+[08:02:07] <jzaefferer> https://github.com/jquery/infrastructure/issues/176#issuecomment-18669196
+[08:02:19] <jzaefferer> Or maybe you can tell me about build...?
+[08:02:27] <jzaefferer> build.jenkins.jquery.org?
+[08:02:30] <jzaefferer> What's the idea there?
+[08:02:30] <Krinkle> jzaefferer: Stuck on what exactly? Shell access between the 2 servers?
+[08:02:59] <jzaefferer> Is that a separate machine? Or just another domain name?
+[08:03:03] <Krinkle> jzaefferer: So, on jq03 we got nginx running on port 80 and jenkins (which has a built-in web server) on port 8080
+[08:03:31] <Krinkle> jzaefferer: on the new jenkins server we proxy jenkins' internal server to port 80 so it'll be on jenkins.jquery.com (no odd :8080)
+[08:03:37] <jzaefferer> jq03 is the swarm.jquery.org machine?
+[08:03:44] <Krinkle> jzaefferer: yes
+[08:04:16] <Krinkle> However since we'll need another web server to expose the build files (the git snapshots by commit hashes) we've set up another virtual host on the same server 
+[08:04:38] <Krinkle> that way we don't need to rsync that much back to jq03, and it'll also allow us to get rid of the "untracked" files in /build inside the testswarm install.
+[08:05:23] <jzaefferer> so build.jenkins.jquery.org is just serving files from the same machine that runs Jenkins?
+[08:05:32] <Krinkle> so instead of syncing from /var/lib/jenkins to /var/www/swarm/build on jq03, we'll now sync from /var/lib/jenkins to /somewhere/build.jenkins.jquery.com/ within the new jenkins server
+[08:05:36] <Krinkle> jzaefferer: yes
+[08:05:57] <jzaefferer> okay, so Jenkins can keep doing a `cp` for that
+[08:06:01] <Krinkle> Yes
+[08:06:21] <jzaefferer> Though it doesn't look like http://build.jenkins.jquery.org/ is serving anything yet
+[08:06:39] <Krinkle> Looks fine to me
+[08:06:55] <Krinkle> it is empty and/or the docroot doesn't exist yet
+[08:07:01] <Krinkle> dns is set up and rerouting to the proper host
+[08:07:05] <Krinkle> and accepted by nginx
+[08:07:24] <Krinkle> gnarf will know where the files need to go
+[08:07:36] <jzaefferer> yeah, looks like that's the interesting part
+[08:07:37] <Krinkle> jzaefferer: com not org
+[08:07:44] <Krinkle> I think /var/www/build.jquery.jquery.com is where they go
+[08:07:50] <Krinkle> jzaefferer: see link on the bug
+[08:07:51] <Krinkle> issue*
+[08:07:57] <Krinkle> https://github.com/jquery/infrastructure/issues/176
+[08:07:58] <jzaefferer> oh, its builds, not build
+[08:08:58] <jzaefferer> Okay, so cp files to /var/www/build.jquery.jquery.com/htdocs and update the TestSwarm config accordingly
+[08:09:15] <jzaefferer> I can just skip the CDN deployment for now
+[08:09:37] <Krinkle> jzaefferer: Why would you do that?
+[08:09:49] <jzaefferer> do what?
+[08:10:02] <Krinkle> At least don't disable or modify the current jenkins until everything is properly set up
+[08:10:44] <Krinkle> If you want to do a dry migration without CDN, that's fine. Once we have everything figured out we can do a clean start and do it all at once "right".
+[08:11:15] <Krinkle> jzaefferer: Also, according to the todo list, gnarf has already set up ssh
+[08:11:21] <Krinkle> so pushing to cdn should work fine
+[08:11:29] <jzaefferer> I'm only changing stuff on the new Jenkins server
+[08:11:32] <Krinkle> since origin.code is on jq03
+[08:11:53] <Krinkle> k
+[08:11:56] <jzaefferer> which will run only manual builds as long as we don't update the GitHub commit hooks
+[08:12:12] <jzaefferer> TestSwarm itself stays where it is right now?
+[08:13:11] <Krinkle> jzaefferer: yes, it will stay on jq03, the planned migration is for jenkins and its artifacts.
+[08:13:16] <jzaefferer> okay
+[08:13:35] <jzaefferer> as for a clean start: copying the jobs directory is the annoying part
+[08:13:37] <Krinkle> The main goal we want to achieve is to split testswarm and jenkins, not to deprecate jq03 in general.
+[08:14:03] <jzaefferer> just the job configs are small, but copying everything is multiple GBs
+[08:14:40] <jzaefferer> zipping up only the configs as pretty annoying. I couldn't find a way to copy subdirectories, but just one level deep
+[08:14:54] <jzaefferer> so had to list all the job directories manually, I never want to do that again
+[08:17:27] <jzaefferer> Krinkle: anyway, I'll see how far I can get now. We can then still do it properly, I'm sure you or gnarf can figure out how to make the import less painful.
+[08:17:46] <jzaefferer> Thanks for the input, I hope I can get things running with that
+[08:18:26] <Krinkle> jzaefferer: If there's any changes we need to make (e.g. changes you learn by doing what you're doing now), would you document them on the issue? That'll avoid me or gnarf accidentally undoing it when we do it the final time.
+[08:18:53] <Krinkle> Right now the changes I'm aware of is the path to build/ dir and the sync command for the CDN.
+[08:19:31] <jzaefferer> okay
+[08:22:49] <Krinkle> jzaefferer: At Wikimedia we do cross-server syncing all the time. Let me pull up the wrapper we use for it
+[08:23:00] <Krinkle> it's several magic arguments to rsync basically
+[08:24:57] <jzaefferer> that sounds useful
+[08:26:42] <Krinkle> There ya go: rsync -a --delete --exclude=.svn --exclude=.git --exclude=cache/l10n --no-perms $SRC_HOST::$PATH $DEST_DIR
+[08:26:42] <Krinkle> and for push:
+[08:26:42] <Krinkle> rsync -a --delete --exclude=.svn --exclude=.git --exclude=cache/l10n --no-perms $PATH $TARGET_SERVER::$DEST_DIR
+[08:26:42] <Krinkle> omit the --exclude arguments
+[08:26:42] <Krinkle> basically just "rsync -a --no-perms"
+[08:26:42] <Krinkle> -a is  built-in alias that does a whole bunch of stuff (recursive, preserve and stuff)
+[08:34:27] <jzaefferer> okay
+[09:15:39] <jzaefferer> Krinkle gnarf: Looks like the disk on jenkins.jquery.com is full
+[09:19:00] <gnarf> hrm
+[09:19:04] <gnarf> whats eating 10 gig?
+[09:20:12] <gnarf> jzaefferer: i had a tgz of old jenkins i just deleted
+[09:20:15] <gnarf> that freed up a lot
+[09:20:25] <gnarf> but this tells me we should make jenkins live on its own disk?
+[09:20:34] <gnarf> like /var/lib/jenkins
+[09:20:41] <gnarf> make another say 20 gig partition for it?
+[09:20:46] <gnarf> perhaps more?
+[09:21:33] <s5fs> gnarf: 20gig is 2x what the root partition is currently, correct?
+[09:21:36] <jzaefferer> gnarf: looks like the jQuery Mobile Branches Preview job is eating a ton of space
+[09:21:50] <gnarf> s5fs: yup
+[09:21:59] <gnarf> i mean, we have space on those disks
+[09:22:54] <s5fs> sure, why not?
+[09:23:30] <jzaefferer> killing the workspace of that job freed 6.2GB
+[09:23:32] <jzaefferer> wtf?
+[09:24:32] <s5fs> jzaefferer: fun times :)
+[09:35:08] <jzaefferer> Krinkle: getting closer: http://jenkins.jquery.com/job/jQuery%20UI/1110/console (scroll down)
+[09:35:46] <Krinkle> indeed
+[09:42:22] <gnarf> jzaefferer: i removed a 5 gig tgz from my home dir
+[09:42:29] <gnarf> jzaefferer: so that was probably it :)
+[09:43:02] <gnarf> I'm creating a new volume for /var/lib/jenkins - 50 gig
+[09:44:34] <gnarf> jzaefferer / Krinkle i need to stop jenkins to mount/move this
+[09:48:18] <gnarf> hrm
+[09:48:21] <gnarf> that didn't work
+[09:48:23] <gnarf> lemme fix it
+[09:52:00] <gnarf> okay this is strange
+[09:52:14] <gnarf> the helix system says this should be a 50 gig disk
+[09:52:19] <gnarf> but linux only shows 1 gig of it
+[09:55:34] <Krinkle> gnarf: That's alright, jenkins.jquery.com isn't being used yet in production
+[09:55:53] <gnarf> k
+[09:56:10] <gnarf> trying a reboot
+[09:56:15] <gnarf> see if it will find the new disk
+[10:00:27] <gnarf> there we go
+[10:01:18] <gnarf> jzaefferer: did you solve the deploy to cdn problem?
+[10:04:17] <gnarf> jzaefferer: you can scp jqadmin@code.origin.jquery.com:/var/www/code.origin.jquery.com/htdocs/filename
+[10:09:24] <gnarf> Krinkle: jzaefferer: /var/lib/jenkins now has 50 gig - this should hold for a while
+[10:11:16] <Krinkle> thx
+[10:12:00] <Krinkle> gnarf: and user jenkins on srv jenkins has access to user jqadmin?
+[10:12:09] <gnarf> yup
+[10:12:41] <Krinkle> btw, why was this server named jenkins? I liked the jxx numbering. Makes it easier to reason about nodes and I suppose it would be easier to apply roles to machines from puppet as well.
+[10:13:18] <gnarf> Krinkle: because it's only ever going to have jenkins
+[10:13:32] <gnarf> i suppose i could of jq06'ed it
+[10:15:13] <gnarf> perhaps we can go back to numbering it later
+[10:15:20] <gnarf> but for now, jenkins. works
+[10:15:52] <jzaefferer> Krinkle: I haven't tried the CDN deployment, yet
+[10:16:03] <jzaefferer> currently trying figure out why the TestSwarm submit fails
+[10:16:14] <jzaefferer> "API returned error, can't continue. Response was: {"error":{"code":"missing-parameters","info":"One or more required authentication parameters were not submitted."}}"
+[10:16:36] <jzaefferer> That got interruped, but now I'm back looking for a way to get more verbose output
+[10:16:43] <jzaefferer> I'd like to see what parameters its sending
+[10:17:54] <gnarf> jzaefferer: you'll still need to curl http://code.origin.jquery.com/filename?reload=1 after pushing a new build to inform the api
+[10:18:29] <Krinkle> jzaefferer: Does /tools/node-testswarm.json exist?
+[10:18:53] <Krinkle> Does it work on the other jenkins?
+[10:19:54] <jzaefferer> I created the json file
+[10:20:05] <jzaefferer> But I'm not sure if it actually reads it correctly
+[10:20:35] <jzaefferer> I think it does, otherwise it would fail much earlier
+[10:23:18] <jzaefferer> uhm
+[10:23:36] <jzaefferer> on the old Jenkins: "Building jQuery Mobile Phantom 1.2-stable #178 Started: 6 days 8 hours ago"
+[10:24:41] <jzaefferer> cancelling doesn't seem to work :
+[10:25:23] <jzaefferer> eh, nvm
+[10:25:31] <jzaefferer> cancelling worked
+[10:26:47] <jzaefferer> Krinkle: looks like everything fails on the old Jenkins server, so I don't know if a testswarm submit would work or not
+[10:39:34] <jzaefferer> gnarf: can you give rxaviers access to jenkins.jquery.com?
+[10:40:15] <gnarf> if i could get through to github...
+[10:41:59] <jzaefferer> that seems not to work so well right now
+[10:42:24] <rxaviers> jorn, perhaps this is related
+[10:42:44] <jzaefferer> Krinkle: managed to get a successful QUnit build: http://jenkins.jquery.com/job/QUnit/310/console
+[10:42:55] <rxaviers> I logged in stage jq02, and I tried to git pull (on download.jq...)
+[10:42:57] <rxaviers> I got this
+[10:42:58] <rxaviers> $ git pull
+[10:42:59] <rxaviers> github.com[0: 204.232.175.90]: errno=Connection timed out
+[10:42:59] <rxaviers> fatal: unable to connect a socket (Connection timed out)
+[10:43:19] <Krinkle> jzaefferer: nice
+[10:46:20] <jzaefferer> Krinkle: I had to change the testUrl properties in the node-bla.json. That might've been the issue at the UI build. Gonna check again once Github is back up.
+[10:46:45] <Krinkle> jzaefferer: Ah, yeah, that makes sense.
+[10:54:47] <rxaviers> jzaefferer, I will switch focus for now then. Do you let me know if it's back and keep failing?
+[11:08:04] <gnarf> `down github.com
+[11:09:26] <gnarf> `down github.com
+[11:09:28] <b-ot> gnarf: ¯\_(ツ)_/¯ It's not just you! http://github.com is down! (ECONNRESET)
+[11:09:39] <gnarf> `down https://github.com
+[11:10:42] <b-ot> gnarf: ¯\_(ツ)_/¯ It's not just you! http://github.com is down! (ETIMEDOUT)
+[12:34:32] <jzaefferer> rxaviers: btw. GitHub is back up
+[12:35:04] <rxaviers> ok let me check pull again
+[12:35:27] <rxaviers> great.. if gnarf could give me access to jenkins machine now.
+[12:42:07] <gnarf> i still can't git pull
+[12:42:34] <rxaviers> oh really, which proj?
+[12:42:42] <gnarf> infra
+[12:43:47] <jqcommit> 01[13infrastructure01] 15gnarf37 pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/608c2a0407a26c7c90463975ee09916262db3f20
+[12:43:47] <jqcommit> 13infrastructure/06puppet-master 14608c2a0 15Corey Frang: add @rxaviers to jenkins
+[12:43:58] <rxaviers> ah cool
+[12:44:18] <gnarf> youre there
+[12:44:56] <rxaviers> cool Im in
+[12:45:02] <rxaviers> :) checking
+[12:45:31] <rxaviers> moving convo back to jquery-ui
+[12:57:05] <rxaviers> gnarf, mr corey. I think jenkins machine is missing libxml2 and libxslt libs (https://github.com/jquery/api.jqueryui.com)
+[12:57:18] <rxaviers> running `running grunt build-xml-entries` I get:
+[12:57:24] <rxaviers> execvp(): No such file or directory
+[12:57:37] <rxaviers> I remember hitting this issue before
+[12:57:47] <rxaviers> probably in another machine
+[12:58:21] <gnarf> rxaviers: apt-get install them, make an infra issue asking me to ensure they are installed by puppet
+[12:58:56] <rxaviers> ok
+[13:22:36] <rxaviers> imagemagick is missing too :P
+[13:23:03] <rxaviers> gnarf, I've reopened IM issue ^
+[13:23:09] <rxaviers> Im installing it manually though
+[13:23:42] <gnarf> rxaviers: k
+[13:23:53] <gnarf> so long as i have a list of whats needed, it should be easy
+[13:24:07] <gnarf> ryanneufeld / s5fs might be able to figure it out in puppet too
+[13:24:34] <ryanneufeld> isn't that in puppet already?
+[13:25:19] <rxaviers> I just noticed it wasnt installed on jenkins, that's where I ended :P
+[13:32:22] <jqcommit> 01[13infrastructure01] 15gnarf37 pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/6669d314bf51c0891e2030deecf8e9a124b861c6
+[13:32:22] <jqcommit> 13infrastructure/06puppet-stage 146669d31 15Corey Frang: add redirect for jquery.org/meetings to meetings.jquery.org
+[13:34:27] <jqcommit> 01[13infrastructure01] 15gnarf37 pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/9c0088567f6b54bfcbb457dd622965e2def0c7bd
+[13:34:27] <jqcommit> 13infrastructure/06puppet-stage 149c00885 15Corey Frang: adding .* to match subdirectories too
+[13:35:31] <gnarf> though i don't think that last commit was needed jzaefferer
+[13:35:55] <gnarf> it doesn't hurt
+[13:35:58] <gnarf> but it wasn't needed
+[13:36:02] <gnarf> i pushed to the -stage branch
+[13:36:12] <gnarf> and then on jq01.stage.jquery.com, sudo puppet agent --test
+[13:36:13] <jzaefferer> gnarf: right, though the URL is/was /meeting
+[13:36:15] <jzaefferer> without the s
+[13:36:18] <gnarf> to get it to install the new config
+[13:36:27] <gnarf> jzaefferer: so, if you wanna finish this, do that
+[13:36:37] <rxaviers> gnarf, jzaefferer, DB just passed now :)
+[13:36:43] <jzaefferer> rxaviers: great, thanks
+[13:36:46] <gnarf> we can remove the .* - we can also remove the "s"
+[13:37:04] <gnarf> jzaefferer: push it on stage, ssh jq01.stage.jquery.com, sudo puppet agent --test
+[13:37:08] <jzaefferer> okay
+[13:37:10] <rxaviers> sure ywc
+[13:37:11] <gnarf> wait for config to refresh nginx
+[13:37:17] <gnarf> and test https://stage.jquery.org/meeting
+[13:37:21] <gnarf> and
+[13:37:22] <gnarf> and test https://stage.jquery.org/meeting/
+[13:37:49] <gnarf> jzaefferer: once it works on stage
+[13:38:07] <gnarf> git checkout puppet-master ; git merge puppet-stage; git push
+[13:38:14] <jzaefferer> well, https://stage.jquery.org/meetings/ is properly redirected
+[13:38:18] <gnarf> then sudo puppet agent --test on jq01
+[13:39:07] <jqcommit> 01[13infrastructure01] 15jzaefferer pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/d8a464e3458e09340289359710cb9ff3bfa0ff4c
+[13:39:07] <jqcommit> 13infrastructure/06puppet-stage 14d8a464e 15Jörn Zaefferer: The meetings page was at /meeting; the wildcard shouldn't be necessary
+[13:41:33] <gnarf> rxaviers: what are the issues, do you want a quick puppet tutorial?
+[13:43:57] <jqcommit> 01[13infrastructure01] 15jzaefferer pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/68cef612aa48882902d4b87509145c2b87ce2b23
+[13:43:57] <jqcommit> 13infrastructure/06puppet-stage 1468cef61 15Jörn Zaefferer: Add note to readme for testing on jQuery staging
+[13:44:42] <jqcommit> 01[13infrastructure01] 15jzaefferer merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/608c2a0407a2...68cef612aa48
+[13:44:44] <rxaviers> gnarf, to learn puppet is in my interesting list. But, I need to get some other stuff done first :/
+[13:45:15] <rxaviers> the issue was: DB was failing on jenkins. The cause was (a) missing api.jq... requirements, and (b) missing IM
+[13:45:21] <rxaviers> now it passed just fine
+[13:45:30] <rxaviers> (after installing both)
+[13:45:38] <rxaviers> I've manually installed though
+[13:45:52] <gnarf> jzaefferer: did you deploy the config on jq01 ?
+[13:46:22] <rxaviers> brb guys
+[13:46:33] <gnarf> jzaefferer: also, do we need to tag jquery.org to remove it?
+[13:46:49] <gnarf> need to fix the link in the header that is
+[13:46:54] <gnarf> hate to link to a redirect
+[13:47:15] <gnarf> looks right on stage
+[13:48:45] <jzaefferer> I can push tags now
+[13:48:50] <jzaefferer> wanted to get the redirect in place first

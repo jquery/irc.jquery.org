@@ -1,0 +1,241 @@
+[05:22:59] <mikesherov> gnarf: investigating
+[06:11:10] <mikesherov> gnarf: fixed. Github API fails to return the patch if it's super large. jaubourg's unit test rewrite exposed that
+[12:57:30] <gnarf> mikesherov: you around?
+[12:58:19] <mikesherov> Sort of
+[12:58:34] <mikesherov> gnarf: Sup?
+[12:58:48] <gnarf> i just saw you mention there was another bug somewhere
+[12:59:32] <mikesherov> I updated the src to work around surpressed diffs
+[12:59:46] <mikesherov> But it's still "not working" right now
+[12:59:53] <gnarf> did you see my mention of simple-log btw?
+[13:00:00] <mikesherov> Yeah
+[13:00:09] <mikesherov> We should improve logging
+[13:00:27] <gnarf> simple-log uses syslog or --console
+[13:00:46] <gnarf> handy for "daemon" procs
+[13:01:00] <mikesherov> Yup
+[13:01:15] <mikesherov> File an issue :) we will get to them
+[13:01:48] <mikesherov> But not sure what's happening right now
+[13:03:51] <mikesherov> Haven't had a chance
+[13:04:57] <gnarf> coo
+[13:08:59] <mikesherov> Have you looked into it at all, gnarf?
+[13:11:13] <gnarf> not yet
+[13:12:13] <mikesherov> K
+[13:50:33] <clarkbox> gnarf, ryanneufeld: disk benchmark on the splunk server - https://github.com/jquery/infrastructure/wiki/Benchmarks
+[13:50:44] <gnarf> If Kira were a star trek character I think she'd be Ensign Hoshi Sato
+[13:50:50] <gnarf> oops wrong chan
+[13:50:59] <ryanneufeld> gnarf: lol
+[13:51:07] <gnarf> i had half typed a message
+[13:51:09] <gnarf> :)
+[13:51:10] <ryanneufeld> NERRRRRRDDDDDD
+[13:51:33] <ryanneufeld> it's okay, I like Star Trek too
+[13:51:33] <clarkbox> could have been WAAAAY worse
+[13:51:44] <ryanneufeld> clarkbox: those aren't too shabby
+[13:51:53] <clarkbox> ya pretty quick for a VM
+[13:52:09] <ryanneufeld> 42GB?!
+[13:52:11] <clarkbox> i assume those will only go down as they/we load up the hardware
+[13:52:24] <gnarf> clarkbox: watch iostat?
+[13:52:26] <clarkbox> wasn't sure how much ram this box had… wanted to be sure i was clearing the ram buffer
+[13:52:53] <clarkbox> nah i just did a naive benchmark using dd
+[13:53:16] <ryanneufeld> hdparm?
+[13:53:38] <gnarf> yeah, just installed iostat
+[13:53:39] <clarkbox> ah you mean for ram… i was lazy
+[13:53:52] <gnarf> if you want to watch it
+[13:54:03] <clarkbox> besides local ram… who knows what cache is sitting between the OS and the actual HW
+[13:54:42] <gnarf> a few i'm sure
+[13:54:46] <gnarf> its a SAN
+[14:07:54] <Krinkle> gnarf: where does that screenshot come from ? http://cl.ly/image/0W3R0D0o1u3n
+[14:08:21] <gnarf> Krinkle: the run page on safari
+[14:08:48] <gnarf> im wondering if like maybe it's hitting a "gateway timeout" or some other error
+[14:09:06] <Krinkle> gnarf: yeah, I guess something like it
+[14:09:18] <Krinkle> gnarf: probably database related
+[14:09:23] <Krinkle> it seems the db server has some concurrency issues
+[14:09:33] <gnarf> like every now and then swarm seems to take longer to respond than normal, perhaps during the "cleanup"
+[14:09:39] <Krinkle> I notice often when I delete stuff or something from 2 tabs on swarm.jquery one waits for the other
+[14:09:44] <Krinkle> yes
+[14:09:44] <gnarf> table locks?
+[14:09:46] <Krinkle> yep
+[14:09:49] <Krinkle> (guess)
+[14:10:06] <Krinkle> I how to fix them, but not sure how to find them.
+[14:10:24] <Krinkle> Queries have speed up a lot with the new indexes
+[14:10:35] <Krinkle> I can't find any queries that take more than 0.5 second
+[14:10:44] <gnarf> any chance you know what kind of error it's getting - I could potentially increase the timeouts or increase the pool of connections
+[14:10:46] <Krinkle> (which is still pretty long, but a lot better than what it used to be)
+[14:10:57] <Krinkle> gnarf: We need some logging on mysql
+[14:11:54] <gnarf> Krinkle: i'm more concerned with the http at the moment, but doing some logging on sql is possible, you can turn it on by hand if you kill puppet agent first (it will likely change your setting back)
+[14:12:13] <gnarf> Krinkle: also, I'm hoping to get more graphs up and running in zabbix for sql 
+[14:12:21] <Krinkle> zabbix?
+[14:12:47] <Krinkle> gnarf: I believe the issue is in sql yes, http is wrapping around that (via php), I don't think we'll be any wiser by studying http/nginx/php
+[14:12:52] <Krinkle> the error log for php is clean btw
+[14:13:23] <Krinkle> and nginx doesn't log anything useful from what I can see (other than forwarding a messed up version of the php log)
+[14:13:25] <gnarf> Krinkle: but if ngnix is issuing a 500 instead of waiting for php to respond, we could fix that
+[14:13:56] <Krinkle> can you find http 500 entries for swarm.jquery in nginx logs?
+[14:14:14] <gnarf> http://citadel.jquery.com/zabbix/screens.php <--- zabbix
+[14:14:19] <Krinkle> https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20source%3D%22%2Fvar%2Flog%2Fnginx%2Fswarm.jquery.org.error.log%22%20500&earliest=0
+[14:14:48] <Krinkle> gnarf: right, that's like ganglia, right?
+[14:16:19] <gnarf> yeah
+[14:20:43] <Krinkle> jzaefferer: can I get access to the Twitter account for TestSwarm?
+[14:21:06] <Krinkle> 2 things I'd like to see changed is the name (no space in between), and the url (to gihub, since testswarm.com isn't working anymore/yet)
+[14:21:16] <Krinkle> which reminds me..
+[14:22:06] <Krinkle> https://github.com/jquery/infrastructure/issues/38
+[14:33:47] <Krinkle> gnarf: looks like some odd 404 entires for github paths on swarm.jquery.rog
+[14:33:47] <Krinkle> https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20source%3D%22%2Fvar%2Flog%2Fnginx%2Fswarm.jquery.org.error.log%22%20%22open()%22%20%22No%20such%22%20%22%2Fvar%2Fwww%2Fswarm%2Fgithub.com*%22&earliest=0
+[14:34:37] <Krinkle> Found the time outs
+[14:34:37] <Krinkle> https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20source%3D%22%2Fvar%2Flog%2Fnginx%2Fswarm.jquery.org.error.log%22%20NOT%20%22open()%22&earliest=0
+[14:34:40] <Krinkle> thanks gnarf
+[14:35:30] <Krinkle> only 26 in All time
+[14:35:30] <Krinkle> https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20source%3D%22%2Fvar%2Flog%2Fnginx%2Fswarm.jquery.org.error.log%22%20%22Connection%20timed%20out%22%20NOT%20%22open()%22&earliest=0
+[14:36:42] <Krinkle> action=cleanup isn't timing out when I open it manually though. it responds in a few milliseconds. So those errors are probably due to a table lock from another request
+[14:41:43] <gnarf> that probably wasn't the cause of the issue yesterday
+[14:43:57] <gnarf> we could turn on the slowlog in phpfpm
+[14:43:59] <gnarf> and watch
+[14:50:37] <gnarf> just found an option in the fpm config that was a "backlog"
+[14:50:41] <gnarf> i set it to unlimited
+[14:50:45] <Krinkle> gnarf: I don't see "slow" anywhere in /etc/php5/conf.d and /etc/php5/fpm/php-fpm.conf
+[14:50:46] <gnarf> so maybe this will stop
+[14:50:56] <gnarf> its in /etc/php5/fpm/pool.d/swarm.conf
+[14:51:02] <Krinkle> aha
+[14:51:12] <gnarf> one sec tho, lemme land this -1
+[14:51:48] <gnarf> i dunno how i feel about the option description
+[14:51:50] <Krinkle> ?
+[14:51:51] <gnarf> need to do more research
+[14:52:02] <gnarf> it seems to imply it times out?
+[14:53:00] <Krinkle> yeah
+[14:53:07] <Krinkle> probably not ideal for web requests
+[14:53:09] <gnarf> request_slowlog_timeout - The timeout (in seconds) for serving of single request after which a php backtrace will be dumped to slow.log file. Default: "5s". Note: '0s' means 'off'
+[14:53:09] <gnarf> slowlog - The log file for slow requests.
+[14:53:09] <Krinkle> lets do the slowlog thing
+[14:53:22] <Krinkle> 5s should be more than enough
+[14:53:32] <gnarf> okay, ill turn it on - one sec
+[14:53:36] <Krinkle> k
+[14:57:58] <gnarf>  /var/log/php5-fpm/swarm.slow.log
+[14:59:00] <gnarf> although i typoed the log name, restarting one more time
+[15:04:05] <gnarf> starting some builds in jenkins by hand
+[15:04:09] <gnarf> just to get this to do some work
+[15:05:19] <gnarf> there it goes
+[15:05:23] <gnarf> already logging things
+[15:16:17] <gnarf> Krinkle: im setting request_terminate_timeout to 0
+[15:16:30] <gnarf> i think it might be killing the long procs and causing issues
+[15:16:50] <Krinkle> gnarf: what does 0 do?
+[15:16:57] <gnarf> disables it
+[15:17:11] <gnarf> max_execution_time should still work
+[15:18:25] <gnarf> request_terminate_timeout - The timeout (in seconds) for serving a single request after which the worker process will be terminated. Should be used when 'max_execution_time' ini option does not stop script execution for some reason. Default: "5s". Note: '0s' means 'off' 
+[15:25:27] <gnarf> JUST got an error connecting to server in safari
+[15:26:29] <gnarf> im trying to catch the error in the xhr debugger
+[15:26:33] <gnarf> but it's proving difficult
+[15:32:10] <gnarf> i have a breakpoint set now
+[15:32:12] <gnarf> hopefully I can get it
+[15:34:40] <gnarf> Krinkle: any thuoghts as to why this job doesn't seem to be spawning more workers? http://swarm.jquery.org/job/1595
+[15:35:13] <Krinkle> [15:35 PST] krinkle@jq03:~$ tail -n200 /var/log/testswarm-browserstack/cli.log 
+[15:36:28] <Krinkle> gnarf: https://gist.github.com/ef36f785aa476b4b664a
+[15:36:31] <Krinkle> queue queue
+[15:36:36] <Krinkle> it did spawn them
+[15:37:38] <Krinkle> oh, btw, can I just say I like how http://swarm.jquery.org/user/browserstack looks now
+[15:37:48] <Krinkle> I almost want to lick those icons :P
+[15:40:12] <gnarf> Krinkle: btw - the error is "timeout"
+[15:40:26] <Krinkle> gnarf: php, nginx, mysql, browserstack ?
+[15:40:30] <gnarf> ajax
+[15:40:33] <Krinkle> right
+[15:40:37] <gnarf> http://cl.ly/image/0f0B3Y08220H
+[15:41:09] <Krinkle> oh, the ajax http request itself is timing out
+[15:41:16] <Krinkle> those are jquery's arguments, right ?
+[15:41:37] <gnarf> yeah
+[15:41:55] <Krinkle> "Screen Shot 2012-11-26 at 5.40.14 PM."
+[15:41:55] <gnarf> i think this SWARM.conf.client.saveReqTimeout might be too short maybe?
+[15:41:58] <Krinkle> lets see what I can find in splunk
+[15:42:16] <Krinkle> gnarf: that's configurable in localSettings.json (var/www/swarm/config)
+[15:42:39] <Krinkle> and will be live immediately on change of that file to connected clients
+[15:42:52] <gnarf> Krinkle: https://gist.github.com/cc1a5805caf6da24169c
+[15:43:27] <Krinkle> yeah, so mysql indeed
+[15:43:31] <Krinkle> .. and session_start() ?
+[15:43:46] * gnarf shrugs --- its taking 5s to get to session_start ?
+[15:43:46] <b-ot> ¯\_(ツ)_/¯
+[15:43:53] <gnarf> is there a mysql query for the session
+[15:43:59] <gnarf> or is it using a mysql backend for sessions?
+[15:44:21] <gnarf> looking at the slow log btw
+[15:44:23] <gnarf> its every 5 minutes
+[15:44:28] <gnarf> like 4 or 5 requests go super slow
+[15:44:30] <Krinkle> So this query: https://github.com/jquery/testswarm/blob/master/inc/actions/JobAction.php#L137-L147
+[15:44:50] <Krinkle> and this query: https://github.com/jquery/testswarm/blob/master/inc/actions/ResultAction.php#L37-L47
+[15:45:03] <Krinkle> FROM runresults WHERE id = %u;',
+[15:45:06] <Krinkle> that's impossible
+[15:45:18] <Krinkle> if that is slow it isn't because of the query
+[15:45:21] <Krinkle> that's friggin primary key
+[15:45:40] <Krinkle> same of the other one
+[15:45:48] <Krinkle> both on the same table though
+[15:45:54] <Krinkle> so something *else* is locking that table
+[15:46:00] <gnarf> is the mysql slow log enabled here?
+[15:46:09] <Krinkle> it used to be at some point
+[15:46:12] <Krinkle> not sure if that survived
+[15:46:42] <Krinkle> http://stackoverflow.com/questions/10385582/session-start-seems-to-be-very-slow-but-only-sometimes
+[15:46:49] <gnarf> Krinkle: its likely not the cause of the slow, more like the symptom
+[15:47:45] <Krinkle> gnarf: interesting we do have that mess in /tmp still, don't we?
+[15:48:09] <Krinkle> We really need to get those sessions to a subdirectory
+[15:48:09] <Krinkle>  /tmp is insane on jq03
+[15:48:09] <gnarf> hrm is the cron that deletes those not working?
+[15:48:09] <Krinkle> gnarf: php.ini puppetized ?
+[15:48:09] <Krinkle> gnarf: deletes what?
+[15:48:09] <gnarf> old sessions
+[15:48:10] <Krinkle> I know of no such cron
+[15:48:10] <Krinkle> afaik php cleans that up itself.
+[15:48:10] <gnarf> it should be installed with php
+[15:48:10] <Krinkle> yeah
+[15:48:32] <Krinkle> cat /etc/cron.d/php5
+[15:48:40] <gnarf> wrong folder tho
+[15:48:46] <gnarf> the session files should be in /var/lib/php5 apparently
+[15:48:48] <gnarf> not /tmp
+[15:49:29] <Krinkle> ...right
+[15:50:13] <Krinkle> there isn't a crontab in any of the other /etc/cron.* dirs either related to it
+[15:50:30] <Krinkle> gnarf: So update php.ini to point to there?
+[15:50:54] <Krinkle> not sure which php.ini, there seem to be too many
+[15:51:18] <Krinkle> $ cat /etc/php5/conf.d/session.conf 
+[15:51:18] <Krinkle> session.save_path = "/var/lib/php5"
+[15:52:59] <Krinkle> the other ini files don't overwrite it, only a commented out line that suggests /tmp
+[15:53:05] <Krinkle> maybe php-fpm doesn't load conf.d ?
+[15:53:22] <gnarf> it does
+[15:53:29] <gnarf> needs to be *.ini tho
+[15:53:34] <gnarf> just fixed that
+[15:53:38] <gnarf> its saving to the right folder now
+[15:53:57] <Krinkle> ok
+[15:54:00] <Krinkle> interesting
+[15:54:17] <Krinkle> gnarf: ok if I nuke /tmp/sess_* ?
+[15:54:25] <gnarf> i just did
+[15:54:57] <Krinkle> ic
+[15:56:01] <gnarf> temporarily killing puppet and turning on mysql slow query logging
+[15:56:53] <gnarf> also turned on logging for querys not using indexes
+[15:58:19] <gnarf> nevermind - turning that second part off
+[15:58:21] <gnarf> too spammy
+[15:58:41] <gnarf> im watching tail -f /var/log/mysql/mysql-slow.log  /var/log/php5-fpm/swarm.slow.log now
+[15:59:00] <Krinkle> [26-Nov-2012 23:55:49 UTC] PHP Warning:  mysql_connect(): No such file or directory in /var/www/swarm/inc/Database.php on line 65
+[15:59:01] <Krinkle> gnarf: 
+[15:59:03] <Krinkle> what did you do?
+[15:59:10] <Krinkle> [26-Nov-2012 23:55:49 UTC] PHP Warning:  mysql_connect(): [2002] No such file or directory (trying to connect via unix:///var/run/mysqld/mysqld.sock) in 
+[15:59:31] <gnarf> restarted mysql to reload conf
+[15:59:38] <gnarf> right at that timestamp
+[15:59:44] <Krinkle> k
+[16:00:48] <gnarf> im gonna make sure that session.ini is installed everywhere too
+[16:02:00] <gnarf> hrm
+[16:02:06] <gnarf> got a few querys that hit it
+[16:02:11] <gnarf> but it seems insane they are taking 30 sec
+[16:03:04] <gnarf> just watch the slow log tho
+[16:03:12] <gnarf> i guarntee you there will be more entries in 2 minutes 
+[16:03:12] <gnarf> :)
+[16:06:56] <gnarf> this doesn't make any sense
+[16:07:07] <gnarf> # Query_time: 32.581042  Lock_time: 0.000029 Rows_sent: 0  Rows_examined: 1
+[16:07:52] <Krinkle> gnarf: tail -f is built-in /bin/watch ?
+[16:07:54] <Krinkle> Nice
+[16:07:56] <Krinkle> didn't know about that one
+[16:08:06] <gnarf> tail -f is awesome ;)
+[16:08:07] <Krinkle> I was going to do watch tail -n50 ..
+[16:08:49] <gnarf> https://gist.github.com/cde49831c370f44f92bc
+[16:09:05] <gnarf> tail -f just polls for new lines and leaves it open forever
+[16:09:20] <gnarf> linux tail can take multiple files too
+[16:09:29] <Krinkle> yeah, that I knew
+[16:09:30] <gnarf> i've seen some tail -f's that can only do single files
+[16:10:09] <gnarf> big advantage over watch tho, tail -f is just echoing so you can still use your terminal scrollback
+[16:11:19] <Krinkle> right
+[16:14:51] <gnarf> anyway, i gotta run
+[16:14:58] <gnarf> lemme know if you find any interessting things
+[16:15:46] <gnarf> i could try to tweak
+[16:16:04] <gnarf> the query caching
+[16:22:05] <Krinkle> gnarf: weird, they're not showing up in splunk (those 2 new log files for slow mysql and slow php)
+[16:22:12] <Krinkle> not yet anyway
+[17:12:44] <mikesherov> you can pipe tail -f

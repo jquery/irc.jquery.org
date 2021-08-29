@@ -1,0 +1,114 @@
+[07:04:31] <DaveMethvin> paging infra ... http://swarm.jquery.org/job/1994
+[07:04:46] <DaveMethvin> within the last couple of days we started getting errors related to etag tests
+[07:04:57] <DaveMethvin> were there any changes to the server config lately?
+[09:03:09] <gnarf> DaveMethvin: we updated packages
+[09:44:45] <ryanneufeld> that could have enabled them accidentally
+[09:58:31] <gnarf> DaveMethvin: can someone help reduce what the actual error is?
+[09:58:56] <DaveMethvin> etag isn't working
+[10:04:11] <ryanneufeld> So etags should be enabled and they aren't?
+[10:06:11] <gnarf> the e-tags we are using from php currently
+[10:06:45] <s5fs> gnarf: hi
+[10:06:48] <s5fs> i'm following along
+[10:16:50] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/bd6acbdac0839271d2c5e744c1f34122d6f5dac7
+[10:16:50] <jqcommit> 13infrastructure/06puppet-master 14bd6acbd 15Corey Frang: Turn off gzip for etags - apparently if gzip is on, etag is invalidated
+[10:18:17] <gnarf> DaveMethvin: ^^^ not sure why that fixes it, but i had to turn gzip off to get it not to strip the ETag header
+[10:18:33] <DaveMethvin> whoa
+[10:18:39] <DaveMethvin> ok thanks, at least it's fixed
+[10:20:09] <s5fs> gnarf: super weird, thanks for fixing
+[10:20:42] <gnarf> we might be able to use: http://wiki.nginx.org/HttpGzipModule  -- gzip_proxy no_etag
+[10:20:54] <gnarf> but this etag.php location block does that for us
+[10:22:01] <s5fs> i'm curious why it decided to start being a piece of crap
+[10:22:34] <gnarf> let me see
+[10:22:46] <s5fs> gnarf: also, i pushed a changed to puppet-stage last night, please peep it when you get a chance so i can push it to masturrr
+[10:23:53] <gnarf> pushed the merge
+[10:23:59] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/872f442b58ac62898acd041a083d47cfd45dd0f3
+[10:23:59] <jqcommit> 13infrastructure/06puppet-master 14872f442 15Corey Frang: Merge branch 'puppet-master' into puppet-stage
+[10:24:29] <s5fs> whee!
+[10:24:48] <gnarf> s5fs: in the future, try to not leave a commit on stage without pulling to master :)
+[10:25:12] <s5fs> gnarf: okay, i wasn't suren what the correct procedure was, i didn't wanna just push to master w/o talking to you first
+[10:25:33] <s5fs> in the future i'll push what i test and am comfortable with, and will create new branches if i want review. that sound reasonable?
+[10:25:39] <gnarf> yup
+[10:25:39] <s5fs> i mean, it was a dippy little, easy change.
+[10:25:49] <gnarf> exactly, push it to master without review
+[10:25:51] <s5fs> gnarf: cool man. just wanting to be sure you set the pace.
+[10:26:38] <gnarf> https://code.google.com/p/phusion-passenger/issues/detail?id=903
+[10:26:57] <gnarf> ^ that issue seems to be the same one we just had
+[10:31:17] <s5fs> gnarf: nice find
+[10:37:36] <gnarf> hoping to catch one of my co-workers from bocoup who's an nginx guy
+[10:38:01] <gnarf> dunno if the timing will work out
+[10:48:42] <s5fs> gotcha
+[11:23:48] <oconnore> Hello, gnarf 
+[11:24:41] <oconnore> calling now
+[11:25:08] <oconnore> er... better read first
+[11:27:09] <s5fs> oconnore: whats up
+[11:28:47] <oconnore> s5fs: Corey sent me this link <https://code.google.com/p/phusion-passenger/issues/detail?id=903> and then said to join #jquery-infrastructure.
+[11:29:03] <s5fs> oconnore: awesome, so you're the nginx ninja
+[11:30:00] <s5fs> oconnore: back story is that we patched hosts last week and now some jenkins job is failing with an etags error.
+[11:30:18] <s5fs> lemme gist you corey's solution
+[11:30:25] <oconnore> s5fs: k, thanks. 
+[11:31:15] <s5fs> oconnore: so here is the interim fix https://gist.github.com/aulvi/05a0a5254a2c1a50eecb
+[11:31:45] <s5fs> oconnore: corey also said../
+[11:31:47] <s5fs> "gnarf> we might be able to use: http://wiki.nginx.org/HttpGzipModule  -- gzip_proxy no_etag
+[11:32:03] <s5fs> and now I think you're as caught up as I am :)
+[11:39:49] <oconnore> s5fs: ok, thanks
+[11:45:23] <s5fs> oconnore: anyways, holler if i can be of any help.
+[11:45:33] <ryanneufeld> Ditto
+[11:46:38] <s5fs> haha, didn't know you were lurking
+[11:50:19] <oconnore> s5fs ryanneufeld -- ok, will do. 
+[11:52:26] <s5fs> oconnore: so is that enough direction for you? i think we'd appreciate a review of the issue and thoughts on the current fix, like, is there a better way (such as that HttpGzipModule?)
+[11:52:49] <s5fs> anyways, i'll return with a sandwich
+[11:53:10] <ryanneufeld> s5fs: I'm always lurking http://www.youtube.com/watch?v=yfJlA4iT-iY
+[11:59:35] <oconnore> s5fs ryanneufeld -- Ok, I just got off the phone with Corey. I think the current workaround is acceptable. 
+[12:00:21] <oconnore> I think using gzip_proxied: no_etag would be a little bit cleaner, so either Corey or I will test that out
+[12:01:10] <oconnore> in general, adding weak ETAG support seams like the next logical step, so we're going to talk more on the Monday after Thanksgiving break
+[12:03:50] <oconnore> Also, it seems like nginx is handling ETAGS improperly, (per https://code.google.com/p/phusion-passenger/issues/detail?id=903#c4), since the HTTP/1.1 spec is pretty clear that gzip occurs ON the entity, not that the entity is the bytes post gzipping. 
+[12:04:06] <oconnore> But that will take more investigation... after I've eaten a bunch of turkey :)
+[12:06:07] <oconnore> s5fs ryanneufeld -- if either of you get bored, the ETAG patch that needs to be fixed up per Maxim's guidance is here: http://list-archives.org/2012/11/21/nginx-devel-nginx-org/clearing-etags-when-gzipping/f/1535751350
+[12:16:58] <s5fs> oconnore: awesome, thanks for looking into this, you've earned your turkey-day
+[12:20:41] <oconnore> s5fs: you're welcome :) thanks! 
+[15:00:48] <DaveMethvin> looks like bugs.jquery.com is down gnarf s5fs
+[15:18:47] <seancurtis> is http://bugs.jquery.com getting upgraded or something? Been down for a while now...
+[15:33:22] <gnarf> trac was stopped, restarted DaveMethvin seancurtis 
+[15:33:41] <seancurtis> cool, thanks gnarf
+[15:33:45] <DaveMethvin> thanks gnarf, i needed to be restarted
+[15:33:48] <seancurtis> don't you guys get notified when it goes down?
+[15:34:15] <seancurtis> it was down when I left work last night (~15 hrs ago)
+[15:34:24] <seancurtis> unless it has been up and down again?
+[15:34:35] <gnarf> seancurtis - trac is still one of the really old boxes - there isn't a solid monitoring over there yet
+[15:34:41] <gnarf> but tbh
+[15:34:49] <seancurtis> fair enuff
+[15:34:58] <gnarf> alert emails were unlinkely to help in this situation anyway
+[15:35:10] <gnarf> unless it really has been down for 15+ hours
+[15:35:18] <ryanneufeld> too little too late in this case
+[15:35:31] <DaveMethvin> we have so few bugs i hardly ever go to bugs.jquery.com
+[15:35:33] <DaveMethvin> HAHAHAHAHA
+[15:35:38] <seancurtis> lol
+[15:35:47] <gnarf> more improved monitoring/response is on my list
+[15:35:53] <DaveMethvin> well thanks for the kick in the pants seancurtis
+[15:35:58] <DaveMethvin> just don't file a bug now :)
+[15:35:58] <seancurtis> I don't need a bug tracker because I just don't write bugs into my code
+[15:36:11] <gnarf> seancurtis: also please - feel free to cc me, s5fs, ryanneufeld on any jquery service outage
+[15:36:34] <seancurtis> DaveMethvin: was looking to see when the IE bug with .css("border-left-width'
+[15:36:34] <ryanneufeld> I also respond to cookies, and tweets @ryanneufeld
+[15:36:36] <gnarf> though i'm on vacation, you guys got lucky i opened up the laptop :)
+[15:36:38] <seancurtis> got fixed
+[15:36:59] * DaveMethvin prepares gingerbread house for ryanneufeld
+[15:37:21] <ryanneufeld> DaveMethvin <3
+[15:37:58] <seancurtis> bah - closed as wontfix
+[15:38:13] <ryanneufeld> seancurtis: Take that one up with DaveMethvin
+[15:38:36] <seancurtis> well he had the patch for it, John (Resig?) closed it though
+[15:39:15] <seancurtis> sucks to do parseInt(0 + $el.css('border-left-width), 10)
+[15:39:24] <gnarf> um
+[15:39:32] <gnarf> ...
+[15:39:32] <ryanneufeld> yeah, especially cause that won't work
+[15:39:34] <seancurtis> the comment saying "Just add a border other than medium" isn't a fix - that's UA
+[15:39:39] <gnarf> 1) -dev better venue for that
+[15:39:52] <DaveMethvin> yep, we've moved from infra to dev
+[15:39:52] <ryanneufeld> 2) you missed a single quote
+[15:40:04] <DaveMethvin> if gnarf will just take the server back down we'll be back on infra
+[15:40:20] <gnarf> i can just break the internet for a thanksgiving present
+[15:40:25] <DaveMethvin> yay
+[15:40:32] <gnarf> code.jquery.com -> healthcare.gov
+[15:40:35] <DaveMethvin> pop stack back to vacation gnarf
+[22:05:35] <s5fs> sounds like i missed a fun afternoon
+[22:06:39] <s5fs> gnarf: thanks for jumping in and fixing trac. i'll begin working on an upgrade plan during the holiday, i expect to have plenty of time on my hands

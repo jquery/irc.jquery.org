@@ -1,0 +1,277 @@
+[05:18:50] <gibson042> .
+[09:45:14] <rubyruy> are there any existing branches/plugins that add custom events for, e.g., hide() or remove() ? i know there are the dom mutation events but per-jquery-operation events are kind of more useful
+[09:45:49] <rubyruy> and would be downright trivial to implement as long as you don't expect them to work with not-jquery
+[09:46:15] <rubyruy> (and mutation events are still wonky as hell  support wisely)
+[09:46:29] <rubyruy> it feels like this would be something that must surely have come up before?
+[09:47:52] <scott_gonzalez> rubyruy: jQuery UI adds a remove event.
+[09:48:18] <scott_gonzalez> It's at the top of jquery.ui.widget.js and used for auto-destroy on DOM removal.
+[09:48:46] <rubyruy> yeah i need it for pretty much the same things
+[09:49:05] <rubyruy> i.e. this element is tied to this other element for widget purposes and they need to get removed together
+[09:49:09] <rubyruy> (and also hidden together)
+[09:49:41] <rubyruy> how expensive is custom event triggering?
+[09:49:51] <rubyruy> e.g. on every attr()
+[09:50:48] <DaveMethvin> very expensive if the event is to bubble all the way to document and windo
+[09:53:18] <DaveMethvin> rubyruy: to give you an idea of how expensive events are for low-level stuff like that, we are removing event triggering from the .data() api because of perf
+[09:58:32] <rubyruy> it seems it's also gone from jquery-ui
+[09:59:08] <rubyruy> would it be more reasonable without bubbling?
+[10:00:55] <rubyruy> without bubbling you could probably also set a .data flag determine weather to bother firing or not which is set by bind... though that won't work well with .live
+[10:01:22] <DaveMethvin> it really feels like a smog pump solution to me ... if you need a kv store you should have one yourself, driven by pub/sub perhaps?
+[10:01:29] <DaveMethvin> i guess i'd need to see it from an overall view
+[10:02:59] <rubyruy> aren't js events in general pretty much pub/sub?
+[10:04:25] <rubyruy> oh you probably just mean using a lower-overhead pub/sub system in lieu of events
+[10:05:09] <DaveMethvin> right, if you don't need to actually have the events follow the dom tree
+[10:06:04] <DaveMethvin> you can still use events to implement the pub/sub if you want but there may be no need for bubbling them
+[10:12:35] <DaveMethvin> rubyruy: Take an example like custom events for .hide() ... it sounds like  you have perhaps a View layer above jQuery doing this. Why make jQuery pass this info back up to some other layer so it knows something was hidden? The View could notify any interested parties when it is hiding itself via pub/sub for example. It just seems like the design is asking the low-level code to tell it something it should know at its 
+[10:23:21] <rubyruy> not really a proper View layer... simply ui-based $.widgets that extend <input> behaviour
+[10:23:59] <rubyruy> for such things it is imo best to try and make the extended inputs be able to act as much as their original form as possible
+[10:25:58] <rubyruy> in a perfect world, code that attempts to hide the original input should also hide associated widget scaffolding elements without knowing weather or not the input was extended
+[10:26:56] <rubyruy> sadly we'll never have an entirely clean separation of widget-drawing and logical-views/components in dom :(
+[10:32:05] <rubyruy> out of curiosity, why don't jQuery's own custom events bypass DOMEvents entirely? Presumably custom events would only be read by fellow jquery handlers.
+[10:32:12] <rubyruy> Or is that actually what happens in certain cases?
+[10:34:37] <rubyruy> like .triggerHandler...
+[10:36:23] <scott_gonzalez> Custom events don't actually go through DOMEvents.
+[10:36:33] <scott_gonzalez> They just have the same semantics within jQuery.
+[10:36:53] <scott_gonzalez> Also, not sure why you think the remove event is gone in jQuery UI.
+[10:37:29] <scott_gonzalez> https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.widget.js#L18
+[10:37:52] <scott_gonzalez> It may go away one day, but it's still there today.
+[10:37:56] <rubyruy> yeah but that's fired on $.cleanData, not $.fn.remove
+[10:38:05] <rubyruy> i wasn't sure what it was about actaully
+[10:38:11] <scott_gonzalez> $.fn.remove uses $.cleanData.
+[10:38:17] <rubyruy> ahhhhh
+[10:38:25] <scott_gonzalez> Listening to just $.fn.remove is not what you want.
+[10:38:44] <scott_gonzalez> You want things like .empty() and .html( "" ) trigger the event as well.
+[10:38:53] <scott_gonzalez> (for descendants)
+[10:39:06] <rubyruy> ah, neat
+[10:39:56] <rubyruy> oh i see... so it's actually custom events that are expensive to trigger w/ bubbling?
+[10:40:12] <scott_gonzalez> Yes, anything that goes through .trigger() is expensive.
+[10:40:25] <rubyruy> but .triggerHandler should be reasonbly cheap?
+[10:40:59] <rubyruy> i.e. i could fire it on .hide(), .attr() and other such common methods?
+[10:41:28] <scott_gonzalez> Not sure. It's definitely more performant than .trigger().
+[10:41:42] <rubyruy> and i guess, the reason I was asking in this channel to begin with, would something like that would be worth consideration for trunk-inclusion
+[10:41:42] <scott_gonzalez> Not sure how expensive it would be on operations like .attr()
+[10:41:50] <scott_gonzalez> no
+[10:42:17] <scott_gonzalez> That's definitely too expensive for core.
+[10:42:36] <scott_gonzalez> Adding events to .attr() will probably be noticable.
+[10:43:35] <scott_gonzalez> Very few people need what you're asking for.
+[10:44:37] <rubyruy> i suppose :/ feels handy
+[10:44:51] <rubyruy> maybe perf cost will be better with improved dom mutation event support
+[10:44:54] <rubyruy> ah well
+[10:44:57] <rubyruy> thanks for the input
+[10:45:09] <scott_gonzalez> Is there better DOM mutation event support planned?
+[10:45:39] <scott_gonzalez> Mutation Observers?
+[10:46:27] <rubyruy> hm? it's part of DOM2
+[10:46:30] <rubyruy> http://www.w3.org/TR/DOM-Level-2-Events/events.html#Events-eventgroupings-mutationevents
+[10:46:38] <rubyruy> it's just spotty in browser-land
+[10:46:59] <scott_gonzalez> I'm pretty sure browser vendors hate it.
+[10:47:04] <rubyruy> i bet :p
+[10:47:21] <scott_gonzalez> http://lists.w3.org/Archives/Public/public-webapps/2011JulSep/0779.html
+[10:47:51] <scott_gonzalez> I'm not sure what the status of Mutation Observers is, but here's an overview: http://lists.w3.org/Archives/Public/public-webapps/2011JulSep/1622.html
+[10:47:59] <rubyruy> heh - too expensive even for browser vendors, wowies
+[10:49:42] <rubyruy> i see, so the spec is final but since vendors hate it won't actually get implemented, but new specs are still pre-draft
+[10:49:44] <rubyruy> that might take a while
+[10:49:54] <rubyruy> still, i am optimistic about this post-ie6 world we live in
+[10:49:59] <scott_gonzalez> heh
+[10:51:12] <scott_gonzalez> Oh, when you can finally observe DOM mutations, I'm sure you'll have fun settings flags for when to ignore changes because they came from inside the widget :-)
+[10:53:25] <rubyruy> mmm the uses cases i had in mind you can just filter for fairly specific things
+[10:53:38] <rubyruy> rather then passing along exception flags which, i agree, are the devil
+[12:00:10] <ben_alman> i'm in the process of switching grunt over from zombiejs to phantomjs, and i was able to run jQuery 1.7.1's unit tests with only 41/4875 failures. that's pretty damn impressive https://gist.github.com/1725420
+[12:00:36] <ben_alman> and they're almost entirely position errors
+[12:02:40] <ben_alman> the fact that a totally headless browser, running as a library can pass 99% of jquery's unit tests is awesome
+[12:03:32] <rpflo> ben_alman: I love phantomjs
+[12:03:37] <ben_alman> yeah it's pretty neat
+[12:03:40] <ben_alman> the ONLY downside
+[12:03:51] <ben_alman> is that users will have to install it manually on their system, since it's not an npm module
+[12:03:57] <rpflo> yeah
+[12:04:03] <rpflo> brew is easy though
+[12:04:07] <ben_alman> yes
+[12:04:27] <ben_alman> but zombiejs can't even get close to the # of passed tests
+[12:04:30] <ben_alman> it dies really quickly
+[12:04:33] <rpflo> if they're testing JavaScript they should have it anyway, so you're doing those w/o it already a favor.
+[12:04:38] <ben_alman> tru
+[12:04:46] <ben_alman> and i'm automating the fuck out of it for them too
+[12:40:58] <mikesherov> addyosmani_: you here?
+[12:40:59] <bot-t> (49 hours 50 mins ago) <paul_irish> tell mikesherov one more for your document-the-feature-forks plan https://github.com/jquery/jquery/pull/524#issuecomment-2241183
+[12:41:00] <socialhapy> ★ Pull request on jquery by rwldrn (4m, 5d ago): Migrate from document.defaultView => window. Fixes #10373
+[12:41:38] <mikesherov> paul_irish: you here?
+[12:41:57] <mikesherov> I remember that one!
+[12:42:28] <mikesherov> What's interesting is that most of the hacks are not documented
+[12:42:41] <mikesherov> EXCEPT in $.support
+[12:42:50] <mikesherov> that's why it's important
+[12:55:00] <mikesherov> http://t.co/Ixjmxxe4
+[12:55:17] <mikesherov> looks like auto updates to IE are taking effect in Brazil..
+[13:49:25] <mikesherov> .
+[14:15:21] <mikesherov> daveMethvin: you here?
+[14:15:31] <mikesherov> this never should have been committed: https://github.com/jquery/jquery/commit/0944be058e0995d6da066587366fd9ab655764d2
+[14:15:32] <socialhapy> ★ Commit on jquery by dmethvin (2d, 18h ago): Fix #11257. Correct path to source files.
+[14:15:32] <DaveMethvin> no i'm  here
+[14:15:53] <DaveMethvin> how come?
+[14:15:58] <mikesherov> it completely breaks the file:// fallback for unit tests
+[14:16:11] <mikesherov> http://bugs.jquery.com/ticket/11265#comment:7
+[14:16:12] <DaveMethvin> hmmm, seemed backwards to me, that fixed it
+[14:16:22] <mikesherov> it broke all of the unit tests
+[14:16:49] <DaveMethvin> ok, just a sec let me check
+[14:18:30] <DaveMethvin> i dunno, it's less broken for me now
+[14:18:39] <DaveMethvin> i open index.html and the tests start
+[14:18:44] <mikesherov> which browser?
+[14:18:46] <DaveMethvin> before, the first test failed
+[14:18:49] <DaveMethvin> chrome
+[14:18:51] <mikesherov> and are you running the tests from file://
+[14:19:01] <DaveMethvin> file:///C:/inetpub/apache/jquery/test/index.html
+[14:19:24] <mikesherov> put ?filter=support on the end
+[14:20:09] <mikesherov> that doesn't make any sense
+[14:20:16] <DaveMethvin> you mean that it breaks?
+[14:20:37] <mikesherov> No, that removing my baseURL code fixed anything
+[14:21:14] <mikesherov> using relative paths should be confusing chrome
+[14:21:20] <DaveMethvin> lol well it isn't
+[14:21:33] <DaveMethvin> didn't confuse firefox either
+[14:21:34] <mikesherov> well, it breaks mine
+[14:21:46] <DaveMethvin> here lemme go back to before that commit
+[14:23:29] <mikesherov> the url I run the test from are: file:///C:/xampp/htdocs/jquery/test/index.html
+[14:23:35] <DaveMethvin> oh now i remember
+[14:23:51] <DaveMethvin> obtw, yes it works before that commit as well
+[14:24:09] <DaveMethvin> but the reason it was changed was b/c rwaldron was tryna get it to work if php wasn't installed
+[14:24:11] <mikesherov> and chrome then freaks out and says it's trying to load file:///C:/xampp/htdocs/jquery/test/data/src/dimensions.js
+[14:24:34] <mikesherov> right, but if you're using file://, it's not using PHP
+[14:24:54] <mikesherov> baseURL is there to show chrome what the non relative path to the src files are
+[14:24:56] <DaveMethvin> no, this was ben_alman trying to use it without php installed but a localhost
+[14:25:05] <ben_alman> ya
+[14:25:20] <ben_alman> i was using http://
+[14:25:22] <DaveMethvin> so i think we came to the conclusion that php was a must-have
+[14:25:27] <ben_alman> served static via python
+[14:25:29] <ben_alman> correct
+[14:26:01] <mikesherov> sure, that's fine
+[14:26:14] <mikesherov> then the solution is to remove the non PHP fallback
+[14:26:18] <mikesherov> instead of borking it
+[14:26:21] <DaveMethvin> now i have to remember exactly why i committed that
+[14:26:24] <DaveMethvin> it was a busy night
+[14:26:45] <mikesherov> well, it seems like it was committed because rick thought it fixed it
+[14:26:52] <DaveMethvin> well so did i
+[14:27:04] <mikesherov> but it's broken now for IFRAME-y tests
+[14:27:07] <DaveMethvin> he updated the pull because the original broke file access
+[14:27:36] <DaveMethvin> i gotta go tho, we can sort it out tonight if you have time or open a ticket for it
+[14:27:51] <DaveMethvin> imo we should just say "php or gtfo"
+[14:28:15] <mikesherov> I agree
+[14:28:20] <mikesherov> but I want to understand the problem
+[14:28:29] <mikesherov> the solution to the file access thing is this: http://stackoverflow.com/questions/5660116/unsafe-javascript-attempt-to-access-frame-in-google-chrome
+[14:34:44] <mikesherov> or maybe not
+[14:35:35] <mikesherov> looks like a bug in chrome, works in firefox for me with the version before ricks change, and not after
+[14:35:48] <mikesherov> ben_alman: you still here?
+[14:35:51] <ben_alman> hiya
+[14:36:32] <mikesherov> so, just curious about what happened when you ran those tests in python... did the AJAX tests run and pass?
+[14:36:49] <ben_alman> it exploded on like IeBoxModel or something
+[14:36:50] <mikesherov> theoretically, the ajax tests should run, and you should be getting failures from them...
+[14:36:51] <ben_alman> i never got past it
+[14:37:08] <ben_alman> i was only trying to test my headless qunit setup
+[14:37:12] <mikesherov> can you do something like ?filter=ajax
+[14:37:39] <mikesherov> oh, so that was the first time you ever attempted running the tests on a non PHP server?
+[14:37:42] <ben_alman> i've taken a totally different approach
+[14:37:44] <ben_alman> yes
+[14:37:51] <ben_alman> i don't have any of that stuff setup anymore
+[14:37:52] <mikesherov> ok, interesting
+[14:38:17] <mikesherov> So, you probably would've had the tests blow up anyway
+[14:38:20] <ben_alman> but you can type: python -m SimpleHTTPServer in the jquery root and browse to the tests on localhost to try it out for yourself
+[14:38:27] <ben_alman> on any *nix
+[14:38:33] <mikesherov> right
+[14:38:43] <mikesherov> because the ajax tests would've been borked anyway
+[14:38:59] <mikesherov> unit tests assume you have PHP if you're not file://
+[14:39:03] <mikesherov> ok, thanks for the info
+[14:39:33] <mikesherov> DaveMethvin: can you revert that change for now?
+[14:39:45] <mikesherov> not that it's perfect, but it's better
+[14:41:16] <mikesherov> and I suppose my ticket here: http://bugs.jquery.com/ticket/10901 should probably be updated to more than just politely warn
+[14:41:25] <mikesherov> docs#10901
+[14:41:26] <bot-t> [#10901] have unit tests alert the tester if they are running from file:// (assigned enhancement) - http://jqbug.com/10901
+[14:42:05] <DaveMethvin> in a mtg but i can get it later
+[14:42:16] <scott_gonzalez> Does anyone know why easings are always passed 0 and 1 for start and diff values?
+[14:42:24] <mikesherov> ok, thanks Dave
+[14:42:38] <mikesherov> scott_gonzalex, there he is!
+[14:42:51] <scott_gonzalez> Here I am!
+[14:43:02] <mikesherov> I can;t answer your question, but perhaps you can answer mine!
+[14:43:11] <scott_gonzalez> :-)
+[14:43:28] <mikesherov> so this infamous ticket:
+[14:43:29] <mikesherov> http://bugs.jquery.com/ticket/10996
+[14:43:38] <mikesherov> docs#10996
+[14:43:39] <bot-t> [#10996] Simplify offset() (assigned enhancement) - http://jqbug.com/10996
+[14:43:56] <mikesherov> I sent a patched version to thefilamentgroup peeps for testing
+[14:44:42] <mikesherov> haven't heard anything back in a bit. I don't have access to the right mobile browsers to run the graded support tests for how this impacts jQM
+[14:45:09] <mikesherov> and I'd love to get it into 1.8, but I'm blocked by knowing it's safe for jQM
+[14:45:32] <scott_gonzalez> I've only got a fraction of the devices that FG has in their office.
+[14:45:52] <scott_gonzalez> I'd just ping Todd again.
+[14:46:01] <mikesherov> Yeah, and I figured they were busy with 1.1
+[14:46:12] <scott_gonzalez> The code is ready, so it's just a matter of getting confirmation before the release, right?
+[14:46:23] <mikesherov> well, 1.8 won't be out for a while
+[14:46:42] <scott_gonzalez> Right, so I'd say just keep bugging FG :-P
+[14:46:44] <mikesherov> but those support tests are big blockers for a few other tickets
+[14:46:53] <scott_gonzalez> Ah, ok
+[14:46:55] <mikesherov> OK, will do
+[14:47:35] <mikesherov> There are tickets for: document browser support for all support tests, move all support tests to be performed on demand instead of on pageload, etc...
+[14:47:55] <mikesherov> so before I do all that work, if I can just consider those tests gone, it would be a huge help for me
+[14:48:18] <scott_gonzalez> Yeah, that makes sense.
+[14:48:31] <scott_gonzalez> It'd probably get done sooner if Scott weren't in Thailand :-P
+[14:48:44] <scott_gonzalez> Gotta go, dinner's ready.
+[14:48:48] <mikesherov> so, like you said, I'll just keep bugging them
+[14:48:49] <mikesherov> later
+[14:49:13] <scott_gonzalez> later
+[15:15:12] <ben_alman> something interesting and possibly lame… i've got qunit running headless in PhantomJS, and of the 38 failing unit tests, 37 are in the offset module. this was 1.7.1 tag, i can't get past boxModelIE even running from file:// with master
+[15:18:10] <ben_alman> so i'm running from a file:// url, and it's requesting boxModelIE which is document.writing a list of files to be loaded like test/data/src/core.js
+[15:18:15] <ben_alman> that's when running from file://
+[15:18:19] <ben_alman> what am io missing
+[15:18:52] <ben_alman> that's @ commit 974e4afbe2b69cdb7e90bf0e7058b6330003f21f
+[15:20:10] <ben_alman> mikesherov, DaveMethvin
+[15:21:34] <mikesherov> right, master is broken
+[15:21:38] <ben_alman> ok.
+[15:21:49] <ben_alman> i'm not going crazy, good to hear
+[15:21:59] <mikesherov> when I introduced include_js.php, the non-PHP fallback used some trickery to determine the absolute filepath
+[15:22:21] <mikesherov> which Rick changed in: https://github.com/jquery/jquery/commit/0944be058e0995d6da066587366fd9ab655764d2
+[15:22:22] <socialhapy> ★ Commit on jquery by dmethvin (2d, 19h ago): Fix #11257. Correct path to source files.
+[15:22:34] <ben_alman> ah yes
+[15:22:39] <mikesherov> what is the file:// url
+[15:22:44] <ben_alman> sec
+[15:23:00] <ben_alman> file:///Volumes/Data/Dropbox/Projects/Repos/cowboy/forks/jquery-grunt/test/data/support/boxModelIE.html
+[15:23:05] <mikesherov> because my trick was to look for /test/ in the url, and use that as the base
+[15:23:06] <ben_alman> file:///Volumes/Data/Dropbox/Projects/Repos/cowboy/forks/jquery-grunt/test/data/src/core.js
+[15:23:07] <ben_alman> etc
+[15:23:18] <ben_alman> make sure it's the last index of /test/
+[15:23:25] <ben_alman> because i could have other /test/
+[15:23:45] <mikesherov> Yeah, revert rick's change back to mine
+[15:24:01] <mikesherov> then change the regex to be last occurence of /test/
+[15:24:18] <mikesherov> and that *SHOULD* work
+[15:24:25] <mikesherov> except Chrome now cries about it
+[15:24:35] <mikesherov> so really, running them with PHP is the only way
+[15:25:14] <mikesherov> I mean, it'll work for your specific situation
+[15:25:29] <mikesherov> but if it's not file:// and there's no PHP, ajax will cry
+[15:25:39] <ben_alman> i bet the minds that have brought us jquery can get this all sorted out
+[15:25:46] <mikesherov> and if it's file:// and you're using chrome to test, it'll cry
+[15:25:56] <ben_alman> i'm using a headless webkit
+[15:26:13] <mikesherov> I'm embarrassed to say I don't know what "headless" means
+[15:26:33] <ben_alman> the only errors i get now are in jQuery.parseXML and pretty much everything in the offset module
+[15:27:56] <mikesherov> right, right, so my suggestion still stands, have you tried that?
+[15:27:59] <ben_alman> this is what it means: https://gist.github.com/1725420
+[15:28:10] <ben_alman> i reverted to your fix and it runs in phantomjs
+[15:28:40] <ben_alman> it means i can run all the tests entirely via command line and almost all of them pass
+[15:28:47] <ben_alman> too bad they don't all pass
+[15:28:54] <ben_alman> that would be huge.
+[15:29:07] <ben_alman> but testing jquery is not my priority
+[15:29:11] <ben_alman> so it doesn't matter.
+[15:29:11] <mikesherov> well, looks like it's no longer an issue of including files
+[15:29:56] <ben_alman> once rick's fix is reverted or made actually work reliably in all browsers with file://
+[15:30:02] <ben_alman> or whatever the problem is
+[15:31:41] <mikesherov> it looks like getBoundingClientRect is off by a pixel or two when webkit runs headlessly
+[15:31:58] <ben_alman> heh something like that
+[15:34:58] <mikesherov> so, if you're actually interested in getting jQuery to pass, I would to see what the values for $.support are when PhantomJS runs the test suite
+[15:35:05] <mikesherov> woulv love*
+[15:35:20] <ben_alman> sec
+[15:38:15] <ben_alman> mikesherov: https://gist.github.com/1726461
+[15:38:30] <mikesherov> cool, thanks
+[15:38:37] <mikesherov> I'll get back to you in a few
+[15:40:00] <mikesherov> ben_alman: looks like it's missing a few of the values... can I have them after document.ready?
+[15:40:06] <ben_alman> sec
+[15:41:07] <ben_alman> gist updated
+[15:41:48] <mikesherov> thanks
+[15:45:36] <mikesherov> my guess is that body margin isn't accounted for in that headless webkit
+[15:47:10] <mikesherov> actually, nevermind
+[15:48:27] <mikesherov> yeah, I have no idea :-P
+[15:56:49] <mikesherov> DaveMethvin: https://github.com/jquery/jquery/pull/671
+[15:56:49] <socialhapy> ★ Pull request on jquery by mikesherov (1m, 9s ago): fixes #10901, officially makes PHP a dependency for unit tests
+[15:57:14] <mikesherov> OK, I gotta run. It's been fun everyone.
+[18:41:52] <DaveMethvin> tbranyen: does your LayoutManager  *always* use the same element, or only sometimes?
+[18:55:09] <tbranyen> backbone always uses the same

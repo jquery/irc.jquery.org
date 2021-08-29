@@ -1,0 +1,94 @@
+[07:27:03] <jqcommit> 01[13jquery01] 15rwaldron pushed 1 new commit to 06master: 02http://git.io/HNvOvg
+[07:27:03] <jqcommit> 13jquery/06master 1430eee92 15Corey Frang: Fix #14101: $().data() should be undefined, not null
+[07:27:53] <jqcommit> [13jquery] 15rwaldron closed pull request #1420: Fix #14101: $().data() should be undefined, not null (06master...0614101)  02http://git.io/B2dy6g
+[07:29:42] <rwaldron> DaveMethvin re: #14376
+[07:29:52] <rwaldron> ugh
+[07:30:07] <rwaldron> http://bugs.jquery.com/ticket/14376
+[07:30:19] <rwaldron> (sorry, #bugnum works in mozilla IRC)
+[07:32:48] <jqcommit> 01[13jquery01] 15gibson042 pushed 1 new commit to 061.x-master: 02http://git.io/972oyA
+[07:32:48] <jqcommit> 13jquery/061.x-master 143c968ce 15Marian Sollmann: Fix #14190: Remove unnecessary assignment in .closest. Close gh-1411....
+[07:37:41] <jqcommit> 01[13jquery01] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/YM7hYQ
+[07:37:41] <jqcommit> 13jquery/06master 14ff365d3 15Marian Sollmann: Fix #14190: Remove unnecessary assignment in .closest. Close gh-1411....
+[07:50:19] <rwaldron> DaveMethvin those data tickets are all done now
+[08:05:39] <gnarf> rwaldron: did you land the backport too?
+[08:05:54] <gnarf> rwaldron: https://github.com/gnarf/jquery/compare/jquery:1.x-master...14101-1.x
+[08:06:45] <rwaldron> gnarf no, sorry
+[08:06:49] <gnarf> rwaldron I'll land it
+[08:06:53] <rwaldron> gnarf can you/
+[08:06:54] <rwaldron> ha ok
+[08:06:55] <rwaldron> :D
+[08:08:19] <jqcommit> 01[13jquery01] 15gnarf pushed 1 new commit to 061.x-master: 02http://git.io/RGfcpw
+[08:08:19] <jqcommit> 13jquery/061.x-master 14075763b 15Corey Frang: Fix #14101: $().data() should be undefined, not null...
+[08:24:27] <gnarf> rwaldron: re http://bugs.jquery.com/ticket/14376
+[08:24:42] <gnarf> rwaldron: it feels like some day in the future, we need to pull the trigger on that
+[08:24:51] <rwaldron> ?
+[08:24:54] <rwaldron> On what?
+[08:25:07] <gnarf> it would be nice to be able to just import the data-* attribs from .dataset
+[08:25:26] <gnarf> and if foo-42 should be ['foo-42'] thats what we should do?
+[08:26:10] <rwaldron> so then...
+[08:26:20] <rwaldron> what does data("foo42") return?
+[08:26:25] <gnarf> undefined
+[08:26:40] <rwaldron> not today
+[08:26:47] <rwaldron> not according to our test suite
+[08:26:52] <gnarf> data("foo-42") and .data("foo42") should be distinct keys according to the spec
+[08:26:56] <rwaldron> yep
+[08:27:13] <rwaldron> but that was broken long before you and I took over data
+[08:27:17] <gnarf> we should fix that
+[08:27:20] <gnarf> DaveMethvin?
+[08:27:32] <rwaldron> DaveMethvin and I talked about this yesterday
+[08:27:48] <gnarf> can this be a migrate?
+[08:27:56] <rwaldron> maybe
+[08:28:02] <gnarf> warning - key includes /-(\d)/
+[08:28:16] <rwaldron> yeah, maybe
+[08:28:43] <rwaldron> but that isn't broken
+[08:28:50] <rwaldron> data-foo-123
+[08:29:23] <rwaldron> if you ignore the data- part, yes
+[08:29:32] <rwaldron> but this is a breaking change
+[08:29:54] <rwaldron> and it would have to be broken in both 1.x and 2.x
+[08:30:30] <gnarf> $({}).data( "foo-123", "test" ).data().foo123 === "test"; // true
+[08:30:47] <rwaldron> that's not the bug
+[08:30:57] <gnarf> i'm saying that would need to change too
+[08:31:03] <rwaldron> oh right
+[08:31:07] <rwaldron> that's the break
+[08:31:16] <gnarf> "foo-123" and "foo123" are distinct data keys
+[08:31:21] <rwaldron> $({}).data( "foo-123", "test" ).data()["foo-123"] === "test"; // true
+[08:31:29] <rwaldron> I agree
+[08:31:33] <gnarf> pretty sure thats false right now ^
+[08:31:37] <rwaldron> correct
+[08:31:40] <rwaldron> that's the break
+[08:31:57] <rwaldron> didn't I say that?
+[08:32:07] <gnarf> you did
+[08:32:10] <rwaldron> sorry, I think what I said was unclear
+[08:32:13] <rwaldron> anyway
+[08:32:15] <rwaldron> I'm with you
+[08:32:21] <gnarf> but DaveMethvin ?
+[08:32:24] <rwaldron> I'm just playing this out in my head
+[08:32:27] <rwaldron> it's not good
+[08:32:56] <rwaldron> honestly, I think putting numbers in your attr names should be a fireable offense
+[08:34:01] <gibson042> yet another case for the roman numeral Unicode characters? :P
+[08:36:01] <gnarf> consider: deepEqual( $('<span data-foo-42="meaning" data-foo42="life">').data(), { "foo-42": "meaning", foo42: "life" } );
+[08:36:41] <gnarf> monday's agenda?
+[08:37:18] <gnarf> ^ totally broken
+[08:37:20] <gnarf> currently
+[08:38:10] <gnarf> $('<span data-foo-42="meaning" data-foo42="life">').data() // Object {foo42: "life"}
+[08:38:10] <gnarf> $('<span data-foo42="life" data-foo-42="meaning" >').data() // Object {foo42: "life"}
+[08:40:12] <gibson042> I'm for breaking behavior changes in 1.12/2.2 to sync with the spec, with some measure of backcompat in jquery-migrate
+[09:07:07] <snover> maybe you just don’t have $.fn.data try to pull data attributes :)
+[09:58:44] <gnarf> oh in a world where....
+[10:13:46] <gibson042> what's our current best practice for reporting Chrome/Blink bugs? their dataset implementation ignores data-* attributes containing a hyphen followed by a number: http://jsfiddle.net/mmN3c/
+[10:25:30] <gnarf> gibson042: i think it was already reported by rwaldron 
+[10:26:01] <rwaldron> gnarf gibson042 yep
+[10:26:15] <gibson042> cool; I must've missed that
+[10:26:22] <rwaldron> it was linked in that ticket
+[10:26:26] <rwaldron> it was also a dupe
+[10:26:37] <rwaldron> so I updated with a link to to the orig
+[10:27:36] <gibson042> that might be it
+[10:27:43] <gibson042> at any rate, sounds like we're good
+[10:27:44] <gibson042> thanks
+[11:55:42] <jqcommit> [13jquery] 15gibson042 closed pull request #1414: Fix #11809 - Removes memory leak of DOM nodes, in Chrome (1.x-master) (061.x-master...06bug_11809_1.x)  02http://git.io/iCgOLw
+[13:05:23] <gnarf> gibson042: hahah! https://github.com/gibson042/jquery/commit/199e56a15d70e8ec1636b919189aafa9f00b9758#diff-023537a1eb6e158db4d12a1fe86f1128R1403
+[13:05:23] <b-ot> gnarf: Richard Gibson (6h 36m ago): Throw on leading-zero numbers, lest we interpret them as octal
+[13:06:31] <gibson042> gnarf: yep
+[13:06:41] <gnarf> i love the "close enough"
+[13:06:57] <gibson042> there's doing the wrong thing, and then there's doing the WRONG thing
+[17:17:18] <jqcommit> [13jquery] 15ChrisAntaki opened pull request #1422: Spaces were added to tests, to match standard format (06master...06adding-spaces-to-tests)  02http://git.io/DEofrA

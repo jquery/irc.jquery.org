@@ -1,0 +1,437 @@
+[08:02:30] <jzaefferer> ping scott_gonzalez rxaviers tj_vantoll Krinkle|detached for our CLDR meeting with...
+[08:02:30] <iskren> hello
+[08:02:35] <rxaviers> Hello
+[08:02:47] <jzaefferer> hey iskren
+[08:02:51] <tj_vantoll> hello
+[08:02:57] <scott_gonzalez> Hey everyone!
+[08:04:01] <jzaefferer> on our end, its rxaviers who spent most time with CLDR, working on the migration from .net to CLDR for Globalize
+[08:04:08] <jzaefferer> iskren, how familiar are you with CLDR?
+[08:05:15] <iskren> I briefly took a look at all the data for Bulgarian (I know it), so I know what type of things you can translate with it
+[08:05:46] <iskren> but if you can provide a quick overview/link I can take a second look
+[08:05:51] <jzaefferer> we can use this for minutes: https://docs.google.com/document/d/1V8X33uphHUeUEhX8AYU4GZ4DrPPGxbbpuydqShDO-Gw/edit#
+[08:06:58] <jzaefferer> I don't have that, maybe rxaviers does
+[08:07:11] <rxaviers> Well, this week I have presented on W3C Brazil our current Globalize migration to CLDR work.
+[08:07:28] <rxaviers> I don't know if it helps, but it kinda summarizes things:
+[08:07:30] <rxaviers> http://rxaviers.github.io/globalize-cldr-talk/#/2
+[08:07:35] <jzaefferer> Maybe we can start with an overview of what we're looking for:
+[08:07:54] <jzaefferer> Globalize is used by jQuery UI for date and number formatting and parsing, datepicker for dates, spinner for numbers
+[08:08:19] <jzaefferer> The .net database has lots of bugs that we don't want to deal with, since we can't verify any fixes
+[08:08:34] <rxaviers> eg. http://rxaviers.github.io/globalize-cldr-talk/#/3/5
+[08:08:35] <rxaviers> :)
+[08:08:41] <jzaefferer> at the same time, we don't really want to maintain our own date/number handling library, so we considered adopting moment instead
+[08:09:06] <jzaefferer> moment currently has a user-contributed database (right?), which probably has the same or very similar issues as the one in .net
+[08:09:16] <iskren> that makes sense
+[08:09:21] <jzaefferer> since we don't want to go back to that, a Moment+CLDR combo seems good
+[08:09:46] <iskren> there are some common and disjoint things that moment / cldr can do from what I've seen in the xml
+[08:10:17] <jzaefferer> okay, we can get back to that
+[08:10:24] <iskren> moment has this humanize duration, cldr supports displaying date ranges in a very advanced way
+[08:10:37] <jzaefferer> can you give an overview of moment? How is it organized, who's working on it (Tim Wood isn't there anymore, right?)
+[08:10:47] <iskren> sure
+[08:10:50] <jzaefferer> Do you have interest in adopting CLDR independent of us?
+[08:11:08] <jzaefferer> I can imagine that you have the same problem maintaining the locale database, with user contributions that are hard to verify
+[08:11:34] <iskren> so moment core supports English, manipulating dates and durations
+[08:12:58] <iskren> about the stuff you can translate: there are the 4 date+time formats that you can choose from (L LL LLL LLLL), which sort of correspond with CLDR's, but I guess the structure of CLDR is better because they support separate date and time formats
+[08:13:47] <jzaefferer> those L-formats are a kind of preset?
+[08:14:05] <iskren> there is fromNow, which displays and interval twitter way (only showing the most important component of time, like days if already days have passed and minutes if an hour hasn't passed)
+[08:14:26] <iskren> well they are defined for all languages
+[08:14:42] <iskren> so they are translatable, I'm not sure what you mean by preset
+[08:15:20] <jzaefferer> sounds like the equivalent of "f", "F", "t", "T" and so on in Globalize (the table a little bit down from here): https://github.com/jquery/globalize/#dates
+[08:15:33] <jzaefferer> fromNow works both in the future and past?
+[08:15:40] <iskren> yes
+[08:16:30] <iskren> and the last thing is calendar
+[08:16:51] <iskren> which displays a date using now as reference
+[08:17:13] <iskren> for example Tomorrow at 5PM, next Tuesdays, or just a full date if its too far
+[08:17:48] <jzaefferer> okay
+[08:18:02] <iskren> so what is the current support for date in globalize
+[08:18:17] <iskren> (what have you done, what is missing)
+[08:18:50] <jzaefferer> it has a lot less features, only formatting a Date object to a string and parsing a string into a Date object
+[08:19:15] <jzaefferer> but it also does that for numbers
+[08:19:32] <iskren> date related numbers?
+[08:19:49] <jzaefferer> so far rxaviers worked on implementing the date parsing and formatting, on top of the CLDR data (right?)
+[08:20:04] <jzaefferer> no, numbers in general, like decimals, currencies
+[08:20:08] <iskren> I see
+[08:20:17] <jzaefferer> https://github.com/jquery/globalize/#number-formatting
+[08:21:35] <jzaefferer> the currency formatting is has an issue with symbols. It assumes that you only want to display numbers with the locale's currency symbol, so $ in en_US and the yen symbol for japanese
+[08:21:49] <jzaefferer> but I may also want to use both of those with a german number format
+[08:21:50] <rxaviers> Correct. About date, formatting is  almost fully covered (except for calendars other than gregorian), parsing is currently a work in progress.
+[08:22:20] <jzaefferer> the "API" for fixing that is raher clunky: https://github.com/jquery/globalize/#currency-formatting
+[08:22:23] <iskren> by formatting you mean something similar to L LL LLL LLLL (long, short date/time formats)
+[08:22:50] <iskren> ah, I saw that there is data in the xml for displaying currency A in B's language
+[08:22:52] <jzaefferer> yes, or any other given format
+[08:22:58] <rxaviers> By formatting I mean this
+[08:22:59] <rxaviers> http://www.unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table
+[08:23:03] <jzaefferer> yeah, CLDR does better in that regard
+[08:24:06] <jzaefferer> you mentioned common and disjoint parts of Moment and CLDR. Let's get back to that?
+[08:24:10] <iskren> hm, we do have am/pm and names of months/days of week but I agree CLDR ppl have thought about more things :)
+[08:24:19] <iskren> sure
+[08:24:49] <rxaviers> And there are also the presets: eg. for "en" http://i18ndata.appspot.com/cldr/main/en/dates/calendars/gregorian/dateTimeFormats/availableFormats?action=browse&depth=1
+[08:24:53] <iskren> for one -- CLDR's data for each language is *huge*, even if you extract only date related stuff
+[08:25:12] <iskren> presets -- like defaults per language. I see no
+[08:25:13] <iskren> now*
+[08:26:00] <iskren> so on that note I think making a plugin for moment that handles all the CLDR use cases sounds more realistic, for those who really want advanced i18n
+[08:27:05] <iskren> other than that -- format tokens are different, so that should be implemented / borrowed from globalize
+[08:27:25] <scott_gonzalez> If you're concerned about the volume of data, you could just use stripped down content from CLDR.
+[08:27:37] <rxaviers> Yeap, after I started working with this I realized I18n is way more complex than translation and some other things I initially thought it was about I18n. There are so many differences across different languages vs. regions vs. cultures.
+[08:27:38] <scott_gonzalez> That's what we plan on doing for our datepicker widget.
+[08:27:58] <scott_gonzalez> But the important thing is keeping the structure the same, even if data is missing.
+[08:28:10] <jzaefferer> right, we only need a subset of the date data for datepicker
+[08:28:14] <scott_gonzalez> That way someone who's already using CLDR data for something else can just use that same data to power moment.
+[08:28:20] <jzaefferer> and probably a subset of number data for spinner
+[08:28:25] <tj_vantoll> Do we have a plan for how that subset will be built?
+[08:28:58] <scott_gonzalez> Probably just a script that goes through the files, creates new objects by pulling out specific pieces of data, then writing those to new fiels.
+[08:28:59] <jzaefferer> a script that starts with a list of paths that we need, then transforms the big json file into a smaller one based on that?
+[08:29:02] <iskren> well if someone can list all the date related things that CLDR can do, or maybe start with all of the ones you (in globalize) what to have
+[08:29:22] <tj_vantoll> jzaefferer: Makes sense. I was just curious.
+[08:29:39] <jzaefferer> (good think Scott's answer was pretty much the same)
+[08:29:42] <jzaefferer> *thing
+[08:29:48] <rxaviers> If you want to see an example of how data could be loaded, I offer AMD and commonjs examples at:
+[08:29:48] <rxaviers> http://rxaviers.github.io/globalize-cldr-talk/#/4/6
+[08:30:18] <jzaefferer> iskren: We've been thinking about adopting Moment as a replacement for Globalize; maybe the way to go is for us to continue using Globalize, but working together to have Moment adopt Globalize for the date parsing and formatting?
+[08:30:35] <jzaefferer> That way we can share a common ground, while Moment users can enjoy all the additional date related features
+[08:30:40] <rxaviers> CLDR JSON data is already very segmented. So, we're able to pick the subsets we want by picking some of the files.
+[08:30:56] <jzaefferer> if anyone asks for a fromNow or calendar feature (as you described earlier), we can point them to Moment
+[08:30:58] <rxaviers> About CLDR JSON http://rxaviers.github.io/globalize-cldr-talk/#/4/4
+[08:31:00] <iskren> is the supplemental folder combined for all langs, or is it something common to all
+[08:31:12] <rxaviers> supplemental is something common to all
+[08:31:24] <rxaviers> Eg. what's the firstDay for a country.
+[08:32:20] <iskren> if its per locale then (I'd say) its not common to all
+[08:32:49] <jzaefferer> yeah, that sounds odd
+[08:33:10] <iskren> I'm just thinking because in moment locales are separated per language. And some users may just want to localize their app in a few locales, and this means they won't have to download all the language data there is
+[08:33:38] <scott_gonzalez> Yes, the goal is that you only load the locales you care about.
+[08:33:39] <iskren> of course separating them further makes sense, because CLDR data is just too big
+[08:33:44] <jzaefferer> yeah, we very much want to have the same thing, I'm pretty sure that applies to CLDR as well
+[08:34:10] <scott_gonzalez> You'd load moment, then load the locale data that you care about.
+[08:35:06] <iskren> the data will be formatted as a grid: horizontally all langs, vertically all pieces that you might need
+[08:35:51] <rxaviers> supplemental subsets are also nicely broken down per subjects, eg. http://i18ndata.appspot.com/cldr/supplemental?action=browse&depth=1 (each item can be found in a diff official JSON file)
+[08:35:54] <jzaefferer> rxaviers: what's the term used in CLDR? In Globalize its currently "culture", since "language" is misleading
+[08:36:01] <iskren> but then it makes sense to be able to bundle those together (in a single file) because the overhead of all the UMD stuff for each piece if you want all would be great
+[08:36:35] <rxaviers> CLDR has a very realistic use of the triple (language, region/territory, script)
+[08:36:45] <rxaviers> triple = tuple
+[08:36:55] <jzaefferer> rxaviers: can you point me to the firstDay data?
+[08:37:26] <jzaefferer> nevermind, this looks like what I was looking for: http://i18ndata.appspot.com/cldr/supplemental/supplementalData/weekData/firstDay?action=browse&depth=1
+[08:37:33] <rxaviers> yeap ;)
+[08:37:44] <rxaviers> Note this link points to a outdated CLDR content.
+[08:38:08] <rxaviers> But, easier for our today's meeting reference.
+[08:38:09] <iskren> hm, this appspot link looks cool but I'm not completely sure how to parse it :)
+[08:38:09] <jzaefferer> in MV its Friday...
+[08:38:54] <jzaefferer> rxaviers: is there a term the CLDR community uses for this tuple?
+[08:39:01] <rxaviers> locale
+[08:39:02] <jzaefferer> Like locale?
+[08:39:02] <rxaviers> :)
+[08:39:05] <jzaefferer> okay
+[08:39:13] <rxaviers> But, locale is this tuple plus more stuff
+[08:39:21] <iskren> about particular features: I guess the most common is formating/parsing a date and using one of the presets for date  and time
+[08:39:21] <jzaefferer> mh, okay
+[08:39:40] <iskren> and you already have the formatting part done?
+[08:40:18] <iskren> then cldr provides some way of saying date intervals, depending on where is the difference (like is it in the minutes, days, months)
+[08:40:19] <rxaviers> yeap, except for calendars other than gregorian
+[08:40:27] <jzaefferer> mostly here, right? https://github.com/jquery/globalize/blob/CLDR/src/datetime/format.js
+[08:40:55] <rxaviers> correct
+[08:41:03] <rxaviers> Zone = wip
+[08:42:14] <jzaefferer> Zone?
+[08:42:24] <iskren> to be honest the biggest issue with cldr I have is that I couldn't find down-to-earth explanations of what you can do with the data and how, and from my experience even if I spend the time to understand it everybody contributing/using the library will have the same problem
+[08:42:29] <jzaefferer> ah, throw new Error( "Not implemented" );
+[08:42:31] <iskren> timezones I guess
+[08:43:23] <iskren> so if we can create a wiki (if nothing exists yet) explaining what "actions" use what data (in terms of xml paths) in what way
+[08:43:28] <jzaefferer> rxaviers has been in touch with the CLDR community and filing some issues about missing documentation. I'm not sure if any of those got addressed though
+[08:43:53] <scott_gonzalez> Heh, they suggested he join the CLDR team and fix the docs :-P
+[08:44:03] <rxaviers> yeap haha
+[08:44:06] <rxaviers> CLDR documentation is very extensive.
+[08:44:06] <iskren> :)
+[08:44:30] <rxaviers> What we are doing is helping our users by pointing the exact place where they should find the thing they need
+[08:44:32] <iskren> I'd say too extensive, I couldn't find glossary of the terms ... maybe wikipedia is my friend but still :)
+[08:45:19] <rxaviers> For example, JSON bindings and their official tool to convert LDML to JSON are very confusing for most of users.
+[08:45:33] <rxaviers> So, I tried to consolidate info that points to right places.
+[08:45:41] <iskren> ok, that sounds great
+[08:45:52] <iskren> where is that info for cldr (or we don't have any)
+[08:46:06] <rxaviers> And we're working very hard to try t make CLDR folks to fix their docs instead of replicating it in our own doc.
+[08:46:45] <rxaviers> Because, replicating things are ok now. But, horrible to maintain later.
+[08:47:02] <iskren> how often are they changing it
+[08:47:13] <iskren> twice a year, but I mean real changes to the structure
+[08:47:18] <rxaviers> CLDR data changes very slowly. Yeap twice a year.
+[08:47:54] <rxaviers> Changes to the structure happens.  I know some current supplemental have been in other places previously. But, I dont know how often it happens.
+[08:47:55] <iskren> I mean if we spend a few months explaining how to use the data, something pretty major should happen for this doc to be useless, no?
+[08:48:06] <iskren> I see
+[08:48:21] <iskren> so there is a possibility
+[08:48:56] <iskren> from my understanding the CLDR project is too hard-core and low-level to support the dummy level style documentation that we need for busy developers :)
+[08:49:32] <iskren> this is just not the scope of the project
+[08:49:42] <jzaefferer> do users of Globalize or Moment really need to know the underlying data?
+[08:49:52] <jzaefferer> Isn't the point of those libraries to abstract that?
+[08:49:52] <iskren> contributors do
+[08:50:17] <rxaviers> CLDR is the universal I18n database. Trying to know everything is hard. But, knowing only the subset we need is not that hard.
+[08:51:00] <iskren> to be honest I feel that if we implement CLDR into moment it would be more static in terms of features, because cldr data is fixed, and changes only once in 6 months, and only if you want to update :)
+[08:51:24] <iskren> but still bringing this up to speed would be a problem
+[08:51:41] <iskren> ok, so apart from parse/format for "cultures", anything else on the radar?
+[08:52:42] <jzaefferer> iskren: what if Moment would use Globalize for date parsing and formatting, implementing the other features on top or alongside of that? Then we could collaborate on the parts that have to deal with CLDR directly
+[08:54:19] <iskren> you mean in core moment, or in a plugin that'd provide 'cldr_format', 'cldr_parse'
+[08:54:47] <iskren> the problem with putting it in core, is that the tokens need to change
+[08:55:29] <jzaefferer> I don't think a plugin is valuable, since the overhead of maintaining both would be pretty high
+[08:55:33] <iskren> we can make a breaking change for 3.0, but I'd say this is too breaking :)
+[08:56:00] <jzaefferer> we're don't intend CLDR-Globalize to be backwards compatible
+[08:56:11] <jzaefferer> are you saying its too breaking even for a major release?
+[08:57:09] <iskren> users have to go through all their strings and change tokens using a table ... or we can provide old_format functionality for easier transition
+[08:57:17] <iskren> I just don't want to be in the same position as python 3
+[08:57:39] <jzaefferer> I agree that adopting CLDR is far from trivial, but it seems to me like you might not be taking the long term picture into account enough. Maintaining a custom locale database forever seems much worse than adopting CLDR now.
+[08:57:46] <iskren> but in both cases the changes to the code needed are non trivial
+[08:58:03] <rxaviers> Perhaps you could have a migration plugin for the migration period.
+[08:58:43] <iskren> sure, that makes sense. Oh, I completely agree that using CLDR off the bat is better than using contributions and patches to those
+[08:58:45] <rxaviers> I mean, a plugin that would help users to map the current format to CLDR format, and warn it's going to be deprecated.
+[08:59:40] <iskren> that makes sense. I have to check the tokens to see if there is a proper equivalent
+[08:59:52] <iskren> for each of moments tokens*
+[09:01:25] <jzaefferer> btw. jQuery 1.4.2 is still the most common version of jQuery used on the internet. Afaik that is because most sites never get updates. Anyone starting a new site is likely to start with an up-to-date version. Wouldn't that apply to Moment as well? For a site that runs and works, why bother updating anything?
+[09:01:53] <iskren> the problem are dependencies :)
+[09:02:06] <jzaefferer> I don't know much about the adoption of Python 3, but a programming platform is certainly different from a JS lib?
+[09:02:17] <iskren> npm lets you have multiple versions of the same lib, but on client side its worse
+[09:03:00] <iskren> you're right
+[09:03:12] <jzaefferer> so you're talking about libraries that depend on Moment?
+[09:03:43] <iskren> it would be much easier to plan the transition if I know what else (except format/parse) we want to "replace" with a cldr-aware counterpart
+[09:03:59] <iskren> in the example about jquery I was talking about that
+[09:04:15] <jzaefferer> I can relate to that. With jQuery UI we support several older jQuery versions, currently back to 1.6, to make migration to UI an option, even with other libraries in place that need the old jQuery version.
+[09:04:17] <iskren> in js world the tendency is to depend on nothing, for better or worse
+[09:05:20] <iskren> I see
+[09:05:27] <jzaefferer> I can't help to answer that replacement question, since I don't know enough about Moment and CLDR. But maybe rxaviers and you could work together on that?
+[09:05:52] <rxaviers> I completely open to
+[09:06:02] <rxaviers> And it seems we also have Timo to help us on that.
+[09:06:28] <jzaefferer> Yeah, sounded like he's interested. Hopefully he will have time as well.
+[09:08:03] <rxaviers> So, it seems that part of the moment.js "CLDR problem" could be abstracted by using Globalize's date format/parse.
+[09:08:21] <iskren> that is one part, yes
+[09:08:34] <iskren> if we change the tokens
+[09:08:37] <iskren> in 3.0
+[09:09:12] <jzaefferer> You could jump to 5.0, like Opera went from 12 to 15 ;)
+[09:09:38] <iskren> :) that should scare all existing users to upgrade
+[09:09:40] <rxaviers> For any other CLDR related things, I would like to point out that moment.js could use the same CLDR abstraction we (on Globalize) use:
+[09:09:56] <rxaviers> Globalize doesn't handle with CLDR complexities by its own. We use an abstraction (a very simple library that minified has 3KB), that helps a lot abstracting CLDR complexities:
+[09:10:03] <rxaviers> https://github.com/rxaviers/cldr
+[09:11:37] <iskren> ahaa, so this handles the internal "database" and supports applying "patches" with new stuff if needed?
+[09:12:32] <iskren> it looks pretty cool
+[09:12:41] <rxaviers> Do you have a "patch with new stuff" example?
+[09:13:16] <rxaviers> I have some examples of using this cldr.js lib here
+[09:13:17] <rxaviers> rxaviers.github.io/globalize-cldr-talk/#/5
+[09:13:25] <iskren> I mean: load this particular data for this particular locale, than that one, and you have one query interface
+[09:13:37] <rxaviers> correct
+[09:14:20] <rxaviers> and it provides some helpers too, specially for supplemental data that you need to fallback. Let me give an example:
+[09:14:46] <rxaviers> Again about minDays:
+[09:14:46] <rxaviers> https://github.com/rxaviers/cldr/blob/master/src/supplemental.js#L27
+[09:15:15] <rxaviers> It's the territory's (read country's) minDays || the default (001)
+[09:15:35] <rxaviers> supplemental.weekData.minDays() does that for you
+[09:17:54] <iskren> what does minDays stand for?
+[09:18:53] <rxaviers> ah pardon, I wanted to show you the firstDay instead. But, anyway minDays is the minimum days a week need to have to be considered the 1st year in a calendar year.
+[09:19:04] <rxaviers> the 1st week*
+[09:20:04] <iskren> ah, we have dow and doy ((first) day of week and day of year)
+[09:20:23] <iskren> where the second is used to check what is the first week in a year
+[09:20:53] <rxaviers> yeap. and it changes depending of the locale. Some places, they required at least 4 days of an year. In other places, 1 is just fine.
+[09:21:04] <rxaviers> they require*
+[09:22:23] <rxaviers> http://www.unicode.org/reports/tr35/tr35-33/tr35-dates.html#Week_Data
+[09:22:24] <iskren> on a side note about the actual partnership between the projects: I'm currently writing very little code on moment myself. Most of the time goes into checking issues on github and merging stuff. Occasionally we comment on the implementation details of sth and then somebody else implements that
+[09:23:21] <jzaefferer> Does that apply to all the commiters?
+[09:23:47] <iskren> icambron did a lot in the last few months in terms of actual code contributions
+[09:24:30] <iskren> and there are a few other ppl that do show up occasionally
+[09:24:35] <jzaefferer> That's Isaac Cambron who couldn't make it to this meeting?
+[09:24:41] <iskren> yes
+[09:24:59] <jzaefferer> What happened with Tim Wood?
+[09:25:20] <iskren> I feel it would be easier for anybody to pick up and implement stuff if it was more clear on what is needed (better docs)
+[09:25:33] <iskren> He has a baby now
+[09:26:22] <iskren> and decided he doesn't have more energy to deal with it. Part of it is because of the translations -- there are so many issues brought up in the bug-tracker
+[09:26:47] <iskren> :) so I hope cldr would fix most of that. At least it would let me say -- talk to cldr folks, not me
+[09:27:29] <jzaefferer> Yeah, exactly, that's why we're dealing with CLDR now
+[09:27:33] <jzaefferer> Seems much saner in the long run
+[09:28:11] <iskren> about the docs example -- lets say I have a few hours on a weekend and want to work on moment-cldr. But I'll need roughly that much to get started, and by the time I have time to do more I'd have forgotten half of it :)
+[09:28:13] <jzaefferer> Well, if you're mostly managing the project but not writing code much, can you talk with Isaac Cambron and other contributors about this and maybe put together a roadmap?
+[09:28:56] <jzaefferer> I don't think CLDR docs will get better by themselves, but if we nag them about specific issues, it should help
+[09:28:58] <iskren> for sure. That is why I want to know besides format/parse what are the other things that are on the radar (if any) to have a better high level overview
+[09:29:34] <jzaefferer> maybe go through the english locale in moment with rxaviers and make it list of CLDR equivalents?
+[09:30:38] <rxaviers> iskren, my contacts http://rafael.xavier.blog.br/contact/
+[09:31:30] <iskren> rxaviers, thanks
+[09:32:33] <iskren> cldr has some data for handling durations, intervals (between particular dates) and relative dates (like calendar()) is that correct?
+[09:33:08] <iskren> I feel that there would be trickier, because moment's handling of duration i18n is pretty ad-hoc
+[09:33:25] <iskren> adding parsing/formatting with new tokens looks (almost) straight forward
+[09:34:21] <rxaviers> I know it does. Although, I haven't gone any deep with those. I can walk thru them with you, np. Will look for info about it.
+[09:35:04] <iskren> because if we're about to do a major 3.0 release, I hope it encompasses all of cldr's, so we won't have to "break" again
+[09:35:28] <rxaviers> makes sense
+[09:36:43] <jzaefferer> sounds good, yeah
+[09:37:14] <iskren> ok, so I guess the next step is me (and hopefully others from moment) meeting with rxaviers (and possibly others from globalize) to talk about cldr and make a roadmap for moment
+[09:37:46] <rxaviers> excellent. Let me check if I have your email
+[09:38:10] <iskren> or as I see it -- a human readable explanation of what cldr can do, so that mortals can understand it, and then the implementation is (always) the easy part
+[09:38:20] <rxaviers> yeap I do. I will learn more about relative times and let you guys know what I found
+[09:39:10] <iskren> that would be great
+[09:40:13] <iskren> is there anything else on the agenda for today?
+[09:40:32] <jzaefferer> I don't think so
+[09:40:35] <jzaefferer> I just updated the minutes: https://docs.google.com/document/d/1V8X33uphHUeUEhX8AYU4GZ4DrPPGxbbpuydqShDO-Gw/edit#
+[09:40:57] <jzaefferer> Will share that with the jQuery team, including Timo (also Wikimedia)
+[09:41:08] <jzaefferer> Are those next steps correct?
+[09:41:48] <rxaviers> yeap.
+[09:42:14] <jzaefferer> As you can tell already, Rafael is the person to talk to. I'm happy to help set up meetings or take notes or whatever is needed.
+[09:42:55] <rxaviers> excellent minutes btw :)
+[09:43:26] <iskren> yeah, that is great
+[09:44:25] <iskren> ok, I'll arrange another meeting with him then
+[09:44:38] <rxaviers> iskren
+[09:45:06] <rxaviers> can I create an orphan branch, so I kinda re-commit the whole moment.js, make a PR, and we can use github to comment places that need change.
+[09:45:09] <rxaviers> How does that sound?
+[09:45:37] <rxaviers> maybe it's easier for collaboration
+[09:45:55] <rxaviers> brainstorming the effort
+[09:46:14] <jzaefferer> orphan branch?
+[09:46:30] <jzaefferer> like an empty repo and a PR with the source of moment.js?
+[09:46:31] <rxaviers> it's a no parent one, no files.
+[09:46:35] <rxaviers> yeap
+[09:47:11] <rxaviers> Simply to use gh interface..
+[09:48:00] <iskren> are you talking in particular about the current format code?
+[09:48:10] <iskren> we can do a regular pull request for that, no?
+[09:50:46] <rxaviers> ignore that then. I will make a temporary thing on my own moment clone and let you know.
+[09:50:52] <rxaviers> :D
+[09:51:34] <iskren> we can do a 3.0 branch, but if you want to keep a low profile its fine
+[09:52:22] <iskren> your custom moment clone sounds good for that
+[09:52:57] <rxaviers> ok up to you. I can discuss that with you offline then
+[09:53:13] <rxaviers> Could we pre-schedule a next meeting in this same time next week? Iskren and I will exchange info thru email / gh in the meantime
+[09:54:25] <rxaviers> at least we save the date.
+[09:54:27] <iskren> next week is thanksgiving
+[09:54:30] <rxaviers> ah!
+[09:54:34] <rxaviers> nevermind then
+[09:54:37] <iskren> I'll be traveling :)
+[09:54:53] <rxaviers> what about skipping one, the week after?
+[09:55:04] <iskren> week after should be fine
+[09:55:51] <rxaviers> ok, Jörn I guess we can put Timo on the loop for this next one then
+[09:56:32] <rxaviers> jzaefferer, ^
+[09:56:33] <rxaviers> let's get back to work then..
+[09:57:15] <iskren> see you next meeting
+[09:57:38] <rxaviers> see ya
+[09:57:57] <jzaefferer> well, Thursdays is usually not great for Timo; we used to have the QUnit meeting in this slot and moved it
+[09:58:17] <jzaefferer> Let's just have another meeting in two weeks, we can figure out the date and time that would also work for Timo
+[09:58:45] <jzaefferer> early December...
+[09:59:00] <rxaviers> ok
+[10:03:20] <jzaefferer> thanks everyone
+[10:03:43] <jzaefferer> iskren: you can find all of us in #jqueryui-dev
+[10:08:08] <iskren> jzaefferer, thanks. I'll have that in mind!
+[11:00:24] <uGoMobi> hey all!
+[11:00:38] <uGoMobi> time for the Mobile meeting
+[11:00:46] <uGoMobi> agenda/updates https://docs.google.com/document/d/1RypjjPlvY33OUg2Ebec2xbavD8LsCfAi7ZWkEWLWWx0/edit
+[11:02:50] <agcolom> Hello, just to say that I can't really attend... but will add my updates...
+[11:03:03] <agcolom> IS there just you Jasper?
+[11:03:11] <uGoMobi> think so
+[11:03:36] <uGoMobi> arschmitz _|Nix|_ gseguin RWhitbeck toddmparker ?
+[11:03:45] <arschmitz> hi
+[11:03:49] <uGoMobi> hey arschmitz
+[11:04:05] <agcolom> I'm still going through the 1.4 docs... but just making tiny updates... just formatting things really
+[11:04:21] <uGoMobi> agcolom: that's great
+[11:04:29] <_|Nix|_> Hey!
+[11:04:49] <uGoMobi> but now you go enjoy rest of your birthday first Anne!
+[11:04:54] <uGoMobi> hey _|Nix|_
+[11:05:16] <agcolom> Thanks :-) will do :-) cake is in the oven ;-)
+[11:05:19] <_|Nix|_> agcolom: Happy Birthday!
+[11:05:25] <agcolom> _|Nix|_: Thank you :-)
+[11:05:34] <arschmitz> agcolom: happy birthday
+[11:05:44] <agcolom> arschmitz: Thank you :-)
+[11:06:37] <uGoMobi> arschmitz _|Nix|_ : thanks for fixing all demo issues and triage!
+[11:07:12] <agcolom> btw, I just noted that the demos for changePage in the 1-4 api docs are not working... Not had a chance to look into it...
+[11:07:30] <uGoMobi> I have been really busy with other client project but I am done with that so I can focus on JQM again
+[11:07:46] <uGoMobi> agcolom: oh ok, let's open a ticket for it so we won't forget
+[11:07:59] <agcolom> yes, good idea...
+[11:08:21] <arschmitz> just a note on that changePage is deprecated those should still work though
+[11:08:27] <uGoMobi> about the ThemeRoller...
+[11:08:51] <uGoMobi> the web-ui-fr team is going to help with the update
+[11:08:56] <uGoMobi> which is awesome!
+[11:09:07] <uGoMobi> we have a meeting tomorrow
+[11:09:31] <uGoMobi> we really have to get that done so we can finally release 1.4
+[11:10:12] <arschmitz> yes i think its the only blocker left
+[11:10:13] <uGoMobi> when they help with that I can work on the new web site the next couple days
+[11:10:15] <_|Nix|_> uGoMobi: You know, we talk about updating docs, demos, and tests simultaneously, but maybe that should also include TR.
+[11:10:16] <uGoMobi> yeah
+[11:10:29] <uGoMobi> _|Nix|_: yes for sure
+[11:11:59] <uGoMobi> I will take care of last ticket... new home page for demos
+[11:12:12] <uGoMobi> that won't take much time
+[11:12:28] <uGoMobi> anything you guys want to discuss?
+[11:14:06] <uGoMobi> *cricket*
+[11:14:10] <arschmitz> just two things worth mention
+[11:14:15] <arschmitz> with button
+[11:14:16] <uGoMobi> ah ok :)
+[11:14:26] <arschmitz> 2 changes to api
+[11:14:49] <arschmitz> a text option rather then icon being a position
+[11:14:49] <uGoMobi> you mean the new button widget for UI/Mobile?
+[11:14:52] <arschmitz> yes
+[11:15:07] <arschmitz> this will be a bool
+[11:15:31] <_|Nix|_> Oh, OK. So iconpos notext becomes text: false.
+[11:15:39] <arschmitz> exactly
+[11:15:54] <arschmitz> because notext isnt a position
+[11:16:05] <arschmitz> so it does not make sense as a position option
+[11:16:27] <uGoMobi> yeah true
+[11:16:36] <arschmitz> the other is a label option
+[11:16:48] <_|Nix|_> arschmitz: We can transition to that API over 1.5 and 1.6.
+[11:16:54] <arschmitz> this will default to null ( use text or val )
+[11:17:09] <uGoMobi> I don't think it should be a problem as long as there is a class for icon-only
+[11:17:17] <_|Nix|_> arschmitz: Why would you specify something via an option that can be set using normal markup?
+[11:17:42] <arschmitz> and if an option is passed it will replace the text or update the val
+[11:17:43] <_|Nix|_> arschmitz: ... unless I misunderstood the semantics of the label option ...
+[11:18:07] <arschmitz> _|Nix|_: normally you would just do it in markup
+[11:18:19] <arschmitz> but if you want to change it you can just set the label option
+[11:19:01] <_|Nix|_> arschmitz: Hmmm ... instead of .attr( "value", "New Value" ).button( "refresh" ), eh?
+[11:19:31] <_|Nix|_> arschmitz: Well, I guess it's a convenience feature.
+[11:19:36] <arschmitz> well refresh would not be needed there
+[11:19:52] <arschmitz> but this way you dont need to care if its a button a or input
+[11:19:59] <arschmitz> the widget takes care of worry about that
+[11:20:24] <arschmitz> ybecause a button or a you need to set the inner html
+[11:20:37] <uGoMobi> arschmitz: how about when you set option enhance to true and label to text/val?
+[11:21:28] <arschmitz> this wont have an enhanced option
+[11:21:31] <uGoMobi> enhanced I mea
+[11:21:37] <uGoMobi> mean*
+[11:21:54] <arschmitz> uGoMobi: i dont follow?
+[11:23:36] <uGoMobi> arschmitz: option enhanced will be gone in new button widget?
+[11:23:39] <_|Nix|_> uGoMobi: If you set an option to a non-default value, you have to specify the option via a data attribute, and its initial value has to be reflected in the initial markup.
+[11:24:34] <uGoMobi> _|Nix|_: ah you're right
+[11:25:19] <uGoMobi> arschmitz: do we drop support for icons for input button?
+[11:25:34] <arschmitz> yes
+[11:25:43] <uGoMobi> aha, forgot about that
+[11:25:49] <arschmitz> really we should discourage the use of inputs
+[11:25:52] <uGoMobi> so we don't need option enhanced anymore
+[11:25:57] <_|Nix|_> Wow! Substantial changes ...
+[11:25:58] <uGoMobi> yeah true
+[11:26:14] <uGoMobi> it won't get a wrapper anymore
+[11:26:19] <arschmitz> nope
+[11:26:29] <uGoMobi> cool
+[11:27:22] <uGoMobi> well, we could still have option enhanced so you can add the class yourself
+[11:27:44] <arschmitz> it really saves you almost nothing
+[11:27:56] <arschmitz> because all it does is class manipulation
+[11:28:00] <uGoMobi> yeah true
+[11:28:11] <_|Nix|_> arschmitz: Well, it saves a single DOM manip, right?
+[11:28:36] <_|Nix|_> ... and the reflow that goes with it ...
+[11:28:52] <arschmitz> _|Nix|_: add the classes your self
+[11:28:59] <uGoMobi> yeah
+[11:29:02] <arschmitz> jquery is smart enough it deals with that automaticly
+[11:29:03] <uGoMobi> if the class is there
+[11:29:12] <arschmitz> if its there add class just wont run
+[11:29:14] <_|Nix|_> arschmitz: Oh, I see what you mean.
+[11:29:15] <uGoMobi> it's basically the same
+[11:29:40] <_|Nix|_> Yeah ... so adding the class === setting option enhanced to true.
+[11:29:47] <uGoMobi> something like that
+[11:29:47] <_|Nix|_> Some code runs in vain, but that's nothing.
+[11:30:14] <_|Nix|_> Gotcha!
+[11:30:16] <uGoMobi> otherwise you would have an extra option
+[11:30:39] <uGoMobi> ok, sounds good arschmitz
+[11:31:03] <_|Nix|_> uGoMobi: Could you create some milestoned TR issues for us to get started with TR?
+[11:31:19] <arschmitz> also button never queries styles so even multiple addClass calls will only make one reflow
+[11:31:30] <arschmitz> everything runs in a single "tic"
+[11:31:31] <uGoMobi> _|Nix|_: yeah will do that today as well as pushing my local changes
+[11:31:45] <_|Nix|_> uGoMobi: K ... thanks!
+[11:32:43] <_|Nix|_> arschmitz: Wait a sec ... multiple synchronous addClass calls result in only one reflow? I thought each .addClass was a reflow. Wow! Didn't know that!
+[11:33:05] <arschmitz> yeah browsers cache calls
+[11:33:25] <_|Nix|_> arschmitz: I guess if you query box sizes and stuff between the two .addClass calls, /then/ you get multiple reflows.
+[11:33:29] <_|Nix|_> arschmitz: Good to know.
+[11:33:53] <arschmitz> right because it needs to reflow to get the correct calculation
+[11:34:02] <_|Nix|_> arschmitz: ... because that means doing chained DOM manips is not so bad as long as you do them unconditionally (i.e., without querying in-between).
+[11:34:41] <_|Nix|_> arschmitz: Like, not even .insertBefore(x).append(y).children().text("xyz") ... or is that different?
+[11:35:32] <arschmitz> _|Nix|_: im not completely sure all the different rules
+[11:35:52] <_|Nix|_> Yeah, I'm not sure either.
+[11:36:46] <uGoMobi> Ok I think we a are done here
+[11:37:10] <uGoMobi> can't wait till we have 1.4 out and can start working on 1.5 and 2.0
+[11:37:29] <uGoMobi> well, let's make a new roadmap first! :)
+[11:37:38] <_|Nix|_> I agree ...
+[11:37:40] <arschmitz> yeah
+[11:37:54] <_|Nix|_> I already have a sizable "post-1.4" branch going on - and that's just 1.4.1 fixes :)
+[11:38:27] <uGoMobi> yeah, looks like people only started testing after RC1 :(
+[11:38:55] <_|Nix|_> uGoMobi: Well, it's kind of a vicious circle or whatever you wanna call it.
+[11:39:05] <uGoMobi> but then again... many people wait until x.x.1 release before they upgrade
+[11:39:22] <_|Nix|_> uGoMobi: People don't test because it's "only" beta, but they test hard because this is what the new version's gonna be like ... gee, thanks!
+[11:40:13] <uGoMobi> thanks all
+[11:40:17] <uGoMobi> see you on -dev
+[11:40:23] <_|Nix|_> I guess that's not entirely fair ...
+[11:40:30] <_|Nix|_> People did test after beta ...
+[11:40:37] <_|Nix|_> Anyway ... cya there!
+[11:41:21] <uGoMobi> later

@@ -1,0 +1,269 @@
+[12:04:21] <timmywil> DaveMethvin, gibson042, markelog, m_gol https://docs.google.com/document/d/1uhcW9_TlSwD8JnO1_HNnSYJAriTK9WYZ8uQNDvtAAhA/edit
+[12:04:26] <markelog> hey-hey
+[12:04:41] <DaveMethvin> here!
+[12:05:27] <m_gol> present
+[12:05:50] <jbedard> hey!
+[12:05:51] <gibson042> here
+[12:06:01] <timmywil> and jbedard !
+[12:06:23] <timmywil> whole crowd
+[12:06:32] <timmywil> so, https://github.com/jquery/jquery/pull/3121
+[12:06:53] <markelog> pretty weird ff bug
+[12:07:08] <DaveMethvin> agreed
+[12:07:09] <markelog> it seems no one uses capture phase
+[12:07:11] <timmywil> gibson042's proposal is attractive, but is it doable
+[12:07:27] <markelog> sexy! :)
+[12:07:42] <markelog> although, there would be a bit more duplication there
+[12:07:45] <DaveMethvin> is anyone using simulate outside us? they should not be but it's exposed
+[12:07:57] <gibson042> nice, compressible duplication >:-)
+[12:08:13] <markelog> and not sure if we would want that behaviour after mozilla deals with their stuff
+[12:08:28] <gibson042> if we do it, markelog is right that it belongs in preventDefault too
+[12:08:42] <gibson042> and I'm still in favor
+[12:08:46] <markelog> DaveMethvin: we already changed signature of simulate, so we do not expect it to be used
+[12:09:04] <gibson042> taking actions on donor events is wrong, even if our use is safe per spec
+[12:09:19] <markelog> we never allowed that, as i recall
+[12:09:31] <markelog> but who knows, maybe there is use some use cases
+[12:09:42] <markelog>  we saw that issue right now only because of that bug
+[12:09:53] <DaveMethvin> i think there were some use cases from the IE8 days but nothing now
+[12:10:10] <markelog> long gone!
+[12:10:29] <markelog> okay, so sounds like we doing duplication
+[12:10:30] <DaveMethvin> that's why i wondered about outside uses but since we never documented it and we need to fix this I'm good with it
+[12:10:47] <markelog> will we remove that guard after mozilla fix?
+[12:10:59] <timmywil> maybe put a comment in for why we're not calling it when simulated
+[12:11:06] <DaveMethvin> yeah for now
+[12:11:25] <DaveMethvin> i am hoping this will all be removed in version 4.0
+[12:11:29] <markelog> in the future we might want to drop the whole simulate method
+[12:11:40] <markelog> since it is only used only for focus(in | out) events
+[12:11:59] <markelog> yeah, also there is some positive movement from the ff side
+[12:12:05] <markelog> they finally implement native events
+[12:12:10] <jbedard> Is there a FF bug to reference?
+[12:12:13] <gibson042> ha! everything old is new again: https://github.com/jquery/jquery/blob/1.12-stable/src/event.js#L848-L850
+[12:12:34] <markelog> but there is question of if they would do the spec behaviour or follow other browsers
+[12:12:50] <markelog> and if we could detect that behaviour
+[12:12:52] <m_gol> Firefox tries to follow the spec
+[12:13:02] <m_gol> but if the spec doesn't match reality, they usually try to change it
+[12:13:06] <markelog> yeah, i'm hoping for that too
+[12:13:11] <m_gol> and then adjust on the Gecko side
+[12:13:12] <markelog> but they currently deciding what to do
+[12:13:28] <markelog> let me find the issue
+[12:13:29] <timmywil> gibson042: that's funny. it was only done in stopPropagation
+[12:13:39] <m_gol> what's the Fx bug? Does anyone have one?
+[12:13:52] <DaveMethvin> that's because we wanted to preventDefault back to originalEvent as i recall
+[12:13:55] <markelog> we probably found the bug only for preventDefault
+[12:14:12] <markelog> DaveMethvin: you mean the opposite?
+[12:14:33] <timmywil> not preventDefault, stopPropagation
+[12:14:40] <markelog> there you go https://bugzilla.mozilla.org/show_bug.cgi?id=687787
+[12:14:44] <DaveMethvin> well one of them i can't recall which :)
+[12:15:02] <markelog> he-he
+[12:15:21] <markelog> but then, we decided to not fire those methods on all methods
+[12:15:28] <markelog> *events
+[12:15:45] <markelog> aa, probably confuse you guys a bit :)
+[12:16:12] <DaveMethvin> https://github.com/jquery/jquery/blob/1.9.0/src/event.js#L603
+[12:16:12] <markelog> ok-ok
+[12:16:20] <m_gol> is there a bug for the focus capture phase?
+[12:17:14] <DaveMethvin> i dunno how we got to where we are but in 1.9.0 we were preventing default on originalEvent
+[12:17:17] <markelog> no, it seems they lost it
+[12:18:03] <markelog> DaveMethvin: hm, probably isn't needed now?
+[12:18:13] <DaveMethvin> not in 3.0 i would think
+[12:18:56] <DaveMethvin> oic it is in 1.12 too, i thought it went away
+[12:19:10] <DaveMethvin> but yeah that was prob there for ie8 and its form events to be simulated
+[12:19:21] <markelog> like submit right?
+[12:19:38] <DaveMethvin> maybe change? is that preventable?
+[12:20:02] <DaveMethvin> nope
+[12:20:05] <markelog> spec would probably say one thing, ie does the other :)
+[12:20:11] <DaveMethvin> anyway pretty sure it was an ie thing
+[12:20:13] <markelog> as per usual :)
+[12:20:17] <gibson042> regardless of spec, I stand by "taking actions on donor events is wrong"
+[12:20:19] <DaveMethvin> we aren't using it much at all now anyway
+[12:20:27] <markelog> okay, so will try remove it
+[12:20:35] <markelog> and look what happens
+[12:20:53] <markelog> *will look
+[12:20:58] <DaveMethvin> in general i agree it's wrong
+[12:21:29] <DaveMethvin> for ie8 we were borrowing some events in really crappy ways tho
+[12:21:29] <markelog> that simulate is a big hack, so it is all wrong :)
+[12:21:39] <DaveMethvin> yep
+[12:22:11] <DaveMethvin> as long as it works for the remaining cases i think we are fine
+[12:22:27] <markelog> yeah, will not touch it for 2.x/1.x
+[12:22:45] <gibson042> +
+[12:23:01] <m_gol> DaveMethvin: "the remaining cases" === only focusin/focusout :)
+[12:23:07] <DaveMethvin> thank goodness
+[12:23:45] <timmywil> okay
+[12:23:51] <m_gol> we should probably pay attention into what Fx implements
+[12:23:55] <m_gol> as focusin/focusout
+[12:23:56] <markelog> would need to add couple tests too
+[12:24:10] <markelog> m_gol: oh yeah
+[12:24:17] <markelog> please follow that thread
+[12:24:25] <markelog> i already left the comment there
+[12:24:38] <markelog> i think we would need two things:
+[12:24:42] <m_gol> do we have a list of differences between what e.g. Chrome & IE do?
+[12:24:43] <markelog> 1. spec behaviour
+[12:24:49] <markelog> 2. detectability
+[12:25:15] <markelog> oh, they going into the details on that page
+[12:25:41] <m_gol> yeah, I'm mostly asking about 1
+[12:26:00] <markelog> the big one
+[12:26:08] <markelog> is incorrect sequence of events
+[12:26:38] <m_gol> are there other changes?
+[12:26:51] <markelog> and there is something about window implementation if i recall correctly
+[12:27:51] <m_gol> the spec says: 1. focusout, 2. focusin, 3. blur, 4. focus. What does Chrome do?
+[12:28:23] <markelog> blur, focusout, focus, focusin
+[12:29:00] <timmywil> shall we discuss that offline?
+[12:29:13] <m_gol> sure
+[12:29:16] <markelog> sure thing
+[12:29:21] <timmywil> For the upgrade guide, I think the listed PRs are ready to go
+[12:29:35] <markelog> when do we release rc?
+[12:29:53] <timmywil> m_gol, markelog: btw, link to that FF issue is in the Roadmap now under browser vendor discussions.
+[12:30:15] <timmywil> well, I was planning on releasing 1.12.4/2.2.4 first, but it seems we're ready on 3.0 now
+[12:30:15] <markelog> cool, will it be discussed in the standards repo?
+[12:30:36] <markelog> would you want to release 2.x/1.x?
+[12:31:05] <timmywil> markelog: when do you think you can get to the PR adjustments?
+[12:31:40] <markelog> i think tomorrow for sure
+[12:32:01] <timmywil> Cool, then I think everything can go out this week.
+[12:32:13] <jbedard> Before 3.0, I hope everyone has looked at the event API changes (.props => addProp)? I wouldn't want to get that wrong or change our minds once 3.0 is out...
+[12:33:00] <markelog> is that a private api?
+[12:33:01] <timmywil> jbedard: we've already got the change in migrate. I think we're good.
+[12:33:16] <DaveMethvin> jbedard: we never know what will end up breaking people's code
+[12:33:16] <timmywil> DaveMethvin: oh yea, you wanted to release migrate today?
+[12:33:20] <DaveMethvin> yeah
+[12:33:31] <DaveMethvin> actually we should get the timing right
+[12:33:40] <DaveMethvin> are you releasing the .4 today?
+[12:33:46] <markelog> if that is not a private api, we can't change it without releasing another major
+[12:33:52] <jbedard> I think it's public: https://learn.jquery.com/events/event-extensions/#jquery-event-props-array
+[12:33:59] <timmywil> DaveMethvin: no, after markelog finishes with the PR
+[12:34:04] <DaveMethvin> ok
+[12:34:17] <DaveMethvin> then i will release 1.4.1 to be sure it works with that
+[12:34:34] <DaveMethvin> then we can release 3.0-rc1 and migrate 3.0rc1
+[12:34:37] <markelog> then we can't :)
+[12:34:39] <DaveMethvin> on the same day
+[12:34:45] <timmywil> ah, okay
+[12:34:56] <DaveMethvin> markelog: it's a pretty obscure api
+[12:35:18] <DaveMethvin> not documented at api.jquery.com
+[12:35:26] <timmywil> things on learn.jquery.com aren't necessarily public
+[12:35:38] <timmywil> api.jquery.com is king
+[12:35:53] <DaveMethvin> anyway i don't think we should tear out all that work at this point, let's ship the rc and see what people complain about
+[12:35:55] <markelog> probably best to keep all info up to date
+[12:35:57] <m_gol> yeah, but if we have sth there then the barrier to change it is kind of higher :)
+[12:36:20] <jbedard> ah that's true, I just clicked a google link and didn't actually notice the URL...
+[12:36:23] <timmywil> m_gol: I agree, but in this case, I think we're okay
+[12:36:39] <markelog> we are not planning to change that api again, right?
+[12:36:39] <DaveMethvin> we had that discussion on jbedard PR a week or two ago and everyone seemed to be okay with removing it to Migrate support
+[12:36:41] <m_gol> sure
+[12:36:43] <markelog> so no worries
+[12:37:11] <jbedard> I mainly just want everyone to take a look at the new API and voice any concerns, because we won't want to break it again for a while...
+[12:37:12] <markelog> yeah, so all good, nice new api and stuff :)
+[12:37:12] <m_gol> that was a more general remark on my side :)
+[12:37:17] <DaveMethvin> if we do what i proposed for jquery 4 all those apis will need to be obsolete anyway
+[12:37:29] <timmywil> let's continue with it. If it blows up, we'll do rc2
+[12:37:34] <DaveMethvin> including the one we just introduced but not documented for jquery3
+[12:37:45] <timmywil> but I'm not too concerned
+[12:37:45] <DaveMethvin> timmywil: +1
+[12:38:10] <timmywil> DaveMethvin: thanks for looking at bootstrap
+[12:38:17] <markelog> yeah, if something would blow up, it would defiantly wouldn't be about addProp :)
+[12:38:19] <timmywil> are there other libraries we should be checking?
+[12:38:30] <markelog> it would be something about deffereds show/hide or rAF
+[12:38:31] <m_gol> AngularJS seems to work fine with jQuery 3.0 now
+[12:38:35] <DaveMethvin> yeah i was surprised there was only a small test change required in bootstrap
+[12:38:37] <m_gol> I run the test suite
+[12:38:54] <DaveMethvin> most of the breakage will be crazy user code
+[12:38:55] <timmywil> ember perhaps?
+[12:39:10] <markelog> yeah, ember would be interesting to check
+[12:39:22] <DaveMethvin> it's like entering another world
+[12:39:49] <m_gol> FWIW, Angular also required only unit test changes
+[12:39:53] <markelog> jquery ui/mobile we already check right?
+[12:40:04] <DaveMethvin> they test with -git right?
+[12:40:07] <timmywil> yea, I think they're constantly running against git
+[12:40:11] <m_gol> markelog: http://swarm.jquery.org/job/2845
+[12:40:12] <markelog> cool
+[12:40:17] <m_gol> there's some red in there ;)
+[12:40:32] <DaveMethvin> not sure there's a released UI that supports 3.0 rn though
+[12:41:16] <timmywil> released, no, but scott_gonzalez seems on top of things
+[12:41:17] <markelog> maybe we should talk to Scott?
+[12:41:25] <markelog> what about mobile?
+[12:41:31] <markelog> they also test git version?
+[12:41:54] <timmywil> they do, I remember talking to alex about our deferred changes
+[12:41:59] <timmywil> but that was a while ago
+[12:42:13] <markelog> timmywil: maybe you can check with them, just in case?
+[12:42:16] <timmywil> should couble check
+[12:42:25] <timmywil> cobble
+[12:42:27] <timmywil> gobble
+[12:42:31] <timmywil> gobble check
+[12:42:32] <markelog> whaaat?
+[12:42:35] <markelog> :)
+[12:42:39] <timmywil> double
+[12:42:45] <timmywil> ;)
+[12:43:19] <markelog> jquery color might reflect on effects changes too
+[12:43:22] <markelog> just saying
+[12:43:34] <timmywil> DaveMethvin: for that last not on migrate, is it enough to mention 1.4.1 in the 1.x/2.x blog post and 3.0rc in the 3.0rc blog post?
+[12:43:38] <timmywil> note*
+[12:43:40] <timmywil> can't spell
+[12:44:08] <DaveMethvin> i was debating how to cross-reference the two migrates
+[12:44:11] <timmywil> or do you want to do a separate blog post on migrate
+[12:44:59] <DaveMethvin> http://blog.jquery.com/?p=4057&preview=true
+[12:45:03] <DaveMethvin> that's what i drafted so far
+[12:45:10] <DaveMethvin> looking for the stupid preview link
+[12:45:16] <DaveMethvin> so otherwise you'll need to be logged into blog
+[12:45:26] <markelog> mmm
+[12:45:26] <markelog> This is somewhat embarrassing, isn’t it?
+[12:45:32] <markelog> that what it says to me
+[12:45:39] <timmywil> me too, and I'm logged in
+[12:45:52] <markelog> super secret page :)
+[12:46:30] <DaveMethvin> https://gist.github.com/dmethvin/21fcfcb6de48d3d21ff11a6610152c37
+[12:46:41] <DaveMethvin> there used to be an obvious link for preview
+[12:47:21] <DaveMethvin> does preview work now? https://gist.github.com/dmethvin/21fcfcb6de48d3d21ff11a6610152c37
+[12:47:24] <timmywil> I like it
+[12:47:36] <timmywil> and no
+[12:48:16] <DaveMethvin> so i may just repeat the info on both blog posts if i release Migrate on two different days
+[12:48:27] <DaveMethvin> because i just know people will include the wrong version otherwise
+[12:48:45] <markelog> btw, it might be good idea to mention that bootstrap, ember, ui, etc; all work with 3.0 in the rc post
+[12:48:46] <DaveMethvin> there are instructions everywhere now, the blog posts, the upgrade guide, etc but people will miss them
+[12:48:55] <DaveMethvin> well their unit tests do
+[12:49:14] <markelog> angular has e2e if i'm not mistaken
+[12:49:17] <DaveMethvin> wordpress works fine with 1.12.2 but the themes don't :)
+[12:49:39] <markelog> so you saying some plugin might die
+[12:49:40] <DaveMethvin> i told the bootstrap guys to mention me into tickets related to 3.0
+[12:49:52] <timmywil> DaveMethvin: maybe add a bullet point (remove migrate)
+[12:50:11] <m_gol> I'll re-check Angular e2e tests but I've already fixed them a while ago so they should continue working
+[12:50:21] <DaveMethvin> yeah it's at the end of the bullet point, i debated whether to make more bullets
+[12:50:23] <markelog> that would be cool
+[12:50:23] <DaveMethvin> i think i will
+[12:50:38] <timmywil> more emphasis
+[12:50:50] <markelog> so how about it, would we want to mention other libs?
+[12:50:51] <timmywil> REMOVE MIGRATE
+[12:51:25] <timmywil> markelog: I'll keep a note to add it to the final post. We might release before we get to checking ember/merging dave's pr in bootstrap.
+[12:51:34] <markelog> ok-ok
+[12:51:44] <DaveMethvin> lol timmywil
+[12:52:14] <DaveMethvin> so our schedule is to ship the .4s and 3.0rc1 this week right?
+[12:52:20] <timmywil> yes
+[12:52:27] <DaveMethvin> i have time this week but will be out a lot of next week
+[12:52:43] <DaveMethvin> probably won't be at next monday meeting
+[12:52:52] <timmywil> DaveMethvin: I'll grab you for releasing a migrate when I'm about to release. I still want to do 1.12/2.2 first.
+[12:53:03] <DaveMethvin> ok sounds good
+[12:53:05] <timmywil> If markelog can finish by tomorrow
+[12:53:11] <markelog> will do :)
+[12:53:14] <timmywil> awesome
+[12:53:19] <timmywil> thanks everybody
+[12:53:20] <markelog> tough part is over
+[12:53:22] <markelog> wait
+[12:53:24] <DaveMethvin> yaay
+[12:53:26] <markelog> just a sec
+[12:53:32] <markelog> in the light of the new standards team, i think we can add label "standards" or something, which would show that this issues would benefit from changing the spec(s)
+[12:53:45] <timmywil> hmm, I'm sold
+[12:53:46] <DaveMethvin> sure sounds like a good tag
+[12:53:51] <markelog> cool
+[12:53:53] <markelog> will do that :)
+[12:53:53] <m_gol> yup
+[12:53:57] <markelog> and also!
+[12:54:07] <markelog> about finish with migration from jscs+jshint
+[12:54:09] <markelog> to eslint
+[12:54:20] <timmywil> oh cool!
+[12:54:21] <m_gol> that's probably a post-3.0 task :)
+[12:54:24] <markelog> created the config, found bugs in eslint the works
+[12:54:31] <m_gol> or, you mean you're about to finish, ok
+[12:54:33] <markelog> post rc or post final?
+[12:54:41] <markelog> i can do post rc
+[12:54:44] <timmywil> post rc
+[12:54:49] <markelog> cool
+[12:54:56] <markelog> so that is it from me
+[12:54:56] <m_gol> sounds good if you've already progressed a lot
+[12:55:03] <markelog> yeah, mostly done
+[12:55:10] <markelog> it was surprisingly hard
+[12:55:20] <timmywil> ok, closing the doors. Thanks again.
+[12:55:25] <markelog> see ya

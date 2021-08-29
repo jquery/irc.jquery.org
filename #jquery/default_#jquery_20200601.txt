@@ -1,0 +1,140 @@
+[02:15:23] <TTomiK> hey.. What's the proper way of looping over promises?
+[02:15:41] <TTomiK> I need to wait until the last one is finished
+[02:17:02] <TTomiK> promise includes an ajax call with different parameters (POST)
+[02:29:29] <Cork> TTomiK: $.when(prom1, prom2, prom3, prom4, prom5...).then(function() {})
+[02:29:35] <Cork> lost of examples in https://api.jquery.com/jQuery.when/
+[02:32:17] <TTomiK> $.when doesn't immediately execute them I suppose
+[02:32:44] <Cork> its a promise that triggers when all promises it gets has processed
+[02:32:55] <Cork> just like the page states
+[02:37:07] <TTomiK> Cork: doesn't this mean I have to define all the promises beforehand?
+[02:37:21] <Cork> before you start waiting yes
+[02:37:48] <Cork> you can take the promise from an old $.when() and add to a new one though
+[02:38:02] <Cork> but i would keep that to a minimum for memory usage
+[02:38:49] <TTomiK> Cork: I see, any way to create a promise and then in .done/.then create a new one until given amount is complete?
+[02:39:21] <Cork> no promises doesn't work like that
+[02:39:39] <TTomiK> ok, sorry, I'm pretty new to promises :/
+[02:39:56] <Cork> promises is just a callback
+[02:40:10] <Cork> with the difference that you can add multiple handlers for the callback
+[02:40:28] <Cork> and forward so other can add them self too
+[02:40:42] <Cork> until the source firces the callback nothing happens
+[02:41:08] <Cork> its just an object with an array of function references
+[02:41:11] <Cork> basically
+[02:41:41] <TTomiK> I see, I'll continue learning then. Thanks :)
+[02:42:48] <Uhkis> huh? of course promise chaining is possible
+[02:43:11] <Cork> ya, i meant it as a simplified model
+[02:43:27] <Cork> the point is it isn't something where you get a progress update
+[02:44:18] <TTomiK> hmm... I do need to update progress bar percentage during the process
+[02:44:51] <Cork> TTomiK: that's better to have a generic function you add as a handler of each promise
+[02:45:06] <TTomiK> yep, that I do have
+[02:45:08] <Cork> when each one resolves tick the value up by one
+[02:51:33] <TTomiK> one thing I don't understand... When I define a new Promise() it immediately fires the ajax request inside
+[02:51:51] <TTomiK> so if I was to define, say 50 promises, wouldn't they fire up immediately?
+[02:51:55] <TTomiK> Cork?
+[02:52:37] <Cork> TTomiK: a promes is a scope not a deferred execution
+[02:52:57] <Cork> the promis gives you two arguments you fire them inside the probise block to fire the listeners
+[02:53:34] <TTomiK> so, how can I fire a second promise after the last one has finised?
+[02:53:50] <Cork> in the resolve handler
+[02:54:37] <Cork> new Promise(function(resolve, reject) { resolve(10) }).then(function(num) { new Promise(...) })
+[02:55:12] <TTomiK> it'll be pretty ugly with 50 ajax calls?
+[02:56:08] <Cork> well you can put the ajax calls in an array and process them one by one
+[02:56:37] <Cork> though do you really want to force them to be single threaded?
+[02:56:40] <TTomiK> ok, which part of the promise actually creates the ajax call?
+[02:56:45] <TTomiK> Is it the resolve() ?
+[02:56:58] <Cork> no
+[02:57:04] <Cork> promise has nothing to do with ajax
+[02:57:22] <Cork> its gives you a scope to run code giving you two callback arguments
+[02:57:34] <Cork> the code runs directly without any delay in the promise scope
+[02:57:50] <Cork> the delay is on .then you hang on the promise object
+[02:58:09] <Cork> those wait for the resovle/reject you call
+[02:58:19] <TTomiK> new Promise(function(resolve, reject) { $.ajax().then( resolve() ) } ) ?
+[02:58:34] <Cork> remove the () after resolve
+[02:58:47] <Cork> your passing a function
+[02:58:52] <Cork> you don't want to execute it
+[02:59:00] <TTomiK> true
+[03:01:27] <TTomiK> I must still be doing something wrong, because the ajax request still fires immediately after defining promise. Even without resolve
+[03:02:09] <Cork> TTomiK: well that code you have there defines a promise and then inside it makes an ajax call and forwards the resolve to the promise
+[03:02:21] <Cork> basically just chaning the default promise from $.ajax
+[03:02:43] <Cork> the delaying comes from the next call you make in the .then call from the promise
+[03:03:05] <TTomiK> https://jsfiddle.net/rovwftq3/
+[03:06:54] <Cork> TTomiK: ya, and what do you expect it to wait for?
+[03:07:28] <TTomiK> I mean how can I define many makeAjaxCalls in an array if they all fire up immediately :)
+[03:07:39] <Cork> makeAjaxCall creates a promise inside it it executes ajax to start a network calls and then executes resolve from its then handle
+[03:07:58] <Cork> TTomiK: promise does NOT mean syncronouse
+[03:08:21] <Cork> it means "when your possibly asyncronouse code is done call me"
+[03:08:38] <Cork> as you have no .then on your promise it won't do anything
+[03:09:28] <TTomiK> ok, just a sec
+[03:09:31] <Cork> TTomiK: sounds like what you want it the acmascript 7 await, thought note it isn't web safe in quite a shile
+[03:09:44] <Cork> acmascript == ecmascript
+[03:10:26] <Cork> TTomiK: also for the code you have there you don't need new Promise()
+[03:10:33] <Cork> $.ajax does that by default
+[03:10:46] <Cork> just use the $.ajax return value directly
+[03:10:50] <TTomiK> ok
+[03:11:39] <TTomiK> so i only need to return $.ajax without .then
+[03:11:57] <Cork> you can have .then if you want to do something like modify the return data
+[03:12:12] <TTomiK> not necessary in this case
+[03:12:16] <Cork> var a = $.ajax().then(function(data) { return data.listing })
+[03:12:28] <Cork> a.done(function(listing) {})
+[03:12:35] <Cork> for example
+[03:13:01] <Cork> the important part is you need to chain the promises
+[03:13:10] <Cork> if you want them to block each other
+[03:14:39] <TTomiK> It does work if I define async: false to $.ajax, but it would freeze the whole browser
+[03:14:47] <Cork> ya
+[03:14:56] <Cork> that's a terrible idea
+[03:14:59] <TTomiK> it is
+[03:17:07] <Cork> TTomiK: something like this should do what you want https://jsfiddle.net/Lh149ozp/
+[03:17:16] <Cork> (warning completely untested code)
+[03:17:46] <TTomiK> hmm... Deferred?
+[03:18:05] <Cork> its jquery's much older name for promises
+[03:18:19] <Cork> since 1.10 it is not much more then a wrapper around promise
+[03:18:58] <Cork> but it means i don't have to special case the first iteration
+[03:19:23] <Cork> no ajax call will happen until line 9
+[03:19:47] <Cork> and then they will execute one at a time waitinig for the result of the previous one
+[03:20:01] <TTomiK> nice, I'll try to adapt my code to this
+[03:20:22] <Cork> fu... forgot that for doesn't scope
+[03:20:49] <Cork> so no that won't work
+[03:20:55] <TTomiK> :/
+[03:23:24] <TTomiK> actually got it working now
+[03:24:19] <Cork> TTomiK: tried to be a bit to fancy this should do the job function makeCall(i) { $.ajax(url[i]).always(function() { makeCall(++i); }) }; makeCall(0);
+[03:24:30] <Cork> its what i usually do for this kind of code problems
+[03:28:07] <TTomiK> Cork: https://jsfiddle.net/rovwftq3/1/
+[03:28:42] <TTomiK> this works, but needs some cleaning and error handling etc
+[03:29:06] <Cork> ya, thats a little flatter way to do the same thing
+[03:29:14] <Cork> also warning don't use alert() for debugging
+[03:29:25] <TTomiK> yep, I changed it to console.log
+[03:29:26] <Cork> it can make code run in none standard ways
+[03:29:49] <Cork> so adding it might make some code run more then once or in different order
+[03:30:14] <Cork> it is a dom0 legacy function after all :)
+[03:31:02] <TTomiK> I thought I'd add SweetAlert2 as a way of showing user success/error messages
+[07:58:43] <Northwoods> how can i get value of input text by class name in same <tr> but different <td>
+[07:59:28] <Northwoods> http://prntscr.com/srndxq
+[07:59:49] <Northwoods> i have many rows with 2 inputs in each row with class .znr and .znq
+[08:00:27] <Northwoods> onchange of either .znr or znq , i need to get values of znr and znq from same <tr>
+[08:03:20] <Northwoods> $(this).closest("tr").find(".znr").val();
+[08:03:22] <Northwoods> :)
+[08:08:51] <Cork> Northwoods: i would do something like $.map($('tr'), function(elm) { return { znr: $(this).find('.znr').val(), znr: $(this).find('.znq').val() } });
+[08:09:10] <Cork> then you get a natural grouping
+[08:09:19] <Northwoods> i see
+[08:09:29] <Cork> you prob want to set a class on the tr though so you don't loop rows without input fields
+[08:09:57] <Cork> bah so many typos
+[08:10:05] <Northwoods> Cork, yes correct
+[08:10:15] <Northwoods> Thanks !
+[08:10:20] <Cork> Northwoods: fixed version: $.map($('tr'), function(elm) { return { znr: $(elm).find('.znr').val(), znq: $(elm).find('.znq').val() } });
+[08:10:53] <Northwoods> Thumbs up !
+[11:00:33] <creed3020> Is anyone else having CERT issues with access resources from https://code.jquery.com?
+[11:00:41] <creed3020> I found this forum thread: https://forum.jquery.com/topic/certificate-chain-issue
+[14:38:41] <jdforsythe> Someone may want to check the security certificate for code.jquery.com. Found an issue that we also suffered from that started Saturday morning. A root CA certificate expired on May 30 at 10am UTC. Browsers seem to not care, but we had a few networked hardware devices failing for our product. Turns out the CA bundle we received (only a month ago!) had a root CA that expired.
+[14:40:14] <jdforsythe> We corrected our cert issue by getting a new bundle and installing it. However we had some customers with LG TVs that could load the page in a browser but the JavaScript wasn't executing. I made some tests and it appeared the JQuery file was failing to load from code.jquery.com. I switched to using Ajax.googleapis.com and it started working
+[14:41:37] <jdforsythe> Oddly, browsers will still show the certificate as valid. I had to run "openssl crl2pkcs7 -nocrl -certfile bundle.crt | openssl pkcs7 -print_certs -text -noout"
+[14:42:54] <jdforsythe> That showed me the final cert in the chain, AddTrust External TTP Network CA Root had expired on May 30 10:48:38 GMT
+[15:07:34] <jdforsythe> There are lots of reports of apps / websites not working on LG TVs the last couple days. I'd bet it's related to the certificate
+[15:08:25] <taplar> yeah, it's not the first time the cert has gone bad.
+[16:55:17] <codectter> how do i get the cursor type?
+[16:56:52] <codectter> i need to do something if the cursor type is set to pointer for an element, not sure how to to obtain the cursor value
+[17:06:13] <codectter> anyone?
+[17:52:50] <Hoppelhase> codectter: $(elem).css("cursor") should work
+[17:53:10] <codectter> nvm
+[17:53:17] <codectter> thx
+[17:53:17] <Plazma> oh damn i missed taplar
+[17:57:51] <codectter> taplar i want to be able to scroll up/down with a mouse - setting scroll=true is not working  https://jqueryui.com/draggable/#scroll
+[18:13:57] <codectter> change seems to fire only once, is there an alternative?
+[18:14:03] <codectter> change event

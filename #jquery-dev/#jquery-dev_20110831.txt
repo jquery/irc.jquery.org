@@ -1,0 +1,377 @@
+[07:01:38] <timmywil> hi
+[07:01:45] <timmywil> docs#10176
+[07:01:46] <bot-t> [#10176] Injected script tag is evaluated twice ( ""text/javascript"")) - http://jqbug.com/10176
+[07:01:47] <rwaldron> timmywil hi
+[07:02:00] <timmywil> don't scripts load as soon as the src is set in IE6/7?
+[07:02:08] <timmywil> even before appending
+[07:02:12] <timmywil> or is that just images
+[07:02:58] <rwaldron> I've always worked with the understanding that scripts load as soon as the src is set
+[07:03:05] <rwaldron> (in older IE)
+[07:03:16] <rwaldron> which is why we always set the src _after_ adding the handler
+[07:05:08] <timmywil> i guess I'll just ask for a test case.  Not sure how 1.4.2 could be different
+[07:07:30] <rwaldron> script evaling changes
+[07:07:35] <rwaldron> made by jaubourg
+[07:07:39] <rwaldron> maybe?
+[07:07:42] <rwaldron> i dunno
+[07:07:46] <rwaldron> i pulled that out of my ass
+[07:08:01] <rwaldron> so, docs#10178
+[07:08:02] <bot-t> so, [#10178]  (new bug) - http://jqbug.com/10178
+[07:08:13] <rwaldron> weird
+[07:08:16] <rwaldron> docs#10178
+[07:08:17] <bot-t> [#10178]  (new bug) - http://jqbug.com/10178
+[07:08:56] <timmywil> yea, it's just doing elem.nodeName.toLowerCase(), but of course window doesn't have nodeName
+[07:09:22] <rwaldron> right
+[07:09:32] <rwaldron> I was just looking for some docs to back you up
+[07:09:39] <rwaldron> window isnt an element
+[07:09:45] <timmywil> it may be worth fixing if window is part of the set
+[07:09:55] <rwaldron> as in, it's not of the Element prototype
+[07:10:09] <rwaldron> .is( selector ) Returns: Boolean
+[07:10:09] <rwaldron> Description: Check the current matched set of elements against a selector, element, or jQuery object and return true if at least one of these elements matches the given arguments.
+[07:10:09] <rwaldron> version added: 1.0
+[07:10:19] <rwaldron> so basically, we don't owe anyone anything
+[07:10:21] <rwaldron> BUT
+[07:10:25] <rwaldron> you might be right
+[07:10:37] <rwaldron> might be worth fixing if it's easy
+[07:11:17] <timmywil> it's a sizzle thing, so maybe I'll just assign it to me for 1.7
+[07:11:24] <rwaldron> ok
+[07:17:53] <kswedberg> rwaldron, timmywil: seems like elem.nodeName && elem.nodeName.toLowerCase() … would do the trick, yeah?
+[07:18:42] <timmywil> kswedberg: sure
+[07:19:09] <timmywil> kswedberg: you think it's important enough for 1.6.3?  I was just going to throw it in when I do all the other stuff in sizzle
+[07:20:31] <kswedberg> timmywil: nah. totally an edge case, I think. 1.7 is sometime around October, right? if so, imo that's soon enough.
+[07:20:58] <timmywil> kswedberg: by the way, that would fix this particular test case, but there are plenty others where we'll have to add the elem.nodeName &&
+[07:21:30] <kswedberg> ah. :/
+[07:21:46] <timmywil> that is, $(window).is('a') calls the TAG function in sizzle, but $(window).is('.someClass') would call another
+[07:21:57] <timmywil> etc etc
+[07:24:17] <rwaldron> timmywil I'd go with 1.7
+[07:24:28] <timmywil> coolcool
+[07:24:46] <rwaldron> as for 1.6.3, i just made a pull request that might make sense in 1.6.3
+[07:25:23] <rwaldron> its a _better_ approach to a ticket I fixe
+[07:25:25] <rwaldron> fixed
+[07:25:31] <rwaldron> based on crowd review
+[07:25:40] <rwaldron> notably Diego and Matjas
+[07:25:57] <rwaldron> some other dude that I don't know, but was helpful regardless
+[07:28:55] <kswedberg> timmywil: also, if we do it in 1.7, might make sense to modify jQuery.nodeName() and use that. something like this …
+[07:28:55] <kswedberg> 	nodeName: function( elem, name ) {
+[07:28:55] <kswedberg> 	  var nodeName = elem.nodeName && elem.nodeName.toUpperCase();
+[07:28:55] <kswedberg> 	  return name ? nodeName === name.toUpperCase() : nodeName;
+[07:28:55] <kswedberg> 	},
+[07:29:15] <kswedberg> anyway, just a thought.
+[07:29:53] <kswedberg> actually, wouldn't need to modify it. silly me.
+[07:31:25] <timmywil> rwaldron: i like the pull. we don't need the &nbsp; anymore?
+[07:31:33] <rwaldron> never did
+[07:31:39] <rwaldron> as diego points out
+[07:31:50] <timmywil> we had a ticket that complained about seeing a t in mobiile
+[07:31:57] <timmywil> which is why we change dit
+[07:32:02] <rwaldron> right
+[07:32:07] <rwaldron> so, here's the low down
+[07:32:17] <timmywil> ah, because a number was used for the style
+[07:32:20] <rwaldron> the reason it appeared was because top & left were set wrong
+[07:32:29] <timmywil> that makes sense
+[07:32:34] <rwaldron> diego spotted that, so go him
+[07:32:35] <rwaldron> :)
+[07:32:42] <timmywil> wooops
+[07:32:45] <timmywil> our bad
+[07:32:50] <rwaldron> funny though
+[07:32:55] <timmywil> ya
+[07:32:55] <rwaldron> now that i think of it...
+[07:33:09] <rwaldron> let me run smething down
+[07:33:13] <rwaldron> what if...
+[07:33:20] <rwaldron>  t => &nbsp;
+[07:33:32] <rwaldron> and remove the top/left code
+[07:33:52] <timmywil> hmm, risky
+[07:33:57] <timmywil> could be fine tho
+[07:34:02] <rwaldron> actually, naw, there is too much to worry about
+[07:34:09] <rwaldron> def not 1.6.3
+[07:34:09] <timmywil> oh the table
+[07:34:11] <timmywil> nah
+[07:34:17] <timmywil> frameborder
+[07:34:18] <rwaldron> maybe I'll explore later
+[07:34:20] <rwaldron> yeah
+[07:34:24] <rwaldron> lots of weird in there
+[07:34:32] <rwaldron> we want to keep that shit out of sight
+[07:34:37] <timmywil> yea
+[07:34:37] <rwaldron> but cant make it display:none
+[07:34:43] <rwaldron> or it wont get "presentation"
+[07:34:47] <rwaldron> or whatever
+[07:34:59] <rwaldron> something to think about anyway
+[07:35:09] <rwaldron> even if it results in nothing
+[07:35:24] <rwaldron> i'm really excited about the fixedPosition stuff
+[07:35:30] <rwaldron> (unrelated)
+[07:36:10] <timmywil> it'll be nice to have that organized.  I have run into times I wished fixedPosition was on support
+[07:36:35] <rwaldron> dude, I'm stoked
+[07:36:59] <rwaldron> jaubourg's fake body open the door for that one
+[07:37:03] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/cEzE_Q
+[07:37:03] <jqcommit> [jquery/master] Landing pull request 478. Apply fixes as noted by Diego Perini, David Murdoch & Mathias Bynens. Supplements #9634 Fixes #9634. - Rick Waldron
+[07:37:27] <timmywil> boosh
+[07:37:50] <timmywil> OK, hopefully that'll be it for 1.6.3
+[07:38:51] <rwaldron> nice
+[07:38:52] <rwaldron> thanks
+[07:39:00] <rwaldron> high quality commit
+[07:39:09] <rwaldron> i like subtle improvements
+[07:39:24] <rwaldron> i think it came out even
+[07:39:50] <rwaldron> nice.
+[08:30:25] <kswedberg> does this comment make sense to anyone? "The doc page for .trigger doesn't mention whether it's synchronous or asynchronous. If it's supposed to be unspecified, please make this explicit" I feel like I'm missing something here, but I can't see how sync/async is relevant.
+[08:31:25] <ajpiano> he's asking "if i do $("#foo").trigger("click");  something();, will the click handler definitely have been completed before something() runs"
+[08:31:37] <ajpiano> and the answer is "it depends on what is in the click handler
+[08:31:39] <ajpiano> "
+[08:37:09] <gnarf> um
+[08:38:26] <gnarf> Is it just me or is like every method that doesn't provide a callback / deferred a "synchronous" method?
+[08:41:46] <ajpiano> even methods that *do* accept a callback/return a dfd are themselves synchronous
+[08:41:53] <ajpiano> they just accept and then invoke the continuation
+[08:42:04] <timmywil> kswedberg: sounds like a breakdown in understanding javascript, not so much the trigger method
+[08:42:44] <timmywil> if there are async actions in the handler, then it will be async. that's pretty much it.
+[08:42:46] <kswedberg> thanks for weighing in, guys. wasn't sure if I was crazy or the commenter was
+[08:42:59] <kswedberg> glad to know it wasn't me. :)
+[10:16:04] <matjas> rwaldron: what about those unquoted attr micro-optimizations?
+[10:17:40] <rwaldron> the obscene number of tickets that revolve around unquoted attributes makes me wary
+[10:17:45] <rwaldron> probably for no good reason.
+[10:18:08] <rwaldron> but I dont feel like being the one that committed the thing that made tom, dick and harry's ap break
+[10:18:10] <Krinkle> aren't those breakable in the Sizzle with 1.5+ ?
+[10:18:11] <rwaldron> app*
+[10:20:07] <DaveMethvin> rwaldron matjas, we established that attrs without special chars don't need to be quoted, right?
+[10:20:21] <DaveMethvin> according to the standards
+[10:20:49] <rwaldron> i don't remember this discussion
+[10:20:54] <rwaldron> but maybe
+[10:20:57] * rwaldron shrugs
+[10:21:14] <DaveMethvin> well what i mean, are these changes in sync with the standards?
+[10:22:34] <DaveMethvin> i'm not smart but i can link to someone who is :) http://mathiasbynens.be/notes/unquoted-attribute-values
+[10:58:31] <rwaldron> timmywil re: 10174 is right. we're wrong
+[10:58:32] <rwaldron> http://jsfiddle.net/rwaldron/EzSGC/
+[10:58:33] <rwaldron> :(
+[10:58:40] <rwaldron> I need to grab food
+[10:58:45] <rwaldron> we can chat about it when i get back
+[10:58:51] <rwaldron> figure out a plan or whatever
+[11:00:45] <timmywil> rwaldron: it's true the number is changed, but I don't think there's anything we can do
+[11:01:00] <rwaldron> did you look at the fiddle?
+[11:01:05] <rwaldron> dataset gets it right
+[11:01:10] <timmywil> dataset is a string
+[11:01:10] <rwaldron> ugh
+[11:01:18] <rwaldron> i know
+[11:01:22] <rwaldron> hm
+[11:01:28] <rwaldron> one sec.
+[11:01:54] <timmywil> brb
+[11:02:10] <rwaldron> yeah, this is fucked
+[11:02:14] <rwaldron> i'll be back
+[11:02:16] <rwaldron> need food
+[12:06:34] <rwaldron> timmywil interesting
+[12:06:40] <rwaldron> dude made a pull request
+[12:06:49] <DaveMethvin> o i just closed it ...
+[12:06:54] <rwaldron> cool
+[12:07:00] <rwaldron> that just seemed...
+[12:07:05] <DaveMethvin> i am working on a blog post about .data() and the mess there
+[12:07:07] <rwaldron> i dont even know
+[12:07:22] <DaveMethvin> i would love to back out that crap for 2.0
+[12:07:33] <DaveMethvin> waaaaay too much magic
+[12:07:46] <DaveMethvin> but for now i don't see a reason to pick at the scab
+[12:10:57] <rwaldron> hahah 2.0
+[12:14:50] <timmywil> i don't understand. i like the inception ternary
+[12:15:10] <DaveMethvin> timmywil: who doesn't? as long as it's indented neatly
+[12:16:53] <timmywil> DaveMethvin: are you referring to that when you say "mess"?
+[12:17:11] <DaveMethvin> no, it's the outcome of data conversions
+[12:17:29] <DaveMethvin> like "1C02" is a string but "1E05" is a number
+[12:17:34] <timmywil> yea, that's what the ternary is for i think
+[12:17:49] <timmywil> ah, true
+[12:18:11] <DaveMethvin> or, as this guy says, a big long seq of digits is a number, which means it gets rounded
+[12:18:30] <DaveMethvin> i think we just went too far, would have preferred to see only { ... } and [ ... ] be treated as JSON and converted
+[12:18:42] <DaveMethvin> everything else could have stayed strings
+[12:19:22] <DaveMethvin> but mainly what confuses people i think is that jquery has an api named .data() and html5 has attributes named data-
+[12:19:31] <DaveMethvin> so they MUST be the EXACT SAME THING
+[12:19:45] <timmywil> eh, idk.  I think it's too convenient to do Number conversion and when the numbers are oversized or start with "00…", I would just point people to .attr()
+[12:19:53] <DaveMethvin> it's disappointment from there
+[12:20:29] <DaveMethvin> https://docs.google.com/document/d/1DmxwCevYn3tEDKscqsU3Z3r_K6TOUpWjkeFr5aBNmZQ/edit?hl=en_US
+[12:20:41] <DaveMethvin> i just need a venue for these writings
+[12:20:53] <timmywil> hahaha, "in the beginning".
+[12:21:12] <DaveMethvin> well it makes more sense when you know how it evolved
+[12:21:56] <timmywil> I'm just amused by the biblical reference…DATA.
+[12:22:17] <DaveMethvin> and john saw it, and it was good
+[12:22:28] <timmywil> hehe
+[12:24:59] <timmywil> OK. I like the What to Know, What to Do
+[12:25:10] <timmywil> My point is we have two functions( data and attr )
+[12:25:19] <timmywil> let data do all the conversions it can
+[12:25:24] <timmywil> if that won't work, use attr
+[12:25:26] <timmywil> which does none
+[12:25:30] <timmywil> and will save time
+[12:25:47] <DaveMethvin> absolutely, there is a way to do it, i am hoping that we can learn em good with a blog post
+[12:26:14] <DaveMethvin> people are just convinced that they can drive the nail with a screwdriver, dammit, and they will keep trying
+[12:26:36] <DaveMethvin> well they ain't borrowing my toolbox thats for sure
+[12:26:46] <timmywil> true
+[12:27:41] <timmywil> DaveMethvin: do you think the data API would have been written differently had HTML5 data-* attributes existed at the time?  Maybe we would have never integrated html5 into the thing.
+[12:27:53] <timmywil> and just said use attr for html5 attributes
+[12:28:27] <DaveMethvin> i defiinitely think we would have thought about the confusion with the use of data name for both "dom in memory" api vs the "html attribute" api
+[12:28:33] <DaveMethvin> not sure how we would have solved it
+[12:28:43] <DaveMethvin> but i'm not that happy with what we have now
+[12:28:50] <DaveMethvin> unless we can "train" folks the right way
+[12:29:04] <DaveMethvin> but the name "data" is an attractive nuisance, ppl want to use it for data- attributes
+[12:29:12] <DaveMethvin> and i see why
+[12:31:33] <timmywil> sure
+[13:48:19] <rwaldron> DaveMethvin timmywil i'm about to bailout on the HTML5 ticket
+[13:48:27] <rwaldron> i've pissed away oer 4 hours today
+[13:48:35] <timmywil> rwaldron: nooooo
+[13:48:36] <DaveMethvin> the 1.7 ticket?
+[13:48:40] <paul_irish> noooo
+[13:48:42] <rwaldron> and no matter what I try, I still get complete fucking failure
+[13:48:58] <rwaldron> paul_irish your tests dont pass
+[13:49:07] <rwaldron> http://bugs.jquery.com/ticket/6485#comment:35
+[13:49:08] <paul_irish> right
+[13:49:12] <paul_irish> i wrote them so they'd fail
+[13:49:29] <DaveMethvin> TEST I AM DISAPPOINT
+[13:49:30] <rwaldron> but shouldnt they pass with the code you added from jonathan neal?
+[13:49:36] <paul_irish> hypothetically
+[13:49:42] <paul_irish> but if they did then they would be done.
+[13:50:00] <rwaldron> the problem is that even when i pull out that code
+[13:50:13] <rwaldron> and drop in regs html5-shim, i still get complete failure
+[13:50:28] <paul_irish> yup. that should happen.
+[13:51:14] <rwaldron> ugh.
+[13:51:22] <rwaldron> I wanna throw something
+[13:51:28] <rwaldron> that results in breaking something else
+[13:51:47] <timmywil> rwaldron: take a break
+[13:51:55] <rwaldron> yeah
+[13:52:07] <rwaldron> going afk and then coming back to hit this shit harder.
+[13:52:23] <paul_irish> k
+[13:52:28] <DaveMethvin> rwaldron: no, work on something else and come back to it tomorrow
+[13:52:33] <DaveMethvin> i have to do that all the time
+[13:52:44] <paul_irish> timmywil: DaveMethvin wanna see a good bug ?
+[13:52:49] <DaveMethvin> then i have a flash of inspiration while the dog is pooping
+[13:52:52] <DaveMethvin> yeah paul_irish
+[13:52:55] <paul_irish> https://github.com/paulirish/lazyweb-requests/issues/42#issuecomment-1903996
+[13:52:55] <socialhapy> ★ Issue #42 on lazyweb-requests, reported by paulirish (3w, 1h ago): comprehensive research and article on script @defer
+[13:54:11] <DaveMethvin> oh god
+[13:54:15] <timmywil> ewwwww
+[13:54:27] <paul_irish> awesome amirite
+[13:54:44] <DaveMethvin> dy-no-mite
+[13:55:01] <paul_irish> i like how IE introduced @defer but apparently nobody used it enough to find this bug over the course of 8 years.
+[13:55:50] <DaveMethvin> yeah i used defer like in 2004 for something but of course i didn't have all the jQuery.support stuff happening right at the edge o load
+[13:56:06] <DaveMethvin> DO NOT TAUNT HAPPY FUN IE
+[13:56:19] <timmywil> i don't see the connection from innerHTML to the next defer.  how?
+[13:56:33] <timmywil> happy fun times in DOM manip
+[14:01:08] <paul_irish> timmywil: its what the dude said in the comment. IE starts executing them... hits innerHTML changes.. then says HOLD UP IMMA GO DO SOMETHING RETARDED
+[14:01:33] <timmywil> srsly
+[14:02:07] <DaveMethvin> well it really does pee in the defer pool doesn't it?
+[14:02:16] <paul_irish> it does.
+[14:11:07] <rwaldron> ok, i'm starting from nil
+[14:11:18] <rwaldron> DaveMethvin timmywil can you help with an experiment?
+[14:11:28] <DaveMethvin> does it involve a goat?
+[14:11:36] <rwaldron> (requires 3 different IEs and a goat)
+[14:11:40] <timmywil> can't right now
+[14:11:44] <rwaldron> ok
+[14:11:46] <rwaldron> DaveMethvin?
+[14:12:00] <DaveMethvin> goat?
+[14:12:01] <rwaldron> http://jsfiddle.net/rwaldron/t6hqK/show all i need is for you to open this link
+[14:12:02] <DaveMethvin> yeah
+[14:12:05] <rwaldron> in IE6, 7, 8
+[14:12:09] <rwaldron> and tell me what you see
+[14:12:18] <DaveMethvin> lemme spin up my vms
+[14:12:22] <rwaldron> ok
+[14:13:29] <DaveMethvin> k, ie6 ran it
+[14:13:44] <DaveMethvin> a box with a black border says HTML5 elements rwaldron
+[14:14:05] <rwaldron> wtf
+[14:14:16] <rwaldron> ok, i might actually be disqualified from doing this
+[14:14:22] <rwaldron> my IE6 doesnt do that
+[14:14:34] <rwaldron> something occurred to me when i was away
+[14:15:00] <rwaldron> when i was talking to jonathan neal earlier, he told me that running paul_irish's tests produced full pass
+[14:15:03] <rwaldron> in IE6,7,8
+[14:15:18] <rwaldron> so while i was afk, i was thinking mostly about that
+[14:15:20] <DaveMethvin> well the box looks diff than in ff
+[14:15:29] <rwaldron> that's fine
+[14:15:35] <rwaldron> i have no box at all in IE6,7
+[14:15:44] <DaveMethvin> http://gyazo.com/4f54690fa9126ea78285b71518d97c76
+[14:16:17] * paul_irish looks at my VMs
+[14:16:28] <rwaldron> oh WHAT THE FUCK
+[14:16:32] <rwaldron> how about tihs...
+[14:16:33] <rwaldron> this*
+[14:17:00] <rwaldron> im using the spoon browser btw
+[14:17:04] <rwaldron> and basically...
+[14:17:16] <rwaldron> I'm mostly not seeing the border
+[14:17:20] <rwaldron> then sometimes it shows
+[14:17:28] <rwaldron> but never the right size
+[14:17:38] <rwaldron> should be 500x200
+[14:18:18] <rwaldron> thanks paul_irish, as many eyes as possible will help
+[14:18:30] <rwaldron> also, paul_irish and DaveMethvin i appreciate the help here
+[14:18:52] <DaveMethvin> sure, no goat, er, problem
+[14:18:57] <rwaldron> hahahaha
+[14:19:28] <DaveMethvin> yeah strange that it shows the element but ignores the inline style
+[14:20:47] <DaveMethvin> hmmm, add zoom:1 rwaldron
+[14:21:42] <DaveMethvin> i can haz layout?
+[14:23:29] <paul_irish> article,section,aside { display:block; }
+[14:23:35] <paul_irish> rwaldron:
+[14:24:20] <rwaldron> i'll add that in, but regardless of display value, if I explicitly set width and height... shouldnt that trump?
+[14:24:50] <paul_irish> no
+[14:25:03] <paul_irish> you can't set heights on inline elems
+[14:26:30] <rwaldron> i think i'm confusing a million different things
+[14:27:05] <rwaldron> i guess i assumed that since IE didnt know what these were, then an inline style should win
+[14:27:35] <rwaldron> maybe i should just kick this for the day and come back to it.
+[14:28:08] <DaveMethvin> i'm tellin ya rwaldron, some of my best thinking happens while the dog is poopin
+[14:28:17] <rwaldron> the problem with adding css rules is that we can't add css rules
+[14:28:27] <rwaldron> so the width test is out.
+[14:29:06] <rwaldron> the elements need to be tested exactly as they are
+[14:29:13] <DaveMethvin> so an inline display:block won't work?
+[14:29:29] <rwaldron> it might, but thats not the point
+[14:29:41] <rwaldron> i cant write tests that assume the user is setting css rules
+[14:30:17] <rwaldron> i give that 5 minutes from time of release to first ticket filing
+[14:30:26] <DaveMethvin> tbh i think you picked the hardest ticket in 1.7
+[14:30:34] <rwaldron> picked?
+[14:30:34] <DaveMethvin> so pick an easier one!
+[14:30:40] <rwaldron> no one else wanted
+[14:30:57] <DaveMethvin> well unpick it then
+[14:31:19] <DaveMethvin> see we were all smart enough to bail in ADVANCE!
+[14:31:21] <rwaldron> the problem is plain as day in your gyazo snap
+[14:31:35] <paul_irish> yeah it requires css rules.
+[14:32:04] <rwaldron> We _could_ engineer the hell out of it
+[14:32:16] <DaveMethvin> i know everyone wants jqueryies to solve world hunger but are we trying too much here?
+[14:32:19] <paul_irish> if (document.createElement('article').currentStyle.display != 'block' ) ....
+[14:32:24] <rwaldron> write a truck load of code that makes sure everything is created correctly...
+[14:32:30] <paul_irish> but
+[14:32:46] <paul_irish> the larger problem is.. people are already using the html5shiv.. and they have the css rules in place
+[14:32:50] <rwaldron> if thats what we're talking about, then just tell me and I'll make it happen
+[14:33:02] <paul_irish> without the original shiv.. this jquery change isnt gonna do much good
+[14:33:03] <rwaldron> I just assumed that we weren't going to try to write css rules
+[14:33:16] <paul_irish> so i think we can easily assume the css is in place
+[14:33:25] <rwaldron> eek
+[14:33:33] <rwaldron> thats a scary assumption to make
+[14:33:44] <paul_irish> its the rules of the road with html5
+[14:33:47] <paul_irish> every reset/normalize etc has had it for a while
+[14:33:49] <rwaldron> i'm not against forcing them into the right shape though
+[14:34:07] <rwaldron> just need to know which of them are block and which to leave as inline
+[14:34:37] <rwaldron> paul_irish but that almost feels somehow like a slight dependency
+[14:34:44] <paul_irish> i thinkt he test page should just have the display:block rule in place.
+[14:34:52] <paul_irish> sure
+[14:35:09] <rwaldron> fwiw, I'm not against it
+[14:35:22] <rwaldron> i just want to know I'm making the right moves
+[14:35:33] <DaveMethvin> if we create external dependencies it will definitely complicate things
+[14:35:46] <rwaldron> BUT.
+[14:35:52] <rwaldron> what about...
+[14:36:04] <paul_irish> html5shiv HAS to be in the <head> if you have html5 elements in your markup
+[14:36:10] <rwaldron> creating a stylesheet in support
+[14:36:18] <rwaldron> and jamming it into our fake body
+[14:36:34] <rwaldron> i wonder if it wil register as a stylesheet for the whole page
+[14:36:41] <paul_irish> my expectation for this ticket was only to solve the innerShiv problem
+[14:36:46] <rwaldron> and jsut have a few minimal default displays in there
+[14:36:58] <paul_irish> and leave the html5shiv/style issue up to the tried and true stuff we've been using for a while
+[14:37:18] <rwaldron> yeah, but i think it has to be complete or not at all.
+[14:37:40] <paul_irish> if jquery tried to do the original shiv, then it also comes with the requirement of being in the <head>
+[14:37:59] <paul_irish> .. if you plan to do html5 elements
+[14:38:22] <paul_irish> also the print protection is pretty big. (though its possible to lazyload that)
+[14:39:16] <DaveMethvin> too much complication for the average dev who's using jquery atm
+[14:39:45] <DaveMethvin> it needs to be dead-nutz simple or they will screw it up and we will pay
+[14:40:34] <rwaldron> i feel like...
+[14:40:59] <rwaldron> the people that _know_ they are supposed to use css resets are very much a minority
+[14:41:23] <rwaldron> i'm going to to try to make this shit happen regardless
+[14:42:04] <rwaldron> "too much complication for the average dev who's using jquery atm, it needs to be dead-nutz simple or they will screw it up and we will pay" exactly.
+[16:17:26] <rwaldron> paul_irish I'm pushng a full pass branch
+[16:17:31] <paul_irish> kk
+[16:17:35] <rwaldron> but i dont wanna look at it anymore today
+[16:17:38] <paul_irish> k
+[16:17:56] <rwaldron> so can we review tomorrow? i want jonathan neal to give it a once over as well
+[16:19:20] <rwaldron> 1. there are no weird styles, it become obvious to me that testing for a width style was silly and that i could just as easily check for something geometric, but not layout related
+[16:19:35] <rwaldron> 2. there is no 2
+[16:19:47] <rwaldron> sometimes i think i'm gong to list stuff
+[16:19:55] <rwaldron> paul_irish ^
+[16:28:18] <paul_irish> rwaldron: he's in ot today.
+[16:28:29] <paul_irish> OKAY
+[16:28:35] <paul_irish> lists > no lists
+[16:28:39] <rwaldron> he and i were in our own channe;
+[16:28:50] <rwaldron> i invited you
+[16:28:54] <rwaldron> hours ago :P
+[16:29:26] <rwaldron> well, then... um.. single item list?
+[23:35:13] <matjas> rwaldron: “the obscene number of tickets that revolve around unquoted attributes makes me wary” those are all bugs in jQuery. this particular part is plain and simple .innerHTML, works everywhere
+[23:35:17] <matjas> should be pretty safe

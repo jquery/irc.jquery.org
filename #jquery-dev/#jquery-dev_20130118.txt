@@ -1,0 +1,79 @@
+[07:40:58] <sizcommit> 01[13sizzle01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/Pg3dYA
+[07:40:58] <sizcommit> 13sizzle/06master 14de303ac 15Timmy Willison: Make the native check support Rhino. Close gh-185....
+[07:47:54] <sizcommit> 01[13sizzle01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/iLYBTQ
+[07:47:54] <sizcommit> 13sizzle/06master 143f4445b 15Timmy Willison: Fix the slice check. Close gh-184....
+[07:49:03] <jqcommit> 01[13jquery01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/h7JCpg
+[07:49:03] <jqcommit> 13jquery/06master 147632711 15Timmy Willison: Update Sizzle: fixes native slice usage
+[07:49:12] <scott_gonzalez> DaveMethvin: http://bugs.jqueryui.com/ticket/8983
+[07:49:29] <jqcommit> 01[13jquery01] 15timmywil pushed 1 new commit to 061.9-stable: 02http://git.io/KN7rrA
+[07:49:29] <jqcommit> 13jquery/061.9-stable 14c0a3700 15Timmy Willison: Update Sizzle: fixes native slice usage
+[07:49:29] <scott_gonzalez> I guess you can't or don't want to track first setting?
+[08:02:10] <DaveMethvin> scott_gonzalez: not sure how I'd know it's the first set?
+[08:02:24] <DaveMethvin> his solution won't work
+[08:05:03] <scott_gonzalez> I don't know how you'd know it's the first set either.
+[08:05:34] <scott_gonzalez> I kinda want to close this as wontfix.
+[08:05:45] <scott_gonzalez> We're not doing anything wrong.
+[08:05:56] <scott_gonzalez> And the proper fix would be to re-implement the attrFn logic.
+[08:06:00] <scott_gonzalez> inside dialog
+[08:06:46] <DaveMethvin> yeah the fix shouldn't be inside UI
+[08:06:55] <DaveMethvin> it may turn out we just need to document this
+[08:07:04] <scott_gonzalez> Yeah, document instead of warn?
+[08:07:25] <DaveMethvin> we have to warn for at least some cases, or there will be  hell to pay
+[08:07:39] <DaveMethvin> "why didn't you tell me that you can't do that???"
+[08:07:45] <scott_gonzalez> heh
+[08:08:20] <DaveMethvin> let me look at it and see if there's a condition where we can let $(html, props) through witout a warning
+[08:08:32] <DaveMethvin> maybe 1.9.1 can remove $(html, props) yeah that'll fix it
+[08:08:44] <DaveMethvin> stupid signature
+[08:08:53] <DaveMethvin> :P
+[08:08:54] <timmywil> DaveMethvin: I'm a little sad 1.9 final isn't using native slice in any selectors
+[08:09:13] <DaveMethvin> yeah timmywil but think of how much faster 1.9.1 will be!
+[08:09:43] <timmywil> it's still not necessarily the slowest selector engine, but it sure ain't the fastest without that
+[08:09:56] <DaveMethvin> we definitely need more perf tests to catch regressions
+[08:10:26] <DaveMethvin> i have to walk the dog, back in about 45 minutes
+[08:11:16] <timmywil> actually, it's still faster than 1.8 sizzle
+[08:11:19] <timmywil> heh
+[08:19:48] <doesallmagic> Project jQuery Core build #648: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/648/
+[08:19:49] <doesallmagic> timmywillisn: Update Sizzle: fixes native slice usage
+[08:51:27] <doesallmagic> Project jQuery 1.x Core build #33: STILL FAILING in 31 min: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/33/
+[08:51:27] <doesallmagic> timmywillisn: Update Sizzle: fixes native slice usage
+[09:24:24] <scott_gonzalez> Thanks DaveMethvin
+[09:58:45] <johnbender> For the CoffeeScript fans http://johnbender.us/2013/01/15/system-f-in-coffeescript/
+[09:58:48] <johnbender> :)
+[10:01:20] <scott_gonzalez> There are CoffeeScript fans?
+[10:01:24] <scott_gonzalez> :-P
+[10:05:50] <johnbender> scott_gonzalez: I don't use the language myself, it's just easier to illustrate the concepts with coffeescript than with javascript
+[10:05:57] <johnbender> scott_gonzalez: and few people know haskell
+[10:06:12] <johnbender> and haskell already has polymorphic types so it would be silly
+[11:27:49] <cky> timmywil: I didn't catch that native slice selector thing using any kind of perf test. For a project at work, where I'm using Sizzle to operate on Java DOM objects (hence why the use of Rhino), I wrote up some logging classes that logged _every_ property access, call, etc. on all JS objects, so I could get some visibility into what Sizzle is doing (so I know what I needed to implement: for example, Sizzle
+[11:27:51] <cky> uses innerHTML, but Java's DOM Element doesn't have that, so I had to implement it myself).
+[11:28:08] <cky> It was through this logging that I discovered an exception was being generated from childNodes being called on undefined.
+[11:30:50] <cky> (Said "project at work" involving using Sizzle on Java DOM objects will appear on GitHub soon. I just have to clean up the code a little first, and maybe try to find a way to run Sizzle's own unit tests from Rhino so I have full confidence that everything works as expected, and not just the unit tests I wrote myself.)
+[11:37:59] <timmywil> cky: thanks for letting us know. From previous perf testing I've done, I know that the lack of native slice would affect performance. However, interestingly there are several other factors. We used to have a version of nodeList->Array that didn't involve using slice at all and tried to take advantage of loop optimization in JS interpreters, especially V8. This was faster than our old makeArray which used slice, but not as
+[11:37:59] <timmywil>  fast as the current implementation (which uses slice but removes a call from the stack by inserting slice + push everywhere makeArray was used)
+[11:38:29] <timmywil> so it's faster than 1.8, but not as fast as it could be
+[11:38:46] <timmywil> but now that's fixed, thanks to you
+[11:48:18] <cky> timmywil: That's very impressive, the lengths you guys go to do speed up nodeList->Array. (And, always my pleasure.)
+[11:51:26] <timmywil> cky: thx :)
+[11:52:45] <cky> timmywil: (I'll be happy to profile the various approaches on Rhino just so see how it compares with the results you saw on V8. Though, more for curiosity than anything else; the Sizzle stuff is actually really fast, even with all the language-crossing back and forth, and certainly not a bottleneck in the stuff we're using it for.)
+[11:54:00] <cky> I also want to play with Nashorn too. Not that our work is likely to be able to use it any time soon, but, Nashorn really excites me.
+[11:54:34] <cky> (tl;dr: Nashorn is a JVM JS engine that uses invokedynamic, so it will be like Rhino on steroids.)
+[12:05:25] <jqcommit> 01[13jquery.com01] 15danheberden pushed 1 new commit to 06new-content: 02http://git.io/P7dxrg
+[12:05:25] <jqcommit> 13jquery.com/06new-content 1426b3dfa 15Dan Heberden: Update version of jQuery to 1.9. Adjust column layout to leave code samples full-width. Adjust copy to call to attention key portions of the jquery site properties.
+[12:08:06] <timmywil> cky: that will definitely be interesting to see
+[13:13:51] <Schism[Z]> Is it ok to ask questions about a project here?
+[14:17:44] <jqcommit> 01[13qunit01] 15Krinkle pushed 1 new commit to 06master: 02http://git.io/oTIJyA
+[14:17:44] <jqcommit> 13qunit/06master 1452b3b42 15Timo Tijhof: Diff: Fix exception on property "constructor". Fixes #394....
+[14:17:50] <doesallmagic> Project QUnit build #247: SUCCESS in 15 sec: http://swarm.jquery.org:8080/job/QUnit/247/
+[14:17:50] <doesallmagic> krinklemail: Diff: Fix exception on property "constructor". Fixes #394.
+[14:41:36] <DaveMethvin> miketaylr: whatsup with this? http://www.pocket-lint.com/news/49375/opera-ice-new-webkit-browser
+[14:43:39] <DaveMethvin> is opera ice gonna be like dentyne ice where you chew on it for a while and it loses all its flavor?
+[14:51:02] <snover> i think the headline for that article might be “people that don’t understand opera’s products write article about opera’s products”
+[14:52:28] <DaveMethvin> i'm just not sure why there needs to be another mobile webkit-based browser
+[16:17:59] <jqcommit> 01[13jquery.com01] 15ajpiano pushed 2 new commits to 06master: 02http://git.io/8d8DJQ
+[16:17:59] <jqcommit> 13jquery.com/06master 1406fbc6e 15adam j. sontag: Merge branch 'new-content'
+[16:17:59] <jqcommit> 13jquery.com/06master 14d1bf9f5 15adam j. sontag: Remove learn references until it's launched, update phrasing for jQuery UI and jQuery Mobile
+[18:39:47] <Krinkle> OMG WTF
+[18:39:49] <Krinkle> http://cl.ly/07411p322O1e
+[18:39:51] <Krinkle> That is wrong in so many ways
+[18:39:53] <Krinkle> Like, no control of the vehicle.
+[18:39:55] <Krinkle>                    window.location = $("*").find("a[id='mw-editform-cancel']").first().attr("href"); 

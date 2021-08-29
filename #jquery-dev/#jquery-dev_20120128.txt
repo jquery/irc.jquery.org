@@ -1,0 +1,292 @@
+[10:23:12] <mikesherov> .
+[10:23:13] <bot-t> (17 hours 8 mins ago) <sindresorhus> tell mikesherov If you haven't seen it already:
+[10:23:28] <mikesherov> IF I HAVENT SEEN WHAT ALREADY?!?
+[10:23:43] <mikesherov> to the logs!
+[10:24:20] <sindresorhus> Damn bot-t cut it off..
+[10:24:28] <sindresorhus> Here you go:
+[10:24:29] <sindresorhus> http://trac.edgewall.org/wiki/TracPerformance
+[10:24:29] <sindresorhus> http://trac.edgewall.org/wiki/TracDev/Performance
+[10:24:29] <sindresorhus> http://trac.edgewall.org/wiki/TracDev/Performance/0.11.5
+[10:25:24] <mikesherov> I got it from irc.jquery.com anyway :-)
+[10:25:52] <mikesherov> there are certain reports that run insanely slow
+[10:26:00] <mikesherov> and lots of times database locks
+[10:26:06] <mikesherov> very little to do with FASTCGI
+[10:26:25] <mikesherov> which is a good suggestion, but not the solution to the specific problem I'm trying to solve
+[10:26:27] <tbranyen> jQuery.fn.html is the bane of my existence right now
+[10:26:42] <tbranyen> actually jQuery.cleanData is what's killing me
+[10:26:58] <mikesherov> tbranyen, unit testing woes?
+[10:27:07] <tbranyen> mikesherov: its removing all my events
+[10:27:12] <tbranyen> :(
+[10:27:22] <mikesherov> how are they attached?
+[10:27:44] <tbranyen> var el = $("<div/>"); el.bind("click", $.noop); parent.html(el); parent.html(el); // el events are now gone
+[10:28:33] <mikesherov> so cloned cloned nodes lose bound events?
+[10:28:45] <tbranyen> nothing is cloned
+[10:28:48] <tbranyen> thats the issue
+[10:29:22] <DaveMethvin> .html( htmlString )
+[10:29:32] <DaveMethvin> el does not appear to be an htmlString
+[10:29:40] <tbranyen> DaveMethvin: that destroys all references in my own code
+[10:29:40] <DaveMethvin> it appears to be an el
+[10:29:49] <mikesherov> .append instead
+[10:30:01] <tbranyen> yeah append works, but it doesn't do the same thing as html
+[10:30:02] <mikesherov> parent.empty().append(el);
+[10:30:06] <DaveMethvin> all events in the whole doc?
+[10:30:15] <tbranyen> DaveMethvin: inside of el, all events are gone yea
+[10:30:26] <tbranyen> i'm sure its a memory leak issue fix
+[10:30:28] <tbranyen> to remove events
+[10:30:32] <tbranyen> but kinda sucks in this edge case
+[10:30:46] <DaveMethvin> well it's not an edge case, it's not even supported tecnhnically by the api
+[10:30:51] <DaveMethvin> so it's an outside the edge case
+[10:30:57] <DaveMethvin> el is not an htmlString
+[10:31:13] <DaveMethvin> does .empty().append(el) do the same?
+[10:31:14] <tbranyen> the api doesn't define html to accept a DOMNode?
+[10:31:24] <DaveMethvin> did you look at the api page??
+[10:31:35] <tbranyen> just did
+[10:31:35] <DaveMethvin> http://api.jquery.com/html/#html2
+[10:32:03] <DaveMethvin> i mean, who knows it may accept things other than strings but it's only documented to accept strings
+[10:32:08] <tbranyen> DaveMethvin: if its outside the api, then why is jquery behaving differently for dom nodes that get passed in?
+[10:32:16] <tbranyen> like why do you have special logic for that at all then
+[10:32:24] <DaveMethvin> because .... it's outside the api?
+[10:32:37] <tbranyen> that doesn't answer the question of why you're doing something special for that then
+[10:32:49] <tbranyen> i just want to know why
+[10:32:58] <tbranyen> not "we can do whatever we want because its not in the api"
+[10:33:08] <tbranyen> know what i mean?
+[10:33:14] <DaveMethvin> hold on tbranyen
+[10:33:18] <mikesherov> right, that makes sense
+[10:33:28] <DaveMethvin> we have a documented and tested interface, .html( string )
+[10:33:34] <DaveMethvin> you are passing someting other than a string of  html
+[10:33:39] <sindresorhus> tbranyen: If it's not a string or function, then this is called: this.empty().append( value );
+[10:33:43] <DaveMethvin> i have no idea what that does
+[10:33:53] <DaveMethvin> because we don't ahve a documented or tested description of what it does
+[10:33:57] <DaveMethvin> who knows what it does
+[10:34:03] <DaveMethvin> maybe it works?
+[10:34:11] <DaveMethvin> but it's not in the sphere of documented behavior
+[10:34:15] <DaveMethvin> so it's not an edge case
+[10:34:20] <DaveMethvin> it's an outside the edge case
+[10:34:22] <tbranyen> well considering you have nodeType inference you clearly have some idea of what might happen
+[10:34:26] <tbranyen> and do something based off that inference
+[10:34:35] <tbranyen> there has to be some intelligence around that decision, no?
+[10:34:47] <tbranyen> its not like you guys just make weak inference and do random shit from the outcome
+[10:35:12] <mikesherov> if it's not supposed to accept anything other than an html string, than there should be no code inside the function to deal with anything other than strings
+[10:35:17] <tbranyen> (at least i hope not)
+[10:35:40] <DaveMethvin> i'm really having a problem understanding the problem, you've passed in something that we don't document the method accepts
+[10:35:51] <DaveMethvin> are you expecting well-defined behavior in that case?
+[10:36:01] <DaveMethvin> and if so, why?
+[10:36:05] <tbranyen> DaveMethvin: i'm expecting you to not be difficult and just be reasonable to my question
+[10:36:13] <DaveMethvin> ok, restate  your question
+[10:36:29] <tbranyen> Why is there code inside html that checks for nodeType and runs cleanData?
+[10:36:38] <tbranyen> I don't care about the api, i want to learn why that code is there
+[10:36:47] <tbranyen> i'm in jquery-dev not jquery right now
+[10:36:49] <DaveMethvin> off the top of my head i cannot tell you
+[10:37:24] <DaveMethvin> but i can say that it is not wise to read the code and then assume that it will always work that way
+[10:37:35] <DaveMethvin> because it is not documented to accept anything but a string
+[10:37:37] <mikesherov> tbranyen, the thing is though, that cleanData is inside a typeof value === string check
+[10:38:16] <DaveMethvin> if you know you have an element, use .empty().append()
+[10:38:43] <tbranyen> Man i really hope i don't accidentally pass undefined to jquery some day and have you guys redirect to goatse, because "its not documented"
+[10:38:53] <tbranyen> :|
+[10:38:54] <DaveMethvin> don't be silly
+[10:39:14] <DaveMethvin> read this back tomorrow and think about whether this is how you want yourself to be remembered
+[10:39:21] <mikesherov> DaveMethvin: .html does that!
+[10:39:42] <DaveMethvin> honestly i'm just pointing out that .html() is documented to accept a string
+[10:40:21] <DaveMethvin> so whatever it does when passed an element or other stuff, it's not good to assume it will stay that way because it's not in the documented interface
+[10:40:44] <mikesherov> html summarized: 1. is value undefined: return the innerhtml 2. is value a string: do some stuff, cleanData, set innerHTML 3. is it something else: do .empty().append(value)
+[10:40:54] <mikesherov> DaveMethvin: I agree with you
+[10:41:31] <mikesherov> I'm just saying it's weird that it's technically already doing what you've suggested
+[10:42:01] <tbranyen> DaveMethvin: yeah, I mean I don't want to keep pushing ya on this issue, since you may not have written the code
+[10:42:15] <tbranyen> I just have a desire to learn, and not being told to ignore it
+[10:42:21] <tbranyen> that doesn't help me learn
+[10:42:23] <mikesherov> tbranyen: cleanData can't be the issue if you're passing in an element
+[10:42:46] <mikesherov> read the code... the cleanData only gets done if the value is a string
+[10:42:47] <DaveMethvin> well the reason the branch is there is tahat we want to use .innerHTML if possible
+[10:42:50] <tbranyen> mikesherov: yeah it might be empty or something
+[10:43:21] <DaveMethvin> but remember that innerHTML will clobber anything currently there so we need to remove all the data of the existing elements before blowing them away
+[10:43:23] <mikesherov> what might be empty?
+[10:43:51] <mikesherov> The point is this, tbranyen is not passing in a string, he's passing in an element
+[10:43:52] <tbranyen> DaveMethvin: yeah that's the issue unfortunately here, i feel like there needs to be an api method that can accept a dom node, work identical to html, but not remove events
+[10:44:05] <mikesherov> which when you read the code, literally does .empty().append()
+[10:44:08] <tbranyen> because there is a usecase for that
+[10:44:14] <DaveMethvin> .empty().append()
+[10:44:27] <mikesherov> DaveMethvin: .html() DOES THAT
+[10:44:29] <tbranyen> true, just uglier when trying to do something relatively simple
+[10:44:35] <DaveMethvin> right
+[10:44:35] <tbranyen> i guess i'm just being picky
+[10:44:36] <tbranyen> :-p
+[10:44:50] <mikesherov> tbranyen: .html() DOES .empty().append()
+[10:44:51] <tbranyen> i'll try empty and append, if my events are still gone
+[10:44:56] <mikesherov> am I missing something?
+[10:45:05] <tbranyen> i'll complain more :-p
+[10:45:08] <DaveMethvin> i know .html() tries to do the right thing but again it's not a good idea to pass .html() something other than a string
+[10:45:17] <mikesherov> Yes yes
+[10:45:24] <tbranyen> yeah i'm agreeing with you on that, i think we can move past html method
+[10:45:33] <mikesherov> I know it isn't, in case we decide to put a bear that eats elements inside that function in the future
+[10:45:39] <DaveMethvin> ok so what are we disagreed on? :D
+[10:45:54] <mikesherov> I'm disagreeing on the fact that the problem can't be with cleanData
+[10:46:01] <ajpiano> it's pretty inconsistent that we *don't* support .html( element) fwiw
+[10:46:06] <mikesherov> there is obviously a problem with .empty().append()!
+[10:46:15] <mikesherov> AJPIANO, we do!
+[10:46:17] <ajpiano> but that's a separate discussion
+[10:46:21] <mikesherov> we just don't say we do
+[10:46:22] <DaveMethvin> yes
+[10:46:36] <ajpiano> mikesherov: i'm pretty sure we don't say that we support any undocumented signatures
+[10:46:39] <DaveMethvin> to be clear, it does work but it is not documented
+[10:47:00] <ajpiano> i am curious as to why we don't document it then,
+[10:47:03] <mikesherov> the point here is that while tbranyen thnks he's pointing out a bug with cleanData inside of .html, he's pointing out a bug with .empty().append() on an element
+[10:47:04] <ajpiano> i've been using it for years :x
+[10:47:15] <DaveMethvin> do we have a test case from tbranyen
+[10:47:36] <mikesherov> var el = $("<div/>"); el.bind("click", $.noop); parent.html(el); parent.html(el); // el events are now gone
+[10:47:53] <mikesherov> which would mean in reality, using supported signatures:
+[10:47:59] <DaveMethvin> my compiler says "parent is undefined"
+[10:48:15] <tbranyen> well you can't use gcc for this
+[10:48:16] <mikesherov> var el = $("<div/>"); el.bind("click", $.noop); parent.empty().append(el); parent.empty().append(el); // el events are now gone
+[10:48:25] <DaveMethvin> does anyone have a fiddle?
+[10:48:36] <mikesherov> tbranyen: DaveMethvin is snarkily saying, please provide a jsfiddle
+[10:48:40] <DaveMethvin> i mean, since .empty().append() is the same, that should break the same
+[10:48:41] <mikesherov> jinx
+[10:48:47] <tbranyen> i don't even know if it doesn't work yet!
+[10:48:51] <tbranyen> you guys are moving too fast
+[10:48:59] <mikesherov> Wait what?
+[10:49:14] <mikesherov> if you have an example when .html() is broken:
+[10:49:21] <mikesherov> then you have the other case
+[10:49:42] <mikesherov> and if you don't have a case where .html() is broken, then what the hell are we talking about?
+[10:49:52] <mikesherov> :-P
+[10:50:05] <mikesherov> Where is abbot and costello when you need them?
+[10:50:09] <tbranyen> yeah doesn't work, with empty().append() so i'll make you a test case
+[10:50:22] <mikesherov> Of course it doesn't
+[10:50:31] <mikesherov> because that's what .html() DOES!
+[10:50:54] <mikesherov> See, we have a real issue here: PEBCAK
+[10:51:35] <tbranyen> DaveMethvin: http://jsfiddle.net/YK6Wh/
+[10:51:39] <tbranyen> I hope that illustrates the issue
+[10:52:08] <mikesherov> now the problem becomes clear
+[10:52:12] <ajpiano> empty() ends up calling cleanData as well so
+[10:52:12] <mikesherov> look at .empty()
+[10:52:13] <ajpiano> yeah
+[10:52:19] <mikesherov> Right
+[10:52:25] <mikesherov> which includes all events
+[10:52:25] <DaveMethvin> oh well that's a different thing
+[10:52:28] <tbranyen> =)
+[10:52:34] <DaveMethvin> and it's doing it RIGHT
+[10:52:34] <tbranyen> DaveMethvin: want me to file a bug?
+[10:52:37] <DaveMethvin> nope
+[10:52:46] <mikesherov> it's doing the exact right thing
+[10:52:54] <mikesherov> preventing memory leaks
+[10:53:01] <DaveMethvin> there is only one el
+[10:53:05] <DaveMethvin> you appended to the doc
+[10:53:06] <tbranyen> correct
+[10:53:13] <DaveMethvin> then you are clobbering it, we remove the events
+[10:53:20] <DaveMethvin> you have kept a ref to it and reinsert it
+[10:53:21] <tbranyen> should i detach it between readding?
+[10:53:26] <DaveMethvin> but the events are gone
+[10:53:29] <DaveMethvin> yes
+[10:53:36] <tbranyen> boom
+[10:53:38] <tbranyen> thank you
+[10:53:45] <tbranyen> i just needed a workaround for my situation
+[10:54:04] <mikesherov> well, really, that was an issue for #jquery
+[10:54:11] <mikesherov> but it's OK, we had fun didn't we
+[10:54:27] <DaveMethvin> dammit i wanted to close something wontfix today
+[10:54:27] <tbranyen> lol i seriously doubt that would have been resolved intelligently in #jquery, and i rarely get a chance to talk with DaveMethvin
+[10:54:32] <tbranyen> haha
+[10:54:37] <mikesherov> we learned about supported apis
+[10:54:40] <ajpiano> lol mikesherov
+[10:54:43] <DaveMethvin> yeah
+[10:54:54] <mikesherov> and doing the right thing anyway with unsupported API's anyway
+[10:54:54] <DaveMethvin> i guard my apis closely
+[10:55:06] <mikesherov> APIs*
+[10:55:14] <DaveMethvin> there will be no abusing if the api parameters while *I* am watching
+[10:55:18] <tbranyen> :-p
+[10:55:19] <mikesherov> but your API did the right thing anyway
+[10:55:30] <ajpiano> DaveMethvin: better drink your own aPIS
+[10:55:34] <mikesherov> which is what I was randomly arguing about
+[10:55:35] <DaveMethvin> ok now i need to go back and fix the problem with cloned delegated events, which is why my ears perked up in the first place
+[10:56:26] <mikesherov> DaveMethvin: can you merge one pull request please...
+[10:56:38] <DaveMethvin> which one?
+[10:56:49] <DaveMethvin> hey i have to run for  a sec
+[10:57:02] <mikesherov> https://github.com/jquery/jquery/pull/664
+[10:57:03] <socialhapy> ★ Pull request on jquery by mikesherov (5d, 1h ago): too many undefs.
+[13:54:28] <DaveMethvin> rwaldron: you around?
+[13:58:05] <jqcommit> [jquery] dmethvin pushed 2 new commits to master: http://git.io/Vqmhog
+[13:58:05] <jqcommit> [jquery/master] Fix #11076. If .clone() won't delegate, we must remediate. - Dave Methvin
+[13:58:05] <jqcommit> [jquery/master] Fix #10878. Clear oldIE special change/submit flags on a clone. - Dave Methvin
+[14:03:56] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/fFv_bg
+[14:03:56] <jqcommit> [jquery/master] too many undefs. - Mike Sherov
+[14:13:39] <jq-jenkins> Project jQuery build #248: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery/248/
+[14:13:39] <jq-jenkins> * dave.methvin: Fix #11076. If .clone() won't delegate, we must remediate.
+[14:13:40] <jq-jenkins> * dave.methvin: Fix #10878. Clear oldIE special change/submit flags on a clone.
+[14:29:03] <jq-jenkins> Project jQuery build #249: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery/249/
+[14:29:04] <jq-jenkins> dave.methvin: too many undefs.
+[20:14:58] <Krinkle> Anyone here familiar with BrowserStack API ? I'm only getting 401 Unauthorized
+[20:15:08] <Krinkle> Do I need a special account or can I use my regular account
+[20:15:17] <Krinkle> jzaefferer:
+[20:16:35] <Krinkle> clarkbox: maybe
+[20:20:10] <clarkbox> yo
+[20:20:19] <clarkbox> do you have all the accounts
+[20:20:35] <clarkbox> only jquery1 account is working. scott deleted the rest
+[20:20:36] <Krinkle> I have 'a' browser stack account that has unlimited access
+[20:20:51] <Krinkle> there are special api accounts ?
+[20:20:58] <clarkbox> oh, you may need to request access
+[20:21:09] <clarkbox> is the account "jquery1"
+[20:21:23] <Krinkle> No, my regular browserstack account is krinklemail@gmail.com
+[20:21:53] <Krinkle> it has "Corporate Plan : Unlimited usage" though
+[20:22:05] <Krinkle> Name  : Krinkle (jQuery)
+[20:22:20] <Krinkle> Oh… wait lemme try using "Krinkle"
+[20:22:29] <Krinkle> aaaaah
+[20:22:41] <Krinkle> That's confusing, because I  use email to login to regular dashboard
+[20:22:44] <Krinkle> Works :)
+[20:23:04] <clarkbox> ok cool
+[20:23:08] <Krinkle> clarkbox: I'm working on unit testing for the Wikimedia Foundation / MediaWiki software
+[20:23:18] <clarkbox> let me know if you need the jquery account
+[20:23:26] <clarkbox> ill get you un/pw
+[20:23:47] <clarkbox> what are you using the API for?
+[20:25:07] <Krinkle> We've been using TestSwarm since day 1 and very happy with it, but although we've got sufficient number of swarmers with recent versions of browser, we lack anyone with FF7 / IE6/7 as main browser that is willing to donate resources via TestSwarm
+[20:25:18] <clarkbox> ah
+[20:25:27] <Krinkle> Initially when I signed up at BrowserStack this was not possible because of the 1 session and 5 minute limit.
+[20:25:48] <clarkbox> ahh, if youre using testswarm, i have a nice script that will help you out
+[20:26:03] <Krinkle> but reading the API documentation mentioning multiple workers and 1800second limit, that's a lot better
+[20:26:05] <clarkbox> its a node.js script
+[20:26:20] <clarkbox> ya we run this script every 5 min via cron
+[20:26:22] <Krinkle> yeah, I saw it (assuming you mean the one on github linked from API docs)
+[20:27:03] <clarkbox> it checks to see what testswarm needs, and what browserstack workers are already running, and only runs whats needed accordingly
+[20:27:13] <clarkbox> no this one is not up anywhere yet
+[20:27:15] <clarkbox> one min
+[20:27:18] <Krinkle> aha
+[20:27:44] <Krinkle> yeah, I'd prefer to let the community join and gain scores where possible, only use browserstack as fill-in so that we don't get behind too far.
+[20:28:41] <Krinkle> clarkbox: looks like swarm.jquery.org and swarm.jquery.org:8080 have been quiet though
+[20:28:51] <Krinkle> for about a week+ ?
+[20:29:19] * Krinkle joins
+[20:30:03] <clarkbox> ya there have been some problems with jenkins on that server
+[20:30:06] <clarkbox> http://pastebin.com/Skpqf2si
+[20:30:14] <clarkbox> ill have that in github in a few days
+[20:30:36] <clarkbox> youll also need to add some code to testswarm to add the "getneeded" call
+[20:30:55] <clarkbox> ill commit that code to the testswarm repo this weekend too
+[20:34:20] <Krinkle> clarkbox: so if nobody but browserstack is in the swarm with a certain browser, does it show up in get needed ?
+[20:34:55] <clarkbox> getneeded does not take in account current workers
+[20:35:22] <Krinkle> or rather, if swarm is needing IE6 and it joins a browserstack ie6 worker. and then I join with  one as well. Does the browserstack one ever leave ?
+[20:35:39] <clarkbox> so until the test is finished, getneeded will report all browsers
+[20:35:52] <clarkbox> no it wont leave
+[20:38:01] <clarkbox> here is getneeded
+[20:38:02] <clarkbox> http://pastebin.com/E3vcydFE
+[20:38:48] <Krinkle> clarkbox: I don't know nodeJS very well, but from that paste one would think run() is local to the TestSwarmBrowserStack scope, not outside of it where it is called now.
+[20:39:20] <Krinkle> what's up with that?
+[20:40:03] <clarkbox> ya that script is a work in progress
+[20:40:06] <Krinkle> ok
+[20:40:08] <Krinkle> np
+[20:40:20] <clarkbox> i didnt know node very well myself until i started writing this script
+[20:41:46] <clarkbox> oh ya that script is not even in running condition right now
+[20:41:51] <clarkbox> i just pasted it from my IDE
+[20:42:12] <clarkbox> in the middle of finishing it krinkle
+[20:42:20] <Krinkle> no
+[20:42:22] <Krinkle> problelm
+[20:42:51] <Krinkle> just thinking out loud, but perhaps create an "online" api instead of "getneeded". And then compare the internal map of what browsers it wants to be online to that, and if there's a few with >1 online that also has workers, terminate the workers. and those with 0 online, start a worker.
+[20:43:20] <Krinkle> what do you think?
+[20:44:23] <clarkbox> ya that would be fine. we wanted to use browserstack over community... we are having a tough time with unreliable workers, and lots of tests in jq-ui need focus, which was causing lots of false fails
+[20:44:43] <clarkbox> feel free to modify get needed to take in extra params to work that way tho
+[20:48:32] <Krinkle> I actually feel the same way
+[20:49:16] <clarkbox> maybe only get browserstack to open the unpopular browsers
+[20:49:26] <clarkbox> so community can get points
+[20:49:38] <Krinkle> we had some folks join with "Epiphany", unintentionally circumventing TestSwarm's user agent filter (that normally only accepts browsers that are supported and wanted by the test run). Possible because Epiphany's user agent contains Safari/(webkit build)
+[20:49:46] <Krinkle> and Epiphany had bugs that Safari and Chrome didn't have
+[20:50:08] <Krinkle> also some bugs from IE9 swarmers that had a broken DLL file somewhere
+[20:50:20] <Krinkle> messing up test results
+[20:50:31] <clarkbox> ya. no point in running tests if your running them on broken browsers
+[20:51:21] <Krinkle> by doing it your way, there'd be sometimes a browserstack and a community browser, which is fine. Because if the community browser is doing good then the browserstack browser will no longer have to run it, and if the other one fails, testswarm will still run two more attempts in other instances (i.e. browserstack).
+[20:51:42] <clarkbox> yup
+[20:58:55] <Krinkle> oh, nice. got my first api-booted browser in the swarm :)
+[21:09:44] <clarkbox> congratulations!

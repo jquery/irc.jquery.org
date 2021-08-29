@@ -1,0 +1,232 @@
+[11:01:57] <arschmitz> agcolom: gabriel_schulhof: cgack: sfrisk: arthurvr: Meeting time
+[11:02:04] <sfrisk> allo
+[11:02:08] <gabriel_schulhof> Hey!
+[11:02:08] <agcolom> hello!
+[11:02:08] <arthurvr> Hi!
+[11:02:16] <cgack> howdy
+[11:04:39] <jasperdegroot> hi all
+[11:05:33] <arschmitz> ah agenda is freaking out
+[11:05:39] <arschmitz> keeps saying unavailable and reloading
+[11:06:19] <arschmitz> can anyone else get to it?
+[11:06:25] <jasperdegroot> arschmitz: I don't see it in my Google Drive
+[11:06:35] <jasperdegroot> was about to ask for the link
+[11:06:38] <arthurvr> I can access it
+[11:06:42] <arthurvr> https://docs.google.com/spreadsheets/d/1xGEVtftLDEHAA37YYlA23J_EZwIRyMUaseBY790byPM/edit#gid=2059624658
+[11:07:13] <arschmitz> weird guess its just me
+[11:07:23] <arschmitz> agcolom: can you get to it you normally update it anyway?
+[11:07:27] <gabriel_schulhof> I'm good with it too.
+[11:07:51] <agcolom> I'm good. I'd be happy if Gabriel can update the more technical stuff though
+[11:08:11] <arschmitz> Sure anyone who can feel free to update based on what w talk about
+[11:08:17] <arschmitz> and once i can get it ill check everything
+[11:08:24] <agcolom> sounds goof
+[11:08:28] <agcolom> good ^
+[11:08:36] * agcolom can't type!
+[11:08:56] <gabriel_schulhof> I've added a few items.
+[11:09:27] <gabriel_schulhof> Shall I copy the items into the channel?
+[11:09:32] <gabriel_schulhof> One-by-one.
+[11:09:34] <gabriel_schulhof> I mean.
+[11:09:43] <arschmitz> why dont we go through what i know
+[11:09:57] <arschmitz> and then anyone that has anything we can add do those after i dont have much
+[11:10:00] <gabriel_schulhof> OK. I can keep an eye on the agenda.
+[11:10:07] <arschmitz> gabriel_schulhof: thank you
+[11:10:11] <arschmitz> Ok so 1.5
+[11:10:15] <arschmitz> classes
+[11:10:35] <arschmitz> the last update was pulling deps from wrong branch
+[11:10:40] <arschmitz> so it did not have new api
+[11:11:04] <arschmitz> thats been fixed in both the ui-1-12 and test fix branches
+[11:11:43] <cgack> that explains a lot ;)
+[11:15:18] <arschmitz> so in other 1.5 stuff
+[11:15:39] <arschmitz> we have had a steady flow of fixes for old bugs from gabriel_schulhof
+[11:15:55] <arschmitz> which is nice to iron out some old wrinkles
+[11:16:22] <gabriel_schulhof> Yeah, my JS-fu has certainly improved over time, so now I have a better handle on these things.
+[11:17:38] <arschmitz> gabriel_schulhof: any thing to discuss on those?
+[11:18:24] <gabriel_schulhof> Lemme check ...
+[11:18:43] <gabriel_schulhof> animationComplete could use a remove method.
+[11:19:07] <gabriel_schulhof> Right now we do some juggling to render a stale .animationComplete() handler $.noop.
+[11:19:17] <gabriel_schulhof> This would not be necessary if we could just remove the handler.
+[11:19:33] <gabriel_schulhof> We can do this with $.data( "mobile-events" ) like we do with the swipe event.
+[11:19:51] <arschmitz> do you have a link to the juggleing?
+[11:19:56] <gabriel_schulhof> Maybe something like .animationComplete( callback, type, fallbackTime, remove )
+[11:20:06] <gabriel_schulhof> Yeah, jussec ...
+[11:20:43] <gabriel_schulhof> https://github.com/jquery/jquery-mobile/pull/7902/files#diff-d08fdc724bcb00aacb41795a7921fbafR194
+[11:21:22] <gabriel_schulhof> ... and in popup: https://github.com/jquery/jquery-mobile/blob/31cc90ddc8c051cb01db46e270478c12be9685bb/js/widgets/popup.js#L519
+[11:21:48] <gabriel_schulhof> The bottom line is that inside the .animationComplete() handler you need to check whether this handler is still relevant.
+[11:22:13] <gabriel_schulhof> ... because a second animation can be started before the first one has a chance of completing.
+[11:22:38] <gabriel_schulhof> ... and when the first one finally gets called, it may end up clobbering the final state you want to achieve.
+[11:23:04] <arschmitz> gotcha
+[11:23:15] <arschmitz> ok so yes we need a way to remove it
+[11:23:43] <gabriel_schulhof> What do you think about the API? A forth boolean parameter which, if true, will remove the callback?
+[11:24:45] <gabriel_schulhof> TBH, this is beginning to look more and more like a case for $.event.special.animationcomplete ...
+[11:25:08] <arschmitz> gabriel_schulhof: i would not add another argument
+[11:25:12] <arschmitz> it should be another function
+[11:25:25] <arschmitz> removeAnimationComplete();
+[11:25:30] <arschmitz> like on and off
+[11:25:45] <gabriel_schulhof> OK, so $.fn.removeAnimationComplete( callback )?
+[11:25:52] <arschmitz> yeah
+[11:25:57] <gabriel_schulhof> OK.
+[11:26:11] <gabriel_schulhof> I'll file an issue.
+[11:26:19] <arschmitz> sounds good
+[11:26:51] <gabriel_schulhof> The other issue I have is: Should I add tests to make sure the library is built properly?
+[11:27:00] <gabriel_schulhof> Like I did in that one PR.
+[11:27:03] <arschmitz> no
+[11:27:15] <arschmitz> this is in the process of being addressed in ui already
+[11:27:23] <arschmitz> once its setteled there we will adopt
+[11:27:31] <gabriel_schulhof> OK.
+[11:27:41] <arschmitz> basicly we should be running the full test suite on an amd build
+[11:27:41] <gabriel_schulhof> Then I'll remove that test.
+[11:27:44] <arschmitz> and a regular build
+[11:27:52] <gabriel_schulhof> Oh, OK.
+[11:28:08] <arschmitz> and if the tests pass on both we are good
+[11:28:13] <arschmitz> and if they dont there is an issue
+[11:28:16] <gabriel_schulhof> When you say amd, do you mean just the modules that are needed for the test?
+[11:28:39] <arschmitz> gabriel_schulhof: https://github.com/jquery/jquery-ui/pull/1335
+[11:28:44] <jasperdegroot> that should also take care about some issues we had with the Download Builder because different order of CSS
+[11:29:04] <jasperdegroot> well, take care, make us aware I mean
+[11:29:34] <arschmitz> jasperdegroot: under the hood when we switch builders it will also start using amd for the css
+[11:29:52] <arschmitz> we will still use comments to define the amd for the css
+[11:30:12] <arschmitz> but they will be parsed into amd defines in the builder
+[11:30:13] <jasperdegroot> yes
+[11:30:48] <arschmitz> so then it will always be the same
+[11:31:23] <jasperdegroot> that's great
+[11:32:45] <agcolom> gabriel_schulhof: could you please check my note in C14?
+[11:33:04] <gabriel_schulhof> OK.
+[11:33:47] <gabriel_schulhof> agcolom: ✓
+[11:34:00] <agcolom> thx :-) I love that tick!
+[11:34:09] <gabriel_schulhof> :)
+[11:35:28] <arschmitz> ok next
+[11:35:35] <arschmitz> anything else?
+[11:36:14] <gabriel_schulhof> Checking ...
+[11:36:27] <gabriel_schulhof> RTL ... autoinit ...
+[11:36:37] <gabriel_schulhof> data- attribute name space
+[11:36:53] <gabriel_schulhof> I guess pointer events should be removed until they become relevant to us.
+[11:36:56] <arschmitz> RTL a call is being organized
+[11:37:05] <gabriel_schulhof> ... and Chassis too, right?
+[11:37:06] <arschmitz> nothing new
+[11:37:12] <jasperdegroot> yeah we already decided that
+[11:37:14] <arschmitz> gabriel_schulhof: yes we discussed that last week
+[11:37:19] <jasperdegroot> (re: PEP and Chassis)
+[11:37:22] <gabriel_schulhof> OK.
+[11:37:24] <gabriel_schulhof> I'll remove it.
+[11:37:29] <gabriel_schulhof> them both, I mean.
+[11:37:37] <arschmitz> ok
+[11:37:56] <gabriel_schulhof> *wipe hands*
+[11:38:08] <arschmitz> Ok something not for mobile yet
+[11:38:16] <arschmitz> but that will be coming out way
+[11:38:22] <arschmitz> is rendering performance testing
+[11:38:32] <arschmitz> im working on this for chassis right now
+[11:38:54] <arschmitz> http://104.236.81.132:5984/css-perf/_design/site/index.html#/page-select
+[11:38:57] <gabriel_schulhof> Oooh! Nice!
+[11:39:19] <arschmitz> that compares the rendering performance of the css for buttons
+[11:39:31] <arschmitz> in ui mobile bootstrap and foundation
+[11:39:45] <jasperdegroot> certainly nice
+[11:39:56] <jasperdegroot> was only looking for any easy way to compare
+[11:40:23] <arschmitz> jasperdegroot: https://github.com/axemclion/perfjankie/issues/19
+[11:40:38] <jasperdegroot> :)
+[11:41:05] <arschmitz> the creator has expressed an intreset in working with us several time
+[11:41:11] <jasperdegroot> great
+[11:41:13] <arschmitz> so im hopeful he will address the issues i filed
+[11:41:51] <arschmitz> this also does profiling of things like event handers
+[11:41:55] <arschmitz> and other js stuff
+[11:42:04] <arschmitz> so it will be very useful in general
+[11:42:27] <gabriel_schulhof> We also need commit-to-commit performance comparisons
+[11:42:30] <arschmitz> for example this would have caught the perf regression from fixed toolbars
+[11:42:35] <arschmitz> gabriel_schulhof: it has that
+[11:42:39] <jasperdegroot> arschmitz: is it very different from the way Topcoat was doing telemetry tests?
+[11:42:42] <gabriel_schulhof> Oh, sweet!
+[11:42:51] <gabriel_schulhof> Where does it store the data?
+[11:42:55] <arschmitz> look at any test you will see a graph over time
+[11:42:59] <arschmitz> it uses a couchdb
+[11:43:56] <arschmitz> the pages in that link are 1000 buttons
+[11:44:06] <arschmitz> with every possible combination of options
+[11:44:41] <arschmitz> the test pages are all auto generated
+[11:44:42] <gabriel_schulhof> Oh, the runs at the bottom, I guess that correlates to commit ids.
+[11:44:55] <arschmitz> gabriel_schulhof: no it doesnt
+[11:45:00] <arschmitz> but in a ci setup it coud
+[11:45:26] <arschmitz> it wont be able to use travis though
+[11:45:34] <arschmitz> we will need to use jankins probably
+[11:46:16] <gabriel_schulhof> perfJankie Jenkins? ... *sigh*
+[11:46:25] <arschmitz> lol
+[11:46:35] <arschmitz> its because its VERRY VERY enviroment dependant
+[11:46:51] <jasperdegroot> :)
+[11:46:53] <arschmitz> if i run it on an external monitor vs built in even makes a difference
+[11:46:58] <gabriel_schulhof> Oh, I figured as much ... the achilles' heel of perf testing is the platform dependence.
+[11:47:22] <arschmitz> which means i dont think we can rely on like browserstack or saucelabs either
+[11:47:32] <gabriel_schulhof> You have to keep it consistent with time.
+[11:47:47] <arschmitz> because those have load variences
+[11:48:05] <gabriel_schulhof> Yeah. You need a dedicated server doing nothing else.
+[11:48:13] <arschmitz> which we can do with jenkins
+[11:48:35] <arschmitz> so i just wanted to mention this here
+[11:48:44] <arschmitz> we wont be doing anything until chassis irons things out
+[11:48:55] * agcolom gotta run... catch you later
+[11:48:59] <gabriel_schulhof> Who's gonna provide the infra?
+[11:49:02] <gabriel_schulhof> agcolom: K L8R
+[11:49:14] <arschmitz> gabriel_schulhof: well chassis is a foundation project
+[11:49:17] <arschmitz> so its all the same
+[11:49:33] <arschmitz> I already have a server set up hosting the couchdb app
+[11:49:56] <gabriel_schulhof> OK, so the machine will be owned by the Foundation. Cool!
+[11:50:24] <arschmitz> gabriel_schulhof: yes we already have a jenkins server
+[11:50:41] <arschmitz> and the couchdb app is on a new server because debian and couch dont play nice
+[11:51:12] <arschmitz> but we dont need to worry about any of this
+[11:51:25] <gabriel_schulhof> Naw, just curious.
+[11:51:29] <arschmitz> chassis / i will deal with all of that for that
+[11:51:36] <arschmitz> and we will jsut plug in when its ready lol
+[11:51:45] <arschmitz> same with ui
+[11:52:08] <arschmitz> there is talk of making a seperate project just for doing project comparision benchmarks
+[11:52:25] <arschmitz> not sure yet though
+[11:52:37] <gabriel_schulhof> What are "project comparison benchmarks"?
+[11:52:52] <arschmitz> like the page i posted
+[11:53:03] <arschmitz> comparing component implementations from different frameworks
+[11:53:29] <gabriel_schulhof> Oh, I see ...
+[11:53:38] <arschmitz> like the perf for ui selectmenu vs bootstrap selectmenu vs foundation selectmenu
+[11:53:41] <arschmitz> same as the button
+[11:53:49] <arschmitz> for both the css and js
+[11:54:06] <arschmitz> for example sizzle already does this
+[11:54:14] <arschmitz> for different selector engines
+[11:55:03] <arschmitz> ok last thing i have
+[11:55:08] <arschmitz> tests
+[11:55:27] <arschmitz> In the past we have written mostly functional tests with some unit tests
+[11:55:41] <arschmitz> UI writes essentially entirely functional tests
+[11:56:21] <arschmitz> I would like to see us focus on functional tests as i think they best suite the type of product we are creating
+[11:56:34] <gabriel_schulhof> Yeah, I'm also more of a fan of functional tests rather than unit tests, because unit tests are too easily tripped up by code changes.
+[11:56:35] <arschmitz> The important thing we want to be testing is that a problem is actually fixed
+[11:56:49] <gabriel_schulhof> Yeah.
+[11:56:50] <arschmitz> not that some function is no longer called
+[11:57:14] <arschmitz> So going forward when we are working on tests lets focus on functional tests
+[11:57:44] <arschmitz> also related to how we are writing out tests
+[11:58:01] <arschmitz> With the classes work in ui
+[11:58:18] <arschmitz> there has been a lot of debate on the proper way to check the presence of classes
+[11:58:29] <arschmitz> you can do a whole bunch of .hasClass checks
+[11:58:47] <arschmitz> you can do .attr( "class" )
+[11:59:00] <arschmitz> you can do .is( )
+[11:59:07] <gabriel_schulhof> I vote hasClass.
+[11:59:11] <arschmitz> hasClass is ugly because it makes a bunch
+[11:59:20] <arschmitz> but ti has the best output for failures
+[11:59:47] <arschmitz> and its not going to be broken by things like the order of classes being changed like .attr()
+[11:59:57] <gabriel_schulhof> Exactly.
+[12:00:03] <arschmitz> or by adding an addition class in the markup
+[12:00:05] <gabriel_schulhof> If .hasClass() get ugly you can use .is()
+[12:00:09] <arschmitz> which is perfectly valid to do
+[12:00:16] <arschmitz> gabriel_schulhof: the problem with .is
+[12:00:23] <arschmitz> is the failure output is useless
+[12:00:33] <arschmitz> you have no idea if there is one missing
+[12:00:34] <arschmitz> or all
+[12:00:37] <arschmitz> or 2
+[12:00:43] <arschmitz> or which ones
+[12:01:04] <gabriel_schulhof> You can put the .attr() in the third parameter to deepEqual()
+[12:01:31] <arschmitz> after a couple weeks of debate jzaefferer scott_gonzalez and i all agreed on many .hasClass
+[12:01:41] <jasperdegroot> anything left on the agenda? I have to go
+[12:02:04] <gabriel_schulhof> Nope.
+[12:02:07] <arschmitz> so id like to see the same here as we add tests for classes
+[12:02:15] <gabriel_schulhof> OK.
+[12:02:18] <arschmitz> these are tests so being a bit verbose is ok
+[12:02:23] <arschmitz> and file size does not matter
+[12:02:37] <gabriel_schulhof> Exactly. We have a pile of ok()s in our tests.
+[12:02:37] <cgack> hasClass it is
+[12:02:49] <gabriel_schulhof> Unearthing them as I revisit old bugs.
+[12:03:02] <arschmitz> yeah those should be avoided too
+[12:03:32] <arschmitz> thats the end of our time
+[12:03:37] <arschmitz> any one have anything else?
+[12:03:47] <gabriel_schulhof> I'm done.
+[12:04:17] <arschmitz> ok see everyone back on -dev
+[12:04:17] <cgack> i'm good
+[12:04:21] <gabriel_schulhof> K L8R

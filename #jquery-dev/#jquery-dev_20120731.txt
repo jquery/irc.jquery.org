@@ -1,0 +1,206 @@
+[01:09:58] <Krinkle> gnarf: Please put up a pull-request within 24h if you think the testswarm-browserstack refactoring you mentioned is worth it
+[01:09:58] <b-ot> Krinkle, you have one new message, just say “read” to me when you wish to read it.
+[01:10:33] <Krinkle> I need to get those 4 bugs fixed before Friday, I've scheduled it for Tomorrow at Wikimedia. If I don't see anything by then, I'll give it a shot :)
+[01:11:09] <Krinkle> bot-t: read
+[01:11:12] <bot-t> Krinkle, Uncaught TypeError: Cannot read property - Bug Tracker - jQuery - Opened 11 months ago http://bugs.jquery.com/ticket/9716
+[01:11:15] <Krinkle> b-ot: read
+[01:11:16] <b-ot> Krinkle, from jzaefferer, 2d 21h ago: gnarf I've commited that bootstrap.css fix to restore our testswarm instance to a regular checkout from master. Can still get rid of the CSS on the run page or the run page itself later
+[02:22:39] <jqcommit> [api.qunitjs.com] jzaefferer pushed 1 new commit to master: http://git.io/MDw2xw
+[02:22:39] <jqcommit> [api.qunitjs.com/master] Update to latest grunt-jquery-content, fix config-sample json - Jörn Zaefferer
+[03:23:58] <jaubourg> https://developers.google.com/speed/libraries/devguide <= has jQuery UI been removed from the google CDN?
+[04:37:22] <jzaefferer> jaubourg: probably removed it from that listing as they're not uploading new releases, e.g. 1.8.22 is missing, but 1.8.21 is up: http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.21/themes/base/jquery-ui.css
+[05:02:36] <scott_gonzalez> WTF?
+[05:02:43] <scott_gonzalez> paul_irish: We need to talk :-/
+[05:30:29] <gibson042> .
+[06:11:24] <socialhapy> ★ Tweet from jquerymobile: Putting the finishing touches on jQuery Mobile 1.2 alpha now…releasing very soon. ★ http://bit.ly/OznkgT
+[08:48:16] <gnarf> b-ot tell Krinkle - I'd reply but you don't have permanent IRC :) -- I think its worth it, it seems to be running better, however it isn't in any state to "pull request" as the username and passwords / config / etc are right in the top of the file... The code is sitting on jq03.jquery.com in /usr/local/bin/tools/testswarm-browserstack as "gnarf-test.js" if you want to reconcile the rewrite into something "reusable"
+[08:48:16] <b-ot> gnarf, I’ll tell Krinkle about that.
+[08:48:21] <b-ot> gnarf, memorised “code”.
+[08:48:26] <b-ot> gnarf, no YOU want to reconcile the rewrite into something "reusable"
+[08:48:28] <gnarf> b-ot: forget code
+[08:48:31] <b-ot> gnarf, I have forgotten “code”.
+[09:55:53] <phuff> I'm trying to understand how .animate, queues and $.when() work
+[09:56:38] <phuff> I think I get the basic gist, but I don't see the place where a deferred gets added to the element's ._data()
+[09:56:51] <phuff> Anybody know how that works and have some time to help me see what I'm missing?
+[10:05:52] <gnarf> phuff: ?
+[10:06:05] <gnarf> phuff: are you talking about .fn.promise() ?
+[10:06:24] <phuff> gnarf: one sec
+[10:06:42] <phuff> gnarf: I think so, yeah.
+[10:06:51] <phuff> the one that jQuery uses in $.when()
+[10:07:17] <phuff> so if you go like this: $.when($('div.myDiv').fadeIn())
+[10:07:33] <gnarf> yeah, that uses .promise()
+[10:07:33] <phuff> the promise that gets called there
+[10:07:35] <gnarf> what about it?
+[10:07:49] <phuff> Well, I see the queue popping stuff that happens at the end of .animate
+[10:08:34] <gnarf> phuff: also, are you talking in the 1.7 code or the 1.8 code
+[10:08:36] <gnarf> cuz i rewrote that
+[10:08:41] <phuff> 1.7 code
+[10:08:50] <phuff> I'm just tryping to replicate the existing 1.7 code in a plugin that we're using
+[10:08:51] <gnarf> in 1.8 it hooks into "queueHooks" https://github.com/jquery/jquery/blob/master/src/queue.js#L115-141
+[10:08:53] <phuff> which isn't behaving properly.
+[10:09:20] <gnarf> phuff: https://github.com/jquery/jquery/blob/1.7.2/src/queue.js#L148-178
+[10:09:37] <gnarf> thats where it creates a deferred that is added to _data
+[10:09:57] <phuff> so at the end of animate, eventually handleQueueMarkDefer gets called which I think is what actually makes the defer fire
+[10:10:07] <phuff> But I don't see the line that actually ads the defer to _data
+[10:10:12] <gnarf> ^^^^
+[10:10:16] <gnarf> phuff: its in $.fn.promise()
+[10:10:25] <phuff> Right, but where?
+[10:10:33] <phuff> line 171?
+[10:10:50] <gnarf> https://github.com/jquery/jquery/blob/1.7.2/src/queue.js#L171
+[10:10:58] <gnarf> it adds a callbacks
+[10:11:11] <gnarf> that gets "fire"ed whenever the queue is empty and all animations complete
+[10:11:15] <phuff> Ok
+[10:11:29] <gnarf> which calls "https://github.com/jquery/jquery/blob/1.7.2/src/queue.js#L162-166
+[10:11:30] <phuff> So something about our ghetto plugin isn't hitting that line then probably.
+[10:11:39] <phuff> Right.
+[10:11:41] <phuff> I get that part
+[10:11:52] <gnarf> phuff: lets see the plugin?
+[10:12:00] <gnarf> phuff: my suggestion - don't use $.fn.promise
+[10:12:06] <gnarf> its black magic ;)
+[10:12:20] <phuff> Ha ha ha
+[10:12:23] <gnarf> even though $.fn.promise() was my idea, i hate its implementation
+[10:12:27] <phuff> https://gist.github.com/3210917
+[10:12:29] <phuff> that's the original
+[10:12:37] <phuff> Which doesn't work with $.when()
+[10:12:43] <phuff> because it doesn't add anything to the queue
+[10:12:55] <gnarf> phuff: okay, since nothing is actually "animating" on the element
+[10:13:00] <phuff> Right
+[10:13:00] <gnarf> it doesn't do shit with $.when
+[10:13:02] <gnarf> thats the issue
+[10:13:08] <phuff> So what I did was modfiy it.
+[10:13:12] <phuff> Let me paste in my modifications
+[10:13:42] <gnarf> phuff: you probably REALLY want to look at all the new stuff I did in 1.8 and update this plugin to work with it ;)
+[10:13:57] <gnarf> cuz i bet it works right in 1.8
+[10:14:10] <gnarf> since it now properly uses queue triggers instead of animate based triggers
+[10:14:22] <phuff> https://gist.github.com/3218626
+[10:14:44] <phuff> So I mimic the doAnimate()
+[10:14:48] <phuff> and added things to the queue like .animate()
+[10:14:58] <phuff> So at the end of the animation, the timeout calls .complete properly
+[10:15:21] <gnarf> phuff: but you don't have any functions in jQuery.timers
+[10:15:23] <phuff> But then for some reason, there is no callbacks on the object when handleMarkQueueDefer gets called finally.
+[10:15:38] <gnarf> phuff: so .fn.promise doesn't know you are animating anything
+[10:15:56] <gnarf> phuff: mind testing it against 1.8 RC1 - because it might not be an issue
+[10:16:11] <phuff> Yeah, problme of course being that it'll probably make all our other code barf ;)
+[10:16:25] <gnarf> phuff: https://gist.github.com/54829d408993526fe475
+[10:16:26] <phuff> This is the beginning of my attempt to reign things in :)
+[10:16:45] <gnarf> phuff: i hope it doesn't make anything break, if it does - we want to know about it before we release 1.8 anyway
+[10:16:52] <phuff> k
+[10:17:04] <phuff> Which .timers are you talking about?
+[10:17:24] <gnarf> phuff: jQuery.timers = the actual functions that are called every frame responsible for advancing the animation
+[10:17:50] <phuff> Ok.  Where is .fn.promise checking for those?
+[10:19:42] <gnarf> phuff: actually its probably the _mark
+[10:19:44] <gnarf> i'm not really sure
+[10:19:49] <gnarf> this code was very very confusing in 1.7
+[10:19:59] <gnarf> it took me like 3 tries to rewrite it properly
+[10:20:03] <phuff> Ha ha
+[10:20:04] <phuff> Okay
+[10:20:14] <phuff> Where's a good place to try 1.8 from?
+[10:20:15] <gnarf> because there a) weren't any good unit tests, b) it wasn't very well documented what any of this shit did
+[10:20:29] <phuff> gnarf: Yeah, I've spent the last day trying to understand this.
+[10:20:36] <phuff> gnarf: And I'm still relatively mystified.
+[10:20:37] <phuff> :)
+[10:20:46] <phuff> I mean, I'm a jquery internals n00b
+[10:20:49] <gnarf> phuff: http://code.jquery.com/jquery-1.8rc1.js
+[10:21:58] <gnarf> phuff: the new promise stuff is tied in via the queue
+[10:22:03] <phuff> k
+[10:22:10] <gnarf> where the old stuff seemed to be hacked in inside of animate
+[10:22:23] <phuff> So should my new code that pops things in the queue be enough?
+[10:22:36] <phuff> (i.e. https://gist.github.com/3218626)
+[10:22:46] <gnarf> phuff: you might want to look at "prefilters" for animate... you could make your plugin actually override what jQuery normally does for an animation
+[10:22:50] <phuff> Or should I have to modify it?
+[10:22:54] <phuff> k
+[10:22:58] <gnarf> phuff: yeah - if its a "queue" function, it should work
+[10:23:09] <phuff> (It's Aza Raskin's original plugin)
+[10:23:26] <gnarf> phuff: or even jQuery.animate( props, { css: true, duration: 1000 });
+[10:23:38] <phuff> Yeah
+[10:23:48] <phuff> Does that work in 1.8?
+[10:24:00] <gnarf> phuff: if you write the prefilter to handle "css: true" sure
+[10:24:02] <phuff> to do css animations instead of javascript ones?
+[10:24:05] <phuff> ah :)
+[10:24:05] <phuff> Heh
+[10:24:18] <gnarf> I was planning on doing it at some point down the line
+[10:24:28] <gnarf> if you decide to do it, be sure to CC me on its release ;)
+[10:27:01] <gnarf> also phuff - 1.8 has much better vendor prefix detection - you shouldn't need to specifiy -moz and -webkit
+[10:27:50] <phuff> Ha okay :)
+[10:46:22] <phuff> gnarf: for the record, that plugin didn't work with 1.8.rc1
+[12:15:05] <Deele> hello
+[12:15:24] <Deele> I get constantly jquery.js (line 355) error "Exposing chrome JS objects to content without __exposedProps__ is insecure and deprecated. See https://developer.mozilla.org/en/XPConnect_wrappers for more information."
+[12:15:44] <Deele> is it "ok" or should I fail a bug report?
+[12:15:47] <Deele> file*
+[13:12:23] <scott_gonzalez> paul_irish: ping
+[13:20:33] <scott_gonzalez> timmywil: Shouldn't this be $.isFunction()? https://github.com/jquery/jquery/blob/master/src/event.js#L942
+[13:21:08] <scott_gonzalez> or jQuery.type()
+[13:24:45] <timmywil> yea technically. run into a problem?
+[13:29:38] <scott_gonzalez> Nope. I just noticed it while debugging something.
+[14:18:29] <gnarf> Krinkle: did you get my b-ot message yet?
+[14:18:39] <Krinkle> maybe ?
+[14:18:39] <b-ot> Krinkle, you have one new message, say “read” to me when you wish to read it.
+[14:18:43] <Krinkle> b-ot: read
+[14:18:44] <b-ot> Krinkle, from gnarf, 5h 30m ago: - I'd reply but you don't have permanent IRC :) -- I think its worth it, it seems to be running better, however it isn't in any state to "pull request" as the username and passwords / config / etc are right in the top of the file... The code is sitting on jq03.jquery.com in /usr/local/bin/tools/testswarm-browserstack as "gnarf-test.js" if you want to reconcile the rewrite into something "reusable"
+[14:19:16] <Krinkle> we're already working on it - deadline moved up, sorry :)
+[14:19:19] <gnarf> aka - i think its worth basing some work on it if you're attacking a rewrite
+[14:19:31] <gnarf> check it out
+[14:19:34] <Krinkle> I'll grab it and put it on the table
+[14:19:36] <gnarf> might still save you some time
+[14:19:38] <Krinkle> thx!
+[14:20:06] <Krinkle> definitly
+[14:20:54] <gnarf> Krinkle: did something change recently with swarm btw?
+[14:21:02] <gnarf> we seem to have a lot of tests stuck in a "running" state now
+[14:21:05] <Krinkle> I haven't touched the new server at all
+[14:21:07] <gnarf> http://swarm.jquery.org/user/jqueryui
+[14:21:59] <gnarf> Krinkle: hrm, i wonder how this started happening then
+[14:22:10] <gnarf> are those waiting for reruns maybe?
+[14:22:13] <Krinkle> what's with the text? it looks so clownly / out of balance
+[14:22:15] <gnarf> we upped the reruns i think...
+[14:22:18] <Krinkle> did bootstrap update?
+[14:22:31] <Krinkle> gnarf: click them and find out
+[14:22:33] <gnarf> Krinkle: 14px font-size to fix that issue...
+[14:22:39] <Krinkle> http://swarm.jquery.org/result/121326
+[14:22:43] <Krinkle> Started: 6 horus ago
+[14:22:45] <Krinkle> I doubt it
+[14:23:01] <Krinkle> Maybe someone forgot to install the cron?
+[14:23:07] <gnarf> Krinkle: thats possible :)
+[14:23:28] <Krinkle> I'm pretty sure this is because the cleanup cron doesn't run
+[14:23:33] <Krinkle> that will break all sorts of things
+[14:23:44] <Krinkle> especially in a highly active swarm with automated clients and recovery
+[14:23:56] <gnarf> curl -s "http://swarm.jquery.org/api.php?action=cleanup" ?
+[14:24:23] <gnarf> Krinkle: it was copied over, but clark had commented things until we turned them on, and I never remembered to turn it on
+[14:24:34] <gnarf> Krinkle: thanks for debugging that ;)
+[14:24:49] <Krinkle> Yep, that's it
+[14:25:10] <Krinkle> and please do let it write (not append) to a log file somewhere so that it can be easily seen what it outputs and when it last ran
+[14:25:15] <Krinkle> (just like I set it up at the old server)
+[14:25:31] <gnarf> Krinkle: yeah - i had the same cron entry, with the > /tmp....
+[14:25:44] <gnarf> Krinkle: just had a "#" in front of it :(
+[14:26:10] <Krinkle> it used to be like * curl -s http://swarm.jquery.org/api.php?action=cleanup > /srv/swarm.jquery.org/logs/testswarm-api-cleanup.log 2>&1
+[14:26:25] <gnarf> i think we moved the log to /tmp
+[14:26:32] <gnarf> or clark did
+[14:27:01] <Krinkle> I heard the paths were changed (i.e. instead of ./tools ./logs ./httpd.conf in each /srv/ dir it is now organized by type instead of by project)
+[14:27:30] <gnarf> a lot of the paths changed
+[14:27:45] <Krinkle> anyway, that build looks like it has been fixed
+[14:27:50] <gnarf> most of the log files went into /var/log/
+[14:28:05] <gnarf> also /srv/ is symlinked to /var/www
+[14:28:10] <gnarf> but /var/www is what i've been using
+[14:28:10] <Krinkle> http://swarm.jquery.org/result/121326 now says "Client Lost" (which was determined by the clean up script)
+[14:28:18] <Krinkle> and http://swarm.jquery.org/job/433 is all green :)
+[14:29:07] <gnarf> Krinkle: I'm waiting with bated breath for this mystical node swarm ;)
+[14:29:56] <gnarf> Krinkle: and yeah, the font-size thing was kinda lame, i was hoping that someone would change that in a different place than bootstrap.css
+[14:30:12] <gnarf> also, if things look out of place, stop using px - switch to em ;)
+[14:30:43] <Krinkle> the bootstrap fix is fine for now, if that fixes the iframe bug, fine by me. In testswarm-next we can just revert that
+[14:31:07] <gnarf> Krinkle: yeah - i was hoping to not make the font look clowny everywhere else too
+[14:31:08] <gnarf> ;)
+[14:34:18] <nmeagher> I need help with using fadeIn with addClass()
+[14:34:22] <nmeagher> http://jsbin.com/ikinuh/1/
+[14:34:24] <nmeagher> There's my code
+[14:34:39] <nmeagher> I want it to fade the other class instead of just toggling, how can I do this?
+[14:40:09] <Krinkle> wee. github has partial outage
+[14:40:11] <Krinkle> (notifications are screwed up)
+[14:40:12] <Krinkle> It feels good actually
+[14:40:13] <Krinkle> it was going too well at github :P
+[14:51:03] <gnarf> Krinkle: i ran into that too
+[14:51:07] <gnarf> debated tweeting them
+[14:51:17] <gnarf> "twitter driven development" after all
+[14:52:29] <Krinkle> the issue was already recognized on status.github.com when I ran into it
+[16:23:53] <Krinkle> krinkle_
+[16:24:01] <Krinkle> .
+[16:24:08] <Krinkle> .
+[17:36:35] <Krinkle> gnarf: Bounce bounce bounce, over.

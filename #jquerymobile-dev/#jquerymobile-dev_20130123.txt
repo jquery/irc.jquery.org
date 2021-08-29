@@ -1,0 +1,462 @@
+[01:16:42] <_|Nix|_> WTF?! select unit tests: Non native menus: dialog size select title should match the label when changed after the dialog markup is added to the DOM: Expected: 	
+[01:16:51] <_|Nix|_> "foo"
+[01:17:13] <_|Nix|_> Result: 	
+[01:17:13] <_|Nix|_> "<script>window.encodedValueIsDefined = true;</script>Choose shipping methodPlaceholder"
+[01:17:27] <_|Nix|_> That's Chrome 24 / Linux
+[01:24:40] <_|Nix|_> tests/unit/select/?testNumber=29
+[01:26:15] <_|Nix|_> Seriously ... setting breakpoints in Chrome is a POS ...
+[01:26:30] * _|Nix|_ uses debugger; from now on ...
+[01:33:32] <_|Nix|_> OK ... if I interrupt execution it works ...
+[01:43:39] * _|Nix|_ has switched from pageSequence to detailedEventCascade and it seems to work reliably now ...
+[01:52:10] <jqmobilecommit> [13jquery-mobile] 15benwwest opened issue #5514: Fixed footer moves when select opened  02http://git.io/Ty0f0Q
+[02:05:33] <jqmobilecommit> 01[13jquery-mobile01] 15gabrielschulhof pushed 1 new commit to 06master: 02http://git.io/qN6eWA
+[02:05:33] <jqmobilecommit> 13jquery-mobile/06master 145c5e3e5 15Gabriel Schulhof: Unit tests: Custom select: detailedEventSequence works more reliably in Chrome 24 / Linux than pageSequence
+[02:58:55] <jqmobilecommit> [13jquery-mobile] 15Mahendra-Kadwa opened issue #5515: The method "showPageLoadingMsg" doesn't show the message in center on Android 3.0.  02http://git.io/xJpnwQ
+[03:41:54] <jqmobilecommit> 01[13jquery-mobile01] 15gabrielschulhof pushed 1 new commit to 06master: 02http://git.io/FmSsMw
+[03:41:54] <jqmobilecommit> 13jquery-mobile/06master 14b3c6659 15Gabriel Schulhof: Custom select: Get rid of hasAttribute. Fixes #5506. Thanks erikyuzwa.
+[03:50:38] <jqmobilecommit> 01[13jquery-mobile01] 15gabrielschulhof pushed 1 new commit to 06master: 02http://git.io/65nVng
+[03:50:38] <jqmobilecommit> 13jquery-mobile/06master 1424d6ae5 15Gabriel Schulhof: Custom select: Simplified the code a bit
+[04:58:40] <arschmitz> morning _|Nix|_ uGoMobi
+[05:12:38] <_|Nix|_> arschmitz: Hey!
+[05:13:44] <arschmitz> _|Nix|_: so i was just reading your comments on https://github.com/jquery/jquery-mobile/issues/5465
+[05:14:21] <arschmitz> _|Nix|_: thats completely related to what im working on could possibly use it as an excuse to say this is a "bug fix" not a new feature
+[05:15:02] <_|Nix|_> arschmitz: The bug is restricted to no-history though ...
+[05:15:06] <arschmitz> _|Nix|_: im making it possible to set the hash without the creation of histoy  entries
+[05:15:36] <arschmitz> so the original logic you spoke of that is no longer possible WOULD be possible 
+[05:15:47] <_|Nix|_> arschmitz: Yeah, but in this case you don't wanna set the hash at all. You wanna restrict yourself to $.mobile.urlHistory.
+[05:16:48] <arschmitz> ok i see your looking at this from the other direction
+[05:17:05] <_|Nix|_> arschmitz: What you're doing only works if pushState is available. Actually, I guess that'll introduce another level of history manipulation ...
+[05:17:06] <arschmitz> you want to use navigate to manip history without changeing the hash
+[05:17:21] <arschmitz> not the other way around
+[05:17:31] <_|Nix|_> arschmitz: Yeah, but I'm using $.mobile.history.add() ...
+[05:17:38] <_|Nix|_> arschmitz: ... which is called by navigate too.
+[05:17:42] <arschmitz> yeah
+[05:18:20] <arschmitz> darn it would have made a good argument for this being a bug fix lol
+[05:18:39] <_|Nix|_> So, lessee, we have 1. Absolutely no touching browser history, 2. change the hash but don't make history entries, 3. touch the hash /and/ make history entries.
+[05:18:52] <arschmitz> yup
+[05:19:04] <_|Nix|_> arschmitz: pushState is required for 2, but not for 3.
+[05:19:15] <arschmitz> yes
+[05:19:20] <_|Nix|_> arschmitz: For 3, pushState serves only a cosmetic purpose.
+[05:19:36] <_|Nix|_> arschmitz: So, 1 and 2 are equivalent if pushState is unavailable.
+[05:19:42] <arschmitz> yes
+[05:19:55] <_|Nix|_> arschmitz: So, in a way I've written it for you, except for the pushState parts.
+[05:20:29] <_|Nix|_> arschmitz: So, you actually stick one line after the .add() to also set the hash without creating a history entry, and we'll have 2.
+[05:20:31] <arschmitz> _|Nix|_: not really related because all im doing is change the order of assumptions in go
+[05:20:41] <_|Nix|_> s/you actually/ you could actually/
+[05:21:51] <_|Nix|_> arschmitz: Yeah, I guess you'll also want to turn off/modify some of the popstate handling because the popstate/hashchange handlers assume history entry creation.
+[05:21:53] <arschmitz> _|Nix|_: so instead of `set hash; if replacestate` it will be `if replacestate else set hash`
+[05:23:21] <_|Nix|_> arschmitz: Right. If history creation is turned on, you wanna use the pushState API to create history entries. If history creation is turned off, then, if pushState is available, you wanna use it to cosmetically touch up the one and only history entry.
+[05:23:36] <arschmitz> right
+[05:24:45] <arschmitz> im currious how many tests this is going to break lol
+[05:25:12] <arschmitz> the change in the click handeler i need to make i personally considder a bug anyway its completely insane how it works now
+[05:25:41] <_|Nix|_> arschmitz: You gotta be careful though, because two entries acting in concert turn off history creation: $.mobile.hashListeningEnabled and $.mobile.changePage.defaults.changeHash ...
+[05:26:05] <_|Nix|_> arschmitz: Also, you can disable history creation per-click.
+[05:26:18] <_|Nix|_> arschmitz: Actually, per-changePage-call.
+[05:26:34] <arschmitz> if your at a url /docs/demos/buttons/ and have a link to /docs/demos/buttons/options.html#foobar
+[05:26:39] <_|Nix|_> arschmitz: So, you need to know whether changePage was called with changeHash set to false or not.
+[05:26:57] <arschmitz> the url that changepage gets is /docs/demos/buttons/#foobar
+[05:27:04] <arschmitz> which makes no sense at all
+[05:27:11] <_|Nix|_> arschmitz: Wow! That is a bug.
+[05:27:26] <arschmitz> yeah so no navigation occurs at all
+[05:27:43] <_|Nix|_> arschmitz: But why doesn't the link simply contain "#foobar"
+[05:27:50] <_|Nix|_> arschmitz: Why the extra absolute path?
+[05:27:59] <arschmitz> _|Nix|_ its because of special handeling for nested listviews and and dialogs
+[05:28:26] <_|Nix|_> arschmitz: *facepalm*
+[05:28:31] <arschmitz> at some point logic was added that says if there is a hash in the middle of a path its an application page and strip the url
+[05:28:59] <_|Nix|_> arschmitz: "strip the url"?
+[05:29:32] <arschmitz> _|Nix|_: https://github.com/jquery/jquery-mobile/blob/master/js/jquery.mobile.navigation.js#L1159
+[05:30:27] <arschmitz> so im changing it so instead of assuming everything is an application page to just check if it contains &ui-state or &ui-page
+[05:31:08] <_|Nix|_> arschmitz: Oh, so it cuts off everything up to and including the #
+[05:31:16] <arschmitz> yeah
+[05:32:17] <arschmitz> so im fixing it to only cut it off if its actually an application page refrence instead of just assuming everything is
+[05:32:40] <_|Nix|_> arschmitz: Just don't use some special href formulation to signal to you that this is supposed to be an internal anchor.
+[05:33:15] <arschmitz> huh?
+[05:33:43] <arschmitz> you mean make my own like &ui-deeplink type deal?
+[05:35:14] <_|Nix|_> arschmitz: Nono. I wish to know how you will recognize that, for example href="#jumpToSection2" does not refer to loading internal page with id="jumpToSection2" and transitioning it in, but instead that it refers to scrolling down to that anchor on the existing page?
+[05:35:31] <arschmitz> ah 
+[05:36:09] <arschmitz> easy check if the element with id jumptosection2 is a page dialog or popup div and if it is do nothing
+[05:36:28] <arschmitz> if its not and it actually exists scroll to it
+[05:36:28] <_|Nix|_> arschmitz: Will you do something like $( ".ui-page" ).filter( href ).length === 0 means it's an internal link?
+[05:36:46] <_|Nix|_> arschmitz: OK. Good stuff.
+[05:37:19] <arschmitz> yeah pretty simple
+[05:38:38] <arschmitz> so this adds 3 new abilities that were previously missing
+[05:38:53] <arschmitz> ability to use deep links to scroll to an id 
+[05:39:03] <_|Nix|_> I gotta go for a bit ...
+[05:39:07] <arschmitz> ability to manipulate the hash without touching history
+[05:39:22] <arschmitz> and to pass hashes to non internal pages
+[05:39:24] <arschmitz> ok later
+[07:00:29] <_|Nix|_> arschmitz: From https://github.com/jquery/jquery-mobile/issues/3 I can see the next step: Loading multipage documents ...
+[07:00:38] <_|Nix|_> Bah! St00pid autocomplete :)
+[07:00:50] <_|Nix|_> From the third feature you list above ...
+[07:01:21] <arschmitz> that would be a big feature we dont support now
+[07:01:28] <_|Nix|_> arschmitz: Yeah ...
+[07:02:00] <arschmitz> pull in all page divs and transition to on in the hash or if no hash to first one
+[07:02:52] <_|Nix|_> arschmitz: Yeah, I mean, especially since we get all the pages anyway ... currently I think we discard them all except the first one ...
+[07:03:04] <arschmitz> yeah there is no other way
+[07:03:16] <arschmitz> you have to pull whole document and then strip the extras
+[07:03:40] <_|Nix|_> Yep ...
+[07:04:11] <_|Nix|_> But, I guess, people have consequently designed their stuff such that AJAX-ed in documents have only one page ...
+[07:04:19] <_|Nix|_> Still, it'll be good to lift that restriction.
+[07:04:31] <arschmitz> yeah its one that still comes up a lot in the issues
+[07:04:58] <arschmitz> there was a subpage pluing at a point but it didnt work well and was never updated
+[07:09:29] <arschmitz> _|Nix|_: im looking at load page right now and it does not look like it would be that hard to pull off
+[07:10:03] <arschmitz> would be someting good for 1.4
+[07:11:48] <_|Nix|_> arschmitz: Absolutely.
+[07:12:19] <arschmitz> _|Nix|_ or as you prefer 2.0 lol
+[07:12:49] <_|Nix|_> arschmitz: I'd love to see all the URL mangling bits out of non-nav places, and nav support for no-history as well as history - oh, and that st00pid two-event solution for history gone, dead, dead, dead!
+[07:13:17] <_|Nix|_> arschmitz: The barriers for accomplishing all this are lower than ever.
+[07:13:39] <arschmitz> you mean th=for the two event solution you talking about the workaround for ios4?
+[07:14:07] <arschmitz> ok not sure what happened at the begining there lol
+[07:15:24] <arschmitz> _|Nix|_: if that is what you mean its already going away
+[07:16:08] <_|Nix|_> arschmitz: Yeah, that thing.
+[07:16:32] <_|Nix|_> arschmitz: I think removing that will cause quite a code-yanking domino effect ...
+[07:16:44] <arschmitz> oh i already tore the heart out of that lol
+[07:16:54] <_|Nix|_> Good stuff!
+[07:16:54] <arschmitz> in my local branch im working on for this its long gone!
+[07:17:04] <arschmitz> no push state for ios 4 hash only
+[07:20:00] <arschmitz> so now its hash or pushstate no two browser weirdness
+[07:20:05] <arschmitz> two event i mean
+[07:22:18] <arschmitz> _|Nix|_: when johbender and i work brainstorming on this it came down to using something like &ui-state for deeplinks or kicking ios4 out of push state to make events sane
+[07:22:36] <arschmitz> _|Nix|_: it was a REALLY easy decision for me lol
+[07:29:50] <_|Nix|_> arschmitz: Yeah ... definitely ...
+[07:32:08] <gseguin> good morning
+[07:32:26] <gseguin> I'll be on jQM on Friday this week
+[07:34:08] <arschmitz> _|Nix|_: wow its cold out here today lol got down to  -34C over night and its still -20C in the sun lol
+[07:34:14] <arschmitz> morning gseguin: 
+[07:35:02] <arschmitz> _|Nix|_: wind chills coming in at -30C most of the ski mountins had to shut down because its so brutal today
+[07:35:29] <arschmitz> _|Nix|_ and these are temps on the coast in a good size city not in the mountins lol
+[07:38:03] <_|Nix|_> gseguin: Awesome!
+[07:38:21] <_|Nix|_> gseguin: Quick question: Does requirejs support the concept of a search path?
+[07:38:36] <_|Nix|_> gseguin: Like gcc's -I/path/to/include 
+[07:39:20] <_|Nix|_> gseguin: So, if I specify, for example, "../../../some.js.module" then it'll prepend each path out of a list and grab the first hit?
+[07:40:04] <gseguin> _|Nix|_: not that I know of
+[07:40:19] <_|Nix|_> arschmitz: Well, the fact that it's the coast will contribute to the cold, I think ... the wind coming in off the sea will drive the windchill up ...
+[07:40:28] <arschmitz> _|Nix|_: the place i ski at has a wind chill of -46C right now 
+[07:40:39] <gseguin> _|Nix|_: you can namespace your modules and assign a path to the namespace
+[07:40:52] <gseguin> but I don't think you can do what you're saying
+[07:41:05] <arschmitz> _|Nix|_: no the way the currents are here the coast is always warmer in winter colder in summer 
+[07:41:18] <_|Nix|_> gseguin: Hmmm ... then it'd be good to namespace jQM, because I'm trying to include individual jQM modules directly into web-ui-fw ...
+[07:41:43] <gseguin> you can namespace in your own config
+[07:41:58] <_|Nix|_> arschmitz: Oh, OK, because it's the opposite where I live. Helsinki, which is sticking out into the Baltic, is usually colder than Espoo, which is along a straight coastline. I live in Espoo.
+[07:42:25] <gseguin> requirejs.config( { paths: { "myNamespace": "../to/where/ever" } } )
+[07:43:03] <_|Nix|_> gseguin: ... but then do all the web-ui-fw modules need to have names?
+[07:43:04] <arschmitz> _|Nix|_: i am just north of the gulf stream so the water to the south of us is warmer so when wind comes in off the ocean it tends to work thing up in the winter
+[07:43:33] <gseguin> _|Nix|_: what do you mean by that?
+[07:43:48] <gseguin> _|Nix|_: do you mean they can't be anonymous modules?
+[07:43:55] <_|Nix|_> arschmitz: Nice. Calgary had a similar effect, but off the Pacific. When things lined up in the winter, a bunch of warm Pacific air would make it over the Rockies and for a few days in February we'd have like +14°C ...
+[07:44:21] <_|Nix|_> gseguin: Yes. That's what I mean.
+[07:44:28] <arschmitz> _|Nix|_ yeah we have that happen here sometimes they call it an indian summer here
+[07:44:35] <_|Nix|_> gseguin: I guess I'd have to name them otherwise there's no namespace, eh?
+[07:44:46] <_|Nix|_> arschmitz: ... and a Chinook in Calgary.
+[07:44:54] <gseguin> _|Nix|_: anonymous just means they take the name of the filename 
+[07:45:29] <_|Nix|_> gseguin: OK, but if I give the module a name, how will it find the filename it's contained in?
+[07:45:43] <gseguin> oh
+[07:45:48] <_|Nix|_> gseguin: It'd have to search through all the dirs and subdirs of the dir associated with the namespace ...
+[07:45:56] <arschmitz> _|Nix|_ iv always heard the pacific northwest coast is pretty similar to here in like washington and oregon 
+[07:45:59] <gseguin> you need to specify it in the requirejs config
+[07:46:13] <_|Nix|_> gseguin: Oh, like, modulename: filename?
+[07:46:21] <gseguin> that's why it's recommended to use anonymous modules
+[07:46:33] <gseguin> _|Nix|_: yes
+[07:46:51] <_|Nix|_> gseguin: Man, that really sucks, because it means that both projects have to have the same root dir.
+[07:47:08] <_|Nix|_> gseguin: Currently I have jQM in a subdir of web-ui-fw as a git subproject.
+[07:47:11] <gseguin> _|Nix|_: unless the file lives in the root dir
+[07:47:32] <gseguin> jquerymobile's modules are anonymous
+[07:48:09] <gseguin> of the modules we use, only jquery is a named module
+[07:48:37] <_|Nix|_> gseguin: Right ... I guess I'm trying to reconcile this with $.testHelper.loadAsync() ...
+[07:49:29] <_|Nix|_> gseguin: That thing takes a directory as the last argument - I actually added that param. But I remember needing one argument for web-ui-fw modules, and one argument for jQM modules, because paths inside jQM modules are defined wrt. jQM's root dir.
+[07:49:44] <_|Nix|_> gseguin: ... so they cannot be loaded alongside web-ui-fw modules.
+[07:50:06] <_|Nix|_> gseguin: I'd have to "edit" each jQM module and add another ../ in front of all its requirements.
+[07:51:20] <gseguin> _|Nix|_: you should be able to declare namespace "jqm" to point at jqm/js
+[07:52:07] <_|Nix|_> gseguin: OK, but then how do I reference those jQM modules (since they're anonymous)?
+[07:52:23] <_|Nix|_> gseguin: Like, jqm:widgets/popup?
+[07:52:30] <gseguin> and then require a module by referencing jqm/widgets/dialog
+[07:52:42] <_|Nix|_> gseguin: Oh, OK ...
+[07:52:57] <_|Nix|_> gseguin: So, the first argument there is not a dir, but a namespace ...
+[07:53:16] <gseguin> yeah it'll match the namespace first
+[07:53:23] <gseguin> and then resolve from there
+[07:53:31] <_|Nix|_> gseguin: OK ... now we're getting somewhere.
+[07:53:52] <gseguin> namespace could be "jqm/widgets" too if you wanted to relocate your widgets
+[07:54:14] <_|Nix|_> gseguin: OK. This gives me something to work with. Nice!
+[07:54:18] <_|Nix|_> gseguin: Thanks a lot!
+[07:54:27] <gseguin> you're welcome
+[07:54:32] <_|Nix|_> gseguin: Sorry if it turned out to be a not-so-quick question :)
+[07:54:48] <gseguin> no worries
+[07:58:38] <uGoMobi> arschmitz: are you already looking at https://github.com/jquery/jquery-mobile/issues/5514 or shall i commit the fix?
+[07:59:22] <arschmitz> if you already have the fix by all means i had not really looked at it yet i was just getting ready to
+[08:00:23] <uGoMobi> arschmitz: ok
+[08:03:25] <jqmobilecommit> 01[13jquery-mobile01] 15uGoMobi pushed 1 new commit to 06master: 02http://git.io/-s27Ow
+[08:03:25] <jqmobilecommit> 13jquery-mobile/06master 14fb0ebe7 15Jasper de Groot: Fixed toolbar: Fix for toolbars not becoming visible after hideDuringFocus. Fixes #5514/
+[08:04:29] <arschmitz> uGoMobi: ! 
+[08:18:10] <uGoMobi_> arschmitz: ?
+[08:18:16] <uGoMobi_> sorry IRC issues
+[08:18:25] <arschmitz> uGoMobi: lol that was the fix
+[08:18:28] <arschmitz> !
+[08:18:43] <uGoMobi_> ohhwww yeah it was
+[08:19:03] <arschmitz> :)
+[08:19:23] <arschmitz> uGoMobi: you should get with the cool kids on the jquery ZNC lol
+[08:19:35] <uGoMobi_> yeah I really should
+[08:19:57] <uGoMobi_> have to ask them to set me up
+[08:20:22] <arschmitz> uGoMobi_: yeah just catch ryanneufeld or gnarf either one can set you up
+[08:21:06] <uGoMobi_> arschmitz: do you use IRC on Android too?
+[08:21:14] <uGoMobi_> or only iOS
+[08:21:26] <arschmitz> uGoMobi: only iOS i only use android for testing
+[08:21:31] <uGoMobi_> ok
+[08:21:42] <arschmitz> but i know there are some android irc apps
+[08:21:56] <uGoMobi_> yeah I tried some of them
+[08:22:05] <arschmitz> probably better then the ios ones ios puts a ten minute connection time out that is super annoying 
+[08:22:08] <uGoMobi_> but not really happy with them
+[08:22:52] <uGoMobi_> but how does that work with ZNC?
+[08:22:59] <uGoMobi_> it's not a client right?
+[08:23:06] <arschmitz> znc works as a bouncer
+[08:23:13] <uGoMobi_> so where does it show the history
+[08:23:15] <arschmitz> you connect to znc instead of freenode
+[08:23:23] <uGoMobi_> aha
+[08:23:32] <arschmitz> znc stores everything and sends it to you all at once when you connect
+[08:23:38] <uGoMobi_> cool
+[08:23:42] <arschmitz> so you get like a fast forward lol
+[08:24:29] <arschmitz> darn the irc i use for ios isnt avalible on android too bad i think it works well
+[08:24:30] <jqmobilecommit> [13jquery-mobile] 15stforek opened pull request #5516: Use jQuery.on to bind events focus, blur and vclick for all elements with one bind (06master...06buttons)  02http://git.io/xCLGzg
+[08:25:57] <uGoMobi_> I have to look for good clients for Linux, Windows, Android and iOS if I don't use IRCCloud anymore
+[08:26:27] <arschmitz> irissi lol
+[08:26:39] <uGoMobi_> ok let me give that a look
+[08:26:47] <arschmitz> its command line irc
+[08:26:57] <arschmitz> its what i have for linux and mac
+[08:27:09] <jqmobilecommit> [13jquery-mobile] 15digaoddc opened issue #5517: changePage stops working after a while  02http://git.io/HMWqlw
+[08:27:19] <arschmitz> they have it for windows too but have not switched yet
+[08:35:34] <arschmitz> uGoMobi: did you see my comments on the opening one panel while another is open
+[08:36:00] <uGoMobi> arschmitz: yes, had a quick look
+[08:36:17] <arschmitz> something screwy with reveal
+[08:36:40] <uGoMobi> arschmitz: your test pages chain panels of with same display mode right?
+[08:36:59] <arschmitz> uGoMobi: yes i tried mixing them too though just did put pages up for them
+[08:37:38] <arschmitz> i thought i mentioned it in comments but maybe not
+[08:37:44] <uGoMobi> I don't remember what other combination I saw issues with too, but "reveal" is the biggest problem
+[08:38:12] <arschmitz> uGoMobi: push reverts to overlay when you do it
+[08:38:21] <uGoMobi> could also be only an issue when opening panels at different sides.. don't remember exactly
+[08:38:39] <arschmitz> no reveal is very broken same side lol 
+[08:38:49] <uGoMobi> yes
+[08:38:59] <uGoMobi> I mean the other combination
+[08:39:02] <uGoMobi> s
+[08:39:15] <uGoMobi> anyway... there is something to look into
+[08:40:13] <uGoMobi> I think the two main issues are closing with immediate = true but still using transition to close
+[08:40:28] <uGoMobi> and the fact we start opening before the first one has been closed
+[08:41:42] <uGoMobi> lol... https://github.com/jquery/jquery-mobile/issues/5515
+[08:42:07] <uGoMobi> the "following configuration"...
+[08:42:09] <uGoMobi> <link rel="stylesheet" type="text/css" media="only screen and (max-device-width: 899px)" href="resource/css/jquery.mobile-1.2.0.mobile.css"/>
+[08:42:09] <uGoMobi> <link rel="stylesheet" type="text/css" media="only screen and (min-device-width: 900px)" href="resource/css/jquery.mobile-1.2.0.css"/>
+[08:42:13] <arschmitz> yeah lol
+[08:42:17] <uGoMobi> :/
+[08:42:20] <arschmitz> its like what exactly is that?
+[08:42:28] <uGoMobi> yeah
+[08:42:39] <arschmitz> ugh lol 
+[08:42:51] <arschmitz> had to be nice and offer chance for test page though
+[08:43:10] <uGoMobi> android 3.x so most probably a tabloid so most probably some custom CSS
+[08:43:19] <uGoMobi> yes of course
+[08:53:31] <arschmitz> uGoMobi: https://github.com/jquery/jquery-mobile/issues/5517 guess he didnt want to submit a test page lol
+[08:53:50] <uGoMobi> arschmitz: I was about to comment when he closed it
+[08:54:04] <uGoMobi> arschmitz: he submitted test page
+[08:54:20] <uGoMobi> but.. multipage template
+[08:54:22] <arschmitz> ha im an idiot
+[08:54:36] <uGoMobi> with comment... you can't reproduce it with this test pages
+[08:54:38] <uGoMobi> lol
+[08:55:06] <arschmitz> im just going to delete my comment and slink away lol
+[08:55:24] <uGoMobi> arschmitz: no
+[08:55:36] <uGoMobi> arschmitz: he provided the test page after you asked for it
+[08:55:53] <arschmitz> oh ok i thought i somehow missed it when i read the issue the first time
+[08:55:55] <uGoMobi> arschmitz: he just updated his original post
+[08:55:59] <uGoMobi> nah
+[08:56:03] <arschmitz> i got ya lol
+[08:56:10] <uGoMobi> but test page is useless
+[08:56:15] <arschmitz> yup
+[08:56:45] <uGoMobi> I explained in contributing guidelines how to create test case with multiple single pages
+[08:57:01] <arschmitz> i think we have done a really good job staying on top of 1.3 issues since beta
+[08:57:02] <uGoMobi> but again... people don't read
+[08:57:22] <uGoMobi> I agree
+[08:57:42] <uGoMobi> there is a lot of activity 
+[08:57:49] <arschmitz> we have actually recieved a ton of compliments from people about how quick we have been on issues
+[08:57:52] <uGoMobi> and we fixed most issues right away
+[08:58:00] <uGoMobi> yeah cool
+[08:58:26] <arschmitz> having a good size active team helps a lot
+[08:58:46] <uGoMobi> for sure
+[09:10:26] <uGoMobi> arschmitz: I saw you assigned https://github.com/jquery/jquery-mobile/issues/5514 to yourself
+[09:11:05] <uGoMobi> arschmitz: the select button keeps focus on Android/Chrome when the select menu is closed
+[09:11:26] <arschmitz> uGoMobi: yeah that was before you asked me about it
+[09:11:39] <uGoMobi> so the problem is most probably that focusout does not fire
+[09:13:10] <uGoMobi> arschmitz: ah ok, I didn't see that, thought you assigned after his last comment
+[09:13:35] <arschmitz> yeah no problem
+[09:13:51] <arschmitz> hmm the focus out though is intresting
+[09:14:03] <arschmitz> im not sure of a good work around for that
+[09:14:27] <arschmitz> i wonder if change fires even though focus out does not ?
+[09:15:34] <uGoMobi> usually change fires when you blur the element but maybe
+[09:16:15] <arschmitz> yeah i know thats the normal way just trying to think of something to catch the select close
+[10:03:42] <johnbender> jlembeck: do you have an email, rworth wants to contact you 
+[10:03:42] <bot-t> (70 hours 1 min ago) <_|Nix|_> tell johnbender Do you think we can modify the $.mobile.navigate method to take its parameters as hash? Like, ( url, data, {/* options */} ), or ( { url: url, data: data, otherOption: otherOption, ... } )
+[10:03:43] <bot-t> (69 hours 50 mins ago) <_|Nix|_> tell johnbender The reason I ask is that I'm thinking that we could move a lot of the URL calculation into $.mobile.navigate and have it all in one place. Like: ( url, data, { allowDeepLink: true/false } ), and $.mobile.navigate would also take into account $.mobile.hashListeningEnabled, $.mobile.changePage.defaults.changeHash, etc ...
+[10:03:43] <bot-t> (69 hours 50 mins ago) <_|Nix|_> tell johnbender For example we could move a lot of the url calculation code out of changePage and popup and dialog into this method, and we could make the parameters more flexible (which actually calls for having only one parameter - a hash): { back: true/false (false means forward), url: url, data: data } where the presence of the key "back" means we don't bother checking the url, but instead we either
+[10:03:43] <bot-t> (69 hours 40 mins ago) <_|Nix|_> tell johnbender I think I'll move these thoughts to a more reliable medium :)
+[10:03:43] <bot-t> (69 hours 20 mins ago) <_|Nix|_> tell johnbender https://github.com/jquery/jquery-mobile/wiki/Nav-thoughts
+[10:03:43] <bot-t> (26 hours 50 mins ago) <_|Nix|_> tell johnbender So I got a fix for https://github.com/jquery/jquery-mobile/issues/5465, but I found another problem: Start -> page -> dialog1 -> dialog2 <- Close lands on the page instead of dialog1.
+[10:03:43] <johnbender> (PM)
+[10:03:52] <johnbender> lol]
+[10:04:01] <johnbender> haven't been in the channel much lately
+[10:04:11] <jlembeck> jeff@filamentgroup.com will work
+[10:04:32] <jlembeck> woop, I'll PM it to rworth
+[10:04:42] <rworth> got it, thanks jlembeck 
+[10:04:48] <jlembeck> there we go :D
+[10:18:53] <arschmitz> _|Nix|_: you around?
+[10:50:12] <Wilto> Checkin’ in—what’s the good word?
+[10:55:34] <arschmitz> Wilto: "fanfaronade"
+[11:05:15] <jqmobilecommit> [13jquery-mobile] 15mattio opened issue #5518: Browser back from external link while offline triggers Safari message on iPhone 5  02http://git.io/fAJ0Bg
+[11:19:15] <jqmobilecommit> [13jquery-mobile] 15pupvogel opened issue #5519: popup over selectmenu: z- or taborder related issue ?  02http://git.io/3QySyw
+[12:23:41] <_|Nix|_> arschmitz: What's up?
+[12:24:17] <arschmitz> _|Nix|_: an issue with popup i wanted your oppinion on 
+[12:24:26] <_|Nix|_> arschmitz: Go ahead ...
+[12:25:52] <arschmitz> https://github.com/jquery/jquery-mobile/issues/5486#issuecomment-12613707
+[12:50:26] <_|Nix|_> arschmitz: I remember this one ...
+[12:54:27] <_|Nix|_> johnbender: Ping!
+[12:55:53] <johnbender> _|Nix|_: pong
+[12:56:05] <_|Nix|_> johnbender: Hey!
+[12:56:11] <_|Nix|_> johnbender: About https://github.com/jquery/jquery-mobile/blob/fb0ebe757654a11d2ecdb36cb63b2a17f67fe2ab/js/widgets/popup.js#L775
+[12:56:44] <johnbender> _|Nix|_: yes
+[12:56:59] <_|Nix|_> johnbender: You made it return false there, but wouldn't it be better to preventDefault() and then have the nav click handler ignore click events whose default has been prevented?
+[12:57:06] <johnbender> _|Nix|_: I think that was in there from the old navigate event
+[12:57:15] <johnbender> you can probably take it out all together
+[12:57:24] <johnbender> or at least definitely futz with it
+[12:57:52] <_|Nix|_> That code only runs when history is turned off for the popup to prevent the click handler from doing a $.mobile.back() ...
+[12:58:23] <_|Nix|_> johnbender: I think the click handler should definitely not handle events whose default has been prevented.
+[12:58:42] <_|Nix|_> johnbender: ... because, presumably, those clicks have been handled lower in the bubbling chain ...
+[12:59:05] <_|Nix|_> johnbender: Of course, I cannot foresee all the implications ... 
+[12:59:23] <johnbender> _|Nix|_: hmm yah I must be thinking of something else
+[12:59:43] <_|Nix|_> johnbender: Now we have https://github.com/jquery/jquery-mobile/issues/5486 where your prophecy has been fulfilled :)
+[12:59:51] <johnbender> _|Nix|_: ahh
+[12:59:53] <johnbender> nope I'm not
+[13:00:05] <johnbender> it does swallow the old navigate event
+[13:00:08] <johnbender> that's why it's in there
+[13:00:32] <johnbender> _|Nix|_: prevent default should be fine
+[13:01:03] <_|Nix|_> johnbender: Alright ... let's give that a shot then.
+[13:01:03] <johnbender> _|Nix|_: but we might need to check for that in the navigate binding in jquery.mobile.navigation
+[13:01:11] <johnbender> otherwise nav will take over
+[13:02:07] <johnbender> _|Nix|_: that is, in the case where histoy is  turned off for the popup, and someone navigates with the back button it should stop nav from doing anything and just close the popup
+[13:02:18] <_|Nix|_> johnbender: I don't believe this has to do with nav. This code runs in a handler for click events that happen on links inside the popup, and it's only attached if the popup has the history option set to false.
+[13:02:43] <johnbender> _|Nix|_: if you look at the default events one of them is navigate
+[13:03:34] <johnbender> because we want to close popups when there is a navigation event even when history for just the popup is disabled
+[13:03:41] <johnbender> so for a popup without histroy
+[13:03:43] <johnbender> *history
+[13:03:43] <_|Nix|_> johnbender: Yes, but I don't believe that event will ever trigger this handler, because when history is turned off, popup doesn't call navigate(), so no history manipulation happens.
+[13:04:02] <johnbender> _|Nix|_: but the back button will trigger a navigate event
+[13:04:06] <johnbender> when the popup is open
+[13:04:22] <johnbender> hmm
+[13:04:23] <johnbender> ah
+[13:04:23] <johnbender> or 
+[13:04:32] <johnbender> in the case where there's a link to another page in the popup
+[13:04:47] <johnbender> obviously the back button shouldn't care (no history)
+[13:04:53] <johnbender> you are correct in that case
+[13:05:19] <_|Nix|_> johnbender: Yeah, so this issue is between the popup click handler and the global click handler.
+[13:05:44] <johnbender> _|Nix|_: alright I'll let you go to it
+[13:05:44] <_|Nix|_> johnbender: I have to tell the global click handler to lay off this particular event when it bubbles all the way to document.
+[13:06:14] <johnbender> I still think you have to be concerned about the navigate event triggering the close
+[13:06:28] <_|Nix|_> johnbender: I was just gonna say that's a very good point.
+[13:06:48] <_|Nix|_> johnbender: However, I believe that in that case the pagebeforechange event will close the popup.
+[13:07:25] <johnbender> _|Nix|_: ah yah that makes sense
+[13:07:25] <_|Nix|_> johnbender: pbc is listed next to navigate in the closeEvents option.
+[13:07:43] <_|Nix|_> johnbender: So, whichever arrives first.
+[13:08:28] <arschmitz> _|Nix|_: while you are looking at popup we just go this one too https://github.com/jquery/jquery-mobile/issues/5519
+[13:10:02] <_|Nix|_> arschmitz: Yuck! Another focus-restriction-related bug :/
+[13:10:27] <_|Nix|_> OK, one at a time ... line forms here ...
+[13:11:00] <arschmitz> lol if you want an easy win you can brag about your new event to allow you to reposition popups after resize
+[13:11:13] <arschmitz> https://github.com/jquery/jquery-mobile/issues/4905#issuecomment-12618999
+[13:18:12] <agcolom> uGoMobi: arschmitz hi! just spotted something on the demo site (which I totally LOVE!!!)
+[13:18:23] <arschmitz> yeah?
+[13:18:39] <agcolom> take for example http://jquerymobile.com/test/docs/demos/listviews/listview-filter-autocomplete.html#&ui-state=dialog
+[13:18:43] <agcolom> view source
+[13:19:12] <arschmitz> yeah uGoMobi: spent a bunch of time making the view source its pretty awesome
+[13:19:35] <agcolom> if all 3 collapsibles in the set are closed, it might be better to show html/css/js in full
+[13:20:16] <arschmitz> like full width you mean?
+[13:20:20] <agcolom> (I only get HT... CS... JS...
+[13:20:32] <arschmitz> oh weird
+[13:20:37] <arschmitz> it shows it all for me
+[13:20:38] <agcolom> show the HTML title in full :-)
+[13:20:47] <agcolom> oh, is that a FF bug?
+[13:20:53] <arschmitz> maybe let me check
+[13:21:15] <arschmitz> yup its a firefox thing
+[13:21:17] <_|Nix|_> arschmitz: Thanks (for that easy win pointer) :)
+[13:22:03] <arschmitz> oh you mean the autodivider links?
+[13:24:28] <agcolom> just for the record: http://cl.ly/image/2X3m2e1C1y1O
+[13:26:44] <agcolom> Wilto: Filament address is online?
+[13:27:07] <agcolom> (Wilto, amazing news from Brad Lassey, hopefully :-) )
+[13:27:11] <Wilto> agcolom: Oh, awesome!
+[13:27:16] <agcolom> (see twitter)
+[13:27:25] <Wilto> agcolom: Yep; the address is up on http://filamentgroup.com/
+[13:27:29] <Wilto> Great work!
+[13:27:42] <agcolom> He's in Boston I think!
+[13:31:24] <arschmitz> agcolom: awesome!
+[13:31:40] <agcolom> Wilto: Deatails sent... Fingers crossed :-) 
+[13:32:05] <arschmitz> maybe the will send us a bunch like m$
+[13:32:12] <arschmitz> lol
+[14:08:21] <jqmobilecommit> 01[13jquery-mobile01] 15gabrielschulhof pushed 2 new commits to 06master: 02http://git.io/DhowHA
+[14:08:21] <jqmobilecommit> 13jquery-mobile/06master 143683fd6 15Gabriel Schulhof: Navigation: The click handler now ignores events whose default has been prevented
+[14:08:21] <jqmobilecommit> 13jquery-mobile/06master 14640c71d 15Gabriel Schulhof: Popup: Prevent default when a link of type data-rel="back" (or one that is selected by the closeLinkSelector option) is clicked. Fixes #5486.
+[14:19:31] <agcolom> toddmparker_: johnbender  I can't make tomorrow's meeting.... I have a student achievement award ceremony to attend... 
+[14:19:50] <johnbender> agcolom: cool
+[14:21:22] <agcolom> johnbender: your maths notation look fantastic in your blog posts! (and in your notes!) Shame maths notation never were my friends! because they look really nice!
+[14:21:33] <johnbender> agcolom: thanks :)
+[14:21:46] <johnbender> agcolom: latex -> pdf -> svg -> png lol
+[14:21:48] <johnbender> it's a lot of work
+[14:22:17] <agcolom> it really looks beautiful! 
+[14:26:28] <uGoMobi> hey all
+[14:27:07] <jqmobilecommit> [13jquery-mobile] 15cahlander opened issue #5520: Footer goes away on a click  02http://git.io/GhkvbQ
+[14:28:16] <uGoMobi> let me close that issue ^
+[14:32:09] <arschmitz> johnbender: oh you use latex
+[14:32:13] <arschmitz> my old enemy lol
+[14:33:41] <_|Nix|_> arschmitz: I actually like LaTeX ... I wrote an input method that let's me type things like ° and Å and stuff ...
+[14:34:15] <arschmitz> _|Nix|_: yeah i guess i just dont like it because i had to submit all my papers in college in latex lol
+[14:36:00] <_|Nix|_> arschmitz: For a while I was contributing to this WYSIWYG editor called TeXmacs ... it had a decent to-LaTeX converter, which I helped improve ... I learned a lot about programming in Scheme in the process ...
+[14:36:19] <arschmitz> sweet
+[14:36:27] <_|Nix|_> arschmitz: I also developed a decent typing speed - to the tune of taking class notes with it.
+[14:36:50] <uGoMobi> _|Nix|_: hey!
+[14:37:06] <arschmitz> _|Nix|_: impressive
+[14:37:19] <_|Nix|_> arschmitz: ... and it was great for homework - when you have to take an equation and show the next step - I'd just copy it over and make the mods.
+[14:37:22] <uGoMobi> _|Nix|_: for some reason the view source collapsibles are no longer full width when all collapsed
+[14:37:33] <_|Nix|_> uGoMobi: Weird ...
+[14:37:44] <_|Nix|_> uGoMobi: git bisect?
+[14:37:48] <uGoMobi> wasn't on purpose?
+[14:37:51] <uGoMobi> nah
+[14:37:59] <arschmitz> _|Nix|_: nice its been so long since i used latex now not sense like 2006 i think lol
+[14:38:02] <uGoMobi> I will check the CSS
+[14:39:09] <_|Nix|_> arschmitz: Yeah ... I had lots of fun with it ... I actually had a Makefile for my M. Sc. thesis, and a toolchain for going from LaTeX to pdf to svg (as johnbender described above) ...
+[14:39:31] <_|Nix|_> arschmitz: That was in the embryonic days of Cairo ...
+[14:39:37] <arschmitz> nice
+[14:39:48] <_|Nix|_> arschmitz: ... on Gentoo Linux :)
+[14:40:02] <arschmitz> we were on gnome if i recall
+[14:40:06] <arschmitz> its been too long
+[14:40:43] <arschmitz> we had our own all linux network in the physics department 
+[14:40:45] <_|Nix|_> arschmitz: Well, yeah, me too, but I built mine from scratch ... it was impressive to see your system getting built from source all the way from the kernel to firefox.
+[14:41:18] <arschmitz> part of being a physics major was to learn to maintin a linux network if you didnt know already lol
+[14:41:49] <_|Nix|_> arschmitz: That's awesome! I bet you had fun with all the NFS processes stuck in a D state ...
+[14:41:56] <arschmitz> lol
+[14:42:21] <arschmitz> we did all our programming in c++ 
+[14:42:35] <arschmitz> which produced my fav error ever
+[14:42:49] <_|Nix|_> arschmitz: Well, that's a step up. My sister's doing her Ph. D. in physics and it's all Fortran for her ... *shudder* ...
+[14:43:00] <arschmitz> ouch
+[14:43:13] <arschmitz> they use ruby on rails now last i checked where i went
+[14:43:37] <arschmitz> fav error ever " BADNESS 10000"
+[14:43:55] <_|Nix|_> ROTFL :)
+[14:44:15] <arschmitz> yup have not seen a better one to this day
+[14:44:51] <_|Nix|_> arschmitz: My favourite message was "Blessing /dev/sda1 with holy penguin pee"
+[14:45:00] <arschmitz> lol
+[14:45:17] <arschmitz> actually i have to take that back BADNESS 10000 isnt c++
+[14:45:22] <arschmitz> its LaTeX!!!
+[14:45:51] <_|Nix|_> arschmitz: Oh, yeah .... those messages ... when stuff starts sticking out of the margin and stuff ... yeah ...
+[14:46:18] <arschmitz> lol
+[14:46:22] <arschmitz> good old times
+[14:46:28] <_|Nix|_> Indeed ...
+[14:46:48] <arschmitz> _|Nix|_ how old are you if you dont mind me asking just trying to get perspective on time when we were in college?
+[14:47:02] <_|Nix|_> arschmitz: 34 ... turning 35 in August.
+[14:47:14] <arschmitz> ok so you were ahead of me for sure lol
+[14:47:27] <arschmitz> ill be 29 in april
+[14:47:55] <_|Nix|_> arschmitz: If I've learned anything about academia it's that it moves at a glacial pace compared to industry.
+[14:48:09] <arschmitz> _|Nix|_: oh thats for sure
+[14:48:58] <arschmitz> i remember piecing together just absolute dinasours of machines to run my research on 
+[14:49:16] <arschmitz> i seriously think we may have still had a 386 lol
+[14:51:02] <arschmitz> anyway im heading home for the day
+[14:51:10] <arschmitz> _|Nix|_: ill see you in the moring
+[14:51:18] <_|Nix|_> arschmitz: Alright. Have a good one!

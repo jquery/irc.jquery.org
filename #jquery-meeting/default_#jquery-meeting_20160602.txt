@@ -1,0 +1,274 @@
+[12:00:10] <scott_gonzalez> ?pepteam
+[12:00:11] <b-ot> arschmitz bethge jdalton jrossi jrossi1 jrossi2 jrossi3 jrossi9billion M4rius scott_gonzalez snover
+[12:00:15] <bethge_> Hi
+[12:00:21] <scott_gonzalez> hey bethge_
+[12:01:02] <arschmitz> hi
+[12:01:43] <scott_gonzalez> hey arschmitz
+[12:02:01] <scott_gonzalez> So there was an interesting discussion in yesterday's PEWG call.
+[12:02:45] <scott_gonzalez> For a pointing device that supports hover, like some pens/styluses, pressing a button while hovering may cause a pointerdown.
+[12:02:54] <scott_gonzalez> This hasn't been finalized, but there was general consensus.
+[12:03:27] <scott_gonzalez> https://github.com/w3c/pointerevents/issues/14
+[12:04:05] <scott_gonzalez> If we make this change, we'll have to change the values for buttons: https://w3c.github.io/pointerevents/#h-the-button-property
+[12:05:41] <arschmitz> i just was reading that discussion in the meeting notes
+[12:07:04] <bethge_> Trying to wrap my head around it
+[12:07:15] <bethge_> So it's so to speak a hover click
+[12:07:51] <arschmitz> but i dont think it would be a click right
+[12:07:56] <scott_gonzalez> I'll give examples to make it clear.
+[12:07:59] <arschmitz> click cant happen with a stilus without contact?
+[12:08:12] <scott_gonzalez> Right now it can't, but it potentially could with this cahgne.
+[12:08:19] <scott_gonzalez> There's a question about what click means.
+[12:09:27] <arschmitz> isnt click in a different spec though?
+[12:09:37] <scott_gonzalez> So, right now pens have special treatment.
+[12:09:46] <scott_gonzalez> Think of a pen as a special case of touch.
+[12:09:58] <scott_gonzalez> A finger doesn't have any physical buttons.
+[12:10:18] <scott_gonzalez> So we treat touch as if it has only one button and that button is pressed by coming in contact with the digitizer.
+[12:10:40] <scott_gonzalez> That makes sense for touch.
+[12:10:43] <bethge_> Right
+[12:11:21] <scott_gonzalez> And using the idea for the basic stylus that we've had for years was reasonable.
+[12:11:30] <scott_gonzalez> A standard stylus has no physical buttons.
+[12:11:43] <scott_gonzalez> Making contact with the digitizer acts like a button press.
+[12:11:51] <scott_gonzalez> And we pretend that there's a single button.
+[12:12:07] <scott_gonzalez> However, some pens *do* have physical buttons.
+[12:12:53] <scott_gonzalez> So the concept that the primary button is not a physical button, but is activated by coming in contact with the digitizer still makes sense.
+[12:13:19] <scott_gonzalez> But once you have a physical button, requiring contact with the digitizer to activate *any* button no longer makes sense.
+[12:13:39] <scott_gonzalez> But since this philosophy was already in place, it was just expanded on.
+[12:13:40] <arschmitz> right the change would make them like a right click
+[12:13:42] <arschmitz> right?
+[12:13:46] <scott_gonzalez> exactly
+[12:13:54] <arschmitz> which is not a click
+[12:13:55] <bethge_> Ah, yes, makes sense!
+[12:14:00] <scott_gonzalez> But more generally, it's just a non-primary click.
+[12:14:21] <scott_gonzalez> Just like a mouse might have 1, 2, 3, 4, etc. physical buttons.
+[12:14:47] <scott_gonzalez> One is primary (left), one is secondary (right), the others are auxiliary.
+[12:14:57] <bethge_> So if am in contact with digitizer and press a button on the pen, it is just a chroded button press
+[12:15:10] <scott_gonzalez> Obviously we want to avoid making assumptions about which buttons do what, and let the device manufacturers define behavior.
+[12:15:38] <scott_gonzalez> And the OS will need to understand that the primary button should map to buttons = 1, secondary should map to buttons = 2.
+[12:15:49] <scott_gonzalez> But beyond that, they just map to increasing numbers, 4, 8, 16, etc.
+[12:16:23] <arschmitz> right
+[12:16:27] <scott_gonzalez> The spec currently defines X1 (back), X2 (forward), and eraser.
+[12:16:47] <scott_gonzalez> So you could map buttons from other devices to those, so long as you want that behavior for those buttons.
+[12:17:19] <scott_gonzalez> So we currently have things like "Pen contact with barrel button pressed" => buttons = 2
+[12:17:33] <scott_gonzalez> This is problematic because it requires the pen to be in contact for the barrel button to be used.
+[12:17:44] <scott_gonzalez> So imagine this scenario:
+[12:17:54] <scott_gonzalez> User has a hover-supporting pen with a barrel button.
+[12:18:38] <scott_gonzalez> They hover, press the barrel button, contact the digitizer.
+[12:18:48] <scott_gonzalez> Today, this would result in:
+[12:18:52] <scott_gonzalez> hover => pointermove
+[12:19:00] <scott_gonzalez> press barrel button => nothing
+[12:19:11] <scott_gonzalez> contact digitizer => pointerdown (buttons = 2)
+[12:19:38] <scott_gonzalez> My proposal, which had good support on the call, is:
+[12:19:41] <scott_gonzalez> hover => pointermove
+[12:20:02] <scott_gonzalez> press barrel button => pointerdown (buttons = 2 [assuming we treat barrel as right click])
+[12:20:23] <scott_gonzalez> contact digitizer => pointermove (buttons = 3, button = 1 [allowing you to detect which button caused this move])
+[12:21:24] <arschmitz> i afgreed with that from the notes when i read them and still do
+[12:21:45] <bethge_> Indeed, makes a lot more sense
+[12:24:16] <scott_gonzalez> I don't think we'll need to change anything in PEP for this.
+[12:24:21] <scott_gonzalez> Because that's all happening at the OS level.
+[12:24:37] <scott_gonzalez> But I wanted to make sure we all were on board with my proposal.
+[12:24:46] <arschmitz> yup
+[12:25:00] <bethge_> Yeah, thanks for keeping us in the loop
+[12:28:23] <scott_gonzalez> Another change that did make it through already is changing the default width and height from 0x0 to 1x1.
+[12:28:45] <scott_gonzalez> So if the browser doesn't know the size of the pointer, it used to report 0x0 so that the application could handle that however it wanted.
+[12:28:57] <scott_gonzalez> But that has been changed to default to 1x1.
+[12:30:38] <scott_gonzalez> There's a PR to update the W3C tests.
+[12:31:08] <scott_gonzalez> We'll need to update PEP for this change, but it's super simple.
+[12:31:26] <scott_gonzalez> I figure we'll wait for the W3C PR to be merged so we can pull in the updated test and make the change at that time.
+[12:31:43] <scott_gonzalez> https://github.com/jquery/PEP/blob/b8c0250c2a39ea3849121711cab5504094e3c029/src/touch.js#L164-L165
+[12:32:10] <scott_gonzalez> Oh, look at that Rick merged it right before the meeting: https://github.com/w3c/web-platform-tests/pull/3101
+[12:36:10] <scott_gonzalez> Does anyone have anything else to discuss today?
+[12:37:26] <bethge_> Sorry, didn't have much time week :-(
+[12:38:39] <scott_gonzalez> No problem. We're getting ready for the last jQuery UI 1.12.0 RC release.
+[12:38:52] <scott_gonzalez> So I'll have time to focus on PEP soon :-)
+[12:39:05] <bethge_> Nice :)
+[12:41:38] <arschmitz> oh one minor thing
+[12:42:00] <arschmitz> https://github.com/jquery/PEP/issues/294
+[12:42:09] <arschmitz> any prefrence on jzaefferer suggestion?
+[12:44:30] <scott_gonzalez> +1 on his suggestion.
+[12:44:41] <scott_gonzalez> I was actually going to suggest the same based on a recent conversation in jquery-ui.
+[12:53:19] <scott_gonzalez> I guess that's all for today.
+[12:53:21] <scott_gonzalez> Thanks everyone.
+[14:00:15] <cogwurx> Hello!
+[14:00:27] <agcolom> Hi!
+[14:01:32] <cgack> howdy
+[14:02:08] <agcolom> https://docs.google.com/spreadsheets/d/11-mngR57h54cIOjGDE2Z6LjaiyRgDwlcvKUzZn2Fw6M/edit#gid=1422288486
+[14:02:19] <apsdehal> hi
+[14:02:46] <agcolom> Issue number down 6 :-)
+[14:03:36] <cogwurx> YAY!
+[14:03:46] <agcolom> Please make sure everyone enter their updates in the notes. I am so so behind! I have setup some time aside tomorrow to upload all the notes on the meeting site
+[14:04:20] <arschmitz> hi all sorry
+[14:04:26] <agcolom> Hi Alex!
+[14:04:38] <arschmitz> we have osme issue with core git
+[14:04:43] <arschmitz> im trying to work out with dave
+[14:04:50] <arschmitz> they broke about 3/4 of mobiles tests
+[14:04:56] <arschmitz> in the last couple weeks
+[14:05:04] <agcolom> wow :-(
+[14:05:36] <agcolom> arschmitz: should that go in 1.5 blocker or other issues?
+[14:05:36] <cgack> well that's not very nice
+[14:06:08] <apsdehal> arschmitz: That is why phantom test were failing
+[14:06:27] <gabrielschulhof> Hey!
+[14:06:39] <arschmitz> thats a blocker
+[14:07:13] <agcolom> thanks
+[14:08:40] <arschmitz> ok lets get started
+[14:08:49] <arschmitz> i guess first off is the breakages i just mentioned
+[14:08:57] <agcolom> arschmitz: is there an issue open for this?
+[14:09:04] <arschmitz> no
+[14:09:31] <arschmitz> some of it may be fixed in core still discussing with them and dont know the full problems yet
+[14:09:39] <agcolom> sure
+[14:10:05] <arschmitz> so for this moment we can ignore things failing on git as far as CI
+[14:10:19] <arschmitz> hopefully we can get this resolved quickly
+[14:12:27] <arschmitz> so gabrielschulhof selectmenu
+[14:12:33] <arschmitz> any progress updating that?
+[14:13:57] <gabrielschulhof> No, unfortunately
+[14:14:03] <gabrielschulhof> I was completely swamped :(
+[14:14:13] <gabrielschulhof> I do have an observation about listview though.
+[14:14:30] <gabrielschulhof> It's not gonna be easy identifying which items need their icon updated.
+[14:14:43] <gabrielschulhof> We assume that if ui-listview-item is set then the item does not need processing.
+[14:15:43] <gabrielschulhof> So, I kinda need a query that says if the data-icon is x and the ui-icon-* class is y, then process.
+[14:15:57] <gabrielschulhof> That's tough to do efficiently, AFAICT.
+[14:16:46] <gabrielschulhof> Especially since I first have to find the child and then regexp check its class.
+[14:17:38] <arschmitz> refresh does not need to be super effecient it should not get used often
+[14:17:47] <gabrielschulhof> It gets called from _create() :)
+[14:18:23] <gabrielschulhof> But, of course, in create, /all/ items need processing, so it's heavier anyway.
+[14:18:42] <arschmitz> we can also special case create if need be
+[14:19:14] <gabrielschulhof> No, we won't need to, because in that case, the lack of ui-listview-item will identify the items as needing processing.
+[14:19:43] <gabrielschulhof> OK, so with this need for efficiency somewhat lifted off my shoulders, I guess I can come up with something - hopefully over the week.
+[14:19:54] <gabrielschulhof> selectmenu is OK, but a couple of the tests I added now fail.
+[14:20:02] <gabrielschulhof> I haven't had time to look into why :/
+[14:20:11] <arschmitz> ok
+[14:20:21] <arschmitz> you have not updated with latest ui though have you
+[14:20:35] <gabrielschulhof> Yes, I have, locally, which is what caused the tests to fail.
+[14:20:38] <arschmitz> ok
+[14:20:53] <arschmitz> something else new i cant recall if it came up in a previous meeting with ui
+[14:20:59] <arschmitz> the class generator functions
+[14:21:06] <arschmitz> now have 4 positions not 3
+[14:21:17] <arschmitz> first, middle, last, and the new one is only
+[14:21:26] <arschmitz> for when its the only element in the controlgroup
+[14:21:44] <gabrielschulhof> Ha! Waaay ahead of UI :) I already did that on my selectmenu branch :)
+[14:22:09] <arschmitz> no i mean it will get passed "only"
+[14:22:14] <arschmitz> so you need to handle it
+[14:22:24] <gabrielschulhof> Yeah, that's what I'm talking about.
+[14:22:34] <arschmitz> how did you add that did you modify the ui files
+[14:22:35] <gabrielschulhof> I actually added a key for that.
+[14:22:39] <gabrielschulhof> No.
+[14:22:49] <arschmitz> then how was it ever getting called
+[14:22:54] <gabrielschulhof> Hold on ...
+[14:22:59] <gabrielschulhof> grabbing link ...
+[14:24:04] <gabrielschulhof> https://github.com/gabrielschulhof/jquery-mobile/blob/7731-selectmenu-classes-option/js/widgets/controlgroup.js#L115
+[14:24:14] <gabrielschulhof> ... except I called it "single", not "only"
+[14:24:57] <gabrielschulhof> You choose in _widgetname_options() which key you want to return.
+[14:25:25] <gabrielschulhof> You get the position, but if you also check whether there's only one widget, you can override the key you get and return "single".
+[14:25:29] <arschmitz> no it gets passed the key
+[14:25:34] <arschmitz> and it will get passed only now
+[14:25:40] <arschmitz> instead of first or last
+[14:25:51] <arschmitz> you also are overriding build simple options
+[14:25:54] <arschmitz> which you should not
+[14:26:04] <arschmitz> your key is wrong for selectmenu options
+[14:26:14] <gabrielschulhof> Yeah, before I would ignore the key if there was only one element, and I would return whatever it has under "single"
+[14:26:17] <arschmitz> we dont officially support textinput
+[14:26:30] <gabrielschulhof> I know, but the demos looked awful.
+[14:26:33] <gabrielschulhof> We need not document that.
+[14:26:54] <arschmitz> so we cant just throw code in a widget for a demo
+[14:27:02] <arschmitz> the demo should be fixed not the widget
+[14:27:20] <gabrielschulhof> OK. I can make it an extension and add the code to the demo.
+[14:28:12] <arschmitz> i dont think most of what you added to controlgroup should be there at all
+[14:29:11] <arschmitz> that hasSingleChild is very inneffecient
+[14:29:21] <arschmitz> if you find bugs in a ui widget you should file a bug with ui
+[14:29:23] <arschmitz> not patch mobile
+[14:29:29] <gabrielschulhof> Well, I won't need to worry about that anymore, if I get "only" from UI.
+[14:30:19] <gabrielschulhof> It wasn't really a bug. It just didn't have support for single widgets. Now it does.
+[14:30:51] <arschmitz> thats a bug though if it does not render properly its a bug
+[14:31:22] <gabrielschulhof> Well, TBH I didn't know what the thinking was. Like, if there's only one widget, why put it in a controlgroup, right?
+[14:31:32] <gabrielschulhof> So, I thought that's why it didn't support single widgets.
+[14:31:38] <gabrielschulhof> But I guess you're right - it was a bug.
+[14:31:43] <arschmitz> gabrielschulhof: that would make sense if we didnt have the visible option
+[14:32:02] <arschmitz> just because its the only visual one does not mean its the only one
+[14:32:07] <gabrielschulhof> Yeah, I guess that's true. A widget can be /effectively/ single.
+[14:32:31] <gabrielschulhof> Well, anyhoo. It's fixed now, so I can yank those workarounds.
+[14:32:41] <arschmitz> ok
+[14:32:46] <arschmitz> so demos since it came up
+[14:32:57] <arschmitz> any progress cogwurx
+[14:33:02] <arschmitz> jasper is not here it seems
+[14:33:14] <cogwurx> none...a bit swamped...hopefully i can take a look at it this week
+[14:33:20] <arschmitz> ok
+[14:33:28] <gabrielschulhof> cogwurx: I feel your pain :/
+[14:33:30] <arschmitz> cgack: any progress on api?
+[14:34:13] <cgack> arschmitz: negative. I've had a bunch on my plate
+[14:34:19] <arschmitz> ok
+[14:35:01] <cgack> which brings me to this.... next week is my last week at my current employer, after that I may have troubles getting to these meetings each week but I'll def. try
+[14:35:16] <arschmitz> ok
+[14:35:56] <apsdehal> I wanted to discuss https://github.com/jquery/jquery-mobile/issues/7385
+[14:36:21] <arschmitz> ok
+[14:36:26] <arschmitz> so that was the old menu
+[14:36:35] <apsdehal> I tried debugging the issue and found out the issue is there because of the list view extension in the lib
+[14:36:40] <arschmitz> so not sure it applies
+[14:36:44] <apsdehal> And hasn't been yet solved
+[14:36:53] <arschmitz> yes
+[14:36:56] <apsdehal> no, issue is still there in 1.
+[14:37:01] <arschmitz> ok
+[14:37:03] <apsdehal> *1.5
+[14:37:14] <arschmitz> so we just need to fix the demo
+[14:37:25] <apsdehal> So it is probably not fixable without removing the external lib
+[14:37:31] <arschmitz> should probably be a full page demo without the menu
+[14:37:37] <apsdehal> Yes
+[14:37:40] <arschmitz> apsdehal: the demo is the external lib
+[14:37:43] <arschmitz> thats the whole point
+[14:38:07] <arschmitz> there would be no demo without the lib so yes that would fix it lol
+[14:38:19] <apsdehal> Ok, I will make demo full page without menu
+[14:38:40] <arschmitz> this lib ads back functionality we deprecated
+[14:38:51] <arschmitz> and removed a few versions ago
+[14:39:05] <apsdehal> moving to next
+[14:39:09] <apsdehal> gabrielschulhof: Status of https://github.com/jquery/jquery-mobile/issues/6878
+[14:39:33] <gabrielschulhof> quo
+[14:40:01] <gabrielschulhof> unfortunately
+[14:40:15] <gabrielschulhof> I guess it's a nice-to-have.
+[14:40:30] <gabrielschulhof> At this point I'd be inclined to punt it.
+[14:40:38] <gabrielschulhof> It's not milestoned, anyway.
+[14:40:51] <arschmitz> it should be part of panel re-write
+[14:40:59] <apsdehal> Ok, so 1.6
+[14:41:17] <gabrielschulhof> Yeah, something to keep in mind for the panel rewrite.
+[14:41:37] <apsdehal> Final issue from my side: https://github.com/jquery/jquery-mobile/issues/8144
+[14:41:45] <gabrielschulhof> Though who knows ... by then popup will be replaced with dialog.
+[14:41:56] <gabrielschulhof> So, I dunno how dialog behaves when you navigate away.
+[14:42:22] <gabrielschulhof> I'm pretty sure that works.
+[14:42:37] <apsdehal> I tried, didn't work for me
+[14:42:43] <apsdehal> not even in the demos
+[14:43:38] <gabrielschulhof> apsdehal: Try http://view.jquerymobile.com/7731-selectmenu-classes-option/ when it becomes available.
+[14:44:21] <gabrielschulhof> Works for me in FF as well as Chrome.
+[14:44:36] <gabrielschulhof> Hit enter to open the menu, up/down arrows to choose item, and Enter again to select.
+[14:44:43] <gabrielschulhof> Works with both custom select and native select.
+[14:44:44] <arschmitz> gabrielschulhof: thats not the bug
+[14:44:51] <arschmitz> the bug is you should be able to hit a letter
+[14:44:55] <arschmitz> to skip to that letter
+[14:45:08] <gabrielschulhof> Oh, the letter thing.
+[14:45:17] <apsdehal> http://view.jquerymobile.com/7731-selectmenu-classes-option/demos/selectmenu-custom
+[14:45:31] <gabrielschulhof> Woah!
+[14:45:49] <gabrielschulhof> Choosing by letter on the fly. That's a feature we've never had with custom select.
+[14:45:54] <gabrielschulhof> IIRC.
+[14:46:01] <arschmitz> nope
+[14:46:03] <agcolom> the new demo site looks really good!
+[14:46:12] <arschmitz> but its a bug if we claim its fully keyboard enabled
+[14:46:13] <gabrielschulhof> So, like, implement this?
+[14:46:15] <arschmitz> because its not
+[14:46:18] <gabrielschulhof> True.
+[14:46:29] <gabrielschulhof> OK. I suppose that should go in to the selectmenu PR.
+[14:46:35] <arschmitz> should not be terrible to add
+[14:46:38] <apsdehal> Yes, it is not present anywhere, but I wanted to ask as native selectmenu have this feature
+[14:46:48] <arschmitz> ui does do this
+[14:47:06] <gabrielschulhof> Then I'll have a place to inspire me :)
+[14:47:28] <apsdehal> gabrielschulhof: Would you like to assign it yourselves?
+[14:47:30] <gabrielschulhof> Be nice to factor this out somehow ...
+[14:47:36] <arschmitz> gabrielschulhof: we will
+[14:47:41] <arschmitz> when we switch to ui menu
+[14:47:47] <arschmitz> but until then
+[14:47:56] <gabrielschulhof> That's one way to factor out common functionality :)
+[14:47:59] <gabrielschulhof> apsdehal: Done.
+[14:48:18] <apsdehal> Thanks
+[14:48:38] <gabrielschulhof> *whew* ... I really need to carve out some time for this work.
+[14:49:29] <arschmitz> yeah looks like selectmenu needs several updates
+[14:50:53] <apsdehal> That was all I have :)
+[14:51:10] <arschmitz> ok
+[14:51:18] <arschmitz> any one else have anything
+[14:51:54] <gabrielschulhof> I'm good ...
+[14:53:59] <cogwurx> I'm good! have a good week all!
+[14:54:18] <gabrielschulhof> L8R all!
+[14:56:03] <arschmitz> bye all

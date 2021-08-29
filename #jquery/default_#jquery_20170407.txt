@@ -1,0 +1,256 @@
+[02:51:22] <xenaxon> hello
+[02:51:29] <xenaxon> need some help
+[02:51:31] <xenaxon> gyu
+[02:51:51] <xenaxon> anybody know how to work arrays in Mustache JS ?
+[02:53:00] <xenaxon> i need to plot a table, and i have rows, and columns.
+[02:53:37] <xenaxon> i know how to display an array in mustache but how to create multiple rows depending on the number I give it
+[04:50:03] <Unbeerable> Hi. I have a question about deferred.always() behavior. Can I be sure the always() is always running *after* .done() and .fail() to make things which are common for those methods?
+[04:51:29] <Cork> Unbeerable: it at least used to be, but give me a min to make sure
+[04:55:18] <Cork> hmm interesting it actually doesn't look that way
+[04:58:51] <Cork> Unbeerable: https://jsfiddle.net/mh7pa7wL/
+[04:58:57] <Cork> no, they are called in binding order
+[04:59:42] <Cork> https://jsfiddle.net/mh7pa7wL/1/
+[04:59:55] <Cork> Unbeerable: so always is NOT always called last
+[05:20:10] <Unbeerable> Cork, but it always called last, if specified last?
+[05:20:22] <Cork> yes
+[05:20:31] <Cork> as you can see from the testcase
+[05:20:38] <Unbeerable> that's definitely enought for me, thank you
+[05:20:43] <Unbeerable> *enough
+[06:36:27] <sigdk> I'm not sure how to mock the ajax, nevertheless... is there something wrong with the logic of this snippet https://jsfiddle.net/hbezwsvb/2/ ?
+[06:44:56] <ranjithbluebird> join
+[07:13:21] <Cork> sigdk: yes, ajax is async so the return value will always be null
+[07:14:06] <Cork> (execution order is line 5, 13, 9 or 11)
+[07:18:45] <Cork> sigdk: i would recommend this structure: https://jsfiddle.net/hbezwsvb/3/
+[07:44:59] <sigdk> Cork, is this synchronous: ("#foobar").html("Hello World!"); and this asynchronous: $("#foobar").html(function(){ return "Hello World!"});   ?
+[07:45:41] <Cork> sigdk: yes
+[07:45:50] <Cork> both are syncronous
+[07:46:14] <Cork> setTimeout, setInterval and $.ajax is what makes things async
+[07:46:20] <Cork> (there are a few more)
+[07:47:29] <FilipNortic> async basicly implies that you are unsure of the execution order
+[07:49:19] <FilipNortic> and I read the conversation worng again sorry about that
+[07:50:34] <Cork> FilipNortic: well it is quite true though
+[07:50:41] <Cork> though there are things you always know about async calls
+[07:51:00] <Cork> it will NEVER execute until the current javascript stack has completely unwinded
+[07:51:27] <Cork> so a return in the js will ALWAYS run before any async callbacks, no matter how fast they are
+[07:52:22] <Cork> sigdk: the solution i gave you uses deferred to make an async callback for the caller to get a similar effect of the return value you wanted to use
+[07:52:44] <Cork> you could use .done().fail() out there instead if you prefer that
+[07:54:08] <FilipNortic> back when I started working there were devs that used timeouts to try and make sure thier ajax calls finnished before execution of the statments. That kind of make you prefer sync requests
+[07:55:12] <FilipNortic> btw that was in 2010 i'm not a js veteran
+[07:55:30] <fuchstronaut> Cork: thanks for sharing that bit with the current stack, didn't knew that
+[07:55:52] <Cork> FilipNortic: ya, i've seen a lot of racy code like that too
+[07:56:08] <Cork> bit it mostly comes from ppl not knowing how async works and just hacking around it
+[07:56:26] <Cork> and javascript developers has a weird love for setTimeout when things doesn't work >_>
+[07:56:45] <Cork> (well and setInterval)
+[07:56:53] <Cork> fuchstronaut: yw
+[07:58:37] <FilipNortic> the only time I tried hack like that was typehead searches that fired to frequently but i think i gave up and redid backend instead
+[08:01:40] <FilipNortic> things got wierd when older resluts finnished later than new ones... Are there good solutions to that?
+[08:01:58] <Cork> the callbacks
+[08:02:11] <Cork> they will always keep the relation to the request
+[08:02:33] <Cork> if you are building a list from the results you need a placeholder for the specific content in the result list
+[08:02:38] <Cork> so things can drop in out of order
+[08:03:13] <Cork> cause ya, it is normal for http requests to resolve at different speed
+[08:03:24] <Cork> for one cause of how fast the server can handle the specific request
+[08:03:45] <Cork> but also for what route the package takes over the net based on load and route priority
+[08:06:31] <sigdk> <Cork> you could use .done().fail() out there instead if you prefer that          may I ask you to modify it as such?
+[08:07:05] <Cork> sigdk: just replace .always() with .done().fail()
+[08:07:28] <Cork> .always is called in both cases, while .done .fail is called when it succeed/fail
+[08:08:29] <FilipNortic> is always called after success()/fail() or in the order you put them?
+[08:09:01] <Cork> heh i could answer that with scroll up as i answered that a little while back :)
+[08:09:06] <Cork> it is in the order they are called
+[08:09:27] <Cork> .always() is just a helper for .done(func).fail(func)
+[08:09:34] <Cork> so it binds in the queue when you call it
+[08:10:43] <sigdk> Cork, what does this line (7) mean:    .then(function() { return 'successs' }, function() { return 'fail'; });
+[08:11:00] <Cork> sigdk: it sets the return value you use rel for before
+[08:12:07] <FilipNortic> so if i put .always().done() it executed in that order?
+[08:12:15] <Cork> yes
+[08:12:30] <sigdk> Cork, why can't I use .done( return "success"; ).fail( return "fail"; ) there?
+[08:12:54] <Cork> cause .done() and .fail() doesn't take return values
+[08:13:01] <Cork> it doens't modify the deferred result value
+[08:13:25] <Cork> the value returned in .then() is what becomes the first argument in following handlers
+[08:13:49] <Cork> (the function(status <--) { .html(status); })
+[08:14:56] <Cork> sigdk: note the return in the callbacks is not the same as the return in the getUsername function
+[08:15:06] <Cork> it just modifies the deferred value chain
+[08:15:24] <Cork> and is why the .always after getUsername() is needed
+[08:45:54] <sigdk> Cork, what is the condition to return success or fail ?
+[08:48:25] <Cork> sigdk: the ajax calls http status
+[08:52:42] <sigdk> Cork, hmm... to be honest, I thought then was a replacement of done/fail but it's not just like that
+[08:52:54] <Cork> sigdk: it is
+[08:53:04] <Cork> kinda it is that and more
+[08:53:26] <Cork> the first callback to .then is equal to done, and the second is equal to fail
+[08:53:31] <sigdk> Cork, but you say that with done/fail I cannot return anything...
+[08:53:50] <Cork> with the exception that what it returns is what the following deferred callbacks will reseave
+[08:54:02] <Cork> sigdk: yes and that is the only difference
+[08:54:23] <Cork> .then(function(data) { return data; }) is equal to .done(function(data) {})
+[10:04:20] <Neo_122> hi guys
+[10:04:37] <Neo_122> what better use yandex map or google map ?
+[10:17:32] <Neo_122> you never listen about yandex ?
+[10:28:52] <Uhkis> people probably dont know what yandex is
+[10:29:08] <MassDebates> Of course people know what yandex is
+[10:35:41] <sharax> hi friends
+[10:35:47] <sharax> i used http://tutorialzine.com/2012/09/count-up-jquery/
+[10:36:10] <sharax> my problem is , i do not disable animated effect on plugin :(
+[10:36:12] <sharax> please help
+[10:36:15] <sharax> :(
+[11:21:16] <Es0teric> how do you get the class from a element on click?
+[11:21:22] <Es0teric> i dont want to check the class, i want to get the class
+[11:22:56] <Woet> what did you try so far?
+[11:25:34] <Uhkis> what's the difference between check and get?
+[11:57:29] <quechon> hello guys im using this jquery extention http://www.fyneworks.com/jquery/multifile/
+[11:57:37] <quechon> and materialize
+[11:58:14] <quechon> but i cannot figure out how to make list of files appear in another div
+[12:00:47] <quechon> https://bpaste.net/show/9568fbbab7e1 thats the html code using materialize.css
+[13:39:00] <whoisaCe> Does async.js have a complete function?
+[13:39:13] <whoisaCe> I don't seem to find one in the documentation https://caolan.github.io/async/docs.html
+[13:39:23] <whoisaCe> oops wrong channel
+[13:39:25] <robertmaxrees> heh
+[13:46:07] <whoisaCe> robertmaxrees - is there a way to find out when async completed with jquery? I tried ajaxStop and ajaxComplete, and neither return the console log :\
+[13:46:21] <robertmaxrees> async as in...?
+[13:46:34] <whoisaCe> the link I posted earlier
+[13:46:46] <robertmaxrees> that's not jquery.
+[13:46:58] <robertmaxrees> jquery offers its own mechanisms for that.
+[13:51:43] <halftroll> how could I $.each through all [foo=foo] elements inside #foo ?
+[13:51:52] <robertmaxrees> huh?
+[13:51:59] <robertmaxrees> what is [foo=foo] supposed to represent?
+[13:52:23] <robertmaxrees> halftroll you mean all elements with a given attribute?
+[13:52:39] <halftroll> robertmaxrees: yes, that are inside a div with certain id
+[13:52:50] <robertmaxrees> what's the attribute?
+[13:52:57] <halftroll> for example <div id='foo'><div foo='foo'/></div>
+[13:53:02] <robertmaxrees> erm.
+[13:53:13] <robertmaxrees> you're not really supposed to create your own attributes like that.
+[13:53:24] <halftroll> robertmaxrees: I do it a lot in my projects..
+[13:53:41] <robertmaxrees> just letting you know it's not technically valid.
+[13:53:57] <halftroll> really?, a lot of frontend frameworks use them
+[13:54:05] <robertmaxrees> data attributes are a different story.
+[13:54:33] <sillyslux> one day w3c mgihtdecide to add some foo attribute theirself
+[13:54:34] <halftroll> :[, I didn't knew I wasn't supposed to use custom attributes :s
+[13:54:44] <robertmaxrees> also: for selecting, use classes :)
+[13:55:08] <robertmaxrees> either way.
+[13:55:53] <halftroll> well, I will change them with prefix -data
+[13:55:55] <halftroll> data-
+[13:57:07] <halftroll> my question is still valid, if I need to iterate through all data-foo='hello' tags I would do $.each($([data-foo=hello]), function(index, elem) { .....
+[13:57:14] <robertmaxrees> err.
+[13:57:17] <robertmaxrees> one sec.
+[13:57:42] <robertmaxrees> https://jsfiddle.net/robertmaxrees/matkyk96/
+[13:57:47] <robertmaxrees> $.each is meant for objects.
+[13:58:05] <robertmaxrees> $(something).each() is for jquery objects.
+[13:58:39] <halftroll> oh,my mistake
+[13:58:49] <halftroll> so far I have done $(something).each(, you right
+[13:59:16] <halftroll> the thing is that I want to iterate if the elements are children of certain other element that has certain id
+[13:59:30] <halftroll> checking link
+[13:59:41] <robertmaxrees> that's exactly what i did in the example ;)
+[14:00:01] <halftroll> ok
+[14:00:28] <halftroll> perfec
+[14:00:34] <halftroll> perfect, thanks! !!!*
+[14:01:12] <halftroll> my inside tags are of different types but I will play with it
+[14:01:21] <robertmaxrees> same basic idea.
+[15:14:05] <_geoff> i have <h4>foo<span>bar</span></h4>  i want to get just foo
+[15:16:33] <MikeD_1> can you put another tag around the part you want to make addressable?
+[15:17:34] <qakhan> hi all,
+[15:18:05] <qakhan> i am using jquery validate plugin and using remote ajax.
+[15:20:02] <qakhan> its works fine. but if i add the element attr "name" and try to call in remote ajax it does not get newly added element attr "name"
+[15:23:38] <qakhan> here is my code https://pastebin.com/hujAnkQj
+[15:24:14] <qakhan> i am not getting value in    company_exts : $('#tableheading').attr('name')
+[15:30:44] <_geoff> MikeD_1: i cannot
+[15:31:01] <_geoff> MikeD_1: i am doing an analytics implementation through a tag manager
+[16:10:09] <robertmaxrees> _geoff there are a few ways to do that.
+[16:16:19] <qakhan> any thought on my question
+[16:17:43] <robertmaxrees> qakhan well, why are you adding that attribute like that?
+[16:20:05] <qakhan> there is 1 combo box which has all companies name. when i select a company name it get the data of the company and show it in table
+[16:20:22] <robertmaxrees> okay?
+[16:20:30] <qakhan> now there is edit button next to every row
+[16:20:45] <robertmaxrees> any reason you don't just have that input with the proper attribute name always and just populate the value?
+[16:21:41] <qakhan> which brings up a form where i can update the user information
+[16:22:00] <qakhan> that form need to be validate
+[16:22:23] <robertmaxrees> sounds like you need to reinitialize or use https://jqueryvalidation.org/rules/
+[16:23:01] <qakhan> as you can see in my code i am saving table name in $('#tableheading').attr('name')
+[16:23:16] <robertmaxrees> there a reason you're ignoring what I'm saying?
+[16:23:23] <robertmaxrees> just gave you two solutions O.o
+[16:23:29] <qakhan> so that i can use that table name in jquery validate remote ajax call
+[16:24:03] <qakhan> i am trying to explain what i am trying to do
+[16:24:09] <robertmaxrees> lol
+[16:24:15] <robertmaxrees> (shrug) i got the gist.
+[16:24:31] <qakhan> ok "any reason you don't just have that input with the proper attribute name always and just populate the value?"
+[16:24:35] <qakhan> i did not get it
+[16:25:01] <robertmaxrees> it's all good.  so it sounds like you neeed to reinitialize or use https://jqueryvalidation.org/rules/
+[16:25:41] <qakhan> i did $(".editexten").validate({});
+[16:25:52] <qakhan> after $('#tableheading').attr('name',selected_company_exts);
+[16:25:53] <robertmaxrees> after you add the new elements?
+[16:26:00] <robertmaxrees> yeah, then try .rules()
+[16:29:55] <qakhan> should i remove all rules?
+[16:30:01] <robertmaxrees> wut
+[16:30:08] <robertmaxrees> you add rules to the element.
+[16:31:02] <Mapper99> I have some code to dynamically update an input box - works fine everywhere except for on an iPad -even in Chrome - any idea why not?  https://pastebin.com/RXZ9f35X
+[16:31:26] <robertmaxrees> var position = this.events.getMousePosition(e);
+[16:31:47] <Mapper99> lol
+[16:31:50] <robertmaxrees> ;)
+[16:38:02] <qakhan> Thanks robertmaxrees you are great
+[16:38:16] <robertmaxrees> i mean, fwiw - https://www.google.com/search?q=jquery+validate+add+element
+[17:51:24] <xenaxon> hi all. How ca I remake this map area selector: https://www.mapdevelopers.com/area_finder.php
+[17:51:42] <xenaxon> how can I make that selection in my oiwn script?
+[17:51:58] <robertmaxrees> huh?
+[17:52:30] <robertmaxrees> i mean, you can look at their code and see how they did it.
+[17:59:21] <xenaxon> are you serious?
+[17:59:43] <robertmaxrees> ?
+[18:00:09] <robertmaxrees> i mean, http://stackoverflow.com/a/8019559/923919
+[18:02:01] <xenaxon> yes, and i found it being plotted on the map, (the polygon), but i dont see how to get it created upon click
+[18:04:09] <robertmaxrees> google.maps.event.addListener(map, "click", function(a) { mapClick(a.latLng) });
+[18:04:33] <robertmaxrees> can step through from there.
+[18:06:36] <xenaxon> so then I just need to create polygon point at that coord
+[18:06:43] <robertmaxrees> looks like it?
+[18:06:57] <xenaxon> but 1  more detail
+[18:07:19] <xenaxon> the polygon editor on their site, has points to edit the ploygon corners
+[18:07:24] <xenaxon> and mid section
+[18:07:31] <xenaxon> which i cant see on google site
+[18:08:05] <robertmaxrees> code has all that, too.
+[18:09:11] <xenaxon> ok
+[18:09:18] <xenaxon> just found the code for rectangle
+[18:09:23] <xenaxon> youre right
+[18:09:28] <xenaxon> have to search a little bit
+[18:09:32] <xenaxon> thanks!
+[18:09:41] <robertmaxrees> sure.
+[18:29:57] <Whiskey> robertmaxrees: do you never sleep :D
+[18:30:03] <robertmaxrees> huh?
+[18:30:10] <Whiskey> you seems to always be around
+[18:30:11] <robertmaxrees> it's 3:30 in the afternoon here >.>
+[18:30:18] <Whiskey> ooo, its 00:30 here :D
+[18:30:33] <robertmaxrees> i'm on during work hours.
+[19:31:41] <rand0m> hello
+[19:33:31] <robertmaxrees> sup
+[19:34:19] <rand0m> im tying to wrap my head around this problem
+[19:34:21] <rand0m> https://jsfiddle.net/fLcjuzh6/1/
+[19:34:39] <rand0m> i have 2 sets of data which I want to interleave and display as a list
+[19:34:56] <robertmaxrees> meterdetails and meters?
+[19:35:17] <rand0m> yeah
+[19:35:42] <robertmaxrees> well for starters, one's an array of objects, the other is an object.
+[19:35:50] <robertmaxrees> did you want to push meterDetails into meters?
+[19:37:59] <rand0m> dont want to push anything, just want to loop through the array items of meters and then print object property 1 from meterDetails and then print object property 1 from loop object and repeat till end of loop
+[19:40:31] <robertmaxrees> heh
+[19:40:36] <robertmaxrees> so my point still stands :)
+[19:45:03] <robertmaxrees> rand0m https://jsfiddle.net/robertmaxrees/fLcjuzh6/3/
+[19:45:05] <robertmaxrees> something like this.
+[19:45:10] <robertmaxrees> that errors now but you get the idea.
+[19:45:31] <robertmaxrees> and with that, i go.
+[19:45:32] <robertmaxrees> enjoy!
+[19:47:19] <rand0m> hi
+[19:47:29] <rand0m> sorry, I was creating a dummy mock
+[19:47:30] <rand0m> https://jsfiddle.net/fLcjuzh6/4/
+[19:48:17] <rand0m> oh he left!
+[19:51:09] <xenaxon> hey, guys. anybody can help me with google maps?
+[19:51:23] <xenaxon> how can I extract the polygon coords from here: http://jsfiddle.net/jordanarseno/xw6gp9yq/19/
+[19:51:36] <xenaxon> it has a log button but it doesn't do anything
+[20:00:35] <rand0m> xenaxon:  it does log stuff
+[20:02:07] <xenaxon> it logs stuff
+[20:02:10] <xenaxon> but there's no coords
+[20:02:20] <xenaxon> just the prototypes and javascript stuff
+[20:09:46] <rand0m> xenaxon: I believe thats correct
+[20:10:06] <rand0m> thats the only thing you'll get
+[20:14:31] <joobz> hi guys.. anyone know of the name of the graphing library this is drawn from? https://www.cloudflare.com/img/lp/screenshot-threats-chart.png
+[20:14:53] <joobz> basically want to plot my own graph.. it looks similar to the library that google use too for adwords
+[20:15:56] <MagnusVortex> joobz, I've heard that d3 is often overkill, but can do just about whatever you want
+[20:16:42] <joobz> yea d3 is a bit overkill, but thanks for the suggestion
+[20:16:53] <joobz> trying to find something more closed that just gives me that nice looking graphing functionality
+[20:31:14] <dlog> Im trying to get a FB messaging system now i can append the dialogs next to eachother but how can i position the minimized dialog on bottom of the div ?
+[20:45:17] <dlog> Im trying to get a FB messaging system now i can append the dialogs next to eachother but how can i position the minimized dialog on bottom of the div ? https://jsfiddle.net/5v3uoeha/1/
+[21:47:19] <rojikku> I have JSON parsed in the format {"name":"value", "name":"value"}. How can I get all the names in a neat little array quickly?
+[22:09:44] <tjz> hello guys
+[22:10:42] <tjz> May i know what do you recommend for 'mini tab' script where i can paste in middle half of my webpage ?

@@ -1,0 +1,170 @@
+[09:27:16] <jqcommit> 01[13jquery01] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/CdWztg
+[09:27:16] <jqcommit> 13jquery/06master 14d12b26c 15Richard Gibson: Upgrade QUnit: Welcome to the present!
+[09:28:27] <DaveMethvin> lol
+[09:28:59] <jqcommit> 01[13jquery01] 15gibson042 pushed 1 new commit to 061.9-stable: 02http://git.io/3gYMYw
+[09:28:59] <jqcommit> 13jquery/061.9-stable 1459dd3d9 15Richard Gibson: Upgrade QUnit: Welcome to the present!
+[09:42:09] <rwaldron> DaveMethvin ping
+[09:42:18] <DaveMethvin> sup rwaldron
+[09:42:22] <rwaldron> This is no good, but we didnt have a test
+[09:42:22] <rwaldron> https://github.com/jquery/jquery/pull/1154
+[09:42:23] <b-ot> rwaldron: Pull request #1154 by shalecraig (2d 10h ago): Removed an instance where copyIsArray was set, but would never be read.
+[09:42:28] <rwaldron> so I wrote one and pushing
+[09:42:44] <DaveMethvin> yeah
+[09:42:46] <rwaldron> jQuery.extend(true, {}, { a:[], o:{} }); deep copy with array, followed by object
+[09:43:00] <rwaldron> when the array is assessed, copyIsArray will be set to true
+[09:43:17] <rwaldron> the next time around, the object will pass the same condition
+[09:43:24] <rwaldron> but copyIsArray is still true
+[09:43:29] <rwaldron> so it will take the array path
+[09:43:49] <rwaldron> and turn the property value that was an object into an array
+[09:43:57] <rwaldron> test inbound.
+[09:44:01] <DaveMethvin> ok thanks
+[09:44:08] <rwaldron> I'm going to close the PR from the commit
+[09:44:10] <rwaldron> ;)
+[09:44:39] <rwaldron> Also, remember that issue that Krinkle|detached mentioned, re: race condition in the focus/blur tests
+[09:44:52] <DaveMethvin> yeah, do you have a fix?
+[09:44:53] <rwaldron> That's the same issue with data
+[09:45:03] <rwaldron> my failing tests
+[09:45:10] <rwaldron> the nodes no longer exist
+[09:45:18] <rwaldron> so IE9/10 throws
+[09:45:22] <rwaldron> but not always
+[09:45:28] <DaveMethvin> hmmm
+[09:45:38] <rwaldron> the iframe is either there or not
+[09:46:28] <rwaldron> there is some race between the iframe and the removal of the node
+[09:46:37] <rwaldron> or even touching the node
+[09:47:04] <rwaldron> (after the iframe is gone and the node reference is pointing to something that simply doesn't exist)
+[09:47:56] <DaveMethvin> i forget, what was the error that was thrown there?
+[09:47:59] <DaveMethvin> member not found?
+[09:48:06] <rwaldron> security
+[09:48:32] <DaveMethvin> seems similar to the problem IE has when you try to use an event object after the event is over
+[09:48:45] <rwaldron> IE9/10 won't allow you to hold references to nodes in iframes, unless 1. the iframe is yours and 2. the iframe exists
+[09:49:04] <rwaldron> by "yours", I mean "from this domain"
+[09:49:28] <DaveMethvin> OH
+[09:49:37] <DaveMethvin> and we didn't have this prob before because we just leaked in that case
+[09:52:34] <jqcommit> 01[13jquery01] 15rwldrn pushed 1 new commit to 06master: 02http://git.io/QgxAuQ
+[09:52:34] <jqcommit> 13jquery/06master 14ed0e2d1 15Rick Waldron: Adds test for jQuery.extend deep copy with array, followed by object. Refutes and Closes #1154
+[09:53:16] <rwaldron> DaveMethvin complete explanation of the copyIsArray: https://github.com/jquery/jquery/commit/ed0e2d1e8a5005a80d0dd127dc4019f696471ad6
+[09:53:16] <b-ot> rwaldron: Rick Waldron (1m 22s ago): Adds test for jQuery.extend deep copy with array, followed by object. Refutes and Closes #1154
+[09:53:33] <rwaldron> And yes, no problem before because we didn't care
+[09:53:58] <rwaldron> and because we didn't use the node for anything special
+[09:54:24] <rwaldron> if the node was removed forever (eg. if it was in an iframe document), the data went with it
+[09:57:27] <rwaldron> DaveMethvin I believe this is related... http://bugs.jquery.com/ticket/8533#comment:5
+[09:57:39] <rwaldron> or rather: http://msdn.microsoft.com/en-us/library/gg622929(v=VS.85).aspx?ppud=4.
+[09:57:53] <doesallmagic> Project jQuery Core build #678: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/678/
+[09:57:54] <doesallmagic> richard.gibson: Upgrade QUnit: Welcome to the present!
+[09:57:57] <rwaldron> ugh.
+[09:57:59] <rwaldron> "Another solution is to ensure that all the dependencies on objects within the transient IFrame are resolved before the IFrame is removed from the document (that is, before the iFrame's window becomes an orphan)."
+[10:28:20] <doesallmagic> Project jQuery 1.x Core build #57: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/57/
+[10:28:20] <doesallmagic> richard.gibson: Upgrade QUnit: Welcome to the present!
+[10:51:48] <rwaldron> DaveMethvin I believe I've narrowed it down to the onbeforeunload test as the iframe culprit
+[10:52:27] <rwaldron> to clarify my thinking from earlier, I meant that Krinkle|detached's findings set me down the right path, not that they were directly related
+[10:55:02] <rwaldron> we can keep that version of the onbeforeunload tests for 1.9.x branch, but use a smarter test that can postMessage the results from a child frame
+[10:55:10] <rwaldron> in 2.0.x test suite
+[10:56:36] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 061.9-stable: 02http://git.io/BrlM_g
+[10:56:36] <jqcommit> 13jquery/061.9-stable 14219a193 15Dave Methvin: Fix #13089. Only apply zoom to IE6/7 body.
+[10:56:49] <DaveMethvin> i'm down with that rwaldron as long as we're not missing real-life test cases that may trip on it
+[10:57:03] <rwaldron> I think this will actually be closer to real life
+[10:57:06] <DaveMethvin> that was the last blocker i think ... if you see anything that needs to go in 1.9.1 let me know
+[10:57:12] <DaveMethvin> brb
+[10:57:23] <rwaldron> since the iframe will be able to execute it's own event and report on it
+[10:58:46] <doesallmagic> Project jQuery Core build #679: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/679/
+[10:58:46] <doesallmagic> waldron.rick: Adds test for jQuery.extend deep copy with array, followed by object. Refutes and Closes #1154
+[11:02:25] <DaveMethvin> mikesherov: how's http://bugs.jquery.com/ticket/13341 looking?
+[11:04:19] <mikesherov> DaveMethvin: so it's not what I thought it was
+[11:06:12] <DaveMethvin> well it's not a regression from 1.8 as the ticket said so i didn't mark it as a blocker 
+[11:07:38] <mikesherov> right, it's not a blocker
+[11:07:52] <mikesherov> but it isn't a regression from 1.7, which I thought it was
+[11:08:28] <DaveMethvin> seems like a firefox bug to me :D
+[11:10:27] <mikesherov> yes, to me as well
+[11:10:38] <mikesherov> I'm just going to keep digging see if there is a hack around this
+[11:29:09] <doesallmagic> Project jQuery 1.x Core build #58: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/58/
+[11:29:09] <doesallmagic> dave.methvin: Fix #13089. Only apply zoom to IE6/7 body.
+[11:29:32] <rwaldron> DaveMethvin...
+[11:29:36] <rwaldron> full pass in IE9
+[11:29:48] <DaveMethvin> YAY!
+[11:29:57] <rwaldron> new data and closer-to-real-life beforeunload test
+[11:30:14] <DaveMethvin> i seem to recall it was a lot smaller too
+[11:30:34] <rwaldron> "new data" is exactly the same code as we previously tried
+[11:30:44] <rwaldron> here's some rationale for the change to the tests
+[11:30:50] <rwaldron> this IE9 thing is widely known
+[11:31:14] <rwaldron> once you know what you're looking for, there is A LOT of discussion out there
+[11:32:12] <rwaldron> basically, starting in IE9 and up, IE basically penalizes you with unforgivng exceptions whenever you hold refs to nodes that originated in iframes... if the iframe is removed from the document
+[11:32:25] <rwaldron> their motivation was to do GC asap
+[11:32:40] <rwaldron> instead of the old way, which was to let it sit until page navigation occurred.
+[11:33:49] <DaveMethvin> you wanna land that sucka in master rwaldron?
+[11:36:18] <rwaldron> just going to double check all the majors locally
+[11:36:28] <rwaldron> see if i can catch anything before I push
+[11:40:04] <rwaldron> brb
+[12:08:21] <rwaldron> DaveMethvin ping
+[12:08:29] <rwaldron> jQuery.acceptData... no longer a relevant concept
+[12:08:32] <rwaldron> remove?
+[12:08:48] <DaveMethvin> it's a documented api unfortunately rwaldron :(
+[12:08:54] <rwaldron> crap.
+[12:08:54] <DaveMethvin> also it's still needed in 1.9
+[12:08:59] <rwaldron> true
+[12:09:00] <DaveMethvin> so it should just return true?
+[12:09:22] <rwaldron> ugh
+[12:09:32] <rwaldron> I have a french bulldog on my lap, making it hard to type
+[12:09:43] <rwaldron> but yes, I was about to also type: "just return true"
+[12:10:02] <DaveMethvin> the puppy bowl just started on animal planet
+[12:10:11] <rwaldron> which is what I was already doing, but thought maybe removal would be nice
+[12:20:56] <rwaldron> DaveMethvin: one thing we could look at getting rid of...
+[12:21:16] <rwaldron> _data and _removeData
+[12:21:52] <rwaldron> Is it appropriate to add comments like...
+[12:22:04] <rwaldron> "i don't want to argue about why this has to be done"
+[12:23:05] <DaveMethvin> rwaldron: better to just explain why?
+[12:24:53] <rwaldron> I did
+[12:25:01] <rwaldron> I have a feeling it may not be enough ;)
+[12:25:03] <rwaldron> ok
+[12:25:08] <rwaldron> ready?
+[12:26:18] <DaveMethvin> 3...2...1
+[12:28:07] <rwaldron> boom.
+[12:28:16] <jqcommit> 01[13jquery01] 15rwldrn pushed 1 new commit to 06master: 02http://git.io/K5RZWA
+[12:28:16] <jqcommit> 13jquery/06master 147f94a5c 15Rick Waldron: 2.0: Rewrite data.js (Incl. event, manipulation, tests)
+[12:29:07] <rwaldron> holy crap... I just found a use for the return value of "push"
+[12:29:33] <rwaldron> instead of:
+[12:29:34] <rwaldron> this.owners.push( owner );
+[12:29:34] <rwaldron> return (this.cache[ this.owners.length - 1 ] = {});
+[12:30:00] <rwaldron> ...
+[12:30:01] <rwaldron> return (this.cache[ this.owners.push( owner ) - 1 ] = {});
+[12:31:43] <jqcommit> 01[13jquery01] 15rwldrn pushed 1 new commit to 06master: 02http://git.io/AygbVg
+[12:31:43] <jqcommit> 13jquery/06master 1464630ea 15Rick Waldron: Reduce Data.prototype.add by using the returned length value of this.owners.push(owner)...
+[12:57:41] <rwaldron> DaveMethvin I'm going to go eat and play video games
+[12:57:57] <rwaldron> if anything goes sideways, ping me via text if you want
+[12:58:36] <doesallmagic> Project jQuery Core build #680: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/680/
+[12:58:37] <doesallmagic> waldron.rick: 2.0: Rewrite data.js (Incl. event, manipulation, tests)
+[13:01:29] <snover> well speak of the devil
+[13:28:51] <doesallmagic> Project jQuery Core build #681: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/681/
+[13:28:52] <doesallmagic> waldron.rick: Reduce Data.prototype.add by using the returned length value of this.owners.push(owner)
+[13:47:30] <gibson042> rwaldron sounds similar to what we do in Sizzle: https://github.com/jquery/sizzle/blob/1c8aec91284af8d8c14447976235d5dd72b0d75e/sizzle.js#L172
+[14:45:41] <rwaldron> gibson042 reviewing your comments
+[14:46:12] <rwaldron> gibson042 re: https://github.com/jquery/jquery/commit/7f94a5cc3a167a710576c008da2c186a98ce2dd4#commitcomment-2551484
+[14:46:12] <b-ot> rwaldron: Rick Waldron (2h 18m ago): 2.0: Rewrite data.js (Incl. event, manipulation, tests)
+[14:46:34] <rwaldron> I think I added that in to support some expectation of the test suite
+[14:46:48] <rwaldron> I'll have to look through for a refresher
+[14:46:57] <gibson042> yep, absolutely
+[14:47:06] <gibson042> I'm a HUGE fan of Data over what we had
+[14:47:18] <rwaldron> thanks
+[14:48:36] <rwaldron> the goal was manageability
+[14:48:36] <rwaldron> most importantly, separating the two tasks
+[14:48:36] <rwaldron> userland data nd private data
+[14:51:36] <gibson042> right
+[14:52:06] <gf3> Is he, though?
+[14:52:12] <gf3> If you REALLY think about it…
+[14:59:17] <jqcommit> 01[13jquery01] 15rwldrn pushed 2 new commits to 06master: 02http://git.io/tUWv6g
+[14:59:17] <jqcommit> 13jquery/06master 14fd43865 15Rick Waldron: Reduce hasData per @gibson042 review notes....
+[14:59:17] <jqcommit> 13jquery/06master 147b50c4a 15Rick Waldron: Avoid potential for breakage if test suite is run in a frame...
+[15:05:10] <jqcommit> 01[13jquery01] 15rwldrn pushed 1 new commit to 06master: 02http://git.io/P9BLkg
+[15:05:10] <jqcommit> 13jquery/06master 14f506808 15Rick Waldron: Standardize on a.indexOf(b) === -1, per @gibson042 review notes...
+[15:10:07] <jqcommit> 01[13jquery01] 15rwldrn pushed 1 new commit to 06master: 02http://git.io/yCtAMA
+[15:10:07] <jqcommit> 13jquery/06master 14cf260fe 15Rick Waldron: Match the codebase standard, .split(" ") => .match( core_rnotwhite ) || []… no matter how awful it is >:|...
+[15:12:42] <gibson042> lol
+[15:13:05] <gibson042> FWIW, I was just fine with .split too
+[15:29:51] <doesallmagic> Project jQuery Core build #682: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/682/
+[15:29:52] <doesallmagic> * waldron.rick: Reduce hasData per @gibson042 review notes.
+[15:29:52] <doesallmagic> * waldron.rick: Avoid potential for breakage if test suite is run in a frame
+[16:00:14] <doesallmagic> Project jQuery Core build #683: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/683/
+[16:00:14] <doesallmagic> * waldron.rick: Standardize on a.indexOf(b) === -1, per @gibson042 review notes
+[16:00:15] <doesallmagic> * waldron.rick: Match the codebase standard, .split(" ") => .match( core_rnotwhite ) || []��� no matter how awful it is >:|
+[18:05:15] <rwaldron> DaveMethvin ping
+[18:05:19] <rwaldron> is there a git url for 2.0?
+[18:05:46] <DaveMethvin> not sure what you mean ... 

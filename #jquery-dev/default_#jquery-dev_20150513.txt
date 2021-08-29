@@ -1,0 +1,94 @@
+[01:00:43] <jqcommit> [13jquery] 15phistuck opened issue #2308: slideDown, show and more stopped working for `display: none` elements 02http://git.io/vUoPy
+[06:07:36] <jqcommit> [13jquery] 15timmywil closed issue #2308: slideDown, show and more stopped working for `display: none` elements 02http://git.io/vUoPy
+[06:15:12] <jqcommit> [13jquery] 15JonathasRodrigues opened issue #2309: Jquery 2.1.x + jquery-mask plugin error in Windows Phone 02http://git.io/vU6Bw
+[06:59:59] <m_gol> jzaefferer: would 301-redirecting those files for some time & later removing them be enough? or what official information would you expect?
+[07:00:25] <m_gol> a blog post seems too much as it's not a service we want to encourage a lot of people looking at if they don't know what it's for
+[07:13:08] <arschmitz> timmywil: Some of your offset changes have severely broken jquery-ui
+[07:13:44] <arschmitz> timmywil: https://github.com/jquery/jquery/commit/1617479fcf7cbdaf33dc9334ed10a0f30bf14687
+[07:13:47] <arschmitz> is the culprit
+[07:18:41] <DaveMethvin> arschmitz: the method now dies if you try to get the offset of a disconnected element, is that the problem?
+[07:20:07] <arschmitz> DaveMethvin: i assume you mean https://github.com/jquery/jquery/commit/0d11c1182f2012cd6eb06ce1e3fa5a495af9bee3
+[07:20:59] <DaveMethvin> right
+[07:21:04] <arschmitz> thats not it
+[07:21:11] <DaveMethvin> yeah
+[07:21:11] <arschmitz> this is caused by https://github.com/jquery/jquery/commit/1617479fcf7cbdaf33dc9334ed10a0f30bf14687
+[07:21:53] <arschmitz> though we have a bunch of other failures in offset from something else i'm still trying to find 
+[07:22:25] <DaveMethvin> the main change there is that now we consider elements to be visible if they have a bounding box
+[07:23:56] <arschmitz> something in it is causeing .left to come back undefined 
+[07:24:07] <DaveMethvin> oh that's not good 
+[07:25:23] <arschmitz> nope
+[07:26:37] <DaveMethvin> is .left undefined, or is the method returning undefined?
+[07:26:55] <arschmitz> and something else prior to that im looking for is causing elem.getBoundingClientRect() to throw Uncaught TypeError: elem.getBoundingClientRect is not a function
+[07:27:20] <arschmitz> and its not failing our tests but is breaking the actual widget which is extra bad
+[07:28:38] <arschmitz> DaveMethvin: the method is returning undefined
+[07:29:51] <DaveMethvin> ok, that would happen if the element itself isn't visible or isn't in the document
+[07:31:14] <arschmitz> ok so its probably just our tests for that one
+[07:31:32] <arschmitz> scott_gonzalez: ^^
+[07:34:28] <DaveMethvin> arschmitz: yeah these errors are strange http://swarm.jquery.org/result/286347
+[07:45:03] <arschmitz> DaveMethvin: actually it is that same commit thats breaking our position utility
+[07:45:37] <arschmitz> DaveMethvin: sorry i forgot we use different copies of jquery in demos and tests so i was not actually updating the demos each time lol
+[07:45:57] <arschmitz> This is actually breaking the widget though not our tests
+[07:46:04] <DaveMethvin> well at least it's narrowed down to one commit
+[07:46:16] <arschmitz> DaveMethvin: yup
+[07:47:00] <DaveMethvin> that's supposed to only return undef if the element isn't visible or isn't in the doc, so i'm wondering what the calling element looks like
+[07:47:07] <DaveMethvin> seems to be across browsers too
+[07:47:18] <DaveMethvin> so it's not something like gBCR being missing
+[07:50:08] <arschmitz> DaveMethvin: https://gist.github.com/arschmitz/1ded98d7ce33958dd8d6
+[07:50:39] <DaveMethvin> haha
+[07:50:45] <DaveMethvin> ok, so what is elem there?
+[07:51:57] <arschmitz> its the submenu
+[07:52:00] <arschmitz> of the menu
+[07:52:13] <DaveMethvin> but it's a div or something?
+[07:52:44] <arschmitz> ul
+[07:53:30] <DaveMethvin> what should the return value be there? i'm wondering if it fell into the !contains case before and returned [0,0]
+[07:53:32] <jqcommit> [13api.jquery.com] 15arthurvr closed issue #739: Document $.ready in 2.x and 1.x 02http://git.io/vU8HQ
+[07:54:33] <DaveMethvin> because we already were using gBCR before, but it was after that check
+[07:55:29] <arschmitz> sorry that may be it just a sec
+[07:59:47] <arschmitz> DaveMethvin: ok so the call breaks down to $( window ).offset() in the end
+[08:00:01] <DaveMethvin> that seems fishy
+[08:00:47] <arschmitz> yeah calling offset on window throws
+[08:00:59] <DaveMethvin> used to return [0,0]
+[08:01:06] <arschmitz> undefined
+[08:01:36] <arschmitz> and we did withinElement.offset() || { left: 0, top: 0 }
+[08:01:48] <arschmitz> so undefined was what we expected
+[08:01:57] <DaveMethvin> oh right because of the doc check
+[08:02:46] <DaveMethvin> so i guess we need to figure out if  $( window ).offset() is a valid use caes
+[08:02:48] <DaveMethvin> case
+[08:03:07] <DaveMethvin> it doesn't seem like it but we may need to support it if a lot of code is doing it
+[08:03:27] <arschmitz> ui has forever
+[08:03:38] <arschmitz> because we just do $( element || window )
+[08:03:49] <arschmitz> and then expect undefined in the case of window
+[08:04:08] <DaveMethvin> yeah, but it doesn't really make sense to get the offset of a window
+[08:04:22] <DaveMethvin> returning undefined is a strong enough signal i suppose
+[08:04:32] <arschmitz> no i agree its not really a valid case but we depend on the behivor
+[08:04:33] <DaveMethvin> we can look for gBCR and return undefined then too
+[08:04:47] <DaveMethvin> file a bug and timmywil can sort it out :)
+[08:05:05] <arschmitz> will do
+[08:46:46] <jqcommit> [13jquery] 15timmywil reopened issue #2308: slideDown, show and more stopped working for `display: none` elements 02http://git.io/vUoPy
+[09:29:39] <jqcommit> [13jquery] 15timmywil pushed 1 new commit to 06master: 02http://git.io/vUijp
+[09:29:39] <jqcommit> 13jquery/06master 1461e21a4 15Chris Rebert: Build: bower.json: remove moot `version` field...
+[09:29:49] <jqcommit> [13jquery] 15timmywil pushed 1 new commit to 06compat: 02http://git.io/vUPev
+[09:29:49] <jqcommit> 13jquery/06compat 143699ef4 15Chris Rebert: Build: bower.json: remove moot `version` field...
+[09:45:58] <doesallmagic2> Project jQuery Core build #1348: UNSTABLE in 16 min: http://jenkins.jquery.com/job/jQuery%20Core/1348/
+[09:45:59] <doesallmagic2> Timmy Willison: Build: bower.json: remove moot `version` field
+[10:01:45] <doesallmagic2> Project jQuery Core Compat build #603: STILL UNSTABLE in 15 min: http://jenkins.jquery.com/job/jQuery%20Core%20Compat/603/
+[10:01:46] <doesallmagic2> Timmy Willison: Build: bower.json: remove moot `version` field
+[10:38:55] <scott_gonzalez> I'll be honest, at this point I don't know what problem is trying to be solved with the .show()/.hide() changes.
+[10:49:06] <jqcommit> [13jquery] 15arschmitz opened issue #2310: Changes to offset break jQuery UI 02http://git.io/vUPXN
+[12:15:16] <jqcommit> [13jquery-migrate] 15gibson042 opened issue #108: Restore .offset disconnected/invalid behavior 02http://git.io/vUXEs
+[14:59:31] <rejns> please help, here's example http://jsfiddle.net/CVrFU/, i need to know why blueorder and bluetext functions have return this at the end
+[15:02:15] <DaveMethvin> hi rejns, you can get help for that in #jquery
+[15:09:55] <jqcommit> [13qunit] 15angelozerr opened issue #820: QUnit IntelliSense for Eclipse, Sublime, Emacs, Vim, Web Editor CodeMirror 02http://git.io/vU1Hc
+[16:40:14] <jqcommit> [13api.jquery.com] 15seductiveapps opened issue #741: iPhone 6 : jQuery(window).height() and .width() dont work - fix included.. 02http://git.io/vUMGE
+[17:06:45] <jqcommit> [13jquery] 15seductiveapps opened issue #2311: jQuery 2.1.1 : iPhone 6 : jQuery(window).height() and .width() dont work - fix included 02http://git.io/vUM8O
+[20:06:02] <jqcommit> [13jquery] 15markelog opened pull request #2312: Event: provide verbose comment for focus(in | out) & rename support prop (06master...06focusin) 02http://git.io/vUMxo
+[22:57:48] <jqcommit> [13api.jquery.com] 15arthurvr closed issue #741: iPhone 6 : jQuery(window).height() and .width() dont work - fix included.. 02http://git.io/vUMGE
+[23:10:47] <doesallmagic2> Project jQuery Core Periodic build #204: STILL UNSTABLE in 14 min: http://jenkins.jquery.com/job/jQuery%20Core%20Periodic/204/
+[23:10:48] <doesallmagic2> * Timmy Willison: CSS: fix :visible/:hidden selectors for inline element w/ content
+[23:10:48] <doesallmagic2> * Timmy Willison: Tests: fix tests in accordance with new :visible behavior
+[23:10:49] <doesallmagic2> * Timmy Willison: Data: remove some unused code
+[23:10:49] <doesallmagic2> * Timmy Willison: Data: remove the expando when there's no more data
+[23:10:50] <doesallmagic2> * Timmy Willison: Attributes: add SVG class manipulation
+[23:10:50] <doesallmagic2> * Timmy Willison: Core: remove custom ready event
+[23:10:51] <doesallmagic2> * Timmy Willison: Offset: account for scroll when calculating position
+[23:10:51] <doesallmagic2> * Timmy Willison: Build: bower.json: remove moot `version` field

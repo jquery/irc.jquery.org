@@ -1,0 +1,66 @@
+[12:44:19] <vladikoff> shama, I cannot test latest master due to peer errors, any ideas https://gist.github.com/vladikoff/c54f9e73a61f75d2ec4c
+[12:44:30] <vladikoff> stupid peerDeps garbage
+[12:45:42] <vladikoff> shama, should we make 5000 pull requests and remove peer deps
+[12:49:22] <shama> vladikoff: That one is assigned to you right? ;) Otherwise we could write a script to '*' peer deps locally until we can fix those.
+[12:49:48] <shama> Just for our own tests, not user facing
+[12:50:10] <vladikoff> shama, well I wanted to try out dep updates in one of our mozilla projects
+[12:50:40] <vladikoff> shama, " until we can fix those." === until we fix all grunt plugins?
+[12:51:31] <shama> Yeah until we remove all peer deps and update documentation. In the release announcement, we should include that first. No more peer deps.
+[12:52:57] <shama> vladikoff: wait youre using npm2, give npm3 a try. I think it just warns instead of fails.
+[12:53:56] <vladikoff> shama, yeah but npm 3 sucks. so just to confirm we will have to warn everyone to republish their plugins with no peer deps in package.json?
+[12:56:31] <shama> vladikoff: I'll draft up a release announcement and send your way. Let me play around with the different npm versions and peer deps and see if I can come up with a solid plan.
+[12:56:45] <vladikoff> shama, it does install with npm3
+[12:57:00] <shama> Avoiding them seems like the best strategy though
+[12:57:06] <vladikoff> shama, and good news the project seems to build properly
+[12:57:33] <shama> Cool that's good to hear.
+[12:59:26] <vladikoff> shama, I guess there is no 'hacky' way we can make it ignore peer deps
+[13:01:40] <shama> vladikoff: Yeah I wouldn't want to do anything drastic about it. Just some notes people can link to convince plugin authors to remove them and recommend upgrading to npm3 to avoid it. But I want to play around with it a bit. Just got to finish looking into the glob/minimatch issue with node v0.10
+[13:01:57] <vladikoff> shama, ahh
+[17:35:38] <shama> vladikoff: So after some exploration, I think we should just leave peerDeps as is for v1.0.0. Then discuss a better strategy going forward in a rfc: https://github.com/gruntjs/grunt/issues/1355#issuecomment-177000418
+[17:36:12] <vladikoff> shama, but it's not gonna work at all
+[17:36:28] <vladikoff> shama, you will need npm 3, that's dead on arrival
+[17:38:28] <shama> I dont think there is much we can do besides tell people to remove peer deps and instruct their users to install them separately.
+[17:39:15] <vladikoff> shama, we can release 0.4.7 and not v1.0.0
+[17:39:25] <vladikoff> shama, and also remove peer deps
+[17:39:37] <vladikoff> shama, ah no that's not gonna work
+[17:40:11] <shama> Altering loadNpmTasks to accommodate sounds way scarier. Especially if were not relying on a peer dep system. The plugin ecosystem will become fractured.
+[17:40:32] <shama> I think a new API is the best way to solve it but that's not going to happen in 1.0.0
+[17:40:55] <vladikoff> uh
+[17:41:31] <vladikoff> shama, it is basically going to be impossible to update to 1.0
+[17:41:35] <vladikoff> shama, with peerDeps
+[17:43:17] <vladikoff> shama, what do you mean when you say "I think we should just leave peerDeps as is for v1.0.0."
+[17:44:50] <shama> vladikoff: with regards to how they load
+[17:45:17] <vladikoff> shama, oh yeah I don't care about that
+[17:45:34] <shama> The whole peer dep system is a mess and so I dont want to try and accommodate it at all.
+[17:46:04] <vladikoff> shama, my main concern is 1.0.0 is not installable on npm 2
+[17:46:11] <shama> But it means with npm@3, people's crazy peer dep plugins will break.
+[17:47:00] <vladikoff> shama, ok first question, we remove peerDeps from all contrib plugins, does that break anything?
+[17:48:22] <vladikoff> shama, for older versions of grunt
+[17:50:46] <shama> vladikoff: no. it just means we find out if there are any people who use a grunt plugin and dont know they also need to install grunt
+[17:52:01] <shama> vladikoff: removing peerDeps in contrib could happen now as we are pretty close to 1.0.0-rc1. As for the community at large, I dont know if we want to just recommend removing them or go as far as a PR bot
+[17:55:16] <shama> Removing peer deps will only break plugins that `grunt.loadNpmTasks()` in their plugin. As that API only loads path.join(process.cwd(), 'node_modules', name, 'tasks') so in order for those to continue working, they need to load them as a peer.
+[17:55:25] <shama> Like this plugin: https://github.com/traviswimer/grunt-not-constantinople/blob/d236cff13b321b54bf1f0ddd3fb9bae9079cab04/tasks/not_constantinople.js#L44-L47
+[17:55:50] <shama> Removing peer deps or using npm@3 breaks their plugin (but its because of how loadNpmTasks works).
+[17:56:02] <vladikoff> shama, hm right
+[17:56:32] <shama> But that is ok. They can keep their peer deps and alert users while waiting until we come up with a 2.0.0 solution.
+[17:57:33] <vladikoff> shama, ok so we need a PR bot yet
+[17:57:41] <vladikoff> shama, yes*
+[17:58:15] <vladikoff> shama, "Removing peer deps will only break plugins that `grunt.loadNpmTasks()` in their plugin." we need to writ ehtat out
+[17:58:29] <shama> I think at least for rc1, no. Just an announcement that tells people to remove peer deps (unless they need them, otherwise be aware of the issues). Then reconsider a bot closer to 1.0.0
+[17:59:25] <vladikoff> shama, so this is like shipping Oculus without Games
+[17:59:40] <shama> yeah basically
+[17:59:46] <shama> lol
+[18:00:01] <vladikoff> shama, but i'm saying let's get started with games now,
+[18:00:07] <vladikoff> shama, and PR those thing sout
+[18:00:12] <vladikoff> out*
+[18:00:30] <shama> oh I see
+[18:01:36] <vladikoff> shama, it will take a bit of time for people to `npm publish`, i bet the package.json fixes will be quick, but PRs will take forever
+[18:01:46] <vladikoff> shama, sorry `npm publish` will take forever
+[18:03:10] <shama> hmm ok good point... but another thing to consider, a rc1 release breaking plugins would light a fire but in a non-threatening way. Because its' not the entire community yelling at plugin authors, just the active ones.
+[18:04:03] <shama> What do you think?
+[18:05:41] <vladikoff> shama, are you talking about the PRs?
+[18:06:34] <vladikoff> shama, you don't want active authors to yell? or what
+[18:06:45] <shama> vladikoff: have time for a quick hangouts?
+[18:06:51] <vladikoff> shama, sure
+[18:07:00] <shama> I think my friday brain isn't typing very well
+[18:07:19] <vladikoff> shama, ill send a link

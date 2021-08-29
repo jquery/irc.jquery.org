@@ -1,0 +1,89 @@
+[05:07:34] <scott_gonzalez> arschmitz gseguin|away _|Nix|_ uGoMobi: Not sure who usually does releases, but can someone look at https://github.com/jquery/jquery-mobile/pull/7257?
+[05:12:35] <arschmitz> scott_gonzalez: was already looking at it just have not had a chance to test it yet going to later this morning
+[05:13:02] <scott_gonzalez> thanks
+[05:13:26] <scott_gonzalez> I normally wouldn't be in a rush for a PR review, but trying to orchestrate changes in several repos simultaneously for this.
+[05:13:41] <scott_gonzalez> Any time today should be fine.
+[05:14:02] <arschmitz> cool no problem 
+[06:44:48] <_|Nix|_> arschmitz: Got a second to talk about Windows Phone -  https://github.com/jquery/jquery-mobile/issues/6574 
+[06:44:51] <_|Nix|_> ?
+[06:44:59] <arschmitz> sure
+[06:45:14] <_|Nix|_> arschmitz: So, it has a really dumb URL scheme : x-wmapp0:www/filename.html
+[06:45:33] <_|Nix|_> arschmitz: There's no leading /, so you can't really compute absolute filenames from relative ones.
+[06:45:55] <arschmitz> yeah iv been reading it seems completely messed up
+[06:46:00] <_|Nix|_> arschmitz: Yeah.
+[06:46:27] <_|Nix|_> arschmitz: To normalize things, I've change parseUrl() to always add a leading /.
+[06:46:41] <_|Nix|_> arschmitz: that way, internally our URL processing is sane.
+[06:46:50] <arschmitz> ok
+[06:47:06] <_|Nix|_> arschmitz: However, when you go out to make a $.ajax() call, you need to pass the requested url to an insanification function.
+[06:47:26] <_|Nix|_> arschmitz: IOW, remove the leading /, or the Ajax call will fail.
+[06:47:31] <arschmitz> insanification
+[06:47:36] <arschmitz> im going to remember that one
+[06:48:09] <_|Nix|_> arschmitz: This function can be a switch of if ( protocol === "insane-protocol-1:" ) { do something insane; } else if ( protocol === "insane-protocol-2" ) { do something equally brain-damaged; }
+[06:48:13] <_|Nix|_> etc.
+[06:48:26] <_|Nix|_> ... and return the insane URL.
+[06:48:57] <arschmitz> lol
+[06:49:07] <_|Nix|_> I'm calling it pagecontainer._smoothOverProtocolIdiosyncrasies: function( fileUrl ) { return insaneUrl; }
+[06:50:07] <_|Nix|_> ... OTOH, Cordova has processing for addressing this, but there's a bug where it fails to remove the slash, if the URL is absolute, including protocol.
+[06:50:23] <arschmitz> ok
+[06:50:44] <_|Nix|_> Although I could be mistaken. IIRC, it correctly Ajaxed in a file when it was x-wmapp0:www/other-file.html
+[06:50:45] <arschmitz> so what we are really doing is fixing a bug in cordova
+[06:51:09] <_|Nix|_> arschmitz: Well, no ... I tried it that way, but I also realized that we were having many assumptions in our code.
+[06:51:25] <_|Nix|_> arschmitz: For example, we were assuming that an abs URL always has a "//"
+[06:51:51] <_|Nix|_> arschmitz: ... and we were using location directly in a bunch of places, even though we've vowed to always go through path.parseLocation()
+[06:52:45] <_|Nix|_> arschmitz: This was killing even the workaround in Cordova, because it would remove the leading "/", but there was another slash after that, because we were passing in x-wmapp0://www/filename.html
+[06:58:04] <_|Nix|_> arschmitz: So, I think we need to fix things in both frameworks. In our case, we should listen to a parsed URL's .doubleSlash property, because it's "" when there's no double slash (fixing https://github.com/jquery/jquery-mobile/pull/6597 the right way, IINM), and Cordova need to https://github.com/jquery/jquery-mobile/issues/6574#issuecomment-37796654 (which was my original suggestion for a fix)
+[07:46:25] <_|Nix|_> arschmitz: OK, I've commented on my Cordova PR. Lessee what @purplecabbage things ... https://github.com/apache/cordova-wp8/pull/30#issuecomment-38056875
+[07:46:33] <_|Nix|_> s/things/thinks/
+[08:04:00] <arschmitz> _|Nix|_: sounds good let me know if they say anything
+[09:10:58] <arschmitz> gseguin: just so you know i already tested that pr and am on a call with scott_gonzalez and jzaefferer about it right now 
+[09:11:20] <gseguin> arschmitz: oh ok
+[09:11:28] <gseguin> I have no doubt it's working
+[09:11:39] <gseguin> I just wondered why shelljs was there 
+[09:11:57] <arschmitz> gseguin: you should because it didnt :)
+[09:12:14] <gseguin> oh, really?
+[09:12:51] <arschmitz> we were requiring outside the module exports
+[09:12:59] <arschmitz> so it was not finding them
+[09:13:21] <arschmitz> just had to move the var statement at the top inside module.exports
+[09:13:41] <scott_gonzalez> gseguin: Yeah, I didn't do any testing before I sent the PR.
+[09:13:49] <scott_gonzalez> But it looks like we've got it working with just a minor change.
+[09:13:57] <scott_gonzalez> shelljs is included because it's used directly.
+[09:14:11] <scott_gonzalez> We can't rely on jquery-release having it as a dependency, because it will likely go away in the future.
+[09:17:10] <gseguin> scott_gonzalez: fair enough, that was basically what I was asking
+[09:17:51] <scott_gonzalez> As soon as we can make node 0.12 a requirement, shelljs will likely be removed.
+[09:30:52] <jqmobilecommit> [13jquery-mobile] 15cgack opened pull request #7260: Panel: panelclose event does not work (06master...067058-panelclose-event) 02http://git.io/ANBJVA
+[09:48:06] <_|Nix|_> arschmitz: Got time for a quick review? https://github.com/jquery/jquery-mobile/pull/7228/
+[09:48:23] <arschmitz> _|Nix|_: sorry in a call and then have dev leads call in 12 minutes
+[09:48:44] <_|Nix|_> arschmitz: NP. NM.
+[09:48:52] <arschmitz> _|Nix|_: ill do it right after
+[09:48:58] <_|Nix|_> arschmitz: Cool! Thanks!
+[11:25:39] <_|Nix|_> uGoMobi: Ping!
+[11:32:01] <jqmobilecommit> [13jquery-mobile] 15jonas-db opened issue #7261: Collapsible prerendered markup: specify uncollapsed icon? 02http://git.io/86muUg
+[11:46:02] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof closed issue #7261: Collapsible prerendered markup: specify uncollapsed icon? 02http://git.io/86muUg
+[13:26:08] <arschmitz> gseguin: Ping!
+[13:26:52] <gseguin> arschmitz: 64 bytes from gseguin: icmp_seq=6 ttl=64 time=5.1234 ms
+[13:27:15] <arschmitz> lol 
+[13:27:24] <gseguin> what can I do for you?
+[13:27:26] <gseguin> :D
+[13:27:29] <arschmitz> gseguin: just wondering why we use both jsdom and cheerio ?
+[13:27:44] <gseguin> arschmitz: do we?
+[13:27:52] <arschmitz> they are both in package.json
+[13:28:00] <gseguin> I thought we switched to cheerio
+[13:28:08] <arschmitz> though i also found we had scp in there and we were no longer using it
+[13:28:17] <gseguin> that is probably left over
+[13:28:26] <arschmitz> gseguin: that would be great since i cant get jsdom to npm install on a centos server
+[13:28:43] <gseguin> yeah most likely it can go away
+[13:29:03] <arschmitz> sweet then i will stop trying to get it to install and remove it instead :)
+[13:29:30] <arschmitz> we should double check that we are actually using the things in package.json this is the 3rd thing found today
+[13:29:31] <gseguin> arschmitz: if it creates trouble then let me know I can get rid of whatever's left using jsdom
+[13:30:07] <arschmitz> gseguin: sounds good
+[13:30:14] <gseguin> arschmitz: I know, it's easy to add but we never think of cleaning that up when we get rid of a dependency
+[13:30:34] <arschmitz> yeah easy mistake to make
+[13:30:53] <gseguin> not very costly though...
+[13:31:26] <arschmitz> yeah execpt to all the poor devs HD space
+[13:31:27] <arschmitz> lol
+[13:38:22] <gseguin> disk is cheap
+[13:38:31] <gseguin> ;)
+[13:38:56] <gseguin> but we do need to clean up in order to download only half the internet when doing `npm install`
+[22:27:51] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 061.4-stable: 02http://git.io/w0r30g
+[22:27:51] <jqmobilecommit> 13jquery-mobile/061.4-stable 1484d2250 15Scott González: Build: Update release script for new jquery-release API...
+[22:28:01] <jqmobilecommit> [13jquery-mobile] 15scottgonzalez closed pull request #7257: Build: Update release script for new jquery-release API (06master...06release-exec) 02http://git.io/vhTUvg

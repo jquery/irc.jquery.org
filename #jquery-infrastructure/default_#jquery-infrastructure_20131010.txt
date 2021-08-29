@@ -1,0 +1,131 @@
+[10:14:32] <ryanneufeld> s5fs: sup
+[10:32:32] <s5fs> ryanneufeld: hey hows that chromecast?
+[10:32:41] <ryanneufeld> not bad
+[10:32:57] <ryanneufeld> it's kinda fun to stream youtube from my phone to my TV
+[10:33:06] <ryanneufeld> I wish there were more apps that supported it
+[10:33:18] <s5fs> haha i've been watching tons of youtube since i got it, lots of forging and stuff
+[10:33:30] * s5fs is an armchair blacksmith
+[10:33:51] <ryanneufeld> I've been glued to the Make channel
+[10:33:52] <ryanneufeld> lol
+[10:34:05] <ryanneufeld> I'm reverse engineering my garage door opener
+[10:34:28] <s5fs> oh funky
+[10:34:53] <s5fs> gunna write a webapp to open your garage door, eh? hilarious
+[10:52:19] <ryanneufeld> That's the idea yeah
+[10:52:31] <ryanneufeld> not only to open it, but to tell me it's state
+[10:52:40] <ryanneufeld> open/closed/inbetween
+[11:14:10] <s5fs> ryanneufeld: that sounds like fun, i'll be interested to hear how you determine state. do something fun!
+[11:56:02] <_|Nix|_> Hey! Does anybody here have op privileges on #jqueryui-dev?
+[11:56:53] <_|Nix|_> There's a person named ~matiasnu@* who keeps joining/parting under various versions of the nick matiasnu, thereby flooding the channel with join/part messages ...
+[12:50:53] <s5fs> _|Nix|_: i'm not certain if I do, but I'm willing to try. how can I help?
+[13:07:03] <gnarf> s5fs: i think you have @ on all the jquery channels - ask ajpiano to add you if you dont
+[13:07:11] <gnarf> same with ryanneufeld 
+[13:34:28] <s5fs> woo, watchout everyone!
+[14:27:18] <gnarf> scott_gonzalez: yt?
+[14:27:42] <gnarf> scott_gonzalez: Oct 10 14:27:17 jq01 suhosin[3733]: ALERT - script tried to increase memory_limit to 268435456 bytes which is above the allowed value (attacker '192.119.144.105', file '/var/www/wordpress/wordpress/wp-includes/default-constants.php', line 45) 
+[14:27:53] <gnarf> we get about 1k of these per minute in the syslog
+[14:27:59] <gnarf> cc clarkbox 
+[14:28:19] <s5fs> sheesh
+[14:28:48] <s5fs> gnarf: all the same IP or different?
+[14:29:15] <gnarf> it's https://github.com/jquery/jquery-wp-content/commit/fe2e1e56231206733f4b0e9b1f128352cf7617cc
+[14:29:16] <b-ot> gnarf: Scott González (2mon 1w ago): Increase memory limit to 256M.
+[14:29:31] <gnarf> every request through wp is spamming that error because of that line
+[14:30:04] <s5fs> fun stuff
+[14:31:12] <ryanneufeld> gnarf: I have it on all of them
+[14:36:22] <scott_gonzalez> gnarf: We discussed this before.
+[14:36:33] <scott_gonzalez> I don't remember what we decided though.
+[14:36:40] <scott_gonzalez> We'll need to grep the IRC logs.
+[14:37:05] <gnarf> scott_gonzalez yeah thats why i cced
+[14:37:08] <gnarf> i couldn't remember
+[14:39:24] <scott_gonzalez> gnarf: You said you were going to make a second pool of connections that has a higher memory limit just for XML-RPC.
+[14:39:48] <gnarf> ok
+[14:40:04] <gnarf> i'm now suffeciently on that 
+[14:40:09] <gnarf> that makes sense
+[14:40:14] <gnarf> will handle later tonight
+[14:40:36] <gnarf> s5fs able to follow allong ?
+[14:40:42] <gnarf> s5fs maybe an hour or two from now?
+[14:41:05] <scott_gonzalez> Here's the old conversation: http://irc.jquery.org/%23jquery-content/default_%23jquery-content_20130815.log.html#t11:54:37
+[14:41:30] <scott_gonzalez> gnarf: https://github.com/jquery/infrastructure/issues/196
+[14:41:53] <ryanneufeld> gnarf: I'd also like to be part of that
+[14:41:55] <scott_gonzalez> Yay for month old issues that were ignored.
+[14:42:13] <scott_gonzalez> At least it's not as bad as when I ignored the issue I filed about case insensitive matching for the plugins site.
+[14:42:27] <scott_gonzalez> That shit is still a huge mess because I didn't fix it before it blew up in my face.
+[14:43:41] <gnarf> scott_gonzalez: so how do we only do the memory limit for xml-rpc connections
+[14:43:46] <gnarf> can you think of a way?
+[14:44:06] <scott_gonzalez> On the WordPress side or the nginx side?
+[14:44:07] <gnarf> in the config.php that is
+[14:44:16] <gnarf> only set the higher limit for xml-rpc
+[14:44:21] <scott_gonzalez> I'll tackle the WordPress part now.
+[14:44:37] <scott_gonzalez> Or at least I'll try to :-)
+[14:45:55] <ryanneufeld> does the xmlrpc live on a different virtual host?
+[14:46:11] <scott_gonzalez> nope
+[14:46:20] <ryanneufeld> then that makes it extra tricky
+[14:46:36] <ryanneufeld> updating the fpm pool config may not solve the problem
+[14:46:53] <ryanneufeld> you'd likely have to hook into wp and detect if it's an xmlrpc call
+[14:46:59] <ryanneufeld> and use ini_set
+[14:46:59] <gnarf> its a path
+[14:47:05] <gnarf> its always /xml-rpc.php
+[14:47:13] <gnarf> so you can send it through a different php5_fpm pool
+[14:47:18] <gnarf> which has a higher memory_limit
+[14:47:31] <gnarf> right now the warning is logging because something is trying to ini_set above the limit ryanneufeld 
+[14:47:37] <ryanneufeld> ahhhh
+[14:52:28] <s5fs> gnarf: sprint wraps up tomm, i don't have time today :(
+[14:52:51] <s5fs> i can't send the customer an sdcard full of tears (again)
+[14:52:51] <gnarf> cool, follow along via the commit then i guess :)
+[14:53:37] <scott_gonzalez> gnarf: https://github.com/jquery/jquery-wp-content/commit/9dbcd07277b2534b939064b529b079d89e0a0148
+[14:53:37] <b-ot> scott_gonzalez: Scott González (31s ago): Only increase memory limit for XML-RPC requests.
+[14:53:42] <scott_gonzalez> It's in the memory-limit branch.
+[14:53:58] <scott_gonzalez> I'm pretty sure that's the change we need. But it's hard to test.
+[14:53:58] <gnarf> can we deploy that 
+[14:54:09] <scott_gonzalez> Sure. I guess that'll tell us if it helps :-)
+[14:54:13] <gnarf> stage should show the same error
+[14:54:23] <scott_gonzalez> Ok, do you want to tail that?
+[14:54:28] <scott_gonzalez> And I'll push to master.
+[14:54:49] <gnarf> yup
+[14:54:58] <scott_gonzalez> Let me know when you're watching.
+[14:55:55] <gnarf> btw
+[14:56:00] <gnarf> if you go to any domain
+[14:56:08] <gnarf> and document.cookie = '_mcnc=1'
+[14:56:18] <gnarf> you can disable the micro caching
+[14:56:27] <gnarf> "watching"
+[14:56:51] <gnarf> aka every refresh of jquery.com currently spawns this error :)
+[14:57:30] <scott_gonzalez> deployed on stage
+[15:00:41] <gnarf> scott_gonzalez: so whats the xml_rpc url?
+[15:01:54] <scott_gonzalez> I think it's the root.
+[15:01:56] <scott_gonzalez> So jquery.com
+[15:02:56] <gnarf> hrm
+[15:02:59] <gnarf> any get params?
+[15:03:06] <gnarf> or just post to /
+[15:03:45] <scott_gonzalez> Not sure.
+[15:03:50] <scott_gonzalez> nacin: ^
+[15:04:10] <scott_gonzalez> But I think it's all just in the POST.
+[15:04:22] <nacin> hi
+[15:04:37] <scott_gonzalez> Is there a way to detect XML-RPC calls in nginx?
+[15:04:47] <nacin> sure, they all go through xmlrpc.php
+[15:05:15] <gnarf> so the url requested is bah.com/xmlrpc.php ?
+[15:05:20] <nacin> yeah
+[15:05:37] <scott_gonzalez> Ugh, yeah, now I see the code where I'm adding that.
+[15:05:38] <nacin> what's the deal, though? the nginx config should not be caching any POST.
+[15:05:44] <scott_gonzalez> path: urlParts.path.replace( /\/+$/, "" ) + "/xmlrpc.php",
+[15:06:18] <scott_gonzalez> We want to raise the memory limit only for XML-RPC.
+[15:06:26] <scott_gonzalez> So we can post large files.
+[15:06:46] <nacin> A) you just did that I think, B) you can just raise the memory limit everywhere
+[15:08:05] <nacin> PHP doesn't actually use all memory set via memory_limit. that's just its own little debt ceiling. once it crosses that point, it declines to issue a fatal error. but unless you're having an issue where people are somehow DOS'ing jquery.com via some mechanism to inflate memory usage, changing to 256 likely isn't a big deal.
+[15:08:21] <gnarf> nacin: i guess that makes sense
+[15:09:10] <gnarf> i just didn't want a possibility of having say 20 processes running hot at 256meg
+[15:09:33] <gnarf> but i suppose wordpress is unlikely to ever need that much memory
+[15:10:04] <nacin> the only times we need more memory than is typical is during updates, during file uploads (specifically via XML-RPC), and during image editing
+[15:11:45] <nacin> we need to scale this out to a proper multiple server setup
+[15:15:40] <gnarf> nacin: going to be at wordcamp boston?
+[15:15:54] <gnarf> nacin: want to plan a day to hack on / plan for that?
+[15:16:01] <nacin> sure.
+[15:16:04] <nacin> most likely will be there.
+[15:16:10] <nacin> I think they already announced I was going.
+[15:36:57] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/e372eb2b99fa6d08db59af8ebf6e66ffc671a547
+[15:36:57] <jqcommit> 13infrastructure/06puppet-stage 14e372eb2 15Corey Frang: Up php memory limit to 256M to support XML-RPC of larger files
+[15:39:59] <jqcommit> 01[13infrastructure01] 15gnarf merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/a2973015d8b4...e372eb2b99fa
+[18:20:00] <jqcommit> 01[13infrastructure01] 15Krinkle pushed 3 new commits to 06puppet-master: 02https://github.com/jquery/infrastructure/compare/e372eb2b99fa...52f1bbbe6816
+[18:20:00] <jqcommit> 13infrastructure/06puppet-master 1427eaf10 15Timo Tijhof: jenkins: Puppetize jenkins-testswarm-static-copy.sh script...
+[18:20:00] <jqcommit> 13infrastructure/06puppet-master 148a00018 15Timo Tijhof: jenkins-testswarm-static-copy.sh: Clean up
+[18:20:00] <jqcommit> 13infrastructure/06puppet-master 1452f1bbb 15Timo Tijhof: jenkins-testswarm-static-copy.sh: Fix error due to '.' not excluded...
+[18:21:30] <jqcommit> 01[13infrastructure01] 15Krinkle merged 06puppet-master into 06puppet-stage: 02https://github.com/jquery/infrastructure/compare/e372eb2b99fa...52f1bbbe6816
+[18:22:25] <jqcommit> 01[13infrastructure01] 15Krinkle 04deleted 06jenkins/build-cleanup at 143f40488: 02https://github.com/jquery/infrastructure/commit/3f40488

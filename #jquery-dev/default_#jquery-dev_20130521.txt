@@ -1,0 +1,99 @@
+[00:04:44] <m_gol> damn, we have another error in source map generation
+[05:59:38] <jqcommit> [13jquery] 15amolpujari opened pull request #1274: added skip key pattern support for extend (06master...06master)  02http://git.io/kFHb1A
+[09:08:00] <mrgnrdrck> Is this channel or the #jquery channel the best place to discuss a possible bug?
+[09:11:09] <kborchers> mrgnrdrck: discuss your issue in #jquery … if you then still believe it's a bug, create a reduced test case and submit a bug at bugs.jquery.com
+[09:13:30] <mrgnrdrck> kborchers: I'll do that, thanks
+[10:22:26] <Krinkle> fivetanley: What's up ?
+[10:22:44] <Krinkle> gibson042: Looks like you found it :)
+[10:22:48] <Krinkle> fivetanley: ^
+[10:25:57] <gibson042> Krinkle: found what?
+[10:26:38] <Krinkle> gibson042: tanley was having testswarm issues earlier, but he already solved his problem.
+[10:26:50] <gibson042> ah, got it
+[11:26:44] <snover> DaveMethvin: yo
+[11:26:47] <snover> still me!
+[11:27:05] <DaveMethvin> sup snover
+[11:27:46] <snover> mojules
+[11:27:49] <snover> mojoules
+[11:28:00] <DaveMethvin> viva los mojules
+[11:28:31] <snover> is anyone doing any work on that right now? otherwise i am
+[11:28:40] <DaveMethvin> nobody atm
+[11:28:47] <snover> i want to try to make sure it aligns with what you think might be a good idea
+[11:29:28] <DaveMethvin> so i was thinking we could change our dependency tree and use the AMD wrappers to do what we currently do in the Gruntfile
+[11:29:51] <DaveMethvin> also i want to make Deferreds and Callbacks optional
+[11:30:20] <snover> do you have a preference on how to deal with the shared-closured variables?
+[11:30:20] <DaveMethvin> there's one dep in core for that, the .ready() logic, that needs to be dealt with
+[11:30:35] <DaveMethvin> yeah that's sticky
+[11:30:40] <snover> initially i was going to just move them into some 'common' module
+[11:31:32] <snover> at least for the core_ ones, that seemed like the easiest move
+[11:31:32] <DaveMethvin> it might be worth experimenting with some different approaches to see what works best
+[11:32:01] <DaveMethvin> they could be duplicated in the modules that need them, most are pretty simple cached references to stuff
+[11:32:27] <snover> i just wouldn’t want to force people to chase down random bugs because they are duplicated
+[11:32:34] <snover> and someone forgets to change it everywhere
+[11:33:26] <DaveMethvin> i think jshint would find them tho
+[11:33:35] <DaveMethvin> since they'd be duplicated once the wrappers were removed
+[11:33:42] <snover> i suppose so
+[11:34:03] <snover> am I reading data right? is it still not attaching directly to associated elements, even in jquery 2?
+[11:34:13] <DaveMethvin> there's a ticket open for that
+[11:34:16] <DaveMethvin> i'd still like to try
+[11:34:41] <DaveMethvin> although it has some pitfalls and we still need to deal with special event hooks
+[11:35:49] <snover> i don’t see any open tickets for data
+[11:36:28] <snover> http://bugs.jquery.com/ticket/11570 ?
+[11:36:58] <DaveMethvin> yep
+[11:38:14] <snover> i don’t quite understand the position on data hiding, it seems a little extreme
+[11:38:42] <DaveMethvin> i'm all for hiding data unless it costs us a lot in perf, and here it costs us
+[11:38:52] <snover> there are cross-references to the internal data object in closure; to modularise it would need to be exposed somewhere
+[11:39:31] <DaveMethvin> at this point for 2.0, there isn't a lot of downside to $(selector).prop("mydata", object-or-whatever)
+[11:41:59] <snover> sheesh, so much stuff touches data_priv and data_user
+[12:53:46] <snover> gibson042: https://github.com/jquery/jquery/commit/64b55f0b the commit message says IE9 but the bug report says old IE; what’s the story
+[13:04:53] <scott_gonzalez> snover: You're looking at 2.x code.
+[13:05:05] <scott_gonzalez> So 6/7/8 don't count here.
+[13:05:27] <scott_gonzalez> See https://github.com/jquery/jquery/commit/ec9b38a34fb9bd81d1903cf12b69466f699abca5
+[13:06:07] <scott_gonzalez> Though https://github.com/jquery/jquery/commit/ec9b38a34fb9bd81d1903cf12b69466f699abca5#L1R8 must be wrong if it's needed in 2.x for IE9.
+[13:07:10] <snover> scott_gonzalez: i know, that commit was on the 2.0 branch. so this is what i am confused about
+[13:07:22] <snover> the OP says it’s old IE
+[13:07:46] <scott_gonzalez> Right, and gibson042 is the OP and committer.
+[13:07:57] <scott_gonzalez> Definitely confusing.
+[13:08:03] <scott_gonzalez> *something* is wrong.
+[13:08:18] <scott_gonzalez> Either the ticket description and comment in 1.x or the change being cherry-picked into 2.x.
+[13:11:35] <snover> i look forward to him arriving and explaining :)
+[13:39:47] <snover> DaveMethvin: do you want me to intentionally *not* use modules directly that have reasonable return values, like jQuery.support?
+[13:44:02] <snover> woo circular references
+[13:45:05] <DaveMethvin> snover ... sorry in a meeting ... actually i would like jquery.support to go away if possible and be replaced by lazy tests in each module; dunno if a lot of the tests are shared across modules
+[13:45:34] <snover> has.js-interface?
+[14:03:00] <gibson042> snover: do you still need info on http://bugs.jquery.com/ticket/13315 and the related commits?
+[14:04:26] <scott_gonzalez> gibson042: Yes. The ticket and master say IE <9, but 2.x has the change and says IE9.
+[14:04:29] <scott_gonzalez> Which is correct?
+[14:04:35] <gibson042> it turns out that the bug still affected IE9
+[14:04:50] <scott_gonzalez> So the support comment in master needs to be updated.
+[14:04:58] <gibson042> which I didn't know at the time of https://github.com/jquery/jquery/commit/ec9b38a34fb9bd81d1903cf12b69466f699abca5#L1R8
+[14:04:58] <gibson042> yes
+[14:09:24] <snover> even though uglify has a fix in for the issue?
+[14:09:26] <jqcommit> 01[13jquery01] 15gibson042 pushed 1 new commit to 061.x-master: 02http://git.io/zno24A
+[14:09:26] <jqcommit> 13jquery/061.x-master 14ef31479 15Richard Gibson: Followup #13315: Correct support comment
+[14:10:43] <doesallmagic> Project jQuery 1.x Core build #165: STILL FAILING in 1 min 30 sec: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/165/
+[14:10:43] <doesallmagic> richard.gibson: Followup #13315: Correct support comment
+[14:11:51] <snover> d’oh
+[14:11:56] <snover> jQuery.ready.promise is not a supported public interface is it?
+[14:12:30] <DaveMethvin> snover https://github.com/jquery/api.jquery.com/issues/205
+[14:12:59] <snover> so when you say you want to remove the dependency on Deferred from core…i can do that
+[14:13:09] <snover> without needing to provide some shim for this
+[14:13:30] <snover> *or*, does it still need to work?
+[14:13:55] <DaveMethvin> the promise interface does not need to work if deferreds aren't there
+[14:14:11] <snover> but if they are, then…it does?
+[14:14:40] <snover> this just introduces a horrible race condition
+[14:14:58] <snover> i fear
+[17:07:06] <snover> holy iframes batman
+[17:15:31] <snover> DaveMethvin: well, i don’t appear to have damaged any code, except for the stuff that loads in iframes and expects a built copy
+[17:55:03] <snover> b-ot: tell DaveMethvin ta-da: https://github.com/csnover/jquery/commit/29cb1445b18c552989776901ebc61d414a6cd2ca
+[17:55:10] <snover> stupid bot
+[17:55:12] <snover> `tell DaveMethvin ta-da: https://github.com/csnover/jquery/commit/29cb1445b18c552989776901ebc61d414a6cd2ca
+[17:55:13] <b-ot> snover: I’ll tell DaveMethvin about that.
+[17:57:46] <snover> still gotta work on the dependency lists
+[17:57:59] <snover> it works great if you include everythinggg
+[17:59:02] <snover> oh well, I’ve got a working core + manipulation ( + data + sizzle)
+[18:00:03] <snover> maaagic
+[21:45:48] <ajpiano> warms my heart
+[21:46:55] <snover> wat
+[21:46:55] <b-ot> snover: Ruby IRC bot don't works, What are i'm doing wrong?
+[21:50:46] <ajpiano> all this
+[21:51:33] <snover> ALL WAT

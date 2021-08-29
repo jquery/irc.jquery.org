@@ -1,0 +1,97 @@
+[06:01:08] <sine0> what is the trick when you are remote/browser debug testing and want to block the loading of a .js file
+[06:16:23] <sine0> found it, block request
+[07:05:21] <robertparkerx> sometimes when I type fast it triggers the val() == '' https://termbin.com/zdgi
+[07:09:28] <robertparkerx> No it's not that nevermind
+[07:10:36] <Cork> robertparkerx: it is recommended to use .hide() and .show() instead of .css('display')
+[07:11:33] <Cork> robertparkerx: your variable customer isn't defined so it will be global, and each keypress will overwrite the comming ones
+[07:12:23] <Cork> also don't forget that $.get is asyncronous
+[07:12:54] <robertparkerx> oh yea!
+[07:13:00] <robertparkerx> I changed them all to show/hide though
+[07:13:03] <robertparkerx> I'll remember that
+[07:16:26] <robertparkerx> Cork, I could change the get to this https://termbin.com/dlqy
+[07:17:01] <Cork> robertparkerx: no definitely not
+[07:17:17] <Cork> sync network calls means the code will freez and sometimes the ui too
+[07:17:31] <Cork> and that is until the server responds, if it doesn... well bad for you
+[07:17:48] <Cork> so never ever use async: false
+[07:17:59] <Cork> (it is a legacy depricated feature)
+[07:18:09] <robertparkerx> Oh
+[07:18:44] <Cork> instead you need to handle events when you have an active ajax call
+[07:19:02] <Cork> either bunch them up so you only sen a request after the user haven't typed in x ms
+[07:19:18] <Cork> or cancel the old request when you make the new one
+[07:19:22] <Cork> or a combination of both
+[07:20:04] <Cork> $.get/$.post/$.ajax returns an xhr object you can call .abort() on it to cancel an old request
+[07:20:20] <Cork> and setTimeout is your friend to wait for the user to stop typing
+[07:21:03] <Cork> (clearTimer(r); r = setTimeout(function() { /* make call */ }, 300);)
+[07:21:43] <Cork> ^ that only searches when the user haven't typed for 300ms (and sends the last value typed)
+[07:23:28] <robertparkerx> Let me try
+[07:23:34] <robertparkerx> Thanks alot for the information!
+[07:23:56] <Cork> np
+[07:24:44] <Cork> robertparkerx: just make sure you save the timer handle and/or xhr object cross key event, else you can't do anything with it
+[07:25:26] <robertparkerx> Is clearTimer not native?
+[07:26:30] <robertparkerx> ah clearTimeout
+[07:28:16] <Cork> gah ya, sorry typo
+[07:31:18] <robertparkerx> heh that worked so well
+[07:31:20] <robertparkerx> Thanks a lot
+[07:31:29] <Cork> np
+[07:31:39] <robertparkerx> tell me if it's right
+[07:32:13] <robertparkerx> https://termbin.com/wkkm
+[07:33:46] <robertparkerx> I don't think I need the keycode anymore
+[07:35:05] <robertparkerx> Why couldn't I use $(this) inside the timer?
+[07:40:27] <Cork> ya, you don't
+[07:40:35] <Cork> also i would replace keyup with input
+[07:41:12] <Cork> it is a much better event for reacting to user input
+[07:41:21] <Cork> unless one want to handle cursor keys or similar
+[07:52:38] <znf> Is there a way to read orientation sensor data with jquery (or even plain js), when a mobile device is locked into a specific mode (portrait/landscape)?
+[07:53:27] <Cork> you can get events and i think it exists in navigator if i don't remember wrong
+[07:54:39] <Cork> https://developer.mozilla.org/en-US/docs/Web/API/Screen/orientation
+[07:55:01] <Cork> you prob want to read https://developer.mozilla.org/en-US/docs/Web/API/CSS_Object_Model/Managing_screen_orientation too
+[07:55:13] <znf> But do those event fire when the device is "locked" into an orientation mode?
+[07:55:36] <Cork> the first link isn't an event
+[07:55:51] <Cork> and no the events fire when the orientation change
+[07:56:17] <znf> hmmm, testing this seems a bit tricky
+[07:56:31] <znf> actually, I should be able to with chrome's device inspector thingie
+[07:56:54] <Cork> you need to run it on a mobile device, they don't exist on desktop versions
+[07:57:03] <znf> yeah, I meant the remote debugging thing
+[07:57:16] <Cork> ah, ya that works
+[08:01:23] <znf> RIP idea
+[08:02:01] <znf> if the orientation is locked, it always returns portrait, and angle 0
+[08:03:03] <Cork> uh, well that sucks...
+[08:04:09] <znf> native apps, like VLC, know to reorient a video when you turn your phone to landscape, even if the device orientation is locked
+[08:04:47] <Cork> ya, that isn't based on orientation though
+[08:05:00] <Cork> that is the sensors
+[08:05:01] <znf> so if you start a video on the device in portrait mode and you turn it sideways, the rotation will be adjusted, regardless of the device setting; this is pretty nice
+[08:05:13] <Cork> most likely gravity sensor or similar
+[08:06:27] <znf> I believe a huge majority of people are running with rotation locked on their phones these days, which always makes it a pain when you want to go full-screen on a video - press button, video will be small in portrait, drag notification shade, press unlock button, reorient the device to trigger the change (because it doesn't always happen instantly), watch video, then go back and lock the orientation again
+[08:06:42] <Cork> znf: you could five https://developer.mozilla.org/en-US/docs/Web/API/Window/devicemotion_event a try
+[08:07:56] <znf> oh god, that's a lot of data
+[08:08:20] <Cork> sensor data usually is
+[08:08:39] <znf> and it comes in constantly, wow
+[08:13:28] <znf> that's a lot of math, heh
+[08:15:15] <Cork> not saying it can do it either, but it is the only source i can think of
+[08:15:34] <Cork> orientation is just the os current state, and it doesn't change if it is locked (obvoulsly)
+[08:17:32] <znf> yup
+[08:17:44] <znf> I mean, I can see the pattern on my device, based on x/y/z
+[08:17:56] <znf> But it seems to vary a lot based on device type
+[08:18:39] <znf> at least if I'm reading the docs properly
+[08:20:58] <znf> I'm surprised my google-fu is not turning out any library that handles this
+[09:44:15] <robertparkerx> Why does the ajax not break like the if's https://termbin.com/volp
+[09:44:40] <robertparkerx> It will alert but continue and submit the order
+[09:48:46] <robertparkerx> I did this and it worked
+[09:48:47] <robertparkerx> https://termbin.com/r0p3
+[09:55:42] <Cork> robertparkerx: cause you're back at syncronous network calls again
+[10:06:25] <robertparkerx> Do I use a timer again?
+[13:03:56] <foo> https://learn.jquery.com/plugins/basic-plugin-creation/#protecting-the-alias-and-adding-scope - could it be said this can allow us to "confine jQuery into a specific scope" ?
+[13:08:34] <foo> I think that's the essense of what that's saying... but looking for someone else to confirm
+[13:52:48] <shoky> foo: it doesn't confine `jQuery`, only `$`, and only if using noConflict().  it basically adds a scoped reference to jQuery, called $, confined to that function
+[13:54:20] <foo> I see
+[14:51:50] <caseyd> hello, anyone have time to take a quick look at this: http://caseydavis.org/jquerytest/test.html -- There's a select box that has a value and a data-value. I echo them both in console.log, one is defined and one isn't. What am I doing wrong on the data-label value?
+[15:42:11] <blez> I have <a>text<p>another text</p></a>
+[15:42:20] <blez> how to get only the <a> text?
+[15:44:47] <blez> ok, $(x).contents().get(0).nodeValue
+[22:26:29] <Rockwood> hi
+[22:26:53] <Rockwood> https://jsfiddle.net/kpftm8Lg/  why i am unable to console as require?
+[22:27:41] <Rockwood> any active here?
+[22:30:56] <shoky> Rockwood: because <th> is invalid outside of a <table>
+[22:31:24] <Rockwood> let me correct
+[22:31:34] <Rockwood> in moment
+[22:35:23] <Rockwood> actually i am trying to get data by data-field="name"  as like unique identifier id

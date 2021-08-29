@@ -1,0 +1,627 @@
+[00:09:43] <dpolivy> _|Nix|_: let me know if you need anything else. not sure if you want to use the existing github issue to track this, or create a new one. I suppose in the meantime I'll probably use my original escaping fix since I'm hosting my own copy -- but I look forward to more official one soon.
+[00:32:15] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #2297: selectmenu - large non-native selectmenu interrupts ajax requests in android 2.1-update1 02http://git.io/VrJ-kg
+[00:37:07] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #2514: JQM with MVC 3 & Ajax.ActionLink broken 02http://git.io/-RuPgA
+[01:09:08] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #7434: It's not possible to prevent browsers default action - taphold & checkbox 02http://git.io/e5xbSQ
+[02:06:15] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #2559: href taphold event handler on iPhone causes native response 02http://git.io/sql6Xg
+[02:13:18] <_|Nix|_> uGoMobi: I think 1383 may actually qualify for 1.4.x, because the problem is not only with query strings. In fact, the problem has nothing to do with query strings. We're simply not capable of handling arbitrary file names correctly.
+[02:13:33] <_|Nix|_> uGoMobi: We're not even handing a file name with spaces correctly.
+[02:14:13] <_|Nix|_> uGoMobi: We're not throwing an error, but we're not finding the file in the DOM when it's already in the DOM, because the data-url attribute has the path urlencoded, whereas we're passing the path to the selector without urlencoding.
+[02:15:11] <_|Nix|_> uGoMobi: So, the page looks like <div data-url="/path/to/Page%20with%20spaces.html">...</div> and we're querying for "[data-" + $.mobile.ns + "url='/path/to/Page with spaces.html']"
+[02:15:45] <_|Nix|_> uGoMobi: ... and when the page contains apostrophes, the query breaks entirely.
+[02:16:14] <_|Nix|_> uGoMobi: So, this is a severe limitation in our ability to load external pages.
+[02:16:29] <_|Nix|_> ... one that I don't believe we've documented anywhere.
+[02:17:35] <_|Nix|_> So, the basic fact is this: If you wanna work with jQM and Ajax loading, don't use spaces or weird characters in your file names.
+[02:24:43] <_|Nix|_> OK, so this is really bad. If your start page has a space in it, and you navigate back to your start page using a link, it is loaded twice into the DOM, because nav fails to realize that the page is already in the DOM. So, you risk having duplicate IDs in the DOM.
+[02:45:55] <_|Nix|_> uGoMobi: OK, the solution for spaces in the filename is super-simple! We simply need to pass the value we assign to data-url in init.js through $.mobile.path.convertUrlToDataUrl()
+[02:46:12] <_|Nix|_> We wrote that function specifically for computing the correct value for data-url!
+[02:46:22] <_|Nix|_> ... and pagecontainer uses it, but init does not :(
+[02:46:46] <_|Nix|_> Now, I really believe this needs to go into 1.4.3!
+[02:50:50] <uGoMobi> _|Nix|_: agreed this is a bug
+[02:51:21] <_|Nix|_> uGoMobi: ... and so easy to fix, and such an oversight on our part!
+[02:52:17] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof created 061383-escape-urls-in-data-url-selector (+1 new commit): 02http://git.io/Z9SV1Q
+[02:52:17] <jqmobilecommit> 13jquery-mobile/061383-escape-urls-in-data-url-selector 148734792 15Gabriel Schulhof: Init: Correctly assign data-url for initial page
+[02:54:03] <_|Nix|_> uGoMobi: That's it: https://github.com/jquery/jquery-mobile/compare/7074efe...1383-escape-urls-in-data-url-selector
+[02:54:30] <_|Nix|_> uGoMobi: Well, that fixes the url-with-a-space part, which I think is the wider use case of the two.
+[02:54:56] <_|Nix|_> uGoMobi: The missing piece so far is the other side, which is to escape the [data-url] selector.
+[02:56:24] <_|Nix|_> uGoMobi: This also points to an architectural weakness in jQM, which I think arschmitz and I are acutely aware of: our init sucks big time. We shouldn't be reproducing code that belongs in and is already present in pagecontainer inside init.
+[02:56:48] <_|Nix|_> uGoMobi: pagecontainer also initializes pages, just like init does. Only init does it for the first page.
+[02:56:58] <_|Nix|_> That shouldn't be a special case.
+[02:57:19] <_|Nix|_> *sigh*
+[02:58:21] <uGoMobi> _|Nix|_: yeah
+[02:58:32] <_|Nix|_> uGoMobi: I think the good thing about fixing https://github.com/jquery/jquery-mobile/issues/1383 is that our work on nav since then has made it easier to find and fix this.
+[03:00:49] <uGoMobi> _|Nix|_: it would be nice if the initial page is no longer a special case but that's not a small change
+[03:01:18] <uGoMobi> _|Nix|_: would also allow to remove the initial page, which is a feature users really want
+[03:02:08] <_|Nix|_> uGoMobi: Right. That's a longer-term thing. For now, I think we absolutely need to fix this snag.
+[03:02:49] <_|Nix|_> uGoMobi: I'm updating the sequence tests so one of the external pages has a space in its filename.
+[03:03:15] <_|Nix|_> ... although I might just make a separate test, because the initial page has to have the space.
+[03:04:06] <_|Nix|_> uGoMobi: I wonder if even our test runner is capable of dealing with pages that have a space in their filename :)
+[03:04:09] <uGoMobi> _|Nix|_: new test is better so you can also name it something like "test filename with space"
+[03:04:28] <_|Nix|_> uGoMobi: Yeah, but the test HTML file has to have a space in the filename :)
+[03:04:40] <_|Nix|_> uGoMobi: So this may actually break the testing loop :)
+[03:04:56] <_|Nix|_> uGoMobi: I'm just speculating at this point, but it's easy enough to find out. Hopefully not.
+[03:04:59] <_|Nix|_> Here goes.
+[03:15:28] <_|Nix|_> uGoMobi: The good news is our test suite runner is picking up the weird file name :+1:
+[03:18:31] <_|Nix|_> uGoMobi: OK, I'll write a unit test instead, because phantomjs does not urlEncode the location :(
+[03:50:01] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof 04force-pushed 061383-escape-urls-in-data-url-selector from 148734792 to 144fdbabe: 02http://git.io/C5FsoQ
+[03:50:01] <jqmobilecommit> 13jquery-mobile/061383-escape-urls-in-data-url-selector 14a118bd7 15Gabriel Schulhof: Init: Correctly assign data-url for initial page
+[03:50:01] <jqmobilecommit> 13jquery-mobile/061383-escape-urls-in-data-url-selector 144fdbabe 15Gabriel Schulhof: Init: Make sure "data-url" attribute for initial page is decoded
+[04:03:29] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #7467: Selectmenu - set value from script 02http://git.io/V_rk4A
+[04:08:33] <jqcommit> [13api.jquerymobile.com] 15uGoMobi opened issue #312: Selectmenu: Refresh method can be used for both native and custom selects 02http://git.io/5JUT_A
+[04:19:43] <_|Nix|_> arschmitz: Ping!
+[04:35:21] <_|Nix|_> arschmitz: I'm working on escaping dataUrl in selectors such as "[data-" + $.mobile.ns + "url='" + dataUrl + "']" in pagecontainer. Do I need to worry about testing the case covered by https://github.com/jquery/jquery-mobile/blob/master/js/widgets/pagecontainer.js#L550 (when the URL has &ui-page=something) since it's deprecated in 1.4.x.
+[04:35:26] <_|Nix|_> ?
+[04:36:11] <arschmitz> _|Nix|_: is this a bug your fixing for 1.4 or is this for 1.5?
+[04:37:38] <_|Nix|_> arschmitz: I'm aiming it at 1.4.3, because it's a pretty bad bug - we're incapable of dealing with pages that have weird names, like "file name.html" and "devil's_advocate.html"
+[04:37:53] <arschmitz> then you just answered your own question
+[04:37:54] <_|Nix|_> arschmitz: ... so, I guess I'll try to come up with some test case ... right?
+[04:38:31] <arschmitz> yes
+[04:38:41] <_|Nix|_> arschmitz: https://www.youtube.com/watch?v=MwPb7g_BlXQ
+[04:38:58] <arschmitz> _|Nix|_: i wouldnt worry about 1.4.3 though
+[04:39:13] <arschmitz> we already decided if id did not have a pr last week its not happening
+[04:39:48] <_|Nix|_> arschmitz: What about https://github.com/jquery/jquery-mobile/pull/7471?
+[04:40:14] <_|Nix|_> arschmitz: So, ... ummm ... 1.4.4?
+[04:40:18] <_|Nix|_> Is there gonna be one?
+[04:40:33] <_|Nix|_> This is an ancient bug, and the fix is relatively simple.
+[04:40:49] <arschmitz> yes there will be a 1.4.4 just not soon
+[04:40:59] <_|Nix|_> arschmitz: OK. Then I'll definitely aim it at 1.4.4.
+[04:41:24] <arschmitz> im not ok with a last second nav change
+[04:41:28] <arschmitz> simple or not
+[04:41:47] <_|Nix|_> arschmitz: Yeah, OK. That's cool.
+[04:41:51] <_|Nix|_> arschmitz: Let's wait for 1.4.4.
+[04:42:11] <arschmitz> _|Nix|_: yeah nav is too important / complex to rush 
+[04:42:18] <_|Nix|_> Agreed.
+[04:44:02] <_|Nix|_> OK. I re-milestoned https://github.com/jquery/jquery-mobile/issues/1383
+[04:44:13] <arschmitz> _|Nix|_: sounds good
+[04:45:29] <_|Nix|_> arschmitz: Since the use of &ui-page is deprecated, I don't suppose we have any demos left that use it - do we?
+[04:45:48] <_|Nix|_> arschmitz: I'm looking for a template from which to build a test case for that section.
+[04:46:01] <arschmitz> _|Nix|_: selectmenu still uses a placeholder
+[04:46:26] <_|Nix|_> arschmitz: ... although I may be able to mock it by calling the function returned by _loadSuccess()
+[04:47:12] <_|Nix|_> I'd really rather see this as a unit test than a sequence test.
+[04:48:59] <_|Nix|_> arschmitz: As for selectmenu - how do you mean? It simply uses a dialog and the central click routing.
+[04:49:13] <_|Nix|_> s@dialog@dialog/popup@
+[04:50:14] <arschmitz> _|Nix|_: right and dialog uses a placehodler
+[04:50:15] <_|Nix|_> arschmitz: ... and this is for subPageUrlKey (which is deprecated), and not dialogHashKey, which is not deprecated.
+[04:50:31] <arschmitz> _|Nix|_: both are one just didnt have a prop
+[04:50:34] <arschmitz> ro set
+[04:50:48] <arschmitz> toand both are url placeholders
+[04:50:56] <arschmitz> of the same form
+[04:51:11] <arschmitz> the word page vs state-dialog makes no difference
+[04:51:38] <_|Nix|_> I know that - conceptually. In the code though, dialogHashKey has a lot more influence, IINM.
+[04:51:58] <arschmitz> _|Nix|_: well both are gone in 1.5
+[04:52:56] <_|Nix|_> Anyway, I'll try to find an example that uses subPageUrlKey specifically. I suspect this will take me back to that listview feature we dropped. Fortunately, I even forgot what we had called it.
+[04:53:14] <_|Nix|_> What were those multipage lists we used to support?
+[04:53:37] <_|Nix|_> I'm surprised we didn't get rid of subPageUrlKey along with that listview feature.
+[04:53:56] <_|Nix|_> nested lists, I think we called them.
+[04:56:09] <_|Nix|_> arschmitz: So, in 1.5.0, if we want a history entry which cannot be deep-linked, will we achieve that purely with pushState and no actual change to the location.href?
+[05:03:50] <arschmitz> _|Nix|_: no
+[05:03:58] <arschmitz> and subpageurlkey is gone even in 1.4
+[05:04:18] <_|Nix|_> arschmitz: Ha! Then we simply forgot to remove it! That's what I thought!
+[05:04:46] <_|Nix|_> arschmitz: Still interested in your answer to the 1.5.0 non-deep-linkable URL thingy :)
+[05:05:22] * _|Nix|_ grabs his matchete
+[05:05:33] <arschmitz> _|Nix|_: 1.5 will seperate hash from history api browsers
+[05:05:34] <_|Nix|_> s/tc/c/
+[05:06:09] <arschmitz> we will not mess with hash ever if pushstate is supported
+[05:06:25] <arschmitz> and we will use both push and replace state to be able to add history or not
+[05:07:21] <_|Nix|_> OK, but at some point you have to write a component that can rely on either of the two.
+[05:07:43] <arschmitz> _|Nix|_: already exists
+[05:08:03] <_|Nix|_> arschmitz: OK, so the separation happens below that.
+[05:08:06] <arschmitz> right now it just always does hash first then oush
+[05:08:17] <_|Nix|_> Right.
+[05:08:22] <arschmitz> now it will just only do the right one
+[05:08:29] <arschmitz> this was suposed to be in 1.4
+[05:08:39] <_|Nix|_> ... and we do crazy things like stopPropagation on a popstate, and then we trigger our own popstate.
+[05:08:41] <arschmitz> but didnt make it
+[05:09:03] <arschmitz> its what makes deep linking possible 
+[05:09:50] <arschmitz> for non push-state browsersim thinking we will likely just not support advanced history management like this 
+[05:10:00] <arschmitz> as there seems no sane way to do it there
+[05:10:16] <arschmitz> _|Nix|_: and i think thats only ie8 and ie9 at this point
+[05:11:20] <_|Nix|_> arschmitz: If that's the case, I think we can get rid of the jquery.hashchange.js plugin too, right? Or, at least the portion that's marked with comments.
+[05:11:27] <_|Nix|_> arschmitz: ... the one that creates the hidden iframe.
+[05:11:44] <arschmitz> _|Nix|_: no we will still support hash change
+[05:12:33] <arschmitz> just not for stuff like changing the url with out effecting history
+[05:13:17] <_|Nix|_> arschmitz: Wait a sec - I was asking about the converse: Not changing the URL while /affecting/ history.
+[05:13:33] <_|Nix|_> arschmitz: ... for things that can be dismissed by the back button without actually changing the URL at all.
+[05:13:38] <arschmitz> _|Nix|_: right i was not speaking to your specfic case
+[05:13:48] <arschmitz> but support for hash in general
+[05:14:00] <_|Nix|_> arschmitz: I agree that changing the URL without affecting history is insane without pushState.
+[05:14:08] <arschmitz> for hash its simple
+[05:14:24] <_|Nix|_> arschmitz: Or having the appearance of not having affected history.
+[05:14:29] <_|Nix|_> s/having/providing/
+[05:14:46] <arschmitz> we will just have to pick a placeholder
+[05:14:54] <_|Nix|_> arschmitz: For hash we already have a procedure.
+[05:15:00] <arschmitz> right
+[05:15:26] <arschmitz> we will just likely change how it works a bit when we get rid of the ui-state business
+[05:15:56] <_|Nix|_> arschmitz: Yeah, ui-state=dialog reflects what it does very poorly.
+[05:16:07] <_|Nix|_> arschmitz: It should be, like, &unreachable or something.
+[05:16:17] <arschmitz> we just need to come up with a generic placeholder
+[05:16:27] <arschmitz> the way things use # a lot today
+[05:17:04] <arschmitz> _|Nix|_: could just do #/path/to/page/# lol
+[05:17:38] <_|Nix|_> arschmitz: As soon as we start structuring our hash and interpreting that structure, we need to be extremely careful to still be standards compliant.
+[05:18:12] <arschmitz> _|Nix|_: sadly no matter what it will need to be the single execption to our "Standards compliance"
+[05:18:23] <arschmitz> and pick a single restricted ending
+[05:18:29] <arschmitz> that is for internal use only
+[05:18:37] <arschmitz> not a pattern like now
+[05:18:42] <arschmitz> but a specific string
+[05:18:43] <_|Nix|_> arschmitz: With pushState, it /is/ possible to create a history entry without changing the location.href, right?
+[05:18:52] <arschmitz> yes
+[05:18:58] <arschmitz> just replace state with the same url
+[05:19:08] <_|Nix|_> arschmitz: ... so we could say that unreachable states are not supported if the browser doesn't have pushState.
+[05:19:10] <arschmitz> i mean pushstate with same url
+[05:19:19] <arschmitz> _|Nix|_: we could
+[05:19:33] <_|Nix|_> arschmitz: ... in that case, IE8/9 users would simply not have back button support for dismissing stuff.
+[05:19:45] <_|Nix|_> arschmitz: We could handle that gracefully.
+[05:20:00] <arschmitz> maybe
+[05:20:11] <arschmitz> _|Nix|_: its relativly trivial to just pick a single restricted string
+[05:20:55] <arschmitz> &backButtonPlaceholder should be unique enough if some one wants to end their element id with that well f me too bad lol
+[05:21:17] <_|Nix|_> I'm just worried that it's gonna mess up our URL processing, like it does now, and our awareness of whether pushState is supported or not will creep into things like js/navigation/path.js
+[05:22:22] <_|Nix|_> arschmitz: ... because as soon as you have that placeholder, you need to worry about things like does the initial URL have that placeholder, and if so, you need to tack on a second one, and what about going to an unreachable URL /from/ an unreachable URL, etc.
+[05:22:28] <arschmitz> _|Nix|_: if it was not for windows hybrid apps id say drop ajax nav completely if it didnt support push state
+[05:22:33] <_|Nix|_> arschmitz: ... all the crap I had to work out in the sequence tests :(
+[05:23:33] <_|Nix|_> arschmitz: *sigh* ... M$ ... continuing to be the PITA of the Web.
+[05:23:48] <_|Nix|_> arschmitz: Hmmm ... what about relegating such support to third-party?
+[05:24:12] <_|Nix|_> arschmitz: Well-advertised, maybe even linked-to from the demos, but unsupported?
+[05:24:40] <arschmitz> _|Nix|_: i dont know
+[05:25:55] <_|Nix|_> *sigh* ... OK. I mean, we're doing it now. So, let's keep doing it, but put a really well-defined boundary around it :/
+[05:26:20] <_|Nix|_> Bane of the Web ... *sigh*
+[05:29:07] <_|Nix|_> arschmitz: If subPageUrlKey is gone in 1.4.x, then why does js/defaults.js say "Deprecated and no longer used in 1.4 remove in 1.5"?
+[05:29:32] <arschmitz> _|Nix|_: technacality
+[05:29:45] <arschmitz> _|Nix|_: we didnt say it was deprecated even though all code that used it was
+[05:29:46] <_|Nix|_> arschmitz: OKOK, but then I can't actually remove it from the code.
+[05:30:00] <arschmitz> so we need to make sure it exists as a prop 
+[05:30:08] <arschmitz> but dont need to test or do anything with it
+[05:30:13] <_|Nix|_> arschmitz: OK, but then I'm not going to write a test to make sure it works.
+[05:30:23] <arschmitz> _|Nix|_: right 
+[05:30:27] <_|Nix|_> arschmitz: OK. *whew* ... that takes a load off my back.
+[05:30:58] <_|Nix|_> arschmitz: I'll remove the last vestige from our code. That chunk accidentally left in pagecontainer.
+[05:34:51] <arschmitz> _|Nix|_: it was removed pre pagecontainer and i bet johnbender never removed from pagecontainer while he was working on it
+[05:36:02] <_|Nix|_> arschmitz: *sigh* ... I'm /not/ taking that bet :)
+[05:38:26] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 4 new commits to 061383-escape-urls-in-data-url-selector: 02http://git.io/Td6mpQ
+[05:38:26] <jqmobilecommit> 13jquery-mobile/061383-escape-urls-in-data-url-selector 147e4f9d8 15Gabriel Schulhof: Pagecontainer: Escape dataUrl when trying to find page based on it...
+[05:38:26] <jqmobilecommit> 13jquery-mobile/061383-escape-urls-in-data-url-selector 140f9111c 15Gabriel Schulhof: Pagecontainer: Test behavior of _find() in the face of weird URLs
+[05:38:26] <jqmobilecommit> 13jquery-mobile/061383-escape-urls-in-data-url-selector 147816557 15Gabriel Schulhof: Pagecontainer: Remove code dealing with subPageUrlKey special case
+[05:41:48] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof 04force-pushed 061383-escape-urls-in-data-url-selector from 14755c88d to 14d0d60ba: 02http://git.io/C5FsoQ
+[05:41:48] <jqmobilecommit> 13jquery-mobile/061383-escape-urls-in-data-url-selector 14f020a5b 15Gabriel Schulhof: Pagecontainer: Remove code dealing with subPageUrlKey special case
+[05:41:48] <jqmobilecommit> 13jquery-mobile/061383-escape-urls-in-data-url-selector 14d0d60ba 15Gabriel Schulhof: Path: Remove code dealing with subPageUrlKey
+[06:07:39] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #7442:  Issues in a Windows Phone WebApp using JQuery & JQuery mobile 02http://git.io/LwcnZA
+[06:40:04] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #7410: Add button variants to themeroller swatches 02http://git.io/JjNu8w
+[07:07:49] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #7402: Panel data-position-fixed="true" 02http://git.io/jRQ4Ew
+[07:19:31] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #7270: button in header is higher than header(jquery 1.4.2) 02http://git.io/d1OlGw
+[07:22:57] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #7249: Build: Meta-module contains wrong module id 02http://git.io/1gf-rw
+[07:35:05] <cgack> arschmitz: Ping!
+[07:35:25] <arschmitz> Pong!
+[07:35:58] <cgack> arschmitz: I should add new navbar changes as a new PR against the navbar-review branch right?
+[07:36:11] <arschmitz> yes
+[07:36:22] <cgack> right on, thanks!
+[07:38:00] <jqmobilecommit> [13jquery-mobile] 15cgack opened pull request #7473: Navbar review (06navbar-review...06navbar-review) 02http://git.io/tKNcmg
+[07:38:22] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #7207: Feature request: unlock icon 02http://git.io/60TijA
+[07:39:15] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #7206: Feature request: question mark icon 02http://git.io/XZ7kHg
+[08:30:12] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #7102: Demos: add placeholder example for non- depreceated method 02http://git.io/TKfkvw
+[08:33:27] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #7472: input box gets disabled which is in fixed header when page is scroll down 02http://git.io/XZhI9Q
+[08:41:33] <jqmobilecommit> [13jquery-mobile] 15uGoMobi pushed 1 new commit to 06master: 02http://git.io/hsBQFg
+[08:41:33] <jqmobilecommit> 13jquery-mobile/06master 142a4d092 15Jasper de Groot: Tabs: Fixed typos on the demo page...
+[08:42:04] <jqmobilecommit> [13jquery-mobile] 15uGoMobi pushed 1 new commit to 061.4-stable: 02http://git.io/F4ZiKg
+[08:42:04] <jqmobilecommit> 13jquery-mobile/061.4-stable 14040c6c5 15Jasper de Groot: Tabs: Fixed typos on the demo page...
+[08:42:54] <jqmobilecommit> [13jquery-mobile] 15uGoMobi 04deleted 06tabs-demo-issue-7459 at 1484eaec4: 02http://git.io/TorSiQ
+[08:44:45] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #6966: No available alternative to countTheme in 1.4 02http://git.io/SaB_jg
+[08:45:49] <jqmobilecommit> [13jquery-mobile] 15uGoMobi pushed 1 new commit to 061.4-stable: 02http://git.io/YZ8-PQ
+[08:45:49] <jqmobilecommit> 13jquery-mobile/061.4-stable 14ab0358e 15Jasper de Groot: Listview: Make it possible to apply count theme with a class...
+[08:46:29] <jqmobilecommit> [13jquery-mobile] 15uGoMobi 04deleted 06listview-issue-6966 at 14bb28e95: 02http://git.io/xYQTkQ
+[08:48:27] <jqmobilecommit> [13jquery-mobile] 15uGoMobi pushed 1 new commit to 06master: 02http://git.io/7DOpXg
+[08:48:27] <jqmobilecommit> 13jquery-mobile/06master 1424200cc 15Jasper de Groot: Theme: Prevent text underline in visited link buttons...
+[08:49:19] <jqmobilecommit> [13jquery-mobile] 15uGoMobi pushed 1 new commit to 061.4-stable: 02http://git.io/TyMSBg
+[08:49:19] <jqmobilecommit> 13jquery-mobile/061.4-stable 1439786a2 15Jasper de Groot: Theme: Prevent text underline in visited link buttons...
+[08:49:52] <jqmobilecommit> [13jquery-mobile] 15uGoMobi 04deleted 06issue-6926 at 14583c27f: 02http://git.io/7D6CoA
+[08:51:47] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed pull request #7446: Core: Width auto for inline button elements in toolbars (06master...06issue-7232) 02http://git.io/YTbdGw
+[08:52:32] <jqmobilecommit> [13jquery-mobile] 15uGoMobi pushed 1 new commit to 061.4-stable: 02http://git.io/VKRBWg
+[08:52:32] <jqmobilecommit> 13jquery-mobile/061.4-stable 1405f409d 15Jasper de Groot: Core: Width auto for inline button elements in toolbars...
+[08:53:06] <jqmobilecommit> [13jquery-mobile] 15uGoMobi 04deleted 06issue-7232 at 14d40f54d: 02http://git.io/JXISUQ
+[08:59:30] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 061383-escape-urls-in-data-url-selector: 02http://git.io/oSeprw
+[08:59:30] <jqmobilecommit> 13jquery-mobile/061383-escape-urls-in-data-url-selector 14fbe59f9 15Gabriel Schulhof: Path: No longer test for correct stripping of subPageUrlKey
+[09:01:17] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof opened pull request #7474: Correctly store data-url and correctly select for it (06master...061383-escape-urls-in-data-url-selector) 02http://git.io/SWVEhQ
+[09:03:12] <dpolivy> _|Nix|_: just getting back online + caught up -- thanks so much for taking this on! One suggestion on this code (https://github.com/jquery/jquery-mobile/compare/7074efe...1383-escape-urls-in-data-url-selector#diff-e3f4efbe9f975868bcbac1c372abecf8L75): even if the data-url is provided, perhaps you should make sure it's consistently encoded (i.e. apostrophe may or may not be encoded depending on where it came from)?
+[09:04:08] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof closed issue #7470: Checkboxradio: Do not _findLabel() on a pre-rendered checkboxradio 02http://git.io/-vMtYQ
+[09:05:46] <_|Nix|_> dpolivy: The point of the code is that the data-url is /never/ encoded.
+[09:06:29] <_|Nix|_> dpolivy: ... and when a selector is assembled using the dataUrl provided in the link, the special characters (such as ') are escaped using $.mobile.path.hashToSelector
+[09:07:46] <dpolivy> _|Nix|_: so, if data-url already exists on the page, should you just decodeURIComponent on it to make sure it isn't encoded?
+[09:08:46] <_|Nix|_> dpolivy: Well, if someone provides the data-url incorrectly, it's their responsibility to fix it, not ours.
+[09:09:02] <_|Nix|_> arschmitz: What do you think?
+[09:10:15] <_|Nix|_> arschmitz: Also, could you please land https://github.com/jquery/jquery-mobile/issues/7462? I can't run the test for https://github.com/jquery/jquery-mobile/issues/7471 because of https://github.com/jquery/jquery-mobile/issues/7461 :)
+[09:10:33] <_|Nix|_> arschmitz: ... or I can land it for you, if you'd like, along with the cherry-pick for https://github.com/jquery/jquery-mobile/issues/7471 ...
+[09:10:36] <dpolivy> _|Nix|_: ok -- as long as that's clearly documented, i'm fine with that. is it technically correct to escape (\') apostrophes in strings in HTML?
+[09:10:41] <arschmitz> _|Nix|_: yup ill do it right now and just a sec on the other thing im in like 3 conversations
+[09:10:59] <_|Nix|_> arschmitz: NP.
+[09:11:20] <_|Nix|_> dpolivy: I'll check how well that'd documented.
+[09:16:44] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof created 06document-that-data-url-is-unencoded (+1 new commit): 02http://git.io/SdaAcg
+[09:16:45] <jqcommit> 13api.jquerymobile.com/06document-that-data-url-is-unencoded 14658b77c 15Gabriel Schulhof: Page: Document that data-attribute data-url stores a non-URI-encoded value...
+[09:17:24] <travis-ci> [travis-ci] jquery/jquery-mobile#1799 (master - 2a4d092 : Jasper de Groot): The build was fixed.
+[09:17:24] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/44f503dc468a...2a4d092c1e55
+[09:17:24] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26865049
+[09:17:36] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof opened pull request #313: Page: Document that data-attribute data-url stores a non-URI-encoded val... (06master...06document-that-data-url-is-unencoded) 02http://git.io/KEBACA
+[09:19:52] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 061.4-stable: 02http://git.io/rIdnhA
+[09:19:52] <jqmobilecommit> 13jquery-mobile/061.4-stable 149aa1f30 15Gabriel Schulhof: Checkboxradio: When pre-rendered, assume label is a sibling of the input...
+[09:24:38] <jqcommit> [13jquery-simulate] 15scottgonzalez pushed 1 new commit to 06master: 02http://git.io/kkkoAQ
+[09:24:38] <jqcommit> 13jquery-simulate/06master 14206bbf8 15Lars Laade: Click on checkbox/radio should change state...
+[09:27:55] <travis-ci> [travis-ci] jquery/jquery-mobile#1800 (1.4-stable - 040c6c5 : Jasper de Groot): The build failed.
+[09:27:55] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/a25347492911...040c6c5ccc85
+[09:27:55] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26865113
+[09:32:50] <dpolivy> _|Nix|_: thanks for updating the docs. So I guess HTML encoding is correct in the data-url, where necessary?
+[09:34:54] <_|Nix|_> dpolivy: No. data-url should not contain the URL in its encoded form.
+[09:35:47] <dpolivy> _|Nix|_: sorry for being dense...if I emit it into my HTML directly, what's the correct way to handle quotes, apostrophes, etc?
+[09:36:09] <_|Nix|_> dpolivy: data-url="/path/to/devil's advocate.html"
+[09:36:24] <_|Nix|_> dpolivy: No encoding, no escaping, nothing.
+[09:36:54] <dpolivy> _|Nix|_: but what if it's data-url='/path/to/devil's advocate.html' or data-url="/path/to/devil"s advocate.html"?
+[09:37:04] <_|Nix|_> dpolivy: After my PR lands, the pagecontainer will correctly find the page when you create a link like this: <a href="/path/to/devil's advocate.html">Devil's Advocate</a>
+[09:37:40] <_|Nix|_> dpolivy: I'm not sure how HTML handles that.
+[09:37:54] <_|Nix|_> dpolivy: How do you do it with <a href="?????">?
+[09:38:12] <arschmitz> ok _|Nix|_ fill me in whats the question?
+[09:38:13] <jqmobilecommit> [13jquery-mobile] 15arschmitz pushed 1 new commit to 061.4-stable: 02http://git.io/FGkGQQ
+[09:38:13] <jqmobilecommit> 13jquery-mobile/061.4-stable 147b27520 15Alexander Schmitz: Build: fix slider and rangeslider dependencies from bad cherry-pick...
+[09:38:14] <_|Nix|_> dpolivy: Basically, whatever you put in <a href="????"> you put in data-url="????"
+[09:38:34] <dpolivy> _|Nix|_: HTML encoded or URL encoded :)
+[09:38:55] <_|Nix|_> dpolivy: Oh, you mean, like, &quot;
+[09:38:56] <_|Nix|_> ?
+[09:39:05] <dpolivy> _|Nix|_: yes
+[09:39:14] <_|Nix|_> dpolivy: Hmmm ... that's interesting.
+[09:39:24] <_|Nix|_> dpolivy: Actually, hold on.
+[09:39:40] <_|Nix|_> dpolivy: I think $.mobile.path.convertUrlToDataUrl() does more than just decode.
+[09:39:54] <_|Nix|_> dpolivy: That's the function we use for calculating the value of the data-url attribute.
+[09:40:00] <_|Nix|_> dpolivy: Lemme check.
+[09:40:30] <_|Nix|_> arschmitz: How would we go about storing a URL that has both a single quote and a double quote in it in the data-url attribute.
+[09:40:33] <_|Nix|_> ?
+[09:40:45] <uGoMobi> arschmitz: can you land https://github.com/jquery/jquery-mobile/pull/7462 to fix the 1.4-stable tests?
+[09:40:52] <_|Nix|_> uGoMobi: He just did.
+[09:41:13] <uGoMobi> _|Nix|_: ahh
+[09:41:16] <uGoMobi> great
+[09:41:18] <uGoMobi> :)
+[09:41:18] <_|Nix|_> :)
+[09:41:50] <dpolivy> _|Nix|_: so data-url='/path/to/devil&apos;s advocate.html' -- though to be honest I think urlencode may be the preferred option here.
+[09:42:34] <uGoMobi> _|Nix|_: The PR has not been closed because it didn't land in master
+[09:42:44] <arschmitz> _|Nix|_: i guess the first thing that comes to my mind is why we are storing them as an attribute and not as data?
+[09:43:19] <arschmitz> is there an actual reason for this?
+[09:43:24] <_|Nix|_> arschmitz: How would you store it as data? In a hidden <div> or <span>?
+[09:43:43] <arschmitz> _|Nix|_: no like .data( "url" , url )
+[09:43:51] <_|Nix|_> arschmitz: Oh, you mean like that.
+[09:44:04] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed pull request #7462: Issue 7461 (061.4-stable...06issue-7461) 02http://git.io/vpiQYQ
+[09:44:17] <arschmitz> i understand why we check the dom but not why we would set the prop
+[09:44:24] <_|Nix|_> arschmitz: ... I suppose we could, and then we would have to query it as :data(...)
+[09:44:26] <arschmitz> or attr i mean and not store it as data
+[09:44:48] <_|Nix|_> arschmitz: ... in fact, I think we store it as both data and attr.
+[09:45:13] <arschmitz> i dont recall i need to look
+[09:45:46] <arschmitz> this would solve any issues of storage
+[09:46:05] <arschmitz> then you just need to decode it when you use it as a selector
+[09:46:29] <arschmitz> or escape rather
+[09:46:37] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 067415-copy-reflow-header: 02http://git.io/6Dg0fA
+[09:46:37] <jqmobilecommit> 13jquery-mobile/067415-copy-reflow-header 1445e92b2 15Gabriel Schulhof: Table: Simplify selector
+[09:46:51] <_|Nix|_> Yeah, that's true. Dunno how fast it is though.
+[09:47:11] <_|Nix|_> Is selecting by data faster than selecting by DOM attr?
+[09:47:35] <arschmitz> _|Nix|_: it would have to be pretty slow to make a difference in nav i thin
+[09:48:11] <_|Nix|_> Also, it's as simple as adding a special case to convertUrlToDataUrl() to leave the two types of quotes encoded.
+[09:48:49] <arschmitz> yup
+[09:50:45] <_|Nix|_> Woah ... this is weird ... I checked convertUrlToDataUrl() and it only actually calls decodeURIComponent() if the URL is for a different domain.
+[09:50:55] <_|Nix|_> I need to check this out in more depth ...
+[09:54:59] <gseguin> hohowdy
+[09:55:04] <uGoMobi> hey gseguin 
+[09:55:14] <uGoMobi> gseguin: how was JS Conf?
+[09:55:22] <gseguin> awesome!
+[09:56:05] <uGoMobi> cool
+[09:56:12] <gseguin> any fire here?
+[09:57:39] <uGoMobi> nope, no fire
+[09:57:52] <gseguin> how's life in Spain?
+[09:59:08] <uGoMobi> had some riots in town last week but now everything is quiet and sunny again :)
+[09:59:37] <_|Nix|_> arschmitz: Woah! $.mobile.path.convertUrlToDataUrl() happens to work during init because it thinks the URL is not the same domain as the location, and convertUrlToDataUrl() only decodes if the domain is not the same as the location.
+[10:00:15] <arschmitz> any history on why?
+[10:00:34] <_|Nix|_> arschmitz: I guess I'd have to git blame that function.
+[10:02:15] <arschmitz> _|Nix|_: try recursive blame
+[10:02:28] <_|Nix|_> arschmitz: It has three cases: If the URL passed in is an embedded page, it returns the hash. Otherwise, if it's the same domain, it removes the domain and returns the path.
+[10:02:45] <_|Nix|_> arschmitz: If all else fails, it returns the URL decoded.
+[10:02:48] <_|Nix|_> arschmitz: Of course!
+[10:03:04] <_|Nix|_> arschmitz: It's input param is absUrl, so you're supposed to pass it an absolute URL.
+[10:03:32] <travis-ci> [travis-ci] jquery/jquery-mobile#1801 (master - 6c7e304 : Jasper de Groot): The build is still failing.
+[10:03:32] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/2a4d092c1e55...6c7e304fb822
+[10:03:32] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26865377
+[10:03:50] <_|Nix|_> arschmitz: The way I modified init, I abused that, because I only pass it a URL consisting of pathname + search
+[10:04:03] <_|Nix|_> arschmitz: ... so of course it decodes!
+[10:04:40] <_|Nix|_> arschmitz: ... I should modify convertUrlToDataUrl() to always decode, and I should pass it an absolute URL from init.
+[10:06:59] <_|Nix|_> Actually, I'd rather just leave everything alone and decodeURIComponent() from init. That seems like less code churn. After all, things work the way they are now, and, AFAICT, init is the only place where we take the URL from the location and we stick it in a data-url. Otherwise, we always grab the URL from the link, not the location.
+[10:07:07] <travis-ci> [travis-ci] jquery/jquery-mobile#1802 (1.4-stable - ab0358e : Jasper de Groot): The build failed.
+[10:07:07] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/040c6c5ccc85...ab0358e5163e
+[10:07:07] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26865444
+[10:13:27] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 061383-escape-urls-in-data-url-selector: 02http://git.io/I2PZ-w
+[10:13:27] <jqmobilecommit> 13jquery-mobile/061383-escape-urls-in-data-url-selector 14b29e5bf 15Gabriel Schulhof: Init: decodeURIComponent() replaces $.mobile.path.convertUrlToDataUrl()
+[10:17:43] <dpolivy> _|Nix|_: one more question, which is probably the reason that I manually add data-url in the first place. For my initial page, the data-url gets set to the page's id, not the actual url. Is there a reason for that?
+[10:18:35] <jqcommit> [13api.jquerymobile.com] 15uGoMobi closed issue #252: Docs need a Getting Started page 02http://git.io/my6m_w
+[10:19:52] <jqcommit> [13api.jquerymobile.com] 15uGoMobi opened issue #314: We need to document that you should not use $(document).ready() with JQM 02http://git.io/06wumw
+[10:20:57] <jqcommit> [13api.jquerymobile.com] 15uGoMobi opened issue #315: We need to document that scripts should be in the <head> when using Ajax navigation 02http://git.io/LX8ogA
+[10:24:11] <_|Nix|_> dpolivy: You'd have to git blame js/init.js to find out why.
+[10:24:31] <_|Nix|_> dpolivy: We set it to the ID, and, failing that, to the location's pathname + query
+[10:25:10] <_|Nix|_> dpolivy: Also, I would entity-encode instead of URL encoding when dealing with attribute values, because jQuery automagically entity-decodes.
+[10:25:47] <_|Nix|_> dpolivy: So then there's no need for special casing %27 and %22
+[10:26:03] <_|Nix|_> dpolivy: It just works, whether you set it or read it.
+[10:26:13] <_|Nix|_> dpolivy: I'll check if it works when you make a selector for it.
+[10:26:23] <_|Nix|_> ... but I think it does, because we're already doing it.
+[10:26:47] <_|Nix|_> That is, selecting for attribute values containing an apostrophe - you just need to escape the apostrophe in the selector.
+[10:27:55] <_|Nix|_> dpolivy: This also means that if you always uri-decode the value you assign to your attribute, you never need to worry about ending up with invalid markup, as long as you assign it with .attr( "data-attribute-name", value ).
+[10:28:34] <_|Nix|_> dpolivy: So, I don't think I'll worry about cases where the href from the link is url-encoded.
+[10:29:05] <dpolivy> _|Nix|_: ok, i'll take a look. fwiw, the reason I add my own data-url attribute is that I ended up in situations where I had two copies of the page loaded in the DOM -- one with a data-url="<page id>" and one with data-url="<page url>". When I set the data-url explicitly, that issue seemed to go away
+[10:29:28] <_|Nix|_> dpolivy: Aaah, yes. That's a good point.
+[10:30:24] <_|Nix|_> dpolivy: That's sort of an overlap between multipage and single page design.
+[10:31:00] <_|Nix|_> In a multipage document, the IDs are the data-urls, because that's how you do navigation.
+[10:31:26] <_|Nix|_> However, IDs are also useful for things other than navigation, which is why you use them even in single page documents.
+[10:31:42] <_|Nix|_> ... but then you'd prefer to have the URL in the data-url, not the ID.
+[10:31:43] <_|Nix|_> Yes.
+[10:31:49] <b-ot> _|Nix|_: prefertohavetheurlinthed.at - 9â˜º AVAILABLE
+[10:31:54] <_|Nix|_> I guess adding the data-url by hand is a good way around that.
+[10:32:28] <_|Nix|_> b-ot is helpful, as always.
+[10:32:51] <_|Nix|_> ... and that's probably why we chose not to clobber the data-url, if already present.
+[10:33:02] <dpolivy> in the initial page case, if it doesn't have a data-url, it gets an id -- even if it's the only page in the document. but i sometimes need to refresh the content of that page (it's dynamic) and reloading it is when I end up with the dupe copy in the DOM
+[10:33:38] <dpolivy> in any case, it's fine if I set data-url on my own -- I just need to make sure i adhere to the right encoding guidelines so that it properly matches when checked
+[10:33:39] <_|Nix|_> dpolivy: Yeah. I think adding the data-url by hand is the canonical way of making sure the ID does not end up in the data-url.
+[10:33:56] <_|Nix|_> dpolivy: Yeah. Use entity encoding, not URL encoding.
+[10:34:03] <travis-ci> [travis-ci] jquery/jquery-mobile#1803 (master - 24200cc : Jasper de Groot): The build is still failing.
+[10:34:03] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/6c7e304fb822...24200ccd26da
+[10:34:03] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26865741
+[10:34:11] <_|Nix|_> dpolivy: In fact, I'll add that to the documentation.
+[10:38:10] <jqmobilecommit> [13jquery-mobile] 15danparm opened issue #7475: Desktop Firefox and IE keeping navbar item in focus 02http://git.io/zr6MFw
+[10:38:39] <travis-ci> [travis-ci] jquery/jquery-mobile#1804 (1.4-stable - 39786a2 : Jasper de Groot): The build failed.
+[10:38:39] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/ab0358e5163e...39786a24f895
+[10:38:39] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26865795
+[10:43:17] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof pushed 1 new commit to 06document-that-data-url-is-unencoded: 02http://git.io/qHC_YQ
+[10:43:18] <jqcommit> 13api.jquerymobile.com/06document-that-data-url-is-unencoded 141306c5d 15Gabriel Schulhof: Page: Recommend that entity encoding be used for the value of data-url
+[10:44:01] <dpolivy> _|Nix|_: are you testing with extended characters as well? I've got your fix of calling $.mobile.path.hashToSelector(dataUrl).
+[10:44:39] <dpolivy> _|Nix|_: page url is: /m/wines/search?q=Domaine+d%27Entre+les+Roches+Pouilly-Fuissé. data-url emitted into HTML markup on the server is: data-url="/m/wines/search?q=Domaine+d&#x27;Entre+les+Roches+Pouilly-Fuissé"
+[10:45:58] <_|Nix|_> Should be good.
+[10:46:16] <_|Nix|_> As long as data-url is not uri-encoded, it should be good.
+[10:46:24] <dpolivy> _|Nix|_: when I finally get to calling $.mobile.path.hashToSelector(dataUrl) the result is "\/m\/wines\/search\?q\=Domaine\+d\'Entre\+les\+Roches\+Pouilly-Fuiss\%C3\%A9" -- note the encoding of the é. tracing back the callstack, this goes all the way back to $.mobile.changePage
+[10:46:40] <_|Nix|_> What the ...
+[10:47:03] <dpolivy> _|Nix|_: or rather, I should say the form submit.
+[10:47:21] <_|Nix|_> dpolivy: I'm testing extended characters here: https://github.com/jquery/jquery-mobile/blob/1383-escape-urls-in-data-url-selector/tests/unit/pagecontainer/index.html#L34
+[10:47:45] <dpolivy> _|Nix|_: since this url is generated by a search form submission. It looks like the form submit serialization is encoding using encodeURIComponent, which encodes the é but not the apostrophe
+[10:47:51] <_|Nix|_> ... and https://github.com/jquery/jquery-mobile/blob/1383-escape-urls-in-data-url-selector/tests/unit/pagecontainer/pagecontainer_core.js#L3
+[10:48:30] <_|Nix|_> dpolivy: Well, if it's encoded on it's way back to the server, that's fine by me. Let the server deal with it. Is the navigation working?
+[10:48:38] <_|Nix|_> s/it's/its/
+[10:48:42] <_|Nix|_> Gah!
+[10:48:48] <_|Nix|_> I meant the second "it's" :)
+[10:50:13] <_|Nix|_> dpolivy: What do you mean "when I finally get to calling $.mobile.path.hashToSelector( dataUrl )"?
+[10:50:43] <_|Nix|_> dpolivy: You mean when the code finally goes to pagecontainer's _find()?
+[10:51:24] <dpolivy> _|Nix|_: yes; when the changePage gets to pagecontainer._find() as a result of a form submission, the URL includes encoded characters. I think you may need to explicity decode again before building the selector
+[10:52:00] <_|Nix|_> dpolivy: I thought that issue might arise.
+[10:52:13] <dpolivy> _|Nix|_: in the getAjaxFormData() method, it calls $.param(formData), which builds the query string and encodes each component
+[10:52:32] <_|Nix|_> dpolivy: ... and that ends up in data-url, eh?
+[10:52:46] <_|Nix|_> No, wait, I mean in settings.dataUrl ...
+[10:52:50] <dpolivy> _|Nix|_: and since it is a GET form, the URL we're loading comes in to _find() with that encoding intact
+[10:53:01] <_|Nix|_> Right.
+[10:53:12] <_|Nix|_> I'll try to reproduce locally.
+[10:53:22] <dpolivy> _|Nix|_: I can share my screen and walk you through a repro if you want?
+[10:54:16] <_|Nix|_> dpolivy: Nono. I think I know what I will do. Instead of <a href="Raison d'Ãªtre.html">Page with weird name</a> I will create a form where a field has data that needs to be encoded, and I'll see how it behaves.
+[10:55:29] <_|Nix|_> dpolivy: I guess form submission is another thread that goes through the navigation.
+[10:56:34] <_|Nix|_> dpolivy: What exactly are the steps by which you reproduce this problem? Do you end up with duplicate pages again?
+[11:01:51] <_|Nix|_> dpolivy: http://91.157.118.120:8080/nix/jqm/search-with-encoded-data.html
+[11:02:18] <_|Nix|_> dpolivy: If you click submit, the resulting page does indeed have a url-encoded data-url.
+[11:02:25] <uGoMobi> _|Nix|_: meeting tmie
+[11:02:27] <uGoMobi> time*
+[11:02:30] <_|Nix|_> Yep.
+[11:08:35] <dpolivy> _|Nix|_: sounds like you've got the repro for the url encoded data-url
+[11:09:26] <dpolivy> _|Nix|_: the duplicate page issue is like so: initially load from a URL without data-url but with an id (e.g. id="home"). See data-url is populated with id (e.g. "home")
+[11:11:07] <dpolivy> _|Nix|_: then, I can navigate around/do stuff that changes the content of the initial page, and eventually I go back to the initial page, and use the following to refresh it: 		$('body').pagecontainer('change', window.location.href, {
+[11:11:07] <dpolivy> 			allowSamePageTransition: true,
+[11:11:07] <dpolivy> 			transition: 'none',
+[11:11:07] <dpolivy> 			showLoadMsg: false,
+[11:11:08] <dpolivy> 			changeHash: false,
+[11:11:10] <dpolivy> 			reloadPage: true
+[11:11:12] <dpolivy> 		});
+[11:11:37] <dpolivy> that seems to load the duplicate copy
+[11:12:00] <_|Nix|_> dpolivy: Yeah, I totally get the id/vs url problem.
+[11:12:21] <_|Nix|_> dpolivy: Providing the data-url by hand is the officially sanctioned workaround for that.
+[11:12:24] <_|Nix|_> w/dinwow 4
+[11:12:25] <_|Nix|_> Sorry :)
+[11:17:38] <travis-ci> [travis-ci] jquery/jquery-mobile#1806 (1.4-stable - 05f409d : Jasper de Groot): The build failed.
+[11:17:38] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/39786a24f895...05f409dab318
+[11:17:38] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26866080
+[11:26:49] <_|Nix|_> arschmitz: When I attempt to open the popup on demos/page-events/alertevents.php, I get "Uncaught TypeError: Converting circular structure to JSON "
+[11:26:54] <_|Nix|_> arschmitz: ... on Chrome 35
+[11:27:20] <arschmitz> _|Nix|_: ill check it out its been quite a while since i worked on that pr
+[11:27:35] <arschmitz> and i need to add documentation for the debugger anyway on my site 
+[11:27:49] <arschmitz> in theory before we release for that and onPage
+[11:28:16] <_|Nix|_> arschmitz: OK. I'll make a comment on the PR.
+[11:51:08] <_|Nix|_> arschmitz: A thought regarding the whole nav thing: It's a good idea to cut back navigation to essentials. I suspect that page navigation was all there was initially, and everything else, like &ui-state=dialog got tacked on later. 
+[11:51:32] <_|Nix|_> If we "revert" to that state, that's good, because we can (upon demand) re-implement all that, except we now get to do it right.
+[11:51:49] <_|Nix|_> Sorry - just had to write that down before I forget.
+[11:52:21] <arschmitz> _|Nix|_: yes thats basicly what i was planning on
+[12:11:27] <travis-ci> [travis-ci] jquery/jquery-mobile#1808 (master - cb7a5dc : Gabriel Schulhof): The build is still failing.
+[12:11:27] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/1ed6f9285151...cb7a5dca325f
+[12:11:27] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26867289
+[12:14:12] <_|Nix|_> arschmitz: I need three reviews from you and one comment: https://github.com/jquery/jquery-mobile/pull/7437, https://github.com/jquery/jquery-mobile/pull/7197, https://github.com/jquery/jquery-mobile/pull/7188, https://github.com/jquery/jquery-mobile/issues/7362#issuecomment-44178844
+[12:14:17] <uGoMobi> arschmitz: regarding drop closing popups and panels with back button; I think we should have a separate meeting about the navigation API review
+[12:14:18] <_|Nix|_> arschmitz: ... whenever you have the time.
+[12:14:36] <_|Nix|_> uGoMobi: Yeah, that'd be good. Just to be on the same page.
+[12:15:26] <travis-ci> [travis-ci] jquery/jquery-mobile#1809 (1.4-stable - 9aa1f30 : Gabriel Schulhof): The build failed.
+[12:15:26] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/05f409dab318...9aa1f30f4df5
+[12:15:26] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26868620
+[12:15:27] <arschmitz> _|Nix|_: see you like my new selector lol
+[12:15:51] <_|Nix|_> arschmitz: Yeah. A bit shorter. I dunno why I wanted to handhold core on its way down through the table.
+[12:16:05] <_|Nix|_> arschmitz: Maybe because it's faster, but that only matters in the library, not the tests.
+[12:16:11] <arschmitz> _|Nix|_: yeah you were literally stepping down one element at a time
+[12:16:25] <arschmitz> _|Nix|_: actually its not
+[12:16:32] <uGoMobi> that should have been the last failing 1.4-stable test...next up is arschmitz his PR
+[12:17:08] <arschmitz> _|Nix|_: selectors are right to left most specific on right and i have the class that exists on exactly one element on right
+[12:17:24] <_|Nix|_> Oh, I see.
+[12:17:26] <arschmitz> so all it does is find that one element and check to make sure it matches
+[12:17:42] <arschmitz> rather then find a whole bunch and filter them
+[12:17:57] <_|Nix|_> ... and selecting by class is probably slower only than selecting by Id.
+[12:18:06] <arschmitz> very slightly
+[12:18:17] <_|Nix|_> Gotta keep that in mind.
+[12:18:31] <arschmitz> _|Nix|_: but it does not matter you dont
+[12:18:46] <arschmitz> class is ALWAYS fast enough 
+[12:19:13] <arschmitz> class is the second fastest selector behind id
+[12:24:18] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof closed pull request #307: Table review (06master...06table-review) 02http://git.io/5AkptQ
+[12:24:54] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof 04force-pushed 06table-review from 1449771c9 to 14a26d39c: 02http://git.io/D9y-OA
+[12:24:55] <jqcommit> 13api.jquerymobile.com/06table-review 14491cfb6 15Gabriel Schulhof: Table: Document that the anchor also has to have an ID
+[12:24:55] <jqcommit> 13api.jquerymobile.com/06table-review 14c5546eb 15Gabriel Schulhof: Table: Document that rebuild() is deprecated in favour of refresh()
+[12:24:56] <jqcommit> 13api.jquerymobile.com/06table-review 148ee9cc7 15Gabriel Schulhof: Table: Consolidating extension into a single entry
+[12:25:17] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof opened pull request #316: Table review (061-5...06table-review) 02http://git.io/4JyUhg
+[12:30:47] <uGoMobi> _|Nix|_: https://github.com/jquery/api.jquerymobile.com/pull/311 should also be against 1-5 instead of master
+[12:37:15] <arschmitz> _|Nix|_: Ping!
+[12:37:22] <_|Nix|_> arschmitz: What's up?
+[12:37:40] <arschmitz> _|Nix|_: https://github.com/jquery/jquery-mobile/issues/7362#issuecomment-44178844 didnt i already give you feedback on this?
+[12:37:48] <arschmitz> or did i dream that lol?
+[12:38:05] <_|Nix|_> arschmitz: TBH, I don't remember.
+[12:38:08] <arschmitz> lol ok
+[12:38:19] <_|Nix|_> arschmitz: I've done a round of integration on those demos, but I was wondering if that was enough,.
+[12:38:44] <arschmitz> well my main complaint is this
+[12:39:00] <arschmitz> i dont like that it links from one basicly nothing page to another
+[12:39:25] <arschmitz> _|Nix|_: like from
+[12:39:39] <arschmitz> http://view.jquerymobile.com/7362-ajax-with-external-widgets-demo/demos/popup-outside-multipage/
+[12:39:48] <arschmitz> to http://view.jquerymobile.com/7362-ajax-with-external-widgets-demo/demos/navigation-ajax-external-widgets/
+[12:40:13] <arschmitz> oops
+[12:40:19] <arschmitz> wait no yeah those
+[12:40:34] <_|Nix|_> How do you mean "basically nothing"?
+[12:40:37] <arschmitz> _|Nix|_: the popup one should go right into the demo
+[12:40:53] <arschmitz> _|Nix|_: there is almost no content they are just an into
+[12:41:15] <arschmitz> so its fine to have one intro page
+[12:41:26] <arschmitz> but linking an intro page to an intro page is annoying to the user
+[12:41:45] <arschmitz> popup should contain everything it needs to explain on its own into page
+[12:41:51] <arschmitz> then link straight to demo
+[12:41:56] <arschmitz> instead of toolbar page
+[12:42:30] <_|Nix|_> arschmitz: Oh, yeah, I see. That has been the pattern. To have an intro link to another intro. But yeah, having each intro page elaborate on some aspect of the single demo does make sense.
+[12:42:53] <travis-ci> [travis-ci] jquery/jquery-mobile#1810 (1.4-stable - 7b27520 : Alexander Schmitz): The build is still failing.
+[12:42:53] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/9aa1f30f4df5...7b2752031bbf
+[12:42:53] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26870059
+[12:42:55] <arschmitz> _|Nix|_: also the popup example is weird to me
+[12:43:23] <arschmitz> because its outside the page but there is no second page for you to go to to see that it still opens the same popup
+[12:43:26] <_|Nix|_> arschmitz: Well, I suspect the popup example will go away, because the common demo also has an outside-the-page popup.
+[12:43:41] <arschmitz> _|Nix|_: yeah i think that would be the idea
+[12:43:53] <arschmitz> _|Nix|_: and we need to add view source buttons in that demo
+[12:44:28] <arschmitz> for the individual things ( popup, panel, toolbar )
+[12:44:33] <_|Nix|_> Actually, it has a view source button: http://view.jquerymobile.com/7362-ajax-with-external-widgets-demo/demos/toolbar-fixed-persistent-optimized/
+[12:44:44] <_|Nix|_> However, the text needs to go into an intro page.
+[12:45:18] <arschmitz> ah sorry missed that somehow
+[12:45:52] <_|Nix|_> arschmitz: ... although I added the blurb about shared scripts and widgets, because that's a common theme for both toolbars and popups, so I think that should stay.
+[12:46:18] <arschmitz> _|Nix|_: yeah we need to just clean up that page a bit needs some copy editing
+[12:46:29] <arschmitz> mostly on the stuff i wrote :)
+[12:48:17] <_|Nix|_> arschmitz: Actually, I think in terms of spelling and grammar the text is fine. It's just that the blurb about wrapping things in if-statements server-side needs to go in an intro page that, like the other intro pages, links to the demo.
+[12:48:35] <arschmitz> _|Nix|_: that part is very incomplete
+[12:48:47] <arschmitz> it does not even mention thats php and other languages are different
+[12:49:37] <arschmitz> _|Nix|_: i think its fine for there to be info on first page of demo
+[12:49:52] <arschmitz> honestly if we wanted we could just make that the intro page
+[12:50:26] <_|Nix|_> arschmitz: It currently /is/ the intro page for fixed persistent optimized toolbars.
+[12:50:46] <_|Nix|_> arschmitz: The thing is though, the demo is now linked from several other intro pages as well, even popup ones.
+[12:50:56] <arschmitz> right 
+[12:51:12] <_|Nix|_> arschmitz: So, if we add a blurb about toolbars, users be like why ya talking to me 'bout toolbars, all of a sudden?
+[12:51:32] <arschmitz> _|Nix|_: well the issue there is the word not the place
+[12:51:45] <arschmitz> the idea is that anything thats common should be wrapped in that statement
+[12:51:49] <arschmitz> not just toolbars
+[12:52:19] <_|Nix|_> arschmitz: Oh, I see. OK. Then I'll re-word that blurb to be widget-agnostic.
+[12:52:38] <arschmitz> _|Nix|_: i actually have a very good run through of this
+[12:52:52] <arschmitz> in my mobile optimization presentation and much better code examples
+[12:52:53] <_|Nix|_> arschmitz: ... and I'll list toolbars, popups, and panels as example external widgets which you might want to exclude when Ajaxing.
+[12:53:58] <_|Nix|_> arschmitz: You're welcome to take it over. I wasn't 100% comfortable doing it, anyway, because it links so many things together.
+[12:54:20] <_|Nix|_> arschmitz: Linking from demo to demo like that kinda breaks the independence of demos.
+[12:54:38] <_|Nix|_> OTOH, it's nice to have a more complete demo while being able to highlight various aspects of it.
+[12:55:02] <arschmitz> _|Nix|_: yeah you kinda need a bigger one like this here
+[12:55:19] <arschmitz> because its about application architecture not a specific option or something like that
+[12:55:29] <_|Nix|_> Yeah, exactly.
+[12:56:17] <arschmitz> _|Nix|_: https://github.com/arschmitz/mobile-presenter/blob/master/application/views/code-examples/optimized-single-page-template.php
+[12:57:02] <arschmitz> so on an ajax request all that is sent is https://github.com/arschmitz/mobile-presenter/blob/master/application/views/code-examples/optimized-template-return.php
+[12:57:36] <arschmitz> so popups panels etc would go in the section with the header
+[12:58:09] <_|Nix|_> I guess instead of that single if-statement on the intro page, I could put the whole page there and then add different background colours for the HTTP stuff and the Ajax stuff.
+[12:58:35] <arschmitz> _|Nix|_: our syntax highlighter can handle it
+[12:58:54] <arschmitz> that file gets run through the same one we use for my presentations
+[12:59:14] <arschmitz> just need to specify the right brush
+[12:59:35] <_|Nix|_> Oh, the body of the if-statement will be emphasized?
+[12:59:46] <arschmitz> oh no i see what you mean
+[12:59:54] <arschmitz> no if you want to do that it would be custom i think
+[13:00:11] <_|Nix|_> Yeah, that's what I want to do. I think it really drives home the idea.
+[13:00:23] <arschmitz> _|Nix|_: yeah works for me
+[13:00:27] <_|Nix|_> I'd even put braces around the lines if I could.
+[13:01:59] <_|Nix|_> I could say something like "The red portions will not be transmitted in the event of an Ajax request."
+[13:02:22] <_|Nix|_> OK. I'll do another pass over the whole thing.
+[13:03:13] <arschmitz> _|Nix|_: sounds good its a really important demo iv been wanting to emphasize more
+[13:03:53] <arschmitz> _|Nix|_: personally id like to see it go as far as to suggest a php include for the top and bottom of the pages
+[13:05:05] <_|Nix|_> arschmitz: Oooh, not bad!
+[13:05:05] <arschmitz> _|Nix|_: i hate that people get the impression we want them to copy and paste everything for every page
+[13:05:30] <_|Nix|_> arschmitz: Well, in the case of a packaged, client-only app, that's their only choice.
+[13:05:43] <arschmitz> _|Nix|_: yes but thats not all we do
+[13:05:45] <_|Nix|_> arschmitz: Which is also a hybrid app.
+[13:06:00] <arschmitz> thats not even our main focus
+[13:06:06] <_|Nix|_> arschmitz: No, of course not.
+[13:06:24] <arschmitz> i mean its something we support of course 
+[13:06:26] <_|Nix|_> arschmitz: Well, actually, in the case of a packaged app, they need copy nothing.
+[13:06:42] <_|Nix|_> ... because a packaged app has exactly one entry point.
+[13:06:44] <arschmitz> there must be some way to do include there?
+[13:06:47] <arschmitz> oh right
+[13:06:49] <_|Nix|_> /Everyrhing/ else is Ajax.
+[13:07:09] <_|Nix|_> So, maybe that's something we need to emphasize.
+[13:07:24] <_|Nix|_> We only mention the copying thing because of the client-server background.
+[13:07:24] <arschmitz> yup worth mentioning in that same intro page
+[13:07:52] <_|Nix|_> I dunno ... this sounds more and more like a dedicated Web site than just a demo.
+[13:08:18] <arschmitz> _|Nix|_: nah its just an architecture demo 
+[13:08:20] <_|Nix|_> If for no other reason than that it's gonna be a whopper of an intro page.
+[13:08:32] <arschmitz> its nothing more then 4 linked pages with explinations
+[13:08:40] <_|Nix|_> Bursting at the seams with concepts.
+[13:08:49] <arschmitz> _|Nix|_: so add more pages within the demo if you want
+[13:09:09] <arschmitz> for explaining each concept
+[13:09:21] <_|Nix|_> That's kinda what we have now.
+[13:09:37] <arschmitz> no those are outside the intro and de centralized
+[13:09:49] <_|Nix|_> Yeah, true.
+[13:09:50] <_|Nix|_> OK.
+[13:10:03] <_|Nix|_> Oh, man ... there're also panels to consider adding.
+[13:10:08] <_|Nix|_> Those can be external too.
+[13:10:09] <arschmitz> _|Nix|_: or you could even do like collapsibles
+[13:10:21] <arschmitz> _|Nix|_: yeah i mentioned those already
+[13:10:28] <_|Nix|_> D000d.
+[13:10:31] <arschmitz> _|Nix|_: there are everything really
+[13:10:38] <arschmitz> a panel or a popup can contain a form
+[13:10:55] <_|Nix|_> Yeah. I mean, you can put a bloody checkbox outside the page - why not?
+[13:11:00] <_|Nix|_> *sigh*
+[13:11:12] <arschmitz> yup generally not directly in the page but within a panel sure
+[13:11:32] <arschmitz> so this should be a general kinda primer of how to deal with elements that are outside the page
+[13:11:53] <_|Nix|_> Hmmm ... then maybe we should get rid of all these external demos, and just have this one, with maybe blurbs + a link on each of the main widget demo pages.
+[13:12:15] <arschmitz> _|Nix|_: i think so
+[13:12:17] <_|Nix|_> arschmitz: ... and multiple entry points in general.
+[13:12:36] <arschmitz> _|Nix|_: nah you can link to it from basicly every widget 
+[13:12:53] <_|Nix|_> Yeah, forget it.
+[13:13:12] <arschmitz> lol
+[13:13:26] <_|Nix|_> So, where does this fit? I mean, we have this general demos/<widget>{,-<feature>} structure.
+[13:13:43] <arschmitz> demos/external-widgets/
+[13:15:27] <_|Nix|_> Yeah, I guess we do have some non-widget-specific demos like transitions, theme-default, theme-classic, rwd, backbone-requirejs - so why not external-widgets? OK.
+[13:15:52] <_|Nix|_> I have a nagging suspicion this won't land in 1.4.3 though.
+[13:15:55] <arschmitz> yeah and we will keep it kinda general with specifics as needed
+[13:16:21] <arschmitz> but most of it is not special or specific to a widget its generic how to deal with external stuff
+[13:16:46] <arschmitz> _|Nix|_: we should actually have 2 one that uses pages and adds stuff like panels popups
+[13:17:00] <arschmitz> and one thats a non jqm page using jqm widgets
+[13:17:34] <_|Nix|_> arschmitz: Hmmm ... that's kinda hard to do without requirejs.
+[13:18:07] <_|Nix|_> arschmitz: I guess I can simulate non-jQM if I turn off autoInitializePage.
+[13:18:30] <arschmitz> yeah we need to switch to proper umd wrappers
+[13:18:47] <arschmitz> _|Nix|_: but you can actually do better then that
+[13:19:15] <arschmitz> set a grade to false
+[13:19:21] <arschmitz> kills whole framework
+[13:19:33] <_|Nix|_> arschmitz: Right, true, but widgets are still defined.
+[13:20:28] <arschmitz> yup
+[13:31:29] <arschmitz> _|Nix|_: so i got all your pr's right?
+[20:50:51] <joebot0101> hello
+[22:08:30] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 061.4-stable: 02http://git.io/IToyaA
+[22:08:30] <jqmobilecommit> 13jquery-mobile/061.4-stable 1414d2343 15Gabriel Schulhof: Table: Copy entire contents of reflow headers into reflow bold tags...
+[22:09:15] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof 04deleted 067415-copy-reflow-header at 1445e92b2: 02http://git.io/WgEaLg
+[22:12:27] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 06master: 02http://git.io/7Zm6Kg
+[22:12:27] <jqmobilecommit> 13jquery-mobile/06master 14dde4873 15Gabriel Schulhof: Selectmenu: Delay trigger until after the list closes...
+[22:16:28] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 061.4-stable: 02http://git.io/AR2D2w
+[22:16:28] <jqmobilecommit> 13jquery-mobile/061.4-stable 14ea0533f 15Gabriel Schulhof: Selectmenu: Delay trigger until after the list closes...
+[22:16:38] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof 04deleted 067076-delay-value-change-trigger at 149c2ea16: 02http://git.io/H6VWhg
+[22:18:46] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof closed pull request #7188: Toolbar: Back button correctly appears/disappears on external toolbar (06master...067091-back-button-on-external-toolbar) 02http://git.io/4QCBeQ
+[22:35:20] <travis-ci> [travis-ci] jquery/jquery-mobile#1814 (master - a9472ce : Gabriel Schulhof): The build is still failing.
+[22:35:20] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/cb7a5dca325f...a9472ce35b95
+[22:35:20] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26913606
+[22:38:27] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 061.4-stable: 02http://git.io/_9PC8g
+[22:38:27] <jqmobilecommit> 13jquery-mobile/061.4-stable 14da816e7 15Gabriel Schulhof: Toolbar: Back button correctly appears/disappears on external toolbar...
+[22:39:21] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof 04deleted 067091-back-button-on-external-toolbar at 14a1c3d92: 02http://git.io/a4RXgA
+[22:44:55] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof closed pull request #300: Controlgroup: Add example illustrating dynamically adding element (06master...06controlgroup-dynamic-add-example) 02http://git.io/jLPspg
+[23:07:58] <travis-ci> [travis-ci] jquery/jquery-mobile#1818 (master - b0685b3 : Gabriel Schulhof): The build was fixed.
+[23:07:58] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/dde487317c03...b0685b3f19d1
+[23:07:58] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26913956
+[23:29:31] <travis-ci> [travis-ci] jquery/jquery-mobile#1819 (1.4-stable - da816e7 : Gabriel Schulhof): The build was fixed.
+[23:29:31] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/ea0533ff0d95...da816e7df530
+[23:29:31] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/26914602
+[23:39:42] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof created 067413-fix-collapsible-pre-rendered-selectors (+2 new commits): 02http://git.io/PhVqxA
+[23:39:42] <jqmobilecommit> 13jquery-mobile/067413-fix-collapsible-pre-rendered-selectors 14c814506 15Gabriel Schulhof: Collapsible: Use more conservative selector to avoid recursion...
+[23:39:42] <jqmobilecommit> 13jquery-mobile/067413-fix-collapsible-pre-rendered-selectors 1400ba735 15Gabriel Schulhof: Collapsible: Make sure selectors only grab the right elements
+[23:41:02] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof opened pull request #7476: Collapsible: Use more conservative selector to avoid recursion (06master...067413-fix-collapsible-pre-rendered-selectors) 02http://git.io/owZofQ

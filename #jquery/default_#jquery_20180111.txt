@@ -1,0 +1,826 @@
+[02:12:42] <undefined_bob> good morning
+[02:20:44] <nikio_> gm
+[04:01:52] <undefined_bob> can I have two return string.replace functions in one script?
+[04:03:39] <undefined_bob> or other way asked, how can I combine these two: return string.replace(/[^a-zA-Z^\d\ ]+/g, '') with string.replace(/\u00e4/g, "ae")
+[04:06:10] <Cork> undefined_bob: .replace().replace()
+[04:08:28] <undefined_bob> morning Cork and thank you
+[04:13:08] <undefined_bob> nice it works :)
+[05:21:12] <undefined_bob> is it possible to modify this line in the way that the parent above the parent get a click too?
+[05:21:18] <undefined_bob> if (window.location.href.indexOf('#') !== -1) { $('#' + window.location.href.split('#')[1]).parent().click(); }
+[05:22:04] <Cork> s/.click()/.trigger('click')/
+[05:22:04] <b-ot> Correction, <undefined_bob> if (window.location.href.indexOf('#') !== -1) { $('#' + window.location.href.split('#')[1]).parent().trigger('click'); }
+[05:22:06] <Cork> :)
+[05:22:18] <Cork> they should be the same though
+[05:22:31] <Cork> events bubble so all parents gets the event as a bubble event
+[05:23:25] <undefined_bob> what does the .trigger do in that case?
+[05:23:47] <Cork> it should do the same thing as .click()
+[05:23:59] <Cork> except .click() is actually calling .trigger('click')
+[05:24:47] <Cork> undefined_bob: https://github.com/jquery/jquery/blob/master/src/event/alias.js#L10
+[05:25:06] <undefined_bob> the problem is, if one opens this url http://undefined.bplaced.net/produkte/hauptprodukt_2/current/index.html#Hersteller_A everything works and the content open but if one use this url http://undefined.bplaced.net/produkte/hauptprodukt_2/current/index.html#Typenuebersicht_1 the conten wont open because its inside of #Hersteller_A
+[05:27:28] <undefined_bob> so its better (more nice) to use .trigger('click') instead of .click()?
+[05:27:42] <Cork> more cause Typenuebersicht_1 only exist after Hersteller_A has been called cause they load the extra content
+[05:28:08] <Cork> so you would have to call Hersteller_A; wait for the ajax response to fill in the html
+[05:28:13] <Cork> THEN call Typenuebersicht_1
+[05:29:17] <undefined_bob> did I get it wrong? as far as I see all content is already generated just hidden and get revealed when one click on #Hersteller_A for example
+[05:29:39] <Cork> loading http://undefined.bplaced.net/produkte/hauptprodukt_2/current/index.html
+[05:29:49] <Cork> and going into source and search
+[05:29:57] <Cork> Typenuebersicht_1 == 0/0
+[05:30:07] <Cork> so it doesn't exist in the page
+[05:30:51] <undefined_bob> weird, for me it does
+[05:30:55] <undefined_bob> look at line 216
+[05:30:58] <Cork> ah i know what it is
+[05:31:07] <Cork> you are correcting the ids with javascript
+[05:31:14] <Cork> so when the page loads the id doesn't exist
+[05:31:20] <Cork> js has to run first
+[05:31:34] <Cork> (and one in a ling list of reasons why this solution isn't good)
+[05:31:40] <Cork> ling==long
+[05:31:42] <undefined_bob> ja but I dont know yet why the html is not corrected at this moment
+[05:31:56] <Cork> cause the dom is correct not the original html
+[05:32:08] <Cork> and browser hash search happens before js runs
+[05:32:20] <undefined_bob> I thought with the script the html source would be changed too
+[05:32:25] <Cork> no
+[05:32:30] <Cork> html is never changed
+[05:32:45] <undefined_bob> why not?
+[05:32:57] <Cork> cause there is no need to
+[05:33:07] <Cork> the html is only used to generate the dom
+[05:33:16] <Cork> it doesn't have a meaning after that
+[05:33:32] <undefined_bob> I feel like there is because for now the id are still wrong in the source code
+[05:33:48] <Cork> will have to dig a bit more
+[05:34:15] <Cork> what are you binding to handle the clicks?
+[05:37:37] <undefined_bob> the code used for the click and the href is this one https://codepen.io/undefined999/pen/vpjEBK?editors=0010
+[05:38:06] <Cork> ya, but where is it?
+[05:38:10] <Cork> what file
+[05:38:28] <undefined_bob> just to clarify my understanding, I thought the script would correct the id in the html source too and not only the displayed part in the browsers adressbar. Thats why I'm confused
+[05:38:42] <Cork> depends on the order of execution
+[05:38:42] <undefined_bob> its internal
+[05:38:58] <Cork> something that i was intending to verify but as i can't find where the different parse are...
+[05:39:06] <undefined_bob> http://undefined.bplaced.net/produkte/hauptprodukt_2/current/index.html source line 68
+[05:39:55] <Cork> ugg indentation is a mess...
+[05:40:53] <undefined_bob> yes, I'm pretty bad at indentation. once I searched for some tutorials for that but it was difficult to find one
+[05:40:56] <Cork> undefined_bob: $(".balkenclosed").click( REALLY sould be replaced with $(document).on('click', '.balkenclosed',
+[05:41:16] <Cork> your statically binding an event handler to every existing .balkenclosed
+[05:41:25] <Cork> if one ever gets added later it won't work there
+[05:41:28] <undefined_bob> I would like to learn how to make cleaner code, tho
+[05:41:40] <Cork> also this means you add a lot of event handlers for something that can be handled by one
+[05:42:25] <Cork> additionally, this isn't wrapped in ready so it's racy
+[05:43:31] <undefined_bob> what does racy mean?
+[05:44:06] <Cork> it means two different executions race to run first and if the wrong one wins things break
+[05:44:23] <undefined_bob> ow
+[05:44:28] <Cork> but actually it isn't even racy
+[05:44:34] <Cork> it is plain "won't ever find anything"
+[05:44:52] <Cork> cause it runs synchronously before body exists
+[05:45:02] <Cork> so it always return an empty result set
+[05:45:20] <Cork> ah wait
+[05:45:30] <Cork> hmm it is inside ddaccordion.init oninit
+[05:45:41] <Cork> that might delay to ready or similar
+[05:45:42] <Cork> donno
+[05:45:50] <undefined_bob> are you now talking about the $(".balkenclosed").click(function() { script or the replace script?
+[05:46:17] <Cork> not completely sure to be honest, the indentation makes it hard to read
+[05:46:39] <Cork> ah right it is all inside oninit
+[05:46:46] <undefined_bob> yes
+[05:47:03] <undefined_bob> the click script didnt work at any other position
+[05:47:08] <undefined_bob> I tested
+[05:47:19] <Cork> btw why are you binding the click handler on .balkenclosed and not directly on that a tag?
+[05:47:40] <undefined_bob> so I thought I put the replace script at the same position
+[05:48:07] <undefined_bob> because I thought a tag is not specific enough
+[05:48:18] <Cork> specific enough?
+[05:48:40] <Cork> so just add the class to the a tag or just $('.balkenclosed a')
+[05:48:43] <undefined_bob> the replace script end at line 127 with  }).join(replaceSpaceWith); }
+[05:50:05] <undefined_bob> this divs are: <div class="balken"><div class="balkenclosed"><a id=
+[05:53:50] <undefined_bob> did you mean it like that?
+[05:53:51] <undefined_bob>  $(document).on('click', '.balkenclosed', (function() {
+[05:53:51] <undefined_bob>   window.location = $(this).find("a").attr("href");
+[05:53:51] <undefined_bob>   return false;
+[05:53:51] <undefined_bob> });
+[05:58:32] <Cork> yes except '.balkenclosed a'
+[05:58:43] <Cork> and replace $(this).find('a') with $(this()
+[05:58:46] <Cork> *$(this)
+[06:00:26] <undefined_bob> $(document).on('click', '.balkenclosed a', (function() {
+[06:00:26] <undefined_bob>   window.location = $(this).attr("href");
+[06:00:26] <undefined_bob>   return false;
+[06:00:26] <undefined_bob> });
+[06:00:31] <Cork> yup
+[06:00:39] <undefined_bob> thank you :)
+[06:00:48] <Cork> oh one more thing
+[06:01:02] <Cork> $(document).on('click', '.balkenclosed a', function(event) {
+[06:01:08] <Cork> not ( before function and (event)
+[06:01:17] <Cork> and before window.location
+[06:01:22] <Cork> do event.preventDefault()
+[06:01:58] <Cork> (return false kills events; something you don't want to do, just prevent the default action)
+[06:03:45] <undefined_bob> so more like this?
+[06:03:49] <undefined_bob> $(document).on('click', '.balkenclosed a', function(event) {
+[06:03:50] <undefined_bob>   event.preventDefault()window.location = $(this).attr("href");
+[06:03:50] <undefined_bob> });
+[06:05:39] <Cork> ; and new line before window but else ya
+[06:14:04] <undefined_bob> okay
+[06:14:05] <undefined_bob> thank you again :)
+[06:14:13] <Cork> np
+[06:15:14] <undefined_bob> could you find a reason why the replace script doesnt change the html source? would it make sense to put it above the ddaccordion.init?
+[06:15:32] <Cork> it won't ever change the source
+[06:15:41] <Cork> it will change the dom and nothing else
+[06:15:50] <undefined_bob> mean
+[06:15:54] <Cork> :)
+[06:16:02] <Cork> if you want to fix the source you would have to fix the server
+[06:16:18] <undefined_bob> is it really not possible to change the source with JS?
+[06:16:39] <Cork> ya, cause the source is handled before the browser even runs js
+[06:16:44] <Cork> and after that it has no meaning
+[06:17:23] <Cork> you could proxy the request through a node.js server; then you can fix the source with js :D
+[06:17:28] <Cork> j/k
+[06:17:31] <undefined_bob> lol
+[06:18:09] <Cork> but ya, js modifies the dom not the source the dom was generated from
+[06:18:34] <undefined_bob> and its not possible to change that behaivor, right?
+[06:18:53] <Cork> there isn't really any behavior to change
+[06:19:12] <Cork> the html is the text data sent over the wire that the browser then parses and builds the dom from
+[06:19:44] <Cork> while the browser is parsing as it builds each node in the dom tree js gets executed at that point
+[06:20:01] <Cork> but as it runs after the text has been parsed it has no control of what happens before
+[06:20:27] <Cork> (and again it doesn't really make any sense)
+[06:21:27] <undefined_bob> that would mean that the whole replace script its useless because the source is still not valide
+[06:21:49] <Cork> no it changes the content of attributes in the dom tree
+[06:22:12] <Cork> as long as things looking for those values run AFTER it should see the modified values
+[06:24:36] <undefined_bob> yes I understand that. but I dont get why its not possible to manipulate the source and rebuild the dom
+[06:27:27] <Cork> cause there is no point to it
+[06:27:29] <Cork> it will just be slow
+[06:28:00] <Cork> you can do document.body.innerHTML and regex that and then document.body.innerHTML set it again
+[06:28:14] <undefined_bob> is it because the data (the html source) is already sent and its just "fix" and is what it is?
+[06:28:15] <Cork> but that will throw away everything that was inside body and pars it again
+[06:28:22] <Cork> so all bound event handlers will die
+[06:28:59] <Cork> i think the problem is your thinking the wrong thing is what controls what you see
+[06:29:27] <Cork> and there is no way to preprocess the html in the browser before the html gets delivered to the browser
+[06:29:39] <Cork> and that would be the only thing that could make that reasonable
+[06:30:05] <Cork> (but it would make things a lot slower as it would mean the entire html body would have to be downloaded before anything can start happening
+[06:30:12] <undefined_bob> yes, like we see the modified values in the fragment url after the script ran
+[06:30:15] <Cork> instead of the stream parser that is used now)
+[06:30:15] <undefined_bob> mhm then I have to find an other solution the clean the id before
+[06:30:16] <undefined_bob> not practical too
+[06:30:17] <undefined_bob> would it work with php, tho?
+[06:30:46] <Cork> you an proxy the requests from the browser through any server language
+[06:30:55] <Cork> and have the server make the request to your current server sure
+[06:30:58] <undefined_bob> ya perhaps you're right
+[06:31:14] <Cork> though honestly if it is that broken i would question if it isn't time to replace the server cms
+[06:31:21] <undefined_bob> that makes sense, of course
+[06:31:53] <undefined_bob> and once its delivered its unchangeable?
+[06:32:15] <Cork> i'm not sure what you are referring to
+[06:32:33] <Cork> once it is parsed you can't modify it before it is parsed yes
+[06:32:43] <Cork> its kinda obvious
+[06:33:00] <Cork> if you want to modify the page content after it is parsed modify the dom
+[06:33:21] <undefined_bob> I wish I could do replace it but I gave up arguing about that with my boss
+[06:33:49] <Cork> so just leave the ids as they are then
+[06:33:55] <Cork> and stop messing with them in js
+[06:34:08] <undefined_bob> the cms
+[06:34:27] <Cork> cause that is where you are causing most of the problems right now
+[06:34:39] <undefined_bob> but I think I try to add extra user input fields for id and href into the cms
+[06:35:05] <undefined_bob> its just more difficult for the users then
+[06:36:06] <undefined_bob> but the dom is not enough if the html source is broken
+[06:36:20] <Cork> ...
+[06:36:33] <Cork> i have no clue what your talking about right now
+[06:37:13] <Cork> if you mean it isn't enough if it won't pass a validator.w3c.org then ya, js can't ever fix that
+[06:37:18] <undefined_bob> true
+[06:37:28] <Cork> if it isn't what you mean then i have no clue
+[06:37:34] <undefined_bob> thanks for you intensive help on this topic
+[06:38:20] <undefined_bob> no no its all good
+[06:38:26] <undefined_bob> I just wanted to say thank you that you helped me so much with this issue/topic and spent so much time for me
+[06:38:32] <undefined_bob> yes, that was what I meant
+[08:20:33] <karstenk> Hello, I would like to visualize a fraud check which has the ratings -1 to 5 . Can you suggest a jquery plugin?
+[08:31:29] <undefined_bob> Cork the little script we modified lost one important feature
+[08:32:25] <undefined_bob> the old version made that the link changed whereever one clicked on the div. in the new one one have to click on the href text
+[08:32:47] <Cork> undefined_bob: so extend the size of the link with css
+[08:33:30] <Cork> basically remove the padding from the div and put it on the a tag
+[08:33:41] <undefined_bob> I tried before but I wasnt able to match the proper size
+[08:34:00] <Cork> make sure to set the display: inline-block;
+[08:34:14] <Cork> a tags are inline by default and will ignore padding
+[08:34:40] <undefined_bob> it only grew high as high as shown in the middle image https://imgur.com/a/bDFfu
+[08:34:51] <undefined_bob> *as
+[08:35:29] <Cork> ya, cause you didn't remove the padding of the div
+[08:35:43] <Cork> though hmm is the arrow part of the div?
+[08:35:54] <Cork> (on the left of the text)
+[08:35:59] <undefined_bob> the first box in the image is the current state, second box like it get with css and the third how it get with the old script
+[08:36:16] <undefined_bob> the arrow is an svg
+[08:36:32] <Cork> is it beside the a link?
+[08:36:41] <Cork> meaning <svg></svg><a></a> ?
+[08:36:51] <undefined_bob> I tried hard with css but it didnt work
+[08:36:53] <undefined_bob> no not that way
+[08:38:27] <undefined_bob> its in the css class of .balkenopen and .balkenclosed
+[08:38:30] <undefined_bob> background: #ffffff url(accclosed.svg) 10px 50% no-repeat;
+[08:38:56] <undefined_bob> isnt it possible to archive the same behaivor with the new script too?
+[08:39:28] <Cork> ok then all you need to do is change the padding
+[08:39:39] <Cork> padding: 0; on the div
+[08:39:46] <Cork> and the old padding should go into the a tag
+[08:40:10] <Cork> and again don't forget the display
+[08:40:30] <undefined_bob> its not that easy
+[08:40:33] <Cork> it is
+[08:41:13] <undefined_bob> the div is contructed with 2 classes
+[08:41:23] <undefined_bob> .balken and .balkenopen or .balkenclosed
+[08:41:29] <Cork> a div might be styled with two classes
+[08:41:34] <Cork> it isn't contructed by it
+[08:41:34] <undefined_bob> .balken has no padding
+[08:41:41] <Cork> and you can target the a tag with the same class
+[08:41:47] <undefined_bob> ya I meant that
+[08:44:15] <undefined_bob> hm here you can see the css https://codepen.io/undefined999/pen/VyyQVw
+[08:50:32] <Cork> lovely jsfiddle is broken...
+[08:50:35] <Cork> undefined_bob: https://pastebin.mozilla.org/9075815
+[08:50:40] <Cork> that is the change you need
+[08:52:22] <undefined_bob> ow I just tried with the > selector
+[08:52:28] <undefined_bob> thanks I'll try that
+[08:56:26] <hellyeah> i know this is not javascript channel but let me try my chance
+[08:56:38] <Cork> undefined_bob: sould work too
+[08:56:41] <hellyeah> what is the reason that i see undefined here https://jsfiddle.net/j3vn58xb/16/
+[08:57:36] <Cork> hellyeah: first entry in the array is an undefined value
+[08:57:58] <Cork> meaning [,'apple',1.9]
+[08:59:17] <hellyeah> i dont understand
+[08:59:29] <hellyeah> i suppose , is seperator between index
+[08:59:32] <hellyeah> is it not?
+[08:59:33] <Cork> you print the array and the first entriy in the array is empty
+[08:59:54] <Cork> [,1,2,3] is the same thing as [undefined,1,2,3]
+[09:00:45] <hellyeah> how can i fix it
+[09:01:16] <Cork> fix the code so you don't leave the first entry in the array empty :)
+[09:03:46] <Cork> hellyeah: you push two separate objects into tObject
+[09:03:56] <hellyeah> i removed map
+[09:04:02] <Cork> one with the key "key" and one with the key "values"
+[09:04:09] <Cork> instead of one object with both keys
+[09:04:23] <Cork> https://jsfiddle.net/j3vn58xb/17/
+[09:05:07] <Cork> not sure why you have mapArr at all though
+[09:07:08] <undefined_bob> it works, thanks Cork
+[09:07:47] <hellyeah> okey thats improvement https://jsfiddle.net/j3vn58xb/18/
+[09:08:16] <hellyeah> why there is ","
+[09:08:21] <hellyeah> i dont understand that
+[09:09:51] <Cork> hellyeah: array.toString() does that
+[09:10:03] <Cork> your typecasting an array to a string
+[09:11:12] <hellyeah> so? how can i fix that?
+[09:11:19] <hellyeah> i am doing typecasting?
+[09:11:28] <Cork> depends what you want to do with it
+[09:12:09] <hellyeah> i want to do table man
+[09:12:11] <hellyeah> thats all
+[09:12:27] <hellyeah> i try to create table dynamically
+[09:12:43] <localh0st> hellyeah: tip: loop
+[09:12:59] <hellyeah> loop
+[09:13:02] <hellyeah> oh damn
+[09:13:10] <hellyeah> should it be map?
+[09:14:06] <Cork> hellyeah: well then the answer is you aren't looping for the td
+[09:14:11] <localh0st> hellyeah: if you got map, then iterate over keys to get the th and iterate over values to get td
+[09:14:13] <Cork> you only loop for row
+[09:14:46] <localh0st> Cork: he's 'th' is also a single header
+[09:15:08] <Cork> ok fine i mean column when i said td
+[09:16:18] <hellyeah> okay
+[09:16:20] <hellyeah> sec
+[09:18:01] <hellyeah> okey now got it
+[10:03:48] <hellyeah> Cork,  one last question
+[10:04:00] <hellyeah> https://jsfiddle.net/j3vn58xb/25/ how can i solve this issue?
+[10:04:25] <Cork> what issue
+[10:04:46] <Cork> ah the multiple headers?
+[10:04:56] <Cork> do it once for the first object
+[10:06:12] <hellyeah> yea
+[10:06:20] <hellyeah> remove forEach
+[10:06:22] <hellyeah> ?
+[10:07:22] <Cork> don't run var th = document.createElement('th'); inside tableobj.map(function(element, index)
+[10:07:24] <Cork> run it once
+[10:07:36] <Cork> with tableobj[0]
+[10:14:46] <Neo4> how count scroll height?
+[10:14:52] <Neo4> Cork, ?
+[10:15:17] <Neo4> I need 100px from top add style
+[10:15:31] <Neo4> How I can count it?
+[10:21:22] <undefined_bob> maybe this can help you, Neo4 https://stackoverflow.com/questions/4081064/how-to-get-the-number-of-pixels-a-user-has-scrolled-down-the-page
+[10:22:09] <Neo4> undefined_bob: I use it https://stackoverflow.com/questions/10259132/jquery-scroll-function-after-100px
+[10:22:38] <Neo4> or it
+[10:22:43] <undefined_bob> there are many hits on SO if you search for "count scroll pixels jquery"
+[10:24:45] <undefined_bob> whats wrong with the answer in your link?
+[10:36:21] <Neo4> undefined_bob: don't know
+[10:41:14] <Neo4> undefined_bob: is this code right https://hastebin.com/urorifijot.js
+[10:42:33] <obinoob> hi, need a spreadsheet excel type editor any jquery plugin available?
+[10:43:12] <Cork> obinoob: that isn't something you're going to find as a plugin
+[10:43:21] <Cork> it is going to have be a lot bigger then that
+[10:57:05] <obinoob> Cork: I accept that, actually in between I have found a huge project that appears to be dead... https://github.com/Spreadsheets/WickedGrid/tree/master/src/WickedGrid
+[10:57:33] <obinoob> here actually https://github.com/Spreadsheets/WickedGrid
+[11:04:09] <Cork> obinoob: do you need a spreadsheet or just a grid?
+[11:04:27] <Cork> cause the former means code support (or at least formula) and all that
+[11:04:38] <Cork> grid exists in the hundreds :)
+[11:04:50] <obinoob> Cork: a spreadsheet for small calculations etc it would nice if I could have text format
+[11:05:09] <obinoob> *be
+[11:05:13] <Cork> ya, that is most likely going to be very hard to find
+[11:05:19] <Cork> it is more a full app then a plugin
+[11:05:34] <Cork> you could have a look at https://codegeekz.com/best-javascript-data-grid-libraries/
+[11:05:52] <Cork> i know some of them have extended supports, one of them might be enough for you
+[11:06:11] <Cork> (intrestingly i had to hunt for one just a few weeks ago)
+[11:06:51] <obinoob> that would be great, I been "greping" for forks on spreadsheet projects at github but haven't found none
+[11:07:23] <Cork> you might have to settle for a grid lib, and then look for a formula parser
+[11:07:27] <Cork> and then connect them
+[11:07:31] <Cork> shouldn't be too hard
+[11:08:26] <Cork> oh right
+[11:08:33] <Cork> you have seen this one right? https://bossanova.uk/jexcel
+[11:08:47] <Cork> i was actually testing it but it was WAY more then i needed
+[11:09:16] <Cork> obinoob: ^
+[11:11:13] <obinoob> I've seen this project it seems fine https://bossanova.uk/jexcel but I need to have a basic panel I believe it will not be simple due to event handling
+[11:11:38] <Cork> "basic panel"?
+[11:14:25] <obinoob> Cork: this is somehow what I need but lacking documentation it's the only example I've found that actually works I think it's a fork or earlier project from WickedGrid http://services.mbi.ucla.edu/holton/jQ/sheet/jquery.sheet.html#
+[11:16:56] <Cork> ah, you mean separate pages
+[11:17:05] <Cork> so a full spreadsheet...
+[11:17:25] <Cork> don't think you're going to find that; it is way to specific
+[11:19:12] <obinoob> Cork: I need this but not affordable https://demos.telerik.com/kendo-ui/spreadsheet/index
+[11:21:45] <Cork> obinoob: my point is you will have to put in some elbow grease if you want that; you're not going to find a complete solution
+[11:22:17] <Cork> (that isn't a pay to use solution)
+[11:28:13] <obinoob> Cork: what you mean with (that isn't a pay to use solution)?
+[11:30:13] <Cork> obinoob: what i meant is if you want something as complext as a fully implemented spreadsheet app you aren't going to find it as a free solution
+[11:30:28] <obinoob> Cork: sure
+[11:30:42] <Cork> you either have to use component and connect them or extend them
+[11:44:18] <obinoob> Cork: this is also a nice fit http://www.inspireproduction.co.za/#/demo-ui/jquery-spreadsheet
+[11:45:53] <obinoob> Cork: if interested https://github.com/obinoob/ipgrid
+[11:47:02] <obinoob> Cork: source library is almost 20000 lines of code lol
+[11:47:26] <obinoob> Cork: thank you for your help
+[12:08:50] <scetian> Hi, I just have a range slider and I want to send an ajax call when its value stops changing. Any help how I can do that?
+[12:14:40] <taplar> you'd put some sort of throttle/debounce on that change event handler
+[12:21:49] <scetian> taplar: what if I am not allowed to use some other library to add debounce to on change event? Is there any other way?
+[12:23:31] <taplar> it doesn't require another library
+[12:23:43] <taplar> one sec
+[12:24:20] <scetian> sure
+[12:28:06] <taplar> https://jsfiddle.net/744y0g1x/  small example of one approach to a throttle
+[12:29:07] <scetian> checking
+[12:30:06] <scetian> Thank you so much taplar!! You're a life saver
+[12:30:08] <scetian> :)
+[12:39:06] <scetian> taplar: It didnt work in my code.. :( no idea why..
+[12:40:08] <taplar> I think i've also seen people make it generic in a way like this so they can use it for multiple events: https://jsfiddle.net/744y0g1x/1/
+[12:40:10] <Woet> scetian: then show your code
+[12:40:13] <taplar> any error in your console?
+[12:40:38] <scetian> nope
+[12:40:57] <taplar> then yeah, we'd need to see a fiddle showing the issue
+[12:41:32] <scetian> on it
+[12:47:56] <Sal> hi
+[12:48:11] <taplar> hola
+[12:48:16] <Sal> i'm having problems copying by val an array of elements
+[12:48:21] <Sal> this is what i'm doin
+[12:48:23] <Sal>     rows = $("table.sortable tbody tr").get();
+[12:48:23] <Sal>     defaultRows = rows.slice();
+[12:48:56] <Sal> but everytime i change something in rows, defaultrows gets it too
+[12:49:02] <taplar> yup
+[12:49:07] <Sal> how is this possible if i'm using slice() ?
+[12:49:09] <taplar> cause the elements are pointers to things in the dom
+[12:49:18] <Sal> is it keeping ref to the DOM element too?
+[12:49:24] <taplar> all slice does there is creates an independent array
+[12:49:36] <taplar> so if you remove an element from defaultRows, it will still exist in rows
+[12:49:56] <taplar> the values -are- the dom elements
+[12:50:20] <scetian> Can you guys look at the original link instead of a fiddle? Its just that creating a fiddle from current code is taking longer than expected.. Heres the link where slider is working that I want to add debounce to. http://muzdev.dreamhosters.com/searchListings
+[12:50:51] <Sal> taplar, how can i create a copy of the DOM elements without keeping their refs?
+[12:51:00] <taplar> scetian: i can't really dig through a whole site while i'm working as well
+[12:51:10] <Sal> i'm using defaultRows, to reset Rows before any sort
+[12:51:13] <taplar> Sal:  you don't.  why would you want to?
+[12:51:36] <taplar> so the difference between the two is the array order
+[12:51:50] <scetian> Totally understandable
+[12:52:13] <Sal> because my column headers have three states ASC, DESC and NOTHING
+[12:52:35] <Sal> with NOTHING, i just need to restore the original table data
+[12:52:43] <taplar> so keep an array of the values before sorting
+[12:52:51] <taplar> have another array that is sorted
+[12:52:53] <Sal> thats why i wanted to hold a copy in defualtRows
+[12:53:03] <taplar> which you're doing
+[12:53:10] <Sal> taplar, thats what i'm doing
+[12:53:14] <taplar> right
+[12:53:18] <Sal> but both arrays keep on changing
+[12:53:31] <taplar> one sec
+[12:53:33] <taplar> err
+[12:53:38] <taplar> can you make a fiddle showing that?
+[12:53:43] <taplar> cause sorting one array should not sort the other
+[12:54:13] <Sal> ok, i will
+[12:54:19] <Sal> tanks
+[12:54:23] <Sal> +h
+[12:56:49] <scetian> taplar: Here it is https://jsfiddle.net/1gu2kz6r/
+[12:57:50] <taplar> does the flatslider have a way of providing a change event handler?
+[12:58:08] <Sal> taplar, https://jsfiddle.net/uw2zzcrp/
+[12:58:48] <scetian> No idea. I just got stuck with this code.
+[12:59:11] <scetian> everything is messed up real bad.
+[12:59:23] <taplar> Sal: so defaultRows is supossed to be the original order, yes?
+[12:59:35] <Sal> yes, save it on line 8
+[12:59:51] <Sal> and then , on line 20, before every sort, i just start again with default
+[13:00:21] <Sal> its for multiple columns depending on click order
+[13:00:21] <taplar> you don't really have to do the slice again, but that's a small thing
+[13:00:39] <Sal> if i don't it will change defaultRows
+[13:00:57] <taplar> but rows is already an independent array
+[13:01:01] <taplar> it's already got all the values
+[13:01:34] <Sal> anyway, if you click on col 2 and then col 3 and then click again on both till arrows go away, you will see an order that supposed to be the default
+[13:01:46] <Sal> but if you reload the html, you can see that data changes
+[13:01:53] <Sal> so it wasn't the default
+[13:02:04] <taplar> ic
+[13:02:04] <Sal> don't know if that was clear :)
+[13:02:13] <taplar> let me poke
+[13:02:21] <Sal> thanks
+[13:03:20] <taplar> where's the reset part?
+[13:03:49] <scetian> taplar: found anything?
+[13:03:55] <Sal> oh, i was thinking thw same thig
+[13:03:57] <Sal> :)
+[13:04:02] <taplar> not yet, poking around Sal's code
+[13:04:08] <scetian> ok
+[13:04:19] <taplar> cause really the reset shouldn't sort.  it should just set the values back to the default
+[13:04:24] <Sal> there's no reste, its that i just restart sort from defaultRows
+[13:04:26] <Sal> on line 20
+[13:04:38] <taplar> yeah, you don't want to do any sort on reset
+[13:04:45] <Sal> i do that on every click
+[13:05:05] <Sal> but i don't do it the last time
+[13:05:09] <Sal> i think i got it
+[13:05:14] <Sal> let me try changing it
+[13:05:49] <taplar> brb, need caffeine.
+[13:07:23] <fas3r> Hello,
+[13:08:13] <robertmaxrees> hola
+[13:09:03] <fas3r> I have an object like this : { 1 : "value", 2 : "value 2", 3 : "value 3" } . What would be the easiest way to get the last index ?
+[13:09:26] <fas3r> not the value inside the index, but the value of the index.
+[13:11:05] <taplar> Object.keys(theObject).pop()
+[13:11:11] <robertmaxrees> er.
+[13:11:28] <taplar> unless you want "value 3"
+[13:11:46] <fas3r> taplar: no, I need the index.
+[13:12:15] <taplar> that would probably get you "3" but order isn't guarenteed with object keys
+[13:13:06] <fas3r> taplar: so far I just do a each on the object and increment a counter.
+[13:13:46] <Sal> taplar, https://jsfiddle.net/uw2zzcrp/6/
+[13:13:48] <Sal> not working
+[13:14:00] <Sal> i added the default ordering so you can see
+[13:14:33] <Sal> it simply doesn't return to default data
+[13:14:34] <taplar> where at?  cause line 21 is still always happening
+[13:14:48] <Sal> seems that defaultRows array is getting sorted too
+[13:15:01] <scetian> taplar: found anything?
+[13:15:19] <taplar> scetian: do you know where the api documentation for your plugin is?
+[13:15:26] <scetian> nope
+[13:15:32] <fas3r> scetian: what's the issue ?
+[13:15:34] <Sal> taplar, yes, at line 20 i copy the original data and on 21 i sort it
+[13:15:36] <fas3r> is it datatable ?
+[13:15:43] <Sal> on next click, i do the same
+[13:15:56] <Sal> i always start from defaylt data on every header click
+[13:16:13] <taplar> but you need a reset state
+[13:16:19] <taplar> where you do not sort at all
+[13:16:49] <Sal> oh, you mean on very last click?
+[13:16:54] <taplar> state 1 -> sort asc, state 2 -> sort desc, state 3 -> set as original
+[13:17:11] <Sal> got it
+[13:17:14] <Sal> damn, let me see
+[13:17:51] <scetian> fas3r: I have a range slider and I want to send an ajax call when its value stops changing. Taplar created a fiddle for me to show throttle. I added to my code but its not working. (https://jsfiddle.net/1gu2kz6r/)
+[13:18:15] <taplar> scetian: flatslider is your plugin
+[13:18:39] <scetian> no I got the code like this.
+[13:18:57] <Sal> got it working (i think)
+[13:18:57] <Sal> https://jsfiddle.net/uw2zzcrp/7/
+[13:19:05] <Sal> yep seems to work now
+[13:19:15] <scetian> Its not my plugin. The developer who created the project used it.
+[13:19:15] <Sal> added code on line 66
+[13:19:36] <Woet> scetian: so talk to your developer or learn javascript
+[13:19:40] <taplar> scetian: you're maintaining the code base.  it's yours now, :)
+[13:19:55] <fas3r> taplar: should I use [] instead of {} to maintain the order ?
+[13:20:20] <taplar> [] would have a defined order
+[13:20:22] <scetian> Yeah you're right. I'm more of a php developer not really good with js.
+[13:20:37] <taplar> I was thinking though you might could sort before you pop
+[13:20:56] <taplar> but an array would make more sense
+[13:21:11] <taplar> without knowing the context of why your data is like that
+[13:21:52] <taplar> https://jsfiddle.net/n6gqmxj4/
+[13:22:15] <fas3r> taplar: I add values dynamically when moving backward / forward.
+[13:22:32] <Sal> thanks
+[13:23:39] <scetian> taplar: do you think flatslider is causing the issue?
+[13:24:12] <taplar> https://jsfiddle.net/1gu2kz6r/1/
+[13:24:21] <taplar> it looks like flatslider takes a change option
+[13:25:02] <scetian> Thanks man.
+[13:25:16] <scetian> I am feeling like a total dumbass right now lol
+[13:25:47] <taplar> https://jsfiddle.net/1gu2kz6r/2/
+[13:25:48] <taplar> boom
+[13:26:23] <Woet> taplar: can you code for me for free too?
+[13:26:43] <taplar> i'd throw you more love, but woet is me
+[13:27:25] <KnightsOfNi> Why does $(window).width() give me only 450px on a galaxy s8 ?
+[13:27:37] <scetian> Woet: I cant pay taplar but I am here if he or you needs any help with laravel :))
+[13:27:51] <taplar> it's a free room.  it's all good
+[13:28:01] <scetian> ;)
+[13:28:06] <taplar> ideally i should ask you if you understand what is happening in the code
+[13:28:24] <Woet> KnightsOfNi: show your test case
+[13:28:31] <KnightsOfNi> the phone is set to 2220*1080
+[13:28:32] <Woet> taplar: ideally you help people learn and not do their job for them
+[13:28:38] <robertmaxrees> KnightsOfNi try window.inmnerWidth
+[13:28:39] <taplar> yup
+[13:28:47] <robertmaxrees> get the same thing?>
+[13:29:26] <scetian> I used change function of flatslider :D. Is it ok to ask you whats going on in the code now?
+[13:30:04] <taplar> i'd encourage it
+[13:30:38] <scetian> Please teach me
+[13:30:55] <taplar> so reading the method, what do you think is going on?
+[13:31:34] <taplar> lets start with the if else.  what is that doing?
+[13:31:42] <KnightsOfNi> robertmaxrees: still 450px only
+[13:31:55] <robertmaxrees> KnightsOfNi sounds about right.
+[13:32:05] <robertmaxrees> KnightsOfNi are you expecting it to be something different?
+[13:32:16] <hellyeah> hey
+[13:32:20] <KnightsOfNi> Yeah I'm expecting it to be 1080
+[13:32:31] <hellyeah> i know this is not really jquery question but how can i fix this issue?
+[13:32:32] <scetian> its just checking if the given arg is a callback or not, right?
+[13:32:34] <hellyeah> https://jsfiddle.net/j3vn58xb/25/
+[13:32:38] <robertmaxrees> KnightsOfNi ah, yeah, no.  the way the browser scales conttent means you won't get that number.
+[13:32:48] <taplar> an object that is a Function, yep
+[13:32:52] <robertmaxrees> hellyeah what's the issue?
+[13:33:02] <taplar> cause the user could pass in anything, so it's a little type checking
+[13:33:03] <dimi1947> I have an array with 3 values/elements(line 5  https://jsfiddle.net/fiddlehunt/8xttLgw9/13/) and I want to put these elements inside a span tag right after span.show_p_msg-there must correspond one value from the array for each of the 3 span.show_p_msg...I tried after() but it did not work
+[13:33:04] <hellyeah> repeated headers
+[13:33:23] <scetian> thank for correcting and yes you're right
+[13:33:25] <taplar> scetian: alright, so what about line 5?
+[13:33:59] <scetian> its setting the value of delay to 300 if its not already set.
+[13:34:09] <taplar> yep, what does that do for us?
+[13:34:33] <scetian> waits for 300ms before triggering?
+[13:34:34] <robertmaxrees> hellyeah so why do you think that's happening?
+[13:34:46] <taplar> i mean, in context of the method.  why do that at all?
+[13:34:47] <hellyeah>  well thats simple actually
+[13:35:04] <hellyeah> i am looing Object.keys(tableObj)
+[13:35:09] <hellyeah> looping
+[13:35:15] <scetian> no idea
+[13:35:20] <robertmaxrees> hellyeah right.  so what should you change?
+[13:35:47] <hellyeah> sorry element line 19
+[13:35:59] <robertmaxrees> hellyeah let's invert this.
+[13:36:08] <robertmaxrees> do you want to create one header for every element?
+[13:36:14] <robertmaxrees> or do you want to create the headers once?
+[13:36:35] <hellyeah> header once of course
+[13:36:38] <taplar> performing a default setting like that lets the variable be optional
+[13:36:39] <robertmaxrees> okay
+[13:36:44] <robertmaxrees> hellyeah so then
+[13:36:57] <robertmaxrees> right now you're doing a foreach inside a map.
+[13:37:00] <taplar> so you could do throttleEvent( ... ) or throttleEvent( ..., 2000 ) and it works fine
+[13:37:02] <Woet> oh god, not hellyeah again
+[13:37:04] <hellyeah> ş can comment out loop
+[13:37:05] <robertmaxrees> do you see the issue hellyeah?
+[13:37:19] <scetian> ohhh ok.. now i get it.
+[13:37:23] <robertmaxrees> Woet calm down.
+[13:37:31] <Woet> robertmaxrees: i am very calm
+[13:37:33] <z1haze> doesnt calling remove() on a jquery object also unbind any event listeners too?
+[13:37:36] <Woet> robertmaxrees: what made you think otherwise?
+[13:37:54] <hellyeah> Woet,
+[13:37:57] <taplar> remove() performs a cleanup on jQuery
+[13:38:00] <hellyeah> at the end you will be banned
+[13:38:02] <taplar> vs detach() which does not
+[13:38:03] <hellyeah> please go on
+[13:38:28] <taplar> scetian: alright, so what about returning the function after that.  why are we doing that?
+[13:38:41] <z1haze> like if i have a dom element with jquery plugin data attached, and i call remove(), i wouldnt necessarily have to call the 'unbind' methods on the jquery plugin to remove those event handlers would i?
+[13:38:48] <hellyeah> robertmaxrees,  the only thing dcome to my mind is to remove for loop
+[13:38:53] <taplar> z1haze: you should not have to
+[13:38:56] <z1haze> thank you
+[13:39:07] <hellyeah> or..
+[13:39:19] <scetian> thats easy! because 'change' in flatslider is expecting a function right?
+[13:39:24] <z1haze> taplar, do you think this is redundant then? `this.$el.dialog('destroy').remove();`
+[13:39:24] <taplar> boom
+[13:39:49] <taplar> i'm not certain that destroy would remove the element
+[13:39:54] <z1haze> i know
+[13:39:56] <taplar> remove() definitely would
+[13:39:58] <z1haze> i mean just omitting the destroy part
+[13:40:09] <scetian> Thanks taplar :)
+[13:40:12] <taplar> oh, *shrug*  heh
+[13:40:14] <z1haze> omitting the whole .dialog('destroy')
+[13:40:24] <scetian> I'll be back tomorrow to learn more. :)
+[13:40:31] <taplar> i'd think so, but i'd have to try and test it
+[13:40:33] <z1haze> nvm, this is working now, ill leave it how it is :)
+[13:40:34] <z1haze> haha
+[13:41:13] <scetian> Its almost 12am here. And I'm still in office. Need to take some rest now.
+[13:41:29] <scetian> you have a nice day! and thanks agian.
+[13:41:38] <taplar> sure
+[13:41:55] <z1haze> one more question, if i have $form which is a jquery form, and then if I update the dom inside of that form, eg changing the value of an input, will $form still reference the updated form? since I didnt modify the form element itself
+[13:42:18] <taplar> "jquery form"?
+[13:42:27] <z1haze> just a form node wrapped in jquery
+[13:42:40] <z1haze> $('#my-form') if you will
+[13:42:47] <taplar> jQuery just contains a reference to the element.
+[13:43:00] <z1haze> so if it changes, the reference will change too, great.
+[13:43:07] <taplar> you change something on the element, jQuery doesn't really keep track of that
+[13:43:15] <taplar> with the caveat of the data() and attr() methods
+[13:43:47] <z1haze> 1 sec
+[13:43:48] <taplar> no, the reference doesn't change
+[13:43:54] <taplar> how should i put this
+[13:44:02] <taplar> think about an array that contains an object
+[13:44:17] <taplar> if you change a property on the object, that really has no effect on the array
+[13:44:44] <taplar> all you are using the array for is to access the object
+[13:44:51] <z1haze> taplar, http://dpaste.com/3YFPK58 this should explain
+[13:45:02] <z1haze> i want to know if the updated form fields if they are upated, will they get submitted correctly
+[13:45:28] <z1haze> eg will $form.serialize() contain the updated stuff
+[13:45:28] <taplar> yes
+[13:45:32] <z1haze> sweet
+[13:46:10] <z1haze> you threw me off with the whole data vs attr caveat
+[13:46:21] <taplar> well data() and attr() a slightly different
+[13:46:29] <taplar> cause jQuery caches some stuff with data() and attr()
+[13:46:33] <taplar> or maybe it's just data
+[13:47:06] <taplar> so changing something with data() doesn't technically change the dom element
+[13:47:47] <z1haze> correct
+[13:47:55] <z1haze> but I was changing the dom within the form
+[13:48:04] <z1haze> i thought that maybe the $form would still have the pre-changed form
+[13:48:10] <taplar> nope
+[13:48:14] <z1haze> sounds good
+[13:48:16] <taplar> pointers to elements in memory
+[13:49:40] <taplar> https://jsfiddle.net/jm6tx1h8/
+[13:51:18] <taplar> https://jsfiddle.net/jm6tx1h8/1/  so yeah, i guess attr doesn't cache
+[13:51:35] <taplar> or if it does it still persists changes to the element
+[13:52:14] <z1haze> gotcha
+[13:56:02] <hellyeah> can you give me some tips about that https://jsfiddle.net/j3vn58xb/27/
+[13:57:15] <taplar> what's the question?
+[13:57:29] <hellyeah> again .d
+[13:57:34] <hellyeah> repeated headers
+[13:57:40] <robertmaxrees> hellyeah you're still doing a foreach.
+[13:57:53] <robertmaxrees> that means "for each object in the array"
+[13:58:07] <hellyeah> should i do map?
+[13:58:11] <robertmaxrees> no.
+[13:58:16] <robertmaxrees> you only want to do it once.
+[13:58:18] <hellyeah> $.each
+[13:58:24] <hellyeah> yeah
+[13:58:28] <hellyeah> yes
+[13:58:45] <robertmaxrees> if the problem is that you're iterating, why would you use a method that iterates?
+[13:58:51] <hellyeah> commented out forEach does not solve the problem
+[13:59:09] <robertmaxrees> because you need to explicitly grab the first element in the array.
+[13:59:36] <hellyeah> if i commented out forEach and give element
+[13:59:51] <hellyeah> it prints [object][object]
+[13:59:56] <robertmaxrees> show the code?
+[13:59:59] <hellyeah> oh
+[14:00:00] <hellyeah> oh
+[14:00:00] <robertmaxrees> probably something very simple.
+[14:00:02] <robertmaxrees> heh
+[14:00:06] <devi8> does fieldset receive the focus event if one of it's input children is focused?
+[14:00:20] <hellyeah> okey
+[14:00:21] <taplar> easy to test
+[14:00:23] <hellyeah> i have smt
+[14:00:33] <robertmaxrees> i was literally about to say that taplar
+[14:00:35] <robertmaxrees> hahaha
+[14:00:43] <taplar> you've rubbed off on me
+[14:00:57] <taplar> which, btw, uuuuucccooooomfortableeeee
+[14:01:07] <devi8> not as easy as asking if someone knew. But thanks for the help
+[14:02:16] <hellyeah> okey
+[14:02:20] <hellyeah> here is the thing
+[14:02:31] <hellyeah> gettiing first index
+[14:02:38] <hellyeah> and write to th
+[14:02:42] <hellyeah> without for loop
+[14:03:15] <robertmaxrees> https://jsfiddle.net/robertmaxrees/3c4u88u1/1/ devi8 fwiw
+[14:03:30] <robertmaxrees> hellyeah you can type out a full question without spamming the channel ;)
+[14:03:54] <hellyeah> okey i am sorry
+[14:05:11] <hellyeah> this is what happened https://jsfiddle.net/j3vn58xb/28/
+[14:05:22] <devi8> Thank you. Just so you know, I was just trying to do this same sort of test and it was taking me a lot longer.
+[14:05:24] <devi8>  And now, I can't remember where I was in this form I was working on..lol thanks again for the help
+[14:05:48] <robertmaxrees> devi8 all good.  it's about teaching you to fish - that's what test cases are for ;)
+[14:06:18] <robertmaxrees> hellyeah and you're still in the map
+[14:06:18] <KnightsOfNi> I have this dynamically added textarea inside a modal which has autofocus on it, but it's not autofocussing. Anyone knows why?
+[14:06:21] <devi8> I have never seen "can" before..looking it up now
+[14:06:36] <hellyeah> yeah well map is the problem here it seems
+[14:06:54] <robertmaxrees> hellyeah you need to do the header row before the map.
+[14:07:11] <blahser> hey im hiding a div with css and only showing it when you click the link but I cant get smooth scrolling to work with it https://jsfiddle.net/15obr8Ly/
+[14:07:25] <taplar> the map should probably be an each too
+[14:07:32] <robertmaxrees> ^^
+[14:07:39] <hellyeah> robertmaxrees,  i realized that
+[14:07:39] <robertmaxrees> using map the wrong way there.
+[14:07:48] <robertmaxrees> hellyeah so move that header row stuff to before the mapo.
+[14:07:54] <hellyeah> but i could figure out to get values
+[14:08:21] <robertmaxrees> so start by moving the header row stuff to before the map.
+[14:08:23] <robertmaxrees> at least do that.
+[14:08:39] <robertmaxrees> and then answer the question "how do i access the first thing in an array"
+[14:10:28] <hellyeah> is that what you said https://jsfiddle.net/j3vn58xb/30/
+[14:11:00] <hellyeah> okey
+[14:11:05] <taplar> "and then answer the question "how do i access the first thing in an array" "
+[14:11:06] <hellyeah> with [0] of course
+[14:11:09] <robertmaxrees> right.
+[14:11:16] <robertmaxrees> so instead of commenting out all of that code.
+[14:11:24] <robertmaxrees> just move the header row stuff before the foreach.
+[14:11:33] <robertmaxrees> and then figure out the first index thing.
+[14:14:37] <hellyeah> okey https://jsfiddle.net/j3vn58xb/31/
+[14:14:51] <hellyeah> do you prefer to use JSON.stringify?
+[14:15:40] <robertmaxrees> th.innerText = tableobj[0];
+[14:15:48] <hellyeah> yeah
+[14:15:48] <robertmaxrees> do you understand why this doesn't do what you think it does?
+[14:15:56] <hellyeah> well
+[14:15:57] <hellyeah> yeah
+[14:16:07] <hellyeah> becase there is object inside array
+[14:16:10] <robertmaxrees> before you were accessing the key names.
+[14:16:14] <robertmaxrees> now you aren't.
+[14:16:25] <hellyeah> yes
+[14:16:39] <hellyeah> in the 0 index object is there
+[14:16:47] <robertmaxrees> right.  so what do you do to fix it?
+[14:17:57] <hellyeah> i can use .key
+[14:18:05] <hellyeah> but it only gets last key
+[14:18:07] <hellyeah> oh
+[14:18:24] <hellyeah> no
+[14:18:45] <hellyeah> https://jsfiddle.net/j3vn58xb/32/
+[14:18:55] <robertmaxrees> O.o
+[14:19:18] <robertmaxrees> so you want to get the names of of those keys, right?
+[14:19:19] <Northwoods> var fileuploader = 'fileuploader'+counter; how do i getElementByID in jquery $(fileuploader).uploadFile() ?
+[14:19:35] <robertmaxrees> Northwoods same way you do in CSS - #fileUploader
+[14:19:58] <Northwoods> robertmaxrees, right now i am using var fileuploader
+[14:19:59] <hellyeah> yeah
+[14:20:13] <blahser> nevermind figured it out using visibility hidden instead
+[14:20:14] <robertmaxrees> Northwoods then you'd need to prepend a # to it.
+[14:20:29] <hellyeah> there is multiple keys
+[14:20:41] <robertmaxrees> hellyeah right.  so how do you get the keys for an object?
+[14:20:49] <Northwoods> so if i do something like var fileuploader = '#fileuploader'+counter; $(fileuploader).uploadFile() is this correct ?
+[14:20:49] <hellyeah> .key
+[14:21:06] <robertmaxrees> hellyeah ... really dude?
+[14:21:18] <robertmaxrees> Northwoods sure.
+[14:21:23] <robertmaxrees> so long as that string matches the ID.
+[14:21:26] <hellyeah> sec
+[14:22:21] <hellyeah> okay
+[14:23:32] <Northwoods> robertmaxrees, thanks
+[14:23:53] <hellyeah> robertmaxrees,  here it is not there is ,
+[14:23:56] <hellyeah> https://jsfiddle.net/j3vn58xb/33/
+[14:24:32] <robertmaxrees> hellyeah so for each of the keys, ytou want to made a TD, right?
+[14:25:58] <hellyeah> hmm
+[14:26:02] <hellyeah> yes
+[14:26:13] <hellyeah> okay
+[14:28:35] <taplar> hah, i just realized something.  this fiddle has no jquery
+[14:28:41] <robertmaxrees> heh, yeah.
+[14:31:23] <hellyeah> okey
+[14:31:31] <hellyeah> i give up asking sorry about that
+[14:31:40] <robertmaxrees> did you figure it out?
+[14:32:50] <hellyeah> yea
+[14:33:14] <robertmaxrees> cool
+[14:33:18] <hellyeah> it is easy but i cannot think properly i guess https://jsfiddle.net/j3vn58xb/35/
+[14:35:29] <taplar> https://jsfiddle.net/j3vn58xb/36/  so start debugging and see what's going on
+[14:36:48] <Lee_> I have a div with buttons inside .html() grabs just the buttons inside but I want the surrounding divs also, can anyone please advise
+[14:37:51] <robertmaxrees> Lee_ show us a fiddle?
+[14:39:04] <Lee_> https://jsfiddle.net/7dhtm9Ly/
+[14:39:50] <Lee_> I want the buttons inside div, so they are next to each other in the td
+[14:40:01] <robertmaxrees> erm.
+[14:40:06] <robertmaxrees> you want the div and buttons, right?
+[14:40:11] <Lee_> yes please
+[14:40:17] <hellyeah> i need to sleep
+[14:40:19] <hellyeah> good night
+[14:40:22] <Lee_> Night
+[14:43:14] <robertmaxrees> Lee_ so there are a few different ways.
+[14:43:26] <robertmaxrees> but my first question would be - why?
+[14:43:33] <robertmaxrees> that would create an invalid document.
+[14:43:56] <robertmaxrees> also: why use .html() here at all?
+[14:44:41] <Lee_> I would like to have that div appear in every tr on the last td - if you can show me a better way, I'd be more than happy (and grateful) to learn it
+[14:45:24] <robertmaxrees> yeah, so you can't use an ID there then.
+[14:45:28] <robertmaxrees> IDs have to be unique.
+[14:45:44] <robertmaxrees> if you're using .html() to clone the elementm, just use .clone() instead.
+[14:46:12] <Lee_> The div# is just a hidden div at the bottom of the page
+[14:46:16] <Lee_> let me share full code
+[14:46:33] <robertmaxrees> Lee_ it doesn't matter.
+[14:46:37] <robertmaxrees> you can't repeat an ID on a page.
+[14:46:40] <robertmaxrees> like, at all.
+[14:46:55] <Lee_> But it works?
+[14:46:57] <taplar> every time you repeat an id, a kitten dies
+[14:47:10] <Lee_> Oh!, probably cause it isn't grabbing the div lol
+[14:47:11] <robertmaxrees> Lee_ the browser will throw errors.
+[14:47:25] <robertmaxrees> and also - $('#js-action-buttons') won't work, either./
+[14:47:27] <Lee_>  OK I see now
+[14:48:13] <Lee_> http://prntscr.com/hz5c07
+[14:48:17] <Lee_> is what it is doing now
+[14:50:47] <taplar> i don't see any code in that picture
+[14:52:00] <Lee_> Taplar, that screenshot was to show that it is repeating the buttons with an id.  I'm unsure whether any kittens died though...  The pictures of that wouldn't be good.
+[14:52:38] <taplar> you're browser isn't going to stop working because of ids in the markup
+[14:52:44] <taplar> but your javascript is going to hate you
+[14:53:03] <taplar> getElementById(value) expects only one element to have a given id
+[14:53:18] <taplar> which is the same for querySelector('#value') and $('#value')
+[14:53:39] <taplar> and it's contrary to the html standards
+[14:55:00] <Lee_> Are you saying, that because I am cloning the div , it's bad practice as they will have the same ID?  I thought cause I am grabbing a grabbing the unique div with an ID it would be ok - I think I see your point now
+[14:55:07] <taplar> https://html.spec.whatwg.org/multipage/dom.html#the-id-attribute
+[14:55:30] <taplar> cloning isn't the root issue, it may be causing the issue
+[14:55:43] <Lee_> Yeah, I know what you are saying, I thought cause I am cloning a single div  on the page, which is creating multiple it was ok, as the original was singular
+[14:55:45] <taplar> you can clone something with an id, you just need to change it
+[14:55:50] <Lee_> OK
+[14:55:57] <Lee_> I see now
+[14:56:13] <Lee_> Anyways, back to the original question, what's the best way to clone the whole div?  .clone?
+[14:57:07] <taplar> are you wanting to clone it with or without any event handlers attached to it?
+[14:57:41] <Lee_> I will want even handlers attached to it
+[14:57:44] <Lee_> event*
+[14:58:30] <taplar> http://api.jquery.com/clone/  you probably want clone(true, true) then
+[14:58:46] <Lee_> OK thanks
+[15:00:15] <taplar> though related to your original question about the functionality of html(), if you want to get the complete html of an element (including the element itself) you can do .prop('outerHTML')
+[15:00:35] <taplar> html() is essentially a wrapper for .prop('innerHTML')
+[15:02:02] <Lee_> Oh cool, I looked for outerHTML in jquery but couldn't see it so wasn't sure what I was supposed to use.  Thank you
+[15:08:17] <Lee_> So it's not working as expected, here is complete code https://jsfiddle.net/4z557pLo/1/
+[15:08:44] <Lee_> And is this how you would do it?
+[15:09:03] <Lee_> (well other than it not working as intended lol)
+[15:10:36] <taplar> you'll probably want to clone what you are appending
+[15:10:57] <taplar> because an element can only belong to one parent, so every time you append it to a place it will be removed from the old place
+[15:11:06] <Lee_> oh
+[15:14:23] <Lee_> So I did this - i guess it's correct https://jsfiddle.net/4z557pLo/1/
+[15:14:40] <Lee_> https://jsfiddle.net/4z557pLo/2/   - rather
+[15:15:06] <Lee_> thank you for all your help
+[15:16:00] <taplar> https://jsfiddle.net/4z557pLo/3/ small change to the inner lookup
+[15:18:02] <Lee_> Oh nice - thank you
+[16:24:06] <catbadger> Ok here's a weird one...
+[16:24:22] <catbadger> turning a contextmenu event into a click event.
+[16:25:22] <catbadger> so quiet today
+[16:25:34] <catbadger>  $(this).triggerHandler('click');
+[16:26:22] <catbadger> shouldn't that work?
+[16:27:52] <catbadger> ***sigh***
+[16:29:17] <taplar> i'm aware of trigger(), but not triggerHandler()
+[16:32:38] <taplar> interesting
+[16:34:27] <taplar> The .triggerHandler( "event" ) method will not call .event() on the element it is triggered on. This means .triggerHandler( "submit" ) on a form will not call .submit() on the form
+[16:34:56] <taplar> so triggerHandler only triggers jQuery bound events
+[16:35:06] <taplar> and they do not bubble
+[16:35:55] <taplar> and he's gone.  whomp whomp
+[16:36:03] <taplar> well i learned something, ^_^
+[16:44:19] <robertmaxrees> hahahaha
+[17:38:33] <Lee_> Can anyone help me grab the cloest href when pressing the delete button please? https://jsfiddle.net/ob6vov79/3/
+[17:39:01] <robertmaxrees> Lee_ you mean the link in the same TR?
+[17:39:10] <Lee_> Yeah :S
+[17:39:14] <robertmaxrees> ;)
+[17:39:21] <robertmaxrees> so then use closest() to get the TR
+[17:39:27] <robertmaxrees> then .find() the a
+[17:40:01] <Lee_> Thanks, done
+[17:40:10] <robertmaxrees> that work?
+[17:40:14] <Lee_> Yes thank you
+[17:40:19] <robertmaxrees> rad
+[17:40:22] <Lee_> I'll read up on closest and find,
+[17:40:57] <robertmaxrees> closest() starts at the current element and checks it, then every ancestor to see if it matches your selector.
+[17:40:59] <robertmaxrees> then stops.
+[17:41:12] <robertmaxrees> .find() looks through all descendent elements.
+[17:41:47] <Lee_> OK thanks for that
+[17:43:51] <scetian> Lee_: something like this: https://jsfiddle.net/ob6vov79/4/
+[17:44:08] <robertmaxrees> lol
+[17:44:10] <robertmaxrees> let him learn.
+[17:44:14] <robertmaxrees> :)
+[17:44:21] <Lee_> Thanks guys, already sorted :)
+[17:44:23] <scetian> oopps sorry :P
+[17:44:29] <robertmaxrees> it's all good.
+[17:45:11] <scetian> somebody here helped me a lot today so I thought I should do the same lol
+[17:45:24] <robertmaxrees> heh, we try to avoid just handing over the answer fwiw.
+[17:46:11] <scetian> roger that sir, will keep that in mind ;)
+[17:53:32] <G66K> hello all
+[17:54:29] <G66K> is there a better way to do this : https://pastebin.com/t17v45CG
+[17:58:59] <robertmaxrees> G66K sure.
+[17:59:14] <robertmaxrees> use a class on a parent element and then target through that class in your CSS.
+[18:05:19] <G66K> robertmaxrees, thanks
+[18:05:26] <robertmaxrees> rad.
+[18:49:58] <hassoon> fjsHcUrk6xfK:q
+[18:50:08] <robertmaxrees> gesundheit
+[19:00:11] <poboy> farfenkugel

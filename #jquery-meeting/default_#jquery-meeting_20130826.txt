@@ -1,0 +1,221 @@
+[08:57:00] <DaveMethvin> .
+[09:02:47] <DaveMethvin> okay gibson042 orkel timmywil jaubourg mikesherov rwaldron m_gol gnarf whoever everyone etc
+[09:02:59] <DaveMethvin> let's have a meeting, yay!
+[09:03:03] <mikesherov> lurking
+[09:03:09] <m_gol> present
+[09:03:22] <gibson042> I'm ready
+[09:03:35] <gnarf> semi here
+[09:03:36] <DaveMethvin> welcome back to reality gibson042
+[09:03:46] <gibson042> it's a good feeling
+[09:04:11] <orkel> hey-hey
+[09:04:58] <DaveMethvin> alrighty
+[09:05:14] <DaveMethvin> so at least testswarm is kinda sorta working for us now
+[09:06:34] <DaveMethvin> m_gol any thoughts on the pre-check for our pull requests?
+[09:07:14] <m_gol> I'm sorry but I was on the last part of my vacation Fri-Sun so I didn't have time to look into it yet
+[09:07:45] <DaveMethvin> np
+[09:08:46] <DaveMethvin> orkel brought up the issue about failing tests, i feel really guilty because I kind of let jenkins/swarm defeat us for so long
+[09:08:48] <m_gol> I tweeted at some Angular devs, if I get no answer I'll try other ways
+[09:09:05] <m_gol> it's not easy to get to them sometimes, they have, like, a pull request an hour
+[09:09:09] <DaveMethvin> we're almost to the point where swarmy works, which is good
+[09:09:25] <m_gol> you mean on master?
+[09:09:34] <DaveMethvin> (m_gol yeah, every time i look a the mess in the Angular project i feel a lot better)
+[09:09:45] <m_gol> or have the oldIE breaks already been fixed?
+[09:09:54] <DaveMethvin> http://swarm.jquery.org/job/1150 yea on master
+[09:10:12] <orkel> there some things that should be done, i, personally did not yet have time to look at 1.x-master because of the perf stuff
+[09:10:22] <m_gol> DaveMethvin: they are able to handle pull requests but not always issues so sometimes the only way to propose sth is to create a pull request and discuss it there...
+[09:11:04] <orkel> well, there is still one problem with master branch, it's unstable line-height, which sometimes work on old browsers like Safari 5.1 and oldIE and sometimes
+[09:11:06] <orkel> dont
+[09:11:33] <DaveMethvin> any ideas on the 1.x fails?
+[09:11:55] <orkel> i can't reproduce it on browserswarm or on my local VMs only in testswarm which is driving me crazy
+[09:11:55] <m_gol> gibson042 had some ideas
+[09:12:09] <gibson042> yeah, from earlier today in #-dev: "it looks to me like the most expedient fix would incorporate time measurement (i.e., assertion time minus animation start time) into the bound definitions"
+[09:12:47] <orkel> @gibson042: you talking about line-height?
+[09:13:01] <gibson042> orkel: yes
+[09:13:22] <DaveMethvin> i wonder if we should just use the fake timers
+[09:13:33] <gibson042> I'm all for that
+[09:13:42] <orkel> well, that's the thing there could some ideas, but i can't check them because in all browsers it executing fine but in testswarm it fails
+[09:13:46] <DaveMethvin> gnarf suggested, i am not sure what the effort would be
+[09:14:06] <DaveMethvin> but there are way too many timing related issues there
+[09:14:12] <gibson042> right, the setTimeouts on automated browserstack runs are not resolving as precisely as our tests assume they will
+[09:14:22] <DaveMethvin> and of course the delays make the tests run a while longer than they need to as well
+[09:14:38] <m_gol> can TestSwarm be configured so that it runs tests on a separate branch only on one browser?
+[09:14:46] <m_gol> it should be faster this way for orkel I believe
+[09:15:59] <DaveMethvin> can someone take a look at using fake timers? gnarf would be a good person to talk to on that
+[09:16:20] <orkel> gnarf: you there?
+[09:16:30] <m_gol> DaveMethvin: you mean, mocking setTimeout?
+[09:16:55] <m_gol> unit tests in AngularJS are done this way, they mock lots of things, especially those async ones
+[09:17:02] <DaveMethvin> m_gol i'm not sure of the exact thing gnarf has in mind but most likely
+[09:17:40] <orkel> jaubourg was against that for ajax tests
+[09:17:46] <m_gol> it's not good for everything but quite useful, esp. that you can simulate situations where an async operation resolves in different moments
+[09:17:52] <orkel> mikesherov has suggest that before
+[09:18:10] <DaveMethvin> the issue with ajax tests is that we can't mock too much of it, because we're trying to deal with browser-to-server issues
+[09:18:24] <m_gol> there is an option to go both ways ;)
+[09:18:27] <gibson042> I think we're (almost?) in agreement on wanting to mock timing for effects tests, we just haven't done so yet
+[09:18:28] <DaveMethvin> so some of the basic plumbing things, yeah
+[09:18:31] <m_gol> i.e. separate unit & e2e tests
+[09:18:38] <DaveMethvin> right
+[09:18:48] <m_gol> though I'm not sure how much sense would it make for jQuery, it's not a full framework after all
+[09:19:50] <DaveMethvin> not sure that Angular checks that much in terms of browser diffs
+[09:19:57] <m_gol> probably not ;)
+[09:19:58] <DaveMethvin> even though they have a jqlite
+[09:20:05] <orkel> well they do have "light jQuery"
+[09:20:12] <m_gol> which gets bigger and bigger ;)
+[09:20:16] <DaveMethvin> they prob just stole the juicy parts from us and assume they work :)
+[09:20:17] <orkel> :-)
+[09:21:17] <DaveMethvin> anyone interested in looking at the fake timers for animations?
+[09:21:57] <DaveMethvin> the focus-related stuff has been flakey forever, I'm inclined to remove the test b/c i can't figure a way to make it reliable
+[09:22:16] <DaveMethvin> if the browser isn't front, it won't work right
+[09:22:41] <DaveMethvin> that leaves the ajax tests
+[09:22:47] <m_gol> as for jqLite, it's currently 3531 minified gzipped, so I guess not many workarounds
+[09:23:06] <orkel> yeah, but in browserswarm browsers looks okay, because they always in focus
+[09:23:19] <DaveMethvin> as m_gol says we could do *some* of those faked, just to make sure the ajax plumbing is alright
+[09:23:27] <DaveMethvin> but looking for server responses requires the server
+[09:23:45] <DaveMethvin> which means we need PHP or some server-side thing to echo back responses
+[09:23:47] <orkel> ajax test is a server config problem, could we fix it at the server?
+[09:23:50] <m_gol> if browserswarm executes focus tests fine, I'd be for leaving them
+[09:24:02] <m_gol> always better to test more if it can be done reliably
+[09:24:04] <DaveMethvin> orkel i think it's server config
+[09:24:46] <orkel> we have some "sleep" php statements, that's a current idea why they sometimes do not work
+[09:24:53] <m_gol> hehe, as for jqLite:
+[09:24:54] <m_gol>   find: function(element, selector) {
+[09:24:54] <m_gol>     return element.getElementsByTagName(selector);
+[09:24:54] <m_gol>   },
+[09:25:04] <gibson042> hahahaha
+[09:25:12] <orkel> :-)
+[09:25:15] <DaveMethvin> i KNEW sizzle was bloated!
+[09:25:20] <m_gol> :D
+[09:26:31] <DaveMethvin> not being able to trust the CI server has been a really big handicap
+[09:26:44] <orkel> i will ping gnarf about ajax tests, maybe we could work something out
+[09:27:01] <DaveMethvin> ok thanks orkel
+[09:27:38] <orkel> then there is AMD faillures in oldIE and timmywil as i understand working on that
+[09:28:23] <DaveMethvin> we can ping timmywil and see if he knows what's up there
+[09:28:43] <m_gol> as for browser matrix: I wonder, is there an easy way to add mobile browsers there?
+[09:28:44] <orkel> plus we have some events module faillures
+[09:28:50] <DaveMethvin> probably something simple, just hard to find
+[09:28:55] <m_gol> since we drop Safari 5.1 but have to support iOS 5.1
+[09:29:02] <m_gol> and they might not be fully compatible ;)
+[09:29:09] <DaveMethvin> yes, in particular old Android for 2.x since that's been a sore spot
+[09:29:12] <m_gol> and there's the question of Android 2.3 failures
+[09:29:25] <orkel> well we did not have tickets about that
+[09:29:27] <DaveMethvin> there should be a way to add them to our browserset, Krinkle|detached could help there
+[09:29:30] <m_gol> of course I suppose vendors have different stock browser versions
+[09:29:36] <m_gol> but we could at least test the stock one
+[09:29:53] <orkel> we might go a different way, jquery mobile uses jquery right?
+[09:29:54] <m_gol> because we see what happens when a browser is not automatically tested
+[09:30:03] <orkel> and they have tests
+[09:30:07] <m_gol> you take out the word "automatically" and the sentence remains true :)
+[09:30:16] <orkel> if they are passing, then we are passing too
+[09:30:29] <m_gol> orkel: not sure if they test everything we do
+[09:30:36] <m_gol> besides, this is retro-active
+[09:30:45] <orkel> but they tests in a lot of different browsers
+[09:30:53] <m_gol> since they do these tests after we release so it's not good enough
+[09:30:53] <orkel> mobile browsers
+[09:30:54] <DaveMethvin> it could just be that very few people test their own software on android 2.3 and thats why we lack bug reports
+[09:31:04] <m_gol> yep, I suppose that's the case
+[09:31:19] <DaveMethvin> seems like we should pass unit tests if we say we support it tho
+[09:31:22] <DaveMethvin> :D
+[09:32:12] <m_gol> I agree
+[09:32:14] <m_gol> ;)
+[09:32:38] <DaveMethvin> we really need to get the unit tests working reliably, it's hurting our ability to see regressions
+[09:32:58] <DaveMethvin> some of it can be expected when you land a big bunch of changes
+[09:33:00] <DaveMethvin> like AMD
+[09:33:05] <orkel> sure
+[09:33:09] <DaveMethvin> but the other stuff is soooo annoying
+[09:33:28] <DaveMethvin> that's why i'm willing to give up a couple of focus tests if they're not reliable
+[09:33:32] <DaveMethvin> etc
+[09:33:42] <orkel> or mock them, right?
+[09:33:53] <DaveMethvin> or mock them, although mocked focus...hahahah
+[09:33:59] <orkel> :-)
+[09:34:04] <m_gol> yeah, I don't believe in testing mocked focus ;)
+[09:34:04] <DaveMethvin> it's all so browser-flakey-specific
+[09:34:56] <DaveMethvin> so on the current master, the build times are starting to be annoying
+[09:35:33] <DaveMethvin> also i'm seeing a few probs on Windows on the npm install
+[09:35:39] <DaveMethvin> but they're not blocking anything
+[09:35:47] <DaveMethvin> it's just Windows i guess :)
+[09:36:13] <DaveMethvin> i wanted to go thru the PRs to see if there were any issues we need to discuss
+[09:36:37] <m_gol> DaveMethvin: you might want to add iOS 5.1 to the list
+[09:36:55] <m_gol> as long as we support iPad 1, since it shares lots of fuckups with Safari 5.1
+[09:37:09] <m_gol> I guess iOS 6 dies faster than 5.1
+[09:37:21] <m_gol> since even iPhone 4 & iPad 2 will get the upgrade
+[09:37:27] <DaveMethvin> yeah
+[09:38:04] <orkel> i can see it like that: we don't deal with support faillures, because m_gol will rewrite them anyway
+[09:38:19] <orkel> we don't add new browsers until we finish with desktop browsers, so they all will pass
+[09:38:28] <orkel> i will ping gnarf about ajax tests
+[09:38:35] <orkel> timmywill will look into amd and sizzle faillures?
+[09:38:40] <orkel> gibson042: maybe you could look into setTimeout stuff?
+[09:39:08] <orkel> and there is event faillures with oldIE
+[09:39:17] <gibson042> I will definitely look into a test improvement, and will see how far I can get beyond that with mocking
+[09:39:24] <orkel> sorry not only in oldIE
+[09:40:18] <DaveMethvin> oh that event failure
+[09:40:26] <DaveMethvin> hmmm
+[09:40:32] <DaveMethvin> i think that's from AMD changes as well
+[09:40:34] <orkel> plus there is faillures in oldIE with all modules, i can also look into that after gibson042 will check out mocking stuff
+[09:41:12] <gibson042> orkel don't wait for me, it's worth checking out on its own if you think progress can be made without mock setTimeout
+[09:41:31] <orkel> or maybe this just amd stuff, mmm
+[09:41:50] <DaveMethvin> i suspect AMD
+[09:42:25] <orkel> gibson042: i will wait for timmywil then :-)
+[09:43:03] <orkel> or help him
+[09:43:53] <DaveMethvin> on pull 1340 i tend to agree with gibson042 here
+[09:43:58] <DaveMethvin> mainly b/c it's less likely to break stuff :)
+[09:44:50] <DaveMethvin> m_gol you're breaking up 1339 right? I think we should get our tests fixed first but then we can land these
+[09:45:10] <DaveMethvin> I thought 1330 looked fine
+[09:45:15] <gibson042> DaveMethvin: I just can't wait for the follow-up on interaction between http authentication and cross-domain detection... we'll punt that one to jaubourg :)
+[09:45:34] <DaveMethvin> lol
+[09:45:35] <m_gol> DaveMethvin: yeah, I'll get to it today or tomorrow
+[09:45:58] <m_gol> unless the team wants to give it to sb else per orkel comments...
+[09:46:10] <orkel> wow!
+[09:46:14] <orkel> i did not said that
+[09:46:39] <orkel> i said if you don't know how to do it then...
+[09:47:20] <m_gol> ok, but what do we do with the approach of using documentElement?
+[09:47:33] <m_gol> orkel, you were strongly against it
+[09:48:03] <orkel> no, i wasn't man, i just ask why you want to refactor support module twice
+[09:48:27] <orkel> you will have problems with documentElement in 1.x
+[09:48:34] <m_gol> yeah, you're right
+[09:48:40] <orkel> it could be hack around
+[09:48:48] <orkel> but why struggle?
+[09:48:57] <orkel> if you will rewrite it anyway
+[09:49:41] <orkel> seems a lot of needless work
+[09:50:13] <DaveMethvin> whatever is the easiest and least risk, i'm for that!
+[09:50:20] <m_gol> ;)
+[09:51:00] <DaveMethvin> any thoughts on pull 1320? it seems to have stalled b/c gnarf had some concerns and mikesherov hasn't responded
+[09:51:09] <DaveMethvin> oh he did
+[09:51:34] <gnarf> no response from the submitter
+[09:51:37] <gnarf> thats what stalled it
+[09:52:05] <gnarf> honestly, not sure its the right solution either
+[09:52:15] <DaveMethvin> these kinda changes make me nervous
+[09:52:36] <gibson042> agreed
+[09:52:49] <DaveMethvin> it's always these situations that can't actually be solved no matter what
+[09:53:05] <orkel> m_gol: btw, i think it would be good idea to let support.cors stay in support object, people have some plugins with implementing cors in IE8 >
+[09:53:10] <DaveMethvin> you can only guess to solve the most common case and hope nobody finds the others
+[09:54:43] <DaveMethvin> so on 1320 what shoudl we do here?
+[09:55:25] <m_gol> orkel: links? won't those polyfills cause old IEs to pass the support test as well?
+[09:56:00] <m_gol> I'd like not to leave too much on the support object and I'm sure some people will complain about "taking their tests away"
+[09:56:25] <orkel> m_gol: i could look for them, but i definitely see couple of those, including the one i wrote myself
+[09:56:32] <m_gol> :)
+[09:56:36] <orkel> :-)
+[09:56:45] <DaveMethvin> m_gol orkel don't some phonegap apps set .cors to turn on local file access? or was that a diff property?
+[09:57:17] <m_gol> no idea
+[09:57:25] <DaveMethvin> http://stackoverflow.com/questions/11678541/phonegap-jquery-ajax-fails-support-cors-true
+[09:57:45] <m_gol> I think we'll want to have both betas & rc for 2.1 so that people can speak about their support usage
+[09:57:47] <DaveMethvin> dunno if that still applies
+[09:57:57] <DaveMethvin> m_gol definitely should have a long beta for this
+[09:58:21] <DaveMethvin> not because anyone will actually try it, but just so we can say YOU DIDN"T TRY IT
+[09:58:26] <DaveMethvin> :)
+[09:58:27] <m_gol> ;)
+[09:58:39] <m_gol> orkel, if you could look if support.cors is indeed needed, that'd be awesome
+[09:58:49] <orkel> sure
+[09:58:58] <m_gol> as for support.ajax: any idea what's the use case for it?
+[09:59:02] <orkel> i will ping you
+[09:59:07] <m_gol> k, thx
+[09:59:09] <orkel> well you said it
+[09:59:23] <orkel> because xhr could be turn off
+[09:59:28] <m_gol> I mean, apart from what I said :)
+[09:59:31] <DaveMethvin> support.cors i get, support.ajax i don't know
+[09:59:46] <m_gol> can it still be turned off in newer IEs?
+[09:59:46] <DaveMethvin> we'd need to know what' using it
+[09:59:54] <DaveMethvin> m_gol yes i think so
+[10:00:10] <DaveMethvin> let's close the meeting and head to -dev
+[10:00:10] <m_gol> heh
+[10:00:13] <m_gol> k
+[10:00:16] <DaveMethvin> i will check in ie11
+[10:00:20] <DaveMethvin> thanks guys!

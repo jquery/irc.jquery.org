@@ -1,0 +1,327 @@
+[04:48:29] <scott_gonzalez> gnarf: http://bugs.jquery.com/ticket/11186
+[05:12:03] <gibson042> .
+[06:44:54] <scott_gonzalez> ugh, look at http://stage.plugins.jquery.com/ in Chrome and Firefox.
+[06:58:23] <ajpiano> scott_gonzalez: need me to delete it?
+[06:58:33] <scott_gonzalez> haha
+[06:59:01] <scott_gonzalez> kborchers is fixing the styling to work in other browsers.
+[06:59:26] <ajpiano> yeah, that whole text knocking out to reveal gradient BG thing seems like, awesome, but unsurprisingly dodgy
+[06:59:46] <scott_gonzalez> yeah
+[07:00:05] <scott_gonzalez> Not sure who wrote that, I assume 47m.
+[07:03:19] <kswedberg> scott_gonzalez, ajpiano: what's with the huge Search field that just focuses the cursor on the small search field? disorientating™
+[07:03:57] <scott_gonzalez> kswedberg: There's an open issue for that.
+[07:04:01] <scott_gonzalez> They both have the same id.
+[07:04:06] <kswedberg> ah
+[07:04:19] <kswedberg> ok.
+[07:22:53] <gnarf> scott_gonzalez: I suppose I should work on trac again soon
+[08:12:05] <gnarf> mikesherov_ ajpiano kborchers + rwaldron: Just watched our talk again, fun times! \o/
+[08:12:17] <mikesherov_> yeah, it was awesome
+[08:12:20] <mikesherov_> good job everyone
+[08:12:31] <mikesherov_> are we doing dbr again at the dev summit?
+[08:12:54] <gnarf> maybe
+[08:12:55] <kborchers> gnarf: :)  i just watched it yesterday
+[08:13:20] <gnarf> does anyone know of any open source video editing / slicing software for the mac?
+[11:24:50] <DaveMethvin> timmywil: you around?
+[11:25:07] <timmywil> DaveMethvin: yo
+[11:25:21] <DaveMethvin> hey, imma add an AUTHORS.txt to sizzle, i have the cleaned-up list here
+[11:25:49] <DaveMethvin> also, that perf regression on delegated selectors
+[11:27:16] <DaveMethvin> it seems kind of tricky to get it right if we're going through jQuery.is(), since there's no element-rooted is()
+[11:28:14] <timmywil> DaveMethvin: I was thinking is + contains
+[11:28:56] <DaveMethvin> but .contains() won't tell me if the descendant match was above the delegation point
+[11:29:39] <timmywil> why not?
+[11:29:52] <DaveMethvin> so like $("p").on("click", "div p a", ...)
+[11:30:37] <DaveMethvin> the delegation point is p but there is a div above it
+[11:30:54] <DaveMethvin> p contains a
+[11:31:01] <DaveMethvin> but i would need to know if p contains div too
+[11:31:10] <DaveMethvin> and i didn't even know about div!
+[11:31:53] <timmywil> i see
+[11:33:16] <timmywil> hmmmm
+[11:33:29] <DaveMethvin> whoa waitaminit
+[11:33:33] <timmywil> ok, we can still limit the tested set
+[11:33:48] <DaveMethvin> you put back matcheselector, right?
+[11:33:58] <timmywil> yea
+[11:34:09] <DaveMethvin> .is() isn't using it
+[11:34:09] <b-ot> DaveMethvin, definitely being used as one ;)
+[11:34:31] <timmywil> sure it is
+[11:35:00] <timmywil> see filter
+[11:35:41] <DaveMethvin> oh whew, dunno why i thought it wasn't
+[11:36:37] <timmywil> so, what about this: Sizzle( selector, context, null, cur ).length
+[11:36:46] <timmywil> s/Sizzle/jQuery.find
+[11:37:06] <DaveMethvin> yeah a direct call
+[11:37:16] <timmywil> also doesn't do a selection
+[11:37:24] <DaveMethvin> which is good :)
+[11:37:25] <timmywil> because of the seed argument, it's still just a match
+[11:39:39] <timmywil> wouldn't use matchesSelector, so maybe there's a need for quickIs after all
+[11:40:13] <timmywil> although, it may not be that much faster once the selector is compiled
+[11:41:03] <timmywil> which we could actually compile on bind
+[11:41:19] <timmywil> jQuery.find.compile("div p a", context)
+[11:41:35] <DaveMethvin> i'm okay with the first call being a bit slower
+[11:41:37] <timmywil> then it's got a matcher function ready for delegation
+[11:41:50] <DaveMethvin> it may never get called, who knows
+[11:42:24] <timmywil> doesn't take _that_ long to compile
+[11:42:42] <DaveMethvin> agreed
+[11:42:58] <DaveMethvin> so the fact it doesn't get to matchesSelector could be an issue
+[11:43:25] <timmywil> matchesSelector can't do context
+[11:43:37] <DaveMethvin> that's our problem in a nutshell
+[11:43:50] <timmywil> unless we stick the context within the selector
+[11:43:57] <DaveMethvin> we either accept the "leaks out the top of the context" problem or have it run in reasonable time
+[11:44:22] <DaveMethvin> haha, yeah we could add a fake id to it like sizzle does
+[11:44:41] <DaveMethvin> hierarchical selectors in a delegated selector suck
+[11:44:43] <DaveMethvin> suck!
+[11:44:46] <DaveMethvin> SUCK I TELL YOU
+[11:44:54] <timmywil> +9001
+[11:45:07] <timmywil> lemme check perf
+[11:47:21] <DaveMethvin> i think we should just back out this change and document that if you use hierarchical selectors you suck
+[11:47:29] <timmywil> hold on
+[11:53:19] <sizcommit> [sizzle] dmethvin pushed 1 new commit to master: http://git.io/PiJdVQ
+[11:53:19] <sizcommit> [sizzle/master] Add AUTHORS.txt file. - Dave Methvin
+[11:53:28] <timmywil> DaveMethvin: yea let's revert http://jsperf.com/native-sizzle-matching-vs-matchesselector
+[11:54:05] * DaveMethvin shakes fist at matchesSelector
+[11:54:42] <DaveMethvin> the only other thing I can think of, and this is more a 1.9 fix, is to go back to quickIs for simple selectors and use Sizzle for all else
+[11:55:36] <timmywil> I mean, I don't think quickIs will be that much faster
+[11:57:37] <DaveMethvin> if people would just tag elements with classes rather than using complex hierarchical selectors, the world would be a better place
+[11:58:30] <DaveMethvin> timmywil: that particular case doesn't look so bad, i mean it still does 284k/sec
+[11:58:48] <DaveMethvin> so it must be  more complex selectors?
+[11:59:31] <timmywil> no, Sizzle does well, but it just can't beat native ms
+[11:59:52] <DaveMethvin> that's okay as long as it's fast enough
+[12:00:04] <DaveMethvin> but what are these guys doing that 284k/sec isn't fast enough?
+[12:00:28] <DaveMethvin> probably .live("mouseover" ) or something like that i guess?
+[12:01:11] <DaveMethvin> or the one that menno had, which was ":button" which takes the sizzle path rather than qSA
+[12:01:44] <timmywil> well, everything would be about the same performance with this method
+[12:02:16] <timmywil> well, :has would do a selection within the match, but w/e
+[12:02:34] <timmywil> button would just translate to pretty much the same thing as checking class ( a property check )
+[12:02:50] <timmywil> and have the same perf
+[12:03:02] <DaveMethvin> here's one from the github code: c.delegate(a+" "+d.itemParentSelector+" "+d.wrapperSelector,"click",
+[12:04:14] <timmywil> same thing, just a bigger matcher function
+[12:04:53] <timmywil> DaveMethvin: in browsers that dont' have ms, the low-level Sizzle call is faster http://cl.ly/image/3q1b110W0L1C
+[12:05:21] <DaveMethvin> which makes sense, less poop for the pony to hide
+[12:05:35] <timmywil> yea, it's pretty much doing the same thing, just a few levels down
+[12:06:05] <DaveMethvin> seeing if i can get a complete selector from the github code via a breakpoint
+[12:06:05] <timmywil> so I guess it's not a bad option after all
+[12:06:09] <DaveMethvin> man they have a lot of code
+[12:06:16] <timmywil> in browsers with ms, it's fast enough and in browsers without ms, it's faster
+[12:07:56] <DaveMethvin> so i'd really like to see the cases where it's too slow
+[12:08:18] <DaveMethvin> they must be real
+[12:09:10] <timmywil> It's really not going to get much slower because we're ensuring only one element is tested at a time
+[12:09:21] <timmywil> much faster than doing a selection
+[12:10:10] <timmywil> currently, the compiled matcher is run over every possible element in the selection and then index is used to see if cur is in the selection
+[12:10:25] <timmywil> this way, the compiled matcher is run once on one element
+[12:10:40] <timmywil> big difference
+[12:11:08] <timmywil> just sayin
+[12:11:33] <DaveMethvin> yeah
+[12:11:49] <DaveMethvin> early out, so we play the odds
+[12:13:32] <timmywil> DaveMethvin: the only time I could think of it getting significantly slower is in complex `:has` selectors
+[12:13:51] <timmywil> but that never used ms anyway and it would still be faster than what we had before
+[12:13:56] <DaveMethvin> right
+[13:23:26] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/P0h_HQ
+[13:23:26] <jqcommit> [jquery/master] Update to QUnit 1.10.0 - Dave Methvin
+[13:38:30] <doesallmagic> Project jQuery Core build #358: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery%20Core/358/
+[13:38:31] <doesallmagic> dave.methvin: Update to QUnit 1.10.0
+[14:02:02] <DaveMethvin> ok swarmy, you're right THIS time
+[14:03:21] <DaveMethvin> but why?
+[14:18:35] <Krinkle> timmywil: So regarding those two bugs we encounter at Wikimedia, you filed a bug report, right ?
+[14:18:47] <Krinkle> the slow keyboard event handling and the slow has() thingy
+[14:18:55] <timmywil> Krinkle: we already had it
+[14:19:01] <Krinkle> the has() thingy is not important since we mitigated that with a much better selector
+[14:19:05] <Krinkle> timmywil: link?
+[14:19:31] <timmywil> http://bugs.jquery.com/ticket/12436
+[14:20:17] <timmywil> I'm doing a whole performance suite so I don't think I need a Sizzle issue for that
+[14:20:42] <Krinkle> What about the keyboard event handling?
+[14:21:10] <timmywil> that bug affects any event
+[14:22:03] <Krinkle> We have a library that processes key presses for some users to insert foreign characters. In 1.7.2 it is smooth near real-time, in 1.8.1 when typing fast it appears to only handle 1 or 2 characters per second.
+[14:22:14] <Krinkle> that bug is only regarding live/delegate though right ?
+[14:22:38] <Krinkle> oh crap, it is using :text
+[14:22:43] <timmywil> ok, then I'm not familiar with that one
+[14:22:50] <Krinkle> and live()
+[14:22:56] <timmywil> ah, then yes
+[14:23:47] <timmywil> DaveMethvin and I went through it today. We'll have a fix for 1.8.2
+[14:24:26] <DaveMethvin> yes, but also Krinkle, try to use a standard selector and lower delegation point, it will be faster still
+[14:24:43] <Krinkle> yeah, I know. I didn't write this code :P
+[14:24:59] <DaveMethvin> haha, yeah i shoulda figured
+[14:25:20] <Krinkle> DaveMethvin: https://gerrit.wikimedia.org/r/gitweb?p=mediawiki/extensions/Narayam.git;a=blob;f=resources/ext.narayam.core/ext.narayam.core.js;h=d870dcf41c9b426d9cd06e5746873b1119dc1a98;hb=HEAD#l351
+[14:25:33] <Krinkle>  $( inputSelector )
+[14:25:34] <Krinkle>  357                                 .live( 'keydown', onkeydown )
+[14:25:35] <Krinkle>  358                                 .live( 'keypress', onkeypress )
+[14:25:36] <Krinkle>  359                                 .live( 'focus', onfocus )
+[14:25:37] <Krinkle>  360                                 .live( 'blur', onblur );
+[14:25:47] <Krinkle> where selector is :text in the main call
+[14:26:06] <Krinkle>    5         $.narayam.addInputs( 'input:text, input[type=search], textarea, div[contenteditable=true]' );
+[14:26:16] <DaveMethvin> omg, the only way it could be worse perf-wise if it had mouseover/mouseout in there
+[14:26:52] <timmywil> lol
+[14:26:58] <DaveMethvin> even just moving the point down to body if possible would help
+[14:27:13] <DaveMethvin> but you'd have to attach on ready
+[14:28:05] <DaveMethvin> clearly jquery being fast is enabling horrible unspeakable things to happen
+[14:28:11] <DaveMethvin> let's make it slower
+[14:36:03] <Krinkle> DaveMethvin: what do you suggest replacing :text with ?
+[14:36:17] <DaveMethvin> input[type=text] is good
+[14:36:19] <Krinkle> some of the inputs in question don't have a handwritten type attribute
+[14:36:26] <DaveMethvin> aaaaugh
+[14:36:49] <Krinkle> as a matter of fact, one of the horrible aspects is that it is removed in the output handler if doctype is html5 because it is the default
+[14:37:02] <Krinkle> :text uses the property..
+[14:37:26] <DaveMethvin> not good at all if you want to style/select input[type=text] in css though
+[14:37:33] <Krinkle> tell me about it
+[14:37:48] <DaveMethvin> for now i guess you could drop back to 1.8.0?
+[14:37:55] <DaveMethvin> i don't really want to release 1.8.2 yet
+[14:38:04] <DaveMethvin> we need to let some other bugs come in
+[14:38:11] <DaveMethvin> otherwise we'll have a 1.8.3
+[14:38:12] <Krinkle> we need to speed it up before they allow 1.8 back in
+[14:38:23] <DaveMethvin> well 1.7.2 is fine
+[14:38:33] <Krinkle> well, not really because our modules are using jq 1.8 stuff
+[14:38:41] <DaveMethvin> like?
+[14:38:45] <Krinkle> and now it was basically ripped out independently and swapped for 1.7.2
+[14:38:55] <Krinkle> I know parseHTML is used. Not sure about other aspects
+[14:39:03] <DaveMethvin> you can put a shim in
+[14:39:12] <DaveMethvin> gahhh
+[14:39:25] <DaveMethvin> it's like i WANT bleeding edge people to do that
+[14:39:27] <DaveMethvin> but then i don't
+[14:39:32] <DaveMethvin> i shoudl make up my mind
+[14:39:50] <DaveMethvin> you could use a custom one
+[14:40:03] <DaveMethvin> or is there an additional constraint that it has to come from a cdn?
+[14:40:13] <Krinkle> We store our own copy
+[14:40:16] <Krinkle> in a CDN
+[14:40:27] <Krinkle> but its only for our use, so it could be modified
+[14:40:32] <DaveMethvin> ok thats good
+[14:40:54] <DaveMethvin> basically it's just backing out this commit: https://github.com/jquery/jquery/commit/afd717df9e189d3e374ce938f03e2712f31c29e3
+[14:40:58] <DaveMethvin> at least for now
+[14:41:17] <Krinkle> so is there? is there a way to select implied type=text without using slow selectors?
+[14:41:52] <DaveMethvin> not that i know of, blame css
+[14:42:36] <DaveMethvin> wait doesn't css support a weak :not?
+[14:42:43] <DaveMethvin> input:not([type])
+[14:44:15] <Krinkle> right
+[14:44:16] <Krinkle> http://cl.ly/image/1y0y1F2f0Z2o
+[14:45:26] <DaveMethvin> might be a problem on oldIE with attroperties Krinkle
+[14:45:37] <Krinkle> explain?
+[14:46:16] <Krinkle> http://cl.ly/image/0t3a2h0g3t27
+[14:46:39] <DaveMethvin> ie7 may think it always has a type property
+[14:46:43] <DaveMethvin> lemme check
+[14:47:23] <DaveMethvin> ugh yeah http://wnd8.com/grab/6481a3.png
+[14:47:43] <DaveMethvin> even inputs without a type attr have a type attr in ie7
+[14:48:19] <DaveMethvin> maybe timmywil will know Krinkle ... is there a way to select <input /> without a type attribute in standard CSS?
+[14:48:32] <DaveMethvin> input:not([type]) shoud work but ie7
+[14:49:08] <Krinkle> DaveMethvin: but jquery covers for that in IE7, right ?
+[14:49:20] <DaveMethvin> nope, unfortunatley not as you can see from that screen shot
+[14:49:24] <DaveMethvin> http://wnd8.com/grab/6481a3.png
+[14:49:31] <Krinkle> oh, that's bad
+[14:49:41] <DaveMethvin> well that is why :text exists
+[14:49:41] <Krinkle> I suppose there is a jquery/sizzle bug about it?
+[14:49:45] <Krinkle> right
+[14:50:01] <DaveMethvin> the problem is that html lets you define something that css cannot select
+[14:50:15] <DaveMethvin> and the bug with ie7 is because attributes and properties look the same there
+[14:50:21] <DaveMethvin> "attroperties"
+[14:50:33] <DaveMethvin> like attrocities
+[14:51:03] <DaveMethvin> Attrocity: An extremely wicked or cruel act: "war atrocities". A highly unpleasant or distasteful object: "the house was a split-level atrocity".
+[14:53:49] <timmywil> mmm, that could be a bug
+[14:54:01] <DaveMethvin> timmywil: shoudln't the nodehook catch that?
+[14:54:14] <DaveMethvin> i seem to recall something about that particular one
+[14:54:51] <timmywil> because we have a set hook, the get hook needs to be explictly assigned
+[14:55:04] <timmywil> cause of the way we look up the hooks
+[14:55:24] <timmywil> basically we do hooks = jQuery.attrHooks[ name ] || nodeHook
+[14:55:33] <DaveMethvin> ohhhh
+[14:55:36] <DaveMethvin> yea
+[14:55:45] <DaveMethvin> well damn, we can fix that in 1.8.2 as well
+[14:55:59] <DaveMethvin> of course it won't help Krinkle right now :/
+[14:56:32] <timmywil> yea, sry krinkle!
+[14:56:47] <timmywil> you seem to be running into all ze bugs
+[14:56:57] <Krinkle> btw,I'm looking at hasClass source, and confused
+[14:56:59] <Krinkle> it does a loop
+[14:57:04] <Krinkle> why ?
+[14:57:09] <Krinkle> it only seems to check the first one
+[14:57:31] <Krinkle> or not
+[14:57:36] <timmywil> checks all elements in the collection
+[14:57:41] <Krinkle> right
+[14:57:44] <DaveMethvin> yeah it's an odd one
+[14:57:53] <Krinkle> but returns from the first match, right ?
+[14:57:53] <DaveMethvin> i've forgotten that a coupla times myself
+[14:58:05] <DaveMethvin> right
+[14:58:06] <timmywil> as soon as any match
+[14:58:08] <DaveMethvin> once it has a class
+[14:58:12] <Krinkle> $('<div>').add('<span class="text"/>').hasClass('test')
+[14:58:19] <Krinkle> so should that return true?
+[14:58:29] <DaveMethvin> timmywil: do you have any idea why this would be failing? http://swarm.jquery.org/job/713 I dropped back to older qunit and it doesn't seem to be the problem
+[14:58:43] <DaveMethvin> Krinkle: no
+[14:58:46] <DaveMethvin> oh add
+[14:58:52] <DaveMethvin> yes i would think so
+[14:58:55] <Krinkle> $('<div>').add('<span class="test"/>').hasClass('test')
+[14:58:56] <Krinkle> indeed
+[14:59:08] <Krinkle> $('<div class="test">').add('<span/>').hasClass('test')
+[14:59:09] <Krinkle> also true
+[14:59:12] <Krinkle> odd
+[14:59:20] <DaveMethvin> my  head was thinking "append" when i saw add
+[14:59:47] <DaveMethvin> yeah i dunno why hasclass doesn't just look at the first element
+[14:59:49] <timmywil> DaveMethvin: that's wird
+[15:00:05] <DaveMethvin> timmywil: first thing i did was check that i didn't revert sizzle :D
+[15:00:10] <Krinkle> $.fn.hasAnyClass = $.fn.hasClass
+[15:00:15] <Krinkle> :D
+[15:00:18] <Krinkle> anyHasClass
+[15:00:31] <DaveMethvin> Krinkle: $.fn.isClassy
+[15:00:41] <timmywil> ("san diego")
+[15:00:47] <Krinkle> $.random = function () { return 4; } :)
+[15:00:56] <timmywil> DaveMethvin: yea, no idea, that doesn't look familiar
+[15:01:14] <Krinkle> (http://xkcd.com/221/)
+[15:01:19] <DaveMethvin> okay let me double check that reverting and nuking all cache doesn't fix
+[15:01:36] <timmywil> DaveMethvin: maybe a testswarm issue?
+[15:01:44] <timmywil> DaveMethvin: see IE tests
+[15:02:19] <Krinkle> DaveMethvin: I've reset those two
+[15:02:29] <Krinkle> (logged in with user jquery, dblclick the red cells)
+[15:02:58] <DaveMethvin> since it broke everywhere i just figured it had to be something obvious
+[15:03:57] <Krinkle> Yeah, definitely not a testswarm issue
+[15:03:58] <Krinkle> http://swarm.jquery.org/result/213294
+[15:04:05] <Krinkle> 16. Check position filtering (select > :not(:gt(2)))
+[15:04:13] <Krinkle> 	
+[15:04:13] <Krinkle> [ <option id="option1a" class="emptyopt"></option>, <option id="option1b"></option>, <option id="option1c"></option> ]
+[15:04:15] <Krinkle> Result:	
+[15:04:16] <Krinkle> [ <option></option>, <option></option>, <option></option> ]
+[15:04:17] <Krinkle> Diff:	
+[15:04:18] <Krinkle>  [ <option id="option1a" class="emptyopt"></option>, <option id="option1b"></option>, <option id="option1c"></option> <option></option>, <option></option>, <option></option>  ]
+[15:04:33] <timmywil> Krinkle: IE tests fail on "Copied subproject fixture"
+[15:05:01] <Krinkle> weird
+[15:06:07] <DaveMethvin> cache nuked, rerunning full tests again
+[15:06:29] <DaveMethvin> i don't know how many times i have been fooled by cached stuff
+[15:06:50] <DaveMethvin> gah no
+[15:07:01] <DaveMethvin> ok lemme be sure qunit reverted
+[15:07:14] <Krinkle> Weird.
+[15:07:23] <Krinkle> if ( $imes.hasClass( 'open' ) ) { $imes.removeClass( 'open' ); } else { $imes.addClass( 'open' ); 	}
+[15:07:31] <Krinkle> that can just be toggleClas right? Or is there a known bug there?
+[15:07:57] <timmywil> Krinkle: toggleClass should work there
+[15:08:34] <DaveMethvin> been there since 1.0  as well
+[15:08:50] <timmywil> happening for me locally now
+[15:09:03] <timmywil> I don't know what's going on in IE tho
+[15:09:17] <DaveMethvin> no, BAD 1.10
+[15:09:45] <DaveMethvin> find me the commit hash of a working qunit! :D
+[15:10:03] <timmywil> DaveMethvin: qunit added a module filter select box
+[15:10:09] <timmywil> that'll do it
+[15:10:21] <DaveMethvin> d'oh!
+[15:10:38] <DaveMethvin> that explains the options, eh?
+[15:11:48] <timmywil> yup, I'm scoped those selectors with #qunit-fixture and we're good
+[15:12:49] <sizcommit> [sizzle] timmywil pushed 1 new commit to master: http://git.io/yqgocw
+[15:12:49] <sizcommit> [sizzle/master] Scope select element selectors due to new select box from QUnit - Timmy Willison
+[15:13:52] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/AwwhaQ
+[15:13:52] <jqcommit> [jquery/master] Update Sizzle: authors.txt update and fix failing tests caused by QUnit's html addition - Timmy Willison
+[15:14:46] <timmywil> DaveMethvin: that fixed all but IE's fixture complaint
+[15:15:18] <DaveMethvin> thanks! hmm, wonder what that one is about
+[15:15:21] <timmywil> DaveMethvin, Krinkle: which could be a QUnit bug
+[15:16:20] <timmywil> need to afk
+[15:17:38] <doesallmagic> Project jQuery Core build #359: STILL FAILING in 3 min 49 sec: http://swarm.jquery.org:8080/job/jQuery%20Core/359/
+[15:17:38] <doesallmagic> timmywillisn: Update Sizzle: authors.txt update and fix failing tests caused by QUnit's html addition
+[15:33:02] <Krinkle> <b>TestSwarm Fatal</b>: Invalid browser ID "<code>Chrome|21</code>" in browser
+[15:33:05] <Krinkle> timmywil: ^
+[15:33:27] <Krinkle> Who put that there
+[15:36:34] <Krinkle> or rather, where is it
+[15:39:08] <Krinkle> did someone fix it?
+[15:40:26] <Krinkle> Chrome 19 is working now (Sizzle test)
+[15:40:26] <Krinkle> http://swarm.jquery.org/job/717
+[15:40:32] <Krinkle> IE still failing
+[15:40:38] <Krinkle> with the fixture thing
+[15:56:35] <doesallmagic> Project jQuery Core build #360: STILL FAILING in 17 min: http://swarm.jquery.org:8080/job/jQuery%20Core/360/
+[16:01:58] <Krinkle> timmywil: now it is just IE6-8 failing the submodule fixture
+[16:01:59] <Krinkle> http://swarm.jquery.org/job/717
+[16:35:51] <scott_gonzalez> DaveMethvin: The email says that they need to print and sign the CLA, but I thought we were just doing electronic submissions?
+[17:21:50] <gnarf> the electronic is right below the "please print and send"
+[17:22:03] <gnarf> at least when i looked at the page
+[19:02:04] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/1JAvRA
+[19:02:04] <jqcommit> [jquery/master] Shim/shiv the datalist element for crabby Uncle oldIE. - Dave Methvin
+[19:02:52] <DaveMethvin> don't go breakin my heart, swarmy
+[19:27:00] <doesallmagic> Yippie, build fixed!
+[19:27:00] <doesallmagic> Project jQuery Core build #361: FIXED in 24 min: http://swarm.jquery.org:8080/job/jQuery%20Core/361/
+[19:27:01] <doesallmagic> dave.methvin: Shim/shiv the datalist element for crabby Uncle oldIE.
+[19:33:00] <kborchers> ?tell DaveMethvin you should have stuck around for the "Yippie, build fixed!" :)
+[19:33:01] <bot-t> kborchers, Okay.

@@ -1,0 +1,277 @@
+[09:21:28] <scottjehl> hey
+[09:56:07] <scottjehl> hey Kinblas
+[09:56:20] <kinblas> scottjehl: yo
+[09:56:35] <kinblas> man you guys were busy over the weekend
+[09:56:43] <kinblas> was wading through all of todd's github replies
+[09:57:04] <kinblas> scottjehl: I did see your msg about the lastScroll
+[09:57:14] <kinblas> I'll check it out in a bit
+[09:58:04] <scottjehl> oh cool. Thanks. yeah, we've been trying to liberate the code of memory references like that. To prevent leaks in most cases, but in this case because the data is simply gone :)
+[10:00:11] <scottjehl> I wasn't a huge fan of splitting the setting and getting across functions like I did... maybe we could do it all externally by binding to pageshow/hide... not sure.
+[10:00:37] <kinblas> scottjehl: that reminds me
+[10:01:05] <kinblas> I've been seing some wonkiness in the the navigations stack
+[10:01:19] <kinblas> I think its related to the caching being turned off
+[10:01:33] <kinblas> things like backing out of dialogs and then going forward
+[10:01:36] <kinblas> etc
+[10:02:01] <kinblas> I noticed them more when working on the transitions stuff, mainly because the transitions sample page throws a dialog
+[10:02:57] <scottjehl> yeah. It'd be great to continue decoupling navigation to improve and simplify the order of all those checks
+[10:04:15] <scottjehl> there's an issue in the tracker (I believe Steven Black made it) from a while ago that details why it's hard to use page[before]show/hide to do things that relate to the history stack because the order of how things are added to the stack doesn't quite line up
+[10:04:46] <scottjehl> I still see that problem. Active item is set in urlHistory long before page[before]show/hide... seems that's out of order
+[10:04:54] <scottjehl> stuff like that
+[10:05:28] <scottjehl> the directHashChange function is hard to follow as well
+[10:14:44] <kinblas> scottjehl: hmmm, I thought I fixed it the way he wanted
+[10:15:04] <kinblas> the position of the notification that is
+[10:18:41] <scottjehl> it'd be worth pulling the issue back up to see I guess
+[10:19:12] <scottjehl> I'm pretty sure urlHistory is changed before transitionPages is called
+[10:19:28] <scottjehl> and we trigger all the before/show/hide stuff in there
+[12:14:32] <_nickel> scottjehl: yah it would nice to clean up directHashChange a bit (leaky abstraction)
+[12:14:45] <_nickel> scottjehl: and the case where its used to set a scoped variable is bad :(
+[12:15:08] <_nickel> before that it was a good way to centralize the "is it forward or backward" check
+[12:48:58] <scottjehl> _nickel oh sure. Yeah just might be worth a look again now that we're decoupling things and moving over to events for a lot of internals
+[12:49:12] <scottjehl> not sure if it applies to that or not
+[12:49:41] <_nickel> on hash change either way we have to determine if its forward or back, but we could fire an event for that
+[12:49:44] <_nickel> oh man
+[12:49:49] <_nickel> "back" and "forward"
+[12:49:54] <_nickel> people would be so happy
+[12:50:09] <_nickel> scottjehl: there are some corner cases we have to deal with there
+[12:51:02] <scottjehl> .trigger( "probablyback" )
+[12:58:41] <_nickel> basically
+[12:58:50] <_nickel> we can't really know
+[12:59:15] <_nickel> so in the case where you have the same "page" in both forward in back you should prefer back because thats most likely what people will be doing
+[12:59:28] <_nickel> providing the hook for other cases would be awesome though
+[12:59:32] <_nickel> "a" hook
+[12:59:38] <_nickel> because I have no clue what that would look like
+[12:59:41] <_nickel> hmm
+[12:59:50] <_nickel> I guess you could do the same thing we did with the search filter
+[13:00:12] <_nickel> and provide a historyTraverse callback with a default and let them roll their own when they want to
+[13:00:31] <_nickel> but its so complex that they'd probably want alot of the functionality and just tweak it
+[13:00:34] <_nickel> hmm
+[13:00:41] <_nickel> interesting usability problem
+[13:02:16] <scottjehl> The way it works now is pretty good. Just thinking about internal organization mostly
+[13:02:34] <scottjehl> I do see forward transitions when going back to home still, on occasion
+[13:09:28] <_nickel> yah thats the case we don't handle properly
+[13:09:33] <_nickel> I layed it all out at one point
+[13:09:43] <_nickel> theres a specific way to traverse history such that you prefer back
+[13:09:52] <_nickel> right now there are cases where we prefer forward
+[13:10:09] <_nickel> "layed it all out" for myself that is
+[13:12:09] <scottjehl> heh. nice
+[13:12:20] <scottjehl> cool. that'd be a good one to fix up soon if we can
+[13:12:38] <scottjehl> just because it shows up frequently
+[13:41:04] <_nickel> scottjehl: toddparker: kinblas: gseguin: quick update
+[13:41:05] <_nickel> https://github.com/johnbender/jquery-mobile/tree/decoupled-select/js
+[13:41:16] <_nickel> all the files are namespaced under select
+[13:41:27] <_nickel> I'm not finished with finding the best way to centralize the functionality
+[13:41:31] <_nickel> but they are now in seperate files
+[13:41:35] <_nickel> and are seperate widgets
+[13:42:03] <_nickel> the original select now buids using the other widget libraries and merges itself with the widget so people can us .selectmeny( 'method' ) etc
+[13:42:05] <scottjehl> checking it out
+[13:42:10] <_nickel> so it satisfies both use cases
+[13:42:13] <_nickel> its still super rough
+[13:42:18] <_nickel> but its getting less ugly
+[13:42:43] <_nickel> particularly the extra shared
+[13:42:58] <_nickel> ah!
+[13:43:05] <_nickel> one sec
+[13:43:09] <_nickel> i was thinking too linearly
+[13:43:44] <scottjehl> are you thinking of exposing all those properties publicly?
+[13:45:02] <kinblas> looks like it only has refresh, close, and open that are public
+[13:45:34] <scottjehl> oh ok. I was looking at shared
+[13:45:42] <scottjehl> thought it was exposing more. maybe not
+[13:45:43] <_nickel> kinblas: the object returned by the shard funtion
+[13:45:49] <kinblas> oh duh
+[13:46:28] <scottjehl> hmm. while convenient to some, I think that could be really confusing for a lot of users.
+[13:47:11] <scottjehl> that's a small nit though - in general the separation is fine work, sir :)
+[13:47:24] <_nickel> scottjehl: which is that
+[13:47:35] <kinblas> _nickel: so why doesn't custom inherit from native?
+[13:47:39] <scottjehl> I'm not sure about breaking into that many files also. I was thinking that custom menu stuff would be the second of two files...
+[13:48:03] <_nickel> kinblas: scottjehl: so I'm still thinking about that for now
+[13:48:13] <_nickel> thats the part that I have yet to be satisfied with
+[13:49:05] <_nickel> so once I come up with something that doesn't suck
+[13:49:07] <_nickel> I'll let you know
+[13:49:51] <scottjehl> okay
+[13:49:58] <scottjehl> nice - thx for the update :)
+[13:50:03] <scottjehl> hey question for you guys
+[13:50:04] <kinblas> _nickel: so just curious...with what you have right now, what is the code that figures out that it should use custom?
+[13:50:19] <kinblas> or I should say "where" instead of "what"
+[13:52:04] <_nickel> kinblas: jquery.mobile.forms.select.js _create
+[13:52:19] <_nickel> also keep in mind there's stuff scattered around because I'm doing this incrementally
+[13:52:56] <kinblas> oh hmmm
+[13:53:09] <kinblas> ok then I just noticed native is the thing that inits custom
+[13:53:30] <kinblas> yeah its better/cleaner to just derive then
+[13:55:14] <scottjehl> yeah. I think so too maybe. I guess I was originally thinking custom.js would be like other plugin add-ons that add options to the widget prototype and then bind to the widget's create event to do their thing if enabled
+[13:55:31] <scottjehl> like listviewfilter, page sections
+[13:55:46] <scottjehl> this is different, right?
+[13:56:11] <kinblas> scottjehl: +1 to your description
+[13:56:28] <_nickel> I thought it would be usefull to provide them as seperate widgets all together
+[13:56:34] <scottjehl> I should say, defines the option as false though
+[13:56:48] <_nickel> in my head thats what they are
+[13:57:01] <scottjehl> hmm.
+[13:57:03] <scottjehl> not sure
+[13:57:15] <_nickel> I'm not partial
+[13:57:25] <_nickel> again, I'm still thinking through the "sharing" mechanic
+[13:57:33] <scottjehl> especially for 1.0. I was hoping we'd first just decouple custom stuff so most people could exclude those 4-500 lines
+[13:57:50] <scottjehl> since they're all bound to a non-default option
+[13:58:23] <_nickel> I think the ideal would be to exclude one file
+[13:58:34] <_nickel> so the select
+[13:58:39] <_nickel> is actually native select
+[13:58:47] <scottjehl> yep. on board there
+[13:58:54] <_nickel> and then you can just leave out the custom
+[13:59:02] <_nickel> I just haven't sorted out how to accomplish that
+[13:59:09] <_nickel> there are still some bits to untangle
+[13:59:30] <_nickel> either way
+[13:59:41] <_nickel> its setup now that I can move things around quickly
+[13:59:57] <_nickel> so in the case where what I come up with isn't quite there, I can make changes easily
+[14:01:32] <scottjehl> Great! I think plugins like listview filter might be a good place to look for how this extends the widget. This is more complex, I know...
+[14:02:42] <_nickel> I'll take a look now
+[14:02:47] <_nickel> examples are always helpful
+[14:03:15] <scottjehl> it's basically how that branch is broken up right now too, actually
+[14:03:17] <scottjehl> one sec
+[14:03:30] <_nickel> scottjehl: just pulling from data?
+[14:03:40] <_nickel> foo.data( "listview" ) and then extending?
+[14:04:10] <_nickel> after binding to the create event
+[14:05:05] <scottjehl> https://github.com/jquery/jquery-mobile/blob/c318c5b7cf7d51a69438071cbfbcf307a27c7b7d/js/jquery.mobile.forms.select.custom.js
+[14:05:28] <_nickel> ah
+[14:05:36] <_nickel> yah same as the listview filter
+[14:05:39] <scottjehl> so in that, right around line 27 we could start handling the custom use case
+[14:06:28] <scottjehl> and this was the native version, though yours may have cleaned out more than mine (in a good way). https://github.com/jquery/jquery-mobile/blob/c318c5b7cf7d51a69438071cbfbcf307a27c7b7d/js/jquery.mobile.forms.select.js
+[14:07:10] <_nickel> cool
+[14:07:12] <_nickel> thats super easy
+[14:07:14] <scottjehl> so there's no notion of a nativeMenu option in the initial script, because there's no option to do anything different. Then the custom script defines that option but still keeps it false, for parity with the API
+[14:07:40] <scottjehl> now, I'm totally not saying this is a better approach... just consistent with what we've been doing so far
+[14:07:57] <scottjehl> it's maybe less risky for 1.0 though...
+[14:09:31] <_nickel> scottjehl: less risk == mo' betta
+[14:09:34] <_nickel> kinblas: ^
+[14:09:45] * _nickel wonders if kin will see the island reference
+[14:10:48] <_nickel> scottjehl: hmm
+[14:10:57] <_nickel> scottjehl: this might be a bit stickier than I thought
+[14:11:12] <_nickel> there are some dependenices that are needed for creation that are different between the two
+[14:11:15] <_nickel> namely the button
+[14:11:57] <scottjehl> yeah. tricky for sure
+[14:12:02] <_nickel> alright
+[14:12:04] <_nickel> I'll continue to noodle
+[14:12:09] <scottjehl> I think we might define some private vars for element usage
+[14:12:17] <scottjehl> _buttonMarkup: div
+[14:12:22] <scottjehl> blah blah
+[14:12:38] <scottjehl> custom could prototype in and change that maybe
+[14:12:46] <_nickel> I've been hammering away since 9:30 so I'm going to take a break for a bit
+[14:13:05] <scottjehl> we might even need a beforecreate event to trigger on this, like we do on page
+[14:13:06] <kinblas> _nickel: whatchoo talkin' 'bout brudda?
+[14:13:14] <_nickel> kinblas: CHEEEEHOOOOOOOO
+[14:13:16] <_nickel> :D
+[14:13:28] <scottjehl> then we could override internals before create runs
+[14:13:30] <_nickel> kinblas: I once coached a kid on Molokai named "brudda"
+[14:13:31] <scottjehl> anyway, yeah
+[14:13:49] <kinblas> _nickel: heh
+[15:22:40] <_nickel_> back
+[15:23:09] <_nickel> ls
+[15:23:13] <_nickel> ugh
+[15:29:41] <scottjehl> :/
+[15:30:29] <_nickel> finally finished my desktop setup scropt
+[15:30:31] <_nickel> *script
+[15:30:34] * _nickel cannot type
+[15:31:18] <_nickel> ls
+[15:31:22] <_nickel> agh!
+[15:38:30] <_nickel> kinblas: scottjehl: so there is at least one case in the selecmenu that I can't figure how to get working with the event delegation model
+[15:38:44] <_nickel> the custom select would have to rip out and replace the button markup from the native select
+[15:38:48] <_nickel> they are totally different
+[15:39:15] <_nickel> actually that was the first tangle I ran into when I started this
+[15:40:12] <scottjehl> k. yeah that's the part I was confusingly referencing above...
+[15:40:14] <scottjehl> heh
+[15:40:20] <scottjehl> not sure if it made any sense though
+[15:40:41] <_nickel> I couldn't follow
+[15:40:56] <_nickel> the solution you put forward with the prototype
+[15:41:03] <_nickel> thats why I'm asking :D
+[15:41:47] <scottjehl> well, we can access private members of the widget through its prototype
+[15:41:50] <_nickel> were you suggesting that I define a sub object on the prototype that the native create would use or not depending on if it was in fact native?
+[15:42:23] <scottjehl> no I was more thinking the initial widget could have a property like _buttonMarkup
+[15:42:23] <_nickel> those prototypes are defined at load time right?
+[15:42:34] <scottjehl> yeah, but not used until init
+[15:42:53] <_nickel> so if the custom overwrote it what would happen if someoen wanted a native selectin one case and not in another
+[15:42:58] <scottjehl> then, the _create method could begin by triggering a "beforecreate" event
+[15:43:03] <scottjehl> just like we do in page()
+[15:43:05] <_nickel> ah
+[15:43:11] <_nickel> and then it would monkey with it
+[15:43:28] <scottjehl> then, you could bind to that beforecreate and change the prototype, if the nativemenu option was false
+[15:43:31] <scottjehl> whew *
+[15:43:46] <scottjehl> heh. no idea if that's a solid plan or not, but maybe one way to do it
+[15:44:14] <_nickel> introducing a new event was one way I thought about
+[15:44:32] <_nickel> ok
+[15:44:50] <_nickel> so in that case in triggering the even on the object itself gives us access to the widget data
+[15:44:58] <_nickel> and we can change things like the button markup
+[15:45:06] <_nickel> or rather the button markup function
+[15:46:42] <_nickel> I'll do another branch to try and get it working and see how it looks
+[15:47:13] <_nickel> scottjehl: also should be namespacing our events in this case? I really have no idea, but it seems that beforecreate is a rather generic event
+[15:47:22] <_nickel> are we doing so implicitly by triggering it on given element?
+[15:47:29] <scottjehl> it'll be pagebeforecreate
+[15:47:33] <_nickel> ahh
+[15:47:39] <_nickel> ghetto namespace :P
+[15:47:43] <scottjehl> check out page plugin
+[15:47:48] <scottjehl> well yeah sorta
+[15:47:49] <scottjehl> heh
+[15:48:00] <scottjehl> it's more just what the widget factory does via _trigger
+[15:48:01] <_nickel> yah I understand the widget event structure
+[15:48:16] <_nickel> alright
+[15:48:20] <_nickel> off to do wrk
+[15:48:56] <scottjehl> rok
+[15:49:07] <scottjehl> I've been doing some iOS5 research today
+[15:49:23] <scottjehl> er hacking rather.. with overflow
+[15:49:37] <scottjehl> I'll be in touch with an update. pretty interesting so far (good and bad)
+[16:06:35] <_nickel> scottjehl: kinblas: ok I'm almost there, everything is nearly wired up
+[16:07:33] <scottjehl> rockin
+[16:09:32] <_nickel> scottjehl: kinblas: hopefully I'll have something along the lines of what we talked about tomorrow morning
+[16:10:03] <_nickel> native is working just need to get the attrubutes from custom extended on there in the case of the event
+[16:10:14] <scottjehl> sounds awesome
+[16:10:18] <scottjehl> thanks _nickel!
+[16:10:31] <_nickel> np np
+[16:10:39] <_nickel> the missing piece was throwing out the event
+[16:10:43] <_nickel> and binding to that
+[16:12:29] <kinblas> _nickel: sounds good
+[16:21:41] <_nickel> scottjehl: kinblas: https://github.com/johnbender/jquery-mobile/blob/decoupled-select/js/jquery.mobile.forms.select.custom.js#L396
+[16:21:52] <_nickel> scottjehl: kinblas: https://github.com/johnbender/jquery-mobile/blob/decoupled-select/js/jquery.mobile.forms.select.js#L33
+[16:32:32] <kinblas> _nickel: Sorry I've been a bit distracted by some internal stuff ... so what is the reason custom can't just inherit from static and forego that event and extend business?
+[16:33:47] <kinblas> I meant inherit from native
+[16:33:52] <kinblas> not static
+[16:35:43] <_nickel> kinblas: because the button markup is totally different
+[16:35:53] <_nickel> so it has to define the functio nto create the button markup
+[16:36:09] <_nickel> so that when the widget is created
+[16:36:23] <_nickel> it creates the right button markup
+[16:36:55] <scottjehl> as this is, I think it's a pretty good compromise for opening up external extensions
+[16:37:14] <_nickel> right
+[16:37:21] <scottjehl> native widget is still unaware of any optional extensions, which is ideal
+[16:37:26] <_nickel> should we decide to go with a registration model for speed its a quick change
+[16:37:44] <_nickel> tests all pass here and everythin works fine
+[16:37:52] <_nickel> I still want to do some cleanup though
+[16:37:55] <_nickel> and add some tests
+[16:37:58] <_nickel> but they are split
+[16:38:04] <_nickel> and I want to get rid of the shared bit
+[16:38:08] <_nickel> bit == file
+[16:40:57] <kinblas> I guess the tricky part of this is that you have a single constructor keying off of a type attribute
+[16:42:17] <scottjehl> sent you two an email. gotta run. nice work _nickel!
+[16:42:42] <kinblas> _nickel: is this an all or nothing deal? That is, an app can only have all native, or all custom selects?
+[16:43:14] <scottjehl> kinblas: it should just add the option (default to false). Same as our existing setup.
+[16:43:25] <scottjehl> opt into it through data- or options
+[16:43:28] <scottjehl> later!
+[16:45:00] <_nickel> kinblas: nope tests cover both
+[16:45:05] <_nickel> kinblas: as does my test page
+[16:45:18] <kinblas> so just so I'm on the same page what is the switch?
+[16:45:24] <_nickel> kinblas: the selector only extends the select widget with the custom methods in the case where its native-menu=false
+[16:45:28] <kinblas> data-native-menu="false|true"?
+[16:45:33] <_nickel> correct
+[16:45:36] <_nickel> well
+[16:45:41] <_nickel> data-native-menu="false"
+[16:45:45] <_nickel> the default is true
+[16:45:50] <_nickel> but yes you are correct
+[16:46:48] <kinblas> _nickel: so what prevents the custom code from appending it's custom functions? I don't see it checking for nativeMenu?
+[16:47:35] <_nickel> kinblas: ah!
+[16:47:37] <_nickel> sorry
+[16:48:09] <_nickel> kinblas: I hadn't pushed that commit yet :(
+[16:48:15] <_nickel> you can refresh the custom link
+[16:48:22] <_nickel> it just adds the :jqmData refinement
+[16:49:04] <_nickel> kinblas: I think your performance criticism still applies here
+[16:49:27] <_nickel> kinblas: but I figured I'd wait until we tackled that
+[16:50:02] <scottjehl> oh, didn't leave yet: can you guys weigh-in on the last-scroll stuff soon? That regression is pretty bad. It'd be good to land something for that soon
+[16:50:06] <scottjehl> :) later!
+[16:50:14] <_nickel> heading home
+[16:50:26] * kinblas laughs at _nickel
+[16:50:37] <kinblas> _nickel: oh are you in an office today?
+[16:52:50] <kinblas> _nickel: btw, I shudder now when I see live() calls ... it's convenient, but we do pay a perf price for it
+[16:54:00] <kinblas> _nickel: if you know that event is only fired on select elements ... I would just check for the attribute directly on the event.target ... then you skip all of the sizzle/selector business
+[16:54:16] <kinblas> that's how we got all our scrolling/mouse related performance back

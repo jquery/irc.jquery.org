@@ -1,0 +1,344 @@
+[03:38:02] <jzaefferer> arschmitz scott_gonzalez: did you know that you can disable inputs by disabling a parent fieldset? http://jsbin.com/votucogagu/1/edit
+[03:54:44] <scott_gonzalez> I knew that years ago, but had forgotten about it.
+[04:36:05] <arschmitz> jzaefferer: scott_gonzalez: do you think thats something we should be handling?
+[05:07:43] <scott_gonzalez> I suppose.
+[05:47:10] <arschmitz> scott_gonzalez: looks like we will need to do something like disabled = this.element.prop( "disabled") || !!this.element.parents( "fieldset[disabled]" ).length
+[05:48:33] <scott_gonzalez> We could always just wait for someone to file a bug ;-)
+[05:49:51] <arschmitz> scott_gonzalez: im fine either way
+[05:50:08] <arschmitz> scott_gonzalez: i filed a coule core bugs about the :disabled selector as a result of this though lol
+[05:50:08] <scott_gonzalez> Have you ever gotten a bug report for Mobile?
+[05:50:13] <scott_gonzalez> I don't recall ever getting on for UI.
+[05:50:17] <arschmitz> scott_gonzalez: not that i know of
+[05:50:17] <scott_gonzalez> I saw :-)
+[05:50:22] <scott_gonzalez> Yeah, so let's just wait.
+[05:50:27] <arschmitz> sounds good to me
+[05:50:56] <arschmitz> scott_gonzalez: if more people knew you could do that we probably would but i dont think most people know you can do that
+[05:51:21] <arschmitz> and for example core does not consider field sets an element which can even be disabled. 
+[06:00:17] <jquicommit> [13api.jqueryui.com] 15jzaefferer 04force-pushed 061-12 from 14ad2996b to 1495ac547: 02http://git.io/AXG9
+[06:00:18] <jquicommit> 13api.jqueryui.com/061-12 1430f006d 15Felix Nagel: Selectmenu: Add documentation for _renderButtonItem() extension point...
+[06:00:18] <jquicommit> 13api.jqueryui.com/061-12 145f857c7 15Jörn Zaefferer: Tooltip: Document extended content option
+[06:00:19] <jquicommit> 13api.jqueryui.com/061-12 1484fdfe7 15TJ VanToll: Menu: Document the new wrapper requirement...
+[06:19:13] <scott_gonzalez> jzaefferer: Look at HEAD AND HEAD^ on https://github.com/scottgonzalez/jquery-ui/commits/selectmenu-reset
+[06:19:30] <scott_gonzalez> Heh, did not mean to keep holding shift while typing "and"
+[06:22:04] <scott_gonzalez> If you'd prefer two branches that you can compare side by side, I can do that.
+[06:22:35] <scott_gonzalez> But https://github.com/scottgonzalez/jquery-ui/commit/7518a111c7cbd800d2250029d92e62c0b1f6111a#diff-42dc03f92c584fdcd9296bfee8fbe31c really shows the difference in usage.
+[06:23:22] <scott_gonzalez> I *almost* want to add mixins to the widget factory so that they're more obvious.
+[06:23:54] <scott_gonzalez> Like `$.widget( "ui.selectmenu", [ $.ui.formResetMixin ], { ... } );`
+[06:24:16] <scott_gonzalez> But I'm not sure if it's worth the extra parameter shuffling.
+[06:25:45] <jzaefferer> On the usage side I don't see a clear winner, both are okay
+[06:26:29] <jzaefferer> When considering performance, the mixin might win, since extensions add extra function calls for each overriden method
+[06:27:27] <arschmitz> jzaefferer: i guess it depends how much we want to worry about micro perf on reset
+[06:28:04] <scott_gonzalez> I'm happy to go with the mixin.
+[06:28:05] <jzaefferer> I'm talking about calls to _create and _destroy, since those get overriden and then call this.super()
+[06:28:12] <arschmitz> oh right
+[06:28:34] <jzaefferer> btw. _super doesn't take the method name (not anymore)
+[06:28:37] <arschmitz> like i said yesterday im fine with either the mixin or extension though
+[06:28:40] <scott_gonzalez> oops
+[06:29:09] <scott_gonzalez> Should I investigate how big the change is to $.widget() to support passing a mixin instead of using $.extend()?
+[06:29:24] <arschmitz> scott_gonzalez: we do that a lot on mobile actually
+[06:29:29] <arschmitz> so it could be worth it
+[06:29:54] <jzaefferer> I'd like to see more code using that pattern first
+[06:30:40] <arschmitz> jzaefferer: i can get links but we do it on mobile
+[06:30:45] <arschmitz> in a bunch of places
+[06:31:15] <arschmitz> https://github.com/jquery/jquery-mobile/blob/master/js/widgets/listview.js
+[06:31:30] <jzaefferer> We could also consider separating the prototype definition and $.widget call: var prototype = { _create: ..., ... }; return $.widget( "ui.name", $.extend( prototype, mixin ) ); 
+[06:31:45] <arschmitz> https://github.com/jquery/jquery-mobile/blob/master/js/widgets/forms/checkboxradio.js
+[06:32:27] <jzaefferer> I don't like how the $.extend and the mixin argument are very far apart
+[06:33:39] <scott_gonzalez> jzaefferer: Yeah, that's what I want to solve.
+[06:33:45] <scott_gonzalez> Though honestly, we could just change the order.
+[06:34:08] <arschmitz> true it makes no difference since there are no duplicate methods
+[06:34:08] <scott_gonzalez> $.widget( "ui.selectmenu", $.extend( mixin, { ... } ) )
+[06:34:56] <scott_gonzalez> I think we're going to end up with lots of shuffling if we add another parameter.
+[06:35:01] <scott_gonzalez> Because we end up with so many valid cases.
+[06:35:09] <scott_gonzalez> ( name, prototype )
+[06:35:12] <scott_gonzalez> ( name, mixin, prototype )
+[06:35:15] <scott_gonzalez> ( name, base, prototype )
+[06:35:28] <scott_gonzalez> ( name, base, mixin, prototype )
+[06:35:48] <arschmitz> iyeah that gets crazy fast
+[06:36:14] <jquicommit> [13api.jqueryui.com] 15jzaefferer created 06labels (+1 new commit): 02http://git.io/vJppq
+[06:36:14] <jquicommit> 13api.jqueryui.com/06labels 14febcc19 15Jörn Zaefferer: Entries: Document $.fn.labels...
+[06:36:30] <arschmitz> scott_gonzalez: and it would not address the use case of multiple mixins really
+[06:36:46] <arschmitz> i think i prefer extend and always use the mixin( s ) first
+[06:37:02] <jzaefferer> Doesn't $.extend change the first argument?
+[06:37:24] <arschmitz> jzaefferer: ok then it would be $.extend( {}, mixin, prototype );
+[06:37:54] <scott_gonzalez> Oh, yeah
+[06:37:58] <scott_gonzalez> bah
+[06:37:58] <jzaefferer> ah, too bad, $.widget.extend also does that
+[06:38:35] <arschmitz> could make prototype argument accept an array?
+[06:38:47] <arschmitz> and if its an array do the extend in the factory
+[06:38:54] <arschmitz> ?
+[06:39:44] <jquicommit> [13api.jqueryui.com] 15jzaefferer opened pull request #271: Entries: Document $.fn.labels (061-12...06labels) 02http://git.io/vJphh
+[06:56:18] <jzaefferer> scott_gonzalez arschmitz: Let's go with $.extend( {}, mixin, prototype ) for now
+[06:57:16] <jzaefferer> land the mixin with selectmenu in master, then update button branch to use that
+[06:58:43] <scott_gonzalez> ok
+[06:58:47] <arschmitz> jzaefferer: fine with me but we should think about this and maybe do something ( i kinda like the array of prototypes idea )
+[06:59:02] <scott_gonzalez> We'll need to determine what to call this.
+[07:00:11] <jzaefferer> call what, exactly?
+[07:01:39] <scott_gonzalez> The mixin.
+[07:02:02] <scott_gonzalez> In the POC, I just called it $.ui.formResetMixin.
+[07:02:41] <scott_gonzalez> Mobile uses $.mobile.behaviors.X
+[07:02:54] <scott_gonzalez> I'm not sure I like the name behaviors.
+[07:03:22] <jzaefferer> behavorios sounds like 2005 era event handling abstractions
+[07:03:35] <jzaefferer> formResetMixin seems fine
+[07:03:37] <scott_gonzalez> BTW, I think this is all we'd need to support an array for the prototype argument:
+[07:03:37] <arschmitz> scott_gonzalez: i never liked it 
+[07:03:38] <scott_gonzalez> if ( $.isArray( prototype ) ) {
+[07:03:42] <scott_gonzalez> prototype = $.extend.apply( null, [ {} ].concat( prototype ) );
+[07:03:45] <scott_gonzalez> }
+[07:03:51] <arschmitz> scott_gonzalez: yeah i assumed it would be simple
+[07:04:16] <scott_gonzalez> Let me test real quick.
+[07:04:55] <scott_gonzalez> yup
+[07:05:44] <scott_gonzalez> https://github.com/scottgonzalez/jquery-ui/commit/8d51824c579d88cc1763be6c4fe2dc519e0a39d5
+[07:06:02] <arschmitz> i like that
+[07:06:04] <jzaefferer> that looks good
+[07:06:17] <arschmitz> i think an array of prototypes makes sense
+[07:06:30] <scott_gonzalez> Ok, I'll file a ticket for it, write some tests, etc.
+[07:06:36] <arschmitz> awesome
+[07:06:41] <scott_gonzalez> So I think the only thing left is the name.
+[07:06:54] <arschmitz> $.ui.mixins.X?
+[07:06:56] <scott_gonzalez> Do we just append Mixin to it like I have and be done with it?
+[07:07:03] <scott_gonzalez> Or do we add a new namespace?
+[07:07:04] <arschmitz> that works too
+[07:07:11] <arschmitz> im fine with either
+[07:07:47] <scott_gonzalez> I think I like having Mixin in the name, since you'll probably do that for your variable anyway.
+[07:07:59] <scott_gonzalez> (assuming you're not using globals)
+[07:09:09] <jzaefferer> append Mixin
+[07:09:09] <arschmitz> works for me
+[07:09:16] <jzaefferer> scott_gonzalez: position() has <added> outside of the <signature> element, should I change that, too?
+[07:10:03] <scott_gonzalez> yeah
+[07:10:10] <scott_gonzalez> It works in both places, but it means different things.
+[07:10:37] <scott_gonzalez> Compare the black and orange headers of http://api.jqueryui.com/uniqueId/ and http://api.jqueryui.com/position/
+[07:11:21] <scott_gonzalez> I think in general we haven't been marking the version added for methods at the top level, just the signatures.
+[07:11:46] <scott_gonzalez> Looks like that's the model core has been following since the beginning.
+[07:11:48] <arschmitz> scott_gonzalez: both make sense i suppose because we can add and remove signitures
+[07:12:07] <arschmitz> and you may want to note the method as a whole
+[07:12:24] <arschmitz> but for simplicity probably just always do the signitures
+[07:12:25] <scott_gonzalez> I probably added support at the top level to support widgets
+[07:12:44] <jzaefferer> if there is a signature, it makes sense to attach the version to the signature
+[07:13:57] <jquicommit> [13api.jqueryui.com] 15jzaefferer pushed 1 new commit to 06labels: 02http://git.io/vJh3Y
+[07:13:58] <jquicommit> 13api.jqueryui.com/06labels 141845100 15Jörn Zaefferer: [fix]: Put signature for position() and labels() in the right place
+[07:14:41] <arschmitz> jzaefferer: scott_gonzalez: looking at that position page
+[07:15:00] <arschmitz> the code highlights overlap if they are above / below each other
+[07:15:42] <scott_gonzalez> Blame jzaefferer
+[07:15:47] <arschmitz> lol
+[07:15:50] <jzaefferer> I don't it
+[07:15:54] <jzaefferer> *don't see it
+[07:16:05] <scott_gonzalez> He's talking about <code> inside the description.
+[07:16:14] <arschmitz> yup ^^
+[07:16:21] <jzaefferer> http://bassistance.de/i/2683a2.png
+[07:16:28] <scott_gonzalez> I'm pretty sure we caused that when we were changing spacing all over the place.
+[07:16:37] <arschmitz> jzaefferer: firefox?
+[07:16:40] <scott_gonzalez> oh, weird
+[07:17:14] <jzaefferer> that's chrome, firefox looks much worse
+[07:17:16] <scott_gonzalez> Maybe drop the padding to `0 5px`
+[07:17:23] <arschmitz> oh weird im on chrome too
+[07:17:26] <jzaefferer> why would that be?
+[07:17:38] <scott_gonzalez> Not sure. I get the bad render in Chrome.
+[07:17:50] <arschmitz> im up to date on everything
+[07:18:05] <scott_gonzalez> And amazingly Chrome is actually up-to-date for me.
+[07:18:14] <arschmitz> i get it in firefox too
+[07:18:25] <scott_gonzalez> I wonder how long Chrome has been properly updating for me.
+[07:18:36] <arschmitz> lol
+[07:18:44] <arschmitz> odly i cant get safari to even open right now
+[07:19:31] <scott_gonzalez> jzaefferer: Were you planning on squashing that [fix] commit?
+[07:19:45] <scott_gonzalez> Because if you are, you probably shouldn't have put position in there.
+[07:19:54] <jzaefferer> yeah, I'll split that up
+[07:19:56] <arschmitz> ie11 shows the overlap too
+[07:20:08] <scott_gonzalez> Changes look good though.
+[07:20:20] <jzaefferer> Looks like Firefox adds much more whitespace around the text inside <code>, then adds the padding on top of that
+[07:20:29] <arschmitz> and safari does too
+[07:20:40] <arschmitz> jzaefferer: so i have no idea how you dont see it i see it in every browser
+[07:20:45] <scott_gonzalez> magical-inner-padding: 5px;
+[07:21:09] <arschmitz> does not change with zoom level either
+[07:21:12] <scott_gonzalez> netherlands-between-content-and-padding-that-screws-up-cross-browser-styling: auto;
+[07:21:29] <arschmitz> not even cross browser same browser same platform!
+[07:22:01] <arschmitz> jzaefferer: are you on Yosemite and what chrome version?
+[07:23:11] <jzaefferer> OSX 10.9.3 Chrome 42
+[07:23:54] <arschmitz> im 10.10.3 Chrome 42
+[07:24:08] <arschmitz> scott_gonzalez: are you still 10.7?
+[07:26:10] <scott_gonzalez> yup
+[07:26:31] <jzaefferer> btw. I increased the padding in the first place because there was none and it looked pretty bad
+[07:26:49] <arschmitz> I have absolutely no explanation as to how jzaefferer could see this different lol
+[07:27:05] <jquicommit> [13api.jqueryui.com] 15jzaefferer pushed 2 new commits to 061-12: 02http://git.io/vJhCr
+[07:27:05] <jquicommit> 13api.jqueryui.com/061-12 14d07a2f4 15Jörn Zaefferer: Entries: Document $.fn.labels...
+[07:27:06] <jquicommit> 13api.jqueryui.com/061-12 14b5d9008 15Jörn Zaefferer: Position: Move <added> info onto the signature...
+[07:27:42] <jquicommit> [13api.jqueryui.com] 15jzaefferer closed pull request #271: Entries: Document $.fn.labels (061-12...06labels) 02http://git.io/vJphh
+[07:28:07] <jquicommit> [13api.jqueryui.com] 15jzaefferer closed issue #270: Document $.fn.labels 02http://git.io/vJHms
+[07:28:34] <jzaefferer> I run Ghostery in Chrome, which might block typekit, which ends up loading a different font?
+[07:28:48] <arschmitz> oh that could be
+[07:28:51] <jzaefferer> I have Consolas locally, I guess Chrome ends up using that instead of source-code-pro?
+[07:29:07] <jzaefferer> its specified as the fallback font
+[07:29:43] <jzaefferer> yeah, allowing typekit "fixes" it, now it looks bad in Chrome, too
+[07:30:11] <jzaefferer> well, don't need the top/bottom padding for source-code-pro
+[07:30:41] <arschmitz> jzaefferer: yeah i can see the font is different from your screen shot
+[07:34:33] <jzaefferer> I'm gonna revert my padding change
+[07:34:39] <jzaefferer> back to `0 3px`
+[07:37:54] <arschmitz> jzaefferer: i think that looks better
+[07:41:56] <jquicommit> [13api.jqueryui.com] 15jzaefferer 04deleted 06labels at 141845100: 02http://git.io/vJhEE
+[08:11:10] <jzaefferer> scott_gonzalez arschmitz: Is there no ticket on Trac for .labels()?
+[08:11:44] <scott_gonzalez> There is.
+[08:11:53] <scott_gonzalez> http://bugs.jqueryui.com/ticket/12475
+[08:12:33] <jzaefferer> ah, thanks. No reference in the commit...
+[08:26:35] <jquicommit> [13jqueryui.com] 15jzaefferer pushed 1 new commit to 061-12-upgrade-guide: 02http://git.io/vJhdL
+[08:26:36] <jquicommit> 13jqueryui.com/061-12-upgrade-guide 141c231a7 15Jörn Zaefferer: [fix]: Document .labels()
+[10:34:57] <jqmobilecommit> [13jquery-mobile] 15arschmitz pushed 1 new commit to 06master: 02http://git.io/vJjNd
+[10:34:57] <jqmobilecommit> 13jquery-mobile/06master 14fa132b0 15Kakul Chandra: Demos: Fixed last row styling for lower resolutions...
+[10:42:14] <doesallmagic2> Project jQuery UI - git core build #883: STILL UNSTABLE in 5 min 57 sec: http://jenkins.jquery.com/job/jQuery%20UI%20-%20git%20core/883/
+[11:09:33] <travis-ci> jquery/jquery-mobile#2582 (master - fa132b0 : Kakul Chandra): The build is still failing.
+[11:09:33] <travis-ci> Change view : https://github.com/jquery/jquery-mobile/compare/7069e219afd2...fa132b0319ee
+[11:09:33] <travis-ci> Build details : http://travis-ci.org/jquery/jquery-mobile/builds/61653934
+[12:11:08] <arschmitz> gabriel_schulhof: a lot to discuss last few meeting keep not making it through the agenda
+[12:11:30] <arschmitz> i had a bunch more things lol
+[12:15:00] <gabriel_schulhof> gabriel_schulhof: I'm also feeling pretty snowed in ...
+[12:28:45] <arschmitz> gabriel_schulhof: well lets see if we can get some of your prs landed
+[12:28:51] <arschmitz> to get them off your plate
+[12:28:59] <arschmitz> prioritize a list for me of what you have
+[12:29:07] <arschmitz> and ill make those my top priority
+[12:29:46] <arschmitz> all my big things execpt button have landed now so i can help you try to clean up what you have
+[12:30:06] <arschmitz> and thats on hold waiting on other stuff
+[12:47:23] <gabriel_schulhof> OK. I think I need to rebase textinput again, because it once more fails to merge.
+[13:48:25] <gabriel_schulhof> arschmitz: https://github.com/jquery/jquery-mobile/pull/8059 should now be ready to go.
+[13:48:40] <arschmitz> gabriel_schulhof: awesome ill check it oout
+[14:08:23] <arschmitz> gabriel_schulhof: still here?
+[14:26:54] <gabriel_schulhof> arschmitz: What's up?
+[14:27:28] <gabriel_schulhof> arschmitz: I fixed up the PR. Just running one final set of tests, and then it's coming in for a landing.
+[14:30:41] <arschmitz> that was all
+[14:31:21] <arschmitz> gabriel_schulhof: so whats your next pr you would like to land?
+[14:34:38] <gabriel_schulhof> Looking ...
+[14:36:01] <gabriel_schulhof> Dang - I was gonna say popup, but it too needs a rebase first ...
+[14:37:59] <gabriel_schulhof> arschmitz: I have one against master ... https://github.com/jquery/jquery-mobile/pull/7902/ the hideOnFocus one ...
+[14:38:07] <gabriel_schulhof> arschmitz: I added that backcompat you asked for.
+[14:38:52] <arschmitz> ok ill review it right now
+[14:38:57] <arschmitz> but i have one thing already
+[14:39:02] <arschmitz> add the file to jscs:good
+[14:39:17] <arschmitz> not the test files though that would annoy cgack lol
+[14:39:31] <gabriel_schulhof> Wait ... is jscs on master too?
+[14:39:38] <arschmitz> oh shoot no
+[14:39:41] <arschmitz> so never mind
+[14:39:54] <gabriel_schulhof> OK.
+[14:48:03] <gabriel_schulhof> arschmitz: textinput is about to land.
+[14:48:11] <arschmitz> YAY!
+[14:48:30] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 061.5-dev: 02http://git.io/vUvH4
+[14:48:30] <jqmobilecommit> 13jquery-mobile/061.5-dev 14dd4467f 15Gabriel Schulhof: Textinput: Implement classes option...
+[14:48:33] <gabriel_schulhof> Swoosh!
+[14:49:12] <arschmitz> gabriel_schulhof: just gave the tumbs up to your other one
+[14:49:19] <gabriel_schulhof> Oh, cool!
+[14:49:47] <arschmitz> anything else?
+[14:50:12] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof closed pull request #8059: Textinput: Implement classes option (061.5-dev...067730-textinput-classes-option) 02http://git.io/veVez
+[14:50:43] <gabriel_schulhof> arschmitz: Another one for master: https://github.com/jquery/jquery-mobile/pull/7930 - separate pagecontainer and transitions
+[14:51:53] <arschmitz> gabriel_schulhof: that one im a little confused
+[14:52:14] <arschmitz> both the extension and the main widget have the transition performTranstion
+[14:52:39] <arschmitz> but neither call super
+[14:52:45] <arschmitz> and they are different
+[14:53:04] <arschmitz> and they are both new
+[14:54:31] <arschmitz> gabriel_schulhof: care to explain when you have a sec :-)
+[14:54:38] <gabriel_schulhof> arschmitz: Right: The base class has a very basic instant transition. The extension overrides it completely and does not need any part of it, so it never chains up.
+[14:54:48] <arschmitz> ah ok
+[14:54:53] <arschmitz> i remember talking about this
+[14:55:19] <arschmitz> it does not actually transition right just hides old and shows new
+[14:56:08] <arschmitz> gabriel_schulhof: this does not really do what it says though
+[14:56:33] <arschmitz> the transitions _cssTransition etc are all still in pageContainer
+[14:57:53] <arschmitz> shouldnt the only thing in pageContainer be like transtion: function( from, to ) { from.hide(); to.show() } );
+[14:58:15] <gabriel_schulhof> That's exactly what it does.
+[14:58:29] <gabriel_schulhof> Removing ui-page-active hides the page, and adding it to the other one shows the other page.
+[14:58:52] <gabriel_schulhof> The promise is just an abstraction so that it can be both sync and async.
+[14:59:00] <arschmitz> but you still have all the cssTransition methods in pagecontainer
+[14:59:40] <gabriel_schulhof> Well, it's a transition, and it involves CSS - in that a class is transfered from one element to another.
+[14:59:46] <gabriel_schulhof> So, the name still applies.
+[15:00:06] <gabriel_schulhof> It's just not the hardware accelerated, animated, kind of transition.
+[15:00:55] <gabriel_schulhof> However, if you plug in the whole eye candy infrastructure, you still get CSS transitions, but now with more eye candy.
+[15:01:06] <arschmitz> gabriel_schulhof: im not really sure i buy it lol at least as far as naming
+[15:01:45] <gabriel_schulhof> Basically, I wanted to get rid of the dependency. I didn't want to touch any code I didn't have to touch. That's why I left the names as they were.
+[15:01:46] <arschmitz> i think the method names in this widget are terrible to begin with though lol
+[15:02:06] <gabriel_schulhof> arschmitz: Well, we'll have the whole 1.6 development cycle to worry about that.
+[15:02:20] <arschmitz> yeah ill just close my eyes and look the other way for now lol
+[15:02:35] <arschmitz> i do that far to often with mobile code :-/
+[15:03:02] <arschmitz> specificly any time i open the anything vaguely related to nav
+[15:03:47] <gabriel_schulhof> "What's in a name? That which we call _cssTransition by any other name would do the same thing."
+[15:04:09] <arschmitz> clarity
+[15:04:19] <arschmitz> correctness
+[15:04:42] <arschmitz> i think the logic seperation in these widgets is really weird too
+[15:04:48] <gabriel_schulhof> I can still change the name.
+[15:04:48] <arschmitz> these methods*
+[15:04:54] <arschmitz> gabriel_schulhof: nah leave for now
+[15:05:11] <gabriel_schulhof> Yeah, I think Bender just chunkified the original monolithic code.
+[15:05:13] <arschmitz> and thats part of the name problem is
+[15:05:30] <arschmitz> its not really clear what all these different transition methods even do
+[15:05:39] <arschmitz> and there are a pile of transition methods
+[15:06:12] <arschmitz> iv been itching to jump into this and start cleaning up
+[15:06:50] <arschmitz> i also hate that the pagecontainer does not really use instance state vars
+[15:07:00] <arschmitz> it passes every thing to every method
+[15:07:19] <arschmitz> the theory behind which i was told was to make it unit testable yet he wrote no tests lol
+[15:07:24] <arschmitz> gabriel_schulhof: ah well
+[15:09:07] <gabriel_schulhof> Yeah ... we have since concluded that automated functional testing was better anyway, because it's less dependent upon the structure of the code, while enforcing the intention of the features.
+[15:09:37] <gabriel_schulhof> Functional testing is more API testing than anything. Even looser than that, often.
+[15:10:19] <gabriel_schulhof> ... and that's exactly what you want. "When I click here assert that it does that." How it does it doesn't matter, as long as it keeps doing it across many commits.
+[15:11:11] <gabriel_schulhof> arschmitz: Another thing in pagecontainer is that we have tons of option arguments which sometimes get copied, sometimes get passed by reference.
+[15:11:57] <gabriel_schulhof> Anyway, I'll stop myself before I decide at 01:11 AM to start refactoring pagecontainer :)
+[15:12:01] <arschmitz> yup its a mess
+[15:12:54] <gabriel_schulhof> I do know one thing: This interdependence on transitions was, at some point, causing a circular dependency when you tried to load pagecontainer via $.testHelper.asyncLoad()
+[15:13:22] <arschmitz> that is now fixed isnt it though?
+[15:13:28] <gabriel_schulhof> I believe so.
+[15:13:53] <travis-ci> jquery/jquery-mobile#2584 (1.5-dev - dd4467f : Gabriel Schulhof): The build has errored.
+[15:13:53] <travis-ci> Change view : https://github.com/jquery/jquery-mobile/compare/5c9266b80b4c...dd4467ffd11c
+[15:13:53] <travis-ci> Build details : http://travis-ci.org/jquery/jquery-mobile/builds/61687943
+[15:13:53] <arschmitz> i plan on completely removing navigation.sj
+[15:14:02] <arschmitz> and modularizing it 
+[15:14:09] <arschmitz> i plan to break down core more too
+[15:14:23] <arschmitz> or what used to be core
+[15:15:41] <gabriel_schulhof> arschmitz: Oh yeah, navigation.js could totally use it.
+[15:21:32] <arschmitz> gabriel_schulhof: oh i just had an idea for autoinit if your still here
+[15:24:05] <gabriel_schulhof> arschmitz: I am.
+[15:24:20] <arschmitz> oh so you talking about the declaritive markup stuff got me thinking
+[15:24:30] <arschmitz> gabriel_schulhof: right now that is restricted to widgets
+[15:24:43] <arschmitz> the logic is internal for the option parsing and stuff
+[15:25:16] <arschmitz> but i could pull it out and add functions like enhancer.parseOptions(); 
+[15:25:45] <arschmitz> and it will return an options object like would be passed to the widget factory
+[15:26:04] <gabriel_schulhof> arschmitz: I have an inkling that this is scope-creeping into another framework :) 
+[15:26:17] <arschmitz> and make the finding with the initGenerator callable too
+[15:26:42] <arschmitz> gabriel_schulhof: its just taking two functions we have already and making them public
+[15:27:25] <gabriel_schulhof> I know, I know. I'm not trying to discourage you. I just remember seeing this somewhere before. I don't remember - there are so many frameworks.
+[15:27:37] <gabriel_schulhof> I think, like, Angular, or something.
+[15:27:49] <arschmitz> gabriel_schulhof: probably
+[15:28:02] <arschmitz> i mean we are not the only framework that does declaritive stuff
+[15:28:08] <arschmitz> far from
+[15:28:32] <gabriel_schulhof> No, definitely not. In fact, I think we've done a pretty good job not trying to cram too much into the declarative side.
+[15:28:53] <arschmitz> yeah we limit its scope
+[15:28:59] <arschmitz> and dont make it mutable
+[15:29:05] <gabriel_schulhof> Exactly.
+[15:29:17] <arschmitz> the second one being the big thing
+[15:29:57] <arschmitz> gabriel_schulhof: i think ill do a sample and if it does not get to messy do a pr
+[15:30:16] <gabriel_schulhof> arschmitz: OK.
+[15:41:42] <arschmitz> gabriel_schulhof: shoot i just noticed a couple things on textinput
+[15:41:50] <arschmitz> the search input icon is messed up
+[15:45:13] <gabriel_schulhof> Looking ...
+[15:46:18] <gabriel_schulhof> Yeah ... it seems truncated on all sides.
+[15:47:09] <gabriel_schulhof> The classes are good, I think: ui-icon ui-alt-icon ui-icon-search ...
+[15:48:28] <gabriel_schulhof> Oh, weird ... it's forced to 14px ✕ 14px by the ui-textinput-search-icon style.
+[15:50:06] <gabriel_schulhof> OK ... the commit that sets the size to 14px is from 2015-07-01 ... so, like many moons ago ...
+[15:51:23] <arschmitz> gabriel_schulhof: it should not have a background
+[15:51:26] <arschmitz> look at master
+[15:51:26] <gabriel_schulhof> arschmitz: I'd ask jasperdegroot ...
+[15:51:34] <arschmitz> gabriel_schulhof: http://view.jquerymobile.com/master/demos/textinput/#ui-page-top
+[15:53:35] <gabriel_schulhof> OK, so only the disc is a problem.
+[15:54:33] <arschmitz> gabriel_schulhof: yup
+[15:54:43] <arschmitz> its getting a background color and it should not
+[15:55:06] <arschmitz> gabriel_schulhof: its from the .ui-icon class which does not exist on master
+[15:55:46] <gabriel_schulhof> Right.
+[15:56:10] <arschmitz> we probably need to override it there
+[15:56:27] <gabriel_schulhof> Looks like, but how do we do that? : initial?
+[15:57:02] <gabriel_schulhof> arschmitz: I think we also need to override the border radius.
+[15:57:17] <gabriel_schulhof> arschmitz: On master, it's 0.
+[15:57:28] <gabriel_schulhof> Like, I mean, it's not set anywhere.
+[15:57:42] <gabriel_schulhof> OK. I'll add these definitions to the class key.
+[15:57:57] <gabriel_schulhof> ... though I'm not sure about using :initial.
+[15:58:17] <gabriel_schulhof> We don't use it at all in css/structure.
+[15:58:30] <gabriel_schulhof> Maybe a better place to fix this would be theme.
+[15:59:03] <gabriel_schulhof> Yeah, actually, .ui-icon is defined in theme.
+[15:59:27] <gabriel_schulhof> ... but I guess it's up to structure to turn off things turned on in theme.
+[16:10:14] <arschmitz> gabriel_schulhof: you cant use initial
+[16:10:18] <arschmitz> its not supported in ie8
+[16:10:58] <arschmitz> actually any ie
+[22:24:23] <arschmitz> gabriel_schulhof: you broke the inputs on slider in the re-write of texinput
+[23:19:57] <doesallmagic2> Project jQuery UI - git core build #884: STILL UNSTABLE in 18 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%20git%20core/884/
+[23:50:20] <doesallmagic2> Project jQuery UI - 1.10.x core build #26: STILL UNSTABLE in 30 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.10.x%20core/26/

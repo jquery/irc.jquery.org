@@ -1,0 +1,356 @@
+[10:58:59] <toddparker> Hey everyone
+[10:59:14] <toddparker> The jQuery Mobile meeting will start in a minute
+[10:59:20] <scottjehl> hi
+[11:00:01] <toddparker> This is for team member only, so please feel free to listen but don't jump in with support requests. #jquery-mobile is the right place for that
+[11:00:08] <toddparker> Agenda docs here:
+[11:00:10] <toddparker> https://docs.google.com/document/d/18FwdwDV3-z6ecgSE2sKnZissug7qUGxzF1Al9D5TYqc/edit
+[11:00:32] <toddparker> Roll call, who do we have here
+[11:00:40] <kinblas> here
+[11:00:42] <gseguin> her
+[11:00:43] <gseguin> e
+[11:00:50] <eddiemonge> <- me
+[11:01:01] <toddparker> sounds like the gang's all here
+[11:01:26] <toddparker> so first off beta 1 went out on Monday and the response has been overwhelmingly positive
+[11:01:40] <toddparker> so thanks to everyone here for your hard work
+[11:01:58] <scottjehl> Great job, everyone. Big improvements all around, I think :)
+[11:02:36] <toddparker> You bet!
+[11:03:04] <toddparker> So there is always some fallout from a release so the first thing I wanted to do is identify any issues or regressions that popped out of Beta 1 so we can track 'em
+[11:03:22] <toddparker> looking for issue #'s and links
+[11:03:41] <kinblas> We're getting a lot of the duplicate click type issues being filed
+[11:04:03] <scottjehl> yeah. removing that vclick+click binding fixed that
+[11:04:07] <scottjehl> but it's post-beta
+[11:04:24] <kinblas> when is beta 2?
+[11:04:26] <toddparker> so that is probably the biggest thing we need to discuss
+[11:04:39] <kinblas> do we need a Beta 1.1?
+[11:05:00] <toddparker> beta 2 should happen in 4 weeks max
+[11:05:07] <toddparker> so that is a question
+[11:05:37] <kinblas> we need to get that fix out asap to stop the issues
+[11:05:40] <toddparker> kin/scott - can you summarize the vclick issue right now so everyone is up to speed?
+[11:06:01] <scottjehl> if backbtn is disabled, it only shows up in dialog close buttons
+[11:06:27] <scottjehl> Firefox desktop, and Safari desktop, go back 2 steps when clicking the generated "fake" back buttons
+[11:06:39] <kinblas> in a nutshell
+[11:06:42] <scottjehl> so, they're disabled by default now, but dialogs still have them
+[11:07:17] <kinblas> we can't listen to both vclick and click
+[11:07:18] <toddparker> which makes sense to add them to dialogs, right?
+[11:07:22] <toddparker> issue # ?
+[11:07:57] <scottjehl> right. the following commit closes the issue:
+[11:08:17] <scottjehl> https://github.com/jquery/jquery-mobile/commit/c227535bd7c5d7e60b535eaba178cf6aa5af7389
+[11:08:50] <scottjehl> 2 issues here. One is that Kin identified a touch target bug in Android 2.1
+[11:09:06] <scottjehl> I'm not sure if that one's avoidable on our end
+[11:09:30] <scottjehl> stranger issue is when that occurs, it often makes a blank page. That part I don't understand.
+[11:10:07] <toddparker> kin - any theories on the blank page?
+[11:10:09] <scottjehl> it'd be one thing if 2.1 sometimes went to the wrong page, due to their own touch target bugs
+[11:10:30] <scottjehl> but going to a blank page suggests something is wrong with the path on the incorrect target... right?
+[11:10:38] <kinblas> Not sure about the blank page thing... I'd have to see it
+[11:10:50] <kinblas> the bottom line is that *ALL* webkit variants
+[11:11:07] <kinblas> have situations where the touch target sometimes doesn't match the mouse/click target
+[11:11:35] <kinblas> that was the main reason we backed off of performing the main action on vclick
+[11:11:40] <kinblas> for alpha 4.1
+[11:11:59] <kinblas> doing so really did reduce the number of times this situation rears its head
+[11:13:23] <kinblas> So scott, the main reason for the move was something to do with the location bar
+[11:13:42] <kinblas> do you know what the exact event is that you need to prevent that causes it to drop?
+[11:13:47] <scottjehl> well, is there any way to bind to vclick ONLY to preventDefault, but then return? And let real click handle the transition?
+[11:13:59] <scottjehl> touchend catches it early enough
+[11:14:11] <scottjehl> if you prevent default on touchend, no address bar
+[11:14:26] <kinblas> ok so it's the touchend event
+[11:14:33] <scottjehl> sure, any really
+[11:14:41] <scottjehl> but touchstart is too dangerous
+[11:14:53] <scottjehl> prevents scrolling, etc :)
+[11:15:05] <kinblas> prevents scrolling only on Android
+[11:15:17] <kinblas> prevents form elements and mouse events on all platforms
+[11:15:17] <scottjehl> you sure?
+[11:15:26] <scottjehl> we'll need to check on that
+[11:15:34] <kinblas> yeah all platforms prevent scrollin on touchmove
+[11:15:41] <toddparker> kin did a lot of event testing
+[11:15:43] <kinblas> android is the only one that requires touchstart to be preventdefault
+[11:15:58] <kinblas> to kill a scroll
+[11:16:16] <scottjehl> sure. we're talking about different things
+[11:16:35] <kinblas> Well what I'm wondering is if we can just listen for touchend
+[11:16:38] <scottjehl> I was just saying if we preventDefault on any touch event (start, move, end) it'll prevent address bar
+[11:16:42] <scottjehl> yep
+[11:16:50] <kinblas> and perform the preventDefault there, versus moving the action execution to vclick (aka touchend)
+[11:17:20] <scottjehl> yep. only drawback is we'll go back to the delay in page requests we had before
+[11:17:22] <kinblas> so I have a test case you can use to see what the impact of a preventDefault is
+[11:17:31] <scottjehl> but I understand that's probably necessary
+[11:17:45] <kinblas> scottjehl: yeah, but that's the only way to avoid all these problems
+[11:17:52] <scottjehl> right
+[11:18:10] <kinblas> for 4.1 we decided to give feedback right away
+[11:18:23] <kinblas> but live with the delayed action to guaranteed accuracy
+[11:18:38] <scottjehl> okay, so I started work on this before. Basically we just need the logic for "is this going to be used for ajax?" to be abstracted out
+[11:19:00] <kinblas> ??
+[11:19:41] <toddparker> should we have a quick skype call after this to hash this out?
+[11:19:43] <scottjehl> then we can add it to our existing vclick handler and preventDefault there. But we also need to use it in the click handler
+[11:19:51] <toddparker> seems like this is tough to do here
+[11:20:42] <scottjehl> also, I was finding that if I called preventDefault in the vclick handler that we use for setting active state, it wasn't doing anything for address bar hiding.
+[11:20:51] <scottjehl> toddparker: yeah maybe that'd be best
+[11:20:56] <scottjehl> Kin?
+[11:21:02] <kinblas> sure
+[11:21:05] <kinblas> skype
+[11:21:13] <toddparker> ok, can y'all try to paste in a bunch of related issues into the agenda on this?
+[11:21:30] <toddparker> feel like there are a bunch of duplciates because this manifests itself in a few ways
+[11:21:41] <kinblas> yeah
+[11:21:53] <toddparker> https://docs.google.com/document/d/18FwdwDV3-z6ecgSE2sKnZissug7qUGxzF1Al9D5TYqc/edit
+[11:21:57] <scottjehl> ok
+[11:22:01] <scottjehl> I closed a couple already
+[11:22:10] <kinblas> lets list the closed ones too
+[11:22:16] <toddparker> so other than this whole shebang, have you all heard any other major issues in beta 1?
+[11:22:23] <kinblas> BB5
+[11:22:26] <toddparker> kinblas -ggood idea
+[11:22:27] <kinblas> adambiggs
+[11:22:30] <scottjehl> but I guess we need to move back to click on that
+[11:22:38] <scottjehl> ok yeah bb5
+[11:22:55] <toddparker> issue #?
+[11:23:01] * kinblas tries to dig up issue number
+[11:23:19] <kinblas> 1907 and 1908
+[11:23:21] <toddparker> #1907?
+[11:23:22] <toddparker> https://github.com/jquery/jquery-mobile/issues/1907
+[11:24:26] <kinblas> I wish I had a BB5
+[11:24:41] <gseguin> I have one here I think
+[11:24:45] <gseguin> let me check
+[11:24:54] <toddparker> kinblas - did you get the emulator working?
+[11:25:12] <toddparker> since BB5 devices don't have touchscreens, it's not too bad to test on
+[11:25:20] <toddparker> except when it doesn't match, like here
+[11:25:25] <kinblas> @toddparker: the emulator works but the MDS emulator I need with it to allow for internet access doesn't
+[11:25:25] <scottjehl> :)
+[11:25:50] <kinblas> right this is device only
+[11:25:56] <kinblas> works fine in emulator
+[11:26:04] <toddparker> see this comment at the end of 1908
+[11:26:04] <toddparker> Figured out, jQuery.support.cors value depends xhr and it depends on browser. so that's true, we should add it in js.
+[11:26:20] <gseguin> toddparker: I have a BB labelled BB5 and it has touchscreen, is it mislabelled?
+[11:26:36] <toddparker> https://github.com/jquery/jquery-mobile/issues/1908
+[11:26:46] <toddparker> ah, no
+[11:26:53] <toddparker> does it have a clicky touchscreen?
+[11:26:59] <gseguin> yes
+[11:27:06] <toddparker> that's 5
+[11:27:08] <toddparker> we have that too
+[11:27:13] <gseguin> ok
+[11:27:39] <kinblas> so is BB5 9000 a specific device?
+[11:28:24] <toddparker> yep
+[11:28:34] <toddparker> they all have number and names
+[11:28:39] <toddparker> so are these issues tied up with the fact that we kick bb5 out of ajax?
+[11:28:41] <kinblas> oh ok its the bold
+[11:28:49] <scottjehl> this sounds like something to document for phonegap-specific use cases?
+[11:29:27] <kinblas> 1908 might be
+[11:29:36] <kinblas> but I'm not sure if 1907 is phonegap specific
+[11:29:48] <scottjehl> right
+[11:29:52] <toddparker> 1908 seems like it could just be documented or added if it doesn't cause issues
+[11:29:57] <scottjehl> 1908 sounds it
+[11:29:58] <scottjehl> yep
+[11:29:58] <kinblas> he posted a jsbin so I'm assuming that means its just browser related
+[11:29:58] <toddparker> tiny bit of code
+[11:30:28] <scottjehl> Kin, should that setting always be used in PhoneGap apps? Or just in BB5 PhoneGap?
+[11:30:29] <toddparker> where is the jsbin?
+[11:30:39] <kinblas> I don't even know what that option does
+[11:30:51] <scottjehl> it's just to always allow cross-domain even if the status is 0 right?
+[11:31:12] <scottjehl> ...I feel like we ran into this one a while back maybe
+[11:31:26] <gseguin> for #1907: http://jsbin.com/ukewu3/83
+[11:32:32] <scottjehl> so, do local pages work when ajax is disabled? That's question 1
+[11:32:37] <toddparker> ah, thanks gseguin
+[11:32:49] <gseguin> np
+[11:33:06] <toddparker> they seemed to...remember we tested that on opera mini and bb5 about a week ago?
+[11:33:08] <scottjehl> looks like kin tried that and found it works
+[11:33:14] <toddparker> lemme check
+[11:33:17] <scottjehl> as it should
+[11:33:33] <kinblas> file:// loading and http/https loading all works
+[11:33:40] <kinblas> when you cross domains via phonegap it all works
+[11:33:49] <kinblas> and I've never set that .cors option
+[11:34:05] <scottjehl> sorry, referring to the local pages app
+[11:34:56] <kinblas> hmmm good question
+[11:35:05] <toddparker> that .cors option goes back to this ticket: http://bugs.jquery.com/ticket/8122
+[11:35:13] <kinblas> scottjehl: you moved that ajaxenabled check up top?
+[11:35:44] <scottjehl> where?
+[11:35:55] <kinblas> in click?
+[11:36:10] <kinblas> I thought I saw that for BB5
+[11:36:22] <kinblas> when you refactored the settimeout code for resetting that active class
+[11:36:33] <scottjehl> oh yes. otherwise the regexp was crashing it
+[11:36:43] <kinblas> we need to fix the regexp thing
+[11:36:58] <scottjehl> we can't return early if we know ajax is disabled?
+[11:37:23] <kinblas> we should only return if the page being referenced
+[11:37:28] <kinblas> is not an internal one
+[11:37:43] <scottjehl> for that we need to run the regexp
+[11:37:44] <kinblas> otherwise the default browser handling will try to scroll the page to the item with that id
+[11:38:19] <toddparker> btw - i just tested the multi-page boilerplate in opera mini (ajax disabled) and it works fine. I can nav around, back button works, etc.
+[11:38:36] <scottjehl> okay. so the issue was after running the regexp just one time, bb5 would throw an error that the page was too large to load
+[11:39:05] <scottjehl> returning early worked around that, but it sounds like we'll need to reapproach it again
+[11:39:40] <kinblas> yeah probably should find out whhy its doing that
+[11:39:45] <kinblas> this reminds me
+[11:39:49] <kinblas> of a bug I noticed
+[11:40:24] <kinblas> hmmm I'll need to walk though it in my head to make sure it is a bug
+[11:40:39] <kinblas> but it has to do with the fact that we reset the base tag
+[11:40:59] <scottjehl> ok
+[11:41:07] <kinblas> if we return to let the browser handle
+[11:41:11] <kinblas> page loading
+[11:41:22] <kinblas> relative links are resolved relative to the *CURRENT* base tag
+[11:41:39] <scottjehl> I have a hunch the blank pages in 2.1 are not getting the proper base tag too
+[11:41:41] <scottjehl> maybe related
+[11:41:55] <kinblas> so it seems that we need to make sure we set the base tag to the current page path
+[11:42:03] <kinblas> whenever we show pages
+[11:42:16] <kinblas> that way it interprets relative links properly
+[11:42:21] <scottjehl> right. I thought we already do that
+[11:42:35] <kinblas> well we do that because we are manually resolving
+[11:42:37] <scottjehl> otherwise, images and such wouldn't load
+[11:42:45] <kinblas> so it turns out
+[11:42:49] <kinblas> that the image data is cached
+[11:42:57] <scottjehl> we only manually resolve in ff3.6 and others tho
+[11:42:58] <kinblas> if you ask the image for its path
+[11:43:02] <kinblas> afterwards
+[11:43:11] <kinblas> it will give you a path resolved against the current base
+[11:43:23] <toddparker> i just tested the multi-page boilerplate template on our 9930 Curve (BB5) and it is broken. Clicking on a link does nothing.
+[11:43:35] <toddparker> So opera mini works but not BB5
+[11:43:50] <toddparker> just on local pages
+[11:44:03] <toddparker> external pages are fine in bb5
+[11:44:18] <scottjehl> don't use multipages! :)
+[11:44:32] <scottjehl> ...or nested lists
+[11:46:23] <toddparker> ok, i feel like this is an issue, but not that important
+[11:46:40] <toddparker> if we can get multi-page to be navigable in BB5, cool
+[11:46:49] <kinblas> I guess the question is if this is a regression.
+[11:46:59] <toddparker> but history will still be broken so this is less-than-ideal set up for this platform
+[11:47:28] <toddparker> if you're building an spp for BB5 like he is, single page isn't a great solution b/c the back button is broken
+[11:47:32] <toddparker> even if we fix this
+[11:47:45] <toddparker> i'm guessing it is a regression
+[11:47:55] <toddparker> that
+[11:48:10] <toddparker> is why getting it to work is probably a good thing
+[11:48:22] <toddparker> i just don't see this as a priority compared to other things on our plate
+[11:49:59] <kinblas> I have  a test case with the nav utils (regexp included) that is separated out
+[11:50:12] <kinblas> it would be good if we could load that and see if that is actually the problem
+[11:50:36] <kinblas> that way we can rule out other jqm things
+[11:50:38] <toddparker> i just moved down the priority on this and commented
+[11:50:59] <toddparker> so kin, if you want to look at this when you get time, cool
+[11:51:12] <toddparker> any other regressions fo rbeta 1?
+[11:51:15] <kinblas> I don't have a BB5 device
+[11:51:22] <kinblas> I can see if I can get one
+[11:51:27] <scottjehl> cool
+[11:51:29] <toddparker> true
+[11:51:35] <toddparker> guess it's on us
+[11:51:39] <toddparker> i'd like to plan out beta 2 in the next 10 minutes...
+[11:52:32] <kinblas> I'm out for all of beta 2 ... I may be able to sneak some work time in but I wouldn't count on it
+[11:53:02] <toddparker> right, so when are you leaving kin?
+[11:53:13] <toddparker> i'd like to prioritize to best use your time
+[11:53:13] <kinblas> it's hard working on a beach ... sand gets in the hard drives and the humidity ....
+[11:53:18] <toddparker> heh
+[11:53:22] <kinblas> I'm out July 1st - 31st
+[11:53:23] <toddparker> what beach?
+[11:53:41] <kinblas> Any beach on Guam
+[11:53:46] <toddparker> nice
+[11:53:46] <toddparker> so we have 1 week of your time left?
+[11:53:55] <kinblas> yeah
+[11:54:03] <kinblas> I'm not in next Friday
+[11:54:21] <toddparker> ok
+[11:54:24] <toddparker> so....
+[11:54:34] <kinblas> so I've been splitting time between looking at various regression floating in
+[11:54:45] <kinblas> and starting on the page loading hooks
+[11:55:18] <kinblas> so folks can load things other than html and pre/post process content at known times
+[11:55:34] <toddparker> issues i have for beta 2 so far
+[11:55:34] <toddparker> https://github.com/jquery/jquery-mobile/issues?sort=created&direction=desc&state=open&page=1&milestone=6
+[11:55:46] <toddparker> is the page loading extensibility hooks in there? what #
+[11:56:03] <toddparker> ya. #1872, right?
+[11:56:09] <toddparker> https://github.com/jquery/jquery-mobile/issues/1872
+[11:56:26] <kinblas> yeah
+[11:56:28] <kinblas> 1872
+[11:56:49] <kinblas> so the big tickets are the asks we always get
+[11:57:03] <kinblas> Function for enhancing a page
+[11:57:06] <kinblas> caching
+[11:57:18] <kinblas> transitions
+[11:58:40] <toddparker> so enhancing a page is tagged to scott
+[11:58:45] <toddparker> same with caching
+[11:58:58] <toddparker> transitions might be the other thing to get you looking at
+[11:59:08] <scottjehl> just sent a solution around this morning for delaying page init - is that what you mean?
+[11:59:10] <toddparker> since you've been so deep in it
+[11:59:14] <scottjehl> or enhancing partial page content?
+[11:59:24] <toddparker> good Q
+[11:59:47] <scottjehl> delayed init needs a unit test. I can't figure out how to test it yet
+[11:59:49] <scottjehl> works fine
+[11:59:54] <scottjehl> pretty frustrating
+[11:59:56] <scottjehl> heh
+[12:00:15] <kinblas> Folks have been asking for a way to enhance content they've dynamically pulled into a page
+[12:00:22] <scottjehl> yeah ok
+[12:00:31] <kinblas> not necessarily a brand new page
+[12:00:35] <kinblas> but new content *IN* the page
+[12:00:36] <scottjehl> so I've got that included in the decoupled-widgets branch
+[12:00:44] <toddparker> yep
+[12:00:56] <scottjehl> basically, all widgets bind to pagecreate and a new event called "enhance" to self-init themselves
+[12:01:01] <kinblas> I still think we really need to re-think our initialization scheme
+[12:01:17] <kinblas> setting config flags on a callback seems wierd
+[12:01:18] <scottjehl> you'd call enhance on the fragment that's appended
+[12:01:37] <kinblas> scottjehl: right
+[12:01:54] <scottjehl> if you have ideas on different config - all for it
+[12:02:31] <toddparker> maybe post 'em to that ticket
+[12:02:46] <scottjehl> one option could be to use the new delayed init option to init the framework yourself, passing in config options
+[12:02:48] <toddparker> https://github.com/jquery/jquery-mobile/issues/1871
+[12:03:16] <scottjehl> turn off auto init, call it yourself with a hash of options as argument
+[12:03:31] <kinblas> I think the issue we had was that some plugins initialize on initial execution of the file they are in
+[12:04:23] <kinblas> we should probably have a formal init component event or something like that and tell plugin developers to init their internals that rely on configs at that point
+[12:04:58] <kinblas> that way we can allow folks to just include a file after jquerymobile.js that just sets configuration parameters etc
+[12:05:18] <scottjehl> but the framework needs to execute immediately
+[12:05:28] <kinblas> does it?
+[12:05:44] <scottjehl> do you want to ask people to init it themselves every time?
+[12:05:52] <kinblas> no, no
+[12:06:08] <scottjehl> we have to turn off autoinit then, to override it later. right?
+[12:06:20] <gseguin> can we have a global config object
+[12:06:33] <scottjehl> that's what the core team didn't like initially
+[12:06:35] <gseguin> that can be defined before our script is pulled in
+[12:06:46] <gseguin> and will override default behavior
+[12:06:48] <scottjehl> but that's not very different from what we do now
+[12:07:18] <kinblas> scottjehl this init component event
+[12:07:29] <kinblas> would happen prior to the framework auto stuff kicking in
+[12:08:05] <kinblas> I think I outlined this in basecamp one time
+[12:08:13] <kinblas> a few months back
+[12:08:15] <kinblas> I'll dig it up
+[12:08:16] <gseguin> or have a data-jqm-config on the script tag
+[12:08:17] <scottjehl> ok, let's discuss later
+[12:08:45] <scottjehl> json in attributes?
+[12:08:48] <scottjehl> not sure
+[12:08:49] <gseguin> yep
+[12:09:15] <scottjehl> that's way harder than mobileinit
+[12:09:30] <toddparker> +1
+[12:09:48] <toddparker> ok so before we go too far over time, let's recap
+[12:09:58] <toddparker> and find a time to chat on skype
+[12:10:20] <toddparker> kin - can you look at extensibility and maybe transitions in this week?
+[12:10:38] <toddparker> those are two big complaints right now
+[12:10:59] <toddparker> for talking, do people have time later today for a skype call?
+[12:11:14] <gseguin> sure
+[12:11:22] <toddparker> kinblas?
+[12:11:24] <kinblas> transitions: in what sense? I thought gseguin had it
+[12:11:30] <gseguin> after 2pm PDT
+[12:11:38] <kinblas> I'm free after 2pm PDT
+[12:11:43] <toddparker> hmmm
+[12:11:51] <gseguin> I don't know if I really have it
+[12:11:54] <toddparker> maybe tomorrow? i need to leave earlier today
+[12:12:02] <kinblas> that's fin
+[12:12:04] <kinblas> fine
+[12:12:05] <toddparker> ok
+[12:12:10] <gseguin> I thought I was just a placeholder
+[12:12:14] <kinblas> just so I'm straight
+[12:12:28] <kinblas> checkout the proposed transitions plugin
+[12:12:28] <gseguin> but I don't mind looking into it
+[12:12:31] <toddparker> i think we need a plan on transitions, then can figure out who
+[12:12:51] <toddparker> let's talk tomorrow about vclick and transitions
+[12:12:53] <toddparker> what time?
+[12:13:40] <gseguin> kinblas: preferred time?
+[12:14:00] <kinblas> I'm free anytime up until 2pm PDT, and then free after 3pm
+[12:14:20] <kinblas> those times were for tomorrow btw
+[12:14:26] <toddparker> ok
+[12:14:38] <gseguin> meeting 10-10:15am PDT for me
+[12:15:09] <toddparker> we're free from 9-1 EST tomorrow
+[12:15:41] <kinblas> so this is on Skype?
+[12:15:42] <toddparker> how about 10am EST / 1pm PDT
+[12:15:45] <toddparker> yep
+[12:15:57] <gseguin> works for me
+[12:15:58] <eddiemonge> isnt that backwards?
+[12:16:05] <toddparker> right
+[12:16:12] <gseguin> oh oops
+[12:16:18] <toddparker> 10am PDT /  1pm EST
+[12:16:26] <gseguin> I'll join late
+[12:16:28] <toddparker> wait, that doesn't work for gseguin
+[12:16:50] <gseguin> we should use tungle.me next time ;)
+[12:16:55] <toddparker> ?
+[12:17:05] <gseguin> http://tungle.me
+[12:17:25] <toddparker> so 10:15 PDT / 1:15 EST - 45 minutes
+[12:17:33] <gseguin> alright
+[12:17:38] <scottjehl> cool
+[12:17:38] <kinblas_> okie dokie
+[12:17:46] <gseguin> BTW I'm ghislain.seguin on skype
+[12:17:47] * kinblas_ pencils it in
+[12:18:48] <toddparker> invite sent!
+[12:18:52] <toddparker> ok, thanks guys!
+[12:19:00] <toddparker> over and out

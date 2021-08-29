@@ -1,0 +1,199 @@
+[09:00:49] <scott_gonzalez> arschmitz: jzaefferer fnagel gnarf kborchers mikesherov petersendidit rxaviers tj_vantoll
+[09:00:53] <fnagel> hey
+[09:00:54] <rxaviers> hi
+[09:00:58] <arschmitz> Hi
+[09:01:34] <kborchers> hey
+[09:01:48] <tj_vantoll> yo
+[09:02:06] <scott_gonzalez> rxaviers: Want to give an update on AMD loading in tests/demos?
+[09:02:40] <rxaviers> PR has been updated with most of the implementation
+[09:03:10] <rxaviers> although, some failures are tricky. If anyone is willing to give it a try, feedback is very welcome
+[09:03:31] <rxaviers> I got stuck on those
+[09:04:15] <jzaefferer> I suggested elsewhere to drop tests/unit/all.html and remove jshint from unit tests
+[09:04:31] <scott_gonzalez> Why we would drop those?
+[09:04:42] <scott_gonzalez> all.html makes it easy to test everything in an actual browser locally.
+[09:04:57] <jzaefferer> jshint is integrated into grunt; anyone not running it locally will get a failure from Travis
+[09:05:10] <scott_gonzalez> They should get a failure locally in the browser.
+[09:05:24] <scott_gonzalez> I still don't think people should need to install node just to test a patch.
+[09:05:53] <scott_gonzalez> What is the actual motivation to not running JSHint in the browser?
+[09:06:09] <rxaviers> does it make sense to duplicate jshint tests? should we drop it on grunt then?
+[09:06:16] <scott_gonzalez> It's not duplicated.
+[09:06:29] <scott_gonzalez> You can run JSHint either way.
+[09:06:35] <scott_gonzalez> And JSHint in Grunt tests more.
+[09:06:44] <scott_gonzalez> Because you're testing different things.
+[09:06:55] <scott_gonzalez> In the browser, you're testing a specific module.
+[09:06:59] <scott_gonzalez> In Grunt, you're testing everything.
+[09:07:50] <arschmitz> i use both the browser and grunt very regularly
+[09:07:57] <arschmitz> and like having jshint in both
+[09:08:11] <rxaviers> Does travis run the browser jshint too?
+[09:08:47] <arschmitz> travis only runs grunt
+[09:09:04] <scott_gonzalez> And TestSwarm doesn't run JSHint in the browser.
+[09:09:08] <scott_gonzalez> There's never duplication.
+[09:09:46] <arschmitz> im not really sure why we would change this
+[09:10:04] <arschmitz> iv actually been wanting to add jshint to the browser tests in mobile ( we dont currently have them )
+[09:10:18] <rxaviers> A naive question, what's the difference on what's tested on travis vs. when we browse tests/unit/<component>/<component>.html
+[09:10:33] <rxaviers> vs. TestSwarm
+[09:10:54] <scott_gonzalez> Travis runs tests/unit/** in phantom and runs JSHint over *all* files.
+[09:11:24] <scott_gonzalez> tests/unit/<component>/<component>.html runs the tests in a real browser and runs JSHint on the source file for <component>
+[09:11:34] <scott_gonzalez> Travis will also run JSCS.
+[09:11:59] <scott_gonzalez> And asciilint and csslint and htmllint, etc.
+[09:12:10] <scott_gonzalez> Travis just runs Grunt, and Grunt tests a lot of stuff.
+[09:12:29] <scott_gonzalez> The browser tests the most common thing (the unit tests and JS linting on the source)
+[09:13:09] <arschmitz> i also dont see where running jshint is ever really a bad thing
+[09:13:17] <scott_gonzalez> Honestly, if every linter ran in the browser, I'd run them all.
+[09:13:19] <arschmitz> durring tests
+[09:13:37] <rxaviers> gotcha thanks
+[09:13:40] <scott_gonzalez> Because users should be able to check this stuff easily.
+[09:13:43] <rxaviers> Back to the AMDK loading in tests,
+[09:13:53] <rxaviers> I've summarized the failing tests in the description of https://github.com/jquery/jquery-ui/pull/1335/
+[09:13:56] <scott_gonzalez> And installing node and using the command line != easy
+[09:14:42] <rxaviers> Once we get those failures fixed, another TODO item is test TestSwarm integration.
+[09:15:54] <rxaviers> jzaefferer, do you want to comment about "drop tests/unit/all.html"?
+[09:17:09] <jzaefferer> about jshint in the browser, I think this is causing a lot of issues in the AMDified tests: https://github.com/jquery/jquery-ui/pull/1335/files#diff-68a85fe0e412c3914829d62af73707c7R266
+[09:17:51] <jzaefferer> Since testJshint is called from other files loaded with require, we end up with non-deterministic execution order
+[09:18:06] <jzaefferer> Which might be responsible for the `expect()` is undefined` error
+[09:18:22] <scott_gonzalez> So shouldn't the require just go inside the test?
+[09:18:45] <rxaviers> we could remove that require and instead have "jshint" under the test definition.
+[09:19:08] <jzaefferer> The whole thing is supposed to be optional
+[09:19:17] <jzaefferer> and require doesn't really support optional dependencies
+[09:19:27] <jzaefferer> We need some kind of workaround
+[09:19:31] <jzaefferer> or just always run jshint
+[09:19:44] <scott_gonzalez> And what's wrong with what I just said?
+[09:19:44] <jzaefferer> Which would likely simplify this, too
+[09:19:53] <rxaviers> Or at least, always have it loaded.
+[09:20:39] <scott_gonzalez> Is the problem that asyncTest() is called too late?
+[09:20:43] <jzaefferer> like asyncTest(function() { require(["jshint"], function() ... })?
+[09:20:47] <scott_gonzalez> yes
+[09:21:01] <jzaefferer> worth a try
+[09:22:13] <rxaviers> I'll then make this change: remove that require and instead have "jshint" under the test definition.
+[09:22:15] <rxaviers> and let you know
+[09:22:26] <scott_gonzalez> Then we're loading it when we don't need it.
+[09:22:50] <rxaviers> ow, ok
+[09:22:59] <rxaviers> you want me to swap the asycTest with require, alright
+[09:24:47] <scott_gonzalez> For classes, I had a new idea for the implementation.
+[09:25:03] <rxaviers> scott wait
+[09:25:06] <scott_gonzalez> Adding _addClass() and _removeClass() and having the base widget track everything so there's less work for the individual widgets
+[09:25:07] <scott_gonzalez> ok
+[09:25:09] <jzaefferer> I just looked at the PR, that looks much better
+[09:25:12] <rxaviers> before changing subjects
+[09:25:33] <arschmitz> jzaefferer: yes i like it much better
+[09:25:38] <rxaviers> what's the decision about "drop tests/unit/all.html"?
+[09:26:01] <scott_gonzalez> I didn't hear a reason to drop it.
+[09:26:07] <rxaviers> jzaefferer?
+[09:26:53] <jzaefferer> It doesn't work properly, I had the impression no one is using it, therefore I suggested simply dropping it
+[09:27:02] <tj_vantoll> I'm liking _removeClass() and _addClass() a lot.
+[09:27:05] <arschmitz> the new pr is not completely yet i have i think 4 files left to update
+[09:27:19] <arschmitz> so its like 90%
+[09:27:27] <arschmitz> but it clearly shows the implementation
+[09:27:28] <gabriel_schulhof> Sorry to butt in: What about the cleanup method?
+[09:27:31] <jzaefferer> If its actually used regularly, we have to fix those failures, hopefully some are related to the ones we're working on
+[09:27:48] <scott_gonzalez> jzaefferer: What do you mean by "it doesn't work properly"?
+[09:28:21] <jzaefferer> scott_gonzalez: what rxaviers was talking about in Skype, "Although, I get inconsitences on master. First, it seems some tests ocasionally fails, ocasionally passes" along with some screenshots
+[09:29:11] <jzaefferer> And "Second, if I run the failing component tests only, it always passes."
+[09:29:27] <jzaefferer> So actually has nothing to do with AMD
+[09:29:32] <arschmitz> jzaefferer: thats actually why we dont have all pages in mobile
+[09:29:40] <scott_gonzalez> Likely window size
+[09:29:47] <arschmitz> have too many tests that break in iframes
+[09:29:47] <scott_gonzalez> And I don't get inconsistent results.
+[09:29:55] <arschmitz> ( though ours is do to nav )
+[09:30:41] <scott_gonzalez> Any failure is likely due to a bad test or QUnit Composite.
+[09:30:55] <scott_gonzalez> But most likely any failure is based on window size.
+[09:31:15] <fnagel> Or used browser
+[09:31:33] <scott_gonzalez> fnagel: The tests pass on their own.
+[09:31:42] <scott_gonzalez> So it's unlikely to be the browser.
+[09:32:44] <fnagel> scott_gonzalez: remember when we you did't see any failing tests in Chrome but I did in FF?
+[09:32:50] <scott_gonzalez> jzaefferer: Are you able to reproduce inconsistent failures?
+[09:33:05] <scott_gonzalez> fnagel: That's not at all what we're talking about.
+[09:33:22] <scott_gonzalez> We're talking about tests that fail in QUnit Composite and pass on their own.
+[09:34:10] <scott_gonzalez> The only failures I get in all.html is draggable, and I get the same failures if I run the draggable suite on its own in a small window.
+[09:35:30] <jzaefferer> I can reproduce the draggable issue, in both cases
+[09:35:37] <jzaefferer> I also got a failure from tabs
+[09:35:53] <jzaefferer> also happened in standalone, but disappeared on a rerun
+[09:36:17] <scott_gonzalez> Sounds like all.html has no problems, other than some newer draggable tests that are relying on a certain window size (bad tests)
+[09:37:41] <rxaviers> Bringing here the output I got the other day (which I said on Skype):
+[09:37:45] <rxaviers> https://cloud.githubusercontent.com/assets/967155/5142272/a979f0aa-7167-11e4-91a5-229a19db6532.png
+[09:37:47] <rxaviers> https://cloud.githubusercontent.com/assets/967155/5142273/abcd94f6-7167-11e4-9e1f-a8a6b14cefb7.png
+[09:38:04] <rxaviers> The above represents two runs using the same browser, same window size.
+[09:38:39] <scott_gonzalez> Has that happened for you again or was that an anomaly?
+[09:38:52] <rxaviers> and a third run
+[09:38:52] <rxaviers> https://cloud.githubusercontent.com/assets/967155/5142274/ad5352de-7167-11e4-88a9-0dc0b01a4038.png
+[09:39:18] <rxaviers> it happens occasionally (still)
+[09:39:24] <scott_gonzalez> And running the menu tests never fails on its own for you?
+[09:40:25] <rxaviers> I can run it again and post the results. If you agree in order to not extend this issue too much, we could track that as a separate issue then
+[09:41:26] <rxaviers> I can create a new ticket and let you all know
+[09:44:48] <scott_gonzalez> Ok, well, if you're getting inconsistent results, you can file a ticket, but I'm not getting that, so I can't debug it.
+[09:44:56] <scott_gonzalez> So, on to classes.
+[09:45:05] <scott_gonzalez> arschmitz just posted a new PR: https://github.com/jquery/jquery-ui/pull/1392
+[09:45:27] <arschmitz> thats not at all ready yet a few files still need updating but you can see the implementation
+[09:45:52] <scott_gonzalez> We'll need to figure out how we want to address memory leaks during things like refresh.
+[09:46:09] <arschmitz> yup thats the one missing piece to the overall implementation
+[09:46:23] <scott_gonzalez> We can just follow the pattern that we're using for event handlers, which is to track the items and call _removeClass() inside refresh()
+[09:46:41] <scott_gonzalez> That's the most straight-forward solution.
+[09:46:51] <arschmitz> yeah like i was saying to you before the meeting thats what makes most sense to me
+[09:46:58] <scott_gonzalez> But once everything else is implemented, we may be able to find some abstraction to handle it.
+[09:47:05] <scott_gonzalez> But I'm not sure if that'll be possible.
+[09:47:17] <jzaefferer> How are classes and memory leaks related?
+[09:47:21] <arschmitz> scott_gonzalez: the only thing i could think of that would handle 99% of cases
+[09:47:48] <arschmitz> scott_gonzalez: is we could make a cleanup method that would loop through and remove anything not attached to the dom on a certain key
+[09:47:49] <scott_gonzalez> jzaefferer: Because the base widget has to track which elements had classes added.
+[09:47:52] <jzaefferer> Since classObject is referencing DOM elements?
+[09:48:00] <scott_gonzalez> So that it can handle changes to the option automatically.
+[09:48:03] <scott_gonzalez> yup
+[09:48:07] <jzaefferer> Gotcha
+[09:48:23] <scott_gonzalez> arschmitz: That sounds expensive.
+[09:48:31] <arschmitz> yes very
+[09:48:52] <arschmitz> it would have to do a contains check on every element refrenced for a given key
+[09:49:12] <jzaefferer> > call _removeClass() inside refresh()
+[09:49:14] <arschmitz> i was just saying its the only sort of abstraction i could think of
+[09:49:16] <jzaefferer> How does that help?
+[09:49:23] <scott_gonzalez> Because _removeClass() untracks the elements.
+[09:49:31] <arschmitz> WILL untrack them
+[09:49:35] <scott_gonzalez> Just like _off() untracks the elements.
+[09:49:48] <arschmitz> does not at moment because i have not had a chance to update since this came up this morning
+[09:49:48] <jzaefferer> I see, so that's missing
+[09:50:01] <arschmitz> but its a simple change
+[09:50:19] <scott_gonzalez> arschmitz: Make sure to look at _off() when you implement that.
+[09:50:19] <jzaefferer> Adding _removeClass calls in refresh will be more effort
+[09:50:24] <scott_gonzalez> It's a non-obvious implementation.
+[09:50:42] <arschmitz> scott_gonzalez: i have been using them as a refrence already
+[09:50:45] <jzaefferer> But that seems reasonable, hopefully we end up with less code/complexity then with what we had so far
+[09:50:56] <arschmitz> jzaefferer: its more effort for sure
+[09:51:41] <gabriel_schulhof> Wait a sec ... you may need to _removeClass() for reasons other than that you want to untrack elements. Like, this._removeClass( "ui-dialog-has-buttons" ) ...
+[09:51:45] <arschmitz> jzaefferer: yeah it removes hundreds of lines over old one
+[09:52:03] <arschmitz> gabriel_schulhof: yeah why would you still want to track it after that
+[09:52:07] <scott_gonzalez> gabriel_schulhof: If you remove the class, there's nothing to track.
+[09:52:11] <arschmitz> it has no classes based on that key to remove
+[09:52:24] <arschmitz> if you later call addclass it will be retracked
+[09:52:35] <gabriel_schulhof> scott_gonzalez: OKOK, I guess the same element has multiple references under various keys.
+[09:52:38] <gabriel_schulhof> OK. True.
+[09:53:06] <scott_gonzalez> Ok, just a few minutes left.
+[09:53:10] <gabriel_schulhof> Cool!
+[09:53:17] <jzaefferer> Btw. `classObject` is a bad var name
+[09:53:22] <arschmitz> so ill try to finish this up over the long weekend
+[09:53:25] <scott_gonzalez> mikesherov got the effects rewrite ready for review.
+[09:53:26] <scott_gonzalez> https://github.com/jquery/jquery-ui/pull/1017
+[09:53:28] <arschmitz> jzaefferer: open to suggestions lol
+[09:53:44] <scott_gonzalez> I look through it and found some minor stuff, but it's getting very close to landing :-)
+[09:55:09] <jzaefferer> I've got that on my list as well
+[09:55:33] <scott_gonzalez> It's a lot of code, so more eyes would be good.
+[09:55:57] <scott_gonzalez> We have lots of docs to write based on the updates though.
+[09:56:12] <scott_gonzalez> I've asked mikesherov to file an issue with a list of methods just so it doesn't get lost.
+[09:56:32] <scott_gonzalez> arschmitz: Anything to discuss about button before the meeting ends?
+[09:56:35] <jzaefferer> Would be good to also get that into the upgrade guide that TJ started
+[09:56:45] <jzaefferer> Same for button!
+[09:56:58] <arschmitz> jzaefferer: button upgrade guide api is on my todo
+[09:57:02] <mikesherov> hi
+[09:57:06] <tj_vantoll> https://github.com/jquery/jqueryui.com/blob/1-12-upgrade-guide/page/upgrade-guide/1.12.md
+[09:57:14] <arschmitz> as far as updates on button i was about to push them then this classes thing came up
+[09:57:19] <mikesherov> so yeah, I'll document all the new effects methods
+[09:57:44] <arschmitz> so it will change the implementation in places again since that pr is based on the classes pr
+[09:57:45] <mikesherov> and now I'm doing one last thing to fix up puff/size/scale a bit further since scott_gonzalez noticed a bug
+[09:58:04] <arschmitz> classes keeps sidetracking it
+[09:58:48] <arschmitz> but i want classes to land asap
+[09:59:14] <jzaefferer> mikesherov: let me know when that is done, I'll wait with my review for that
+[09:59:27] <jzaefferer> arschmitz: yeah, probably better to finish classes before getting back to button
+[09:59:41] <arschmitz> jzaefferer: yeah that was the plan since button was essentially done
+[09:59:51] <arschmitz> i had one test i wanted to add...
+[10:00:05] <mikesherov> jzaefferer: will do
+[10:00:23] <jzaefferer> arschmitz: speaking of essentially done: http://www.commitstrip.com/en/2014/11/25/west-side-project-story/
+[10:00:41] <arschmitz> lol yup...
+[10:02:25] <scott_gonzalez> Ok, thanks everyone.

@@ -1,0 +1,68 @@
+[08:17:34] <duch_kazatel> good morning - is anybody else having issues with bugs.jquery.com
+[08:21:39] <duch_kazatel> of course the moment i say that, everything seems to be back up and snappy as ever - ignore me!
+[08:28:41] <m_gol> duch_kazatel: http://blog.jquery.com/2014/07/07/volunteers-wanted-trac-enhancements/ more or less ;)
+[08:35:03] <duch_kazatel> hah.  makes sense.  any traction on that project by the way?
+[08:59:56] <scott_gonzalez> leobalter: Why did you make this change? https://github.com/leobalter/jquery-ui/commit/1d438c8cfcd20cbec10a02b54ccb55870dfedc5d
+[09:10:13] <leobalter> actually I should squash this commit with https://github.com/leobalter/jquery-ui/commit/9a2b345aed5e889c687eee23a2eeb12117267740
+[09:11:29] <leobalter> QUnit.reset is deprecated, it won't work on QUnit >=2.0. And the new detached html reporter handles the fixture reseting on a QUnit.testDone callback
+[09:12:35] <leobalter> that got a order of the factors problem with the $('#qunit-fixture').empty()
+[09:13:29] <leobalter> I first tried to bring $.fn.empty to clean the fixture on QUnit, but it's not simple neither easy
+[09:14:35] <leobalter> and that change on the commit you mentioned will be necessary on further 2.0 without QUnit.reset. 
+[09:14:43] <leobalter> scott_gonzalez ^^^
+[09:16:02] <scott_gonzalez> leobalter: That explains https://github.com/leobalter/jquery-ui/commit/9a2b345aed5e889c687eee23a2eeb12117267740 (which I understand). It doesn't explain https://github.com/leobalter/jquery-ui/commit/1d438c8cfcd20cbec10a02b54ccb55870dfedc5d
+[09:16:37] <leobalter> the first commit wasn't enough
+[09:17:38] <leobalter> jquery-ui testDone occours after the html-reporter testDone
+[09:19:08] <leobalter> so it's like: (the equivalent of QUnit.reset) and after the $('#qunit-fixture').empty() => that cleaned all the fixture html, and made other tests to fail
+[09:19:27] <leobalter> I can try another approach intead of adding those teardown methods
+[09:19:50] <leobalter> it's not beautiful but will take less lines, let me check it
+[09:23:15] <scott_gonzalez> It seems like there's a flaw in the QUnit design if this isn't as simple as the first commit.
+[09:26:57] <leobalter> not a flaw, but a small and sensitive structural change. The html was detached from QUnit's code, and it's connected only though the public api. There were a QUnit.reset inside the main code that's now placed on the testDone callback
+[09:27:33] <leobalter> the problem is: the fixture cleanup never were good enough. It always needed to be improved to work like jQuery#empty
+[09:28:07] <leobalter> until now you managed to have a work around
+[09:28:37] <leobalter> I'm just being able to improve that workaround
+[09:28:45] <snover> scott_gonzalez: there are a lot of flaws in qunit’s design :)
+[09:29:02] <snover> i evaluated it before i wrote intern
+[09:29:05] <leobalter> please feel free to help
+[09:29:24] <snover> i did, i wrote a replacement
+[09:30:06] <leobalter> that wouldn't solve QUnit's design, now I need to get back working
+[09:32:19] <leobalter> scott_gonzalez: that PR is just a scratch, I need to find the best of both worlds to be improved and enhanced.
+[09:32:59] <leobalter> for further discussions I would feel more comfortable to talk on any other channel, like private messages, email or through PR.
+[09:33:56] <snover> well, i have offered my assistance to make intern more suitable, but nobody seemed interested. the offer still stands.
+[09:38:23] <dvarga> I have a question about your release process on github.  I saw that your tagged builds have a dist/ dir but all others don't ... how do you accomplish this? It looks like  DaveMethvin|away normally does this
+[09:39:46] <snover> dvarga: check out a commit…commit a dist directory…make it a tag
+[09:46:06] <dvarga> Ahh so it's a manual process, ok.  Thanks!
+[09:52:57] <snover> no, there is a jquery-release repository with release scripts
+[09:58:04] <jqcommit> [13qunit] 15leobalter opened issue #618: Improve/restaure reference errors report 02http://git.io/xN6Ksw
+[10:09:04] <leobalter> jzaefferer scott_gonzalez: something we could do is un-deprecating QUnit.reset and leave it as a feature from the html reporter
+[10:10:02] <leobalter> I don't like this idea but it's the only way I can handle jQuery UI tests without this: https://github.com/leobalter/jquery-ui/commit/1d438c8cfcd20cbec10a02b54ccb55870dfedc5d
+[10:13:32] <jzaefferer> leobalter: QUnit.reset needs to go away, but I think we need to retain the old implementation, where the internal fixture reset happens after testDone is called
+[10:13:53] <leobalter> there's not the problem
+[10:14:46] <leobalter> jQuery UI needs to run the fixture.empty() **before** every QUnit.reset like implementation
+[10:15:07] <leobalter> the only way through the public API to do this is by setting the teardown
+[10:16:04] <leobalter> if empty() goes after one fixture reseting, it won't be able to clear events data
+[10:16:26] <leobalter> and the QUnit HTML reporter only sees QUnit's public API
+[10:16:42] <scott_gonzalez> Yes, there needs to be a hook to do your own clean up first.
+[10:16:51] <scott_gonzalez> That's the design flaw I was talking about.
+[10:17:24] <leobalter> scott_gonzalez: I believe that's the module teardown intention. 
+[10:17:37] <scott_gonzalez> That's too granular.
+[10:17:59] <scott_gonzalez> We shouldn't have to do global cleanup on each individual module.
+[10:18:10] <leobalter> the best way to solve this is having a empty() like implementation on QUnit
+[10:18:15] <leobalter> but that's not easy
+[10:19:28] <jzaefferer> My preference is to pull out the fixture handling from the html reporter back into core, and run the reset after all testDone callbacks were called.
+[10:19:51] <jzaefferer> That would give us the old behaviour back. We don't need to expose the resetting as QUnit.reset
+[10:20:44] <leobalter> that would make the html reporter detaching worthless
+[10:22:19] <leobalter> and I'm not sure if that would solve the problem
+[10:23:55] <leobalter> if we keep QUnit.reset, jQuery UI can still hack it to run .empty before resetting
+[10:24:28] <leobalter> we could extend the API through the html reporter to allow the extending of fixture reset
+[10:30:57] <leobalter> jzaefferer scott_gonzalez https://github.com/jquery/qunit/issues/619
+[10:31:04] <jqcommit> [13qunit] 15leobalter opened issue #619: HTML Reporter: expose fixture reset api 02http://git.io/vEVdBw
+[10:31:52] <scott_gonzalez> That's fine with me.
+[10:41:57] <jqcommit> [13qunit] 15leobalter opened pull request #620: Reporter: Implements fixture reset API (06master...06fixture-reset) 02http://git.io/sjyikw
+[10:50:53] <leobalter> tests implemented
+[13:28:31] <jqcommit> [13qunit] 15leobalter closed issue #614: Fixture is not being set 02http://git.io/W-V_Iw
+[14:13:05] <jqcommit> [13api.jquery.com] 15AurelioDeRosa opened issue #541: Clarifying terminology 02http://git.io/1BR0pg
+[20:33:11] <thecoreh> hi there!
+[20:33:20] <thecoreh> I just noticed $.ajax() doesn't take document.baseURI in account when using paths without a protocol. is this by design or should I file a bug?
+[20:33:54] <thecoreh> the XHR spec says baseURI should be used for resolving relative URIs instead of location.href
+[20:34:35] <thecoreh> I can write a pull request too for that if needed
+[22:37:33] <leobalter> thecoreh: it's better to search and file a bug on http://bugs.jquery.com/

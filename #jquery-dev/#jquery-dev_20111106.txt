@@ -1,0 +1,359 @@
+[01:26:35] <matjas> can someone with write permission add jQuery#size() to https://docs.google.com/a/qiwi.be/spreadsheet/ccc?key=0Aj5JJFjq9rZDdEhhbEwzYUwyTVpOY2tfdDk5SlNpLXc#gid=0
+[01:26:53] <matjas> ref. jqbug.com/10657
+[02:57:48] <jqcommit> [qunit] jzaefferer pushed 1 new commit to master: http://git.io/xclOVQ
+[02:57:48] <jqcommit> [qunit/master] remove uses of equals(), as it's deprecated in favor of equal() - Mike Sherov
+[03:08:15] <jq-jenkins> Project QUnit build #45: STILL FAILING in 10 min: http://swarm.jquery.org:8080/job/QUnit/45/
+[03:08:16] <jq-jenkins> mike.sherov: remove uses of equals(), as it's deprecated in favor of equal()
+[08:33:49] <rwaldron> DaveMethvin yt?
+[08:41:37] <Sidnicious> Hey, I wrote an alternative to jQuery.type with a slightly different API: `jQuery.isType("foo", String)`. Comparing, instead of returning a string, lets it use a much faster comparison in the most common cases (it's 5x as fast in Chrome). jQuery.type gets called *a lot* inside jQuery but only from a few places, so it was fairly easy to switch out.
+[08:42:18] <Sidnicious> Could anyone help me sanity check this? Code: https://github.com/Sidnicious/jquery/compare/master...isType a very, very simple perf test: http://jsperf.com/new-jquery-type-comparison/3
+[08:45:03] <Sidnicious> the check for function.name support is also a little hacky, could use advice on cleaning it up in a way that fits jQuery coding style well
+[08:57:01] <rwaldron> Sidnicious, I see by the jsperf that you ran in this in IE7, but the test suite dies on test #4
+[08:57:20] <rwaldron> first it fails #2, but can still finish the block
+[08:57:27] <rwaldron> #3 is fine
+[08:57:32] <rwaldron> #4 is fine
+[08:57:35] <rwaldron> then #5 just dies
+[08:57:37] <rwaldron> IE6, 7
+[08:58:34] <rwaldron> ?tell DaveMethvin I'm going to be at a wedding from about 1:30 on... we should wait until tomorrow to land those PRs
+[08:58:35] <bot-t> rwaldron, Okay.
+[08:59:02] <Sidnicious> hmm, let me take a look.
+[09:19:14] <dabear> Sidnicious: would your code work cross iframes?
+[09:21:25] <Sidnicious> dabear: Yes, it tests compares the constructors first, then falls back to comparing the constructors' names or string representations
+[09:24:55] <DaveMethvin> .
+[09:24:56] <bot-t> (26 mins 20 secs ago) <rwaldron> tell DaveMethvin I'm going to be at a wedding from about 1:30 on... we should wait until tomorrow to land those PRs
+[09:27:34] <dabear> Sidnicious: ok. but having to functions in core doing the same would not be an option.. and .type cannot be removed as it has the potential to break a lot of code
+[09:28:32] <Sidnicious> hmm?
+[09:28:57] <DaveMethvin> ?tell rwaldron did this happen at the wedding? http://www.youtube.com/watch?v=ahFARm2j38c#t=1m35s
+[09:28:57] <bot-t> DaveMethvin, Okay.
+[09:29:08] <Sidnicious> Yeah, I'm not proposing removing jQuery.type, just avoiding it in core
+[09:31:04] <Sidnicious> I'm not sure what the first thing you said was, though
+[09:31:38] <DaveMethvin> Sidnicious: since we often cache the result of type, seems like the perf is kind of a worst case
+[09:31:41] <dabear> Sidnicious: having both .type and .isType is not something we would do
+[09:31:43] <DaveMethvin> and both are damn fast
+[09:35:15] <DaveMethvin> look at the perf this way, if i have my decimal places right the current code takes 500 nanoseconds per call and the new code takes 100 nanoseconds; how many times per second do we call that code?
+[09:38:27] <Sidnicious> I did see that the .type is cached in two places, but the result is used twice in once case and three times in the other. Calling isType two or three times is still faster than calling .type() once.
+[09:39:18] <DaveMethvin> yes, i can't argue with the raw numbers. i am arguing whether that is a significant difference given the number of times real code calls it
+[09:39:22] <Sidnicious> That's a good point. I haven't looked into it as much as I should, but as a test I added a counter to .type and tried loading the homepage of a project I'm working on. It got called 25000 times while the page was being loaded
+[09:40:16] <DaveMethvin> i really like benchmarks that take high-level code and find the bottlenecks. i am pretty sure we can take any of these apis and make them faster but it isn't worth the work unless it is part of the high-level bottleneck
+[09:40:52] <DaveMethvin> and for 1.8 we're going to be focusing hard on size improvements so any speedup has to be weighted agains that
+[09:42:25] <Sidnicious> Fair enough. If you don't think this is worth pursuing, I'll find something else :)
+[09:42:57] <DaveMethvin> would love to have some thoughts on how we can trim things down, we're going to start a discussion on that next week
+[09:44:28] <DaveMethvin> btw Sidnicious, were you able to tell where those 25k calls were coming from?
+[09:49:38] <Sidnicious> Actually, I have been rolling something around in my head for a little while: I feel like there's a good amount of bulk in certain places to sort out variable arguments.
+[09:49:54] <Sidnicious> It looks like about half of them are coming from isPlainObject
+[09:51:01] <DaveMethvin> well it never hurts to have some more ppl review the code
+[09:52:57] <Sidnicious> (half of them meaning half of the calls to type())
+[09:53:07] <DaveMethvin> but here is what is crazy about these calls. If your page is making 25k calls to .type then at 500ns per call that is 12ms. If you get that to 100ns you only save 10ms ... not enough to even measure
+[09:53:49] <Sidnicious> In the profiler, it adds up to 20ms… so, it'd be a 16ms savings. Yeah.
+[09:54:13] <DaveMethvin> i think some of the slow may be due to the change that does position checks at load time
+[09:54:20] <DaveMethvin> we are prolly gonna revert that in 1.7.1
+[09:54:39] <DaveMethvin> so it's most likely spending too much time in support checks
+[09:54:57] <DaveMethvin> and i've noticed that at least on chrome a lot of that end up in (program) so it's hard to measure
+[09:55:42] <espressive> If I do $("#someid").append("selector :not(selector)") should jQuery not select the content in the selector and then append it to the new container leaving the original content in tact?
+[09:56:03] <DaveMethvin> that would be a good question for #jquery espressive
+[09:56:20] <espressive> DaveMethvin, I did ask there but got no reponse ;(
+[09:56:27] <espressive> response*
+[09:56:38] <espressive> So I thought I would give it a whirl over here
+[09:57:34] <DaveMethvin> well it looks to me like you are using append() incorrectly, check the api docs
+[09:58:35] <espressive> DaveMethvin, so, the syntax is destination container .append then the content you want to insert into the destination container
+[09:58:57] <DaveMethvin> yes, content but not selector
+[09:59:05] <espressive> nevermind, here is my answer ( If an element selected this way is inserted elsewhere, it will be moved into the target (not cloned):)
+[09:59:22] <DaveMethvin> ah, the docs are SOOO good!
+[09:59:44] <espressive> they are, was like two lines from where I stopped reading, thanks ;)
+[10:03:12] <danzik17> for http://bugs.jquery.com/ticket/8508 - the fix for that seems to be to trigger the event manually, but i'm not sure if the amount of code needed to do that would be worth it for something that seems like an edge case to me
+[10:05:05] <DaveMethvin> danzik17: does it still break with -git in IE8?
+[10:05:20] <DaveMethvin> checking here
+[10:05:23] <danzik17> DaveMethvin: yes
+[10:06:22] <DaveMethvin> are you gettin an ie error on render>
+[10:06:26] <danzik17> DaveMethvin: that's part of the reason i submitted http://bugs.jquery.com/ticket/10673 since i realized that'd happen the other day when i looked at this briefly
+[10:07:29] <danzik17> no, the test works for me
+[10:08:26] <DaveMethvin> i get an error that $ is not defined even if the script is included
+[10:08:47] <DaveMethvin> so predictably nothing works
+[10:09:38] <DaveMethvin> i never seem to have luck with jsbin and ie
+[10:09:53] <DaveMethvin> barely have luck with jsfiddle and ie
+[10:09:57] <espressive> So I believe I have found a potential bug
+[10:09:58] <DaveMethvin> so lemme copy this
+[10:10:07] <danzik17> are you running any addons?  my jsfiddle was horribly broken until i disabled like all of them
+[10:10:12] <DaveMethvin> espressive: please be sure by asking on the forum
+[10:10:15] <danzik17> even stuff like divx, fiddler, etc...
+[10:10:28] <DaveMethvin> nothing addins on ie
+[10:12:52] <DaveMethvin> ok danzik17 i have verified that it doesn't work with fiddle http://jsfiddle.net/dmethvin/3GUAc/
+[10:15:21] <danzik17> DaveMethvin: it should be fixable with a special event i think, but it just seems like a lot of code for something that seems kind of....edgy
+[10:17:35] <DaveMethvin> there is already a special event hook for chagne in ie danzik17, but if you put an onclick on the checkbox ie is not firing anything afaict
+[10:17:54] <DaveMethvin> if we can't get a click we can't fake change
+[10:17:59] <espressive> DaveMethvin, will do, here is the problem: http://jsfiddle.net/MHQyg/1/
+[10:18:17] <danzik17> you'd need to trigger a native click on the hidden input
+[10:18:53] <DaveMethvin> right but based on what?
+[10:19:12] <DaveMethvin> it would need to know there's a label
+[10:19:14] <DaveMethvin> right?
+[10:19:24] <danzik17> so the special event would be for click, and if the element is an input try to find an associated label.  when that gets clicked, trigger a click on the input if it's hidden
+[10:20:13] <danzik17> it's pretty easy to find the label - it's either the direct parent, or it has a 'for' attribute with the id of the  input
+[10:20:35] <danzik17> (if a label even exists)
+[10:20:45] <DaveMethvin> if it was static html it is possible but the dynamic case with delegation .... ugh
+[10:21:03] <danzik17> that's what i mean when i say it's doable, but not sure it's worth the hassle
+[10:21:43] <DaveMethvin> for delegated events we don't know when someone may add an input with a label, so i don't even think it's doable without a setInterval
+[10:22:38] <DaveMethvin> basically IE doesn't like it when you try to click on hidden or disabled things, and my rational mind can understand that
+[10:23:44] <danzik17> well really, my thought is that why would you hide the input and not the label - that's why it seemed weird to me
+[10:24:04] <danzik17> but i guess someone did it
+[10:25:28] <DaveMethvin> i think if you were creating your own stylin' check box images perhaps, then you might hide the box but not the label?
+[10:25:39] <DaveMethvin> but it's definitely confusing
+[10:28:58] <DaveMethvin> oh i see what that espressive guy was doing ... and he was doing it rong
+[10:29:10] <DaveMethvin> wanted a child selector rather than descendant
+[10:29:14] <DaveMethvin> oh well
+[10:31:38] <DaveMethvin> he's not in #jquery either ... a hit-n-runner
+[10:44:16] <mikesherov> DaveMethvin: you here?
+[10:49:04] <mikesherov> rwaldron: I stayed up another hour removing same() and equals() from qunit and sizzle as well
+[10:50:30] <mikesherov> Also, looked at your vendor prefix stuff from Abacus, almost the same as what I'm doing in https://github.com/jquery/jquery/pull/528/files
+[10:50:31] <socialhapy> ★ Pull request on jquery by mikesherov (1m, 3d ago): make sure box-sizing:border-box children of a hidden div report inner/outer/Width()/Height() correctly, fixes #10413
+[11:24:04] <gnarf> airplane commit: https://github.com/jquery/jquery/pull/582 ;)
+[11:24:05] <socialhapy> ★ Pull request on jquery by gnarf37 (11.821s ago): Removing a stale line of code
+[11:25:47] <mikesherov> looks good gnarf
+[11:26:36] <mikesherov> gnarf: Take a look at: https://github.com/jquery/jquery/pull/580
+[11:26:37] <socialhapy> ★ Pull request on jquery by mikesherov (15h, 24m ago): fixes #10691, remove all instances of equals() and same() in unit tests
+[11:29:37] <DaveMethvin> mikesherov: sup?
+[11:30:06] <mikesherov> there he is
+[11:30:08] <DaveMethvin> i would like to land pull 580 asap if nobody objects
+[11:30:14] <DaveMethvin> otherwise it will get stale
+[11:30:16] <mikesherov> Yeah, I was going to ask about that
+[11:30:28] <DaveMethvin> sounds like a good idea to me
+[11:30:45] <mikesherov> I'm obviously on board
+[11:30:51] <DaveMethvin> yeah it's your car
+[11:30:58] <mikesherov> Qunit already committed the same change
+[11:31:05] <mikesherov> Sizzle has one pending
+[11:31:33] <mikesherov> as I mentioned, ran tests in FF and Chrome non-local so all tests ran and passed
+[11:31:52] <DaveMethvin> it's mainly just copy/pasta laziness, i tend to copy an old test to start a new one so if it says equals then the new one says equals
+[11:32:20] <mikesherov> right, that's why I wanted to do it as a blanket one off. Just get all the bad examples out of there
+[11:32:27] <DaveMethvin> yep good idea
+[11:32:57] <mikesherov> and I pledge to follow up in a few weeks just to see if anyone PR's a few strays
+[11:33:20] <DaveMethvin> well since we took out the aliases they're gonna break :)
+[11:33:37] <mikesherov> no, actually, they wont!
+[11:33:48] <mikesherov> rwaldron and I had this discussion last night
+[11:33:58] <mikesherov> Qunit has the same deprecation protection in place
+[11:34:01] <DaveMethvin> oh
+[11:34:21] <DaveMethvin> we got belt, suspenders, and condom working here
+[11:34:31] <mikesherov> HAHA
+[11:35:01] <mikesherov> So even if you just committed removing those lines from testinit.js, everything still works
+[11:35:10] <mikesherov> even moe of a reason to go ahead with this
+[11:50:39] <jqcommit> [jquery] dmethvin pushed 2 new commits to master: http://git.io/xtzAsQ
+[11:50:39] <jqcommit> [jquery/master] Eliminate spurious error message from `which`. - Dave Methvin
+[11:50:39] <jqcommit> [jquery/master] Remove forever-alone regexps in event.js - Dave Methvin
+[11:53:54] <jq-jenkins> Project jQuery build #157: STILL FAILING in 3 min 4 sec: http://swarm.jquery.org:8080/job/jQuery/157/
+[11:53:55] <jq-jenkins> * dave.methvin: Eliminate spurious error message from `which`.
+[11:53:55] <jq-jenkins> * dave.methvin: Remove forever-alone regexps in event.js
+[12:10:48] <mikesherov> OK, gotta run. I need groceries. DaveMethvin: hit me up on the github commit or trac ticket if you need anything else related to https://github.com/jquery/jquery/pull/580
+[12:10:49] <socialhapy> ★ Pull request on jquery by mikesherov (16h, 8m ago): fixes #10691, remove all instances of equals() and same() in unit tests
+[12:17:39] <mikesherov>  jquery homepage says it supports FF2.0+, is that still true? I thought it was FF3.6+?
+[12:30:10] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/u0qzlw
+[12:30:10] <jqcommit> [jquery/master] Fix #10691. Remove all instances of equals() and same(), as these are deprecated in QUnit. - Mike Sherov
+[12:32:36] <jq-jenkins> Project jQuery build #158: STILL FAILING in 2 min 19 sec: http://swarm.jquery.org:8080/job/jQuery/158/
+[12:32:36] <jq-jenkins> dave.methvin: Fix #10691. Remove all instances of equals() and same(), as these are deprecated in QUnit.
+[12:50:06] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/cheLIg
+[12:50:06] <jqcommit> [jquery/master] Streamline getComputedStyle per @JustinDrake's observation. - Dave Methvin
+[12:52:32] <jq-jenkins> Project jQuery build #159: STILL FAILING in 2 min 19 sec: http://swarm.jquery.org:8080/job/jQuery/159/
+[12:52:33] <jq-jenkins> dave.methvin: Streamline getComputedStyle per @JustinDrake's observation.
+[13:06:58] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/LS7-6g
+[13:06:58] <jqcommit> [jquery/master] User internalKey instead of jQuery.expando. Fixes #10675 - Rick Waldron
+[13:09:42] <jq-jenkins> Project jQuery build #160: STILL FAILING in 2 min 38 sec: http://swarm.jquery.org:8080/job/jQuery/160/
+[13:09:43] <jq-jenkins> dave.methvin: User internalKey instead of jQuery.expando. Fixes #10675
+[13:21:21] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/b2MYOQ
+[13:21:21] <jqcommit> [jquery/master] Coerce eq() argument all the time. Fixes #10616 - Rick Waldron
+[13:24:26] <jq-jenkins> Project jQuery build #161: STILL FAILING in 2 min 58 sec: http://swarm.jquery.org:8080/job/jQuery/161/
+[13:24:27] <jq-jenkins> dave.methvin: Coerce eq() argument all the time. Fixes #10616
+[13:41:19] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/RumcpA
+[13:41:19] <jqcommit> [jquery/master] Chrome 10 slice bug has been fixed; remove workaround. - Berker Peksag
+[13:43:46] <jq-jenkins> Project jQuery build #162: STILL FAILING in 2 min 20 sec: http://swarm.jquery.org:8080/job/jQuery/162/
+[13:43:46] <jq-jenkins> dave.methvin: Chrome 10 slice bug has been fixed; remove workaround.
+[14:03:25] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/ZFF2AA
+[14:03:25] <jqcommit> [jquery/master] Fix #10177. Pass correct index to function-parameter of `.wrap` - Toby Brain
+[14:05:50] <jq-jenkins> Project jQuery build #163: STILL FAILING in 2 min 18 sec: http://swarm.jquery.org:8080/job/jQuery/163/
+[14:05:51] <jq-jenkins> dave.methvin: Fix #10177. Pass correct index to function-parameter of `.wrap`
+[14:26:42] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/pKcQ6g
+[14:26:43] <jqcommit> [jquery/master] Removing a stale line of code in `.data()` - Corey Frang
+[14:29:51] <jq-jenkins> Project jQuery build #164: STILL FAILING in 2 min 58 sec: http://swarm.jquery.org:8080/job/jQuery/164/
+[14:29:52] <jq-jenkins> dave.methvin: Removing a stale line of code in `.data()`
+[14:35:05] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/HqUBlQ
+[14:35:05] <jqcommit> [jquery/master] Removed irrelevant comment. - Matt Mueller
+[14:37:10] <jq-jenkins> Project jQuery build #165: STILL FAILING in 1 min 58 sec: http://swarm.jquery.org:8080/job/jQuery/165/
+[14:37:10] <jq-jenkins> dave.methvin: Removed irrelevant comment.
+[14:56:58] <jqcommit> [jquery] dmethvin pushed 2 new commits to master: http://git.io/m5Lscw
+[14:56:58] <jqcommit> [jquery/master] It seems the convention is to use `self` for caching `jQuery ( this )` instead of using `$this`. - Justin
+[14:56:58] <jqcommit> [jquery/master] Merge pull request #583 from JustinDrake/patch-2 - Dave Methvin
+[14:59:23] <jq-jenkins> Project jQuery build #166: STILL FAILING in 2 min 17 sec: http://swarm.jquery.org:8080/job/jQuery/166/
+[14:59:23] <jq-jenkins> drakefjustin: It seems the convention is to use `self` for caching `jQuery ( this )` instead of using `$this`.
+[17:02:17] <timmywil> DaveMethvin: HI
+[17:02:19] <DaveMethvin> hey timmywil :P
+[17:02:39] <DaveMethvin> we can close :hover wontfix
+[17:02:48] <timmywil> agreed
+[17:02:56] <DaveMethvin> since it got autoclosed i just wanted to give it a decent burial
+[17:03:08] <timmywil> ah, that makes sense
+[17:03:11] <DaveMethvin> esp since we got a dup
+[17:03:25] <timmywil> he seemed to think it was supported
+[17:03:35] <DaveMethvin> i guess the Opera matchesSelector doesn't support :hover?
+[17:03:58] <timmywil> yea, the error he got was sizzle saying :hover doesn't make sense
+[17:04:07] <timmywil> so it must be it threw an error on qsa
+[17:04:13] <timmywil> or matchesSelector
+[17:04:23] <timmywil> i didn't look closely
+[17:04:28] <DaveMethvin> like i said about something else, i am constantly surprised at what people do  ...   .is(":hover")  wft
+[17:04:30] <DaveMethvin> wtf
+[17:05:17] <DaveMethvin> when i was a young developer we added classes to our elements for hovering and we liked it!
+[17:06:07] <timmywil> that's pretty much what we'd do for them behind the scenes anyway
+[17:07:25] <DaveMethvin> which is exactly why they like us doing it ... out of sight out of mind, and they can complain about how jQuery is too big and slow
+[17:08:14] <mikesherov> hey guys
+[17:08:53] <mikesherov> DaveMethvin, I rebased all of my PR's in case you want to merge any of them ;-)
+[17:08:55] <DaveMethvin> hey mikesherov
+[17:09:30] <DaveMethvin> which ones do you think are 1.7.1 material?
+[17:10:10] <timmywil> it's funny.  Now that I look closer, nwmatcher does not seem to add a mouseever event.
+[17:10:38] <timmywil> Maybe I did see this in the extra selectors plugin
+[17:10:48] <mikesherov> Um, well, I'm not really sure... the display none on FF3.6 thing might fit.
+[17:10:51] <DaveMethvin> i was like, wtf where did timmywil find out about this hoverElement thing, even gooogle doesn't konw about it
+[17:10:56] <timmywil> i think nwmatcher's support is broken
+[17:11:04] <mikesherov> But you guys seem to be against adding all that just for FF3.6
+[17:11:07] <DaveMethvin> good news is nobody must use it
+[17:11:24] <DaveMethvin> mikesherov: well we lost a lot of weight today with all the commits here
+[17:11:37] <DaveMethvin> so if you have any big ones we should "weight" them
+[17:11:55] <mikesherov> And the CSS3 vendor prefix thing, if anything, should wait till 1.8
+[17:12:32] <mikesherov> and I have one other, which is about calling width() on implicitly hidden elements
+[17:12:45] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/0Z6WPg
+[17:12:45] <jqcommit> [jquery/master] Since we fixed .is(POS) let's use it and save bytes. - Dave Methvin
+[17:13:09] <mikesherov> that one, you guys seemed to feel was a needsdoc instead of a fix
+[17:13:18] <mikesherov> so I dunno, maybe none of them fit
+[17:13:54] <DaveMethvin> well the vendor prefixes definitely a 1.8 thing but the others *could* be bug fixes
+[17:14:18] <DaveMethvin> i guess we should talk about how edgy of edge cases we should entertain given our desire for lighter weight
+[17:15:16] <jq-jenkins> Project jQuery build #167: STILL FAILING in 2 min 22 sec: http://swarm.jquery.org:8080/job/jQuery/167/
+[17:15:17] <jq-jenkins> dave.methvin: Since we fixed .is(POS) let's use it and save bytes.
+[17:15:23] <DaveMethvin> so timmywil i'm going to close that :hover ticket wontfix
+[17:15:31] <timmywil> ok
+[17:15:40] <timmywil> im gonna file a ticket on nwmatcher :)
+[17:15:52] <mikesherov> well, I think more than a few people do "body {display: none}"
+[17:16:29] <mikesherov> so their site all loads at once by using $('body').show(); at the end of the pageload
+[17:16:37] <mikesherov> all displays at once
+[17:16:58] <mikesherov> question is, how far away is FF3.6 from EOL?
+[17:17:10] <mikesherov> and how long is jQuery going to support FF3.6?
+[17:20:59] <DaveMethvin> mikesherov: i would bet ff3.6 lives a long time because it's the last one before the express train of ff4/5/6/7/8
+[17:21:11] <DaveMethvin> a lot of corp people are using it
+[17:21:26] <DaveMethvin> you know, the kind who thing IE7 is still cool
+[17:21:31] <DaveMethvin> think
+[17:21:45] <mikesherov> So there's your answer... Rick wrote that he wasn't sure if we should merge my PR because of it
+[17:22:05] <mikesherov> funny enough, it touches those lines in css.js you just changed
+[17:22:32] <DaveMethvin> just to make your life harder :P
+[17:22:50] <mikesherov> nah, the conflicts were easy to fix, I just overwrote whatever you did :-P
+[17:22:54] <mikesherov> https://github.com/jquery/jquery/pull/555
+[17:22:54] <socialhapy> ★ Pull request on jquery by mikesherov (2w, 4d ago): display:none on body tag causing .show() to not show, fixes #10227
+[17:22:57] <DaveMethvin> lol
+[17:23:39] <mikesherov> wait, actually, I need to update it
+[17:24:58] <DaveMethvin> rwaldron wanted to be around for his two shiv fixes to land so we can do those tomorrow morning
+[17:25:04] <DaveMethvin> he's at a wedding
+[17:25:42] <DaveMethvin> not his, at least I don't think ...
+[17:26:52] <timmywil> DaveMethvin: yup, diego's :hover don't do shiat http://jsfiddle.net/timmywil/G3gSs/
+[17:27:23] <DaveMethvin> he didn't craft a very good hover
+[17:27:29] <DaveMethvin> his hover craft is full of ills
+[17:28:30] <timmywil> he 'aired' on the bad size of hover
+[17:28:43] <timmywil> too much?
+[17:29:10] <DaveMethvin> what a terrible thing to lose one's head
+[17:33:12] <clarkbox> just updates http://view.jqueryui.com to list tags
+[17:33:19] <clarkbox> updated*
+[17:39:48] <mikesherov> DaveMethvin: https://github.com/jquery/jquery/pull/555 care to comment?
+[17:39:49] <socialhapy> ★ Pull request on jquery by mikesherov (2w, 4d ago): display:none on body tag causing .show() to not show, fixes #10227
+[17:40:01] <mikesherov> just updated it
+[17:42:57] <DaveMethvin> it's like a damn novel in that pr! :D
+[17:44:33] <mikesherov> well, I needed an IFRAME and to copy the iframetest code to test the thing
+[17:45:45] <mikesherov> and then rick complained about setting body to block, and I had to change my whole approach, and then an argument about whether we care about FF3.6
+[17:46:06] <mikesherov> and then an argument with timmywil over whether defaultDisplay really belonged in effects instead of css
+[17:46:20] <mikesherov> in case you haven't noticed, I say a lot of things, LOL
+[17:46:50] <DaveMethvin> lol
+[17:48:26] <mikesherov> Oh, and so I had one other question, you targetted this to 1.7.1: http://bugs.jquery.com/ticket/10692
+[17:48:37] <mikesherov> moving to JSLint
+[17:48:42] <mikesherov> JSHint *
+[17:49:00] <DaveMethvin> yeah the code on 555 is relatively simple to parse, it's mainly all the cases that elicit the need for the extra check
+[17:49:08] <DaveMethvin> which i guess you tested to figure out
+[17:49:34] <DaveMethvin> on moving to jshint it's no hurry but also not blocked by anything
+[17:49:43] <mikesherov> I see
+[17:49:49] <mikesherov> I might take a stab at that
+[17:49:56] <DaveMethvin> if it's gonna find undeclared vars or dead code that would be great
+[17:50:10] <mikesherov> re 555: Yeah, but I'm not sure that's ALL of them
+[17:50:45] <DaveMethvin> at one point i think we just used document.defaultView instead of ownerdocument
+[17:51:45] <mikesherov> well, the real difference is in src/effects.js where I do a swap on the body in the main document because it carries over into the IFRAME
+[17:53:43] <DaveMethvin> wow if you go through 1.3, 1.4, 1.5 we have done every known permutation of determining getComputedStyle
+[17:53:54] <mikesherov> LOL
+[17:54:07] <mikesherov> my change, if you want to believe it
+[17:54:16] <mikesherov> my change is there, only because of the test
+[17:54:42] <mikesherov> the unit test, in ff3.6, is an iframe
+[17:54:55] <mikesherov> and that iframe, when it does defaultDisplay, creates an IFRAME
+[17:55:36] <mikesherov> that third level IFRAME needs document.defaultView.getComputedStyle instead of defaultView.getComputedStyle
+[17:56:10] <DaveMethvin> every time i look at this code i am amazed it ever works
+[17:56:17] <mikesherov> LOL
+[17:56:47] <mikesherov> defaultDisplay is such bullshit
+[17:57:09] <DaveMethvin> well that's one of those things the stds group is trying to get the browsers to just TELL us
+[17:57:15] <mikesherov> we need to tell paulirish that devs need to be able to read browser stylesheets
+[17:57:24] <mikesherov> jinx
+[17:57:28] <DaveMethvin> yep
+[17:57:48] <DaveMethvin> of course that wouldn't knock sense into ff3.6
+[17:58:25] <mikesherov> anyway, I gotta run, hit me up on the ticket or the PR if you have questions or want to merge
+[17:58:32] <DaveMethvin> well other than adding a small amount of bytes it seems like this won't break other browsers
+[17:58:47] <DaveMethvin> which should return from the first condition with a style
+[17:58:52] <DaveMethvin> ok cya later
+[17:58:53] <mikesherov> it works on FF7 and chrome and IE8
+[17:59:16] <mikesherov> I didn't test SAF, O, or IE<8 or IE9
+[17:59:21] <mikesherov> but should work, as you mentioned
+[18:00:15] <mikesherov> maybe I should get rick or Timmy to take one last look, and test it again
+[18:01:00] <mikesherov> Only though if you're really considering merging it... Otherwise, I have a few other fish to fry. Let me know.
+[18:01:02] <mikesherov> later
+[18:14:58] <timmywil> DaveMethvin: http://bugs.jquery.com/ticket/10697
+[18:15:37] <DaveMethvin> timmywil: sucker!
+[18:15:46] <timmywil> hahaha
+[18:15:57] <DaveMethvin> we shoudl be able to get it into 1.7.1
+[18:16:07] <timmywil> HAHAHAH
+[18:16:24] <timmywil> some of it maybe
+[18:16:34] <timmywil> mmmm
+[18:16:41] <timmywil> no
+[18:18:21] <timmywil> DaveMethvin: i thought you'd be most interested in #56
+[18:18:23] <timmywil> #5
+[18:18:53] <DaveMethvin> i think we'll need a fallback for complex selectors but yeah the quickIs stuff really belongs in Sizzle i think
+[18:19:19] <DaveMethvin> it shoudl be possible to create a simple cache for selectors, kinda like the fragment cache
+[18:20:18] <timmywil> Sizzle can handle the complex selectors and may even do it just as fast (to an acceptable degree) as matchesSelector.  other selector libraries have removed it as well.
+[18:20:48] <DaveMethvin> yeah if the js stuff gets cleaned up and has reliable results i guess
+[18:21:19] <timmywil> keep in mind it can still use qsa
+[18:21:34] <timmywil> wait
+[18:21:36] <timmywil> no it can't
+[18:21:37] <timmywil> ha
+[18:21:40] <timmywil> seeeeeed
+[18:22:08] <timmywil> but still
+[18:22:35] <timmywil> what kind of selector caching do you mean?
+[18:23:09] <DaveMethvin> kinda like quickIs does ... the keys would be the selector and the value would be something like an object with the "parsed" selector and a fn to eval it
+[18:23:10] <timmywil> skipping the chunker?
+[18:23:46] <DaveMethvin> for simple selectors you cache them, for hard ones you just make em pay
+[18:24:05] <DaveMethvin> if you look at real code most selectors are simple
+[18:24:18] <timmywil> so gimme an example
+[18:24:38] <timmywil> "#foo": function() { return getElementById(...
+[18:24:39] <timmywil> ?
+[18:24:52] <DaveMethvin> yeah that would be the simplest one
+[18:25:04] <DaveMethvin> works really well for matchesselector
+[18:25:21] <timmywil> do any other libraries do this?
+[18:25:41] <DaveMethvin> dunno ... what do the ones that don't use mS do?
+[18:25:48] <timmywil> nwmatcher's caching actually cached results and cleared them on dom mutation events (of course this was dependent on whether dom mutation was available)
+[18:25:56] <DaveMethvin> ugh
+[18:26:03] <timmywil> yea
+[18:26:05] <timmywil> no thanks
+[18:26:19] <timmywil> i don't think slick does anything
+[18:26:33] <DaveMethvin> i think the first thing we need to find out is, what is slow in real-life code and how do we make it faster
+[18:26:57] <DaveMethvin> we could spend a lot of time optimizing things that are fast enough
+[18:27:11] <timmywil> actually, slick does nth-something cache
+[18:27:32] <timmywil> that's it tho
+[18:27:48] <timmywil> that actually makes sense
+[18:27:51] <timmywil> nth is a beast
+[18:27:56] <DaveMethvin> it's so funny b/c back 4 years ago everyone was whipping out their selector engines and comparing speeds
+[18:28:11] <DaveMethvin> now hardly anyone cares because they're all fast enough and browsers have gotten faster
+[18:28:23] <timmywil> pretty much
+[18:28:29] <DaveMethvin> if all the browsers were as fast as chrome it wouldn't even make sense to do quickIs
+[18:28:39] <timmywil> and nobody wanted to keep up with the ever-changing selector spec
+[18:28:50] <DaveMethvin> there's just no bottleneck there for most code
+[18:29:02] <timmywil> yea i suppose not
+[18:29:18] <timmywil> well, I don't think we need to cache the common ones
+[18:29:25] <timmywil> now that I think abou tit
+[18:29:35] <timmywil> i see how it makes sense for events
+[18:30:01] <DaveMethvin> yeah esp since i had an object to throw the parsed selector into
+[18:30:11] <timmywil> but with selections, it's far too easy to check for tag#id.class and optimize accordingly
+[18:30:43] <timmywil> we can make those freaking fast
+[18:30:53] <DaveMethvin> which is good since they're common
+[18:31:14] <timmywil> anyway, gotta run.  be back soon
+[18:31:19] <DaveMethvin> k

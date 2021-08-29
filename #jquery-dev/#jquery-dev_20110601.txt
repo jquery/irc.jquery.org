@@ -1,0 +1,645 @@
+[05:17:55] <jaubourg> jzaefferer: hello
+[05:18:48] <jzaefferer> hey!
+[05:19:09] <jzaefferer> soo, 1.5 style ajax transports and testing
+[05:19:10] <jaubourg> just got your message, was out of irc for a couple days :/
+[05:19:18] <jzaefferer> yeah, I noticed
+[05:19:22] <jzaefferer> but you're back!
+[05:19:22] <jaubourg> hehe
+[05:19:27] <jaubourg> yep :)
+[05:19:45] <jzaefferer> so from a high level, mockjax, as nice as it is, is not a good enough match for 1.5
+[05:20:08] <jzaefferer> in detail, I could fix my problems if I had access to the "transports" structure, that is currently hidden
+[05:20:31] <jaubourg> how so?
+[05:20:39] <jzaefferer> I saw that blog post of yours on ajax mocking, but that seemed to come of the top of your head without actual testing
+[05:20:57] <jaubourg> yeah, it was really just a brain dump
+[05:21:16] <jzaefferer> so, pending a mockjax replacement, what I'd like to do is overwrite a custom transport and make it use just $.ajax
+[05:21:40] <jaubourg> k
+[05:21:50] <jzaefferer> I can build a hook into my custom transport to modify it for testing, but I can't route it back to $.ajax, as I'd need to replicate the send (and abort) functions
+[05:21:58] <jzaefferer> which I can't access either
+[05:22:34] <jaubourg> do you have some gist or code somewhere?
+[05:22:38] <jzaefferer> dunno, maybe we don't even need the custom transport and could do with a filter
+[05:23:12] <jaubourg> I thought a filter would be preferable but you'll need a transport of sort so that ajax doesn't issue the request anyway
+[05:23:15] <jzaefferer> that's the custom transport: https://gist.github.com/1e224a0d90559ba3c2f2
+[05:23:43] <jzaefferer> for testing, I need to mock those request, preferably using mockjax, as we use that for everything else
+[05:24:59] <jaubourg> I'm confused as to why you use a dataType to select the transport... is the dataType fixed in this SC.authorization thingy? json?
+[05:25:23] <jzaefferer> yeah, its fixed
+[05:25:26] <jaubourg> k
+[05:25:37] <jzaefferer> what's the alternative?
+[05:26:12] <jaubourg> use a custom option, then add the transport as "+*" so that it's forst in the catchall transports
+[05:26:17] <jaubourg> forst = first
+[05:26:58] <jzaefferer> okay, I need an example of that - not enough here: http://api.jquery.com/extending-ajax/
+[05:27:06] <jaubourg> yeah, I know :/
+[05:27:15] <jaubourg> let me make a fork of your gist
+[05:28:46] <jaubourg> https://gist.github.com/cf3236be4521d04e2a03
+[05:29:35] <jzaefferer> okay, that looks good
+[05:29:53] <jzaefferer> next step would be to override that option for tests and to it to false
+[05:30:00] <jzaefferer> any idea how to do that?
+[05:30:11] <jaubourg> the problem is that, if you have a json request and are doing cross-domain requests, the script transport may be used first
+[05:30:39] <jzaefferer> that shouldn't be a problem
+[05:30:56] <jaubourg> I'm not sure I get the actual need... so you have a custom transport and you want to be able to mock it, right?
+[05:32:27] <jzaefferer> yep, pretty much
+[05:32:43] <jzaefferer> using mockjax for regular transport, would like to use that for the custom transport, too
+[05:33:45] <jaubourg> what prevents you from doing so? (not that fluent in mockjax)
+[05:34:26] <jzaefferer> so with that change to how the transport works, I can probably figure out a workaround
+[05:35:02] <jaubourg> by detecting the option in your mockjax hook right?
+[05:35:46] <jaubourg> you realize you transport will never complete?
+[05:35:49] <jaubourg> your
+[05:36:03] <jaubourg> lacking callbacks notification and all
+[05:36:48] <jzaefferer> no?
+[05:36:51] <jzaefferer> did not realize
+[05:37:05] <jzaefferer> I actually didn't even write that thing, but that's no excuse :o
+[05:37:41] <jaubourg> I suppose the SC.... method calls success, error and complete... but it should rather take the complete callback given to send
+[05:38:02] <jaubourg> so function re-routing might be needed in a copy of the originalOptions
+[05:38:27] <jaubourg> only way to have the internal deferred resolved/rejected as needed
+[05:38:45] <jaubourg> I really have to make docs on this
+[05:39:09] <jaubourg> you can look into my jaubourg/ajaxHooks repo for some transports
+[05:39:19] <jaubourg> and the jqcon prez
+[05:39:35] <jaubourg> code is worth a thousand words
+[05:41:00] <kswedberg> jaubourg: seems like the learn.jquery.com site, when that happens, would be a great place for a bunch of articles on $.ajax exensibility
+[05:41:08] <jaubourg> exactly
+[05:41:12] <jaubourg> and hi Karl :)
+[05:41:21] <kswedberg> hi jaubourg! :D
+[06:04:18] <jzaefferer> jaubourg, I prefer the notion of "only documented features exist", and there's a lot of stuff in ajax thats not documented
+[06:07:04] <jaubourg> yeah, I know :/
+[06:08:06] <jaubourg> tend to agree with you but, apart from the + in the dataType selector trick I think everything is pretty much documented... but veeeeerrryyyy badly since it would take full-fledged tutorials to explore it all
+[06:39:20] <louisremi> Hi all. Are there any valid reasons for not accepting null as a value with .css(), except that "jQuery used to append 'px' and cause errors in IE"
+[06:40:03] <louisremi> ?docs #9482
+[06:40:04] <bot-t> [#9482] .css()  and .animate() should accept null values (assigned enhancement) - http://jqbug.com/9482
+[07:22:47] <ben_alman> jaubourg, i just had to tell someone to do this $.ajax({url: '/test', dataType: '*', accepts: {'*': 'application/json; q=1.0, text/javascript, */*'}}); because their server is borked with the new header format of "Accept: application/json; q=1.0, text/javascript, */*; q=0.01"
+[07:23:22] <jaubourg> weird
+[07:23:50] <ben_alman> the q=0.01 apparently makes his server return html
+[07:23:55] <ben_alman> he's going to look into configs
+[07:24:00] <jaubourg> k
+[07:24:07] <ben_alman> but he was surprised in the change in jquery from 1.6.0 -> 1.6.1
+[07:24:29] <jaubourg> wait, that changed between 1.6.0 and 1.6.1?
+[07:24:31] <ben_alman> hmmn
+[07:24:35] <ben_alman> he said it did
+[07:24:39] <ben_alman> i didn't test
+[07:24:53] <jaubourg> sounds strange, I have no recollection of any change in that department during that time
+[07:25:04] <ben_alman> asking now
+[07:25:15] <ben_alman> oops 1.4.2
+[07:25:17] <ben_alman> sorry
+[07:25:26] <jaubourg> oh
+[07:25:35] <jaubourg> what was 1.4.2 outputing then?
+[07:25:58] <ben_alman> 1.4.2 had   Accept: application/json; q=1.0, text/javascript, */*, and 1.6.1 has Accept: application/json; q=1.0, text/javascript, */*; q=0.01
+[07:26:31] <jaubourg> I'm wondering if the change didn't occur in 1.4.4
+[07:26:57] <jaubourg> if not, I broke something
+[07:27:34] <ben_alman> although i see this in 1.4.2 "Accept: application/json, text/javascript, */*" and in 1.6.1 i see "Accept: application/json, text/javascript, */*; q=0.01"
+[07:28:03] <ben_alman> i dunno
+[07:28:07] * ben_alman has no idea
+[07:28:16] <jaubourg> I think quality got added in 1.4.4 iirc
+[07:28:31] <jaubourg> but I may be wrong
+[07:28:35] <jaubourg> oh, btw, ben
+[07:28:52] <jaubourg> bpost accepted Creative Area's proposal for a training
+[07:29:15] <jaubourg> I'll have to pick-pocket some stuff from you ;)
+[07:31:13] <ben_alman> awesome
+[07:31:15] <ben_alman> let me know
+[07:32:02] <jaubourg> I just did ;P
+[07:32:14] <jaubourg> scheduled for the end of june
+[07:37:18] <ben_alman> cool
+[07:50:06] <ben_alman> DaveMethvin, there?
+[07:50:21] <DaveMethvin> yep
+[07:50:36] <ben_alman> did you see my comment in docs?9469
+[07:50:45] * ben_alman has no idea how to trigger the bot
+[07:50:49] <ben_alman> docs#9469
+[07:50:50] <bot-t> [#9469] Remove semi-functional .selector calculation from .pushStack() (open enhancement) - http://jqbug.com/9469
+[07:50:54] <ben_alman> AHA
+[07:51:06] <DaveMethvin> lol
+[07:51:28] <DaveMethvin> i would love to just clean all that out, unless it can be proven that it adds real value
+[07:51:50] <ben_alman> well either way, there's no reason for all those methods to call pushStack directly
+[07:51:57] <ben_alman> they can jsut return the new set
+[07:52:16] <ben_alman> and the new pushStacked methods can be created in an each
+[07:52:38] <DaveMethvin> yeah i see your point
+[07:53:08] <DaveMethvin> have to think about debugging tho...
+[07:53:27] <DaveMethvin> all methods end up being wrapped in a pushStack!
+[07:54:29] <DaveMethvin> seems ok tho
+[07:54:47] <ben_alman> DaveMethvin, well yeah but that's what all the .dir-using methods already do
+[07:56:19] <ben_alman> maybe new Function() can be used
+[07:56:26] <ben_alman> passing in a string
+[07:56:30] <DaveMethvin> don't do that
+[07:56:33] <ben_alman> heh
+[07:56:44] <ben_alman> you want to debug... ILL GIVE YOU DEBUGGING
+[07:57:29] <DaveMethvin> that last one would make it easy to duck-punch pushStack for debugging tho
+[07:57:34] <ben_alman> actually
+[07:58:56] <ben_alman> why not iterate over all functions on the prototype giving each an expando value that's the method name $.each($.fn,function(name,fn){if($.isFunction(fn){fn.debug=name;}});
+[07:59:08] <ben_alman> then you can debug with that.. or something
+[07:59:17] <DaveMethvin> then a miracle occurs ...
+[07:59:23] <DaveMethvin> sure,
+[07:59:46] <DaveMethvin> i think someone suggested a change that made functions look nicer in firebug like that
+[08:00:29] <DaveMethvin> as long as it can be punched in and not dragged along in core
+[08:00:46] <ben_alman> sure
+[08:00:52] <ben_alman> well that can be punched in
+[08:04:48] <rwaldron> dick punched
+[08:05:07] <ben_alman> ?dickpunch is https://gist.github.com/937006
+[08:05:09] <bot-t> ben_alman, Couldn't find "dickpunch is https://gist.github.com/937006" in jQuery Docs.
+[08:05:19] <ben_alman> bot-t: dickpunch is https://gist.github.com/937006
+[08:05:19] <bot-t> ben_alman, Stored "dickpunch".
+[08:05:23] <ben_alman> ?dickpunch
+[08:05:23] <bot-t> https://gist.github.com/937006
+[08:05:24] <ben_alman> w00t
+[08:06:09] <DaveMethvin> ouch.
+[08:06:53] <DaveMethvin> oh good our docs for pushStack suck so we can prolly not worry too much about contradicting them: http://api.jquery.com/pushStack/
+[08:07:17] <ben_alman> and if the 2nd signature is removed nothing should break
+[08:07:24] <ben_alman> and anything that does is doing it way wrong anyways
+[08:07:30] <jzaefferer> DaveMethvin: very professional!
+[08:07:35] <ben_alman> because they'd be using the .selector property so they are jerks
+[08:07:42] <jzaefferer> denie everything until its undeniable!
+[08:07:45] <DaveMethvin> yeah, and if someone punched in the second sig that would be peachy
+[08:08:10] <ben_alman> DaveMethvin, is there any value to keeping the 2nd argument though
+[08:08:28] <DaveMethvin> i was worried we promised too much in pushStack but it turns out we promise nothing!
+[08:08:48] <ben_alman> DaveMethvin, look @ the 1st comment
+[08:08:48] <ben_alman> haha
+[08:09:28] <DaveMethvin> sweet, glad to have changed his life
+[08:11:29] <kswedberg> those comments are so awesomely useful that Immagonna delete em
+[08:11:45] <ben_alman> oh no, we awakened the slumbering beast
+[08:11:55] <DaveMethvin> Arnold would call you a party pooopa
+[08:12:00] <kswedberg> hahahaha.
+[08:12:20] <ben_alman> karl "comment killa" swedberg
+[08:12:59] <kswedberg> ben_alman: nice to have those two words used to describe me. "slumbering" and "beast" — yeah, that about sums me up.
+[08:13:35] <kswedberg> commentsbegone
+[08:13:37] <ben_alman> well i couldn't fit "pretentious" in there so..
+[08:13:44] <DaveMethvin> lol
+[08:13:48] <ben_alman> haha
+[08:14:02] <DaveMethvin> fit it, imma suprised you can spell it!
+[08:14:05] <ben_alman> karl is like, the least pretentious person i know, and i know a LOT OF STEELWORKERS
+[08:15:11] <ben_alman> any better way to do this? http://jsfiddle.net/cowboy/J9JS2/
+[08:16:28] <DaveMethvin> how better? smaller, faster, or more elegant?
+[08:16:42] <ben_alman> one of each please
+[08:17:00] <ben_alman> just looking for non-shitty alternatives out of curiosity
+[08:17:08] <kswedberg> hahaha. aww ben_alman, I <3 you — backhanded compliments and all!
+[08:17:31] <DaveMethvin> do you always know the span is in the first td?
+[08:17:32] <ben_alman> kswedberg, i totally don't mean it though, only real compliments for you
+[08:17:41] <ben_alman> DaveMethvin, LOOK AT MY EXAMPLE
+[08:17:48] <ben_alman> ACTUALLY LOOK
+[08:17:55] <DaveMethvin> yeah i see it but are you LYING?
+[08:17:55] <ben_alman> I AM NOW YELLING AND I DONT KNOW WHY
+[08:18:16] <kswedberg> ben_alman: no worries, all <3z
+[08:18:20] <ben_alman> i've given you both the fixture and the assertion
+[08:18:32] <ben_alman> and you are still axing me questions
+[08:18:45] <DaveMethvin> oh didn't see the rest of the markup :P
+[08:18:57] <DaveMethvin> I WILL NOT SCROLL
+[08:19:00] <ben_alman> haha
+[08:19:10] <ben_alman> are you on like 640x480?
+[08:19:38] <DaveMethvin> i had firebug open hogging screen
+[08:19:55] <ben_alman> firebug?
+[08:20:14] <ben_alman> DaveMethvin: neanderthal sophisticate
+[08:20:48] <DaveMethvin> you'd better zip it or i'll try it on ie6
+[08:21:16] <ben_alman> good luck with that console.log
+[08:21:24] <ben_alman> talk talk talk talk talk talk talk talk talk talk talk talk
+[08:21:29] <ben_alman> talk talk talk talk talk talk talk talk talk talk talk talk talk talk talk talk talk talk talk talk talk talk
+[08:21:33] * ben_alman waits
+[08:21:35] <ben_alman> talk talk talk talk talk talk talk talk talk talk talk talk talk talk
+[08:26:31] <DaveMethvin> so ben_alman this would be faster but less jQueryish http://jsfiddle.net/dmethvin/J9JS2/5/
+[08:26:57] <ben_alman> oh, right, of course
+[08:27:20] <DaveMethvin> the :first selector is gonna send you to javascript-land in sizzle
+[08:27:22] <ben_alman> wait
+[08:27:33] <ben_alman> yournm
+[08:27:40] <ben_alman> yeah
+[08:27:41] <ben_alman> well
+[08:27:45] <DaveMethvin> selects an empty array and then undefined
+[08:27:59] <ben_alman> DaveMethvin, http://jsfiddle.net/cowboy/J9JS2/
+[08:28:03] <ben_alman> derp on me
+[08:29:24] <DaveMethvin> true
+[08:30:50] <DaveMethvin> too bad there's no way to do precedence on selectors
+[08:31:44] <ben_alman> you mean grouping operator?
+[08:31:51] <DaveMethvin> right
+[08:32:01] <ben_alman> it's too bad browsers didn't implement xpath
+[08:32:07] <ben_alman> because it's so much more powerful
+[08:32:17] <jaubourg> +1
+[08:32:29] <jaubourg> and hi Dave
+[08:32:34] <DaveMethvin> hi jaubourg
+[08:32:53] <DaveMethvin> obtw i saw the earlier discussion on mockjax
+[08:33:11] <DaveMethvin> why not just put in a fake ajaxOptions.xhr?
+[08:33:32] <jaubourg> wouldn't work for x-domain json and script requests
+[08:33:44] <DaveMethvin> yeah we need a hook under those too ... :)
+[08:34:03] <jaubourg> though in that case, you wouldn't care... though the idea of the transport is to avoid having to define a complete xhr wrapper
+[08:34:25] <DaveMethvin> mock  transports/filters don't seem like a good idea b/c they make the test case less like the real case
+[08:34:53] <jaubourg> well, only if you wanna somehow test the internals of ajax in the process
+[08:35:31] <jaubourg> I'd go with a prefilter that returns a new dataType "mock" then have everything handled in the "mock" transport... but you'll need hooks to extend this mock transport
+[08:36:59] <jaubourg> I mean, dataType delegation is here for this kind of situation... but that's clearly something we never talked about even if it's used in the jsonp prefilter
+[08:37:35] <ben_alman> i wonder what the most generally-useful way of mocking ajax requests would be now
+[08:37:42] <DaveMethvin> how hard would a fake xmlhttprequest object be anyway? since i've never thought about it before i declare it to be trivial! :)
+[08:38:04] <ben_alman> like, is there a super simple way that allows you to specify url or url regexp, content type (optional) and a callback?
+[08:38:24] <ben_alman> DaveMethvin, it would have to implement a subset of the XHR api
+[08:38:28] <jaubourg> Dave: not that hard but a transport is much much simpler
+[08:38:37] <ben_alman> what methods and properties, only jaubourg knows
+[08:38:58] <jaubourg> well, you'd have to do what the jqXHR does
+[08:39:16] <jaubourg> maintain states and emulate stuff + the onreadystatechange handler which is not emulated by the jqXHR
+[08:40:06] <jaubourg> that's work enough if you ask me and why I decided to do it at a higher level in the ajax architecture and left just the send and abort methods to be defined by a transport
+[08:40:35] <jaubourg> first iteration of the rewrite had every transport provide its own xhr-like imp
+[08:40:39] <jaubourg> it was clearly overkill
+[08:41:24] <ben_alman> heh
+[08:41:30] <ben_alman> was that the one i complained about?
+[08:41:32] <ben_alman> i don't remember
+[08:41:44] <ben_alman> wait, i complained about all of them
+[08:41:56] <ben_alman> it's what i do
+[08:42:04] <ben_alman> btw jaubourg how's your midi keyboard working out?
+[08:43:26] <jaubourg> not bad but I wish I had more time to work with it... between $.Callbacks, my prototype of new animation based on CSS3 animation, actual (paying) work stuff and my RPG club, it's quite the full life I have
+[08:44:14] <ben_alman> yeah same here
+[08:44:27] <jaubourg> heh, you know the deal ;)
+[08:44:29] <ben_alman> i feel like i'd have to quit my job to do music at this point :/
+[08:44:35] <ben_alman> which drives me crazy
+[08:45:08] <jaubourg> heh, and I'd like to write all those crazy stories I have in mind but just can't find the time :/
+[09:52:13] <kswedberg> jaubourg: you still around?
+[10:04:57] <danheberden> ajpiano do we have a getting involved page?
+[10:22:38] <rwaldron> timmywil yt?
+[10:34:57] <timmywil> rwaldron: sup
+[10:35:08] <rwaldron> https://github.com/jquery/jquery/pull/400
+[10:35:10] <rwaldron> no good
+[10:35:13] <rwaldron> its been done
+[10:35:19] <rwaldron> exactly that approach
+[10:35:24] <rwaldron> but less crappy
+[10:35:32] <rwaldron> it doesnt work in IE6
+[10:35:55] <rwaldron> so, closable
+[10:36:04] <timmywil> cool ok
+[10:36:56] <rwaldron> whats the deal with the patch we both made, we should get that in and combine the tests
+[10:37:16] <rwaldron> _also_ i just pushed a commit to my withinElement rewrite
+[10:37:35] <rwaldron> i discovered that it didnt pass the test/delegatetests.html stuff
+[10:37:42] <rwaldron> that john wrote for 9069
+[10:37:48] <rwaldron> so, I fixed and pushed
+[10:37:53] <timmywil> adjustments to function signatures is more for major point releases imo
+[10:37:54] <rwaldron> in case you wanna review it
+[10:37:59] <timmywil> the inArray thing
+[10:38:00] <rwaldron> timmywil cool
+[10:38:08] <rwaldron> im down with that
+[10:39:20] <timmywil> rwaldron: I like the withinElement stuff as well.  Which delegate test failed?
+[10:40:05] <rwaldron> the last test on this page:
+[10:40:09] <rwaldron> at the bottom
+[10:40:12] <rwaldron> but its all good
+[10:40:53] <rwaldron> the regression I had created was incrementing when the mouseover event occurred on the child element
+[10:41:01] <rwaldron> this is resolved
+[10:41:15] <rwaldron> while also passing the full test suite
+[10:44:00] <timmywil> rwaldron: sounds good
+[10:46:07] <louisremi> Let me try again: Are there any valid reasons for not accepting null as a value with .css(), except that "jQuery used to append 'px' and cause errors in IE"
+[10:46:31] <DaveMethvin> louisremi: not that i know of; .attr() uses null to mean removeAttr i am pretty sure
+[10:46:35] <DaveMethvin> but of course too lazy to check
+[10:47:30] <louisremi> DaveMethvin: Thanks, as far as I checked there, there isn't. But maybe someone does know of a good reason.
+[10:47:52] <timmywil> brb
+[10:48:17] <DaveMethvin> i think the prob with .css() was that "auto" got parseInt'ed to NaN and we got NaNpx a lot
+[10:50:08] <louisremi> DaveMethvin:  yes, but that shouldn't mean we cannot use null as a value.
+[10:50:15] <DaveMethvin> agreed
+[11:01:22] <timmywil> I'm not sure why it's needed
+[11:02:30] <timmywil> null can't be used as an actual value anyway
+[11:03:06] <timmywil> I sort of see the case if people want to normalize it
+[11:03:22] <timmywil> but other than that, I don't see it as useful
+[11:04:18] <DaveMethvin> what is the "official" way to reset css back to virgin territory? I always just set it to an empty string
+[11:04:25] <timmywil> it is
+[11:04:30] <timmywil> IE will throw an error with null
+[11:04:35] <rwaldron> TBH, I'm wary of adding yet _more_ special behaviour that depends on "which falsy was passed"
+[11:04:48] <timmywil> we'd have to convert it to empty string
+[11:05:16] <rwaldron> then someone is going to be like... why does $(foo).css("quux", undefined ) return the value of quux instead of chaining
+[11:05:21] <DaveMethvin> as long as we don't mess with undefined we won't set off the danheberden-range machine :)
+[11:05:28] <DaveMethvin> rage*
+[11:05:32] <timmywil> hehe
+[11:05:51] <DaveMethvin> see? give em an inch and they'll take your api
+[11:06:35] <rwaldron> i'm thinking of starting a "best of" for some of the stuff I'm seeing on es-discuss
+[11:06:52] <rwaldron> you'd think that the folks submitting proposals had never actually used javascript
+[11:07:00] <rwaldron> ready?
+[11:07:37] <rwaldron> one guy thought that making an object property non-enum, non-config and non-writable should look like....
+[11:07:49] <rwaldron> #!~obj.prop
+[11:07:53] <rwaldron> or even...
+[11:08:05] <rwaldron> obj = { #!~prop: "foo" }
+[11:08:12] * rwaldron sighs
+[11:08:40] <tbranyen> sexy
+[11:14:20] <DaveMethvin> sorry, my modem seems to have gotten some line noise in your post rwaldron
+[11:18:54] <rwaldron> hrm?
+[11:18:59] <rwaldron> DaveMethvin say what?
+[11:19:13] <DaveMethvin> making fun of { #!~prop: "foo" }
+[11:19:30] <DaveMethvin> technically it should be  { #!~prop: "foo" }NO CARRIER
+[11:19:36] <ryanneufeld> DaveMethvin: making fun of { #!~prop: "Poo" } FIFY
+[11:19:44] <DaveMethvin> lol
+[11:27:06] <rwaldron> ohhhh got ya
+[11:27:20] <rwaldron> yeah thats some heinous operator soup
+[11:51:54] <ben_alman> var obj = { #!~"#!~": ":-/" };
+[11:53:56] <getify> jaubourg: you around? have some questions about the ajax system if you've got a few
+[11:54:14] <ben_alman> o shit
+[11:54:30] <ben_alman> hiya getify
+[11:54:46] <getify> ben_alman: hi! i don't get on public IRC very often :)
+[11:54:53] <tbranyen> :3
+[11:55:03] <ben_alman> there's lots of stuff on the eye are sea
+[11:55:19] <getify> actually, i'm on the mozilla IRC all-day-everyday... but that's about it
+[11:59:22] <gnarf> getify: someone other than jaubourg might know the answer to your question too ;)
+[11:59:46] <gnarf> (also hoping highlighting his name again might get his attention for ya ;) )
+[11:59:52] <getify> gnarf: fair enough :)
+[12:00:08] <kswedberg> gnarf: who you talking about? jaubourg? Julian?
+[12:00:09] <ben_alman> ?ask
+[12:00:09] <bot-t> If you have a question, please just ask it. Don't look for topic experts. Don't ask to ask. Don't PM! Don't ask if people are awake, or in the mood to help. Just ask the question straight out. http://catb.org/~esr/faqs/smart-questions.html
+[12:00:16] <ben_alman> heh
+[12:00:19] <gnarf> lol
+[12:00:57] <getify> so my question is why i get a message "No conversion from text to plain/text" when i return a response object from a custom XHR transport
+[12:00:58] <timmywil> JohnResig: yt?
+[12:01:12] <ben_alman> bot-t, axe is If you have a question, please just axe it. Don't look for topic experts. Don't axe to axe. Don't PM! Don't axe if people are awake, or in the mood to help. Just axe the question straight out. http://catb.org/~esr/faqs/smart-questions.html
+[12:01:12] <bot-t> ben_alman, Stored "axe".
+[12:01:46] <eddiemonge> getify? what? here? wow
+[12:02:05] <getify> eddie: i know it's a rare occurence. don't get used to it :)
+[12:02:58] <gnarf> getify: whats the object you return look like?
+[12:04:03] <getify> per the docs, it says that a native XHR would pass something like {text:"..."} as the `responses` param to the completeCallback
+[12:04:17] <getify> and since my XHR is, for the most part, mimicking native XHR, i tried that
+[12:05:31] <getify> however, my custom XHR transport doesn't (and can't) return response headers... and it appears in ajax.js that this is relied upon
+[12:05:46] <getify> if i pass {"plain/text": "...}
+[12:06:13] <getify> sorry, "text/plain"
+[12:06:30] <getify> it works fine, but I was just trying to figure out why text->text/plain is a conversion that isn't built in and obvious
+[12:07:16] <gnarf> getify: tbh - that is totally a jaubourg question--- I recently remember hearing him talk about this one in a bug somewhere
+[12:08:09] <getify> gnarf: thanks
+[12:10:01] <gnarf> getify: what is your dataType param on the $.ajax() call??
+[12:15:03] <getify> gnarf: i am not setting it, because my plugin doesn't know what the end-user is requesting... so they may set it, or they may not
+[12:15:37] <getify> nor, more to the point of the code i'm seeing in ajax.js, am i setting the `mimetype` param, for the same reason
+[12:24:07] <eddiemonge> that might be the cause since it tries to figure out the datatype from the response header
+[12:36:01] <getify> eddie: yes, it quite appears that it wants either `mimetype` to be set, or a content-type response header... neither of which i can guarantee. i'm still just curious why text->text/plain isn't an obvious and built-in conversion
+[12:49:01] <rwaldron> DaveMethvin yt?
+[12:49:18] <rwaldron> i just read your comment on the pull request about issues with document or window
+[12:50:08] <rwaldron> anyway, the long and short (and I will update the thread with this as well) is that "body" is actually _always_ the root-most related target
+[12:50:18] <rwaldron> so yeah, no issue with document or window
+[12:50:50] <rwaldron> (that is, from my observation of all the tests and from our fiddles)
+[12:59:44] <DaveMethvin> rwaldron: Yay! (barring stupid browser bugs of course)
+[12:59:59] <DaveMethvin> but it does make sense that the body is the most related target
+[14:05:45] <DaveMethvin> so timmywil rwaldron i have a suggestion, let's put up an annoying dialog if we don't see "http://jsfiddle.net" in the text of a new ticket. :)
+[14:10:29] <gnarf> DaveMethvin: would you rather have tickets needing triage, or reporters giving up because of a dialog? :)
+[14:12:05] <DaveMethvin> i just figured they didn't see it somehow, a few reporters have mentioned that after they created the ticket ... i'm not saying we prevent them from submitting but 9 times out of 10 if there's no test case it's gonna go to pending and they will have to respond or we ignore it
+[14:13:07] <gnarf> afk - biking back home...
+[14:27:49] <rwaldron> DaveMethvin i once suggested disabling the submit button until "jsfiddle.net/ " isdetected in the text
+[14:28:26] <timmywil> haha
+[14:28:50] <timmywil> DaveMethvin: just ask DM to comment
+[14:29:49] <miketaylr> we're all doomed when jsfiddle disappears
+[14:39:28] <timmywil> uhoh, and jsfiddle is down?
+[14:39:32] <timmywil> ?down jsfiddle.net
+[14:39:39] <bot-t> timmywil, It's not just you! - http://jsfiddle.net looks down from here.
+[14:49:50] <gnarf> thats no good
+[14:50:03] <gnarf> seems up now...
+[15:19:48] <ryanneufeld> ?down jsfiddle.net
+[15:19:50] <bot-t> ryanneufeld, It's just you. - http://jsfiddle.net is up.
+[15:42:38] <jaubourg> getify: ping
+[15:42:45] <jaubourg> just saw your tweet
+[17:27:32] <getify> jaubourg...?
+[17:30:38] <jaubourg> hey getify :)
+[17:30:50] <jaubourg> saw your tweet regarding jquery's ajax architecture
+[17:31:01] <jaubourg> what are your questions?
+[17:33:53] <getify> so... my questions surround custom transports
+[17:34:08] <getify> i have created a custom XHR transport
+[17:34:26] <getify> and i send a {...} object as the `responses` parameter to the completeCallback
+[17:34:36] <jaubourg> ok
+[17:34:43] <getify> and i get an error that says "No conversion from text to text/plain."
+[17:34:58] <getify> i was following what the docs say under transports
+[17:35:08] <jaubourg> oh, I guess you did { "text/plain": yourValue }?
+[17:35:10] <getify> which is that a native XHR object would send along something like {text:"..."}
+[17:35:25] <jaubourg> yes, {text:"..."}
+[17:35:37] <getify> i sent that, and that's the error i get
+[17:35:47] <getify> IF i sedn {"text/plain": "..."} it works fine
+[17:36:10] <getify> i'm just trying to figure out why text->text/plain isn't an automatic/built-in conversion
+[17:36:15] <jaubourg> hmmm... that sounds really wrong... do you have the code of your transport?
+[17:36:33] <getify> btw, i think i've diagnosed why this happens
+[17:36:37] <jaubourg> oh wait
+[17:36:46] <jaubourg> do you use dataType: "text/plain"?
+[17:36:56] <getify> my custom XHR doesn't have (cannot return) the 'content-type' response header
+[17:37:13] <getify> no, i am not setting the `dataType` or the `mimeType` parameters in my plugin
+[17:37:21] <jaubourg> k, I need the code
+[17:37:23] <getify> because i don't know them... the user of my plugin might set one or the other
+[17:37:45] <jaubourg> not having a content-type shouldn't pose any problem
+[17:38:02] <getify> the code in ajax.js looks for the content-type header, or the mimeType parameter
+[17:38:22] <getify> so since i'm setting neither of those, i surmised this is why the system thinks the response is an unrecognized type
+[17:38:25] <jaubourg> and defaults to the first available value in the responses map if nothing is available
+[17:38:41] <jaubourg> it's something else
+[17:39:51] <jaubourg> if you have the transport code in a gist or something, I'm sure I can find the problem in no time ;)
+[17:40:27] <jaubourg> or maybe you found a bug :/
+[17:41:42] <getify> https://gist.github.com/1003686
+[17:42:37] <jaubourg> keys in the response map should be "text" and "xml"... I suggest setting "xml" as the first one so that you're sure it's pick up by default if and when available
+[17:43:01] <jaubourg> keys are dataTypes not mimeTypes
+[17:43:42] <jaubourg> does flxhr create an xml response even if the text couldn't be parsed as xml?
+[17:43:57] <jaubourg> (like an xml doc with a parsererror node?)
+[17:46:15] <jaubourg> so flxhr will end up being used on browsers with no CORS support? nice :)
+[17:47:46] <getify> i tried setting "text" and "xml" as the keys
+[17:47:53] <getify> and that's when i get the error about the conversion
+[17:48:06] <getify> i tried it as you see, with "text/plain" as the key, and get no error
+[17:48:31] <jaubourg> that doesn't make sense at all
+[17:48:43] <jaubourg> what does your ajax call look like
+[17:49:03] <jaubourg> it sounds as if your dataType was set as text/plain which is the only way ajax would try a text to text/plain conversion
+[17:49:29] <jaubourg> and would explain why text/plain to text/plain would work obviously
+[17:49:42] <getify> oh, ha! the 4th argument to post is the dataType!
+[17:49:44] <getify> doh!
+[17:49:49] <jaubourg> hehe
+[17:49:54] <getify> and yes, i'm specifying "text/plain" there
+[17:49:59] <getify> is that argument optional?
+[17:50:01] <jaubourg> that's your problem ;)
+[17:50:05] <jaubourg> it is
+[17:50:17] <getify> so, here's the issue i have though
+[17:50:28] <getify> i need my plugin to work regardless of what they set there
+[17:50:38] <getify> so should i just make the key be whatever as.dataType is?
+[17:51:14] <jaubourg> well, if they set something that is not a dataType is won't work and shouldn't. So yeah, it should be set as "text" or "xml" or "json" or whatever is needed
+[17:51:38] <getify> so dataType should not be 'text/plain'? interesting
+[17:51:51] <getify> i wonder where i got that.......
+[17:52:14] <jaubourg> well, the dataType/mimeType thingy is a mess in ajax... but that's how it was designed a long time ago :/
+[17:52:29] <jaubourg> the idea was to have easier shorthand values
+[17:52:54] <getify> so.... back in jquery 1.3/1.4 days, having 'text/plain' in the dataType seemed to work fine
+[17:53:13] <getify> the code i'm using was written about 2-3 years ago, when i built flXHR and wrote the jQuery.flXHRproxy plugin
+[17:53:13] <jaubourg> that's because it ignorted the actual value and defaulted to text
+[17:53:34] <getify> recently i had some users complain that jq1.5 and 1.6 are broken with my plugin
+[17:53:50] <getify> so i investigated and realized i needed to rewrite the plugin to use the new transports stuff
+[17:54:12] <getify> but that's why my post(...) call had legacy stuff in it, from tests written a long while back
+[17:54:54] <jaubourg> yeah, when enforcing dataType sanity and adding converters, I obviously broke some code, sadly
+[17:55:25] <getify> the main thing that broke my code is that apparently the ajaxSettings.xhr is no longer used
+[17:55:33] <jaubourg> it is
+[17:55:34] <getify> i was using the jQuery XHR Registry plugin
+[17:55:48] <jaubourg> and it should work as usual... weird that it broke
+[17:55:50] <getify> hmmm... it was never getting called
+[17:56:05] <getify> that's what caused me to realize i needed to rewrite to the 'transports' approach
+[17:56:32] <jaubourg> well, since you have a full-fledged xhr emulation, ajaxSettings.xhr would be the way to go
+[17:56:35] <getify> in other words, my ajax call was erroring out with "No Transport" before it ever tried to call the function i specified for `xhr`
+[17:57:01] <jaubourg> oh, maybe it's due to the fact you were using x-domain requests
+[17:57:10] <jaubourg> you'd need to set jQuery.support.cors to true
+[17:57:16] <jaubourg> to make sure the xhr transport is used
+[17:57:48] <jaubourg> if the support property is false, jQuery will not even try to use the xhr transport, hence the No Transport error
+[17:57:51] <getify> no way to specify that on a per ajax settings basis? i'm not sure my plugin should go about changing jquery support config
+[17:58:48] <jaubourg> well, if you overwrite xhr it's perfectly safe to change the associated support property ;)
+[17:59:08] <jaubourg> since flxhr does support cors
+[17:59:18] <getify> sorta... not really :)
+[17:59:28] <jaubourg> hehe ;)
+[17:59:29] <getify> fwiw, i wasn't overwriting xhr......
+[17:59:31] <jaubourg> close enough
+[17:59:33] <getify> i was using the XHR registry
+[17:59:44] <getify> which simply allows passthru of the xhr for all normal xhr calls
+[17:59:54] <getify> and only kicks in with a custom xhr transport if a URL match is found
+[18:00:15] <getify> http://code.google.com/p/jqueryjs/source/browse/trunk/plugins/xhr/jquery.xhr.js?r=5906
+[18:01:08] <jaubourg> oh, I see, easily done with a prefilter
+[18:01:19] <getify> so to use that plugin, you would set a `transport` property on the settings
+[18:01:28] <getify> my value was 'flxhrProxy'
+[18:01:45] <getify> and that would cause my flXHR to be used for that call, and only that call
+[18:02:14] <jaubourg> let me cook something for you
+[18:03:05] <getify> btw, i have flXHRproxy plugins for all the major frameworks
+[18:03:27] <getify> but i was never happy that only for jquery's flavor, i had to manually specify the 'flXHRproxy' transport value for the settings for each request
+[18:04:14] <getify> in all the other frameworks, the URL matching is automatically performed for a request, and if it matches a pre-registered URL (that the author has said they want to use flXHR for) then it would automatically select flXHRproxy... otherwise, fall through to defaults
+[18:04:57] <getify> so, what you do is:
+[18:05:04] <getify> before you start making ajax calls
+[18:05:11] <getify> you register a URL as a flXHR URL
+[18:05:13] <getify> like this:
+[18:05:39] <getify> jQuery.flXHRproxy.registerOptions("http://test.getify.com/flXHR-tests/",{...flXHRoptions...});
+[18:06:03] <getify> then, any time you do an ajax request, if the URL matches that registered URL, flXHR is automatically selected and used as the transport
+[18:11:53] <jaubourg> I'd do something like this: http://jsfiddle.net/Ucqnz/1/ (pseudo-code ahead)
+[18:12:33] <jaubourg> you use a fake flxhr dataType that you remove from the dataType list when reaching the transport factory
+[18:13:09] <jaubourg> you have the flxhrOptions available to build you flxhr when needed
+[18:13:17] <jaubourg> in the ajax options
+[18:13:39] <jaubourg> woops, typo: http://jsfiddle.net/Ucqnz/2/
+[18:14:25] <jaubourg> that way you're sure to bypass the script transport that is used by default for cross-domain jsonp and script requests
+[18:15:00] <getify> ok, so you're basically saying that i create a loophole by temporarily/briefly specifying a custom dataType of 'flXHR'
+[18:15:26] <jaubourg> yep
+[18:15:35] <getify> interesting
+[18:15:37] <jaubourg> you derail the usual transport selection
+[18:16:45] <getify> is this jquery 1.6? or 1.5?
+[18:16:49] <jaubourg> both
+[18:16:53] <getify> k
+[18:17:09] <getify> any changes between 1.5 and 1.6 to this system, to be aware of?
+[18:17:39] <jaubourg> not that I remember... dataType redirection has been prevented when selecting transports, that all
+[18:17:50] <getify> k
+[18:17:51] <jaubourg> and it shouldn't have any incidence on this example
+[18:18:02] <getify> lemme try it, see how it works
+[18:19:14] <jaubourg> hmmm, maybe we could be more tricky and even have you not to have to write your own transport, hang on, I'm trying something
+[18:21:04] <jaubourg> getify: http://jsfiddle.net/Ucqnz/3/ this should work
+[18:21:40] <getify> so... the only problem i see with that is
+[18:21:46] <jaubourg> it's really tricky in how it deal with the jQuery.support.cors property but it makes it so you don't have to write a transport
+[18:21:56] <getify> i prefer the transports approach because....
+[18:22:05] <getify> i am adding a property to the jqXHR object
+[18:22:08] <getify> __flxhr__
+[18:22:17] <getify> which is the underlying flXHR instance
+[18:22:22] <jaubourg> no problem
+[18:22:30] <getify> since the jqXHR doesn't expose its underlying xhr
+[18:22:54] <jaubourg> http://jsfiddle.net/Ucqnz/4/ done
+[18:23:57] <getify> k, lemme try that
+[18:32:51] <getify> so i get the "No Transport" error
+[18:34:22] <jaubourg> weird
+[18:34:44] <jaubourg> let me check something
+[18:35:22] <getify> could be my mistake
+[18:35:24] <getify> still debugging
+[18:35:35] <jaubourg> what does your final prefilter looks like? and your ajax call?
+[18:35:57] <getify> will post the full flXHRproxy plugin in just a moment
+[18:36:03] <jaubourg> k
+[18:37:08] <getify> hmmm... do the `type` parameters go from being like "post" to "POST" at some point?
+[18:37:43] <getify> because the previous plugin code has always been matching against "POST"... but prefilter is getting as.type == "post"
+[18:38:31] <jaubourg> oh yes, type is uppercased but I'm not sure if it's before or after the prefilters are called, or both
+[18:38:40] <getify> must be after
+[18:38:41] <getify> :/
+[18:38:46] <getify> ok, i'll change my checks
+[18:38:54] <jaubourg> probably, seeing as you can change it in a prefilter
+[18:38:55] <getify> lots of gotchas abound
+[18:40:07] <jaubourg> yep, type is not uppercased before... but that's probably something we should fix
+[18:40:32] <getify> so for me to be safe, i should call .toUpperCase() on the type in my checks, huh?
+[18:40:36] <getify> in case you do change it
+[18:40:40] <jaubourg> yeah, sadly
+[18:40:42] <getify> k
+[18:40:58] <jaubourg> or /^post$/i.test(...)
+[18:41:48] <jaubourg> it's probably better to uppercase it because you're not immune to a third-party prefilter putting a lowercase value in
+[18:41:54] <getify> yeah i'll use: type.match(/^(?:post|get)$/i)
+[18:42:23] <jaubourg> regexp ftw :)
+[18:42:27] <getify> indeed
+[18:43:36] <jaubourg> nice working on something with you btw :)
+[18:43:47] <getify> very much appreciate your help!
+[18:44:09] <jaubourg> I know how badly documented this whole thing is... the least I can do is help
+[18:44:10] <getify> i'd known my plugin was broken in 1.5+ for awhile, just never had the chance to dig into it
+[18:53:02] <getify> jaubourg, you still there?
+[18:54:29] <jaubourg> yep
+[18:54:54] <getify> so... in my old plugin, i used to use $.handleError(...) to trigger an ajax error
+[18:54:59] <getify> apparently this no longer exists?
+[18:55:36] <jaubourg> no, you use the callback to trigger an error
+[18:55:51] <getify> which callback?
+[18:56:03] <jaubourg> the completeCallback, hang on
+[18:56:38] <jaubourg> if your xhr issues a proper statusCode, it should work without any work
+[18:56:42] <jaubourg> so to speak
+[18:56:56] <getify> well, i have special error conditions inside of flXHR
+[18:57:00] <getify> like a policy file failure
+[18:57:12] <getify> that i want to synthetically trigger the jquery ajax error mechanism
+[18:57:35] <getify> in other words fire of one or both of the ajaxSettings.error or ajaxError (global) handlers
+[18:57:57] <jaubourg> oh my
+[18:58:08] <getify> i used to be able to call $.handleError to do that
+[18:59:05] <jaubourg> do you have an error status code for those?
+[18:59:34] <getify> in flXHR proper? no... i treat them as calls to flXHRinstance.onerror callback
+[18:59:44] <getify> so i call the flXHR instance's `onerror` callback
+[19:00:03] <getify> and so from inside that callback, i was trying to trigger a jquery ajax error
+[19:01:01] <jaubourg> it's possible to ovewrite the jqXHR error mechanism but it's another tricky layer :/
+[19:01:32] <jaubourg> let me make you some pseudocode
+[19:02:05] <getify> just setting the status code wouldn't be sufficient though, because it wouldn't let me pass through the custom error message (and other properties)
+[19:02:08] <getify> right?
+[19:05:32] <jaubourg> the custom message text could be set as the responseText field
+[19:05:35] <jaubourg> and would be accessible
+[19:06:18] <jaubourg> honestly, this would be the simplest solution: erroring status code, error message text as statusText and/or responseText
+[19:07:51] <jaubourg> if you wanted to do it the deferred way, you'd have to do something like this: http://jsfiddle.net/Ucqnz/5/
+[19:08:45] <jaubourg> and it gets even trickier if you wanna handle the complete handler properly
+[19:09:59] <jaubourg> and, again, typos: http://jsfiddle.net/Ucqnz/6/
+[19:13:42] <getify> ok, so if i understand correctly
+[19:13:46] <getify> the way to trigger an error
+[19:14:07] <getify> is to reject a deferred that is attached to the jqXHR object?
+[19:15:03] <jaubourg> yes, you overwrite the promise methods of the jqXHR with the new Deferred, keep the chain (so that the new deferred is resolved/rejected when the original jqXHR promise is) then reject on error
+[19:15:25] <jaubourg> this supposes you trigger the onerror handler BEFORE onreadychange
+[19:15:33] <jaubourg> onreadystatechange
+[19:15:50] <getify> what do you mean before?
+[19:15:54] <getify> before it's ever called?
+[19:15:59] <getify> or before it's called with readyState==4
+[19:16:09] <jaubourg> with readyState == 4
+[19:16:22] <getify> right... in the error case, flxhr never goes to ==4
+[19:16:30] <getify> it goes to -1 i believe
+[19:17:46] <jaubourg> a more standard-compliant error notification would have been much simpler to deal with... a lot of things will be left dangling in the xhr transport I'm afraid :/
+[19:18:26] <jaubourg> damn, the xhr spec is a mess anyway
+[19:18:30] <getify> the XHR interface doesn't really do a crisp job of specifying how errors should affect the object
+[19:18:48] <getify> so years ago when i built flXHR, i just added the `onerror` mechanism as my best shot
+[19:19:14] <getify> of course, if readystate==4 is helpful in the cleanup, i can force it to that inside the `onerror` handler
+[19:19:24] <jaubourg> I hear you, that's exactly because of the raw edges of the XHR spec that I went for a much simpler transport object
+[19:19:28] <getify> i just think flxhr's default behavior is ==-1 IIRC
+[19:20:44] <getify> what do i pass to defer.reject?
+[19:20:48] <getify> a string? an object?
+[19:21:29] <jaubourg> same things you'd expect when inside your success callback
+[19:21:35] <jaubourg> error callback
+[19:21:36] <jaubourg> sorry
+[19:21:58] <jaubourg> defer.reject is somehow like calling the options.error callback
+[19:22:32] <getify> so, currently the error handler signature that i mimick is  (jqXHR, errorType[string], errorObj)
+[19:22:36] <jaubourg> if you're curious, I have a prefilter for ajaxHooks that handles success/error rerouting here: https://gist.github.com/37d577024c4775308c8c still a work in progress ;)
+[19:22:44] <jaubourg> exactly
+[19:23:00] <getify> so i just pass those 3 to .reject()?
+[19:23:04] <jaubourg> yep
+[19:23:07] <getify> ok :)
+[19:24:30] <jaubourg> hmmm, you may loose callback context though, let me look into that
+[19:25:23] <getify> sweet... it seems to work
+[19:26:01] <getify> what is the `this` context supposed to be?  the ajaxSettings object?
+[19:27:29] <jaubourg> depends
+[19:27:31] <jaubourg> http://jsfiddle.net/Ucqnz/7/
+[19:27:36] <jaubourg> this should take care of it
+[19:28:21] <jaubourg> ... hmmm, unless the original deferred never gets resolved... the readyState may prevent it from happening
+[19:28:29] * jaubourg looks deeper into the xhr transport
+[19:28:55] <getify> boy am i glad i asked for help... i'd be so lost right about now :)
+[19:29:07] <jaubourg> hehe, I am lost most of the time ;)
+[19:29:22] <getify> and you wrote it! what hope do the rest of us have!?
+[19:29:35] <jaubourg> :P
+[19:30:02] <jaubourg> ok, so the original deferred is only resolved/rejected if the readyState reaches 4
+[19:30:12] <jaubourg> which it won't obviously
+[19:30:19] <jaubourg> tricky tricky
+[19:30:42] <jaubourg> let's copy some stuff from ajax.js then
+[19:31:28] <jaubourg> oh, easy enough
+[19:32:20] <jaubourg> http://jsfiddle.net/Ucqnz/8/ <= with context ;)
+[19:33:02] <jaubourg> hey wookie
+[19:33:16] <wookiehangover> hey jaubourg
+[19:34:47] <jaubourg> getify: I'll probably work on a transport for flxhr, I don't have time right now, but the prefilter approach have some serious caveats: no complete handling if the flxhr onerror handler is called, memory leaks
+[19:35:38] <getify> ok... well if you'd like to contribute a patch to jQuery.flXHRproxy
+[19:35:42] <getify> that'd be much appreciated
+[19:35:53] <jaubourg> where is the repo?
+[19:35:55] <getify> i'm gonna post what we've done so far as v2.0a
+[19:36:00] <jaubourg> k
+[19:36:08] <getify> wellllll...... the repo is an old SVN repo........
+[19:36:15] <getify> i never moved flensed onto github yet
+[19:36:17] <getify> BUT
+[19:36:34] <getify> i did have (and will post again this release) flXHRproxy up on plugins.jquery
+[19:36:46] <jaubourg> k
+[19:36:56] <getify> so you could get the code from there
+[19:37:01] <jaubourg> public svn? I mean I can look at the code through http?
+[19:37:32] <getify> it used to be public, it isn't any more
+[19:37:35] <getify> :/
+[19:37:53] <getify> i haven't done hardly anything with flXHR in the last 2 years+
+[19:37:54] <getify> so
+[19:38:02] <getify> a lot of this process stuff is defunct
+[19:38:30] <getify> i guess the best thing to do is, start a flensed repo on github
+[19:38:32] <jaubourg> yeah, I know how it goes with older projects :/
+[19:38:40] <getify> and the only thing i'll put there is this plugin, for now
+[19:38:52] <jaubourg> if you do, I'll be sure to submit a pull request :)
+[19:38:55] <getify> k
+[19:39:08] <jaubourg> just let me know when it's up
+[19:39:12] <jaubourg> j@ubourg.net
+[19:39:28] <jaubourg> nearing 5am here and I should probably get some sleep
+[19:39:32] <getify> k
+[19:39:43] <getify> i'll @ you on twitter later when i put it up
+[19:39:47] <getify> g'nite and thanks for the help
+[19:39:48] <jaubourg> cool
+[19:39:57] <jaubourg> np, sorry it's such a pain ;)

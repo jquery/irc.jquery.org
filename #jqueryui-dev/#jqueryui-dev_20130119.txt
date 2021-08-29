@@ -1,0 +1,51 @@
+[02:48:06] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 1 new commit to 06master: 02http://git.io/rewIfA
+[02:48:06] <jquicommit> 13download.jqueryui.com/06master 1416205af 15Rafael Xavier de Souza: generateImages in series, not in parallel. It was spawning too many processes and crashing
+[03:08:12] <doesallmagic> Project jQuery UI - git core build #289: STILL FAILING in 47 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%20git%20core/289/
+[03:27:23] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 2 new commits to 06master: 02http://git.io/8aSgKA
+[03:27:23] <jquicommit> 13download.jqueryui.com/06master 140560865 15Rafael Xavier de Souza: cacheThemeImage in series. Overall async, but each theme is cached in series
+[03:27:23] <jquicommit> 13download.jqueryui.com/06master 14ef904a5 15Rafael Xavier de Souza: Log error on cacheThemeImages
+[03:30:59] <rxaviers> gnarf,  fixed^ :)
+[03:31:12] <rxaviers> locally I was testing without caching
+[03:31:58] <rxaviers> and the generation was all happening in parallel. When caching, it was just too many processes spawning and crashed server.
+[03:32:17] <rxaviers> Now, I changed it to generate it in series and it's caching just fine ;)
+[03:33:12] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 1 new commit to 06master: 02http://git.io/W4qLhw
+[03:33:12] <jquicommit> 13download.jqueryui.com/06master 144bdcd7b 15Rafael Xavier de Souza: 1.10.0-2
+[03:39:03] <doesallmagic> Project download.jqueryui.com build #109: SUCCESS in 1 min 16 sec: http://swarm.jquery.org:8080/job/download.jqueryui.com/109/
+[03:39:04] <doesallmagic> * rxaviers: generateImages in series, not in parallel. It was spawning too many processes and crashing
+[03:39:05] <doesallmagic> * rxaviers: cacheThemeImage in series. Overall async, but each theme is cached in series
+[03:39:05] <doesallmagic> * rxaviers: Log error on cacheThemeImages
+[03:39:06] <doesallmagic> * rxaviers: 1.10.0-2
+[03:49:45] <rxaviers> it's working
+[03:50:31] <rxaviers> but, sniff testing jqueryui.com (which uses former php code to generate imgs) vs. stage.jqueryui.com, it seemed new solution is slower.
+[03:50:38] <rxaviers> need to do some perf checks
+[03:53:24] <doesallmagic> Project jQuery UI 1-9-stable - git core build #76: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%201-9-stable%20-%20git%20core/76/
+[04:00:48] <rxaviers> definitely slower (via network stats of firebug
+[04:00:49] <rxaviers> )
+[04:36:44] <rxaviers> generating images in parallel is faster in my local machine than in parallel (~300ms vs. 500ms - snff tests)
+[04:37:29] <rxaviers> although, server crashes when running in parallel. Dont know why processes seems to use more mem there than in my local linux mac bookpro box.
+[04:38:16] <rxaviers> Linux xavier 2.6.38-15-generic #66-Ubuntu SMP Tue Aug 14 17:24:44 UTC 2012 x86_64 x86_64 x86_64 GNU/Linux
+[04:38:21] <rxaviers> Linux jq02.stage.jquery.com 2.6.32-028stab089.1 #1 SMP Thu Apr 14 13:46:04 MSD 2011 x86_64 GNU/Linux
+[04:38:33] <rxaviers> both 64b
+[04:38:38] <doesallmagic> Project jQuery UI - 1.6.x core build #184: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.6.x%20core/184/
+[04:39:48] <rxaviers> in server, it's taking about 5s to generate the img :/
+[04:43:41] <rxaviers> anyway it's worrying me the fact the node server crashes on high demand of images. If a dozen users browses  on themeroller, it might request that same demand of images and it wont display the icons properly
+[04:43:44] <rxaviers> not right
+[04:43:48] <rxaviers> af :/
+[05:23:57] <doesallmagic> Project jQuery UI - 1.7.x core build #185: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.7.x%20core/185/
+[06:09:14] <doesallmagic> Project jQuery UI - 1.8.x core build #160: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.8.x%20core/160/
+[13:48:32] <mikesherov> wow, finally fixed all margin-collapse bugs on the ui effects rewrite
+[14:23:19] <mikesherov> scott_gonzalez: gnarf: bake on this in your free time https://bugs.webkit.org/show_bug.cgi?id=107380
+[15:33:23] <gnarf> mikesherov: you're a fucking genious
+[15:33:24] <gnarf> thanks
+[15:33:31] <gnarf> "wow, finally fixed all margin-collapse bugs on the ui effects rewrite"
+[15:33:43] <gnarf> `hi5
+[15:33:44] <b-ot> gnarf, ⋰⁵⋱
+[15:40:29] <mikesherov> gnarf: ha, it's deceptively simple
+[15:42:54] <mikesherov> because we're not using wrappers anymore, and just placeholders, margin-collapse really only matters for the parent-child relationship
+[15:43:09] <mikesherov> the placeholders take care of the sibling margin-collapse issue
+[15:44:06] <mikesherov> and the parent margin collapse is solved by creating an effects prefilter, that loops through all elements we're animating before hand, storing the styles of the elements and their parents and showing elements that need to be shown...
+[15:44:54] <mikesherov> then when creating the placeholders, locking in parent size using el.parent().outerWidth(el.parent().outerWidth(true), true)
+[15:45:04] <mikesherov> and then on done, restoring the saved styles
+[15:45:28] <mikesherov> ha, upon writing it out, it sounds crazy, but in code it's pretty simple
+[15:47:37] <mikesherov> gnarf: here's the diff as of this moment: https://github.com/mikesherov/jquery-ui/compare/clip
+[19:47:08] <jquicommit> [13jquery-ui] 15tjvantoll opened pull request #888: Button: Newly added radios need to become UI buttons in refresh. Fixed #... (06master...06button_radio_refresh_fix)  02http://git.io/EyHTHg

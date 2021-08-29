@@ -1,0 +1,64 @@
+[06:56:23] <jqcommit> [13jquery] 15gibson042 closed pull request #2213: Traversing: Don't exempt .children and .contents from sorting (06master...06gh-1766) 02http://git.io/vvVss
+[06:59:10] <jqcommit> [13jquery] 15gibson042 closed issue #1766: contents and children selectors can return elements out of order 02http://git.io/DJyJzQ
+[08:40:35] <arschmitz> gibson042: Ping!
+[08:44:08] <gibson042> here
+[08:46:11] <arschmitz> so i read what you said yesterday
+[08:47:19] <arschmitz> and your right it was partially for memory leaks
+[08:47:31] <arschmitz> but also for ordering slowness
+[08:47:56] <arschmitz> we had to do it for memory leaks with .not()
+[08:48:03] <arschmitz> but with .add it was for speed
+[08:48:05] <gibson042> that doesn't make any sense, though, the code is *explicitly* sorting
+[08:49:00] <gibson042> see https://github.com/jquery/jquery/blob/master/src/traversing.js#L112-L118 ; you're just doing `.add` without `.pushStack`
+[08:50:51] <arschmitz> oh i didnt realize .unique sorted
+[08:52:31] <arschmitz> i'm assuming scott_gonzalez didnt either since he suggested it for this 
+[08:52:58] <gibson042> jQuery.unique is an alias to the better-named Sizzle.uniqueSort: https://github.com/jquery/jquery/blob/master/src/selector-sizzle.js#L9
+[08:53:39] <scott_gonzalez> What are we talking about?
+[08:53:47] <arschmitz> gotcha
+[08:54:12] <arschmitz> scott_gonzalez: https://github.com/jquery/jquery-ui/blob/master/ui/widget.js#L446
+[08:54:42] <gibson042> but like I alluded to yesterday, sorting (O(N log N)) then deduping (O(N)) is actually more efficient than naïve deduping (O(N^2))
+[08:54:43] <arschmitz> and that does not actually address jzaefferer concern about sort speed because $.unique sorts still
+[08:54:59] <arschmitz> gibson042: right
+[08:55:27] <gibson042> so basically, sorting is free if you need a unique collection
+[08:55:48] <scott_gonzalez> There was no attempt to avoid sorting.
+[08:56:09] <scott_gonzalez> This is just the only way to generate a unique intersection without a stack.
+[08:56:35] <scott_gonzalez> Well, I guess we could do $( current.add( element ).get() )
+[08:56:41] <scott_gonzalez> Perhaps we started with that?
+[08:56:42] <arschmitz> scott_gonzalez: https://github.com/jquery/jquery-ui/pull/1411#discussion-diff-22582521 jzaefferer comment and your reply 
+[08:56:51] <gibson042> exactly: http://irc.jquery.org/%23jquery-dev/default_%23jquery-dev_20150421.log.html#t13:03:04
+[08:57:00] <arschmitz> well second reply
+[08:57:23] <gibson042> scott_gonzalez: if you _need_ sorting, then you're doing it right for old jQuery
+[08:57:36] <arschmitz> we dont care about sorting there
+[08:57:44] <arschmitz> we just need a unique collection
+[08:57:47] <scott_gonzalez> Oh, yeah, that was just a dumb comment
+[08:57:50] <scott_gonzalez> It happens :-P
+[08:58:02] <scott_gonzalez> Yeah, we don't actually care about sorting here.
+[08:58:05] <arschmitz> scott_gonzalez: which is fine but we can now simplify 
+[08:58:08] <gibson042> then `$( current.add( options.element ) )` would be better
+[08:58:42] <scott_gonzalez> I suppose we can avoid the explicit array casting too.
+[08:58:48] <gibson042> yep
+[08:58:55] <scott_gonzalez> So long as jQuery never adds an explicit case for $( jQueryInstance )
+[08:58:59] <scott_gonzalez> Which I doubt would happen.
+[08:59:09] <arschmitz> oh that would break so much i feel like
+[08:59:24] <scott_gonzalez> There was actually an issue about that recently.
+[08:59:45] <gibson042> yeah, I would bet a substantial sum against it
+[09:01:30] <leobalter> jzaefferer it's more complex than I thought. Not that hard, but more than 15 mins of work to fix the Node global issue
+[09:01:56] <leobalter> I'm still working to solve the global thing
+[09:02:03] <leobalter> I'll send a PR with some consistent fix
+[09:03:39] <arschmitz> gibson042: thanks for looking at that
+[09:12:20] <jqcommit> [13jquery] 15gibson042 opened issue #2228: Deprecate jQuery.unique 02http://git.io/vfccS
+[09:50:13] <Krinkle> jzaefferer: leobalter: I'd love to have gone to SF, but unfortunately I already have other plans during that week.
+[09:51:19] <leobalter> looks like I'll be the only one representing the QUnit team.
+[09:51:46] <leobalter> well, I'll send you pics
+[10:01:25] <jqcommit> [13qunit] 15leobalter opened pull request #813: Build: Remove unintended QUnit global export on Node (06master...06node-global) 02http://git.io/vfc1o
+[11:30:20] <jqcommit> [13api.jquery.com] 15arthurvr opened pull request #723: next-adjacent: rename file to `next-adjacent-selector.xml` (06master...06filename) 02http://git.io/vfCCZ
+[11:38:26] <jqcommit> [13api.jquery.com] 15arthurvr opened pull request #724: offsetParent: Add correct `<category>` (06master...06offsetParent-category) 02http://git.io/vfClQ
+[12:09:24] <jqcommit> [13jquery] 15timmywil reopened issue #2227: :visible/:hidden selectors unreliable 02http://git.io/vfOcY
+[12:26:58] <jqcommit> [13jquery] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/vfCMv
+[12:26:58] <jqcommit> 13jquery/06master 14002240a 15Richard Gibson: Deferred: Always handle progress callbacks before done/fail...
+[12:46:57] <scott_gonzalez> gibson042: Did you see this discussion? https://forum.jquery.com/topic/adding-catch-method-to-jquery-deferred-promise
+[12:47:44] <gibson042> no, I missed it
+[12:48:04] <gibson042> catch is no problem, though, since it's just sugar for then
+[12:48:26] <scott_gonzalez> Yeah, I'd prefer if we supported it.
+[12:54:11] <jqcommit> [13jquery] 15gibson042 opened issue #2229: Add catch to promise objects 02http://git.io/vfCF4
+[13:21:47] <jqcommit> [13jquery] 15gibson042 closed issue #2229: Add catch to promise objects 02http://git.io/vfCF4
+[15:42:42] <jqcommit> [13jquery] 15AsaAyers closed pull request #2212: use getBoundingClientRect() for the hidden filter (06master...06patch-2) 02http://git.io/vvEYZ

@@ -1,0 +1,68 @@
+[14:03:30] <m_gol> Krinkle: haha, love such issues like this one with the domain
+[14:03:32] <m_gol> so hard to debug
+[14:03:36] <m_gol> Krinkle: btw, Sizzle uses Karma + BrowserStack
+[14:03:45] <m_gol> any particular reason to prefer Sauce Labs?
+[14:04:02] <Krinkle> I know they do. I helped them on it (credits to Timmy and Oleg)
+[14:04:46] <Krinkle> Well, sauce labs is free. So we can have the source code / grunt config use environmental variables, and any developer can sign up at sauce labs, set their environment locally and run those tests.
+[14:05:07] <Krinkle> whereas with browserstack they'd need to be a paying customer or have an account from the jQuery org, or they'd have to edit the grunt file and install the sauce labs karma launcher.
+[14:05:08] <m_gol> AFAIK BrowserStack is free for OSS as well?
+[14:05:13] <Krinkle> No, never was.
+[14:05:14] <m_gol> hmm, weird
+[14:05:20] <m_gol> I had to have some false info
+[14:05:33] <m_gol> BrowserStack is lagging a little on Android
+[14:05:35] <Krinkle> They do tend to be open to FOSS organisations like ours but you'd need a special deal.
+[14:05:41] <m_gol> the newest is 4.2
+[14:05:46] <Krinkle> Wikimedia for instance is paying (though I think they got a discount)
+[14:06:16] <m_gol> they introduced 4.3 & 4.4 when they enabled real devices instead of emulators but that went all wrong (cf. my recent thread with them) so we're back to square one
+[14:06:52] <Krinkle>  saucelabs has free accounts (regardless of oss) with limit of 2 workers and X number of minutes, and free oss accounts (1 per project, not 1 per person) with limit or 3 workers and unlimited minutes.
+[14:07:47] <m_gol> then we definitely should switch and write sth in the README about testing
+[14:08:00] <m_gol> I wish it was possible to have PRs tested on private account
+[14:08:12] <m_gol> currently a lot of projects just flat out expose their keys
+[14:08:19] <m_gol> apparently Sauce Labs is more or less OK with it
+[14:09:06] <m_gol> one example is Angular: https://github.com/angular/angular.js/blob/c94329a891a1c082567c490ccf58ba8592b464ad/.travis.yml#L16-L17
+[14:09:35] <m_gol> this secret is not a direct one but if you look at the sources it's not too hard to see what's the real secret
+[14:15:08] <Krinkle> m_gol: Yeah, I'm encouraging Wikimedia projects that start to use Karma to do the same.
+[14:15:14] <Krinkle> I cannot care about those keys.
+[14:15:30] <Krinkle> It not being decrypted from secure travis for PRs makes perfect sense, that's a feature not a bug.
+[14:16:09] <Krinkle> The thing is, they're free accounts. If you really want to test so desparately, just sign up your own account. that'll even get the "abuser" more computer power as he wouldn't be sharing with other jquery users.
+[14:17:39] <Krinkle> and if there was some magical way to allow travis PRs to decrypt the keys without allowing them echo them out (they considered scanning the output, but didn't because that's just a pointless armsrace, e.g. I can echo it out split over various lines, or with .split('').join('-') or map with charCodeAt+1 etc.)
+[14:17:51] <Krinkle> even then it'd be open for abuse (e.g. send a 1000 pull requests to fry the account)
+[14:18:03] <Krinkle> so might as well just open them up and get it over with.
+[14:18:07] <m_gol> yeah
+[14:18:20] <m_gol> so maybe we should just switch to Sauce Labs & make the key public
+[14:18:22] <Krinkle> m_gol: one thing I would recommend is do use an OR with environment variables
+[14:18:30] <m_gol> definitely
+[14:18:41] <Krinkle> that way, if I have my own sauce labs account set up in my bashrc, if I do npm-test in sizzle it uses my credentials
+[14:19:22] <m_gol> maybe we could also support custom BrowserStack key
+[14:19:31] <m_gol> though that's a little more logic :)
+[14:19:33] <Krinkle> because one problem is that when too many people use them locally (they can for convenience, though encourage creating their own accounts) that the 3 workers get used up. And thus any commit merged at that time might not get workers in time and htus time out / fail the build.
+[14:20:12] <Krinkle> so yeah, we could use a separate account for merged travis commits for secure env
+[14:20:26] <Krinkle> and have the public one only be for PRs and local testing.
+[14:21:54] <m_gol> how would that work? or do you mean to keep Jenkins tests for all merged commits?
+[14:22:44] <Krinkle> Jenkins, or Travis. either way.
+[14:23:31] <Krinkle> You'd have grunt config karma saucelabs username: ..., accesskey: env.SAUCE_ACCESS_KEY || 'the key of ssuacelabs user jquery-jquery'
+[14:24:00] <Krinkle> then in travis secure env we'd put username/accesskey for account "jquery-jquery-merged'
+[14:24:04] <Krinkle> or something like that
+[14:24:37] <Krinkle> that way in travis for merged commits there is a separate account that doesn't have the risk of having no browsers avaialable and thus fail the build.
+[14:24:47] <Krinkle> it'd only be used for PRs
+[14:24:59] <m_gol> but Travis is configured via a .travis.yml file in the repo
+[14:24:59] <Krinkle> and for people who run npm-test locally without their own account set up in bashrc yet
+[14:25:02] <Krinkle> Yes
+[14:25:23] <Krinkle> Travis runs tests for PRs regardless of whether you use secure env varirables
+[14:25:37] <Krinkle> it just doesn't inject the env variables for PRs
+[14:25:38] <m_gol> ahh, I get it :)
+[14:25:40] <Krinkle> so it should work naturally
+[14:25:44] <m_gol> good idea
+[14:25:51] <Krinkle> I've given it some thought :)
+[14:26:19] <m_gol> I can see :)
+[14:26:25] <m_gol> (I'm writing it all down ;))
+[14:26:28] <Krinkle> I exposed the keys for a wikimedia project and quickly noticed that when I submitted two prs, one of them failed.
+[14:26:30] <Krinkle> Cool!
+[14:27:33] <m_gol> are we allowed to open 2 free accounts in Sauce Labs?
+[14:27:42] <Krinkle> I increased  the gruntConf.karma.captureTimeout to 90 seconds to have it work for upto 3 PRs (it tends to take about 20 seconds for an average run)
+[14:27:47] <Krinkle> I don't see why not.
+[14:28:22] <Krinkle> one is for the project, the other is for the "travis" user.
+[14:28:27] <Krinkle> just like you and I have a user account as well.
+[14:29:07] <Krinkle> btw, here's the commit where I implement it in another project with saucelabs: https://gerrit.wikimedia.org/r/#/c/147510/16/Gruntfile.js
+[14:29:12] <Krinkle> Might take some ideas from it
+[14:32:24] <m_gol> thx, I'll look into it

@@ -1,0 +1,214 @@
+[06:57:13] <toddmparker_> morning all
+[07:20:19] <Wilto> Ditto.
+[09:10:36] <gseguin> good morning
+[10:05:55] <DaveMethvin> hey guys, can I get an opinion on https://github.com/jquery/jquery/pull/623 ... especially kinblas
+[10:05:56] <socialhapy> ★ Pull request on jquery by sindresorhus (5m, 34s ago): Fix #10546 - "click" event not bubbling up to the document on iOS
+[10:08:07] <Wilto> That’s my kind of voodoo, right there.
+[10:10:21] <DaveMethvin> It worries me since it globally changes the behavior of click, so first of all i wanted to make sure there's nothing in Mobile that will break if we put it in
+[10:12:16] <toddmparker_> voodoo
+[10:13:08] <DaveMethvin> and why the heck does iOS not bubble clicks unless you do this? it breaks event delegation on the ipad for plain old web sites
+[10:14:46] <jqmobilecommit> [jquery-mobile] johnbender pushed 1 new commit to master: http://git.io/oOYCzg
+[10:14:46] <jqmobilecommit> [jquery-mobile/master] removed dead code path in slider - John Bender
+[10:34:32] <johnbender> toddmparker_: Wilto: https://github.com/jquery/jquery-mobile/issues/3121
+[10:34:33] <socialhapy> ★ Issue #3121 on jquery-mobile, reported by mtemanson (2w, 2d ago): Count bubble for multi-select inside a list view is incorrectly positioned
+[10:34:35] <johnbender> your input is requested
+[10:34:40] <johnbender> if I close one more pr
+[10:34:42] <johnbender> we're under 20 :D
+[10:52:29] <johnbender> DaveMethvin: does he mean the actual click event of the touch start
+[10:52:31] <kinblas> DaveMethvin: on some platforms no mouse/click event is ever generated unless it happens in an element that has a binding
+[10:52:33] <johnbender> the quotes are throwing me off
+[10:52:47] <kinblas> DaveMethvin: I know this is the case on Opera
+[10:52:48] <johnbender> s/of/or/
+[10:53:00] <kinblas> DaveMethvin: Not sure what the cursor style workaround is about
+[10:53:13] * kinblas tests iOS real quick
+[10:53:19] <DaveMethvin> kinblas: supposedly, the "click" event will not bubble on elements in the document unless the cursor style is set on the document
+[10:53:43] <johnbender> I guess that kind of makes sense :/
+[10:53:53] <johnbender> good ol hacks
+[10:54:04] <DaveMethvin> not really sure why it wouldn't bubble though
+[10:54:17] <DaveMethvin> i mean, the w3c says click events should bubble
+[10:54:22] <johnbender> kinblas: yah it sounds like the event is bubbling but just not far enough?
+[10:54:33] <DaveMethvin> i don't think it's bubbling at all, but i am not sure
+[10:54:39] <DaveMethvin> i think it's only firing on the element
+[10:55:17] <johnbender> DaveMethvin: "does not bubble up to the document with an exception of inputs and links, it stops right before the body."
+[10:55:22] <johnbender> from the issues
+[10:55:28] <johnbender> err
+[10:55:30] <DaveMethvin> oh yeah i read that
+[10:55:33] <johnbender>  the pull request
+[10:55:34] <DaveMethvin> :P
+[10:55:52] <DaveMethvin> but stopping right before the body is, er, dumb
+[10:56:07] <kinblas> DaveMethvin: I think it's what I said earlier
+[10:56:08] <DaveMethvin> basically breaks event delegation, .live in particular
+[10:56:11] <kinblas> look at this test case
+[10:56:34] <kinblas> http://webpro.host.adobe.com/people/jblas/research/events/events.html
+[10:56:40] <kinblas> sorry it's a long URL
+[10:56:51] <kinblas> basically if you go down into the Document section and click log clicks
+[10:57:06] <kinblas> you will see that clicks only bubble for things that have listeners on them
+[10:57:23] <kinblas> things like the yellow box, the textarea, etc
+[10:57:41] <DaveMethvin> and of course delegated events don't usually have listeners on the targets.. :(
+[10:58:05] <toddmparker_> so that hack may be needed?
+[10:58:17] <toddmparker_> could we just set the cursor in css?
+[10:58:28] <kinblas> DaveMethvin: have you verified that it works? That's a good workaround to know about!
+[10:58:30] <kinblas> :-
+[10:58:31] <kinblas> :-)
+[10:58:58] <kinblas> DaveMethvin: of course setting it inline like that would override the CSS in anyone's document
+[10:59:01] <DaveMethvin> i haven't verified it, don't have all the devices here but figured i'd start with you guys
+[10:59:19] <DaveMethvin> so nobody's reported this when trying to use events on Mobile?
+[10:59:21] <kinblas> I can try it out real quick
+[11:00:03] <DaveMethvin> i don't really like the hack because it means core is going to be changing the css on the document element ... that seems strange
+[11:00:12] <kinblas> DaveMethvin: no because we use either bindings on elements, or in the case of the vmouse stuff, we register dummy handlers just to get things to bubble
+[11:00:15] <DaveMethvin> technically nobody is going to see the pointer since there isn't one
+[11:00:40] <DaveMethvin> ok, so the dummy handlers do the job
+[11:00:50] <DaveMethvin> and if somene puts in new content you have to reprocess it anyway
+[11:01:09] <DaveMethvin> for core, ppl expect new elements to magically work without any foreprocessing
+[11:01:18] <DaveMethvin> i like that word
+[11:01:57] <kinblas> DaveMethvin: we should verify a couple of things
+[11:02:19] <kinblas> do clicks bubble on anchors, buttons (inputs basically) without the hack?
+[11:02:31] <kinblas> this might be necessary for just plain markup
+[11:02:35] <kinblas> clickable divs, etc
+[11:02:43] <kinblas> which may explain why folks haven't seen it before
+[11:02:54] * kinblas tries it
+[11:03:19] <DaveMethvin> yeah that sounds vaguely familiar actually ...
+[11:04:24] <DaveMethvin> oh wow, this explains some strangeness i've seen with the ipad with some sites
+[11:04:40] <DaveMethvin> they are probably using crappy markup
+[11:04:46] <DaveMethvin> and expect clickable divs etc
+[11:24:06] <jqm-jenkins-bot> Project jqm-master build #332: SUCCESS in 13 min: http://10.59.19.240:8080/job/jqm-master/332/
+[11:24:07] <jqm-jenkins-bot> john.m.bender: removed dead code path in slider
+[11:27:07] <toddmparker_> interesting
+[11:36:58] <kinblas> DaveMethvin: I have a test case that shows, clicking in the body, link, input elements ... all bubble up their mouse events. Clicking in a div, paragraph, etc, with no mouse bindings does *NOT* bubble.
+[11:37:46] <DaveMethvin> thanks kinblas ... do you know of any place where that might be documented? Or did Apple just make that up?
+[11:38:26] <kinblas> DaveMethvin: well they do have a little blurb in the docs about it being necessary to make things "clickable"
+[11:38:42] <kinblas> I remember thinking that was dumb
+[11:38:44] <kinblas> :-)
+[11:38:59] <DaveMethvin> the agony of choice ... i'm still wondering if this is a hack we should drop into core
+[11:39:09] <kinblas> DaveMethvin: test case here: http://www.shinarp.com/RnD/events/mouse-event-bubbling.html
+[11:39:25] <DaveMethvin> so if we deliver clicks, i wonder if it changes the behavior of anything else?
+[11:39:37] <DaveMethvin> it almost seems like it should, otherwise they would do it this way by default
+[11:40:22] <kinblas> DaveMethvin: I wonder if it's for performance?
+[11:40:30] <DaveMethvin> could be i guess
+[11:42:45] <DaveMethvin> even scarier for us to enable it by default then
+[11:42:54] <kinblas> yeah
+[11:43:24] <kinblas> DaveMethvin: just an FYI we've noticed that just placing a no-op handler on the document for the touch events is enough to slow scrolling down on iOS
+[11:43:34] <kinblas> I meant cause it to hiccup when flick scrolling
+[11:43:44] <kinblas> ... that said, mouse events are not dispatched if scrolling
+[12:03:05] <kinblas> DaveMethvin: I updated that test case so you can toggle that proposed workaround on/off
+[12:03:16] <kinblas> it actually causes the content you click on to hilight
+[12:03:24] <kinblas> highlight
+[12:03:38] <DaveMethvin> oh cool, i'll try it once i get my (wife's) ipad back
+[12:04:01] <DaveMethvin> i can try it on my android phone now, not sure if it has the same behvior there
+[12:04:52] <kinblas> DaveMethvin: yeah not sure ... but that hilighting behavior is a negative :-) Folks would have to use -webkit-hilight-color: none
+[12:04:56] <kinblas> on all elements
+[12:05:06] <kinblas> I think that's what the property is called
+[12:05:29] <DaveMethvin> thanks for the help kinblas
+[12:05:41] <kinblas> DaveMethvin: anytime ... thanks for the workaround ;-)
+[12:20:19] <Wilto> Hey, top of anyone’s head: what file does the “create” event’s logic live in?
+[12:20:33] <Wilto> kinblas: ↑
+[12:22:43] <Wilto> Looking for the string “create” is like looking for a needle in a needlestack.
+[12:22:44] <kinblas> eh?
+[12:22:54] <kinblas> what type of event?
+[12:22:57] <Wilto> Like when you trigger("create") to enhance stuff up.
+[12:23:08] <Wilto> I’m having a dense day; bear with me.
+[12:23:13] <kinblas> Wilto: Oh that's automatic in jquery.ui.widget.js
+[12:23:19] <Wilto> Ahh.
+[12:23:26] <kinblas> whenever _trigger() is called
+[12:23:31] <Wilto> I see.
+[12:23:33] <kinblas> it prepends the widget name to the event name passed in
+[12:23:41] <kinblas> so look for _trigger("create")
+[12:23:49] <kinblas> that will become pagecreate, listviewcreate, etc
+[12:23:50] <Wilto> Oh, oh, I follow.
+[12:23:52] <Wilto> My bad.
+[12:24:26] <sven_franck> kinblas: thx for valuable info... :-)
+[12:24:30] <Wilto> I blame it on accidentally drinking decaf earlier.
+[12:24:33] <Wilto> Thanks, man.
+[12:25:25] <kinblas> Wilto: lol ... decaf brings me down man
+[12:25:58] <Wilto> I assume vital parts of my frontal lobe just recoiled in horror and shut down for the day.
+[12:26:11] <Wilto> It was mostly for show anyway, really.
+[12:28:38] <kinblas> sven_franck: did I respond to your last email ... it's been kind of a crazy week
+[12:28:51] <kinblas> appologies in advance if I forgot :-)
+[12:32:29] <Wilto> Actually, I see what’s tripping me up.
+[12:32:54] <Wilto> It looks like jquery.mobile.page.sections.js isn’t widget factory’d, for some reason.
+[12:33:16] <Wilto> Which explains why headers/footers aren’t being enhanced if pulled into the page after the fact, yeah?
+[12:39:37] <Wilto> I’m gonna see if changing that over sets anything on fire, but give the word if that rings any bells for anyone.
+[12:40:08] <kinblas> Wilto: yeah I noticed that too ... that was fall-out from scott's decoupling of widgets
+[12:40:18] <Wilto> Oh ho! Say it with me, now:
+[12:40:24] <Wilto> DAMMIT SCOTT
+[12:40:32] <kinblas> Wilto: lol
+[12:40:36] <Wilto> I can now only do that between certain hours.
+[12:40:37] <kinblas> do the sections respond to page events?
+[12:40:46] <kinblas> they must
+[12:40:56] <kinblas> but they don't respond to the "create" event right?
+[12:41:03] <kinblas> the generic one that is
+[12:41:16] <Wilto> Just “pagecreate.”
+[12:41:37] <Wilto> I think there just hasn’t been a need for them to be “create”d after the fact.
+[12:45:18] <kinblas> Wilto: until now
+[12:45:20] <kinblas> :-)
+[12:45:46] <Wilto> Yessir.
+[12:47:30] <toddmparker_> will come in handy
+[12:47:49] <toddmparker_> esp. if we use fetchlinks to pull in stuff that may have header/footers
+[12:48:19] <toddmparker_> kinblas: how much overhead would be have if we wanted to init widgets outside of page wrapper?
+[12:50:59] <Wilto> Yeah, kinblas: I can’t really see where this stands to slow anything down, but you’d know better than I would. Thoughts?
+[12:52:55] <toddmparker_> reason I ask: scott has a demo of content/widgets outside the page container
+[12:53:14] <toddmparker_> so you can easily have some stuff persistent
+[12:53:30] <toddmparker_> could be cool for having branding/nav outside the pages
+[12:53:35] <toddmparker_> in an app
+[12:53:52] <toddmparker_> but none of the widgets listen to data-role outside the page
+[12:58:09] <Wilto> Oh, I see what you’re saying.
+[13:05:39] <kinblas> toddmparker_: there are some widgets that require a page, those would have to be modified, or excluded from the set, also all widgets I believe scope their searches for things to enhance to the current page as a performance enhancement
+[13:07:06] <Wilto> Yeah, that I could see impacting performance.
+[13:07:30] <Wilto> Once multiple pages are in play, anyway.
+[13:09:35] <toddmparker_> we could add a new container for stuff outside the page?
+[13:16:44] <sven_franck> kinblas: what ever happened to pagebeforeinsert? :-)
+[13:16:46] <sven_franck> I think I'm pretty close to what you had mind (don't understand everything on your sketch, but that's more me than your sketch...). Coming back to my email: both the panel history and deeplinks become tricky if you start with empty panels and AJAX in pages into the panels. I think I'm getting the history to work = integrate inserted pages and reloading them on hashChange.
+[13:17:04] <sven_franck> But on deeplinks I'm sort of stuck, because when I'm deeplinking to a page already existing in panel I can search the DOM on load and changePage to the linked page on that panel. However, if the page is not there, I don't know which pageContainer it should go to.
+[13:17:07] <sven_franck>  That's what I was asking... how can I tell JQM, that if a user deeplinks to a "page to be inserted", who do I know which panel this page should go to?
+[13:17:58] <sven_franck> pardon my english...
+[13:19:10] <sven_franck> and the wrong window...
+[13:19:13] <kinblas> I get what you're saying ... and that's why I said the deeplinking thing is going to be the hard part of all of this ... implementation will be easy
+[13:19:27] <kinblas> sven_franck: heh
+[13:19:39] <kinblas> I didn't notice either
+[13:27:05] <sven_franck> kinblas:, wilto:, toddmparker_:  I wrapped up my plugin demo files and put everything on me multiview repo on Git. I would like to do a walkthrough with whoever is interested next week. What's best day and time?
+[13:28:28] <kinblas> sven_fanck: Perhaps you could join us for our regular Thursday status meeting
+[13:28:38] <kinblas> sven_franck: and walk us through afterwards
+[13:29:12] <sven_franck> sounds good
+[13:29:43] <sven_franck> that's the  2pm EST meeting?
+[13:29:58] <kinblas> sven_franck: regarding pagebeforeinsert, do you mean in 1.0?
+[13:30:22] <kinblas> sven_franck: yeah that one
+[13:30:41] <kinblas> toddmparker_: perhaps we could get sven on the agenda and invite
+[13:33:03] <sven_franck> kinblas: pagebeforeinsert just sounded like a nice event to have.
+[13:33:40] <kinblas> sven_franck: I know right? :-)
+[13:35:08] <sven_franck> kinblas: yup
+[14:19:25] <sven_franck> kinblas: checking out. thx for the infos.
+[14:21:47] <kinblas> sven_franck: anytime
+[14:40:42] <Wilto> Every time I see that URL-parsing regex in navigation.js, I faint. That’s normal, yeah?
+[14:41:44] <johnbender> Wilto: yes I do the same thing
+[14:41:52] <johnbender> we tested the bajeezus out of it though
+[14:42:04] <johnbender> by we I mean Kinn
+[14:42:08] <Wilto> http://wil.to/_/mygod.gif
+[14:42:09] <johnbender> -n
+[14:43:07] <kinblas> :-)
+[14:43:09] <kinblas> and it works!!
+[14:43:12] <Wilto> You are a braver man than I, kinblas.
+[14:43:25] * kinblas laughs at that gif
+[14:43:39] <Wilto> Oh, I don’t doubt it. It’s just that looking at it gives me a nosebleed.
+[14:44:35] <Wilto> I mean, it worked right up until I broke the navigation completely just noh whoops wrong window
+[14:45:09] <kinblas> lol
+[14:49:08] <Wilto> The good news is that “sections” is widget factory’d and working, and headers/footers/content are enhanced when “create” is triggered.
+[15:46:28] <jqmobilecommit> [jquery-mobile] gseguin pushed 6 new commits to amd: http://git.io/xh4m_A
+[15:46:28] <jqmobilecommit> [jquery-mobile/amd] use define instead of require - Ghislain Seguin
+[15:46:28] <jqmobilecommit> [jquery-mobile/amd] Fixed deps - Ghislain Seguin
+[15:46:28] <jqmobilecommit> [jquery-mobile/amd] Fixed deps - Ghislain Seguin
+[16:51:31] <jqmobilecommit> [jquery-mobile] Wilto pushed 2 new commits to dialog-refactor: http://git.io/dwWSsg
+[16:51:31] <jqmobilecommit> [jquery-mobile/dialog-refactor] Added inline loading indicator (a fake delay is set in the AJAX callback). - Mat Marquis
+[16:51:31] <jqmobilecommit> [jquery-mobile/dialog-refactor] Refactored sections JS to use widget factory scheme; continued work on fetchlinks/inline loader. - Mat Marquis
+[17:24:46] <gseguin> eddiemonge: ping
+[17:25:03] <eddiemonge> pong
+[17:26:03] <gseguin> so I pushed some changes to the amd branch
+[17:26:14] <gseguin> you can try it out if you want
+[17:26:55] <gseguin> I'm going to create another branch "almond" where I will do the build with almond.js as a shim for requirejs
+[22:24:46] <jqmobilecommit> [jquery-mobile] gseguin created almond (+5 new commits): http://git.io/mPhWkQ
+[22:24:46] <jqmobilecommit> [jquery-mobile/almond] Added almond.js - Ghislain Seguin
+[22:24:46] <jqmobilecommit> [jquery-mobile/almond] Removed hacked r.js - Ghislain Seguin
+[22:24:46] <jqmobilecommit> [jquery-mobile/almond] Assume jquery is loaded so don't require it - Ghislain Seguin
+[23:27:04] <jqmobilecommit> [jquery-mobile] gseguin pushed 1 new commit to almond: http://git.io/hbY73w
+[23:27:04] <jqmobilecommit> [jquery-mobile/almond] Customized wrapper IIFE - Ghislain Seguin
+[23:54:01] <jqmobilecommit> [jquery-mobile] gseguin pushed 1 new commit to almond: http://git.io/jPGyUg
+[23:54:01] <jqmobilecommit> [jquery-mobile/almond] Customized wrapper IIFE to minified - Ghislain Seguin

@@ -1,0 +1,420 @@
+[07:59:09] <jzaefferer> If Krinkle is around, we might as well celebrate and do the testing meeting :-)
+[07:59:54] <jzaefferer> Unlike me, Krinkle should actually have something to report, discuss or both
+[08:00:20] <Krinkle> Where shall I start?
+[08:00:48] <Krinkle> gnarf fixed git-view to be significantly more efficient
+[08:00:49] <Krinkle> ode.google.com/p/gerrit/issues/list
+[08:00:52] <Krinkle> https://github.com/jquery/infrastructure/issues/145#issuecomment-14226261
+[08:01:07] <Krinkle> It may not be the entire thing, but that should make jq03 more stable
+[08:01:07] <jzaefferer> Ping scott_gonzalez gnarf rworth DaveMethvin
+[08:01:21] <scott_gonzalez> jzaefferer: node-git-tools makes its first appearance in production code!
+[08:01:27] <jzaefferer> nice
+[08:01:40] <Krinkle> Hopefully getting rid of our nginx server randomly crashing and serving Gateway errors exclusively (which are in html and fail json parser from jenkins and fail all pending jenkins jobs at the time)
+[08:01:55] <DaveMethvin> yeah i do appreciate that ... the tests run again
+[08:02:05] <DaveMethvin> bad news ... the tests run again :)
+[08:02:15] <DaveMethvin> Krinkle did get a clean run
+[08:02:20] <DaveMethvin> gotta fix THAT
+[08:02:22] <Krinkle> Firefox has been failing for a few days now in random tests (depending on whether the
+[08:02:28] <Krinkle> We found out what the cause was
+[08:02:38] <Krinkle> In Windows VMs with firefox, Browserstack includes Firebug
+[08:02:50] <Krinkle> which is fine, except that Firebug is causing inteference making the tests fail
+[08:02:58] <Krinkle> They disabled Firebug on Mac VMs last week.
+[08:03:25] <Krinkle> So based on fair dice roll, our firefox tests passed or failed depending on whether testswarm-browserstack picked a Mac or Windows VM.
+[08:03:42] <jzaefferer> like that? http://xkcd.com/221/
+[08:03:48] <Krinkle> :)
+[08:03:55] <Krinkle> my thoughts exactly
+[08:04:21] <jzaefferer> DaveMethvin: what's the state of tests in jQuery Core?
+[08:04:28] <Krinkle> In our feedback loop with browserstack they said they're going to disable firebug in the other API VMs as well, starting tonight.
+[08:04:39] <DaveMethvin> just a couple of strange things in ff 17
+[08:04:44] <Krinkle> it's not like you're gonna need debug tools in a headless browser.
+[08:04:49] <DaveMethvin> which we hope to fix by not testing in it
+[08:04:50] <DaveMethvin> :D
+[08:04:54] <DaveMethvin> 18 and 19
+[08:04:56] <Krinkle> DaveMethvin: That's caused by this this with firebug
+[08:05:14] <DaveMethvin> oh i didn't make the connection
+[08:05:32] <Krinkle> If I join the swarm from a Mac VM with firefox it should oass
+[08:05:33] <Krinkle> pass
+[08:05:34] <jzaefferer> Krinkle: is this nginx crashing? http://swarm.jquery.org:8080/job/jQuery%20Core/lastBuild/console
+[08:05:34] <Krinkle> let's try
+[08:05:44] <Krinkle> "Unexpected token <"
+[08:05:45] <Krinkle> yes
+[08:05:51] <Krinkle> that's an html error page, gateway timeout
+[08:06:08] <jzaefferer> Does node-testswarm 1.0.0(alpha) do a better job at handling that? For example, outputting more of the response?
+[08:06:19] <jzaefferer> Afaik DaveMethvin gave that node-testswarm upgrade ticket a low prio
+[08:06:23] <Krinkle> I'm not sure, but I can make it do that if it doesn't already
+[08:06:26] * Krinkle adds to todo list
+[08:06:26] <jzaefferer> I guess I can help out with a PR
+[08:06:39] <DaveMethvin> if it helps, great
+[08:06:48] <DaveMethvin> i'm working on the 2.0 beta 2 today
+[08:06:56] <jzaefferer> Krinkle: can you check for that, add it if not, then we can upgrade Core to whatever resulting version
+[08:06:58] <Krinkle> I'm joining the swarm now form a mac VM with firefox 17 to complete our jquery build that DaveMethvin has been waiting for
+[08:06:58] <DaveMethvin> want to get it done before leaving tomorrow
+[08:07:06] <Krinkle> jzaefferer: will do
+[08:07:43] <jzaefferer> Krinkle: you've got write access for node-testswarm, I can also give you npm publishing rights, if I haven't already
+[08:07:56] <Krinkle> Yay
+[08:07:57] <Krinkle> it worked
+[08:07:58] <Krinkle> http://swarm.jquery.org/job/2713
+[08:08:02] <Krinkle> it is now passing firefox 17
+[08:08:11] <Krinkle> DaveMethvin: Clear build
+[08:08:16] <jzaefferer> nope, I haven't
+[08:08:30] <DaveMethvin> okay now i can break it with confidence! :)
+[08:08:42] <jzaefferer> Krinkle: do you want that? Or you commit and let me know and I can test and publish
+[08:09:51] <Krinkle> jzaefferer: I'll commit and let you know
+[08:09:57] <jzaefferer> okay
+[08:10:28] <Krinkle> let's see, what else..
+[08:10:39] <Krinkle> testswarm projects branch
+[08:11:10] <Krinkle> I've pushed a few drafts https://github.com/jquery/testswarm/tree/projects-4
+[08:11:39] <Krinkle> got a few todo items to take care of, but it's most of the way there
+[08:12:12] <Krinkle> done: revised database schema, pagination, clients/projects refactoring (no more useless sign up and user table entries)
+[08:12:20] <Krinkle> and real-time data of what clients are doing
+[08:13:07] <jzaefferer> Krinkle: did you update since I tested this? Should I test again?
+[08:13:56] <Krinkle> I did update since (I'm continously overwriting that commit).
+[08:14:00] <Krinkle> jzaefferer: what was the problem last time?
+[08:14:34] <jzaefferer> Krinkle: test run "finished" instantly without actually testing anything, TestSwarm then considered the job as pending
+[08:15:18] <Krinkle> jzaefferer: hm.. I couldn't reproduce that locally. could be related to your local setup (maybe the url is not accessible from the browser client, or perhaps inject.js not present)
+[08:16:10] <jzaefferer> I can try again from master to see if my setup is still kocher
+[08:16:15] <jzaefferer> but I'm pretty sure I used that before
+[08:16:20] <jzaefferer> static UI checkout
+[08:16:37] <jzaefferer> usually submitted via node-testswarm, though this time via TestSwarm UI
+[08:16:45] <jzaefferer> since node-testswarm didn't work, I guess due to API changes?
+[08:16:52] <jzaefferer> maybe the manual submit was bad
+[08:18:13] <Krinkle> I always use web UI to submit things during development (don't have node-testswarm on my new laptop yet)
+[08:18:24] <Krinkle> it should be fine, but by all means, let me know if it works on master.
+[08:18:25] <Krinkle> for oyu
+[08:18:49] <jzaefferer> okay, will check again
+[08:20:09] <Krinkle> jzaefferer: there's also another thing I'd like to bring up, although I have mixed feelings about it
+[08:20:18] <Krinkle> two things actually, although they're closely related
+[08:20:20] <Krinkle> saucelabs
+[08:20:43] <Krinkle> I'd like to have a testswam-browserstack bridge, but for saucelabs
+[08:20:56] <Krinkle> should be fairly easy to adapt it to support both
+[08:21:10] <Krinkle> but here's what I realised when thinking about it (I haven't written any code yet)
+[08:21:14] <jzaefferer> testswarm-saucelabs?
+[08:21:59] <Krinkle> Yep, or perhaps testswarm-clients-saucelabs (putting re-uable code in a new testswarm-clients repo)
+[08:22:01] <Krinkle> saucelabs is selenium based
+[08:22:13] <Krinkle> which means less browser choice, since the browser need to have a web driver API
+[08:22:17] <Krinkle> but that's okay
+[08:22:32] <Krinkle> the discovery is that web driver has access to the javascript engine and DOM
+[08:22:50] <Krinkle> which means we can actually extract the test results directly
+[08:23:24] <jzaefferer> There's a grunt plugin integrating QUnit with saucelabs, I want to try that for my validation plugin along with Travis-CI
+[08:23:34] <Krinkle> exactly
+[08:23:48] <jzaefferer> Would avoid hosting TestSwarm and testswarm-browserstack, since that can be cut away
+[08:23:55] <Krinkle> Yep
+[08:24:11] <gnarf> we should be having plenty of discuss on this this weekend too
+[08:24:13] <Krinkle> so TestSwarm Next is going to be a cli tool with no permanent server hosted anywhere
+[08:24:20] <gnarf> +1
+[08:24:23] <gnarf> thats my feeling too
+[08:24:46] <gnarf> just a "temporary" node service that can serve the built files to one-shot clients fired from its own api
+[08:24:51] <jzaefferer> Should probably just be a different tool. Maybe it can replace TestSwarm for us, but I wouldn't call it TestSwarm Next
+[08:24:53] <Krinkle> and depending on whether your "browser grid" supports selenium it will eihter extract the results directly from the browser, or it will have inject.js submit it to its temporary node server receiving a json payload
+[08:25:00] <gnarf> then output as a xml/whatever for jenkins/travis
+[08:25:21] <Krinkle> because I don't want us to make this tool reliant on having web driver / selenium. It should work with a plain vm / browserstack as well.
+[08:25:25] <Krinkle> gnarf: yep
+[08:26:07] <jzaefferer> how do you know if webdriver is supported?
+[08:26:22] <Krinkle> wrong question
+[08:26:32] <Krinkle> you can't talk to webdriver from within the dom
+[08:26:42] <Krinkle> it's not something we check inside the code
+[08:26:57] <Krinkle> it would depend on how you configure testwarm-next (don't have a better name for now)_
+[08:27:06] <gnarf> answer: it tells you
+[08:27:07] <gnarf> :)
+[08:27:41] <Krinkle> either configure it with something that starts a web driver from the createClient callback in nodejs, or you start a regular browser.
+[08:27:51] <jzaefferer> I like this especially to do more automated cross browser testing locally
+[08:28:14] <Krinkle> e.g. in testswarm/localSettings.js you'd do something like require('teswarm-next') and .on('needClient') you can start what you have.
+[08:28:22] <jzaefferer> kind of like Testacular
+[08:28:22] <Krinkle> jzaefferer: yeah
+[08:28:44] <Krinkle> jzaefferer: I'm not sure we are on the same line right now
+[08:28:49] <Krinkle> it wouldn't start local  browsers
+[08:28:59] <jzaefferer> but loading full pages and using remote VMs
+[08:29:19] <jzaefferer> similar on the CLI
+[08:29:31] <jzaefferer> not the config and execution
+[08:29:53] <gnarf> advantage, local users could grunt swarm
+[08:30:00] <gnarf> if they had browserstack/some provider
+[08:30:09] <Krinkle> my point is that they can already do that
+[08:30:19] <Krinkle> node-testswarm and testswarm-browserstack are faily easy to install
+[08:30:43] <Krinkle> it requires a one time install of testswarm which is more then a single bash command to pull off, but that's details.
+[08:30:50] <Krinkle> of course it'll be much easier and more attractive
+[08:31:26] <Krinkle> I run grunt testswarm:pathtomyjsonfile locally from time to time
+[08:32:58] <jzaefferer> Okay, sounds good. Let's get back to that after the projects refactoring is done and live. By then I hopefully got some practical experience with SauceLabs
+[08:38:51] <jzaefferer> Well, I guess that's it for this meeting
+[08:39:03] <jzaefferer> Thanks Krinkle for the updates, I made notes and will post them on jquery.org/updates
+[08:39:15] <jzaefferer> If you want to add/fix anything: https://docs.google.com/document/d/13FbWhiFQ9gWQvB1Tm4QM_OC4me-ha2ujDWH5sdF7ueo/edit?pli=1
+[08:39:21] <Krinkle> Okay :)
+[08:41:28] <jzaefferer> I also asked the Mobile team to figure out who's working on Testing stuff these days
+[10:01:39] <ajpiano> hey kswedberg agcolom scott_gonzalez gnarf rworth, time for a brief content meeting
+[10:01:45] <rworth> hey
+[10:01:54] <kswedberg> hey hey
+[10:01:54] <agcolom> hey :-)
+[10:01:57] <ajpiano> i have been MIA as i'm in the opening throes of a new client proj, so sorry about htat
+[10:02:12] <kswedberg> np ajpiano :)
+[10:02:22] <kswedberg> scott_gonzalez: what was the upshot of the .hide() signature issue?
+[10:02:42] <kswedberg> seems to me it should follow the same rules as all the other effects methods
+[10:02:55] <scott_gonzalez> So the last signature should have duration as a required field.
+[10:03:04] <scott_gonzalez> I'm going to commit a fix for that for show/hide/toggle.
+[10:03:12] <scott_gonzalez> Because you can't do .hide( easing )
+[10:03:24] <scott_gonzalez> You can only do .hide({ easing: easing }) or .hide( duration, easing )
+[10:03:52] <kswedberg> ok. cool deal
+[10:04:08] <kswedberg> thx
+[10:04:33] <ajpiano> rworth: i wanted to find out what's going on with jquery.org
+[10:04:41] <rworth> yeah
+[10:05:02] <rworth> so I planned to work this whole week on it and up until now have just been catching up from Vienna and getting ready for Toronto
+[10:05:08] <rworth> (plus two sick kids)
+[10:05:25] <rworth> I'll be working on it for the next few days, while traveling, and at the conference
+[10:05:41] <ajpiano> ok, i mean, it's gonna come up at the meeting on monday why we still don't have it
+[10:05:49] <rworth> we don't have any real blockers, just gotta get a couple PRs landed from Klein and get the content in
+[10:05:58] <ajpiano> i mean, the content is the blocker
+[10:06:02] <ajpiano> so to say there are no blockers
+[10:06:06] <rworth> right
+[10:06:12] <rworth> I just mean
+[10:06:23] <ajpiano> no technical hurdles?
+[10:06:27] <rworth> we had plenty of times before we didn't migrate the content because there were other blockers
+[10:06:40] <rworth> which would've kept it from launching, and the content would have to be migrated again
+[10:07:00] <rworth> I'll pull it together
+[10:07:03] <ajpiano> okay
+[10:07:19] <rworth> and I got some people last weekend to volunteer as beta testers of the joining
+[10:07:34] <rworth> they want to join anyway, so we can have them do so once its live but before it's announced
+[10:07:38] <ajpiano> okay
+[10:07:48] <rworth> of course team members can do that as well
+[10:07:52] <rworth> that's it from me
+[10:08:39] <ajpiano> was curious for other folks feedback on https://github.com/jquery/learn.jquery.com/issues/257
+[10:08:39] <b-ot> ajpiano: Issue #257 by ajpiano (6d 3h ago): Replace JavaScript 101 Section with MDN information using Kuma API
+[10:08:56] <ajpiano> i don't know when i'd have time for that integration though
+[10:09:51] <ajpiano> but fundamentally it seems like a good idea
+[10:09:58] <gnarf> ajpiano: yo
+[10:10:03] <ajpiano> hi gnarf
+[10:10:47] <rworth> I guess we'd have to display MDN's license on those pages
+[10:11:01] <scott_gonzalez> Seems look a good thing to investigate.
+[10:11:05] <rworth> yeah
+[10:11:12] <ajpiano> there's a lot of weird stuff we'd have to figure out around the margins
+[10:11:13] <gnarf> rworth / scott_gonzalez we need keys for stripe yeah?
+[10:11:21] <ajpiano> showing contribs, recommending a contribution path for that content etc
+[10:11:31] <scott_gonzalez> Out of curiousity, is there something similar for WPD?
+[10:11:36] <rworth> I know @codepo8 would be in favor
+[10:11:45] <ajpiano> but as long as none of y'all are like WE SHOULD HAVE OUR OWN JS 101
+[10:11:49] <ajpiano> scott_gonzalez: wpd?
+[10:11:53] <rworth> his immediate feedback was quite positive, other than the duplication of other sources
+[10:11:59] <scott_gonzalez> WebPlatform.org
+[10:12:06] <rworth> gnarf I have stripe keys
+[10:12:10] <ajpiano> scott_gonzalez: i don't believe there is
+[10:12:25] <ajpiano> i recall christian saying there wasn't one yet in the twitter thread about this
+[10:12:31] <scott_gonzalez> hmm...does that not even cover JS?
+[10:12:45] <scott_gonzalez> Oh, it does.
+[10:12:51] <scott_gonzalez> Just not in the front page :-/
+[10:13:01] <rworth> yeah, WPD can theoretically contain anything in MDN, it just has to be ported
+[10:13:09] <rworth> because of license, iirc
+[10:13:20] <gnarf> rworth: i mean, we need to somehow install those keys into the site yes?
+[10:13:21] <scott_gonzalez> http://docs.webplatform.org/wiki/javascript/tutorials
+[10:13:46] <scott_gonzalez> gnarf: They will live in a config file.
+[10:13:54] <scott_gonzalez> The same one that defines the DB settings.
+[10:14:13] <rworth> yeah, it's documented, if you want to look in jquery.org master gnarf
+[10:14:17] <rworth> thanks to scott_gonzalez :)
+[10:14:22] <gnarf> sure
+[10:14:42] <scott_gonzalez> I assume that would go into the infra repo somewhere.
+[10:14:47] <gnarf> seems very easy, but this should probably be in place ( and tested ) before live yes?
+[10:15:09] <rworth> indeed
+[10:15:26] <rworth> I figured there are a number of such things, and that we'd do them in person like Sat or Sun ?
+[10:15:35] <gnarf> okay
+[10:15:40] <rworth> cool
+[10:15:41] <gnarf> didn't know what the timing was
+[10:16:00] <rworth> I'd love to have it up during the conf, test, then announce Mon
+[10:16:08] <rworth> I wanted to announce Sat morning but that's not gonna happen
+[10:16:20] <rworth> worst case scenario, test Mon and annc Tue, but I'm pushing for sooner
+[10:16:29] <ajpiano> rworth: and the content is going to be done for this too?
+[10:16:36] <rworth> either way, you don't leave till Tue, yeah gnarf ?
+[10:16:43] <rworth> yeah, that's the very next step
+[10:16:48] <ajpiano> ok
+[10:17:07] <rworth> I'm working on it till I leave in the morning and on my flight and during Sat
+[10:17:16] <scott_gonzalez> kswedberg: .show()/.hide()/.toggle() are fixed in master.
+[10:17:21] <gnarf> yeah Tue 3pm
+[10:17:36] <rworth> just before this call I finished all the tech prep for Mon
+[10:17:47] <rworth> that was my last blocker before switching into content mode
+[10:17:54] <kswedberg> scott_gonzalez: awesome.
+[10:19:12] <kswedberg> scott_gonzalez: so you can do .hide( fn ) ?
+[10:19:17] <scott_gonzalez> yup
+[10:19:22] <scott_gonzalez> And it will animate over 400 seconds.
+[10:19:27] <scott_gonzalez> umm.... 400ms
+[10:19:31] <kswedberg> ok. cool. so, wanna take it?
+[10:19:34] <kswedberg> hehe
+[10:19:38] <kswedberg> *tag
+[10:19:45] <scott_gonzalez> sure
+[10:20:32] <kswedberg> beautiful
+[10:26:00] <rworth> I guess that's it then ajpiano ?
+[10:26:00] <gnarf> can someone look at that grunt init pull on learn
+[10:26:07] <gnarf> i looked over it, didn't see anything wrong
+[10:26:18] <gnarf> just wanted to get cowboy and someone else's eye too
+[10:26:32] <ajpiano> i will try to get eyes on it before ... we leave toronto
+[10:26:33] <ajpiano> :p
+[10:27:15] <ajpiano> and yes i suppose that's it
+[11:05:29] <toddmparker> Hi all
+[11:05:33] <_|Nix|_> Hey!
+[11:05:33] <arschmitz> Hi
+[11:05:34] <agcolom> Hi!
+[11:05:41] <toddmparker> The jQuery Mobile team meeting is starting up
+[11:05:42] <uGoMobi> hi
+[11:05:46] <JasonDScott___> hi
+[11:05:50] <toddmparker> https://docs.google.com/document/d/1ghxI0QOcDmpDTh1x-V14PmzNz_Gn2y4sAkfum2d3_Dk/edit
+[11:06:14] <toddmparker> Hi JasonDScott___ - haven't seen you in a while. how goes?
+[11:06:44] <JasonDScott___> It's going well. Getting ready for my Talk this weekend at jqueryTO
+[11:06:53] <toddmparker> cool
+[11:07:05] <toddmparker> theming?
+[11:07:50] <JasonDScott___> Build an experience not another framework
+[11:08:00] <JasonDScott___> there is theming involved
+[11:08:00] <toddmparker> nice
+[11:08:48] <JasonDScott___> I know RWhitbeck is coming, is anyone else from the team?
+[11:09:24] <toddmparker> I thought there were others - anyone else?
+[11:09:40] <arschmitz> i dont think so but i could be very wrong
+[11:10:34] <toddmparker> oh, ok
+[11:10:49] <toddmparker> ok, let's jump in
+[11:10:55] <toddmparker> no meeting last week so...
+[11:10:56] <toddmparker> jQuery 1.3.0 final released last Wednesday - http://jquerymobile.com/blog/2013/02/20/jquery-mobile-1-3-0-released/
+[11:10:57] <toddmparker> Thanks for everyone who helped us get this release out, it’s feature-packed
+[11:11:12] <toddmparker> Website and blog need to get ported into the new template. Ralph and Anne to help with that process
+[11:11:23] <toddmparker> is RWhitbeck here?
+[11:11:57] <toddmparker> guess not
+[11:12:12] <toddmparker> we moved the site switch out by a few weeks
+[11:12:29] <toddmparker> I'll be on vacation next week so y'all can carry on without me
+[11:12:50] <toddmparker> 1.4.0 planning underway, UI, core and mobile folks discussing plans
+[11:12:55] <toddmparker> ^^ more on that soon
+[11:13:05] <gnarf> http://view.jquerymobile.com/ is on the new view script now btw, just an update - hoping it performs a little better...
+[11:13:06] <_|Nix|_> toddmparker: Are we gonna do a hangout at any point?
+[11:13:17] <toddmparker> that's it for me. been a decompression week after the run up to 1.3 and Vienna
+[11:13:29] <toddmparker> _|Nix|_: yes, let's talk after
+[11:13:37] <_|Nix|_> toddmparker: OK.
+[11:13:53] <toddmparker> _|Nix|_: what have you been up to?
+[11:14:17] <_|Nix|_> toddmparker: Mostly web-ui-fw, but I fixed a popup bug and made some changes to the way extensions are used.
+[11:14:30] <_|Nix|_> toddmparker: I'm learning a lot from trying to integrate with jQM.
+[11:14:56] <_|Nix|_> toddmparker: For example, extensions that don't use _super() and/or add new options need not be added with $.widget, because that's too heavy.
+[11:15:27] <_|Nix|_> toddmparker: ... and I'm learning about grunt tasks trying to build web-ui-fw using requirejs like jQM is built.
+[11:15:50] <toddmparker> saw that. good to get the extension approach as good as possible since we're going to be doing a lot of tht
+[11:15:57] <toddmparker> nice
+[11:16:15] <_|Nix|_> toddmparker: I've thought of a potentially useful feature for JQM: Specify which file you wanna start with when compiling jQM.
+[11:16:32] <_|Nix|_> toddmparker: Currently it's hardcoded to be js/jquery.mobile.js ...
+[11:16:43] <toddmparker> scenario?
+[11:16:46] <_|Nix|_> toddmparker: ... but there's nothing to stop us from building only, like, slider.
+[11:17:05] <_|Nix|_> toddmparker: Create a .js file which contains everything necessary for slider, and nothing else.
+[11:17:13] <_|Nix|_> toddmparker: Kinda like download builder, but from the command line.
+[11:17:32] <_|Nix|_> toddmparker: It would be really easy.
+[11:17:45] <_|Nix|_> toddmparker: However, I haven't looked at doing the same for the slider CSS yet.
+[11:18:39] <_|Nix|_> And I fixed that bug in popup where you can't blue out of an input once you've focused it (https://github.com/jquery/jquery-mobile/issues/5706)
+[11:18:40] <b-ot> _|Nix|_: Issue #5706 by vkammerer (22h 45m ago): Popup <input> doesn't loose focus
+[11:19:12] <_|Nix|_> I'm having some trouble getting it to fetch version.txt from the right directory.
+[11:19:21] <_|Nix|_> ... but I've asked jrburke for help.
+[11:19:44] <_|Nix|_> Oh, and I moved the popup arrow and slider tooltip into the lib right after the tag.
+[11:20:33] <_|Nix|_> There's a question as to whether we want all popups to end up extended when one chooses to use the extension, or whether we should have an initSelector for popup arrows.
+[11:20:45] <_|Nix|_> Same question can be asked of slider tooltips.
+[11:21:02] <toddmparker> i think you'd want to opt in
+[11:21:06] <arschmitz> why not just make it an option
+[11:21:20] <toddmparker> add the extension and add a data-attr or class to kick it in
+[11:21:27] <arschmitz> data-popuparrow="true" or the like
+[11:21:31] <toddmparker> yeah
+[11:21:58] <_|Nix|_> That's already happening, but if you include the extension, then the slider widget's class gets overwritten by the extension.
+[11:22:15] <_|Nix|_> So, you get an extra level of depth whether you use the extension or not.
+[11:22:31] <arschmitz> why not only have the extension overwrite if the option is true?
+[11:22:47] <_|Nix|_> arschmitz: ... because I'm not sure that you can overwrite an instance of a widget.
+[11:22:57] <_|Nix|_> arschmitz: Can you pass a widget instance to $.widget?
+[11:22:58] <arschmitz> seems like an extension like this should not do anything the option is true
+[11:23:00] <arschmitz> yes
+[11:23:01] <_|Nix|_> arschmitz: ... or just a widget class?
+[11:23:04] <toddmparker> _|Nix|_: be a good Q for scott_gonzalez
+[11:23:18] <_|Nix|_> arschmitz: Yes, you can pass an instance to widget?
+[11:23:23] <arschmitz> no sorry misread
+[11:23:26] <arschmitz> not sure about that
+[11:23:30] <_|Nix|_> arschmitz: Exactly.
+[11:23:30] <toddmparker> be great to work with him on clarifying how best to structure extensions in the widget factory
+[11:24:06] <_|Nix|_> toddmparker: That depends on the extension. If it's an extension that simply adds new methods, it's easiest to simple use $.extend.
+[11:24:26] <_|Nix|_> toddmparker: ... and I think that could even be done on the instance, since $.extend is used on instances anyway.
+[11:24:27] <arschmitz> _|Nix|_: why do you need to pass an instance?
+[11:24:55] <_|Nix|_> arschmitz: ... because I don't want the prototype to be overwritten, because that adds an extra level of inheritance.
+[11:25:14] <toddmparker> think this is a good -dev conversation :)
+[11:25:18] <_|Nix|_> Yep.
+[11:25:30] <toddmparker> thanks _|Nix|_ - anything else to report?
+[11:25:31] <_|Nix|_> toddmparker: I'll ask scott_gonzalez ...
+[11:25:38] <toddmparker> perfect
+[11:25:44] <toddmparker> arschmitz: how goes?
+[11:25:52] <arschmitz> good
+[11:25:55] <uGoMobi> _|Nix|_: can you look at my comments here.. https://github.com/jquery/jquery-mobile/commit/2ca372d6393f10fd7be87e8f24b085ed5dad1c72#L2R1173 and https://github.com/jquery/jquery-mobile/commit/faed3f9a6157d440e479fbea4f6deed2091b71c2#commitcomment-2675632
+[11:25:56] <b-ot> uGoMobi: Gabriel Schulhof (1w 19h ago): Slider tooltip: Converting back to extension.
+[11:25:57] <arschmitz> did very little the last week
+[11:26:29] <arschmitz> fixed https://github.com/jquery/jquery-mobile/issues/5677
+[11:26:29] <b-ot> arschmitz: Issue #5677 by m90 (6d 10h ago): Navigation: Prefetching pages from other directories offsets <base>-tag
+[11:26:49] <_|Nix|_> http://babulina.go-nix.ca:8080/nix/web-ui-fw/demos/widgets/color/hsvpicker.html
+[11:26:50] <toddmparker> that was a good one to fix
+[11:26:56] <arschmitz> this was a really old issue but could not find old issue for it
+[11:26:58] <arschmitz> its pre 1.0
+[11:27:03] <toddmparker> yeah?
+[11:27:05] <_|Nix|_> That was the last thing - took a while to assemble the link :)
+[11:28:03] <toddmparker> _|Nix|_: you going to release that picker now?
+[11:28:21] <toddmparker> or at least add it as a demo?
+[11:28:51] <toddmparker> cool stuff
+[11:28:51] <_|Nix|_> toddmparker: That's slated for web-ui-fw 0.2.0 to be released sometime next quarter.
+[11:28:54] <scott_gonzalez> There is an extension system built in.
+[11:28:57] <scott_gonzalez> It's amazing.
+[11:29:12] <scott_gonzalez> I'll gladly show you how it works :-)
+[11:29:33] <toddmparker> thanks scott_gonzalez
+[11:29:51] <toddmparker> you pretty much have an answer for everything
+[11:30:07] <scott_gonzalez> Pretty much.
+[11:30:12] <toddmparker> Maybe _|Nix|_ and arschmitz can pick your brain after this
+[11:30:12] <_|Nix|_> toddmparker: ... but first we need to beef up the build system, unit tests, and docs.
+[11:30:22] <toddmparker> _|Nix|_: great
+[11:30:40] <toddmparker> ok - agcolom?
+[11:30:45] <arschmitz> oh i had one more thing
+[11:30:55] <agcolom> yep
+[11:31:13] <agcolom> I'll go after arschmitz
+[11:31:24] <arschmitz> any one against removing page.sections and just going with a toolbar widget and fixedToolbars would be an extension of this?
+[11:31:38] <toddmparker> sorry arschmitz
+[11:31:46] <arschmitz> then dump the data-role content stuff into page widget?
+[11:31:50] <arschmitz> thats ok
+[11:31:56] <uGoMobi> +1
+[11:32:14] <toddmparker> seems reasonable
+[11:32:14] <arschmitz> will fix the inability to add toolbars dynamicly
+[11:32:21] <arschmitz> and makes the organization a lot more sane
+[11:32:23] <toddmparker> what else is in page sections? content class?
+[11:32:38] <arschmitz> yeah its just content class and theme and toolbar stuff
+[11:33:34] <toddmparker> sounds good
+[11:33:43] <arschmitz> sweet
+[11:33:45] <toddmparker> you discussed with bender already, right
+[11:34:19] <arschmitz> yea think it came up yesterday when we were talking about page widget and the container stuff hes planning
+[11:34:30] <toddmparker> right, that needs to be coordinated
+[11:34:32] <toddmparker> but sure
+[11:34:58] <arschmitz> yeah this does not really effect what hes doing
+[11:35:04] <toddmparker> great
+[11:35:10] <toddmparker> go forth
+[11:35:12] <toddmparker> agcolom?
+[11:35:17] <agcolom>     Tagged and released the API docs for 1.3.0 (under build 1.3.0-2)
+[11:35:17] <agcolom>     Talked at the jQuery Europe conf (Good UI Design Principles with jQuery Mobile)
+[11:35:17] <agcolom>     A bit of triage/testing
+[11:35:20] <arschmitz> cool page.sections really annoys me lol
+[11:35:39] <toddmparker> good to have you back on triage
+[11:35:43] <toddmparker> been creeping back up
+[11:35:51] <agcolom> yes, I saw 300+ :(
+[11:35:59] <toddmparker> yikes
+[11:36:00] <arschmitz> yes iv really been slacking since the baby came on triage :(
+[11:36:06] <toddmparker> we were at 225 at one point
+[11:36:15] <toddmparker> np. been busy with that and 1.3
+[11:36:27] <agcolom> I still need to charge that FF OS dev phone...
+[11:36:36] <agcolom> tried with 2 chargers but no luck...
+[11:36:44] <toddmparker> agcolom can you ask that guy near me about my phone?
+[11:36:48] <agcolom> will try to just connect it to a computer
+[11:36:49] <toddmparker> odd
+[11:37:02] <agcolom> yes will ping him later this evening.
+[11:37:08] <toddmparker> uGoMobi - wanna go?
+[11:37:15] <uGoMobi> sure
+[11:37:33] <uGoMobi> been working on Demo Center mostly
+[11:37:53] <uGoMobi> before 1.3 final and some fixes after the release
+[11:38:14] <uGoMobi> deployed ThemeRoller 1.3
+[11:38:29] <uGoMobi> resolved issue with RC1 not being removed
+[11:38:40] <uGoMobi> some triage
+[11:38:53] <toddmparker> cool
+[11:39:01] <uGoMobi> merged PR's that had to wait until final release
+[11:39:11] <toddmparker> now is a good time to do some housekeeping and fixes before 1.4 really gets rolling
+[11:39:11] <uGoMobi> that's about it
+[11:39:21] <toddmparker> and we all need a breather
+[11:39:25] <toddmparker> cool
+[11:39:33] <toddmparker> JasonDScott___: any updates?
+[11:40:39] <JasonDScott___> Mostly just BB work and the presentation for jQueryTO
+[11:42:21] <JasonDScott___> I am going to be looking into more general JQM performance related things, it is still a bit slow in some places on BB
+[11:43:18] <toddmparker> ok, cool. how is it looking on the latest BB10?
+[11:43:53] <JasonDScott___> Great for the most part
+[11:44:19] <toddmparker> cool
+[11:44:43] <toddmparker> alright, think that's it. we can talk details in -dev
+[11:44:50] <toddmparker> any questions from the community?
+[11:45:34] <arschmitz> wow done early that does not happen often
+[11:46:11] <toddmparker> i know. good stuff
+[11:51:52] <agcolom> toddmparker: we need to close if the meting is over

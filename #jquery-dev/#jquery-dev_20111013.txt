@@ -1,0 +1,417 @@
+[05:53:05] <mikesherov> DaveMethvin, what do you think of my comments here: http://bugs.jquery.com/ticket/10159#comment:6
+[05:55:02] <DaveMethvin> mikesherov: are style and script tags basically invisible on all browsers (unless we screw with them)?
+[05:55:25] <mikesherov> yeah
+[05:55:56] <DaveMethvin> sounds like we could look for them i guess
+[05:56:09] <DaveMethvin> kind of similar to that ticket about <br>
+[05:56:21] <mikesherov> i mean, you can make a stylesheet that says script tags and style tags are visile block level elements
+[05:56:45] <DaveMethvin> not unless you want to get stabbed in the face
+[05:57:01] <mikesherov> and that what's gives them dimensions
+[05:57:07] <mikesherov> but usually what happens is we do our swap
+[05:57:11] <DaveMethvin> yeha
+[05:57:37] <mikesherov> i was thinking that if style/script tags had dimensions before the swap, report it
+[05:57:46] <mikesherov> but don't do the swap if they don't have dimensions
+[05:58:03] <DaveMethvin> that should work
+[05:58:06] <mikesherov> it also saves us from having to detect them until we actually NEED to swap
+[05:58:10] <DaveMethvin> right
+[05:58:31] <mikesherov> are there other tags that need this treatment?
+[05:58:45] <DaveMethvin> lemme get the ticket for that br one
+[05:59:15] <mikesherov> I mean, you were able to dream up STYLE immediately after you saw this was broken for SCRIPT.. oh, I see, BR is effected by this too?
+[05:59:39] <mikesherov> brb, report the BR ticket on 10159
+[05:59:51] <DaveMethvin> docs#10406
+[05:59:52] <bot-t> [#10406] :hidden selector finds <br /> elements in chrome and safari (but not FF or IE) (assigned bug) - http://jqbug.com/10406
+[06:00:14] <mikesherov> k
+[06:00:14] <mikesherov> thanks
+[06:53:40] <DaveMethvin> hey timmywil
+[06:53:50] <timmywil> DaveMethvin: yo
+[06:54:10] <timmywil> let's fight!
+[06:54:11] <DaveMethvin> so on docs#10096, wasn't he complaining that value="" wasn't matching <input />
+[06:54:15] <bot-t> DaveMethvin, #10096 (Matching of implicit 'value' attributes has changed) � jQuery ... - Opened 8 weeks ago http://bugs.jquery.com/ticket/10096
+[06:54:41] <DaveMethvin> i agree sizzle should be fixed to match qsa but that won't fix what he was complaining about
+[06:55:17] <DaveMethvin> basically that ticket is prolly to be closed wonfix or invalid b/c he has to have a type="text" or qsa won't match
+[06:55:57] <timmywil> i didn't think he was complaining as much as noting the difference, which is actually expected, but IE6/7 still don't do it right
+[06:57:09] <timmywil> "It still works in IE7/8" <--my issue
+[06:57:39] <DaveMethvin> agreed, but "This worked in all tested browsers in 1.4.2."
+[06:58:01] <timmywil> that was before we had qsa
+[06:58:36] <DaveMethvin> right but the ticket title is about the change, and his usage was invalid
+[06:58:37] <timmywil> i think
+[06:59:22] <timmywil> ok, but i need a place to track the value attrHook issue and this is related.
+[06:59:51] <DaveMethvin> i was just going to ask if there was an existing ticket
+[07:01:47] <timmywil> there is, but that is actually an attr issue rather than selector docs#9830.  idk if we want to keep those separate cause we could actually treat it differently if we want to.
+[07:01:50] <bot-t> timmywil, Social Barrel � HP to Shift Some Laptop Production from Shanghai ... - http://socialbarrel.com/hp-to-shift-some-laptop-production-from-shanghai-to-tokyo/9830/
+[07:02:00] <timmywil> bot-t: wat?
+[07:02:01] <bot-t> timmywil, As I see it, yes.
+[07:02:08] <timmywil> ?9830
+[07:02:09] <bot-t> [#9830]  (open bug) - http://jqbug.com/9830
+[07:02:56] <timmywil> we could match qsa behavior in sizzle and keep the attrHook for attr if we get afraid
+[07:03:39] <timmywil> but simply removing it would fix both
+[07:03:39] <DaveMethvin> sure would be nice to be consistent on that stuff tho, but no matter which way we go things are gonna break
+[07:04:19] <timmywil> anybody using value in a selector had their stuff break back in 1.4.3
+[07:04:34] <DaveMethvin> yeah the good thing is that we can blame it all on qsa
+[07:04:40] <DaveMethvin> qsa made us do it
+[07:04:44] <timmywil> hehe
+[07:05:25] <DaveMethvin> so timmywil what needs to be fixed before beta2?
+[07:05:37] <DaveMethvin> i have one regression in the ui unit tests i need to investigate
+[07:05:53] <DaveMethvin> other than that i'm ok
+[07:06:19] <timmywil> i have one ticket left.  multiple sizzles on a page selecting the same element collide caches
+[07:06:42] <timmywil> It's marked "high" but eh
+[07:06:59] <timmywil> http://bugs.jquery.com/ticket/8539#comment:16
+[07:07:02] <DaveMethvin> lol yeah that doesn't sound too urgent to me but if it's easy to fix why not
+[07:07:22] <timmywil> i propose using an expando
+[07:07:55] <timmywil> er, rather, a more unique expando
+[07:08:23] <DaveMethvin> seems like that should work fine
+[07:08:45] <DaveMethvin> are there any other sizzle bugs that need to be landed? haven't looked at the pulls there
+[07:08:53] <timmywil> right now it's just elem.sizcache, which is kinda funny considering all the work we did for $.data
+[07:09:44] <timmywil> that's it
+[07:09:56] <DaveMethvin> the style guide says never put expandos on elements  (use $.data) but i think that's extreme
+[07:10:03] <DaveMethvin> only objects leak in ie
+[07:10:15] <DaveMethvin> strings and numbers are fine as expandos
+[07:11:17] <timmywil> oh i don't mean we should use $.data.  I just mean we attach everything under one expando that is unique to each jQuery and every pageload.
+[07:11:27] <timmywil> and sizzle does elem.sizcache
+[07:11:42] <DaveMethvin> right
+[07:12:03] <DaveMethvin> so do any of these pulls need to be landed? https://github.com/jquery/sizzle/pulls
+[07:14:07] <timmywil> don't think so
+[07:15:28] <DaveMethvin> sweet, we may actually get a beta out today then
+[07:17:14] <DaveMethvin> timmywil: any idea why that pull from Southern combined a change to the build process with an optimization to .isPlainObject?
+[07:17:23] <DaveMethvin> seems like this should be two pulls
+[07:17:28] <timmywil> it should
+[07:17:39] <timmywil> but I don't think either one should be landed
+[07:18:31] <DaveMethvin> we can't land the isEmptyObject one for sure
+[07:18:51] <DaveMethvin> do ppl actually test their patches?
+[07:18:58] <timmywil> we don't want to enforce that people use the latest version of node.  Often, people need to develop on a certain version of node.  So if we change it, we should use sys where supported, and util where not
+[07:19:37] <DaveMethvin> agreed on that, i'm currently still in node version hell myself
+[07:20:02] <DaveMethvin> k well i'll close it with an explanation
+[07:20:16] <timmywil> kk
+[08:10:53] <sizcommit> [sizzle] timmywil pushed 1 new commit to master: http://git.io/WHFd7w
+[08:10:53] <sizcommit> [sizzle/master] Avoid cache collisions with other Sizzles. Fixes #8539. - timmywil
+[08:12:07] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/WxTtSA
+[08:12:07] <jqcommit> [jquery/master] Update sizzle; Add sizzle cache collision iframe test. Fixes #8539. - timmywil
+[08:12:15] <timmywil> DaveMethvin: all done
+[08:12:29] <DaveMethvin> sweet
+[08:12:35] <jq-jenkins> Project jQuery build #121: STILL FAILING in 18 sec: http://swarm.jquery.org:8080/job/jQuery/121/
+[08:12:35] <jq-jenkins> timmywillisn: Update sizzle; Add sizzle cache collision iframe test. Fixes #8539.
+[08:12:49] <timmywil> ?swarm
+[08:12:49] <bot-t> Swarm Status: http://swarm.jquery.org/user/jquery/ http://swarm.jquery.org/user/jqueryui/ http://swarm.jquery.org/user/qunit/ http://swarm.jquery.org/user/jquerycolor/ -- Jenkins http://swarm.jquery.org:8080
+[08:13:41] <timmywil> still that live/die and focus selector
+[08:14:13] <DaveMethvin> yeah and it works fine when you run it in the browser
+[08:14:29] <timmywil> yup
+[08:14:55] <DaveMethvin> do we have some flag we can use to determine whether it's a swarm run, and just skip that test?
+[08:15:27] <timmywil> seems to work on some of the browsers. wonder what's different
+[08:18:46] <timmywil> open tix http://goo.gl/6JZpk
+[08:19:45] <DaveMethvin> timmywil: on that focus issue, i can repro if i run the tests when the window isn't in focus
+[08:19:52] <gnarf> hrm
+[08:20:05] <DaveMethvin> so for some reason the browser must lose focus during the test
+[08:20:22] <timmywil> DaveMethvin: true, if we can setup devoted browsers for testswarm, we could keep them focused
+[08:20:25] <gnarf> that swarm job broke btw
+[08:20:28] <timmywil> was my thought
+[08:20:58] <DaveMethvin> oh does the swarm run multiple browsers on the same vm? that might explain some of the randomness
+[08:21:15] <DaveMethvin> last time i think it was ie8 that failed, same symptoms tho
+[08:21:29] <gnarf> anyone have IE 8/9 FF 3.6 / Opera 11?
+[08:21:35] <gnarf> http://swarm.jquery.org
+[08:21:37] * DaveMethvin raises hand
+[08:21:39] <gnarf> im gonna start this job again
+[08:21:45] <gnarf> if you wanna point some of those at swarm
+[08:21:59] <timmywil> I can do any of those
+[08:22:20] <gnarf> talk amongst yerselfs maybe split it down the middle
+[08:22:20] <gnarf> :)
+[08:22:29] <gnarf> then ill start this jenkins job again
+[08:22:37] <timmywil> DaveMethvin: I'll do IE8 and Opera
+[08:23:16] <DaveMethvin> to make sure it runs i have to keep it in focus...unfortunately it's not a vm for ie9
+[08:23:28] <timmywil> ok, i can do ie9
+[08:23:42] <gnarf> seems opera 11.1 is the version we are missing
+[08:23:58] <DaveMethvin> which operas do we support now anyway?
+[08:24:04] <gnarf> 11.1 11.5
+[08:24:08] <gnarf> according to swarm
+[08:24:29] <DaveMethvin> yeah latest is 11.51
+[08:24:40] <DaveMethvin> so if 11.1 was before that seems right
+[08:25:11] <DaveMethvin> how do i get it to actually run the last test?
+[08:25:24] <gnarf> DaveMethvin: it wont until i start a new job
+[08:25:28] <gnarf> that job is actually old
+[08:25:31] <gnarf> it failed for another reason
+[08:26:17] <gnarf> im gonna push a job for the newest commit here if we get an IE8/FF3.6/Opera 11.1
+[08:26:27] <gnarf> or in like 5 minutes anyway... ;)
+[08:26:51] <timmywil> 11.10?
+[08:27:00] <timmywil> or 11.11
+[08:27:08] <gnarf> anything in the 11.1 branch should suffice
+[08:27:21] <timmywil> kk
+[08:27:28] <gnarf> is that var kk ?
+[08:28:16] <timmywil> connected
+[08:28:18] <timmywil> hehe
+[08:28:24] <timmywil> var kk
+[08:28:44] <gnarf> nice, old FF and ie8 are the only holes in the swarm now...
+[08:28:57] <kborchers> i got your back on ie8 and ff 3.6 one sec
+[08:29:27] <gnarf> k, submitting a job the
+[08:29:28] <gnarf> n
+[08:29:47] <gnarf> http://swarm.jquery.org/job/22/
+[08:30:15] <timmywil> i got ff
+[08:31:21] <jq-jenkins> Project jQuery build #122: STILL FAILING in 2 min 0 sec: http://swarm.jquery.org:8080/job/jQuery/122/
+[08:31:42] <gnarf> seems ie9 manip bug?
+[08:32:13] <gnarf> "Element Contents Cloned"
+[08:32:19] <gnarf> http://swarm.jquery.org/?state=runresults&run_id=121&client_id=151
+[08:32:30] <timmywil> yea, we've seen that before
+[08:33:24] <kborchers> man, my xp vm with ie8 is crawling
+[08:33:26] <gnarf> wtf ajax still not working?
+[08:34:12] <gnarf> maybe i set up the job wrong
+[08:34:14] <timmywil> yea, what's up with ajax
+[08:34:16] * gnarf double checks
+[08:34:30] <gnarf> before it still had the functionunction
+[08:34:48] <timmywil> ha
+[08:36:17] <gnarf> jzaefferer: i'm not sure why ajax is getting 0 tests
+[08:36:58] <gnarf> jzaefferer: http://swarm.jquery.org/git/jquery/8723f3b9e1db5d4fdcd50624441fe3536d1ae2f2/test/index.html?filter=ajax
+[08:37:45] <timmywil> i'll just leave these connected for a while
+[08:37:52] <timmywil> looks like ui has some more
+[08:37:57] <jzaefferer> gnarf: checking
+[08:38:21] <jzaefferer> gnarf: did you see the (temporary) jquery-color failures?
+[08:39:01] <gnarf> jzaefferer: the globals thing?
+[08:40:54] <jzaefferer> http://swarm.jquery.org/job/19/
+[08:41:25] <jzaefferer> no idea what's going on with those ajax tests
+[08:41:34] <gnarf> jzaefferer: looks like a timing failure on the animate test
+[08:42:52] <gnarf> http://cl.ly/3S0W1O1P2F080o133c3g
+[08:43:04] <gnarf> seems that it included the correct suite
+[08:43:10] <gnarf> im not sure why it got broken test
+[08:43:22] <gnarf> hrm
+[08:43:24] <gnarf> http://swarm.jquery.org/git/jquery/8723f3b9e1db5d4fdcd50624441fe3536d1ae2f2/test/index.html?filter=ajax&_=1318520100998&swarmURL=http%3A%2F%2Fswarm.jquery.org%2Frun%2Fgnarf%2F%3Frun_id%3D115%26client_id%3D146%26state%3D
+[08:43:27] <gnarf> 0 tests.....
+[08:44:05] <gnarf> http://swarm.jquery.org/git/jquery/8723f3b9e1db5d4fdcd50624441fe3536d1ae2f2/test/index.html?filter=ajax tests fine
+[08:45:22] <gnarf> hrm
+[08:45:29] <gnarf> i wonder if it skips the ajax tests from swarm
+[08:46:49] <gnarf> http://cl.ly/301d1w3L3z3b171F2o1k
+[08:46:51] <gnarf> yup
+[08:47:02] <gnarf> that seems buggy
+[08:48:00] <gnarf> thats why there are 0 ajax tests
+[08:48:08] <gnarf> as soon as it detects swarm, it overrides them
+[08:50:05] <gnarf> anyone else thing we should remove that?
+[08:50:19] <gnarf> think*
+[08:50:55] <timmywil> i don't see why not if the tests will run
+[08:51:22] <gnarf> lets try it
+[08:51:32] <gnarf> i mean, we can always put it back in
+[08:51:39] <gnarf> or maybe put it back in a little "smarter"
+[08:51:57] <gnarf> instead of "isLocal" that should probably be setting a different flag
+[08:51:58] <gnarf> :)
+[09:02:33] <gnarf> timmywil: i say you remove those lines from that file and commit it - lets see if that fixes the ajax tests
+[09:03:02] <timmywil> ok
+[09:03:04] <gnarf> I'd do it myself - but still don't have commit access to core ;)
+[09:09:23] <timmywil> jqcommit isn't telling you, but it's up
+[09:09:50] <gnarf> yeah
+[09:09:55] <gnarf> noticed swarm picked up some jobs
+[09:09:56] <gnarf> :)
+[09:10:31] <jq-jenkins> Project jQuery build #123: STILL FAILING in 1 min 39 sec: http://swarm.jquery.org:8080/job/jQuery/123/
+[09:10:31] <jq-jenkins> timmywillisn: Run ajax tests in swarm
+[09:10:53] <gnarf> timmywil: I'm still having issues with writing a test for https://github.com/jquery/jquery/pull/543 which fails
+[09:10:54] <socialhapy> ★ Pull request on jquery by gnarf37 (1d, 20h ago): Adding step functions for scrollTop/scrollLeft - Fixes #9217
+[09:12:14] <timmywil> gnarf: gotta do some work right now, but I'll take a look later today
+[09:12:25] <gnarf> thanks
+[09:12:57] <gnarf> http://swarm.jquery.org/job/23/ someone seems to have a buggy ie9? :)
+[09:17:09] <tbranyen> ready function needs to returned a deferred
+[09:17:11] <tbranyen> just sayin
+[09:17:25] <tbranyen> somehow
+[09:17:26] <tbranyen> make it happen
+[09:18:13] <DaveMethvin> gnarf: looks like zoom is set for that ie9
+[09:18:13] <gnarf> tbranyen: var readyDfd = $.Deferred( function( dfd ) { $(dfd.resolve); });
+[09:18:21] <gnarf> tbranyen: good enough?
+[09:18:23] <tbranyen> yeah i have that code
+[09:18:26] <tbranyen> no, i wants it in core
+[09:18:28] <DaveMethvin> tbranyen: ready already returns something
+[09:18:35] <tbranyen> well butts
+[09:18:38] <gnarf> DaveMethvin: yeah, zoomy
+[09:19:09] <gnarf> cool, it made it to the ajax tests
+[09:19:14] <gnarf> http://swarm.jquery.org/job/23/
+[09:33:32] <DaveMethvin> GAAAH
+[09:34:38] <DaveMethvin> hey gnarf, what's the best way to bisect a problem from a submodule? i have a sizzle issue i want to track down
+[09:35:15] <gnarf> DaveMethvin: just cd into the submodule and bisect away
+[09:35:45] <DaveMethvin> nah, can't be that easy :P
+[09:41:21] <DaveMethvin> oh hey waitaminit, that's a bogus selector anyway
+[09:43:35] <gnarf> bogus!
+[10:11:11] <DaveMethvin> gnarf, can you sanity check something for me?
+[10:11:13] <DaveMethvin> http://jsfiddle.net/dmethvin/gGFrr/
+[10:11:51] <DaveMethvin> timmy fixed a bug in positional selectors and i think the current 1.7 behavior is right
+[10:12:17] <DaveMethvin> or timmywil if you're around ^^
+[10:12:31] <gnarf> DaveMethvin: .children( ".item .lost" ) i don't think should match there
+[10:12:52] <DaveMethvin> yeah neither did i
+[10:13:13] <DaveMethvin> the rightmost thing would be the thing to match against and no imediate child has .lost
+[10:13:22] <DaveMethvin> that's why i added the second set of checks
+[10:13:58] <DaveMethvin> ok then my ui test fail is really a ui test test fail! :P
+[10:14:16] <DaveMethvin> gotta file a ui bug and pull then
+[10:14:48] <gnarf> whats the issue?
+[10:15:38] <DaveMethvin> http://bugs.jqueryui.com/ticket/7788
+[10:16:44] <gnarf> so that should just be a .find right?
+[10:17:08] <DaveMethvin> yep, pull coming in a minute
+[10:17:12] <gnarf> coo
+[10:23:12] <scott_gonzalez> why does jQuery.Deferred() accept a function?
+[10:23:31] <gnarf> scott_gonzalez: makes writing deferreds a little easier sometimes
+[10:23:39] <scott_gonzalez> got an example?
+[10:24:05] <erichynds> return $.Deferred(function(dfd){ dfd.resolve(); }).promise();
+[10:24:11] <gnarf> $.Deferred( function( dfd ) { $( dfd.resolve ); }).done( fn );
+[10:24:25] <gnarf> and what erichynds said too
+[10:24:47] <gnarf> although var dfd = $.Deferred(); dfd.resolve(); return dfd.promise() does the same thing
+[10:25:05] <gnarf> as erichynds
+[10:25:10] <erichynds> ye
+[10:25:18] <scott_gonzalez> meh
+[10:26:04] <gnarf> scott_gonzalez: makes writing ajax prefilters a little simpler
+[10:26:25] <jq-jenkins> Project jQuery Color build #15: STILL FAILING in 24 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/15/
+[10:26:26] <jq-jenkins> krinklemail: Make variables that were implied into global scope, local. Fixes issue #23
+[10:26:36] <scott_gonzalez> not sure how it's simpler
+[10:26:40] <scott_gonzalez> it's actually more code
+[10:27:03] <scott_gonzalez> I guess the answer is "we love chaining"
+[10:27:46] <gnarf> i usually prefer using var dfd = $.Deferred(); and then working from there
+[10:28:01] <gnarf> but the function syntax reads a little smoother sometimes
+[10:28:02] <gnarf> also
+[10:28:12] <scott_gonzalez> ok, just wanted to make sure there's no functionality that would be missing if it didn't exist that I wasn't thinking of
+[10:28:27] <gnarf> scott_gonzalez: $.when takes advantage of it i think
+[10:28:59] <timmywil> not really about chaining
+[10:29:07] <timmywil> return $.Deferred().resolve().promise()
+[10:29:31] <scott_gonzalez> hmm...good point
+[10:29:35] <scott_gonzalez> that makes it even less useful
+[10:29:52] <scott_gonzalez> and increases the amount of bytes used for the "simpler" syntax
+[10:34:01] <timmywil> adding that functionality is 6 bytes compressed tho
+[10:44:43] <DaveMethvin> oh man, scott_gonzalez is the world's fastest PR lander
+[10:45:36] <DaveMethvin> ok, one more thing i need to check on and i think i'll be ready for beta2
+[10:46:19] <scott_gonzalez> timmywil: but using it adds bytes too :-P
+[10:46:32] <scott_gonzalez> just seems strange to me
+[10:46:44] <scott_gonzalez> we've added a "shortcut" that requires you to write more code
+[10:51:27] <DaveMethvin> i kind of like the function version, maybe it's just a style thing  https://gist.github.com/1284922
+[10:53:03] <gnarf> i like the function vesion too
+[10:53:11] <gnarf> depends on the use tho
+[10:54:16] <DaveMethvin> i think it's more of an issue that we aren't Promises/A compliant, although I like the way we do it better
+[10:54:35] <DaveMethvin> it's confusing to switch back and forth between the two
+[10:55:06] <gnarf> but scott_gonzalez point: https://gist.github.com/1284935
+[10:55:18] <gnarf> less indenting, and no harder to read
+[10:55:32] <DaveMethvin> yep
+[11:06:48] <scott_gonzalez> interestingly they're exactly the same number of bytes uncompressed
+[11:07:08] <scott_gonzalez> DaveMethvin's is 4 bytes more after minification
+[11:07:15] <timmywil> can't munge 'function'
+[11:07:20] <scott_gonzalez> but 3 bytes less after minification
+[11:07:29] <scott_gonzalez> yay for more function references :-P
+[11:07:34] <DaveMethvin> lol
+[11:07:37] <scott_gonzalez> sorry, 3 bytes less after gzip
+[11:07:46] <DaveMethvin> that's the least of our worries
+[11:07:46] <timmywil> ah yes
+[11:08:02] <scott_gonzalez> I think the gzip benefit would go away in a real app though
+[11:08:09] <timmywil> gzip, you slay me
+[11:08:50] <gnarf> "function" is probably still going to be like gzip string always tho in JS code
+[11:09:04] <DaveMethvin> yeah, not like functionunction
+[11:09:37] <timmywil> you could use $.Deferred as a closure if you need a main deferred in your app
+[11:10:06] <scott_gonzalez> haha
+[11:10:19] <timmywil> functionunction is better
+[11:12:00] <timmywil> $.Deferred( function functionunction( deferunction ) { return deferunction.promise(); } )  <-- my new way to make promises
+[11:12:25] <timmywil> totally pointless, but hey!
+[11:12:41] <scott_gonzalez> deferunction :-)
+[11:19:54] <gnarf> lol
+[11:58:36] <scott_gonzalez> does anyone know the cause of this? http://bugs.jqueryui.com/ticket/7790
+[12:26:57] <gnarf> scott_gonzalez: one might think it has something to do with using .val()
+[12:27:11] <gnarf> i wonder if timepickers keep their values like that
+[12:48:09] <scott_gonzalez> doubtful, someone filed a ticket for spinner
+[12:52:31] <scott_gonzalez> kswedberg: http://api.jquery.com/deferred.always/ should have the same signature as http://api.jquery.com/deferred.done/
+[12:53:00] <kswedberg> ok. thx!
+[12:53:18] <ajpiano> kswedberg: omg
+[12:53:26] <ajpiano> kswedberg: we have to take the $.tmpl docs off api.jquery.com
+[12:53:41] <ajpiano> or at the very least not make it look like it was added to jQuery in 1.4.3 :/
+[12:54:00] <kswedberg> I know!!
+[12:54:32] <kswedberg> the "added" thing is for the first version it'll work with.
+[12:54:59] <ajpiano> yeah but it's soooo misleading
+[12:55:05] <ajpiano> i wish those docs were somewhere else already
+[12:55:08] <kswedberg> yeah. totally. I'm removing it now
+[12:55:43] <kswedberg> me too. I don't really want to pull them until they have another home, though. that would be kind of mean.
+[12:56:05] <ajpiano> that was the reasoning 6 months ago :/
+[12:57:02] <kswedberg> whose reasoning? mine? (I honestly don't remember.) was there any team consensus on this?
+[12:57:32] <ajpiano> i just remember being involved in the conversations
+[12:57:42] <ajpiano> and it was like, ok, we'll leave them there until they are somewhere else
+[12:58:04] <ajpiano> kswedberg: at the very least, we can probably improve the disclaimer on the jQuery.tmpl pages
+[12:58:09] <ajpiano> to make it clear what their fate is
+[12:59:04] <kswedberg> ajpiano: sure. wanna take a shot at it?
+[12:59:55] <ajpiano> um
+[13:00:13] <kswedberg> heh
+[13:00:34] <ajpiano> "This feature and its documentation are in beta and subject to change before final release." should become like..
+[13:01:18] <ajpiano> ooh
+[13:01:24] <ajpiano> we can just steal the language from the readme
+[13:01:51] <ajpiano> Note: The jQuery team has decided not to take this plugin past beta. It is no longer being actively developed or maintained. See vBeta1.0.0 tag for released beta version. Requires jQuery version 1.4.2.
+[13:02:02] <ajpiano> Note: A new template plugin fully supported by the jQuery Team is now being developed as part of jQuery UI. More details on the history of this can be found at http://blog.jquery.com/2011/04/16/official-plugins-a-change-in-the-roadmap/ . Track progress and participate in the design at http://wiki.jqueryui.com/Template
+[13:02:43] <kswedberg> nice!
+[13:02:58] <kswedberg> ok. I'll take care of it.
+[13:03:14] <kswedberg> might not get to it until tonight or tomorrow. buried at work.
+[13:04:21] <ajpiano> kk
+[13:31:08] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/JJ3QcA
+[13:31:08] <jqcommit> [jquery/master] Fix #10489. Disconnected elements don't bubble to document. - Dave Methvin
+[13:35:59] <jq-jenkins> Project jQuery build #124: STILL FAILING in 4 min 42 sec: http://swarm.jquery.org:8080/job/jQuery/124/
+[13:36:00] <jq-jenkins> dave.methvin: Fix #10489. Disconnected elements don't bubble to document.
+[13:46:26] <gnarf> hrm
+[13:46:30] <gnarf> ajax fails in chrome?
+[13:46:37] <gnarf> in swarm environment?
+[13:49:45] <DaveMethvin> is it using local files?
+[13:49:58] <DaveMethvin> or is it going to a localhost?
+[13:50:14] <DaveMethvin> chrome doesn't like to fetch local files, unfortunately
+[13:58:49] <gnarf> DaveMethvin: doubtful
+[13:58:53] <gnarf> DaveMethvin: maybe?
+[13:58:59] <gnarf> its served over http
+[13:59:09] <DaveMethvin> ok then it should be ok
+[14:44:53] <DaveMethvin> ok, master is passing our unit tests and ui unit tests
+[14:45:05] <DaveMethvin> we just need to get it to shut up about the focusy stuff
+[14:45:22] <DaveMethvin> but i think we're ready for beta2
+[14:45:35] <ajpiano> woooo
+[14:45:48] <ajpiano> i'm working on finishing up this incredibly inside-baseball blog post
+[14:45:49] <ajpiano> lol
+[14:55:23] <tbranyen> lol
+[16:22:32] <mikesherov> did you know that chrome 15 applies a default styling of margin:2px 2px 2px 0 to all input elements?
+[16:22:44] <mikesherov> including input:hidden?
+[16:23:16] <mikesherov> it just so happens that it applies a display:none to input:hidden
+[16:24:00] <mikesherov> but if you try to get the outerWidth(true) of it, it reports 4px :-)
+[16:32:40] <DaveMethvin> mikesherov: WAT!?
+[16:33:26] <DaveMethvin> for some reason i see all the browser guys sitting around a bar thinking, "how can we hose people now"?
+[16:40:55] <mikesherov> lol
+[16:41:32] <mikesherov> today i learned about "user agent stylesheets"
+[16:44:46] <DaveMethvin> now you know why they have those "style reset" stylesheets
+[16:56:27] <eddiemonge> because browsers are dumb
+[18:02:35] <DaveMethvin> gnarf: yt?
+[18:02:39] <gnarf> sorta
+[18:02:40] <gnarf> sup
+[18:03:02] <DaveMethvin> i'm ready to push out beta2 , any objections?
+[18:03:41] <DaveMethvin> kinda hoped to touch base with timmywil but he's been gone this afternoon
+[18:16:14] <jqcommit> [jquery] dmethvin pushed 2 new commits to master: http://git.io/-Ub2nw
+[18:16:14] <jqcommit> [jquery/master] Tagging the 1.7b2 release. - Dave Methvin
+[18:16:14] <jqcommit> [jquery/master] Updating the source version to 1.7pre - Dave Methvin
+[18:20:47] <jq-jenkins> Project jQuery build #125: STILL FAILING in 4 min 23 sec: http://swarm.jquery.org:8080/job/jQuery/125/
+[18:20:47] <jq-jenkins> * dave.methvin: Tagging the 1.7b2 release.
+[18:20:48] <jq-jenkins> * dave.methvin: Updating the source version to 1.7pre
+[18:21:31] <DaveMethvin> ?tell jq-jenkins DON'T WANNA HEAR IT
+[18:21:31] <bot-t> DaveMethvin, Okay.
+[18:22:53] <mikesherov> ?tell jq-jenkins WHAT IS JQ JENKINS?
+[18:22:53] <bot-t> mikesherov, Okay.
+[18:23:15] <mikesherov> ?tell bot-t WHO ASKED YOU?!
+[18:23:16] <bot-t> mikesherov, Stop playing with me!
+[18:30:03] <DaveMethvin> don't mess with bot-t, mikesherov, he will mess u up!
+[18:31:34] <DaveMethvin> ajpiano: can you tweet this? http://blog.jquery.com/2011/10/13/jquery-1-7-beta-2-released/
+[18:32:08] <mikesherov> cool, anything notable in b2?
+[18:32:58] <DaveMethvin> we fixed more of what we broke :P
+[18:33:04] <mikesherov> ha
+[18:34:38] <DaveMethvin> mikesherov: Here's a shirt for ya http://geeknoir.spreadshirt.com/css-box-model-A7412222
+[18:34:50] <Rwhitbeck> DaveMethvin did aj tweet it yet I can do it if needed
+[18:35:09] <mikesherov> I tweeted it also to my whopping 97 followers
+[18:35:14] <DaveMethvin> Rwhitbeck: not that i know of, ajpiano are you tweeting as we speak?
+[18:35:20] <DaveMethvin> thanks ralph
+[18:35:32] <Rwhitbeck> ajpiano davemethvin I'll handle it
+[18:36:14] <mikesherov> DaveMethvin: here's a better one: http://www.zazzle.com/css_is_awesome_tshirt-235065660803971488
+[18:36:40] <DaveMethvin> finally a shirt that doesn't need irony
+[18:38:27] <DaveMethvin> thanks Rwhitbeck
+[18:38:33] <Rwhitbeck> davemethvin https://twitter.com/jquery/status/124660221154045952
+[18:38:34] <socialhapy> ★ Tweet from jquery: jQuery 1.7 Beta 2 Released http://t.co/peOgX2A2 ★ http://bit.ly/rrTYDt
+[18:38:40] <Rwhitbeck> oh cool
+[18:38:58] <DaveMethvin> we got bot around these parts
+[18:41:12] <Rwhitbeck> I can never get over how fast a @jquery tweet gets RT'd https://bitly.com/o8ENTr+
+[18:42:43] <DaveMethvin> man that's like 60 rt in 4 minutes
+[18:44:22] <gnarf> pushed to #jquery in IRC too
+[18:49:39] <Rwhitbeck> Davemethvin how is it determined to increment to 1.7 instead of 1.6.5?
+[18:56:05] <DaveMethvin> Rwhitbeck: generally if we're adding/changing features we do a .x increment ... if it's just bug fixes it would have been 1.6.5
+[18:56:44] <mikesherov> DaveMethvin, can you run this jsperf a few times: http://jsperf.com/outerwidth-on-hidden-elements
+[18:57:08] <mikesherov> just checking the perf on my style,script,br,input:hidden reporting incorrect dimensions ticket
+[18:57:38] <mikesherov> hey gnarf, can you run this perf a few times too: http://jsperf.com/outerwidth-on-hidden-elements
+[19:05:53] <DaveMethvin> mikesherov: thems some impressive improvements right thar
+[19:06:10] <mikesherov> ha
+[19:06:18] <mikesherov> it avoids unnecessary swapping
+[19:06:24] <DaveMethvin> i'd love to land this code but i think we'll need a urine sample to check for performance enhancing drugs
+[19:06:41] <mikesherov> style, script, and input hidden should always return 0 instead of swapping
+[19:06:47] <mikesherov> here's the PR:
+[19:06:48] <mikesherov> https://github.com/jquery/jquery/pull/547
+[19:06:49] <socialhapy> ★ Pull request on jquery by mikesherov (2m, 22s ago): style, script, br, and input:hidden should have no dimensions, fixes #10159
+[19:07:16] <mikesherov> pretty small commit
+[19:07:27] <mikesherov> that input:hidden thing threw me for a loop though
+[19:07:34] <mikesherov> stupid chrome
+[19:08:08] <mikesherov> tests passed in FF, and Chrome 15

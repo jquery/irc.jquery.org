@@ -1,0 +1,302 @@
+[09:02:48] <DaveMethvin> ding dong
+[09:02:54] <rwaldron> the witch is dead
+[09:04:50] <rwaldron> DaveMethvin i didnt realize that unreviewed had grown so long
+[09:04:58] <rwaldron> I'll spend some time on that today
+[09:04:59] <JohnResig> hey all
+[09:05:08] <gnarf> hallo
+[09:05:09] <DaveMethvin> hey JohnResig
+[09:05:45] <gnarf> JohnResig: that first link in the agenda is a question I had while reworking the data stuff
+[09:05:57] <gnarf> rumor has it you think people were relying on this ?
+[09:06:11] <gnarf> slash know?
+[09:06:12] <gnarf> :)
+[09:06:39] <JohnResig> gnarf: yes, people rely upon this
+[09:07:18] <gnarf> so, we can't kill it yet?
+[09:07:26] <JohnResig> well, presumably not :)
+[09:07:27] <DaveMethvin> i did a codesearch and it seemed like the main question they were trying to answer is "are there events for this type?"
+[09:07:34] <DaveMethvin> not a lot of usages
+[09:07:46] <DaveMethvin> but if it's something enough people need it would be better to provide an interface
+[09:07:59] <timmywil> maybe deprecate, but not remove
+[09:08:03] <DaveMethvin> i don't like them peeking into our underwear
+[09:08:19] <JohnResig> I'm not sure how many people use it in script, but I know a lot of people use it for debugging
+[09:08:23] <JohnResig> I was using it just the other day, in fact
+[09:08:35] <timmywil> L2 $._data()
+[09:09:06] <DaveMethvin> right
+[09:09:06] <timmywil> well, it is convenient
+[09:09:33] <ajpiano> i think we should provide an interface as well... it's never been actually *easy* to get the events even if you just want them for debugging
+[09:10:03] <timmywil> ajpiano: $('div').data('events') is pretty easy
+[09:10:07] <DaveMethvin> if we define the interface, we are either locked into keeping the existing structure or remassaging it to match the interface
+[09:10:21] <DaveMethvin> so for example, there is no more "live" event
+[09:10:35] <ajpiano> timmywil: it's also kind of magic
+[09:10:44] <timmywil> true
+[09:11:00] <timmywil> $._data( elem, 'events' ) makes a little more sense to me
+[09:11:14] <gnarf> JohnResig: i use it for debugging too
+[09:11:21] <DaveMethvin> seems clearer that you're doing something iffy that may change :)
+[09:11:53] <gnarf> but yeah, $._data( elem, 'events' ) is not quite as elegant as .data("events")
+[09:12:17] <JohnResig> _data?
+[09:12:24] <JohnResig> that's certainly an inelegant API
+[09:12:37] <gnarf> :)
+[09:12:38] <JohnResig> I don't want to go down the Dojo road of having private _methods that people need to use
+[09:12:45] <gnarf> agree
+[09:13:00] <JohnResig> how about .events()?
+[09:13:06] <JohnResig> and have it just return the event object
+[09:13:16] <timmywil> it's accessing private data.  I don't think of this as a public feature
+[09:13:17] <DaveMethvin> http://www.google.com/codesearch#search/&q=\.data\%28\s*\%22events\%22%20-file:jquery.js&type=cs
+[09:13:35] <DaveMethvin> i agree it's not a public feature
+[09:13:54] <JohnResig> haha, even diaspora uses it
+[09:13:56] <DaveMethvin> fine for debugging but i am not sure that we should encourage it
+[09:14:09] <timmywil> something like .events would definitely be expected not to change
+[09:14:35] <JohnResig> jQuery Tools uses it
+[09:14:44] <JohnResig> that's a pretty big user
+[09:14:51] <ajpiano> whenever people have asked, we're always discouraged people from using it and explained like, hey, this is an internal API
+[09:15:10] <gnarf> does .bind() with no arguments offer anything useful?
+[09:15:23] * gnarf already doesn't like that suggestion, but...
+[09:15:43] <JohnResig> it looks like people are using it to see if a specific event type is bound already
+[09:15:43] <rwaldron> veeeetttooooo
+[09:15:47] <DaveMethvin> jQuery Tools is defining a .hasEvent method
+[09:15:55] <rwaldron> DaveMethvin not bad
+[09:15:57] <JohnResig> so if we did: .events() (return event object) and .events("type") that would solve that
+[09:16:21] <JohnResig> have .events("type") return undefined if there aren't any
+[09:16:24] <DaveMethvin> then we're exposing the whole data structure ... not a fan
+[09:16:33] <rwaldron> DaveMethvin a copy?
+[09:16:35] <rwaldron> instead
+[09:16:36] <ajpiano> DaveMethvin: return a copy...
+[09:16:46] <gnarf> deep copying now too
+[09:16:46] <JohnResig> lol, that'd be super intuitive :(
+[09:16:48] <rwaldron> or even, a limited subset of the information
+[09:16:49] <gnarf> just fyi
+[09:17:03] <JohnResig> why would we want to obfuscate what's in there?
+[09:17:10] <ajpiano> i feel like "checking for already bound events" is usually a problem you can think around, not actually do it
+[09:17:11] <timmywil> cause it might change
+[09:17:11] <DaveMethvin> if all they need to know is whether events are attached, a method returning a boolean would be good
+[09:17:21] <DaveMethvin> yeah, for example, "live"
+[09:17:46] <DaveMethvin> the more we expose the more limited our options for refactoring
+[09:17:59] <rwaldron> JohnResig I was just giving DaveMethvin suggestions, I'm not opposed to the straight object (a copy of)
+[09:18:15] <JohnResig> DaveMethvin: jQuery.cache is already exposed
+[09:18:21] <JohnResig> the cats out of the bag at this point
+[09:18:28] <gnarf> make them work REALLY hard to get at it
+[09:18:29] * gnarf grins
+[09:18:35] <timmywil> JohnResig: but a function on the prototype would get used more
+[09:18:51] <DaveMethvin> exposed and documented are two different things, though, right?
+[09:18:57] <timmywil> ^^
+[09:19:01] <rwaldron> def
+[09:19:15] <gnarf> .data( "events" ) isn't really documented, yet we can't seem to pull it out
+[09:19:29] <gnarf> we use it
+[09:19:34] <gnarf> i just suggested some guy in irc use it
+[09:19:39] <gnarf> like last week
+[09:19:40] <timmywil> even with .events, .data('events') really shouldn't be removed at least until 1.8
+[09:19:51] <timmywil> so we should have a proposal for .events for 1.8
+[09:20:03] <timmywil> and discuss in the meantime
+[09:20:07] <gnarf> fair
+[09:20:15] <DaveMethvin> again it would be good to know the use case for it so we could figure out what people are trying to do and give them better ways
+[09:20:25] <JohnResig> it's not clear to me why we're in a rush to remove .data('events')
+[09:20:38] <gnarf> JohnResig: because its not actually stored on .data() ?
+[09:20:45] <ajpiano> hasn't the return value of .data("events") changed over time anyway?
+[09:20:58] <DaveMethvin> it's just a case of trying to clean up the special cases i think
+[09:21:01] <JohnResig> gnarf: sure - and properties aren't actually attributes, doesn't mean that people will use the right method for it
+[09:21:10] <JohnResig> I thought we agreed that doing breaking API changes was a really bad thing at this point
+[09:21:22] <DaveMethvin> it's not in the api.... :)
+[09:21:35] <JohnResig> DaveMethvin: anything that's exposed is part of our API
+[09:21:44] <gnarf> JohnResig: i just brought it up cuz there was a comment saying we would be removing in 1.6 and well, its 1.7
+[09:21:59] <DaveMethvin> i think snover put that in
+[09:22:21] <timmywil> it's just a semantics issue. I think we're we're all fine with leaving it for now.  people would need more notice than a comment in the code if it's going to be removed.
+[09:22:54] <DaveMethvin> and as a future note, let's be really careful about exposing things that may not be permanent
+[09:23:05] <timmywil> agreed
+[09:23:10] <DaveMethvin> re the $.Callbacks stuff for example
+[09:24:59] <DaveMethvin> i think several of us had some questions about whether the callbacks impl might have too many bells and whistles
+[09:25:08] <DaveMethvin> we should discuss with jaubourg
+[09:25:28] <DaveMethvin> i'd rather build it as needed rather than anticipate needs unproven
+[09:25:44] <JohnResig> was Callbacks part of the 1.7 roadmap?
+[09:25:53] <timmywil> yes, it was approved
+[09:25:55] <rwaldron> yes
+[09:26:00] <gnarf> docs#9398
+[09:26:01] <bot-t> [#9398] Proposal for Improved Deferreds (assigned enhancement) - http://jqbug.com/9398
+[09:26:43] <timmywil> it's a beautiful, but it may be that not everything in there is necessary until 1.8 or later
+[09:27:02] <gnarf> and just fyi jaubourg: "I cannot be at the meeting but I'd like to request a code review for $.Callbacks: are the flag names good enough? Are the one implemented all useful? Is there any missing? Is the code OK?"
+[09:27:33] <timmywil> yea, this is review
+[09:27:45] * gnarf nods
+[09:28:15] <rwaldron> * Needs line spacing
+[09:28:23] <DaveMethvin> so before we get too far along ... is everyone ok with landing 1.7 in master asap?
+[09:28:35] <timmywil> We'll have more productive discussion about that when jaubourg is around
+[09:28:35] <rwaldron> sure
+[09:28:39] <DaveMethvin> i don't think we're planning 1.6.5
+[09:28:41] <rwaldron> timmywil +1
+[09:28:45] <rwaldron> naw
+[09:28:49] <rwaldron> DaveMethvin ^
+[09:29:03] <timmywil> there was one ticket....
+[09:29:11] <rwaldron> I havent experienced any regressions with 1.7
+[09:29:21] <DaveMethvin> timmywil: that attr regression?
+[09:29:28] <timmywil> http://bugs.jquery.com/ticket/10278
+[09:29:32] <timmywil> there it is
+[09:29:43] <DaveMethvin> right
+[09:29:48] <gnarf> either way, I'm wondering why we shouldn't move to having the stable branch if we need it instead of shielding master from being whats being worked on :)
+[09:29:49] <rwaldron> I guess I should clarify...
+[09:29:59] <timmywil> but if it's not 1.6.5 worthy, I think we can land 1.7
+[09:30:00] <rwaldron> I havent experienced any regressions based on the unit tests
+[09:31:24] <DaveMethvin> http://i.imgur.com/sZCRU.jpg rwaldron
+[09:31:45] <rwaldron> ahhahaha
+[09:33:19] <timmywil> JohnResig: yay/nay to landing 1.7 on master?
+[09:33:21] <gnarf> imo - it should be 1.6 that has the branch, not 1.7
+[09:33:49] <DaveMethvin> gnarf, yeah which is what will happen when 1.7 lands in master essentially
+[09:34:07] <JohnResig> timmywil: I'm fine with that if you guys are
+[09:34:18] <timmywil> gnarf: once we move on to 1.7, 1.6 is done.  we've never continued stabilizing releases
+[09:34:23] <DaveMethvin> right
+[09:34:30] <DaveMethvin> a branch that will never grow
+[09:34:39] <DaveMethvin> barring some really serious problem
+[09:34:39] <rwaldron> arrested development
+[09:34:43] <DaveMethvin> lol
+[09:34:49] <gnarf> if something crazy happened though, you can always pull out the tag and branch
+[09:34:55] <DaveMethvin> hopefully not that disfunctional
+[09:34:59] <gnarf> so lets move on :)
+[09:35:03] <timmywil> true
+[09:35:18] <gnarf> lets get some work done in master
+[09:35:22] <gnarf> push it out on jquery-git
+[09:35:33] <rwaldron> DaveMethvin i've reviewed everything that was previously unreviewed
+[09:35:37] <timmywil> coolcool
+[09:35:42] <DaveMethvin> once we land 1.7 combined, can we go through the pulls later in the week and see what should be landed/closed?
+[09:35:42] <rwaldron> closed, assigned, requested more info, etc.
+[09:35:52] <rwaldron> (about damn time)
+[09:35:56] <rwaldron> :X
+[09:35:56] <timmywil> DaveMethvin: i was going to do that today
+[09:36:03] <rwaldron> yes please
+[09:36:08] <rwaldron> i ahve a shit load of stuff in there
+[09:36:14] <timmywil> once 1.7 is on master, no reason to wait
+[09:36:19] <rwaldron> and would like the most possibly time to make fixes
+[09:36:23] <rwaldron> if nec.
+[09:36:31] <rwaldron> possible*
+[09:36:32] <DaveMethvin> oh there is something unresolved on that removeData(array) ticket voted into 1.7
+[09:36:45] <timmywil> ahhhh, yes
+[09:36:51] <timmywil> i have an issue with that
+[09:36:54] <DaveMethvin> we wanted to allow .removeData("a b c") but that breaks the api
+[09:36:57] <DaveMethvin> so we can't
+[09:36:59] <rwaldron> ok
+[09:37:00] <rwaldron> easy
+[09:37:04] <rwaldron> cancelled!
+[09:37:26] <timmywil> nono, don't cancel it
+[09:37:37] <rwaldron> I didnt mean it literally
+[09:37:43] <rwaldron> or rather...
+[09:37:46] <timmywil> oh, :P
+[09:37:57] <JohnResig> DaveMethvin: how many people use data names with spaces in them?
+[09:38:05] <rwaldron> timmywil http://besser.tsoa.nyu.edu/T-Shirts/wlodek/bart_dude.jpg
+[09:38:11] <DaveMethvin> more than use .data("events") ??? :P
+[09:38:13] <gnarf> JohnResig: how many people use .data( "events" )?
+[09:38:14] <gnarf> :)
+[09:38:17] <DaveMethvin> lol
+[09:38:20] <JohnResig> gnarf: a lot?
+[09:38:22] <timmywil> JohnResig: hopefully no one, but we'll find out if we use the space-separated api
+[09:38:30] <DaveMethvin> is we is or is we ain't breaking apis here?
+[09:39:02] <JohnResig> isn't the logic to fix this simple? if ( data[ name ] ) remove( data[ name ] ); else { split apart and remove }
+[09:39:19] <gnarf> if ( name in data )
+[09:39:33] <DaveMethvin> i'll go for that
+[09:39:35] <gnarf> it actually kinda already does that
+[09:39:40] <gnarf> i think
+[09:39:44] <timmywil> JohnResig: yes, but that would introduce an edge case regarding preference
+[09:39:45] <gnarf> with the camelCase
+[09:39:45] <DaveMethvin> yeah because of camelCase i think
+[09:40:05] <JohnResig> how do you mean?
+[09:40:06] <timmywil> a very small edge case, but it would be there
+[09:40:24] <timmywil> what if "a b c" and "a" "b" "c" are there
+[09:40:26] <DaveMethvin> if there is a data name that is an exact match, we have to assume that's what they meant, which seems okay
+[09:40:33] <timmywil> which one does the user want?
+[09:40:46] <JohnResig> timmywil: the one that's an exact match
+[09:40:56] <timmywil> JohnResig: which is both, depending on the api
+[09:40:57] <DaveMethvin> what kind of user would do something that ... hmmm, nevermind :P
+[09:41:09] <timmywil> DaveMethvin: exactly!
+[09:41:14] <JohnResig> I'm still confused - we're debating something hypothetical, I've never seen anyone prove that anyone was using spaces in data names?
+[09:41:15] <timmywil> :P
+[09:41:33] <timmywil> it's possible and valid, isn't that enough?
+[09:41:37] <JohnResig> timmywil: no
+[09:41:47] <timmywil> hmm
+[09:41:48] <DaveMethvin> why not? but anyway, we have a solution
+[09:41:52] <JohnResig> .data('events') isn't a good comparison - it's used by, at least, one of the largest, most popular, frameworks building off of jQuery
+[09:42:02] <DaveMethvin> but anyway, we have a solution
+[09:42:24] <gnarf> I can tuck that into my internal data pull if you want
+[09:42:33] <gnarf> or do one after
+[09:42:34] <gnarf> whatevs
+[09:42:42] <timmywil> DaveMethvin: i don't think we do.  I know I'm picking at straws, but the issue is there.
+[09:42:54] <DaveMethvin> it seems pretty unlikely
+[09:43:30] <timmywil> we're making predictions without live testing.  we could run into it a lot.
+[09:44:37] <timmywil> anyway, removeData([ 'a', 'b', 'c']) would not have issues.
+[09:44:50] <DaveMethvin> right as long as we don't use recursion :)
+[09:44:58] <rwaldron> but is asymetrical
+[09:45:15] <DaveMethvin> true but it does preserve the api for all but that bizarre case
+[09:45:19] <gnarf> i think its a little odd to allow remove to take the space separated without also allowing the set to take space separated - do we do that anywhere else in the API?
+[09:45:34] <DaveMethvin> wait, what?
+[09:45:44] <DaveMethvin> we can set a name with spaces,right?
+[09:46:02] <DaveMethvin> oh you mean set it to multiple data items?
+[09:46:05] <gnarf> like, if the remover is splitting, the setter should be splitting too right?
+[09:46:53] <DaveMethvin> setting that way doesn't make sense, does it? i guess you could do it explicitly with an array
+[09:47:14] <DaveMethvin> or are you thinking in terms of using some accessor fuction like access() is used?
+[09:47:32] <DaveMethvin> in which case we get the wrong behavior "for free" :)
+[09:47:35] <gnarf> we do with attr/prop i guess - they only allow set one at a time , but allow remove multiple right?
+[09:48:15] <timmywil> gnarf: we allow setting with an object literal
+[09:48:21] <timmywil> like events
+[09:48:26] <gnarf> right obj literal aside...
+[09:48:32] <gnarf> i'm talking string keys
+[09:48:35] <ajpiano> gnarf: there's a bunch of things that we do in other things like attr/css that we can't do with .data
+[09:48:44] <ajpiano> like .data("foo", function() { }) setter, etc.
+[09:49:01] <timmywil> string keys wouldn't make sense with attr. do they make sense with data?
+[09:49:15] <gnarf> i don't think so
+[09:49:16] <rwaldron> for reference...
+[09:49:17] <rwaldron> http://jsfiddle.net/rwaldron/FmWBX/
+[09:49:32] <timmywil> it's fine for removing, but I think we're ok not adding it for setting
+[09:49:45] <DaveMethvin> +1 timmywil
+[09:49:52] <gnarf> agree
+[09:50:02] <DaveMethvin> and afaict it's not a lot of extra work given the current code
+[09:50:12] <DaveMethvin> since we deal with camelization
+[09:50:31] <timmywil> ok, so we're going space-separated and seeing if we run into issues?
+[09:50:40] <DaveMethvin> sure
+[09:50:46] <gnarf> do we allow array?
+[09:51:02] <rwaldron> DaveMethvin so, spaces are invalid in data-attrs so camelization is irrelevant :P
+[09:51:17] <DaveMethvin> gnarf: maybe some way to get that close to free?
+[09:51:44] <DaveMethvin> if it isn't an exact match we'll split on  spaces and it becomes an array at that point
+[09:51:59] <DaveMethvin> throw some ifs around that :)
+[09:52:05] <rwaldron> dunzo
+[09:52:25] <DaveMethvin> as long as we do the exact match part first
+[09:52:40] <gnarf> if its a string...
+[09:52:54] <DaveMethvin> right
+[09:54:03] <DaveMethvin> ok so...what else?
+[09:54:58] <rwaldron> DaveMethvin pull requests pending?
+[09:55:08] <gnarf> anyone already assigned to that removeData ?
+[09:55:12] <rwaldron> you
+[09:55:24] <DaveMethvin> lol thanks for asking
+[09:55:40] <gnarf> give me a bug #
+[09:55:42] <gnarf> so i can own it?
+[09:55:50] <gnarf> or ill forget it
+[09:55:56] <DaveMethvin> rwaldron, timmywil said he was going thru them this afternoon
+[09:55:58] <timmywil> rwaldron, DaveMethvin: I'll go through 1.7 pulls.
+[09:56:03] <rwaldron> oh right
+[09:56:04] <DaveMethvin> what he said
+[09:56:12] <rwaldron> sorry, i actually forgot that was mentions
+[09:56:16] <rwaldron> mentioned*
+[09:56:27] <rwaldron> timmywil ping me when you do
+[09:56:45] <timmywil> looks like I'm assigned to removeData http://bugs.jquery.com/ticket/7323
+[09:57:12] <timmywil> gnarf: you want it?
+[09:57:39] <gnarf> i'll take it - I'm already deep in data this time round anyway
+[09:57:45] <gnarf> brains already wrapped around the fix
+[09:58:09] <DaveMethvin> JohnResig: anything more?
+[09:58:11] <gnarf> assuming you feel like handing it off ;)
+[09:58:25] <DaveMethvin> doesn't seem too bad
+[09:58:55] <DaveMethvin> the key is checking for an exact match first, just like camelCase
+[09:59:36] <timmywil> gnarf: go for it
+[09:59:38] <gnarf> nah, won't be bad at all
+[09:59:54] <DaveMethvin> gnarf: can you pull out that comment about 1.5 as well?
+[09:59:59] <DaveMethvin> since we're kinda past that
+[10:00:22] <gnarf> yeah
+[10:00:26] <DaveMethvin> thanks
+[10:01:01] <timmywil> may i have access to the docs?
+[10:01:20] <DaveMethvin> timmywil: which docs?
+[10:01:29] <timmywil> editing the docs that is
+[10:01:33] <gnarf> api.jquery.com ?
+[10:01:37] <JohnResig> DaveMethvin: not off hand
+[10:01:39] <timmywil> google docs
+[10:01:41] <timmywil> sry
+[10:01:57] <DaveMethvin> oh who owns that? JohnResig?
+[10:02:36] <JohnResig> which google doc?
+[10:02:38] <gnarf> i think the bugs-team can edit
+[10:02:44] <gnarf> cuz i can edit
+[10:03:17] <JohnResig> yeah jquery-bugs-team can edit
+[10:04:57] <JohnResig> timmywil: you're signed up with shearbox
+[10:05:18] <timmywil> JohnResig: thanks
+[10:05:49] <gnarf> all done?
+[10:05:57] <DaveMethvin> looks like it!
+[10:06:53] <gnarf> see ya in -dev

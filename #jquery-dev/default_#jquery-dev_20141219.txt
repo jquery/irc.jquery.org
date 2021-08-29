@@ -1,0 +1,89 @@
+[04:24:07] <jqcommit> [13jquery] 15victor-homyakov opened pull request #1954: Tests: fix cross-domain detection test for non-default port (06master...06patch-2) 02http://git.io/2kIJLg
+[05:40:50] <jqcommit> [13jquery] 15scottgonzalez opened issue #1955: Don't rely on Uglify as the minification tool 02http://git.io/Q2NxRg
+[06:14:30] <jqcommit> [13jquery] 15devantoine opened issue #1956: .html(value) doesn't work in Firefox when working with the same element 02http://git.io/eCC8fw
+[06:38:47] <jqcommit> [13jquery] 15dmethvin closed issue #1955: Don't rely on Uglify as the minification tool 02http://git.io/Q2NxRg
+[08:26:36] <Krinkle> timmywil: Interesting. I'm seeing "sizzle-.." id attributes get added/removed in Chrome Inspector on some random page. Turns out it's a way to use scoped qSA. Interesting. I figured the DOM manip would make it slower, though I guess weighed against all of Sizzle vs native it's still worth it? Would be nice not to need it in latest Chrome or Firefox though. Is there a bug report about Element-rooted quirks
+[08:26:36] <Krinkle> ?
+[08:51:02] <dcherman> Krinkle: isn't that a spec bug with qSA? not specifically a FF/ Chrome bug
+[08:51:14] <Krinkle> dcherman: So lets fix the spec :D
+[08:51:31] <Krinkle> dcherman: Ah, its' the bug of whether the element itself is included?
+[08:52:14] <Krinkle> That could be worked around by filtering it out or doing a match() on itself and including it. If we're not doing that already that is.
+[08:52:34] <dcherman> Krinkle: http://ejohn.org/blog/thoughts-on-queryselectorall/ the first point is what sizzle fixes i think
+[08:52:53] <dcherman> it's not the element itself, it's that it qSA doesn't match what you think it should match with element rooted queries
+[08:53:15] <Krinkle> Ah, right. 
+[08:53:27] <Krinkle> it's not whether this is included, it includes hte entire document (scope wise)
+[08:53:41] <Krinkle> Yeah
+[08:53:52] <dcherman> yea - it finds all elements on the document that match the selector, then filters for children/descendents of your root
+[08:53:59] <dcherman> but that's not what you want at all :/
+[08:54:04] <Krinkle> div#foo > span#bar; foo.qsa(body span) will match the span
+[08:55:19] <Krinkle> it makes sense from a CSS perspective to keep things universal. But is not backwards compatible with what Sizzle/jQuery has always done. And arguably if we want to componentise things, it shouldn't require knowing the global context.
+[08:55:54] <Krinkle> Since the spec is out, it's unlikely it'll change in this way. perhaps time for a second method. E.g. anotherFancyNameThatisNotQuerySelectorAll
+[08:56:13] <Krinkle> Dare we try to do something intuitive and short, like 'select'
+[08:56:17] <Krinkle> or find()
+[08:56:20] <Krinkle> :D
+[08:56:29] <Krinkle> Hey, we got append() and remove() in the spec!
+[08:56:31] <dcherman> document.find()
+[08:56:41] <dcherman> oh, beat me to it :/
+[08:56:48] <Krinkle> especially remove() made a lot of sense. parentNode was always weird
+[08:57:22] <Krinkle> an empty() or clear() (to do what while-firstChild/remove does) would be nice as well.
+[08:58:32] <Krinkle> DaveMethvin: Hm... I'd like to see more closely what "we" are doing with regards to communication on standards. DOM API, as well as Promise and other things. Do we track this somewhere?
+[08:58:38] <dcherman> in theory .innerHTML = "" suffices for that if you don't need cleanup like .cleanData() or anything
+[08:58:48] <Krinkle> Mmm yeah.
+[08:59:17] <DaveMethvin> Krinkle: i don't think most modern browsers do a reapply styles or layout when you add an #id not in the doc
+[08:59:51] <DaveMethvin> Krinkle: yeah i'd  like to see more of that as well, wycats and mikesherov have been asked to make their work more public
+[09:00:03] <DaveMethvin> so we know what's going on in the stds groups
+[09:00:07] <Krinkle> DaveMethvin: Yeah, unless the target page has a css rule for div[id]
+[09:00:49] <DaveMethvin> if qSA just worked the way you'd think it should ... :)
+[09:01:32] <DaveMethvin> dcherman: once we get data objects attached to the DOM that will be *relatively* safe to bang innerHTML
+[09:01:46] <DaveMethvin> it just won't do special events cleanup so better avoided
+[09:01:55] <DaveMethvin> but at least less  likely to leak
+[09:04:05] <dcherman> once cleanData goes away, the perf of .remove() probably shoots up anyway, so there wouldn't really be a practical reason to avoid it
+[09:05:25] <dcherman> would be an interesting plugin to see if MutationObservers could be used to cleanup data on nodes that were removed using raw DOM methods, but probably not worth the effort
+[09:05:51] <DaveMethvin> yeah, we'd have two code  paths etc
+[09:06:00] <dcherman> and it'd break detach :/
+[09:06:09] <DaveMethvin> oh good point :)
+[09:06:32] <DaveMethvin> i'm sure we could avoid that with a flag or something
+[09:06:40] <m_gol> the spec already has qSA fixed
+[09:06:45] <m_gol> it's named query/queryAll
+[09:06:57] <m_gol> and it returns an Array, not a NodeList
+[09:07:01] <m_gol> no implementations so far, though
+[09:07:08] <DaveMethvin> yay
+[09:07:13] <Krinkle> Hmm. and not to forget elements detached (not removed) using raw DOM methods
+[09:07:39] <m_gol> https://dom.spec.whatwg.org/#dom-parentnode-query
+[09:08:01] <Krinkle> The event clearing can probably only be simplified if we get weakmaps
+[09:08:19] <Krinkle> Ah, wait, event handlers are stored in data as well.
+[09:08:24] <DaveMethvin> I know,  let's use a weakmap! Now we have two problems
+[09:08:28] <DaveMethvin> :)
+[09:08:37] <Krinkle> Ah, you mean the footprint left behind for the bootstrap handler of jQuery on an element?
+[09:08:43] <DaveMethvin> right now wm is horribly slow
+[09:08:55] <Krinkle> Interesting. I haven't looked at its perf yet
+[09:09:18] <DaveMethvin> jdalton looked a using it for lodash and gave up i believe
+[09:09:22] <DaveMethvin> it will get better over time
+[09:09:28] <DaveMethvin> i would suspect
+[09:13:35] * m_gol I always knew this comment:
+[09:13:37] <m_gol> https://github.com/jquery/jquery/blob/d6c97abb744bfe8c67ab9158aecdb5bb1c05e47b/src/data.js#L17
+[09:13:41] <m_gol> was way too optimistic
+[09:13:52] <m_gol> ;)
+[09:14:41] <dcherman> you've got 12 days left.  christmas miracle?
+[09:15:38] <DaveMethvin> god bless us everyone
+[09:19:12] <Krinkle> m_gol: Element#query, not bad.
+[09:19:21] <DaveMethvin> http://jsperf.com/property-access-object-array-map-weakmap
+[09:20:03] <DaveMethvin> talking with the chrome folks last month, they said a lot of that is b/c they don't yet have templates for the new features
+[09:20:10] <DaveMethvin> that means they never get compiled to fast code
+[09:20:17] <DaveMethvin> it's all slow path
+[09:20:58] <DaveMethvin> so if you plan to use a weakmap, best to wrap just the map in a function to avoid collateral damage i suppose
+[09:21:58] <Krinkle> DaveMethvin: Hm.. it still lists multi-million ops per sec though
+[09:22:02] <Krinkle> with WeakMap
+[09:22:13] <Krinkle> 14 million
+[09:22:20] <Krinkle> vs 162 million
+[09:22:21] <DaveMethvin> yeah, but if it was in a large fn it would deopt the whole fn
+[09:22:29] <Krinkle> Right
+[09:22:41] <Krinkle> It's poisonous
+[09:22:43] <Krinkle> Interesting
+[09:23:20] <DaveMethvin> there are plenty of more common cases like the arguments object tho
+[09:23:31] <DaveMethvin> and "long" functions themselves
+[09:23:59] <DaveMethvin> i think chrome uses actual statements and IE uses an intermediate code op count to decide whether to compile
+[09:39:47] <wycats> Chrome uses text size
+[09:39:49] <dcherman> is it just `new WeakMap()` that would deopt that though?  so you could just function() WMFactory{ return new WeakMap(); } or something?
+[09:39:54] <wycats> Which is ridiculous
+[12:07:26] <jqcommit> [13qunit-composite] 15jzaefferer opened issue #13: Move this out of the jQuery org? 02http://git.io/heiPnA

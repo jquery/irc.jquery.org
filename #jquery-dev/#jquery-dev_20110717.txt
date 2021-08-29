@@ -1,0 +1,210 @@
+[05:08:13] <jaubourg> hi there
+[07:46:40] <AzaToth> jaubourg: hi there
+[07:47:25] <AzaToth> does there exists any code/service etc to validate javascript against the "JQuery Core Style Guidelines"?
+[07:47:58] <AzaToth> slash configuration for an validator doing the above
+[07:48:48] <AzaToth> also, http://docs.jquery.com/JQuery_Core_Style_Guidelines recommends jslint, you aint using jshint instead?
+[07:48:59] <AzaToth> imo jshint smells better
+[08:16:48] <jaubourg> AzaToth: if you can offer a switch to jshint as a pull request, don't hesitate ;)
+[08:17:05] <jaubourg> and no we don't have a jQuery Code Style Guidelines validator
+[08:17:20] <jaubourg> that would own to be honest
+[08:22:39] <jzaefferer> jaubourg, even AzaToth, even better would be a formatter
+[08:51:26] <jaubourg> true enough
+[15:48:54] * gnarf sighs
+[16:05:38] <gnarf> Well, I know how I'd solve docs#9381 with a rewrite ;)
+[16:05:40] <bot-t> Well, [#9381] animations halt when the browser is out of focus due to requestAnimationFrame (open bug) - http://jqbug.com/9381
+[16:06:11] <gnarf> I was thinking a timeout set to abort the timers it queued with a gotoEnd after the duration expires
+[16:15:53] <gnarf> and I'm trying to find a good solution to this stephenjudkins scenario
+[16:20:21] <gnarf> ?weather
+[16:20:22] <bot-t> gnarf, Rockford, IL - Time: 18:20 Sunday (CDT), Weather: Partly Cloudy, 34°C / 93°F
+[16:20:33] <gnarf> no wonder the AC is having trouble keeping up :)
+[16:54:20] <jaubourg> hi there
+[16:54:47] <gnarf> ohai
+[16:54:55] <gnarf> stephenjudkins: hey, yt?
+[16:55:08] <stephenjudkins> gnarf: hello, for a little but
+[16:55:09] <stephenjudkins> what's up?
+[16:55:15] <gnarf> not much
+[16:55:21] <gnarf> how much of that code are you willing to share?
+[16:55:36] <gnarf> I want to see if I can find a way around the problem without rewriting animate at all
+[16:55:40] <gnarf> just for curiosity
+[16:55:51] <stephenjudkins> gnarf: my code's fixed now
+[16:56:00] <stephenjudkins> but i'm willing to share a good amount
+[16:56:11] <gnarf> i'd love to see the "comet callback" in full
+[16:56:32] <gnarf> i assume that when the browser isn't focused you don't want any "speech bubbles"
+[16:56:51] <gnarf> or like what behavior were you expecting?
+[16:57:06] <stephenjudkins> gnarf: the problem is if I START an animation when the browser is focused
+[16:57:14] <stephenjudkins> they hide the window, while the animation is partway through
+[16:57:33] <stephenjudkins> then when the re-maximize it exhibits glitchy behavior
+[16:58:16] <stephenjudkins> again, i'm just calling fx.tick() myself in a couple extra places, so my problems are solved
+[16:58:21] <gnarf> yeah
+[16:58:25] <gnarf> thats one "solution"
+[16:58:28] <gnarf> i'm not a fan of it
+[16:58:29] <stephenjudkins> i just think the contract for "delay" and "queue" are being violated here
+[16:58:46] <gnarf> not really, its the fact that the animation doesn't complete :)
+[16:58:52] <gnarf> it sits in paused limbo
+[16:58:56] <gnarf> queue works like it should...
+[16:59:28] <gnarf> its just strange bcuz the last frame of the anim happens like way after it should of
+[16:59:41] <gnarf> i thought of a solution we could implement in a rewrite
+[16:59:47] <gnarf> that actually works
+[16:59:49] <stephenjudkins> that's not really clear at all from the docs
+[17:00:17] <gnarf> when you "tab out" you never get any animation ticks
+[17:00:22] <gnarf> so the anims don't complete
+[17:00:24] <stephenjudkins> again, a couple questions: (1) if my setTimeout solution causes only a marginal performance degradation, will people still be opposed to it?
+[17:00:57] <stephenjudkins> (2) if I make an animation composed from other animations, and the user minimizes in the middle of the animation
+[17:01:02] <gnarf> stephenjudkins: any performance degradation implemented to work around an issue with a performance enhancement is a bit "wonky"
+[17:01:17] <stephenjudkins> the behavior is really wonky
+[17:01:19] <gnarf> stephenjudkins: you could use unqueued anims
+[17:01:32] <gnarf> afk a quick sec
+[17:02:44] <gnarf> back
+[17:03:01] <gnarf> stephenjudkins: if you used unqueued anims it would line up pretty well i think
+[17:03:16] <gnarf> the messages received while tabbed out would just "disappear"
+[17:03:17] <stephenjudkins> but, the queuing makes things act as expected when the browser is focused
+[17:03:56] <stephenjudkins> well, no, they wouldn't: we have queue(....).fadeIn(250).delay(2000).fadeOut(250)
+[17:04:04] <stephenjudkins> the problem is, a user tabs out during the "delay" part
+[17:04:18] <gnarf> the fadeOut will start
+[17:04:23] <stephenjudkins> and not finish
+[17:04:27] <gnarf> and be ready to "finish" on tab back in
+[17:05:33] <stephenjudkins> then the user tabs back in, sees a quick fadeout
+[17:06:13] <stephenjudkins> if, when the browser was unfocused, I stopped using "animate" and just started using "css" instead
+[17:06:36] <stephenjudkins> then the NEXT message that should still be displaying at the time will immediately fade out
+[17:07:23] <stephenjudkins> if I just naively keep queuing up messages, then the action bubble keeps fading in and out with new messages as the new actions unqueue
+[17:07:37] <stephenjudkins> both are reported as bugs by the product owner
+[17:10:18] <stephenjudkins> gnarf: do you understand where i'm coming from?
+[17:14:32] <gnarf> yeah
+[17:16:00] <gnarf> is there only one speech bubble?
+[17:16:11] <gnarf> or are you making one for each message?
+[17:16:38] <stephenjudkins> there are 2-10 per page
+[17:16:43] <gnarf> I would almost remove all the "animation" calls from the data callback, have the data callback add the data to a variable that the animation loop reads
+[17:16:49] <gnarf> but
+[17:17:00] <gnarf> you're still going to be seeing weird issues
+[17:17:23] <stephenjudkins> because of chrome + ff's 1-per-second setTimeout limit? or what?
+[17:20:01] <gnarf> the issues you're seeing come from the fact that you're expecting animations to be updated every frame
+[17:20:05] <gnarf> which they aren't
+[17:20:16] <gnarf> when rAF is in use
+[17:21:26] <stephenjudkins> gnarf: no, i'm not expecting per-frame. i expect that if I trigger an animation to end in x ms, there will be a best-effort attempt to make appropriate changes to the DOM, execute the animation finished callback, and start the next thing in queue
+[17:22:09] <gnarf> right, and I know how I could do that with a rewrite, but in the meantime, disabling rAF or calling .fx.tick() is going to have to work
+[17:22:28] <gnarf> the setTimeout solution is clever, and it works, but it does way more work than it needs to
+[17:22:55] <stephenjudkins> gnarf: "more work than it needs to" <- i don't really get this; we have very little actual data on the performance hit
+[17:22:56] <gnarf> i would use something similar, that basically "canceled" an animation if it ran over time
+[17:23:23] <gnarf> stephenjudkins: i don't need perf testing to show me that you are calling .fx.tick() more times than needed
+[17:23:40] <gnarf> and also the .fx.tick() loops every animation as opposed to only the timers used for this element
+[17:23:42] <gnarf> etc
+[17:24:05] <stephenjudkins> if it fixes a problem, and doesn't show a significant performance cost, why is it "more times than needed"? aesthetics?
+[17:24:54] <gnarf> calling it 2 times in the same "frame" is excessive
+[17:25:12] <stephenjudkins> anyways, i am assuming that my patch isn't going to make it in (even as an user-specifiable option)
+[17:25:51] <stephenjudkins> how is it excessive if it makes no measurable difference to the user?
+[17:26:08] <gnarf> in your application it might not
+[17:26:12] <gnarf> in someone elses it might
+[17:26:21] <gnarf> who knows, maybe someone else has 2000 anim timers
+[17:26:28] <stephenjudkins> well, let's try to build a performance test that demonstrates its cost
+[17:26:43] <stephenjudkins> would you like me to do that? would that make any difference?
+[17:27:46] <gnarf> i think the option to disable raf for people who have issues with its behavior is going to be the preferred solution
+[17:27:52] <gnarf> at least in 1.7
+[17:28:13] <gnarf> the size and simplicity of the fix are the main reasons
+[17:28:27] <gnarf> yours has "unforseen consequences" i think...
+[17:29:18] <stephenjudkins> gnarf: why not just offer to enable the setTimeout fix?
+[17:29:45] <stephenjudkins> to punish people who don't use animations properly by removing the performance benefits of rAF?
+[17:30:27] <gnarf> yes, of course :)
+[17:30:41] <stephenjudkins> what's the actual reasoning?
+[17:30:56] <jaubourg> yep, we're in the business of punishing people, that's why we mirrored the dom api to the letter rather than provided something simpler
+[17:30:57] <gnarf> the setTimeout fix is abusing clock cycles too?
+[17:31:31] <gnarf> stephenjudkins: if we had the ability to say jQuery.fx.tick( element )
+[17:31:35] <gnarf> i'd say do it
+[17:31:38] <gnarf> and do it in .animate()
+[17:31:52] <gnarf> but
+[17:31:54] <gnarf> even then
+[17:31:56] <gnarf> its a problem
+[17:32:00] <gnarf> your solution
+[17:32:10] <jaubourg> the setTimeout fix will exhibit wrong timing, that's the problem and why we have a very short interval in the non-raf branch of the code
+[17:32:13] <gnarf> the point of calling .fx.tick() is to "end" then animation right? to set the final frame?
+[17:32:23] <stephenjudkins> yes
+[17:32:42] <gnarf> if you could find a way to only run the timers that are for the animation in that setTimeout call
+[17:32:45] <gnarf> then I have no argument
+[17:32:56] <gnarf> but
+[17:33:11] <gnarf> given the current undercarriage of jQuery.fx.timers, there is no way to do that
+[17:33:45] <stephenjudkins> well, I give up. it's just very disappointing to me to have something shot down on performance grounds, with zero actual data.
+[17:33:48] <gnarf> in fact, sometime (in 1.8 i assume) I think that my version of .animate() will use the setTimeout to cancel its timers
+[17:34:08] <gnarf> branch jQuery and include your fix then
+[17:35:12] <jaubourg> gnarf: I'm still convinced we need to separate animation handling/chaining from rendering... that's the problem we have here: we should have a timeout based solution to advance animations and use raf only to display the animation (interpolations + node style modification)
+[17:35:12] <gnarf> regardless of how "little" performance you are losing, even before I measure it, I know that its more than needs to be lost
+[17:35:43] <gnarf> jaubourg: my thought to fix it was using our timers, we just .reject( gotoEnd = true ) our timers at "duration"
+[17:36:05] <gnarf> for each animation
+[17:36:18] <gnarf> so the "end" of the animation happens even when the user is tabbed out
+[17:36:30] <gnarf> and its callbacks
+[17:36:31] <gnarf> etc
+[17:37:24] <jaubourg> yeah, we all agree on the problem... but fact is the real issue is that raf is NOT an equivalent to setTimeout... we're just seeing the tip of the iceberg here. I expect things to get awfully convoluted when dealing with real-life scenarios when you have animations chained from within end of animation callbacks
+[17:37:40] <jaubourg> with stops and whatnot all around
+[17:38:01] <stephenjudkins> jaubourg: yeah, there are tons of animation examples out there (and in the jquery docs) that do exactly that
+[17:38:19] <stephenjudkins> and now i leave goodbye.
+[17:38:27] <gnarf> asshole
+[17:38:31] <gnarf> :)
+[17:38:35] <jaubourg> gnarf: I think we vexed him
+[17:38:42] <gnarf> its wasted
+[17:38:50] <gnarf> he doesn't understand why i have an issue
+[17:38:57] <gnarf> because i can't show performance lost
+[17:39:02] <ajpiano> i understand his argument
+[17:39:06] <gnarf> i don't need to, your calling .fx.tick()
+[17:39:10] <gnarf> thats lost
+[17:39:15] <gnarf> its updating way more than it needs to
+[17:39:18] <ajpiano> but it's not like "oh we don't want to do this because of a perf hit"
+[17:39:20] <gnarf> more often than it needs to
+[17:39:26] <gnarf> its just not the "right" solution
+[17:39:33] <ajpiano> it's like, not really a maintainable or elegant solution to what jaubourg says is probably a basket of issues
+[17:39:47] <jaubourg> +1 ajpiano
+[17:39:51] <gnarf> ajpiano: if you could word a more elegant comment on it on his pull maybe?
+[17:40:03] <gnarf> http://jqbug.com/p435
+[17:40:44] <jaubourg> well, for one, you'd need to keep track of the timer to be able to clear it when using stop
+[17:41:10] <ajpiano> gnarf: i'm not sure i have it in me to describe a good elegant solution to this ball of wax yet :p
+[17:41:10] <jaubourg> so then, you DO need the setTimeout per element, because you can stop only one of the elements you initially animated in a bunch
+[17:41:37] <jaubourg> "can choose to stop"
+[17:42:06] <jaubourg> it's the "simple hack" that turns into a jigsaw puzzle
+[17:42:26] <jaubourg> wb stephen
+[17:44:09] <gnarf> hey
+[17:44:27] <gnarf> jaubourg: not neccesarily, if we used the deferreds
+[17:44:43] <gnarf> jaubourg: the "animate" gets is own deferred, when rejected passes rejects to timers
+[17:44:59] <jaubourg> yeah, we could add that in an always callback and have everything contained
+[17:45:09] <gnarf> setTimeout( dfd.reject, duration )
+[17:45:30] <jaubourg> still one timeout per element though
+[17:45:41] <gnarf> true
+[17:45:47] <gnarf> one timeout per animation
+[17:45:54] <gnarf> per element
+[17:46:08] <gnarf> which only runs the .css() of the "last frame"
+[17:46:16] <gnarf> and only if it isn't already run
+[17:46:30] <jaubourg> no really, what I really came to conclude is that we still need the interval approach and have it maintain the queue for when the raf displayer is called
+[17:46:34] <jaubourg> divide and conquer
+[17:46:57] <gnarf> hrm
+[17:46:57] <jaubourg> and provide proper timing in the process
+[17:47:14] <gnarf> so a setInterval that loops timers but doesn't actually run them (unless they have expired) ?
+[17:47:15] <jaubourg> the timer will perform far less computations than it used to
+[17:47:21] <jaubourg> exactly
+[17:47:25] <gnarf> .tickExpired()  ?
+[17:47:43] <jaubourg> well, that's the gist of it
+[17:48:04] <jaubourg> I just hope I make sense
+[17:48:11] <gnarf> i think you do
+[17:48:25] <jaubourg> it's to be thought as a web worker
+[17:48:28] <gnarf> lemme try to mock it up quick
+[17:48:49] <jaubourg> worker one advances ticks, worker two displays
+[17:50:43] <jaubourg> imagine when we introduce transitions... afaik, they're paused when the tab is not focused... if we can't find a proper solution that separates concerns (timing/displaying) then I shudder to think of the mess we'll get ourselves into
+[17:51:02] <jaubourg> we can't rely on the end of transition event for instance
+[17:52:48] <jaubourg> beside, the new timing system could be very smart and determine it's next step as the minimum of all the next steps in current queues
+[17:53:03] <jaubourg> pretty confident this would be quite fast
+[17:54:06] <gnarf> the current "timers" don't store the start/end times
+[17:55:29] <jaubourg> yeah, that's the gripe I have against them... I had this structure when each animation timing info was pre-calculated. In case of a stop, you just had to substract to the queue start timestamp and everything worked as expected
+[17:55:58] <jaubourg> in fact, I had no more queue, just an array of "steps" as in animation sequences, not ticks
+[17:56:45] <jaubourg> that seems much more comfortable to work with imo
+[18:00:54] <gnarf> jaubourg: https://github.com/gnarf37/jquery/compare/jquery:master...ticket_9381_2
+[18:01:02] <gnarf> stephenjudkins: ^^^ take a look at that
+[18:01:40] <gnarf> granted its nowhere near a polished solution
+[18:01:49] <gnarf> just curious if it fixes your issues or not
+[18:02:22] <jaubourg> gnarf: that's the raw idea
+[18:02:39] <jaubourg> but god I wish I had time to work on $.anim()
+[18:02:50] <gnarf> jaubourg: I do, but its not on the 1.7 roadmap ;)
+[18:03:01] <gnarf> although soon that time will be on UI grid
+[18:03:33] <jaubourg> yeah, I saw the contract passing by ;)
+[18:03:48] <gnarf> yeah, I guess I'm cheap ;)
+[18:04:18] <jaubourg> yeah, didn't understand the price diff to be honest
+[19:45:23] <jaubourg> ?tell gnarf http://oksoclap.com/jaubourg-jquery-color-review
+[19:45:23] <bot-t> jaubourg, Okay.
+[19:47:43] <stephenjudkins> gnarf: that would definitely fix my issue. i suspect it might have a greater performance penalty than the setTimeout solution in many (perhaps common) cases, though if you're OK, I'm OK
+[19:49:19] <stephenjudkins> when might this make it into jquery?
+[19:50:29] <jaubourg> gnarf is away for now afaik, no schedule yet. The advantage of doing it this way is that we're sure everything will work even is stop() is called and whatnot
+[19:50:37] <jaubourg> is = if

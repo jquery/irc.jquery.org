@@ -1,0 +1,233 @@
+[07:52:51] <atrigent> do you guys think it would make sense for the iframeFix to be done in ui.mouse?
+[07:53:36] <atrigent> because I'm finding that the fact that it doesn't activate until the drag "starts" causes problems
+[07:53:52] <atrigent> and I also find myself wanting it in things other than draggable
+[07:54:41] <atrigent> like resizable, for example
+[08:14:43] <atrigent> ah ok: http://bugs.jqueryui.com/ticket/6004
+[08:14:54] <atrigent> seems that it's planned
+[08:41:36] <scott_gonzalez> atrigent: yes, it will be in the replacement for mouse in 2.0
+[08:41:37] <bot-t> (47 hours 50 mins ago) <kborchers> tell scott_gonzalez wow, i didn't know about coalesce and it looks like you found a way to join. cool! i haven't had to write a crazy query like that in a while since i would have had separate tables for components and tickets if i had designed the database. glad you figured it out
+[09:03:44] <kborchers> scott_gonzalez: i took a look at http://jqbug.com/ui/p508 and it looks like it breaks selecting an item from the menu. maybe i missed something but i just tried plugging your new autocomplete.js into my local default autocomplete demo and keyboard works fine but selecting item from with the mouse doesn't work
+[09:03:48] <kborchers> this is in Chrome
+[09:04:20] <scott_gonzalez> let me merge master into my branch and see if it breaks
+[09:04:49] <kborchers> it doesn't throw an error either, just doesn't work
+[09:05:01] <scott_gonzalez> yeah, merging in master kills it
+[09:05:18] <scott_gonzalez> something must've changed in menu
+[09:05:43] <kborchers> hmmm
+[09:14:49] <scott_gonzalez> is there an equivalent of git checkout HEAD^ for a specific file?
+[09:16:08] <scott_gonzalez> ugh, git checkout HEAD^ ui/jquery.ui.menu.js is not helpful in my branch
+[09:16:35] <scott_gonzalez> I'm sure this wasn't one commit: https://gist.github.com/5d7c7b7fbc0816ac4706
+[09:16:46] <scott_gonzalez> anyway, doing that fixes it, so it's definitely inside menu and not autocomplete
+[09:17:06] <scott_gonzalez> I'll try to bisect it
+[09:20:42] <scott_gonzalez> hah, bisect totally failed me on that
+[09:20:55] <scott_gonzalez> I have no idea how to get a good rev to start from
+[09:21:00] <kborchers> scott_gonzalez: i'm pretty sure it was this https://github.com/jquery/jquery-ui/commit/3c258bfa3ceab51b7e4c847f1196bd64f6c40cee#L2R43
+[09:21:01] <socialhapy> ★ Commit on jquery-ui by jzaefferer (1w, 5d ago): Rewrite popup/menu interaction to make popup managed by menu (adds trigger option to menu). Makes popup agnostic of menu and allows datepicker to use popup (soon).
+[09:21:19] <kborchers> if i take that out, it works fine
+[09:21:36] <kborchers> the autocomplete i mean ... not sure about the rest of his menu changes once that's removed
+[09:22:50] <scott_gonzalez> yup, that's it
+[09:23:42] <scott_gonzalez> :-/
+[09:24:07] <scott_gonzalez> removing the delay works too
+[09:24:13] <scott_gonzalez> change .focus( 1 ) to .focus()
+[09:24:42] <kborchers> that works
+[09:24:58] <scott_gonzalez> I'm not sure if that will cause IE to be wonky
+[09:25:12] <scott_gonzalez> event.preventDefault() in mousedown in IE doesn't prevent focus
+[09:28:36] <scott_gonzalez> hmm....menu is wonky to begin with
+[09:28:57] <scott_gonzalez> even in Chrome
+[09:29:21] <scott_gonzalez> http://view.jqueryui.com/master/demos/menu/default.html
+[09:29:28] <scott_gonzalez> mousedown on any item and hold
+[09:29:35] <scott_gonzalez> during down, the first item gets highlighted
+[09:29:41] <scott_gonzalez> on up, nothing is highlighted
+[09:31:19] <kborchers> the mousedown is weird ... the mouseup is expected because click fires select which eventually fires blur
+[09:35:23] <kborchers> that weirdness from mousedown is also caused but that focus thing that was added in that commit that causes the autocomplete issue ... i think that needs to be removed or at least reworked
+[09:35:28] <kborchers> scott_gonzalez: ^
+[09:35:52] <scott_gonzalez> agreed
+[10:38:23] <kborchers> scott_gonzalez: what do you think about this. i think it still accomplishes what Hans was trying to do and fixes the issue with autocomplete https://github.com/kborchers/jquery-ui/commit/c50e7501adf580857ef69f792057eba1794b4a3a
+[10:38:23] <socialhapy> ★ Commit on jquery-ui by kborchers (2m, 22s ago): Menu: Change focus handling to preventDefault on mousedown but then focus menu on mouseup to fix issues with long click and also with Autocomplete. Also, moved the bindings into _bind.
+[10:40:59] <kborchers> also, his solution didn't work if you clicked an icon in a menu item, this also fixes that by pulling the focus call out of the if
+[10:44:08] <kborchers> scott_gonzalez: stepping away for a few minutes but will be right back. let me know if you think that looks ok and i'll merge it
+[10:55:31] <scott_gonzalez> mousedown is what shifts focus, so you probably don't need the delay in mouseup
+[11:30:29] <kborchers> hmm, i believe the delay is necessary to allow collapseAll (and in turn, blur) to happen first. that way the top level menu is focused, not an interior one which is then hidden by collapseAll
+[11:35:36] <kborchers> scott_gonzalez: ^
+[11:35:51] <kborchers> also noticed i could just move the focus to click and get rid of the mouseup handler
+[11:35:58] <scott_gonzalez> ok
+[11:36:01] <kborchers> though i think i still need the delay
+[11:36:31] <scott_gonzalez> cool, can you ask Hans to verify that it still works as he expects?
+[11:36:41] <kborchers> will do
+[11:36:44] <scott_gonzalez> thanks
+[12:36:12] <scott_gonzalez> gnarf: yt?
+[12:38:27] <scott_gonzalez> kswedberg: http://api.jquery.com/focusin/ Description: Bind an event handler to the "focusin" JavaScript event.
+[12:38:37] <scott_gonzalez> shouldn't that say "DOM event" not "JavaScript event"?
+[12:39:12] <kswedberg> yeah. and it's not even that in most browsers.
+[12:40:21] <kswedberg> it's a special event in all but IE. maybe we should just remove "JavaScript" from that description?
+[12:40:27] <kswedberg> scott_gonzalez: ^^
+[12:40:48] <scott_gonzalez> sounds reasonable
+[12:41:15] <scott_gonzalez> it probably says JavaScript event for every shortcut binding method we have
+[12:41:32] <scott_gonzalez> yup
+[12:41:49] <scott_gonzalez> and the documentation for .bind() has it all over the place
+[12:42:27] <scott_gonzalez> do you want me to file a ticket for this or will you get to it before you forget?
+[12:42:33] <kswedberg> ok. we have a bunch of other changes prepped for .bind, so I'll just fix that at the same time.
+[12:42:40] <kswedberg> nope. I got it. thx!
+[12:42:45] <scott_gonzalez> ok :-)
+[12:43:24] <kswedberg> focusin is updated.
+[12:43:39] <scott_gonzalez> being lazy, which comes first? focus or focusin?
+[12:45:48] <kswedberg> focusin
+[12:45:50] <scott_gonzalez> thanks
+[12:48:57] <Tijn> Hi all
+[12:49:17] <Tijn> Did anybody get a change to read my forum post here: http://forum.jquery.com/topic/colorpicker-for-jqueryui
+[12:50:11] <Tijn> I'm curious as to what the jqui devs think
+[12:53:25] <scott_gonzalez> Tijn: Corey (gnarf) responded twice
+[12:55:23] <Tijn> I know, I'd like to know if the rest is interrested in it
+[12:56:31] <scott_gonzalez> we're interested in eventually having a color picker
+[12:57:08] <Tijn> Great, so how about using my code as a starting point? :)
+[12:57:45] <scott_gonzalez> at a quick glance, it looks like it has a lot of options
+[12:58:26] <scott_gonzalez> also, please don't use the ui namespace
+[12:58:41] <scott_gonzalez> we generally don't like to adopt existing plugins
+[12:58:44] <Tijn> Why is that? Currently it's designed as a plugin
+[12:58:54] <scott_gonzalez> why is what?
+[12:59:58] <Tijn> Because I didn't initially plan on trying to get it into jqueryui
+[13:01:13] <Tijn> I just wanted a rich and flexible colorpicker that had a jQueryUI look and feel
+[13:01:37] <scott_gonzalez> I'm not sure what you're responding to right now
+[13:01:58] <Tijn> Oh sorry, misread "why is what?" ;)
+[13:02:15] <Tijn> Why is it that I shouldn't use ui namespace?
+[13:02:23] <scott_gonzalez> the ui namespace is for jQuery UI
+[13:02:27] <scott_gonzalez> your plugin is not part of jQuery UI
+[13:03:51] <Tijn> Oh okay, I copied that from some other plugins
+[13:04:02] <Tijn> No problem, just a few keystrokes and it's fixed :)
+[13:05:48] <Tijn> Does that apply to the class/id's as well?
+[13:06:08] <scott_gonzalez> not really
+[13:06:17] <scott_gonzalez> because of the CSS framework
+[13:06:43] <scott_gonzalez> though I don't create new .ui-XXX classes for plugins outside of UI
+[13:07:41] <Tijn> But if I wanted to get this colorpicker included in jQueryUI, what would my next steps need to be?
+[13:16:16] <dimensia> do you have a demo of it somewhere?
+[13:17:08] <scott_gonzalez> propose a minimal API
+[13:17:26] <Tijn> Currently I have a demo at http://www.vanderlee.com/jqcp/
+[13:17:48] <Tijn> It's a bit outdated though
+[13:19:27] <Tijn> ok, just uploaded my current state at the demo site
+[13:20:07] <Tijn> A minimal API as in the set of options/methods/events that the colorpicker would provide?
+[13:20:17] <Tijn> Where would I post such a proposal?
+[13:20:42] <scott_gonzalez> http://wiki.jqueryui.com/w/page/12137750/ColorPicker
+[13:22:50] <Tijn> ...obviously :)
+[13:22:53] <Tijn> thanks
+[13:26:19] <Tijn> I guess the best order is to set up a more complete demo page, add it to the wiki and add some specs/requirements where appropriate
+[13:28:32] <scott_gonzalez> yup
+[13:28:43] <scott_gonzalez> just be aware that we're very busy: http://wiki.jqueryui.com/Roadmap
+[13:28:59] <Tijn> Haha, I'm sure
+[13:29:08] <Tijn> I don't expect this to be in time for 1.9
+[13:30:36] <Tijn> All I'm asking is directions on what needs to be fixed/changed/scrapped/etc and I'll do the code myself.
+[13:34:40] <Tijn> Anyway, thanks for the info. Hope this'll be worth the time :)
+[13:44:05] <kborchers> scott_gonzalez: so making menu work with tables is just messy
+[13:44:36] <scott_gonzalez> :-(
+[13:44:43] <scott_gonzalez> why?
+[13:44:45] <kborchers> in order to get them to look and feel like other structures, i have to make tbody (if present) and tr (the menu items) display: block;
+[13:45:08] <kborchers> that messes with the flow and i occasionally get weird mouseovers that i don't expect
+[13:45:38] <scott_gonzalez> got an example somewhere?
+[13:45:39] <kborchers> i'm really close but some of the mouse interactions are just wonky (to use your term from earlier)
+[13:46:13] <kborchers> no, i have it pushed up to my repo but no working example except local
+[13:46:53] <kborchers> https://github.com/kborchers/jquery-ui/tree/menu_tables
+[13:47:14] <scott_gonzalez> holy shit, you should clear out some of your branches :-P
+[13:47:25] <kborchers> hah, i know
+[13:47:30] <kborchers> lots of old shit
+[13:47:39] <kborchers> if you check that out and look at the menu.html visual test, the last menu is with tables
+[13:49:18] <kborchers> everything seems fine but occasionally if you move quickly into a submenu, the ui-state-focus class is removed from the element you were just on but the ui-state-active class isn't added so you don't get the outline showing you the path you took through the menus
+[13:49:21] <kborchers> make sense?
+[13:49:39] <scott_gonzalez> yeah
+[13:50:14] <kborchers> i traced it to sometimes the second element in the submenu gets a mouseover even if you don't which i think is caused by the whole display: block; flow thing
+[13:53:27] <scott_gonzalez> have you tried just tr { width: 100%; }
+[13:54:46] <kborchers> yeah ... no good. ends up only as wide as the content
+[13:55:29] <kborchers> in fact, i can take out the width: 100%  now that i look at it and it still works fine ... as long as i have display: block;
+[13:56:16] <kborchers> i guess technically i didn't do tr i used .ui-menu .ui-menu-item but that is the tr
+[13:58:02] <scott_gonzalez> so the default display looks good in Firefox, but too narrow in Chrome
+[13:58:12] <scott_gonzalez> width: 100% kills Firefox, but fixes Chrome
+[13:58:18] <scott_gonzalez> I hate browsers
+[13:58:43] <kborchers> heh, i feel like they hate me
+[14:00:07] <gnarf> hey guys
+[14:00:11] <gnarf> sorry, had a busy day
+[14:00:43] <scott_gonzalez> now I'm confused
+[14:00:53] <scott_gonzalez> I just undid my changes
+[14:01:01] <kborchers> too much trick or treating gnarf?
+[14:01:03] <scott_gonzalez> and the menu displays fine in both browsers
+[14:01:16] <gnarf> kborchers: yup
+[14:01:33] <kborchers> i was about to say ... it looks fine in FF and chrome on my end
+[14:02:08] <scott_gonzalez> also seems to work well in IE
+[14:02:30] <scott_gonzalez> ignoring the fact that the borders don't show up
+[14:02:37] <scott_gonzalez> but that's probably just border-collapse
+[14:03:00] <kborchers> which ie?
+[14:03:28] <scott_gonzalez> 6
+[14:03:44] <kborchers> haven't looked at that one in a while.
+[14:03:55] <scott_gonzalez> gnarf: got a few minutes to look at some crazy focus/blur stuff?
+[14:04:08] <kborchers> looks ok in 9 but there seems to be a little extra space or something
+[14:04:22] <gnarf> scott_gonzalez: gimmie like 5 to settle into the chair, still kinda movin round the house :)
+[14:04:32] <scott_gonzalez> ok
+[14:05:21] <kborchers> i propose starting with 2.0 we only support webkit ;P
+[14:06:30] <scott_gonzalez> haha
+[14:06:34] <scott_gonzalez> we only support latest Chrome
+[14:06:51] <scott_gonzalez> with no extensions installed
+[14:07:06] <kborchers> all in favor?
+[14:07:13] <scott_gonzalez> +1
+[14:07:19] <kborchers> the motion passes
+[14:07:27] <scott_gonzalez> in that case, we might as switch to dart
+[14:07:33] <kborchers> heh
+[14:08:32] <gnarf> heh
+[14:08:42] <gnarf> scott_gonzalez: so whats up?
+[14:09:56] <scott_gonzalez> calling, you need to see it to believe it
+[14:28:20] <jquicommit> [jquery-ui] scottgonzalez pushed 2 new commits to master: http://git.io/ccNSbQ
+[14:28:20] <jquicommit> [jquery-ui/master] Tests (Simulate): Whitespace cleanup. - Scott González
+[14:28:20] <jquicommit> [jquery-ui/master] Tests (Simulate): Added focus and blur support. - Scott González
+[14:30:14] <jq-jenkins> Project jQuery UI build #133: STILL FAILING in 1 min 46 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/133/
+[14:30:15] <jq-jenkins> * Scott González: Tests (Simulate): Whitespace cleanup.
+[14:30:15] <jq-jenkins> * Scott González: Tests (Simulate): Added focus and blur support.
+[14:36:55] <gnarf> so scott_gonzalez - what i was saying is the only reason we are getting double events there is because you actually are using a setTimeout in the test right?
+[14:37:07] <gnarf> scott_gonzalez: does that test work if you bind them with .one() instead ? :)
+[14:37:16] <gnarf> or nvm
+[15:02:35] <jzaefferer> hey scott_gonzalez, any news from browserstack?
+[15:02:36] <bot-t> (74 hours 3 mins ago) <scott_gonzalez> tell jzaefferer one step closer to total test domination
+[15:02:47] <jzaefferer> 74 hours ago?
+[15:02:47] <jzaefferer> ugh
+[15:03:05] <jzaefferer> speaking of domination, I still have my train commits to push
+[15:03:25] <jquicommit> [jquery-ui] jzaefferer pushed 16 new commits to grid: http://git.io/au_nAA
+[15:03:25] <jquicommit> [jquery-ui/grid] Grid: Prototype scroll based paging, with a 'infinite scroll' type product list. - Jörn Zaefferer
+[15:03:25] <jquicommit> [jquery-ui/grid] Grid: Rename and move localDataview to ui/jquery.ui.dataview.local / $.ui.dataviewlocal - Jörn Zaefferer
+[15:03:25] <jquicommit> [jquery-ui/grid] Grid: Unit tests for preloader dataview, so far just using dataviewlocal as remote, which works fine. - Jörn Zaefferer
+[15:07:19] <jzaefferer> can I get a t-shirt with "I pushed 16 commits, and all I got was three commit messages"?
+[15:10:19] <gnarf> jzaefferer: just wait
+[15:10:27] <gnarf> oh nvm
+[15:10:39] <gnarf> that branch isn't in jenkins :)
+[15:10:44] <gnarf> jenkis will list EVERY commit
+[15:12:44] <gnarf> i did a merge master -> mask
+[15:12:55] <gnarf> and jenkis was kind enough to tell us like each of the 40 commits
+[15:12:56] <gnarf> :)
+[15:23:03] <gnarf> scott_gonzalez: where is gist-diff ?
+[16:19:06] <jzaefferer> btw. here's the scroll-based paging prototype: http://view.jqueryui.com/grid/grid-spf/products-scrolling.html
+[16:24:36] <gnarf> jzaefferer: nice
+[17:24:54] <scott_gonzalez> gnarf: it's in the pretty-diff repo
+[18:05:07] <kborchers> gnarf: yt?
+[18:05:14] <gnarf> yup
+[18:05:30] <gnarf> kborchers: sup?
+[18:05:42] <kborchers> so what's the fake body issue? and is solution to simply just wrap that in doc ready?
+[18:06:13] <gnarf> kborchers: IE8 apparently crashes when you create a body inside the head
+[18:06:23] <kborchers> i guess my question is, what am i testing for?
+[18:06:26] <kborchers> sweet
+[18:06:29] <gnarf> yeah
+[18:06:32] <gnarf> awesome right?
+[18:06:38] <gnarf> so it should be doc readied
+[18:07:22] <gnarf> its totally holding up 1.7RC2 right now
+[18:07:29] <gnarf> like gigantic blocker
+[18:07:42] <gnarf> cuz its bringing out all these flaws in support tests now
+[18:07:53] <gnarf> which we hid by doing the body creation
+[18:08:11] <kborchers> wow ... glad we only did it in that one place that i know of
+[18:08:31] <kborchers> and it's not even that important of an issue that it solved either
+[18:08:44] <kborchers> some of by one position stuff that most people wouldn't even notice
+[18:10:15] <gnarf> kborchers: yeah
+[18:27:56] <kborchers> gnarf: hmmm, i'm not seeing an error being thrown in IE8. It's creating the fake body but i'm not getting an error
+[18:28:53] <gnarf> kborchers: all the people who know anything about reproing this aren't here
+[18:28:55] <gnarf> dave/timmy
+[18:29:10] <gnarf> lemme see if i can find the core bug
+[18:29:45] <kborchers> i guess my point though is if it's not throwing an error the way we're using it ... is it an issue for us?
+[18:29:52] <gnarf> http://bugs.jquery.com/ticket/10613
+[18:30:01] <gnarf> im not sure
+[18:32:58] <kborchers> well, maybe we'll wait till tomorrow then. i can't seem to get IE8 to give me an error in any of the position demos
+[18:33:43] <kborchers> the fake body is being created and everything seems to be working fine so either it's not an issue where we're using it or i need a better test case.
+[18:34:50] <gnarf> yeah, talk with dave/timmy and see if they can share their test case
+[18:35:08] <gnarf> or perhaps hunt through the services.jquery.com logs
+[18:35:14] <gnarf> and see if you can find them talking about it
+[18:40:53] <gnarf> kborchers: what you on?

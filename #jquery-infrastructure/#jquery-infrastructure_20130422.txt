@@ -1,0 +1,75 @@
+[09:21:29] <scott_gonzalez> gnarf: You around?
+[09:39:23] <gnarf> scott_gonzalez: kinda sup?
+[09:40:16] <scott_gonzalez> plugins scripts died again.
+[09:40:49] <gnarf> hrm
+[09:40:52] <gnarf> manager was dead?
+[09:41:19] <scott_gonzalez> manager is still alive
+[09:41:34] <scott_gonzalez> But only update-server.js is running.
+[09:41:42] <gnarf> hrm...
+[09:42:11] <scott_gonzalez> Both /var/log/syslog and /var/log/messages don't show restart attempts.
+[09:42:23] <scott_gonzalez> So I'm guessing the manager doesn't even know they're dead.
+[09:42:34] <gnarf> scott_gonzalez: i guess /etc/init.d/plugins restart 
+[09:42:46] <scott_gonzalez> As root or as plugins?
+[09:42:49] <gnarf> root
+[09:42:53] <gnarf> it does the sudo in there
+[09:43:05] <gnarf> general rule, if its /etc/init.d/ - run it as root
+[09:44:10] <scott_gonzalez> Error during retry: Error: Command failed: fatal: remote error:    Repository not found.      at ChildProcess.exithandler (child_process.js:540:15)     at ChildProcess.EventEmitter.emit (events.js:99:17)     at maybeClose (child_process.js:638:16)     at Process._handle.onexit (child_process.js:680:5)
+[09:44:23] <scott_gonzalez> That's not a problem I had anticipated.
+[09:45:04] <gnarf> scott_gonzalez: consider merging in my fix for the date issue when you restart it?
+[09:46:04] <scott_gonzalez> Yeah, I'm going through my inbox right now.
+[09:46:19] <scott_gonzalez> I'll get to that before I tag.
+[10:47:13] <scott_gonzalez> gnarf: What's that command for grepping through a gzipped file?
+[11:03:33] <gnarf> scott_gonzalez: zcat ___.gz | grep ?
+[11:04:19] <scott_gonzalez> thanks
+[11:04:48] <scott_gonzalez> Trying to figure out what happened with this request.
+[11:05:06] <scott_gonzalez> I can't tell if it was a real post-receive hook or not.
+[12:33:47] <scott_gonzalez> gnarf: "New" plugin sorting should be based on date added to the site, not date of first release, right?
+[12:34:22] <scott_gonzalez> Basically, new to the site, not new to the world.
+[12:37:43] <gnarf> scott_gonzalez: yeah that was the idea
+[12:37:57] <gnarf> scott_gonzalez: i can fix the mysql data with some funky sql
+[12:38:03] <gnarf> to fix the old versions
+[12:38:08] <gnarf> subselects and what not
+[12:38:32] <scott_gonzalez> Well, it's not actually what the PR does...
+[12:38:48] <scott_gonzalez> The date of the first processed version is essentially random for existing plugins.
+[12:39:25] <scott_gonzalez> We'd need to track the date that the parent post is created in WordPress.
+[12:39:31] <scott_gonzalez> Although that's probably not even correct.
+[12:39:43] <scott_gonzalez> We probably want the date of insertion into plugins.db.
+[12:39:48] <gnarf> scott_gonzalez: that pull just doesn't update the date on the parent plugin
+[12:40:02] <gnarf> so it should stay correct on "new" posts
+[12:41:16] <scott_gonzalez> It'll be correct for plugins that have their first valid tag created after they add the post-receive hook.
+[12:41:46] <scott_gonzalez> So the errors will probably be rare enough to not matter.
+[12:42:13] <gnarf> the date should get set to the date of the first time it gets added to the site
+[12:42:15] <gnarf> and then never updated
+[12:42:18] <gnarf> yeah?
+[12:43:35] <scott_gonzalez> Oh, I see...
+[12:43:41] <scott_gonzalez> It NEVER gets set.
+[12:43:45] <scott_gonzalez> Not just that it doens't update.
+[12:45:16] <scott_gonzalez> Yeah, this is good.
+[12:45:50] <gnarf> and i can fix the old stuff by doing an sql query and basing it on oldest tag
+[12:46:21] <scott_gonzalez> Well, that's wrong, but probably right enough.
+[12:46:29] <gnarf> yeah
+[12:46:31] <gnarf> honestly
+[12:46:35] <scott_gonzalez> Let me see if we have real data.
+[12:46:36] <gnarf> not even sure we need to care
+[12:46:50] <scott_gonzalez> Probably not. Within a day, the list will be accurate.
+[12:46:52] <gnarf> as the "new plugins" will just start working from here on out
+[12:46:52] <gnarf> yeah
+[12:47:44] <scott_gonzalez> landed
+[12:48:27] <scott_gonzalez> https://github.com/jquery/plugins.jquery.com/issues/112
+[12:48:33] <scott_gonzalez> That's when we'd start to care.
+[12:48:46] <gnarf> agree
+[12:52:04] <scott_gonzalez> We don't have the data for this.
+[12:52:18] <scott_gonzalez> We could parse it out of the error log, but it'd be incomplete.
+[13:48:20] <gnarf> lets just go with grabbing the date of the earliest tag 
+[13:50:43] <gnarf> aka, UPDATE wp_4_posts parent SET post_date = (SELECT post_date FROM wp_4_posts tags WHERE tags.parent_post = parent.post_id ORDER BY date LIMIT 1) WHERE post_parent = 0;
+[13:51:38] <gnarf> scott_gonzalez: ^ ?
+[13:52:54] <scott_gonzalez> gnarf: That seems fine, though I'm a bit nervous about doing it with a direct query.
+[13:53:42] <gnarf> scott_gonzalez: if you want to do it with some node/php insanity, feel free to code it, im just gonna test the query on my local
+[13:53:50] <gnarf> with the db
+[13:54:48] <scott_gonzalez> gnarf: If you write the query to just dump out post id + date, I can write a simple script that just uses node-wordpress to update them.
+[13:55:06] <gnarf> parent id and lowest date?
+[13:55:11] <scott_gonzalez> yeah
+[13:56:00] <scott_gonzalez> I guess that'd just be a group by.
+[13:56:56] <gnarf> scott_gonzalez: 
+[13:56:59] <gnarf> ssh jq01
+[13:57:00] <gnarf> sudo mysql -Be 'SELECT post_parent, MIN(post_date) FROM wp_4_posts WHERE post_parent != 0 GROUP BY post_parent;' wordpress;

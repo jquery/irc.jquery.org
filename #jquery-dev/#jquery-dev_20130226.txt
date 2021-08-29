@@ -1,0 +1,654 @@
+[01:38:46] <mkwst> DaveMethvin: For the record, mousewheel events no longer target text nodes: https://bugs.webkit.org/show_bug.cgi?id=109939 :)
+[01:39:37] <mkwst> snover: If you have Dojo bugs that aren't being looked at, let me know: mkwst@chromium.org
+[07:25:44] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/gDus7Q
+[07:25:44] <jqcommit> 13jquery/06master 1431478b9 15Timo Tijhof: Optimisation: Use String instead of window.String. Close gh-1176....
+[07:41:16] <doesallmagic> Project jQuery Core build #704: STILL FAILING in 8 min 56 sec: http://swarm.jquery.org:8080/job/jQuery%20Core/704/
+[07:41:16] <doesallmagic> dave.methvin: Optimisation: Use String instead of window.String. Close gh-1176.
+[07:51:32] <ben_alman> Krinkle: ping
+[07:51:40] <Krinkle> ben_alman: pong
+[07:51:42] <ben_alman> hey
+[07:51:56] <ben_alman> so i have a question about browser test automation
+[07:52:00] <Krinkle> k
+[07:52:05] <ben_alman> i'm about to embark on a journey
+[07:52:17] <ben_alman> where i move all my juqery plugins to a new repo format
+[07:52:19] <ben_alman> using grunt etc
+[07:52:24] <ben_alman> i have qunit unit tests
+[07:52:25] <Krinkle> sounds good :)
+[07:52:35] <ben_alman> which all need to be actually tested in real browsers
+[07:52:40] <Krinkle> right
+[07:52:43] <ben_alman> in different versions of jquery
+[07:52:45] <Krinkle> that's where I come in
+[07:52:56] <ben_alman> the unit test .html file accepts a query string to tell it what version of jquery to run
+[07:53:09] <ben_alman> but i need to automate all the testing
+[07:53:18] <ben_alman> and i don't have any infrastructure with which i can do this
+[07:53:23] <ben_alman> do you have any suggestions
+[07:53:24] <Krinkle> the meat of the problem is running it through testswarm/browserstack (or saucelabs)
+[07:53:44] <ben_alman> i know the saucelabs guys use grunt
+[07:53:45] <Krinkle> Which is fairly easy these days with everything being abstracted by node-testswarm.git and testswarm-browserstack.git
+[07:53:48] <ben_alman> maybe they can get me an account
+[07:54:16] <Krinkle> I'm assuming for now that we have "accounts" wherever.
+[07:54:37] <Krinkle> the main blocker I found is that you need a place to store credentials
+[07:54:44] <ben_alman> hmmn
+[07:54:48] <ben_alman> interesting
+[07:54:56] <Krinkle> that's the reason we use Jenkins instead of doing everything from grunt and just letting travis run it
+[07:55:20] <ben_alman> well how could you let travis run it
+[07:55:29] <ben_alman> it has no facility to use browsers
+[07:55:40] <Krinkle> if grunt submits the jobs to testswarm, and you auto-run it on PRs, that means I can submit a PR to your repo changing grunt.js to send the credentials to my server.
+[07:55:52] <Krinkle> ben_alman: Travis is just a computer
+[07:56:12] <Krinkle> ben_alman: it would poke browserstack or saucelabs to point to the temporary server set up at travis
+[07:56:28] <Krinkle> that's all done and well.
+[07:56:44] <Krinkle> it comes down to a very silly auth problem. If that's solved, we'd be in heaven.
+[07:57:25] <ben_alman> k
+[07:57:30] <ben_alman> makes sense
+[07:57:43] <Krinkle> basically need two things, one of which is easy to solve
+[07:57:50] <ben_alman> maybe for github the auth can be tied to the user submitting the patch
+[07:58:38] <Krinkle> 1) secure grunt.js (could be done by fetching it from master, though you'd need a place where that is enforced), 2) a place to store/retreive the credentials for testswarm and browsertstack.
+[07:58:59] <Krinkle> i.e. not in plaintext in the repo
+[07:59:10] <ben_alman> sure
+[07:59:26] <ben_alman> well i'm going to try to talk to the saucelabs guys and see what they say for starters
+[07:59:42] <ben_alman> i don't even have all the vms and browsers i'd want to test in
+[07:59:42] <Krinkle> saucelabs makes it slightly easier
+[07:59:46] <Krinkle> they have free accounts
+[07:59:51] <ben_alman> so it's hard for me to refactor anything
+[07:59:52] <Krinkle> so you can create an account you don't care about
+[07:59:53] <ben_alman> yeah
+[07:59:58] <ben_alman> they seem to have an OSS account as well
+[08:00:01] <Krinkle> but you'd still need testswarm
+[08:00:44] <Krinkle> or you could implement what I've been thinking about, which is to make use of the fact that sauclabs uses selenium, which means you can access the DOM
+[08:01:15] <Krinkle> (unlike browserstack which has real unaltered browsers without selenium plugins, but is therefor limited to a single url)
+[08:01:27] <ben_alman> well i dunno
+[08:01:58] <Krinkle> in that case you wouldn't need testswarm, you can create a vm in saucelabs, point it at your test, and grab the results directly from QUnit.log callback from the js console that you have access to
+[08:02:12] <ben_alman> all i need really is for something to run tests and for either a) qunit to submit results to somewhere (magical because i don't have a server to post data to) or b) it to pull data out of qunit somehow when the test is done
+[08:03:04] <Krinkle> pseudo-code: s = require(saucelabs); vm = s.spawn({ browser: ie, version: 8 }) vm.url( ... ).done(function () { var data = vm.js('QUnit.log(function() {});')
+[08:03:48] <Krinkle> ben_alman: a) means you'd use testswarm and host it somewhere, b) is only possible if you have a custom browser with a selenium plugin so you can access the console over the wire
+[08:04:11] <snover> uuuuuseeeeeeeee teststaaaackkkkkkkk
+[08:04:22] <ben_alman> what snover?
+[08:04:28] <snover> https://github.com/csnover/dojo2-teststack
+[08:04:30] <ben_alman> Your search - teststaaaackkkkkkkk - did not match any documents.
+[08:04:30] <ben_alman> \
+[08:04:52] <ben_alman> ok snover i already have lots of qunit tests
+[08:04:57] <ben_alman> and not a lot of time to rewrite them all
+[08:05:30] <snover> you do not need to rewrite your tests. you wrap it in an amd module, make a qunit interface which would take about 5 minutes, done
+[08:05:36] <snover> like you know how mocha has a qunit interface
+[08:05:43] <ben_alman> nope, never used mocha
+[08:05:46] <snover> oh, well it does
+[08:05:54] <ben_alman> k
+[08:05:57] <Krinkle> anyway, whatever teststack is I doubt it solves any relevant problem here
+[08:06:23] <ben_alman> i also support old ie in some of my       plugins
+[08:06:33] <ben_alman> anyways snover interesting but i don't see how it applies to this
+[08:06:55] <snover> i only caught the tail end
+[08:07:10] <ben_alman> np
+[08:07:27] <Krinkle> snover: unless teststack comes with VMs with a wide range of choice and needs to authentication to use it, we already have all that.
+[08:07:27] <snover> but it sounds like you are trying to run ci tests and then have a service to see the results
+[08:07:39] <Krinkle> we already have that
+[08:07:44] <snover> teststack runs with any selenium service
+[08:07:49] <snover> sauce labs
+[08:07:50] <snover> your own grid
+[08:07:51] <snover> whatever
+[08:07:54] <Krinkle> yeah, sure.
+[08:08:10] <Krinkle> so we have qunit, run it with saucelabs, too.
+[08:08:24] <Krinkle> open url, execute qunit.log() attach callback and all the data right there
+[08:08:37] <snover> except that selenium execute_async is not implemented everywhere
+[08:08:41] <snover> so how do you “attach” to that function
+[08:08:56] <Krinkle> trust me, this it not a problem.
+[08:09:24] <Krinkle> btw, to kick off the builds we'd use travis.
+[08:09:54] <snover> sorry guys, i forgot nobody else can ever make tools 
+[08:09:57] <snover> my bad
+[08:10:51] <Krinkle> and besides, if execute_async were really a problem, I wonder how teststack can exist. They figured it out, so did what we're using now.
+[08:11:16] <Krinkle> ben_alman: so yeah, the easiest solution is to go straight into the browser with selenium/saucelabs
+[08:11:21] <snover> yeah, it sets up a proxy
+[08:11:26] <snover> but you know
+[08:11:27] <snover> whatever
+[08:11:35] <snover> don’t listen to me, i didn’t write it or anything
+[08:11:37] <Krinkle> ben_alman: you'd only use selenium to execute some javascript, not as a testing framework (we're talking unit tests after all)
+[08:12:15] <ben_alman> k anyways a lot of the stuff you guys are disucssing is new to me
+[08:12:18] <ben_alman> i've never used selenium
+[08:12:42] <snover> http://www.w3.org/TR/webdriver/
+[08:12:44] <Krinkle> ben_alman: Selenium is a complicated and overused term. Everything you fear about it is true, but that's not what you'd use
+[08:12:47] <Krinkle> snover: not that.
+[08:13:00] <snover> Krinkle: how about you stop telling me i’m wrong ok
+[08:13:04] <ben_alman> k well i know really nothing about it
+[08:13:12] <Krinkle> snover: well, I don't want to confuse ben_alman
+[08:13:24] <ben_alman> feel free to let me know when you guys are done with the meta discussion
+[08:13:59] <snover> the first sentence of the abstract in the link tells you what it is, ben_alman
+[08:14:16] <ben_alman> snover: sorry, but i read the page and didn't understand how it applied to me
+[08:14:31] <ben_alman> except that maybe there's some way i could be testing in which this is relevant or something
+[08:14:44] <ben_alman> but it wasn't clear to me how this could solve my own problems
+[08:14:51] <snover> because if you are trying to automate testing, it is how you control the browsers you are automating
+[08:15:04] <ben_alman> i want something that behaves like travis
+[08:15:14] <ben_alman> where i list the browsers i want to test in and the urls or something
+[08:15:15] <snover> teststack integrates with travis
+[08:15:19] <ben_alman> and it just reports out somewhere
+[08:15:21] <snover> that’s not how travis works
+[08:15:36] <snover> travis just listens for a new commit/pull request and then executes some script
+[08:15:41] <ben_alman> that's pretty much how travis works, i tell it to run some tests, if there's an error it complains
+[08:15:54] <ben_alman> i want the same kind of thing for browser testing
+[08:16:01] <snover> teststack
+[08:16:02] <ben_alman> but like browser-aware
+[08:16:04] <snover> that is literally
+[08:16:05] <snover> what teststack is
+[08:16:18] <ben_alman> ok totally unclear from the page you linked me
+[08:17:26] <ben_alman> i can't even see how it's clear
+[08:17:34] <ben_alman> snover: i'm probably not as smart as you are
+[08:17:41] <ben_alman> seriously
+[08:17:45] <ben_alman> you're a really smart guy
+[08:17:51] <ben_alman> and i get overwhelmed easily
+[08:17:58] <ben_alman> so that page was like "um, wat"
+[08:18:00] <ben_alman> to me
+[08:18:12] <ben_alman> but i appreciate your trying to help me
+[08:18:14] <ben_alman> :)
+[08:18:17] <snover> It uses travis as the test runner for the tests, instructs with the browsers using the webdriver api, sets up a proxy so your code can be analysed for code coverage, and uses the same proxy for the browser to report test results back to the test runner
+[08:18:29] <snover> but you don’t really need to know how it works, so much
+[08:18:32] <ben_alman> do you like, install teststack somewhere?
+[08:19:30] <snover> you create a configuration file for the teststack runner, like https://github.com/csnover/dojo2-core/blob/master/test/teststack.js, and a configuration file for travis, like https://github.com/csnover/dojo2-core/blob/master/.travis.yml
+[08:19:55] <snover> and then just follow the instructions that travis give you to enable travis for whatever repo you are testing
+[08:20:11] <snover> and thennn
+[08:20:13] <ben_alman> travis will need to download teststack for each rpoject, right?
+[08:20:18] <snover> you get output like https://travis-ci.org/csnover/dojo2-core
+[08:20:22] <ben_alman> ok i see the _travis.yem
+[08:20:25] <ben_alman> yml
+[08:20:27] <ben_alman> that's making more sense
+[08:21:03] <ben_alman> snover: is https://github.com/csnover/dojo2-teststack.git the canonical url
+[08:21:08] <snover> yes
+[08:21:16] <ben_alman> ok
+[08:21:18] <snover> vladikoff has been kinda-using it
+[08:21:24] <ben_alman> it doesn't feel permanent to me
+[08:21:26] <ben_alman> just a red flag
+[08:21:36] <ben_alman> i don't want to have to touch these jquery plugins for 5 years
+[08:21:37] <ben_alman> or ever
+[08:21:40] <ben_alman> once this is done
+[08:21:55] <snover> but how will you fix them!?
+[08:21:56] <snover> :)
+[08:22:02] <ben_alman> also, not thrilled about the install method
+[08:22:18] <ben_alman> have you considered publishing this as an npm module
+[08:22:22] <ben_alman> since it uses node
+[08:22:27] <ben_alman> that would be ++++
+[08:22:38] <ben_alman> it would be significantly more palatable to me
+[08:22:40] <snover> so instead of git clone you run npm install?
+[08:22:51] <ben_alman> yeah and then insteald of "node runner.js
+[08:22:58] <ben_alman> you could just do "Teststack"
+[08:23:00] <ben_alman> if you had a local bin
+[08:23:03] <ben_alman> or something
+[08:23:06] <ben_alman> er "teststack"
+[08:23:12] <ben_alman> or i could make a grunt task for it
+[08:23:27] <ben_alman> which means it could be configured with other things in my project
+[08:23:35] <ben_alman> instead of in a separate "teststack" file
+[08:23:42] <ben_alman> which would be neat.
+[08:23:49] <ben_alman> i'm not like smoking grunt crack here
+[08:23:56] <ben_alman> i just like to put my config stuff in a central place
+[08:24:37] <ben_alman> ok snover so i have a few other questions
+[08:24:44] <ben_alman> i'm looking at this
+[08:24:45] <ben_alman> https://github.com/csnover/dojo2-core/blob/master/test/teststack.js
+[08:25:18] <ben_alman> trying to figure out what to do
+[08:25:21] <snover> i guess i don’t understand how being an npm package imbues that ability specifically, but i would be interested to understand.
+[08:25:52] <ben_alman> well it's way more idiomatic for someone who uses npm to manage all the devDependencies
+[08:26:42] <ben_alman> i guess it doesn't matter
+[08:26:47] <ben_alman> i mean it's up to you
+[08:26:54] <snover> if it makes it easier to use, then i am interested in that
+[08:27:11] <ben_alman> well i could just specify your package as a devdependency
+[08:27:17] <ben_alman> or create a grunt plugin that did
+[08:27:32] <ben_alman> not sure how i'd use it per se stuff
+[08:28:00] <snover> i guess the thing is, unless you have a real need to test code on your local machine on all the browsers *before* you commit it
+[08:28:03] <snover> you might as well just commit it
+[08:28:06] <snover> and let travis do it for you
+[08:28:16] <snover> then it is pretty much a “set it and forget it” kind of thing
+[08:29:02] <snover> you can still run your unit tests in whatever local browser you have hanging around by just browsing to client.html
+[08:29:17] <snover> which would be the familiar way you know and love running tests, because that’s how you do it with qunit
+[08:29:27] <ben_alman> yes
+[08:29:30] <ben_alman> that's what i already do
+[08:29:33] <ben_alman> i have test.html
+[08:29:38] <ben_alman> which runs in the browser
+[08:29:49] <ben_alman> which i run in phantomjs for basic webkit testing
+[08:30:11] <snover> anyway, if you are actually interested but don’t feel like doing it yourself, i can whip up a qunit interface this afternoon for your existing tests
+[08:30:35] <ben_alman> lol snover https://github.com/axemclion/grunt-saucelabs
+[08:30:42] <ben_alman> "A Grunt task for running qunit and jasmine tests using Sauce Labs' Cloudified Browsers."
+[08:30:47] <snover> jasmine sucks
+[08:30:53] <ben_alman> i think i should probably try that first
+[08:30:54] <snover> its “async” testing polls
+[08:31:05] <snover> you are blinded by names
+[08:31:13] <ben_alman> ok
+[08:31:27] <snover> well i am just saying
+[08:31:36] <ben_alman> i'm not sure what that means
+[08:31:38] <snover> “oh this uses sauce labs but is a grunt task! i like grunt tasks, i should try this”
+[08:32:02] <snover> i understand that thought
+[08:32:10] <snover> and if you want to do that, definitely feel free to do that
+[08:32:30] <snover> but, you’ll have to rewrite your tests in jasmine, and jasmine has the worst async testing ever
+[08:32:35] <ben_alman> ok well if you've got 2 "foo" code bits, "diy-foo" and "dojo-foo" you're going to be more inclicned to at least consider the "dojo" named one first
+[08:32:39] <ben_alman> and please don't suggest otherwise
+[08:32:51] <ben_alman> so i'm going to at least try the grunt one first
+[08:32:52] <Krinkle> snover: you did read that it says "qunit and jasmine tests"
+[08:33:07] <snover> Krinkle: no, i missed that. thank you for pointing it out.
+[08:33:07] <ben_alman> because it might be done in the idiom that i'm most familiar with
+[08:33:10] <ben_alman> it could suck.
+[08:33:15] <Krinkle> yw
+[08:33:36] <snover> ben_alman: frankly, i look at the features and see if they match what i want.
+[08:33:41] <ben_alman> of course
+[08:33:52] <ben_alman> but you click on the "dojo" link first
+[08:34:39] <snover> not if it’s written by a known IBM employee :)
+[08:35:24] <snover> anyway, let me know how that works out for you
+[08:35:39] <snover> it will probably be great and you will never miss not having code coverage or functional testing
+[08:37:44] <snover> but if you change your mind, my offer to write you a qunit interface so all you need to do is wrap your tests in define(['teststack!qunit'], function(qunit){ with(qunit){ all your existing tests; } }) stands
+[08:40:12] <Krinkle> btw, bridges such as mocha-qunit dont' really work well in practice because (at least the one I've seen) just creates a qunit-like object that forwards everything
+[08:40:22] <Krinkle> But, like mocha, qunit can be extended with extra assertion functions and plugins. Which it wouldn't know about
+[08:41:05] <Krinkle> so anything beyond basic assert.equal / asssert.deepEqual would fail.
+[08:41:35] <snover> so what you are saying is that qunit violates modularity/encapsulation?
+[08:41:54] <Krinkle> nope, afaik any testing framework allows this, and should.
+[08:42:11] <Krinkle> teardown/setup, extra assertion abilities for certain needs
+[08:42:25] <snover> mocha and teststack both use independent assertion libraries
+[08:42:38] <snover> so your assertion mechanism of choice is not tied to your test framework
+[08:42:41] <Krinkle> e.g. one might have a assert.isPromise() plugin for libs that deal with promises.
+[08:42:43] <snover> so you have portability
+[08:42:53] <snover> assert.isPromise should not need to know anything about qunit
+[08:42:56] <snover> or teststack or mocha or jasmine
+[08:42:59] <Krinkle> yep
+[08:43:06] <Krinkle> anyway, back to the real world and in-browser testing.
+[08:43:08] <snover> all it needs to do is throw an error if it’s wrong
+[08:43:25] <Krinkle> yes, except qunit isn't exception based
+[09:23:34] <ryanneufeld> is there any reason to suspect that $.ajax is lowercasing my ajax urls?
+[09:23:51] <ryanneufeld> I mean, I have a reason to suspect it, but I have no proof
+[09:23:52] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/GFYExA
+[09:23:52] <jqcommit> 13jquery/06master 142bbc3d5 15Dave Methvin: Fix #13471. $().on(".xyz"...) should avoid later crash....
+[09:26:44] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 061.9-stable: 02http://git.io/TG-aWw
+[09:26:44] <jqcommit> 13jquery/061.9-stable 14f516391 15Dave Methvin: Fix #13471. $().on(".xyz"...) should avoid later crash....
+[09:31:39] <doesallmagic> Project jQuery Core build #705: STILL FAILING in 7 min 42 sec: http://swarm.jquery.org:8080/job/jQuery%20Core/705/
+[09:31:39] <doesallmagic> dave.methvin: Fix #13471. $().on(".xyz"...) should avoid later crash.
+[09:32:07] <DaveMethvin> swarmy you are pitiful
+[09:32:16] <doesallmagic> Project jQuery 1.x Core build #73: STILL FAILING in 35 sec: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/73/
+[09:32:17] <doesallmagic> dave.methvin: Fix #13471. $().on(".xyz"...) should avoid later crash.
+[09:32:50] <DaveMethvin> if good things some in threes, crappy things must come in twos
+[09:33:19] <siovene> DaveMethvin: did you have time to check out the links I posted yesterday?
+[09:33:34] <DaveMethvin> Krinkle are these fails coming from browserstack or are they our side
+[09:33:39] <DaveMethvin> siovene no i missed those
+[09:33:47] <Krinkle> http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/73/console
+[09:33:52] <Krinkle>  /tmp/hudson1567363063459143840.sh: line 3: ./node_modules/.bin/grunt: No such file or directory 
+[09:33:56] <Krinkle> someone is messing iwth grunt ?
+[09:34:01] <Krinkle> not testswarm not browserstack
+[09:34:15] <DaveMethvin> oh boy
+[09:34:17] <siovene> DaveMethvin: https://github.com/siovene/perfectjs#readme
+[09:34:21] <siovene> DaveMethvin: http://siovene.github.com/perfectjs/examples/jquery/index.html
+[09:35:10] <DaveMethvin> Krinkle this doesn't look like grunt http://swarm.jquery.org:8080/job/jQuery%20Core/705/console
+[09:35:17] <DaveMethvin> that was the preceding job
+[09:36:58] <Krinkle> that one is failing because nginx crashed again with a gate way timeout
+[09:37:14] <DaveMethvin> what do I edit to fix that?
+[09:37:15] <Krinkle> and the http error page is html, with <!doctype at the start, which is invalid json.
+[09:37:22] <Krinkle> there is nothing to edit
+[09:37:24] <DaveMethvin> right i figured that
+[09:37:28] <Krinkle> nginx has been crashing randomly for weeks
+[09:37:31] <Krinkle> it is already back up
+[09:37:43] <Krinkle> you can click "Build now" in jenkins to start off another build and let it try again
+[09:37:51] <Krinkle> (log into Jenkins first)
+[09:38:16] <Krinkle> http://swarm.jquery.org:8080/job/jQuery%20Core/ in the sidebar "Build now"
+[09:38:21] <Krinkle> (I can do it if you want)
+[09:38:40] <DaveMethvin> nm i'm going to be committing more stuff ... i need to figure out the grunt issue ... this is probably where i double down and upgrade grunt
+[09:39:22] <Krinkle> k, that'll naturally trigger a new build
+[09:40:54] <ryanneufeld> who can I poke w/ questions regarding ajax?
+[09:41:18] <DaveMethvin> ryanneufeld i saw the q upstream, it doens't lowercase any url
+[09:41:28] <ryanneufeld> orly? https://github.com/jquery/jquery/blob/master/src/ajax.js#L55
+[09:42:05] <DaveMethvin> holy crap that looks wrong!
+[09:42:17] <ryanneufeld> I r confused
+[09:42:32] <ryanneufeld> this has caused a production bug for us, and we're not even on 1.9x yet :S
+[09:42:35] <DaveMethvin> file a bug
+[09:42:51] <ryanneufeld> will do
+[09:42:57] <ryanneufeld> cause that seems really wrong to me
+[09:42:58] <DaveMethvin> it's definitely wrong for the path part, it's ok for proto or domain
+[09:43:07] <ryanneufeld> don't, f*ck, with my urls dude :P
+[09:43:20] <ryanneufeld> this is how I'm using it
+[09:43:20] <ryanneufeld> https://gist.github.com/ryanneufeld/00b34944c9a89e6552d4/edit
+[09:43:26] <ryanneufeld> so it may be *my* fault
+[09:43:37] <ryanneufeld> though this seems to work, unless I'm using an apache alias
+[09:44:13] <ryanneufeld> but what I see in the console is the lower-cased version
+[09:44:24] <DaveMethvin> id have to trace the code to see if it uses the lowercase for the path
+[09:44:30] <DaveMethvin> or you could do that
+[09:44:39] <DaveMethvin> again, proto and domain is fine
+[09:44:45] <DaveMethvin> but lower on the path would confuse some servers
+[09:44:54] <ryanneufeld> and this developer
+[09:45:08] <ryanneufeld> why bother with the lowercasing anyway?
+[09:45:17] <DaveMethvin> to simplify the string compares
+[09:45:21] <ryanneufeld> oh
+[09:45:24] <ryanneufeld> that'll do it
+[09:45:26] <DaveMethvin> https://github.com/jquery/jquery/blob/master/src/ajax.js#L441
+[09:45:42] <DaveMethvin> but again you'll need to look whether the lowercase *path* is being used
+[09:45:47] <DaveMethvin> if it's not then things are fine
+[09:46:00] <ryanneufeld> the url is relative
+[09:46:08] <ryanneufeld> so lowercasing any part of it is bad
+[09:46:30] <DaveMethvin> only if it's used in the request
+[09:46:41] <DaveMethvin> so if you go to the network tab
+[09:46:50] <DaveMethvin> and look at the url requested
+[09:46:53] <DaveMethvin> is it lowercase?
+[09:47:35] <ryanneufeld> http://cl.ly/image/2B1P1F1L2M0a
+[09:48:34] <ryanneufeld> oh... wait... it's being redirected... wtf
+[09:48:53] <ryanneufeld> NEVERMIND
+[09:48:56] <ryanneufeld> it's our code
+[09:48:58] <DaveMethvin> i only see the lowercased versions being used vor comparison
+[09:48:59] <ryanneufeld> FAIL
+[09:49:12] <DaveMethvin> good!
+[09:49:13] <DaveMethvin> :D
+[09:49:14] <ryanneufeld> http://cl.ly/image/0W0R0r1d1X0K
+[09:49:35] <DaveMethvin> yer doin it rong
+[09:49:43] <ryanneufeld> yeah, I realized when I saw the redirect, we have server side code that redirects to lowercased urls
+[09:49:47] <ryanneufeld> for SEO
+[09:50:14] <ryanneufeld> I voted for just 404ing them, but apparently it's 'better' this way 
+[09:50:28] <scott_gonzalez> DaveMethvin rwaldron: https://github.com/jquery/jquery/blob/master/src/event.js#L571
+[09:50:30] <ryanneufeld> Thanks any way DaveMethvin
+[09:50:42] <scott_gonzalez> The curly should be on its own line or all props should be moved up, correct?
+[09:51:04] <DaveMethvin> i think it would look better either way :)
+[09:51:29] <scott_gonzalez> Gonna move type: type to the next line.
+[09:51:37] <DaveMethvin> seems too long for one line, so  moving the curly up would be good
+[09:51:52] <scott_gonzalez> Do we have docs for special events?
+[09:52:05] <scott_gonzalez> That's the only reason I'm even looking at this code :-P
+[09:52:07] <DaveMethvin> i have them but never had a place to put them
+[09:52:12] <DaveMethvin> let me get you a url
+[09:52:44] <scott_gonzalez> Seems like a page on api.jquery.com or learn.jquery.com would be good.
+[09:53:07] <DaveMethvin> https://docs.google.com/document/d/1eQG5Mw6TLbO3_Muhlbw5Gu9ZHdLWBE2EcROxtdWCls0/edit?authkey=COe3m_kC&authkey=COe3m_kC
+[09:53:19] <DaveMethvin> was just waiting for the dust to settle on the new sites, it could go there now
+[09:53:34] <DaveMethvin> but it needs a big banner saying these are not stable apis
+[09:53:53] <DaveMethvin> if someone sets a special "click" handler we may clobber theirs on the next release
+[09:54:55] <scott_gonzalez> https://github.com/jquery/jquery-ui/pull/886/files
+[09:54:56] <b-ot> scott_gonzalez: Pull request #886 by boraMan (1mon 1w ago): Replaced $.cleanData-hook with $.event.special
+[09:55:17] <DaveMethvin> we have a core ticket bout that
+[09:55:50] <scott_gonzalez> yup
+[09:56:03] <scott_gonzalez> http://bugs.jquery.com/ticket/12213#comment:2
+[09:56:12] <scott_gonzalez> It's on line 134 of my todo list :-P
+[09:56:36] <scott_gonzalez> I'm pretty sure we want teardown and not remove.
+[09:57:39] <DaveMethvin> remove will call teardown when there aren't any left
+[09:58:24] <DaveMethvin> the concern i have with external use of special events is that there is only one remove hook
+[09:58:38] <DaveMethvin> if someone else does that they will clobber yours or vice versa
+[09:58:44] <DaveMethvin> and those are pretty generic names
+[09:59:03] <scott_gonzalez> Right, I want to change the name of our hook.
+[09:59:11] <scott_gonzalez> Like widget-remove
+[09:59:18] <scott_gonzalez> Well, probably widget:remove
+[09:59:26] <DaveMethvin> yeah colon is good
+[09:59:39] <scott_gonzalez> We're going to switch all of our events to have colons.
+[09:59:43] <DaveMethvin> just not a dot!! :)
+[09:59:45] <scott_gonzalez> dragstart -> draggable:start
+[10:00:32] <scott_gonzalez> $( this ).on( ".imajackass", goParseEventNames )
+[10:00:57] <DaveMethvin> well now that's a no-op, so HAHA
+[10:01:54] <snover> if you care at all, colons in event names might cause minor interoperability hurdles, since dojo uses that as the delimiter for shorthand event delegation
+[10:02:05] <DaveMethvin> that pr looks good actualy scott_gonzalez
+[10:02:08] <snover> there is a longhand way to do it that works
+[10:02:22] <DaveMethvin> i think several mvcs have settled on colons haven't they?
+[10:02:24] <snover> but if you care, even a tiny bit. it is worth maybe 1.5 seconds of thought.
+[10:02:45] <DaveMethvin> i seem to recall seeing them around
+[10:02:50] <scott_gonzalez> snover: What are shorhand event delegations?
+[10:02:56] <scott_gonzalez> Like "click:li" ?
+[10:03:04] <snover> yeah, basically
+[10:03:09] <snover> though of course
+[10:03:13] <scott_gonzalez> Y UO NO USE SPACE?!?
+[10:03:23] <snover> i am not sure how this is ever supposed to work with :not
+[10:03:29] <scott_gonzalez> Y I CAN'T TYPE?!?
+[10:03:33] <snover> so i guess i should go raise a bug elsewhere ;)
+[10:03:59] <snover> ".foo:click, .bar:mouseover"
+[10:04:21] <snover> there are actually so many ways this shorthand doesn’t do a good job
+[10:04:24] <scott_gonzalez> Oh my, multiple events?
+[10:04:33] <snover> yes
+[10:04:35] <scott_gonzalez> This is crazy.
+[10:04:41] <scott_gonzalez> You should just yank it :-)
+[10:05:38] <scott_gonzalez> Oh, also, what I was talking about yesterday...
+[10:05:54] <scott_gonzalez> Firefox has been firing the mouseover event in that situation for years.
+[10:06:56] <snover> sure. i mean, it makes sense
+[10:07:05] <snover> it’s just difficult to emulate
+[10:07:21] <jqcommit> 01[13jquery01] 15scottgonzalez pushed 1 new commit to 06master: 02http://git.io/5Ta6Hg
+[10:07:21] <jqcommit> 13jquery/06master 14b55bfb1 15Scott González: Whitespace.
+[10:07:30] <snover> if i can’t make a firefox emulator in chrome then what am i doing being a web developer you know?
+[10:07:35] <scott_gonzalez> ^ my contribution to jQuery for the year.
+[10:07:46] <DaveMethvin> yay!
+[10:08:00] <scott_gonzalez> You'll thank me later.
+[10:08:16] <scott_gonzalez> When you run a blame and get a worthless commit :-)
+[10:10:03] <scott_gonzalez> DaveMethvin: You think that PR is ok?
+[10:10:11] <scott_gonzalez> Seems like it'd be firing multiple events for the same element.
+[10:10:43] <DaveMethvin> we'd only remove the event on the element once
+[10:10:51] <scott_gonzalez> Oh, nevermind.
+[10:10:58] <scott_gonzalez> o.handle is the actual event handler.
+[10:11:08] <DaveMethvin> it's nice b/c it avoids all the trigger overhead
+[10:11:24] <scott_gonzalez> I was looking at `new $.Event()` and thinking we were doing a for-real trigger.
+[10:11:53] <DaveMethvin> if that's all you need to do then that impl should be faster
+[10:13:31] <scott_gonzalez> $.Event() doesn't do much work, right?
+[10:13:39] <scott_gonzalez> We don't even need a real event for UI.
+[10:13:48] <scott_gonzalez> We just need a callback.
+[10:13:48] <DaveMethvin> yep, it's pretty light
+[10:14:05] <scott_gonzalez> I mean, I'd be fine with o.handle.call( this );
+[10:14:10] <scott_gonzalez> But it seems a bit ghetto.
+[10:14:25] <DaveMethvin> as long as it doesn't break any documented interface, it would save you some time
+[10:14:35] <scott_gonzalez> Yeah, this isn't documented.
+[10:14:37] <DaveMethvin> you coudl create a plain object with a coupla basic props
+[10:14:40] <doesallmagic> Project jQuery Core build #706: STILL FAILING in 7 min 23 sec: http://swarm.jquery.org:8080/job/jQuery%20Core/706/
+[10:14:41] <doesallmagic> Scott González: Whitespace.
+[10:14:47] <scott_gonzalez> People hook into it, and that's going to break when we change the name.
+[10:14:57] <scott_gonzalez> But it's not intentionally not documented.
+[10:15:21] <scott_gonzalez> ugh, it's intentional not
+[10:15:31] <DaveMethvin> stuff is gonna break when you change the event name anyway
+[10:15:32] <scott_gonzalez> DAMNIT, I really can't type today.
+[10:18:30] <rwaldron> scott_gonzalez looks like that changed a bit since the style sweep commit that I have the blame for.
+[10:18:52] <rwaldron> that's an ugly piece of code no matter how you write it.
+[10:19:14] <DaveMethvin> yeah, too many args 
+[10:19:27] <rwaldron> unfortunately, jQuery.extend() often falls victim to those patterns
+[10:20:11] <scott_gonzalez> There's nothing like a whitespace commit to clean up after another whitespace commit :-)
+[10:21:07] <DaveMethvin> since the rule is that "last person to touch it broke it" you have to git the job working ... looks like that whitespace change broke the unit tests
+[10:21:11] <DaveMethvin> get
+[10:21:13] <rwaldron> I think I'd redo the whole thing like: https://gist.github.com/rwldrn/9471f403dd265110813d
+[10:21:40] <DaveMethvin> yeah i agree, at one point i think perhaps it was longer
+[10:21:50] <DaveMethvin> or maybe i am imagining
+[10:22:51] <DaveMethvin> siovene the presentation looks good
+[10:22:51] <scott_gonzalez> Yeah, had I actually looked at the code, that's what I would've written.
+[10:23:03] <DaveMethvin> well don't touch it again
+[10:23:20] <DaveMethvin> we can do another style sweep
+[10:23:30] <DaveMethvin> later!
+[10:23:36] <scott_gonzalez> I should just step away from my computer...
+[10:23:55] <DaveMethvin> it's just amazing how we all get distracted
+[10:24:12] <DaveMethvin> and the unit tests are still broken
+[10:26:06] <scott_gonzalez> haha
+[10:26:23] <scott_gonzalez> Now I feel bad.
+[10:26:43] <DaveMethvin> hello jenkins ... are you awake?
+[10:26:43] <scott_gonzalez> I had this on my todo list for 7 months.
+[10:26:50] <scott_gonzalez> This guy sends a PR.
+[10:27:06] <scott_gonzalez> I wait a month before responding.
+[10:27:13] <scott_gonzalez> And now I've basically rewritten his code.
+[10:28:11] <scott_gonzalez> https://gist.github.com/scottgonzalez/83e5471837d73a5c6057
+[10:29:47] <DaveMethvin> that just might work
+[10:29:49] <DaveMethvin> :D
+[10:46:29] <jqcommit> 01[13jquery01] 15gibson042 pushed 2 new commits to 061.9-stable: 02http://git.io/j9ddCw
+[10:46:29] <jqcommit> 13jquery/061.9-stable 146b0aa04 15Timo Tijhof: Optimisation: Use String instead of window.String. Close gh-1176....
+[10:46:29] <jqcommit> 13jquery/061.9-stable 1489b62a7 15Scott González: Whitespace....
+[10:47:20] <doesallmagic> Project jQuery 1.x Core build #74: STILL FAILING in 8.3 sec: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/74/
+[10:47:21] <doesallmagic> * richard.gibson: Optimisation: Use String instead of window.String. Close gh-1176.
+[10:47:21] <doesallmagic> * richard.gibson: Whitespace.
+[10:48:01] <DaveMethvin> no gibson042 don't land that whitespace patch, it breaks swarmy! :D
+[10:48:07] <gibson042> :O
+[10:48:23] <DaveMethvin> imma getting mighty tired of these fails
+[10:48:26] <gibson042> in under 10 seconds, no less
+[10:48:34] <DaveMethvin> fail fast dontcha know
+[10:49:05] <gibson042> our swarm's so good, it fails *before* the commit
+[10:49:25] <DaveMethvin> you've heard of prefetch? This is prefail
+[10:49:35] <snover> DaveMethvin: sooooo.
+[10:50:57] <DaveMethvin> snover is there any way to hide the saucelabs api key?
+[10:51:16] <snover> if you can pressure the travis-ci people to actually do what i asked
+[10:51:50] <DaveMethvin> what did you ask?
+[10:52:56] <snover> basically, 1. add an option to always use a known good .travis.yml so people cannot change what travis executes, and 2. add an option to allow secure environment variables to be used for pull requests
+[10:53:07] <snover> then secure environment variables can be used…securely
+[10:53:21] <DaveMethvin> seems reasonable
+[10:54:02] <snover> their concern is basically information leakage and they think that people can’t be smart enough to avoid it so they just don’t want to even entertain the possibility
+[10:54:13] <snover> since someone could commit some code that reads process.env or whatever
+[10:54:37] <snover> but when using a known good .travis.yml (= known good version of teststack), teststack will read and unset the secure variables before any of the user code runs
+[10:54:37] <DaveMethvin> sure but making ppl commit this stuff to the repo just makes me feel icky inside
+[10:54:51] <snover> yeah, me too
+[10:55:28] <snover> anyway, sauce doesn’t care if you expose the keys, and they are revokable
+[10:55:41] <snover> so it is low risk to just see if someone decides to try to ruin your life
+[10:55:54] <snover> and then if they do, more bitching at travis
+[10:56:05] <DaveMethvin> well more of a risk that someone will copy/pasta your example and use it accidentally
+[10:56:17] <DaveMethvin> or just be lazy
+[10:57:12] <DaveMethvin> if they have to be 1337 haxors then it's a low risk
+[10:57:27] <snover> it’s true
+[10:57:36] <snover> i think we are on the same page
+[10:58:05] <DaveMethvin> well i do want to play with this, esp given our recent issues, but won't have time for a coupla weeks
+[10:58:24] <snover> if the jenkins part isn’t the part that is broken you could conceivably hook it up to that too, if you wanted
+[10:59:07] <DaveMethvin> some of it is our flakey unit tests, but lately it's breaking before it can get to our flakey unit tests
+[10:59:15] <snover> anyway, i am here for any and all questions or concerns
+[10:59:51] <snover> and we are using it internally at sitepen for several projects, so there is actually some paid time dedicated to it at the moment
+[10:59:51] <DaveMethvin> do you think the Fed's policy of quantitative easing poses long-term inflationary risk?
+[11:00:33] <snover> If I were you, I would be more concerned with the congressional budget
+[11:00:48] <DaveMethvin> funny, i'm traveling to canada march 1
+[11:00:58] <DaveMethvin> if they don't get it straghtened out i'm staying
+[11:03:29] <snover> as long as the tories don’t manage to completely ruin everything before the end of their term
+[11:36:01] <siovene> DaveMethvin: thanks :)
+[11:37:56] <DaveMethvin> siovene so i guess the plan is to have a low-level set of method-by-method calls, then a higher level set of tests?
+[11:38:39] <DaveMethvin> also i think we're good with just integer percentages, the tiny diffs don't matter
+[11:38:48] <DaveMethvin> cleans up the output
+[12:00:33] <petersendidit> Whats the reasoning behind jqXHR.always arguments being in different order depending on pass/fail?
+[12:02:37] <DaveMethvin> petersendidit: the args you get are the ones from the .resolve or .reject
+[12:02:49] <DaveMethvin> and unfortunately they are not the same args
+[12:02:58] <DaveMethvin> .always was added later
+[12:03:18] <DaveMethvin> because if it was done at the same time it would have been easy to see how screwed up that was
+[12:03:25] <petersendidit> yea, seems like it will cause confusion. You have to do some checking to figure out where the jqXHR is
+[12:04:17] <DaveMethvin> you are probably better off using .done or .fail and a new promise
+[12:04:26] <DaveMethvin> so you can resolve it with the same args every time
+[12:05:19] <petersendidit> yea
+[12:06:56] <DaveMethvin> oh and the args for resolve/reject were the same as the old success/error handlers and kept the same for "compatibility" reasons
+[12:10:33] <Krinkle> DaveMethvin: Deferred/Promise doesn't contain this inconsistency though, right? It is just the way jqXHR invokes it.
+[12:10:47] <DaveMethvin> Krinkle right
+[12:10:52] <Krinkle> always is whatever .done/.fail gets. And jqXHR calls reject/resolve with different arguments.
+[12:11:04] <Krinkle> k, thanks :) Just making sure I understand.
+[12:11:39] <DaveMethvin> it's up to the creator of the Deferred to determine what args get passed when resolved/rejected
+[12:11:51] <DaveMethvin> so if you expected someone to use .always you'd probably want them consistent
+[12:12:25] <DaveMethvin> unfortunately not even the Promise/A "cool story" describes this in any detail, it's all up to the implementer
+[12:13:10] <DaveMethvin> we just got squeezed because our older callback code didn't have consistent params and we ended up carrying that over which turned out to be a bad idea
+[12:13:53] <gnarf> petersendidit: put the stuff that depends on fail/success in done/fail and then anything global in always
+[12:14:01] <gnarf> functions are executed in the order bound
+[12:14:02] <gnarf> so
+[12:15:30] <DaveMethvin> good grief the drivers on this hardware are such crap
+[12:15:37] <petersendidit> but means always has to check to see if the first arg is a jqXHR and if not then use the 3rd arg
+[12:16:17] <petersendidit> or check textStatus to decide which args are which
+[12:16:28] <petersendidit> just seems bad
+[12:16:56] <DaveMethvin> i agree, probably best to avoid .always
+[12:18:16] <DaveMethvin> i mean, the docs describe it pretty well, i just checked, but it's butt ugly
+[12:18:27] <dcherman> fwiw i treat always as a finalizer - never use any arguments from it, pretty much like gnarf suggested earlier
+[12:18:35] <dcherman> there is .complete, but yea...deprecated
+[12:19:29] <petersendidit> ok
+[12:42:54] <siovene> DaveMethvin: yes, that's the idea. Though I don't really understand what the use for more complex tests is. If you find a performance regression in a test made of multiple operations, won't you want to break it to see exactly where the problem lies?
+[12:43:57] <DaveMethvin> siovene it's not just about jquery's performance, in fact it usually isn't
+[12:44:08] <DaveMethvin> it's about what we cause the browser to do
+[12:44:24] <DaveMethvin> for example, in mobile there was a big perf issue because we caused a layout when some events were triggered
+[12:44:32] <DaveMethvin> but it wasn't inside our code
+[12:44:43] <DaveMethvin> it was what we told the browser to do that made it slow
+[12:44:57] <DaveMethvin> you can only see those things with higher level composed testing
+[12:45:08] <siovene> DaveMethvin: ah ok cool, thanks for clarifying :)
+[12:45:44] <siovene> DaveMethvin: you are welcome to contribute some test cases there, of course!
+[12:46:03] <DaveMethvin> no way that's the hard part! :P
+[12:46:32] <siovene> heh, but I wouldn't know where to start
+[12:47:04] <DaveMethvin> if we have an easy-to-update framework that should get us to the point where we can create better test cases
+[12:47:20] <DaveMethvin> we will need a moderately complex document to work on though
+[12:47:57] <siovene> Yeah I'm working on the framework
+[13:28:36] <doesallmagic> Project jQuery 1.x Core build #75: STILL FAILING in 5.8 sec: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/75/
+[13:29:14] <DaveMethvin> ok, well at least it's official. 
+[13:37:59] <kfrazier> If one of the jQuery developers that really understands the ajax implementation is available for a few questions, I would very much appreciate your time
+[13:38:44] <gnarf> kfrazier: support in #jquery - but shoot anyway
+[13:40:29] <kfrazier> Okay, if I am far off base I will go ask there, but thank you
+[13:41:04] <kfrazier> I am working on a plugin that needs to intercept an ajax response and potentially spoof the response code under certain conditions
+[13:41:28] <kfrazier> it seems like the best way to do this would be to override the ajax transport, based on digging around in the code
+[13:42:07] <kfrazier> $.ajaxTransport provides some support for this, but I don't want to reimplement the whole transport from scratch, since it is quite complicated and has a lot of browser-specific behavior
+[13:42:46] <kfrazier> as far as I can tell, there is no way for me to get at the default implementation from outside the library so I can extend it
+[13:44:10] <kfrazier> Is there a better way to do this that I am overlooking that wouldn't require modifying jQuery itself to get at that function or reimplementing the whole default ajaxTransport?
+[13:48:58] <ben_alman> what's the best way to know when an iframe's contents have been loaded (back to IE6)
+[13:49:45] <kfrazier> ben_alman: I had some recent success with $('iframe').load back to IE7, but I haven't tried it in IE6
+[13:52:32] <dcherman> kfrazier: i'm sure i messed something up here since it's untested, but here's a good base for you: http://jsfiddle.net/7qGDs/
+[13:54:26] <dcherman> actually did forget something - gotta ensure the success/error/statusCode properties are undefined - http://jsfiddle.net/7qGDs/2/
+[13:57:38] <kfrazier> Okay, let me make sure I understand what is going on.
+[13:59:39] <kfrazier> so when someone later makes an ajax call, it will hit the prefilter, which will add interceptedXHR to dataType so that the custom ajaxTransport will intercept it. That part I get
+[14:00:10] <kfrazier> I am sort of confused by what happens in the send function
+[14:01:43] <dcherman> the send function sends out another ajax request, but you get to mess with the response in the complete callback before the information is sent back to the original ajax request.  that's also why you need to undefine certain things like success and error so that your callbacks aren't hit twice
+[14:01:44] <kfrazier> we clone the original settings and override all the handlers, then call the original ajax, which will not intercept it this time since options.intercepted is true
+[14:02:14] <kfrazier> ok, I think I understand. The second ajax call is the one that actually hits the XMLHttpResponse
+[14:02:26] <kfrazier> this one is sort of just a middleware wrapper
+[14:02:28] <dcherman> yep, the first request never even happens
+[14:02:59] <kfrazier> Okay, that makes sense, and I don't think I would have gotten there on my own
+[14:03:27] <kfrazier> Thanks so much. I am pleased that I don't have to distribute a modified version of jQuery to get this working
+[14:08:40] <doesallmagic> Project jQuery Core build #707: STILL FAILING in 8 min 53 sec: http://swarm.jquery.org:8080/job/jQuery%20Core/707/
+[15:12:16] <paul_irish> Krinkle: apparently it takes a Nexus 7 26s to load a wikipedia page and we know why
+[15:12:48] <paul_irish> PMing you details
+[15:13:05] <Krinkle> I already know why
+[15:13:24] <Krinkle> <style> changes, right ?
+[15:13:46] <DaveMethvin> I DON'T KNOW WHY, TELL ME TOO!
+[15:14:06] <Krinkle> paul_irish: You're collegue Eric Seidel has been in contact with Wikimedia devs.
+[15:14:31] <paul_irish> yup!
+[15:14:36] <paul_irish> bingo.
+[15:15:27] <Krinkle> paul_irish: the solution I'm probably going for (I'm one of two people who will likely do it) is to if-case IE separate and do the "right" thing in all other browsers
+[15:15:43] <Krinkle> which is to add a new <style> tag, unless you know a better way to add arbitrary css string
+[15:15:43] <paul_irish> makes sense.
+[15:16:11] <paul_irish> yup that sounds ideal
+[15:16:36] <Krinkle> paul_irish: Though, in our defence, I wonder why it reflows after each
+[15:17:05] <Krinkle> Not really in our defence, when we wrote it we didn't do it this way thinking it wouldn't reflow
+[15:17:12] <Krinkle> we just hadn't thought of it that way.
+[15:17:14] <paul_irish> Krinkle: its because css() triggers a reflow
+[15:17:27] <Krinkle> we're not using css()
+[15:17:33] <paul_irish> it forces a style resolution
+[15:17:35] <Krinkle> (jquery#css?)
+[15:17:59] <paul_irish> yeah. 
+[15:18:00] <paul_irish> reading
+[15:18:18] <Krinkle> paul_irish: you have the mail thread?
+[15:18:27] <paul_irish> nah
+[15:18:33] <Krinkle> whatcha reading?
+[15:18:43] <Krinkle> PM me an address and I'll forward it
+[15:19:00] <paul_irish> just the internal report.
+[15:19:07] <Krinkle> k
+[15:19:13] <paul_irish> says " $(someObject).css()" is called elsewhere in the code
+[15:19:18] <paul_irish> not part of this.
+[15:19:23] <Krinkle> yeah, probably unrelated
+[15:19:29] <paul_irish> aye
+[15:22:52] <paul_irish> Krinkle: http://paulirish.com/i/086f20.png 
+[15:23:12] <paul_irish> http://paulirish.com/i/a1a260.png 
+[15:23:23] <paul_irish> there is the forced layout against recalc style
+[15:24:16] <paul_irish> so bug #1 is invalidating the entire stylesheet with the current behavior of addembeddedstyle
+[15:24:33] <paul_irish> bug #2 is layout thrashing
+[15:24:53] <Krinkle> yeah
+[15:25:37] <Krinkle> though you no doubt know more of dev tools, I use them myself all the time. These are familiar results unfortunately.
+[19:40:56] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/VQRmoA
+[19:40:56] <jqcommit> 13jquery/06master 1485f1985 15Richard Gibson: Fix #13494: Fallback defineProperties to jQuery.extend. Close gh-1182....
+[19:51:39] <doesallmagic> Project jQuery Core build #708: STILL FAILING in 9 min 8 sec: http://swarm.jquery.org:8080/job/jQuery%20Core/708/
+[19:51:39] <doesallmagic> dave.methvin: Fix #13494: Fallback defineProperties to jQuery.extend. Close gh-1182.
+[20:00:16] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/rGIBHA
+[20:00:16] <jqcommit> 13jquery/06master 148bc7bde 15Nguyen Phuc Lam: Ref #13283, move .andSelf() to deprecated.js. Close gh-1170.
+[20:03:29] <doesallmagic> Project jQuery Core build #709: STILL FAILING in 3 min 9 sec: http://swarm.jquery.org:8080/job/jQuery%20Core/709/
+[20:03:29] <doesallmagic> dave.methvin: Ref #13283, move .andSelf() to deprecated.js. Close gh-1170.
+[20:03:29] <sizcommit> 01[13sizzle01] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/GeBhOA
+[20:03:29] <sizcommit> 13sizzle/06master 14c32b012 15Richard Gibson: No ticket: Support micro-optimizations
+[20:08:59] <DaveMethvin> jzaefferer Krinkle could I get your help on http://bugs.jquery.com/ticket/13371 ?
+[20:09:14] <DaveMethvin> i dunno if it will help our failures recently but i am  hoping it does not hurt
+[20:09:49] <Krinkle> won't help, but certainly doesn't hurt.
+[20:10:37] <Krinkle> basically, update package.json, copy the registerTask(testswarm, -> ) block from qunit, and fill in the blanks from qunit -> jquery
+[20:11:08] <Krinkle> put it in a PR and jzaefferer / I can review.
+[20:11:11] <Krinkle> That is, if you want to do it.
+[20:11:26] <DaveMethvin> well if it's not important i will just skip it
+[20:21:12] <DaveMethvin> gibson042 is gh-1165 still usable? I thought i was seeing conflicts
+[20:22:02] <gibson042> it's not directly usable as-is, but I strongly suspect that analogous changes are worthwhile
+[20:24:02] <DaveMethvin> tryna figure out what to do about the stubby sizzle
+[20:24:16] <DaveMethvin> for the beta we could land as-is i suppose
+[20:24:46] <DaveMethvin> i have a similar cleanup to do in order to get bind and delegate out of the unit tests
+[20:24:58] <DaveMethvin> i've just been putting it off
+[20:33:07] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 061.9-stable: 02http://git.io/y4hUlg
+[20:33:07] <jqcommit> 13jquery/061.9-stable 14b6cfc04 15Dave Methvin: Try these dependencies since they work for 2.0
+[20:33:19] <doesallmagic> Project jQuery 1.x Core build #76: STILL FAILING in 14 sec: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/76/
+[20:33:19] <doesallmagic> dave.methvin: Try these dependencies since they work for 2.0
+[20:33:32] <DaveMethvin> well, 14 seconds
+[20:34:12] <DaveMethvin> it's the same deps ffs
+[20:36:15] <DaveMethvin> alright that's it for tonight
+[20:42:10] <jqcommit> 01[13jquery01] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/FGbLxA
+[20:42:10] <jqcommit> 13jquery/06master 141b6be73 15Richard Gibson: No ticket: Squeeze data
+[20:42:49] <gibson042> I think that's it for me too
+[20:44:59] <gibson042> DaveMethvin: I'd be fine with including the -sizzle option with our next 2.0 beta... it'd be nice to have feedback on which limitations actually matter, and we *know* it can't pass all unit tests anyway because that's kinda the point
+[20:46:11] <DaveMethvin> with something that extensive it is definitely harder to isolate
+[20:46:46] <gibson042> we're more than halfway there already, though
+[20:47:04] <gibson042> most of the tests that fail are specifically "jQuery only"
+[20:47:15] <DaveMethvin> right, like animated elements and such
+[20:47:21] <gibson042> or ported from Sizzle :D
+[20:47:51] <DaveMethvin> well at least we cut  the Ancient Androids a break
+[20:48:23] <gibson042> you know what the cool thing about that is, right?
+[20:48:29] <DaveMethvin> wat
+[20:48:29] <b-ot> DaveMethvin: i wonder why people even use forms when they ajax anymore
+[20:48:54] <gibson042> I'm pretty sure we can now backport the 2.0 data module to 1.x
+[20:49:08] <DaveMethvin> hmmmm
+[20:49:35] <DaveMethvin> as long as ie6 doesn't barf for some reason
+[20:50:02] <gibson042> we're basically just using jQuery.extend to shim Object.defineProperties
+[20:51:05] <DaveMethvin> alright, i'm really going to bed now
+[20:51:11] <DaveMethvin> cyl gibson042
+[20:51:15] <gibson042> g'night
+[20:51:19] <doesallmagic> Project jQuery Core build #710: STILL FAILING in 9 min 9 sec: http://swarm.jquery.org:8080/job/jQuery%20Core/710/
+[20:51:20] <doesallmagic> richard.gibson: No ticket: Squeeze data

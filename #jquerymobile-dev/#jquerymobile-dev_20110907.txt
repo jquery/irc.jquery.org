@@ -1,0 +1,625 @@
+[06:14:20] <scottjehl> morning!
+[06:15:25] <scottjehl> just finishing up a unit test for last-scroll and I'll push. seems to be working well at last :)
+[07:52:44] <scottjehl> k last scroll is back in, bugs closed
+[08:11:41] <jqm-jenkins-bot> Project jqm-master build #27: FAILURE in 5 min 40 sec: http://10.59.19.240:8080/job/jqm-master/27/
+[08:43:31] <_nickel> toddmparker: I am indeed back today :D
+[08:47:27] <gseguin> Good morning
+[08:47:55] <gseguin> kinblas: did you see this: https://hacks.mozilla.org/2011/09/detecting-and-generating-css-animations-in-javascript/
+[08:52:59] <kinblas> gseguin: hey no, I had not seen that ... but it looks like we need to update our $.mobile.support to check for that
+[08:53:18] <scottjehl> hey all
+[08:53:34] <gseguin> yup and animation keyframes seem to be working everywhere too
+[08:53:39] <scottjehl> _nickel - saw your email. are you looking for the lastscroll change?
+[08:53:40] <gseguin> hey scottjehl
+[08:53:45] <scottjehl> I added a unit test for it too
+[08:53:51] <_nickel> scottjehl: shweet!
+[08:53:53] <scottjehl> you might want to add more...
+[08:54:11] <_nickel> scottjehl: should have looked first
+[08:54:58] <kinblas> gseguin: I guess what I meant is the supports check on the HEAD assumes keyframe animation is supported if WebKitTransitionEvent is defined.
+[08:55:04] <scottjehl> here you go _nickel https://github.com/jquery/jquery-mobile/blob/master/js/jquery.mobile.navigation.js#L382
+[08:55:05] <kinblas> which is different
+[08:55:16] <_nickel> scottjehl: yah I found the commit
+[08:55:21] <_nickel> great stuff!
+[08:55:30] <scottjehl> btw I changed up focus a bit. It now only focuses on the page title, or page itself
+[08:55:42] <scottjehl> no more trying to find the last focused link, input, etc
+[08:55:49] <_nickel> makes sense
+[08:55:55] <kinblas> scottjehl: toddmparker: so are we punting on the transitions stuff this round or what? The engineer I was forwarded to @Google that handles the Android GPU acceleration is out till the 15th
+[08:56:01] <_nickel> highlighting the first link on the page seemed on on initial page load too
+[08:56:04] <scottjehl> in hindsight, even browsers don't do that natively
+[08:56:12] <gseguin> kinblas: yes, but also didn't we go with the assumption that animation keyframes were only for WebKit?
+[08:56:15] <_nickel> scottjehl: lol of course he is
+[08:56:20] <scottjehl> this removes the risk of browser scrolling past the focusable region too
+[08:56:59] <kinblas> gseguin: but that check for transitions, is used to tell us if keyframes is enabled
+[08:57:00] <scottjehl> so lastscroll now works great across pages regardless of whether they'd been removed from the DOM, and so forth
+[08:57:06] <kinblas> gseguin: which is kind of wierd
+[08:57:09] <scottjehl> I'm now halfway through iOS5 stuff
+[08:57:16] <scottjehl> makes transitions flawless
+[08:57:22] <kinblas> gseguin: "if feature A is supported, then feature B must be"
+[08:57:24] <scottjehl> also here's an odd one:
+[08:58:01] <scottjehl> the simple use of the -webkit-overflow-scrolling property makes the iOS clock no longer fire a scroll event
+[08:58:36] <scottjehl> obviously, I wouldn't expect it to cause my inner overflow region to scroll to top when tapping the clock, but it should at least fire window.scrollTo(0,0), and it doesn't
+[08:58:49] <scottjehl> so I can't detect that scroll and set the scrollTop of our inner page div
+[08:59:00] <scottjehl> filing a bug with Apple now, weeping, etc
+[08:59:08] <kinblas> oh, the reason
+[08:59:18] <kinblas> is because the browser canvas is already at (0,0)
+[08:59:27] <kinblas> everything is sized to fit exactly in the viewport
+[08:59:29] <scottjehl> not just that
+[08:59:32] <kinblas> they are probably trying to be smart
+[08:59:42] <scottjehl> I gave ui-page a top margin of 100px
+[08:59:49] <scottjehl> then scrolled the actual page behind it
+[08:59:54] <scottjehl> tapped the clock
+[08:59:55] <scottjehl> nothing
+[09:00:10] <scottjehl> reproduce the same thing with that property removed, it fires normally
+[09:00:20] <kinblas> I guess a basic test page would be to have lots of text (more than one screenfull
+[09:00:31] <kinblas> and some element in there that uses that property
+[09:00:34] <scottjehl> yeah, easy to reproduce without jqm
+[09:00:52] <scottjehl> btw, overflow: auto works with 1 finger
+[09:01:01] <kinblas> scottjehl: momentum?
+[09:01:02] <scottjehl> without momentum of course
+[09:01:05] <kinblas> doh
+[09:01:19] <scottjehl> but by removing overflow-scrolling-touch, the clock tap works
+[09:01:25] <scottjehl> just removing that one prop
+[09:01:25] <_nickel> sometimes I feel like this is the manhattan project
+[09:01:40] <scottjehl> so it somehow triggers the clock tap to be disabled
+[09:02:06] <scottjehl> also, touch events don't fire for the clock (not surprisingly), so a window scroll event would be the only thing to listen for
+[09:02:30] <_nickel> scottjehl: what you say "clock tap" what are you referring too?
+[09:02:31] <_nickel> *to
+[09:02:34] <_nickel> should I scroll up
+[09:02:46] <scottjehl> in iOS* it's a shortcut to jump to the top
+[09:02:50] <_nickel> ah!
+[09:02:54] * _nickel is ignorant
+[09:02:56] <scottjehl> fairly obscure
+[09:03:01] <scottjehl> not easy to discover
+[09:03:15] <_nickel> scottjehl: we are the "Kings of Cornercase" around here though eh?
+[09:03:17] <scottjehl> but I think power users tend to rely on it
+[09:03:26] <scottjehl> ya ya
+[09:03:32] <scottjehl> anyway, it's amazing how much better transitions are with this in... I'll be sure to include a global config to disable this
+[09:04:00] <kinblas> scottjehl: so where did we leave off on transitions yesterday?
+[09:04:13] <kinblas> scottjehl: I've been focussing on other stuff
+[09:04:26] <scottjehl> also, you could add a shim very easily if you wanted to. Just add the scrolling shim of your choice and set $.support.touchOverflow to true
+[09:04:42] <scottjehl> kinblas - transitions are going to be post 1.0 last I heard
+[09:04:53] <kinblas> scottjehl: ok good
+[09:05:02] * kinblas continues with the beforechangepage samples
+[09:05:07] <scottjehl> kinblas - beforechangepage
+[09:05:09] <scottjehl> ah ditto
+[09:05:11] <scottjehl> :)
+[09:05:12] <toddparker> hey guys
+[09:05:33] <kinblas> toddparker (without the m)
+[09:06:05] <toddparker> yeah, i think that for B3 tomorrow, we should not focus on transitions because they won't be a significant improvement and introduce some issues and risk
+[09:06:27] <toddparker> sorry to make that call after al the effort, but I see this going in pretty soon. maybe before the end of the year
+[09:06:39] <toddparker> i just want 1 browser to support this well before we do
+[09:06:53] <toddparker> right now, we just have desktop FF and you guys said that was chuggy too
+[09:07:03] <toddparker> so for B3 tomorrow, we'll have pushstate (landed)
+[09:07:06] <toddparker> scrollback fix
+[09:07:24] <toddparker> beforechangepage hook
+[09:07:37] <toddparker> iOS overflow/fixed headers
+[09:07:56] <_nickel> toddparker: have we heard any rumbling on the pushstate front? I haven't seen anything ...
+[09:08:05] * _nickel is nervous
+[09:08:07] <scottjehl> rumbles?
+[09:08:08] <toddparker> (maybe add Android 2.2+/Honeycomb, Playbook to this too)
+[09:08:13] <_nickel> bugs etc
+[09:08:20] <toddparker> not really, no
+[09:08:29] <scottjehl> The playbook thing is pretty odd. Nothing we can do
+[09:08:48] <_nickel> scottjehl: yah
+[09:09:05] <_nickel> scottjehl: I think getting around that chrome bug was fun enough :D
+[09:09:15] <_nickel> I can play around with the playbook issue but you'll have to get me one :D
+[09:09:25] <toddparker> heh
+[09:09:30] * _nickel notes his overuse of "play"
+[09:09:40] <toddparker> you're not missing too much
+[09:09:44] <scottjehl> it kinda works at least
+[09:09:53] <scottjehl> refresh gets the right url
+[09:09:59] <_nickel> scottjehl: thats good
+[09:10:03] <toddparker> it will be cool if we can extend this IOS5 stuff to those other platforms
+[09:10:07] <_nickel> any numbers on market share?
+[09:10:15] <toddparker> coudl make a big dent in improving transitions on popular browsers
+[09:10:22] <toddparker> for playbook?
+[09:10:26] <_nickel> toddparker: yah
+[09:10:37] <kinblas> _nickel: PPK just released the new browser share numbers
+[09:10:43] <toddparker> link kinblas
+[09:11:00] <toddparker> i think most non-ipad tablets have very small mkt share #'s
+[09:11:08] <toddparker> galaxy tab may be as low as 20k
+[09:11:19] <toddparker> xoom might be about the same
+[09:11:24] <toddparker> PB = not sure
+[09:11:32] <toddparker> but it's getting dicounted now
+[09:11:40] <toddparker> you know how that goes
+[09:12:04] <toddparker> touchpad from HP may actually have a lead on some of these since they sold 'em at a loss
+[09:12:09] <kinblas> http://www.quirksmode.org/blog/archives/2011/09/mobile_browser_13.html
+[09:12:10] <toddparker> marginal stuff right now
+[09:13:11] <_nickel> toddparker: should we make note of that issue in the release?
+[09:13:22] <toddparker> ppk talka bout platforms
+[09:13:36] <toddparker> the playbook pushstate
+[09:14:16] <_nickel> toddparker: yah
+[09:19:47] <scottjehl> we need to email RIM too
+[09:19:50] <toddparker> we should write that up as a known issue
+[09:19:52] <toddparker> yep
+[09:20:02] <toddparker> scottjehl: can you do that later this week?
+[09:20:18] <scottjehl> email them?
+[09:20:21] <toddparker> yep
+[09:20:22] <scottjehl> we should today right?
+[09:21:17] <toddparker> sure, time permitting
+[09:25:41] <toddparker> anyone have an ipad running ios5?
+[09:25:46] <toddparker> or iphone?
+[09:26:09] <toddparker> http://filamentgroup.com/examples/ios5/
+[09:26:31] <toddparker> we're editing this live so things may break
+[09:26:41] * _nickel is definitely not cool enough.
+[09:28:23] <scottjehl> re-uploading to that ios5 dir
+[09:28:25] <scottjehl> hang
+[09:42:05] <kinblas> gseguin: ping
+[09:42:14] <gseguin> kinblas: yes sir?
+[09:42:45] <kinblas> gseguin: I'm trying to see if the beforechangepage changes are enough for jive's needs
+[09:42:53] <kinblas> I have your patch from around June
+[09:43:03] <kinblas> gseguin: what I need to know is what your URL looks like
+[09:43:21] * gseguin is getting a sample
+[09:43:28] <kinblas> gseguin: and when do you guys actually generate the page content?
+[09:43:51] <gseguin> http://macjiver:9888/#jive-status-update?content=http%3A%2F%2Fmacjiver%3A9888%2Fapi%2Fcore%2Fv2%2Fupdates%2F1059
+[09:44:48] <gseguin> right now we generate the content on pageshow
+[09:44:57] <scottjehl> how's that look with pushstate enabled?
+[09:45:23] <scottjehl> or is it always local / generated?
+[09:45:27] <gseguin> we don't use ajax
+[09:45:45] <gseguin> all the pages and template pages are in one doc
+[09:45:45] <kinblas> gseguin: you don't use ajax?
+[09:46:02] <gseguin> no I mean we don't use ajax navigation from jQM
+[09:46:02] <kinblas> gseguin: but you use ajax to pull in data to fill the pages right?
+[09:46:03] <scottjehl> I ask because it seems like approach-A for this should be, hijack a real server URL and build from local JSON instead
+[09:46:15] <gseguin> we do the ajax ourselves after parsing the url
+[09:46:32] <scottjehl> but let the URL update to the server resource, so the app is still usable in B and C-Grade devices
+[09:47:54] <scottjehl> then... gseguin's use case would be a step beyond that, in which C-Grade support would no longer be a possibility. Perfectly fine to build that way, but it may not be the way we'd want to demonstrate using this officially, as it breaks our browser support commitments
+[09:48:07] <scottjehl> ...if I'm understanding the JS dependency correctly.
+[09:49:17] <gseguin> I'm not sure I understand how beforepagechange will work here
+[09:50:06] <kinblas> gseguin: changepage takes 2 types of arguments
+[09:50:14] <kinblas> a url or a DOM element to change to.
+[09:50:34] <gseguin> yup
+[09:50:38] <kinblas> if it's an URL we call loadPage(), and then automatically call changePage when that load is done
+[09:50:48] <kinblas> to allow developers to do whatever they want
+[09:51:02] <kinblas> they can register for beforechangepage (or to be renamed pagebeforechange)
+[09:51:12] <kinblas> and do a preventDefault() on that event
+[09:51:31] <kinblas> that causes the changePage() call to immediately exit because you are going to handle the loading of the page
+[09:51:51] <kinblas> after you load your page, you simply call changePage() again, but this time passing in the node you want to be the current page
+[09:52:03] <kinblas> whatever happens before then is up to you
+[09:52:09] <gseguin> got it
+[09:52:32] <kinblas> gseguin: see the URL I sent via email lastnight
+[09:52:45] <kinblas> the one snag in this is the final setting of the browser location
+[09:53:18] <kinblas> changePage() assumes that it can just use the data-url
+[09:55:01] <gseguin> si you use a # instead of a ?
+[09:55:34] <gseguin> si = so
+[09:56:12] <kinblas> gseguin: in my sample?
+[09:56:17] <gseguin> yes
+[09:56:25] <kinblas> gseguin: I had it working with ?
+[09:56:30] <gseguin> oh great
+[09:56:35] <kinblas> http://foo.com/blah.html?user=jblas
+[09:56:41] <kinblas> *BUT* the problem
+[09:57:06] <kinblas> is that the history stuff needs a #hash to generate a new entry in the browser history stack
+[09:57:23] <gseguin> I assumw http://foo.com/#bar?user=jblas works too?
+[09:57:39] * gseguin can't type today
+[09:57:43] <kinblas> gseguin: yeah it's  up to you to parse and pull out what you need from the URL
+[09:57:57] <kinblas> gseguin: so your links look like the one you pasted earlier?
+[09:58:05] <gseguin> correct
+[09:58:19] <kinblas> yeah so you can parse out the content= url
+[09:58:21] <gseguin> the "querystring" is after the pageid
+[09:58:22] <kinblas> and load that
+[09:58:39] <gseguin> alright
+[09:58:58] <kinblas> gseguin: you mean it's the URL after the content= right?
+[09:59:19] <gseguin> kinblas: yes
+[10:00:14] <kinblas> gseguin: so after loading one of those puppies into a pre-determined embedded page
+[10:00:20] <kinblas> what do you guys set the location to?
+[10:00:55] <kinblas> oh I see, so the #jive-status-update is the id of the embedded page you are going to show
+[10:01:07] <kinblas> the content= is the URL you are going to load into it
+[10:01:21] <kinblas> ... yeah so what do you set location to at the end of everything?
+[10:01:42] <gseguin> so we let the location be like that
+[10:02:14] <gseguin> we just hook on pageshow
+[10:02:16] <kinblas> gseguin: so the location becomes the entire URL? http://foo.com/#jive-status-update?content=.... ?
+[10:02:23] <gseguin> correct
+[10:02:26] <kinblas> ah ok
+[10:02:35] <kinblas> that's easy then
+[10:02:43] * kinblas tries to make a sample
+[10:02:45] <gseguin> we modified the jQM page look up
+[10:02:49] <gseguin> to cut at ?
+[10:03:03] <gseguin> this way history works too
+[10:03:07] <kinblas> right so you find the jive-status-update div
+[10:05:09] <gseguin> so we should be able to "hack" the page lookup code
+[10:05:50] <gseguin> or have it customizable
+[10:06:19] <kinblas> gseguin: yeah you just hook the pagebeforechange notification
+[10:06:29] <kinblas> and then you can tell changepage which div to use
+[10:06:48] <gseguin> oh yeah that's right that should work
+[10:07:36] <kinblas> gseguin: so the last thing to do is to allow you to specify what URL to use when setting the location bar since the data-url for the page may not be the URL you want to set.
+[10:07:56] * kinblas looks into that now
+[10:10:26] <gseguin> kinblas: can you rephrase?
+[10:11:01] <toddparker> this is good stuff
+[10:11:31] <toddparker> i'd love to have a demo page in the docs and a brief overview of the techniques
+[10:11:31] <kinblas> gseguin: oh, I just meant that you will call changePage() with the div that has #jive-status-update as its data-url
+[10:11:44] <kinblas> gseguin: but that's not what you want in  your URL location bar
+[10:11:45] <toddparker> this will be very help ful to document today
+[10:12:00] <kinblas> toddparker: yeah samples are key
+[10:12:22] <kinblas> gseguin: instead, you want that full url with your content= in it
+[10:13:00] <kinblas> gseguin: it's easy, we just add a new config setting that allows folks to say use this url/page but display this URL
+[10:14:25] <kinblas> toddparker: should the samples use jquery-tmpl
+[10:14:27] <kinblas> ??
+[10:14:31] <kinblas> just curious
+[10:14:40] <kinblas> so far I've been manually building strings
+[10:15:16] <gseguin> kinblas: got it
+[10:15:39] <gseguin> daily scrum, will be back shortly
+[10:15:57] <toddparker> manual is fine
+[10:16:09] <toddparker> = simpler example
+[10:16:29] <toddparker> this guy is working on a new listview for key/value pairs
+[10:16:31] <toddparker> http://jsbin.com/ocoyon/29/
+[10:16:39] <toddparker> uses a DL with a role of listview
+[10:16:45] <toddparker> thoughts on the code?
+[10:18:32] <kinblas> toddparker: what does that mean?
+[10:18:36] <kinblas> key/value of what?
+[10:20:06] <toddparker> anything really
+[10:20:24] <toddparker> just a label and value
+[10:20:30] <toddparker> read only
+[10:22:54] <_nickel> kinblas: "so the last thing to do is to allow you to specify what URL to use when setting the location bar since the data-url for the page may not be the URL you want to set."
+[10:23:06] <_nickel> so the hook skips the dataurl handling obviously
+[10:23:08] <kinblas> _nickel: uh huh
+[10:23:22] <kinblas> _nickel: skips what part?
+[10:23:35] <_nickel> the part that pulls the data-url from the loaded page and sets it
+[10:23:47] <_nickel> unless we stopped doing that
+[10:23:51] <kinblas> _nickel: no that's done in changePage()
+[10:24:03] <kinblas> what I was saying was that we would modify changePage() to do something like:
+[10:24:35] <kinblas> urlToUse = settings.dataUrl || page.jqmData("url");
+[10:24:58] <kinblas> or maybe that would just be settins.url
+[10:26:02] <_nickel> makes sense
+[10:42:15] <gseguin> and we're back
+[10:48:29] <gseguin> regarding DL: http://www.w3.org/TR/html401/struct/lists.html#h-10.3
+[10:53:38] <gseguin> toddparker: I have iOS5b7 on iPad2
+[10:57:03] * kinblas notices we misspelled aardvarks
+[11:14:38] <toddparker> gseguin - great news
+[11:15:00] <gseguin> toddparker: what's up?
+[11:15:08] <toddparker> can you test transiotns here: http://filamentgroup.com/examples/ios5/
+[11:15:15] <gseguin> yes sir
+[11:15:17] <toddparker> this uses overflow:auto
+[11:15:30] <toddparker> works great on iPhone
+[11:15:46] <toddparker> except the darn clock click
+[11:16:38] <gseguin> looks super smooth
+[11:16:45] <gseguin> but
+[11:16:51] <toddparker> ??
+[11:17:03] <gseguin> when I go to page transitions
+[11:17:08] <gseguin> I click slide
+[11:17:18] <gseguin> I get the dialog
+[11:17:25] <gseguin> I click the button
+[11:17:40] <gseguin> it goes back 2 steps in the history
+[11:17:45] <toddparker> yep, saw that
+[11:17:56] <toddparker> scott's on it, i think
+[11:18:14] <toddparker> otherwise, does scrolling feel right?
+[11:18:27] <toddparker> blinks or other oddness on transitions?
+[11:18:32] <gseguin> does it restore scrolling?
+[11:18:55] <gseguin> it doesn't look like it
+[11:19:01] <toddparker> if it needs to re-build a destoyed page, it creates it then scrolls to position before the transition
+[11:19:10] <gseguin> no, transitions are looking great
+[11:20:56] <gseguin> using the back button works
+[11:53:56] <gseguin> _nickel: is that intentional? https://github.com/jquery/jquery-mobile/blob/master/tests/jquery.testHelper.js#L121
+[11:54:20] <gseguin> _nickel: jshint is complaining about the .this
+[11:54:46] <_nickel> gseguin: I think that helper is used in like one place so feel free to change it to self
+[11:54:57] <_nickel> should be easy to grep for $.testHelper.decorate
+[11:55:11] <gseguin> opts.self ?
+[11:55:14] <_nickel> yah
+[11:55:19] <gseguin> alright will do
+[11:55:21] <gseguin> thanks
+[11:55:24] <_nickel> np
+[15:21:31] <kinblas> scottjehl: toddmparker: so the sample I'm working on, should that live in the docs?
+[15:21:42] <scottjehl> hey guys. if you have an iOS5 beta, you can check out filamentgroup.com/examples/ios5/
+[15:21:59] <toddparker> yes pleas kinblas
+[15:22:14] <scottjehl> transitions are pretty much perfect, fixed and fullscreen header footers are actually really srsly fixed
+[15:22:17] <toddparker> i'd like to add a docs page explaining how to use this with a demo
+[15:22:25] <toddparker> looks AWESOME
+[15:22:40] <toddparker> gseguin: give it a try
+[15:22:52] <scottjehl> yeah, personally, not a fan of the fixies, but the transitions are a HUGE win with this approach
+[15:22:54] <toddparker> the docs html is a bit dated so you may bee older stuff
+[15:22:54] <kinblas> scottjehl: toddmparker: so I'm going to land the changepage-prevent branch in a bit after I make a tweak to it
+[15:23:03] <toddparker> thanks kin!!
+[15:23:15] <kinblas> I'll land the samples after I write up a document about how it works
+[15:23:18] * gseguin tries it NAO
+[15:23:33] <kinblas> scottjehl: for the ios5-less
+[15:23:37] <scottjehl> kinblas - do you think it's possible to make that demo on top of real URLs as a starting point?
+[15:23:37] <kinblas> is it just as impressive in the emulator?
+[15:23:46] <scottjehl> yeah Kin
+[15:23:49] <scottjehl> emulator's fine
+[15:23:59] <scottjehl> ios5 emulator I mean
+[15:24:03] <kinblas> scottjehl: yeah, what kind of urls did you have in mind?
+[15:24:11] <kinblas> scottjehl: I'm just finishing up a Jive type example
+[15:24:13] <scottjehl> only diff is the emulator will crash when you tap the clock
+[15:24:17] <scottjehl> so... don't
+[15:24:23] <kinblas> then was going to do an example of how to augment a URL with some extra params to turn on JSON
+[15:24:24] <scottjehl> devices seem to have that fixed
+[15:24:27] <kinblas> I think you did that
+[15:24:46] <kinblas> scottjehl: emulator crashes? What about Safari on the real device?
+[15:24:55] <scottjehl> nah that's fine
+[15:25:12] <scottjehl> re: urls: I think it'd be good if we lead with an example that builds on a real server-side URL
+[15:25:26] <scottjehl> IE - catch it early, handle it via data, then run changepage to that same url
+[15:25:27] <gseguin> having trouble with slideup/slidedown
+[15:25:37] <scottjehl> on refresh, it'll use the server-side
+[15:25:57] <scottjehl> gotta run, back on later!
+[15:26:00] <scottjehl> sorry
+[15:26:11] <toddparker> gseguin: the 2 issues i've found
+[15:26:14] <gseguin> the reverse transition work
+[15:26:19] <toddparker> 1. headers disappear sometimes
+[15:26:19] <kinblas> scottjehl: did you check in your php script?
+[15:26:23] <gseguin> but not the in
+[15:26:27] <toddparker> 2. custom selects don't open
+[15:28:44] <toddparker> kinblas: it was in data-templating-callback branch
+[15:28:49] <gseguin> toddparker: in the form elements gallery
+[15:28:56] <toddparker> you may want to drop the data right in the head tho
+[15:28:58] <toddparker> up to you
+[15:29:07] <gseguin> the horizontal radio wraps
+[15:29:17] <gseguin> but the custom select works
+[15:29:21] <kinblas> toddparker: scott wanted a real server example
+[15:29:33] <kinblas> toddparker: I already have an example of data in the HEAD
+[15:29:47] <toddparker> hmmm
+[15:30:02] <toddparker> ah, he said you can do whatever makes sense
+[15:30:06] <toddparker> up to you
+[15:30:35] <toddparker> gseguin: what transitions are wacked out for yo
+[15:31:09] <gseguin> slideup/slidedown
+[15:31:38] <toddparker> no anim?
+[15:32:05] <gseguin> toddparker: oh wait now it's working
+[15:32:09] <gseguin> hmm weird
+[15:32:20] <gseguin> yeas there was no transition
+[15:32:31] <gseguin> but the reverse transition was working
+[15:32:40] <toddparker> it's navigating back 2 steps now
+[15:32:53] <gseguin> yeah that I still have
+[15:33:07] <gseguin> but it works fine if you use the browser's back button
+[15:33:08] <toddparker> would you have time to help debug today?
+[15:33:13] <toddparker> since you have a device?
+[15:33:19] <toddparker> it's very close
+[15:33:19] <gseguin> sure
+[15:33:23] <toddparker> AWESOME
+[15:33:38] <gseguin> I was working on the collapsible set bugs
+[15:33:42] <toddparker> scott is going to be distracted tonight so if you can look at this, it woudl rokk
+[15:33:48] <gseguin> but I can put that aside
+[15:33:56] <gseguin> is that master?
+[15:35:23] <gseguin> toddparker: which branch is that?
+[15:37:41] <toddparker> lemme check
+[15:38:13] <toddparker> native-touch-overflow
+[15:39:59] <toddparker> i got an error switching to that
+[15:40:08] <toddparker> just asked scottjehl to confirm
+[15:40:26] <toddparker> work for you?
+[15:40:48] <toddparker> i was wrong
+[15:43:37] <toddparker> branch is touch-overflow
+[15:44:40] <toddparker> look at the fixed and fullscreen toolbar pages
+[15:45:29] <toddparker> NOT native-touch-overflow
+[15:45:42] <toddparker> just fyi gseguin
+[15:45:56] <toddparker> i gotta go, but will be on irc later
+[15:52:00] <gseguin> alright, I'll take a look
+[17:37:59] <kinblas> scottjehl: ping
+[17:38:59] <kinblas> scottjehl: So I renamed the notifications, but left in triggers for the old names beforechangepage and changepage with XXX: DEPRECATED for 1.0 comments
+[17:39:17] <kinblas> scottjehl: so would we remove them for 1.0?
+[17:44:16] <toddmparker> kinblas: guess we can decide that when we get closer
+[17:46:18] <kinblas> toddmparker: well there's a bunch of code in changePage() I'll be ripping out for 1.0 ... the backwards compatible alpha args code
+[18:00:37] <toddmparker> gotcha, makes sense
+[18:00:43] <toddmparker> working on the blog post for B3
+[18:01:24] <toddmparker> kin - did that beforechangepage land? working on that section :)
+[18:01:47] <kinblas> I'll land it now, though I haven't done any unit tests
+[18:02:00] <kinblas> toddmparker: you can play with it here btw:
+[18:02:21] <kinblas> http://goo.gl/T3cwY
+[18:02:32] <kinblas> that sample mimics what Jive does
+[18:02:47] <kinblas> I got sidetracked by trying to figure out how to get deep linking to work
+[18:02:51] <kinblas> but it turned out to be easy
+[18:03:44] <toddmparker> ^ kinblas - localhost link
+[18:03:53] <toddmparker> good news on the deep link
+[18:06:14] <kinblas> toddmparker: running unit tests to make sure nothing borke
+[18:06:15] <kinblas> broke
+[18:06:19] <kinblas> will land after its done
+[18:06:44] <toddmparker> ok!
+[18:09:39] <kinblas> toddmparker: I just realized that I need to change *all* of the unit tests that use changepage notifications
+[18:10:13] <kinblas> lucky thing I left in the deprecated notifications ... it's keeping the unit tests functional
+[18:11:24] <kinblas> toddmparker: grr one test failure in navigation. I need to see if it is something that happens on the HEAD
+[18:11:28] <toddmparker> ah, so we need to update the tests
+[18:11:33] <toddmparker> ok
+[18:11:52] <kinblas> I need to step a way for a few hours, I'll be back 'round 10pm ... though you gys will probably be sleeping by then
+[18:27:40] <toddmparker> i'll be here
+[18:28:00] <toddmparker> well, not 10pm PST
+[19:21:47] <scottjehl> kinblas
+[19:22:06] <scottjehl> yeah I think that might be fine. Did we even document those yet?
+[19:23:24] <toddmparker> hey scottjehl
+[19:23:29] <scottjehl> hey there
+[19:23:46] <scottjehl> nice list of bugs :/
+[19:23:49] <scottjehl> heh
+[19:24:06] <scottjehl> is gseguin looking at the dialog thing?
+[19:24:13] <scottjehl> sounds like it's an older regression
+[19:29:57] <kinblas> toddmparker: I just ran the unit tests on the HEAD and its failing in the exact same way as the changepage-prevent branch (which is now in sync with the head)
+[19:30:15] <kinblas> so it's not the changes on the branch that are causing problems
+[19:30:22] <toddmparker> cool. same old broken-ness
+[19:30:27] <toddmparker> lock n load?
+[19:30:31] <kinblas> sure
+[19:30:45] <kinblas> I'll land, but I got to step away until 10pm pst
+[19:33:05] <kinblas> hmmm it's rejecting my changes
+[19:33:09] <kinblas> even though I did a pull
+[19:33:13] * kinblas sighs
+[19:34:06] <kinblas> ok it's on the HEAD
+[19:34:18] <kinblas> I still have to work on the samples and the write-up
+[19:35:39] <scottjehl> kinblas - demo up anywhere yet?
+[19:36:01] <kinblas> scottjehl: not in any repository yet
+[19:36:05] <kinblas> but you can see it here:
+[19:36:06] <kinblas> http://goo.gl/T3cwY
+[19:36:11] <kinblas> that's the jive equivalent demo
+[19:36:18] <kinblas> still have to work on a real URL demo
+[19:36:27] <scottjehl> LOLcalhost/
+[19:36:32] <kinblas> doh
+[19:36:33] <kinblas> hang on
+[19:36:36] <scottjehl> :)
+[19:37:01] <scottjehl> no rush at all
+[19:37:03] <scottjehl> just wondered
+[19:37:22] <kinblas> scottjehl: http://goo.gl/O672x
+[19:38:15] <kinblas> scottjehl: I tested it with deeplinking and also with query params at the end of the .html
+[19:38:18] <kinblas> seems to all work
+[19:38:23] <scottjehl> great!
+[19:38:33] <kinblas> next up is a sample that changes a URL by adding output=json
+[19:38:35] <kinblas> or something like that
+[19:39:03] <kinblas> I also through in a way for folks to redirect
+[19:39:09] <kinblas> to a specific page
+[19:39:12] <kinblas> like login page
+[19:39:13] <scottjehl> If this could simply be broken out to separate pages that have HTML of the same data in that JSON, it'd probably suit our use case well
+[19:39:42] <kinblas> scottjehl: yeah was going to create a php script that
+[19:39:49] <kinblas> wrote the json for a category
+[19:39:50] <scottjehl> like, pretty much this demo but without the hash urls
+[19:39:52] <kinblas> or the html for it
+[19:40:02] <scottjehl> k awesome
+[19:40:17] <kinblas> gotta run
+[19:40:27] <scottjehl> later!
+[19:40:30] <kinblas> be back on in a bit
+[19:48:43] <toddmparker> thanks kin, looking good
+[19:51:25] <toddmparker> hey guys - can you tell me what would be breaking changes or something to be highlighted as an upgrade note?
+[19:54:11] <scottjehl> hmm
+[19:55:02] <scottjehl> guess we'd have to look at the blog posts
+[19:55:12] <scottjehl> not sure if we have any breakers since b2
+[19:58:48] <toddmparker> I found this:
+[19:58:48] <toddmparker> Renamed the beforechangepage and changepage events to pagebeforechange and pagechange respectively. This was done to match the page widget naming of its notifications. Left the triggers for the old events in place but with DEPRECATED comments. Renamed the properties of the data object passed to the page events.
+[20:00:48] <toddmparker> So this is the commit for the beforechangepage? https://github.com/jquery/jquery-mobile/commit/04623c21cf7cc5959a958362e5392cdeba3e9b42
+[20:00:49] <socialhapy> ★ Commit on jquery-mobile by jblas (1h, 53m ago): Merge branch 'master' into changepage-prevent
+[20:04:26] <toddmparker> blog post for B3: http://jquerymobile.com/?p=1602&preview=true#changelog
+[20:04:33] <toddmparker> in-progress
+[20:11:55] <jqm-jenkins-bot> Project jqm-master build #28: STILL FAILING in 5 min 54 sec: http://10.59.19.240:8080/job/jqm-master/28/
+[20:47:26] <scottjehl> toddmparker found another last-scroll bug huh!
+[20:47:33] <scottjehl> I think I closed 3 already
+[20:48:09] <toddmparker> booya!
+[20:48:31] <toddmparker> was one the dialog double back issue from today?
+[20:48:39] <toddmparker> or is that a different thing?
+[20:48:55] <scottjehl> oh no I just meant I saw you closed that bug
+[20:49:04] <scottjehl> we had so many dupes
+[20:52:34] <toddmparker> yeah
+[20:52:43] <toddmparker> i saw a few more i should close too
+[20:52:56] <toddmparker> sorry for my confusion
+[20:53:24] <scottjehl> no prob
+[20:53:32] <scottjehl> so many dupes in there  bet
+[20:53:35] <scottjehl> I bet
+[20:59:54] <toddmparker> once we officially shelf transitions, i may close a bunch
+[21:00:03] <toddmparker> same with the blinky transition issues
+[21:00:12] <toddmparker> they are as good as can be given the browsers
+[21:00:56] <toddmparker> so think about how to handle iOS5
+[21:01:05] <toddmparker> do we turn it on by default?
+[21:01:15] <toddmparker> do we have it off, but just post a demo?
+[21:56:03] <kinblas> scottjehl: toddparker: anyone around?
+[22:25:18] <gseguin_> hiya _nickel
+[22:25:26] <_nickel> gseguin_: hello sir!
+[22:26:10] <gseguin_> do you have an iOS5 device?
+[22:27:17] <gseguin_> _nickel: ^^^
+[22:27:37] <_nickel> gseguin_: nope, actually just sent out an email asking how I would go about testing that issue
+[22:27:49] <_nickel> gseguin_: when you saw it what did you do to repro out of curiousity?
+[22:28:34] <gseguin_> so you start browsing at docs/pages/index.html
+[22:28:43] <gseguin_> click on dialogs
+[22:28:59] <gseguin_> then click the "open dialog" button
+[22:29:24] <gseguin_> then you click the cancel button and it brings you back 2 steps
+[22:29:30] <gseguin_> but the url is the right one
+[22:29:59] <_nickel> ugh
+[22:30:19] <_nickel> seems to work fine everywhere else?
+[22:30:33] <_nickel> rather I should say it does for me :(
+[22:30:45] <gseguin_> the data-rel="back" button?
+[22:30:58] <_nickel> yah
+[22:31:12] <gseguin_> doing these step on your device works just fine?
+[22:31:14] <_nickel> "everywhere else" being other browsers
+[22:31:23] <_nickel> gseguin_: I don't have an ios device :D
+[22:32:02] <gseguin_> :)
+[22:32:11] <gseguin_> emulator?
+[22:32:28] * gseguin_ hasn't tested with the emulator, will give it a try
+[22:44:44] <gseguin_> _nickel: I confirm it's happening in the iPad emulator
+[22:44:52] <_nickel> gseguin_: alright
+[22:44:56] <_nickel> I'll try and get that set up tomorrow
+[22:45:08] <_nickel> gseguin_: do I need a apple dev account for that?
+[22:45:17] <_nickel> maybe kin will have an answer tomorrow
+[22:45:23] <gseguin_> hmm.. I think you may
+[22:45:28] <_nickel> to the question of getting my hands on ios5 that is
+[22:45:37] <kinblas> _nickel: about?
+[22:46:13] <kinblas> _nickel: yeah you need to be an apple dev to get a hold of the beta
+[22:46:28] <_nickel> kinblas: do we have an account?
+[22:46:32] <_nickel> that was going to be my question
+[22:46:36] <_nickel> or do I need to sign up
+[22:46:44] <gseguin_> it's actually not specific to iOS5
+[22:46:47] <kinblas> _nickel: yeah we do, let me figure out who gave me the invite
+[22:46:50] <gseguin_> the emulator runs 4.x
+[22:46:58] <_nickel> gseguin_: ugh
+[22:47:02] <_nickel> alright
+[22:47:17] <_nickel> looks like another bug report
+[22:47:25] <_nickel> *looks like*
+[22:47:36] <_nickel> since I can't think of any godly reason why this should be happening
+[22:47:46] <kinblas> what's happening?
+[22:47:58] * kinblas is late to the party
+[22:47:58] <_nickel> since we're now using the same code to hash handling and the popstate hashes
+[22:48:12] <_nickel> kinblas: going back twice on data-rel=back links in ios with the replacestate
+[22:48:18] <_nickel> with dialogs
+[22:48:42] <_nickel> kinblas: gseguin_: can I ask you guys an incredibly ignorant questions about webkit animations?
+[22:48:45] <_nickel> or rather
+[22:48:47] <_nickel> animations in general
+[22:49:05] <gseguin_> shoot
+[22:49:08] <_nickel> can transitions only be applied in psuedo classes like :hover ?
+[22:49:10] <kinblas> oh hmmm ... there is code in the hashchange handler specifically for dialogs to do  a window.back twice
+[22:49:18] <kinblas> _nickel: no
+[22:49:41] <kinblas> transitions apply anytime you set the property (that is being transitioned) to a value other than what it currently is
+[22:50:00] <kinblas> that value can be set directly via dom.style
+[22:50:06] <kinblas> or be triggered by a class change
+[22:50:26] <gseguin_> the thing is here we do one two many reverse transition
+[22:50:34] <gseguin_> but the url is the right one
+[22:51:27] <kinblas> do we know if the right number of history states is being created for a dialog?
+[22:51:32] <kinblas> when replace state is turned on?
+[22:51:46] <kinblas> like I said the history code in the hashchange callback in navigation.js
+[22:52:00] <kinblas> does an extra back() call
+[22:52:04] <kinblas> for dialogs
+[22:52:07] <_nickel> yep
+[22:52:17] <_nickel> hmm
+[22:52:21] <_nickel> it does check the current url
+[22:52:33] <_nickel> I wonder if the hashchange is being fired before the url is being changed
+[22:52:36] <_nickel> causing the second back
+[22:52:47] <_nickel> it does check the current url
+[22:52:53] <kinblas> _nickel: is this going back to the root/home page?
+[22:52:57] <_nickel> and expects it to have changed before the hashchange has fired
+[22:53:06] <_nickel> kinblas: I haven't seen it yet
+[22:53:07] <kinblas> I was just looking at a problem I'm seeing in my sample I'm writing
+[22:53:17] <_nickel> gseguin_: ^
+[22:53:25] <kinblas> is this only iOS5?
+[22:53:33] <kinblas> or can you see it in a desktop browser?
+[22:53:39] <_nickel> kinblas: gah
+[22:53:43] <gseguin_> it happens on the iPad emulator 4.x
+[22:53:56] <kinblas> what about desktop safari?
+[22:54:03] <_nickel> -webkit-transform -> -webkit-transition ... typo was causing my issues
+[22:54:09] <gseguin_> let me check it goes back 2 or back to the root
+[22:54:13] * _nickel sighs in embarassment 
+[22:55:10] <gseguin_> yeah goes back to root
+[22:55:56] * gseguin_ tries safari
+[22:56:41] <gseguin_> works fine on safari
+[22:58:56] <kinblas> gseguin_: for this test you're doing are you going from the main app page to a dialog? and then back?
+[22:59:15] <gseguin_> correct
+[22:59:34] <gseguin_> go to http://filamentgroup.com/examples/ios5
+[22:59:44] <gseguin_> then click "pages & dialogs"
+[22:59:54] <gseguin_> then "Dialogs"
+[22:59:55] <gseguin_> then
+[23:00:05] <gseguin_> "Open Dialog"
+[23:00:18] <gseguin_> then "cancel"
+[23:00:50] <kinblas> gseguin_: oh hmmm that's too many levels (pages) down
+[23:01:21] <kinblas> gseguin_: I was thinking it might be due to what I'm seeing where we reload the application's first-page as if it were an external page
+[23:02:54] <gseguin_> and actually the patch I sent out is not working
+[23:14:12] <gseguin_> kinblas, _nickel: I'm signing off
+[23:14:20] <_nickel> gseguin_: gnight!
+[23:14:26] <gseguin_> see ya tomorrow
+[23:15:27] <kinblas> gseguin_: laters
+[23:30:04] <kinblas> _nickel: ping
+[23:30:09] <_nickel> kinblas: pong
+[23:30:50] <kinblas> _nickel: I have a fix for that problem where we load the initial page of the app as an external page
+[23:31:07] <kinblas> not sure if that makes sense the way I said it, but there are cases where we duplicate the first page in the app
+[23:31:14] <_nickel> kinblas: yes!
+[23:31:27] <_nickel> links that go back to it
+[23:31:33] <kinblas> yeah exactly
+[23:31:36] <_nickel> do tell
+[23:31:46] <kinblas> I have a path.isFirstPage( url ) function
+[23:32:02] <kinblas> it tests for an url that is exactly the document or base url
+[23:32:06] <kinblas> *OR*
+[23:32:16] <kinblas> the 2 urls I just mentioned followed by a # (empty hash)
+[23:32:36] <kinblas> or followed by a # with the id of the firstPage element
+[23:34:22] <kinblas> that bug was driving me nuts tonight ... had to fix it
+[23:34:28] <_nickel> kinblas: brillian
+[23:34:30] <_nickel> *t
+[23:34:46] <kinblas> it was causing a transition from first page to new first page on a back button
+[23:34:55] <kinblas> which is why I kept asking if that's what you guys were seeing
+[23:35:05] <_nickel> yah we discussed that
+[23:35:19] <kinblas> _nickel: I need to write some tests for it
+[23:35:52] <_nickel> kinblas: that makes me wonder how we'll address the first page caching
+[23:36:00] <_nickel> wondering how that will affect your function
+[23:36:07] <kinblas> ??
+[23:36:12] <kinblas> we never lose the first page right?
+[23:42:12] <_nickel> kinblas: correct
+[23:42:21] <_nickel> I'm wondering if thats always going to be the case
+[23:42:51] <_nickel> its a bit weird that the first page is a special case for no particular reason
+[23:43:05] <_nickel> total side note
+[23:43:11] <_nickel> I'm quite happy with my presentation thus far
+[23:43:25] <_nickel> I've been thinking about these testing issues for so long its nice to finally get it down some where
+[23:56:02] <kinblas> _nickel: great!
+[23:56:36] <kinblas> _nickel: regarding the first page, yeah it's one of those things that we never required to have an id, coupled with the fact that we need a way in sub-pages to refer to that exact page
+[23:57:06] <kinblas> _nickel: I have to get some shut-eye, will need to finish up samples, unit tests, and write-up tomorrow ... sigh
+[23:57:20] <_nickel> kinblas: sleep well friend :D

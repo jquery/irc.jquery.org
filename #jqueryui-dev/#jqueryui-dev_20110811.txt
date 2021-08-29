@@ -1,0 +1,148 @@
+[08:15:59] <jzaefferer> kborchers: is 430 ready to land, or are you still working on that?
+[08:16:28] <kborchers> I believe that is ready now
+[08:16:57] <kborchers> it even includes flipfit too!
+[08:35:02] <jzaefferer> cool
+[08:35:05] <jzaefferer> did you see http://bassistance.de/i/70c6dd.png ?
+[08:35:21] <jzaefferer> I'm wondering if thats addressed already
+[08:36:37] <kborchers> that is just weird ... i think it doesn't like the iframe or something since within defaults to window, it may not know it needs to flip since it hasn't technically collided with window
+[08:37:22] <kborchers> it doesn't do that when it's not in an iframe
+[08:54:07] <kborchers> hmmm, i put the default position demo in an iframe and it flips properly, let me try the menu demos
+[08:57:29] <kborchers> jzaefferer: yep definitely an issue with the menu positioning ... will look into it
+[09:49:08] <scott_gonzalez> who's around to see if I'm doing something correctly?
+[09:49:32] <gnarf> I'm here
+[09:50:39] <scott_gonzalez> http://temp.nemikor.com/href/
+[09:50:41] <scott_gonzalez> view source
+[09:51:06] <scott_gonzalez> and assume we're on js-dev.local instead of temp.nemikor.com
+[09:51:20] <scott_gonzalez> the top block of anchors should all point to the file we're on
+[09:51:27] <scott_gonzalez> well, the page we're on
+[09:51:34] <scott_gonzalez> the second block should point to some other page
+[09:51:55] <scott_gonzalez> same for view-source:http://temp.nemikor.com/href/base-cors.html (notice there's a base tag pointing to a different domain)
+[09:52:10] <scott_gonzalez> and also view-source:http://temp.nemikor.com/href/base-dir.html (notice there's a base tag pointing to a different directory)
+[09:52:29] <scott_gonzalez> I just want to know that I got the local/remote designations correct everywhere
+[09:54:01] <gnarf> seems right, your missing the http:// local link tho
+[09:54:08] <gnarf> in the cors one
+[09:54:37] <scott_gonzalez> thanks
+[09:54:39] <scott_gonzalez> adding that now
+[09:55:16] <gnarf> but yeah, that seems to cover all the cases i could think of
+[09:55:20] <gnarf> except get params
+[09:55:37] <scott_gonzalez> ugh
+[09:55:39] <gnarf> i.e. is index.html?_=100 "local" ?
+[09:56:08] <scott_gonzalez> um...actually, if the queries are different, they should be remote
+[09:56:11] <gnarf> i assume "local" means "doesn't need to make an http request"
+[09:56:14] <gnarf> so yeah
+[09:56:17] <scott_gonzalez> yeah
+[09:56:23] <scott_gonzalez> I'll add some tests for that
+[09:56:27] <gnarf> \o/
+[09:56:37] <scott_gonzalez> I'm trying to fix the logic in tabs for detecting local vs. remote tabs
+[09:56:58] <scott_gonzalez> this is such a pain
+[09:57:24] <scott_gonzalez> also a little annoying that document.baseURI isn't supported everywhere
+[09:57:29] <scott_gonzalez> but that's easy to figure out
+[09:59:52] <gnarf> can't you access protocol/hostname/port/search properties of the <a> and the document and compare?
+[10:00:45] <gnarf> rather document.location but yeah
+[10:01:53] <gnarf> local = a.protocol == location.protocol && a.hostname == location.hostname && a.port == location.port && a.pathname == location.pathname && a.search == location.search
+[10:02:10] <gnarf> where a is the dom element, and location is the document/window.location
+[10:04:19] <scott_gonzalez> umm...you can do that on an anchor?
+[10:04:49] <scott_gonzalez> how about that
+[10:05:24] <gnarf> yeah, an anchor is a location object
+[10:05:36] <gnarf> location = <a> works too
+[10:05:37] <scott_gonzalez> hmm...with the href prop be normalized cross-browser
+[10:05:52] <scott_gonzalez> cuz that'd make this dead simple
+[10:07:10] <scott_gonzalez> OMG
+[10:07:18] <gnarf> scott_gonzalez: http://jsfiddle.net/gnarf/u4sAG/
+[10:07:33] <gnarf> throwin mac browsers at it
+[10:07:44] <gnarf> im noting that "port" is "0" on the a instead of ""
+[10:07:50] <gnarf> but thats a simple enough case to allow
+[10:09:21] <gnarf> scott_gonzalez: opera/FF pass flawlessly
+[10:09:40] <gnarf> chrome/safari have the port == "0" on the dom element, and port == "" on the window
+[10:09:53] <gnarf> don't have IE's
+[10:09:55] <scott_gonzalez> a.href === location.href
+[10:10:03] <gnarf> thats gonna include the hash though
+[10:10:03] <scott_gonzalez> the property is normalized
+[10:10:15] <scott_gonzalez> yeah, but we can rip off the hash
+[10:10:18] <gnarf> true
+[10:10:47] <scott_gonzalez> a.herf.replace( /#.*$/, "" ) === location.href.replace( /#.*$/, "" )
+[10:10:52] <gnarf> http://jsfiddle.net/u4sAG/1/
+[10:12:20] <scott_gonzalez> http://jsfiddle.net/u4sAG/2/
+[10:12:43] <scott_gonzalez> what a massive waste of time
+[10:12:54] <scott_gonzalez> let me run this through all of my tests
+[10:15:02] <scott_gonzalez> passes all tests in Chrome
+[10:15:16] <scott_gonzalez> gonna test other browsers
+[10:16:13] <scott_gonzalez> IE 6 fails on #foo
+[10:16:36] <gnarf> you know why?
+[10:16:38] <kborchers> jzaefferer: just updated that pull with a new commit. the withinOffset in position was not taking into account if within had been scrolled. that is why the iframed example was not working right.
+[10:17:29] <scott_gonzalez> looking into it now
+[10:18:36] <gnarf> http://jsfiddle.net/u4sAG/3/ should dump all the props
+[10:19:48] <scott_gonzalez> hmm...looks like it's a problem with anchor.is( "[local]" ) not with the actual check
+[10:19:56] <gnarf> heh
+[10:20:12] <gnarf> well thats a good sign for the method
+[10:23:40] <scott_gonzalez> hah, fixed that and now all the other local tests are failing in IE 6
+[10:24:45] <scott_gonzalez> ugh, I'm an idiot
+[10:25:09] <scott_gonzalez> passing all tests
+[10:25:42] <scott_gonzalez> forgot to go to /index.html
+[10:25:45] <scott_gonzalez> I was just at / in IE
+[10:27:54] <scott_gonzalez> I can't believe how simple this test is now
+[10:29:10] <scott_gonzalez> I think comparing the href prop + checking that the anchor actually has a hash is all we need
+[10:29:54] <gnarf> coo, afk a bit - grabbin lunch
+[10:57:53] <scott_gonzalez> ok, passing all tests in Chrome in IE 6 :-)
+[11:09:02] <gnarf> hrm
+[11:09:19] <gnarf> so there is this whole regexp that does all sorts of crazy parsing to determine cross domain in ajax core too
+[11:09:49] <gnarf> i wonder if they could just use a = document.createElement( "a" );  a.href= url; and parse it that way
+[11:12:11] <gnarf> http://code.google.com/p/chromium/issues/detail?id=92504
+[11:12:20] <gnarf> had to file that, that inconsistency is a pain
+[11:42:58] <scott_gonzalez> yeah, that's an annoying bug
+[11:43:39] <scott_gonzalez> yeah, they could probably simplify the CORS check
+[11:43:51] <scott_gonzalez> do you have IE 6 and some time?
+[11:44:03] <scott_gonzalez> can't track down the cause of a dying test
+[11:44:21] <scott_gonzalez> actually, you don't even need IE 6, just some time :-P
+[11:44:25] <scott_gonzalez> we can screen share
+[11:44:55] <scott_gonzalez> gnarf: ^^
+[11:49:14] <gnarf> scott_gonzalez: yeah, give me like ~10 min
+[11:49:19] <scott_gonzalez> ok
+[11:49:20] <gnarf> mid thought on like 3 things
+[11:56:48] <scott_gonzalez> just made some progress on this, so I might be able to solve it now
+[11:57:18] <gnarf> back
+[11:59:02] <scott_gonzalez> there's something funky going on with #foo:bar
+[11:59:11] <scott_gonzalez> but at least I've tracked it down to that
+[12:00:01] <gnarf> is it in the url matching part or the finding the element with the id part?
+[12:00:12] <scott_gonzalez> not sure yet
+[12:00:39] <scott_gonzalez> I get this unhelpful error in the test:
+[12:01:06] <scott_gonzalez> Died on test #12: undefined - "Syntax error, unrecognized expression: test"
+[12:01:23] <gnarf> how is it looking for the id?
+[12:01:27] <gnarf> jQuery( hash ) ?
+[12:01:37] <scott_gonzalez> it runs it through a sanitizer
+[12:01:44] <scott_gonzalez> and then .find()
+[12:02:25] <gnarf> jQuery( data ).find( hash ) ?
+[12:03:22] <scott_gonzalez> weird, it's a problem detecting that it's a local tab
+[12:06:32] <scott_gonzalez> ugh
+[12:06:35] <scott_gonzalez> I know what's happening
+[12:06:53] <scott_gonzalez> I'm doing a.href = a.hash when I determine that it's a local url
+[12:07:03] <scott_gonzalez> and that's killing the property normalization in IE 6
+[12:08:19] <scott_gonzalez> hmm...even using .attr( "href", a.hash ) kills the normalization
+[12:10:06] <gnarf> can you use a data attrib instead of overriding the href?
+[12:11:57] <scott_gonzalez> well, if this is killing the test, that the test isn't reliable
+[12:12:10] <scott_gonzalez> what if a user changes the href before creating the tabs?
+[12:14:21] <gnarf> http://jsconsole.com/?a%20%3D%20document.createElement(%22a%22)%3B%20a.href%20%3D%20%22%23test%3Afoo%22%3B%20console.log(%20a.href%20)%3B
+[12:14:22] <gnarf> ?
+[12:15:07] <scott_gonzalez> heh, not gonna type that manually (can't copy/pate into my IE 6 VM
+[12:15:14] <scott_gonzalez> I should probably enable that
+[12:15:27] <gnarf> a = document.createElement("a"); a.href = "#test:foo"; console.log( a.href );
+[12:15:48] * gnarf searches for the VM HD
+[12:16:49] <scott_gonzalez> yeah, that kills the normalization in IE 6
+[12:18:48] <gnarf> a.cloneNode().href is correct though
+[12:20:05] <gnarf> ie6 vm: http://cl.ly/1j190V2a250D2c0n1C1g
+[12:21:18] <scott_gonzalez> nice
+[12:21:30] <gnarf> *phew*
+[12:21:45] <gnarf> this solution was too elegant to work in ie6
+[12:21:49] <gnarf> ;)
+[12:23:44] <scott_gonzalez> heh
+[12:23:50] <scott_gonzalez> well, now I've got another problem
+[12:23:54] <scott_gonzalez> which doesn't seem to make sense
+[12:24:17] <gnarf> damn
+[13:23:12] <scott_gonzalez> gnarf: still around?
+[13:23:22] <gnarf> yes, but gotta leave ~ 10
+[13:24:06] <scott_gonzalez> that test that wasn't failing before is failing again :-P
+[13:24:13] <scott_gonzalez> the one that doesn't make any sense
+[13:50:06] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://bit.ly/o6o8GQ
+[13:50:06] <jquicommit> [jquery-ui/master] Tabs: Fixed detection of local vs. remote tabs. Fixes #4941 - Mishandling of base tag. Fixes #4836 - Self refering href only partially detected. - Scott González
+[13:55:56] <scott_gonzalez> that took way too much effort
+[13:56:36] <scott_gonzalez> but we're not down to only 6 bugs for tabs :-)

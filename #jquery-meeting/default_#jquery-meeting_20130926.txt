@@ -1,0 +1,477 @@
+[08:10:37] <jzaefferer> jQuery QUnit/Testing/CI Meeting. Agenda: http://bit.ly/qunitci ping JamesMGreene Krinkle|detached (not here, I guess) scott_gonzalez gnarf gseguin|away
+[08:11:17] <JamesMGreene> yo
+[08:11:49] <jzaefferer> JamesMGreene, you mentioned via email that you can ramp up your time during October. Since the node stuff still lingers, I guess you could get back to that?
+[08:11:57] <JamesMGreene> Yup
+[08:12:03] <JamesMGreene> That would definitely be first on the list
+[08:13:56] <m_gol> if I might chime in
+[08:14:06] <m_gol> we need iOS 5.1, 6.1 & 7.0 in TestSwarm :)
+[08:14:31] <m_gol> and Android 2.3 though on a separate task so that it doesn't run all the time but e.g. once a week (way too slow)
+[08:14:50] <jzaefferer> m_gol: hi!
+[08:14:53] <jzaefferer> hey Krinkle
+[08:16:17] <Krinkle> Hi
+[08:17:16] <Krinkle> There is no explicit iOS 6.1 in browserstack, but we can get close enough
+[08:17:17] <jzaefferer> Krinkle: got an estimate how much time you'll be able to spend on jQuery stuff in the next weeks or even months?
+[08:18:23] <Krinkle> been traveling a lot lately and busy preparing talks, notes, and my school is coming back to haunt me. October thru January is looking better.
+[08:18:33] <Krinkle> than last 2 months
+[08:18:49] <jzaefferer> okay, cool
+[08:18:56] <Krinkle> I expect to get back to ~ 10 hours a week.
+[08:19:16] <jzaefferer> Could you look into adding those mobile browsers? I guess m_gol is the goto person on the Core team for that
+[08:20:13] <m_gol> if 6.1 is not available, 6.0 is acceptable
+[08:20:23] <m_gol> I guess 7.0 is not available yet so that'll have to wait
+[08:21:26] <Krinkle> m_gol: https://gist.github.com/Krinkle/0487ed03d6176eb83ed1
+[08:22:15] <Krinkle> which do you want?
+[08:23:31] <jzaefferer> JamesMGreene: I made some notes about the setup/teardown. Looks like we agree to add one set, I'm not sure about the other. The qunit-composite example alone isn't quite good enough, since that's very special purpose
+[08:24:35] <m_gol> Krinkle: iPad 3rd 5.1, iPhone 5 6.0
+[08:26:43] <Krinkle> jzaefferer: what do you mean by 'but actual widgets'
+[08:26:58] <Krinkle> like in , all kinds of things except actual widgets?
+[08:27:59] <markelog> Krinkle: could also update FF: remove 21,22 and add 23,24?
+[08:29:07] <JamesMGreene> jzaefferer: In general, most test frameworks also support all of those levels of setup/teardown. However, I understand that's not necessarily enough of a reason to add them to QUnit
+[08:29:10] <Krinkle> desktop browsers I keep up to date already. If they're not up to date it means either support is missing somewhere in the pipeline or I haven't done the bi-daily check yet.
+[08:29:41] <Krinkle> ff24 wasn't supported last I checked, I see it is now.
+[08:30:07] <Krinkle> https://github.com/jquery/infrastructure/commits/puppet-master?author=Krinkle
+[08:30:43] <markelog> bi-daily? wow. OK, i will not bug you about desktop browsers anymore
+[08:30:44] <JamesMGreene> Any update on the SauceLabs side vs. BrowserStack?
+[08:31:06] <jzaefferer> Krinkle: updated, maybe more clear now. Working on docs, CLDR and things like that. Very few actual code commits: https://github.com/jquery/jquery-ui/commits
+[08:31:49] <Krinkle> markelog: things are moving fast, but please do remind me, I can always forget something.
+[08:32:07] <Krinkle> markelog: such as now, I just noticed I did register FF23 in swarm config, but left the browserSet on ff22
+[08:32:19] <Krinkle> (I also update https://twitter.com/browsehappy )
+[08:32:29] <jzaefferer> JamesMGreene: I've bumped the grunt-saucelabs issue a few times, but nothing really happens: https://github.com/axemclion/grunt-saucelabs/issues/21
+[08:32:29] <b-ot> jzaefferer: Issue #21 by jzaefferer (7mon 3w ago): Use QUnit's callbacks
+[08:32:50] <Krinkle> Yeah, we're going to have to do it ourselves.
+[08:32:52] <Krinkle> I'm not surprised.
+[08:33:18] <markelog> Krinkle: cool, all right :-)
+[08:33:32] <Krinkle> That's why I rewrote it earlier this year. Though it is working in my fork, I don't like it because it requires an inject.js. That works for testswarm, but for cli testing we'll want to make it work as-is without needing to change your test.
+[08:33:36] <jzaefferer> It's certainly possible with SauceLabs. This runs through SauceLabs are outputs individual errors: http://www.browserswarm.com/browserswarm/jquery-validation/job/5240fa74be18c60000000009
+[08:33:45] <jzaefferer> Even though the output format is far from ideal
+[08:33:45] <Krinkle> Basically the problem is that when opening the browser and registerig the event handlers, we're always too late.
+[08:33:50] <Krinkle> There isn't hooks early enough.
+[08:33:55] <JamesMGreene> Does AxeMcLion work for SauceLabs or is it just "some dude's plugin"?
+[08:34:03] <JamesMGreene> Kinda surprised they don't offer an official one
+[08:34:11] <Krinkle> So this is essentially dependant on my QUnit.on refactor that will also feature a way to memorise events and get them retroactively
+[08:34:20] <Krinkle> (e.g. reporter vs. reglar on-handler)
+[08:34:35] <Krinkle> afaik just a dude, but a good dude :)
+[08:35:13] <Krinkle> e.g. when the selenium API opens up for js, the dom is already started and js execution has started. Depending on your test it might even be finished already.
+[08:35:25] <jzaefferer> SauceLabs actually launched (much better) support for unit testing recently, so in theory much of what grunt-saucelabs does isn't needed anymore. Creating the tunnel, running stuff and outputting the results is still needed, but the integration with the test framework is now handled by saucelabs
+[08:35:45] <Krinkle> Hm.. what kind of integration?
+[08:36:27] <jzaefferer> https://saucelabs.com/docs/rest#jsunit
+[08:37:11] <JamesMGreene> Krinkle: Will it still be possible to execute Assertions within the logging (`on`) callbacks once both the `Assertion` and `on` refactors land?  I was thinking that the logging callbacks would not have access to the executing test's individual Assertion anymore
+[08:37:41] <JamesMGreene> Were debating a bit in https://github.com/jquery/qunit/pull/471
+[08:37:41] <b-ot> JamesMGreene: Pull request #471 by hjdivad (1w 14h ago): Add `testTeardown` logging callback.
+[08:38:02] <Krinkle> JamesMGreene: Yes, I think that's a good thing.
+[08:38:05] <jzaefferer> Krinkle: an alternative to retroactive events might be to provide all the data in testDone and done callbacks? There's an open issue for testDone: https://github.com/jquery/qunit/issues/351
+[08:38:05] <b-ot> jzaefferer: Issue #351 by ilyavolodin (10mon 2w ago): testDone should provide aggregated assertion results
+[08:38:23] <Krinkle> JamesMGreene: However, if we do want to support that (I'm not opposing the use case, more the method by which it is done), we'll have to explicitly grant the callback the test context.
+[08:38:32] <Krinkle> which is fine if that is fine.
+[08:38:44] <Krinkle> jzaefferer: that event would be too late
+[08:38:45] <JamesMGreene> right
+[08:38:48] <Krinkle> or could be
+[08:38:59] <jzaefferer> okay, if it can be too late, its not good enough
+[08:39:19] <Krinkle> jzaefferer: however I agree we don't need to require the reporter to go through a million callbacks
+[08:39:20] <JamesMGreene> Just seems to me like we should have appropriate `setup`/`teardown` methods to support any Assertion needs and that logging callbacks are outside of that context
+[08:39:36] <jzaefferer> JamesMGreene: the "don't run assertions in logging callbacks" - can you explain that again? We could just keep that support, if its actually useful
+[08:39:36] <JamesMGreene> I'm fine either way... obviously we support assertions in logging callbacks right now since assertions are global
+[08:39:36] <Krinkle> we can also have a retroactive 'once' that gives everything we have so far?
+[08:39:59] <jzaefferer> Krinkle: yeah, the aggregated results would be useful when there's no live reporting anyway
+[08:40:07] <JamesMGreene> jzaefferer: Just more of a design thing than a need... just seems odd to me
+[08:40:09] <jzaefferer> that's pretty much the only reason why there's fine grained callbacks
+[08:40:15] <Krinkle> it's a principle of authority / separation of concern. The log callback has no access to the context.
+[08:40:22] <JamesMGreene> right
+[08:40:39] <JamesMGreene> It only works today because Assertions are global
+[08:40:46] <Krinkle> Let's look at individual use cases though and try and give it the best solution, if the best solution (not just 'a' solution) is to grant loggers test context, then so be it :)
+[08:41:57] <Krinkle> the assertion done in that pull doesn't really have to be there, that's more a meta assertion. It could increment that variable and assert it in another test I guess.
+[08:42:18] <JamesMGreene> If we support it, then having both `setup`/`teardown` and `testStart`/`testDone` are redundant, other than one is at the module level and the other is at the global level. Perhaps the `on` methods could be used on the `module` and `test` return objects as well as the global `QUnit` (run) object...?
+[08:42:37] <JamesMGreene> Krinkle: That assumes ordered tests ;)
+[08:42:39] <Krinkle> onteardown: log.push(data);, test('teardown log', -> assert.deepEqual)(log, ..)
+[08:42:48] <Krinkle> JamesMGreene: hm.. true
+[08:43:13] <Krinkle> could be hacked around with a deferred
+[08:43:18] <Krinkle> but that's nasty
+[08:44:07] <Krinkle> onteardown: teardownLogger.resolve(data);, test('teardown log', -> d= this.async(); tdlogger.done( -> assert.deepEqual(log, ..) ).always(d),
+[08:45:24] <Krinkle> JamesMGreene: I suppose the difference though is that one is an event, and the other is part of the test execution
+[08:45:28] <Krinkle> notification vs. hook
+[08:46:02] <Krinkle> and yeah, one is for all modules' tests, the other for one module's tests.
+[08:46:35] <JamesMGreene> Speaking of deferreds, did you guys see this PR for "qunit-promises"? Kind interesting. https://github.com/jquery/qunitjs.com/pull/53
+[08:46:35] <b-ot> JamesMGreene: Pull request #53 by bahmutov (2d 11h ago): Added link to qunit-promises to the list of plugins
+[08:46:42] <JamesMGreene> Kinda*
+[08:46:57] <Krinkle> I did, I also had him improve the plugin :)
+[08:47:10] <Krinkle> https://github.com/bahmutov/qunit-promises/issues/2
+[08:47:10] <b-ot> Krinkle: Issue #2 by Krinkle (2d 11h ago): Calls to QUnit.stop
+[08:47:22] <Krinkle> it's quite nice indeed
+[08:47:44] <Krinkle> though admitedly a fairly light wrapper around what we can already do with existing assertions, it abstracts it.
+[08:48:50] <Krinkle> maybe something we can do nicer with QUnit.Assertion (similar to how it can do .not.equal dynamically by reversing it, it might be able to do (for a plugin, not in core) things like assert.promise.equal
+[08:49:07] <Krinkle> e.g. automatically getting all assertions instead of having to duplicate them
+[08:49:10] <jzaefferer> he originally posted it to the forum: http://forum.jquery.com/topic/qunit-promises-plugin
+[08:49:33] <jzaefferer> I follow the QUnit and Testing forum to keep an eye on posts like that
+[08:53:33] <JamesMGreene> module("blah").on("setup, fn1).on("teardown", fn2);
+[08:53:38] <JamesMGreene> >_> <_< just throwing it out there
+[08:53:53] <JamesMGreene> you know, minus the syntax error
+[08:54:00] <JamesMGreene> module("blah").on("setup", fn1).on("teardown", fn2);
+[08:56:20] <JamesMGreene> module("blah").on("test-start", fn1).on("test-end", fn2);
+[08:56:39] <Krinkle> They'd all inherit from EventEmitter
+[08:56:45] <Krinkle> and propagate up
+[08:57:18] <JamesMGreene> What do you mean by propagate up?
+[08:57:19] <Krinkle> Not sure it makes sense to listen to the events of one module though. Not for listening, but for test hook.
+[08:57:43] <Krinkle> I'd rather keep the log events and hooks separate. The hook would be right before, and the notification after.
+[08:57:56] <Krinkle> JamesMGreene: Events emitted from Test propagate to Module propagate to QUnit
+[08:58:07] <JamesMGreene> Krinkle: Meant for it as a possible alternative to the current `module("blah", { setup: fn1, teardown: fn2 });` syntax
+[08:58:26] <JamesMGreene> Krinkle: Oh, I suppose
+[08:58:58] <JamesMGreene> That would make the event listeners ill-suited for use as `setup`/`teardown` or any sort of bonus assertions, wouldn't it?
+[08:59:05] <Krinkle> What happens if you store the object return from module() and call .on() later?
+[08:59:14] <Krinkle> :)
+[08:59:22] <JamesMGreene> Calamity :)
+[08:59:26] <Krinkle> Pizza
+[08:59:54] <Krinkle> Ahm, so. Next?
+[09:00:28] <JamesMGreene> Actually I guess that could make the event listeners incredibly useful for bonus assertions, so long as they had the assertion context
+[09:01:14] <JamesMGreene> Gives you possibility the module-level and run-level assertions per test, like that guys basically wanted to ensure all XHRs were finished
+[09:01:18] <JamesMGreene> guy*
+[09:01:54] <JamesMGreene> Though I'm still generally opposed to that on the basis of separation of concerns :-P
+[09:02:01] <JamesMGreene> I'm just being wishy-washy today, sorry
+[09:02:08] <Krinkle> one could also wonder whether it has to be an assertion or something else
+[09:02:14] <Krinkle> it could throw an exception
+[09:02:24] <Krinkle> but I see the dilemma
+[09:03:59] <JamesMGreene> Anyway
+[09:04:08] <JamesMGreene> Anything else to discuss today?  I have to head out in ~6 minutes
+[09:04:24] <jzaefferer> Could one of you document what you just discussed?
+[09:04:39] <jzaefferer> I see a lot of ideas...
+[09:05:14] <Krinkle> I'll do in a sec, lets make use of the extra minutes
+[09:05:28] <Krinkle> JamesMGreene: node compat, progress / intention / blockers?
+[09:05:48] <JamesMGreene> No updates, just wrapping up the last segment of a side project
+[09:06:06] <JamesMGreene> Should be a bit more free in October
+[09:06:16] <JamesMGreene> It'll be the first thing I work on again
+[09:07:07] <jzaefferer> Krinkle: I'd like to prototype a grunt-qunit-saucelabs plugin that does the tunneling and submitting, but otherwise uses the unit testing support that Saucelabs now provides. Since you've worked on grunt-saucelabs, think you could put something together?
+[09:07:17] <JamesMGreene> P.S. The Node users should just use an IIFE to get their "global" module/test/etc. like I do:  `(function(module, test, expect) { ... })(QUnit.module, QUnit.test, QUnit.expect);`  :-P
+[09:08:12] <JamesMGreene> Lazy bums
+[09:08:57] <Krinkle> jzaefferer: interesting, browserswarm is startling to look more like the (newer version of) testswarm
+[09:09:01] <Krinkle> http://www.browserswarm.com/framework/results/jquery
+[09:10:00] <Krinkle> though output seems a work in progress http://www.browserswarm.com/browserswarm/jquery/job/524100c9bf486a0000000008
+[09:10:11] <Krinkle> http://www.browserswarm.com/framework/results/jquery-ui
+[09:10:15] <Krinkle> looks broken :O
+[09:10:40] <JamesMGreene> Hmm
+[09:10:49] <JamesMGreene> Maybe we should just let appendTo do the work, then :-P
+[09:11:32] <Krinkle> I don't think that web UI is part of the software though
+[09:11:49] <Krinkle> that seems like a separate reporter they build to promote it on their site, not how you'd use it normally
+[09:12:05] <Krinkle> since it (hopefully) doesn't require setting up an indefinite server
+[09:12:07] <JamesMGreene> Microsoft, then?
+[09:12:14] <JamesMGreene> http://www.browserswarm.com/#about-browserswarm
+[09:15:42] <Krinkle> ah, wait, browserswarm isn't a cli utility? It's a hosted service
+[09:15:45] <jzaefferer> Krinkle: yeah, still very much a work on progress. appendTo is working on it, getting funding from Microsoft
+[09:16:05] <jzaefferer> BrowserSwarm is the hosted service, but it uses "Strider" (I think) underneath, that's the CLI utility
+[09:16:07] <Krinkle> I see "http://modern.IE" that domain again, that says enough
+[09:16:20] <jzaefferer> https://github.com/appendto/strider-qunit
+[09:17:01] <JamesMGreene> Ironically http://www.modern.ie/en-us/virtualization-tools still only mentions BrowserStack instead of BrowserSwarm:-P
+[09:17:06] <jzaefferer> strider might be the more interesting component for us
+[09:17:31] <jzaefferer> JamesMGreene: not really, BrowserSwarm isn't really announced anywhere, yet
+[09:17:48] <JamesMGreene> "Beta"
+[09:18:08] <Krinkle> where is the real code for strider/qunit?
+[09:18:09] <JamesMGreene> So apparently not Beta like Google Beta
+[09:18:15] <Krinkle> I don't see where it actually gets the results
+[09:19:56] <jzaefferer> in case you missed this message earlier: Krinkle: I'd like to prototype a grunt-qunit-saucelabs plugin that does the tunneling and submitting, but otherwise uses the unit testing support that Saucelabs now provides. Since you've worked on grunt-saucelabs, think you could put something together?
+[09:20:19] <Krinkle> Yes
+[09:20:55] <jzaefferer> prototype as in, make it very minimalistic, just to see if we can get useful output on the local CLI from saucelabs running QUnit...
+[09:21:54] <Krinkle> http://sauceio.com/index.php/tag/jellyfish/
+[09:21:57] <Krinkle> sauce.go("http://myurl.com/jquery/test/index.html")
+[09:21:57] <Krinkle>   .js("QUnit.done = function(res) {
+[09:21:57] <Krinkle>     window.testOutput=res;
+[09:21:59] <Krinkle>     window.jfComplete=true;
+[09:22:01] <Krinkle>    }");
+[09:22:46] <jzaefferer> sounds good :-)
+[09:23:13] <Krinkle> That's essentially the same the dude's grunt-saucelabs plugin did and subject to the same dilemma. How can it know when to execute that js? It would have to exec after QUnit exists (a Qunit version provided by the client) but before the tests start
+[09:23:19] <Krinkle> oh wait, no, only before the tests finish
+[09:23:40] <jzaefferer> http://qunitjs.com/plugins/ still lists themes as bundled plugins, links to https://github.com/jquery/qunit/tree/master/addons - where did we move those?
+[09:23:42] <Krinkle> So I guess that means it only has the data qunit.done provides, which means it's not enough for what we want (only provides overal numbers)
+[09:23:45] <Krinkle> anyway, I'll try :)
+[09:24:11] <Krinkle> jzaefferer: some went to James, some went to mind. The themes went to mind
+[09:24:12] <Krinkle> mine*
+[09:24:18] <Krinkle> It's in the release notes of 1 or 2 releases ago
+[09:24:29] <JamesMGreene> Except that whole `QUnit.done = ` bit
+[09:24:35] <jzaefferer> well, right now "res" doesn't really provide useful results, we'd have to implement this first: https://github.com/jquery/qunit/issues/472
+[09:24:35] <b-ot> jzaefferer: Issue #472 by jzaefferer (43m 34s ago): QUnit.done should provide aggregated results
+[09:24:50] <JamesMGreene> `QUnit.done(fn)` FTW
+[09:25:20] <Krinkle> yeah, oh well, this is compatible with older versions which is important since they don't know what version of Qunit is running on the provided url
+[09:26:14] <JamesMGreene> Hmm
+[09:27:50] <Krinkle> gotta run
+[09:28:03] <jzaefferer> I wouldn't worry about that too much. If you're willing to set that stuff up, you can surely upgrade to a newer QUnit version as well
+[09:28:09] <jzaefferer> alright, thanks Krinkle
+[09:28:10] <JamesMGreene> yeah, ditto... and figure out when to squeeze in lunch now since I didn't leave :-P
+[09:28:21] <jzaefferer> I'll update the plugins page with proper theme links
+[09:28:29] <JamesMGreene> ttyl gentlemen
+[09:28:34] <jzaefferer> thanks JamesMGreene, I'll ping you update the node stuff ;)
+[09:28:41] <Krinkle> thx, cya!
+[09:28:46] <JamesMGreene> Oh, Krinkle: Ever going to extract the PhantomJS runner addon?  :-{
+[09:28:48] <JamesMGreene> :-P  *
+[09:29:02] <JamesMGreene> LOL  <3
+[09:29:06] <JamesMGreene> I fully understand the lack of time
+[09:30:23] <jzaefferer> good night
+[11:01:08] <_|Nix|_> Hey! I might be present today :)
+[11:01:10] <uGoMobi> hey all
+[11:01:15] <arschmitz> hi
+[11:01:18] <uGoMobi> hehe _|Nix|_
+[11:02:04] <uGoMobi> _|Nix|_: great you can make it
+[11:03:02] <uGoMobi> agenda/updates https://docs.google.com/document/d/1061R4ogg1OHKEpfmNWtXKqgoDY4MubiQbVVs-ENPA9I/edit?usp=sharing
+[11:03:40] <uGoMobi> we released 1.4 beta !!
+[11:03:45] <uGoMobi> yeahhh :D
+[11:03:55] <_|Nix|_> Awesome!
+[11:04:08] <uGoMobi> great work all!
+[11:04:20] <_|Nix|_> +1
+[11:04:37] <uGoMobi> let's look into what we need to do before final
+[11:04:56] <uGoMobi> open tickets https://github.com/jquery/jquery-mobile/issues?direction=desc&milestone=20&page=1&sort=updated&state=open
+[11:05:39] <uGoMobi> maybe there are some tickets where we have to remove the 1.4 milestone
+[11:06:05] <uGoMobi> for example https://github.com/jquery/jquery-mobile/issues/5431
+[11:06:06] <b-ot> uGoMobi: Issue #5431 by hikalkan (8mon 2w ago): Solution to flicker problem in jQuery mobile page transitions!
+[11:06:44] <_|Nix|_> Yeah ... that can even go into 1.4.1 ...
+[11:06:44] <arschmitz> yeah that should be moved for sure
+[11:06:58] <arschmitz> or even 1.5 thats not a simple thing
+[11:07:13] <uGoMobi> actually you can set an option to have the same result so we don't need to make a change
+[11:07:31] <arschmitz> perfect then clsoed wont fix
+[11:07:32] <arschmitz> lol
+[11:07:59] <uGoMobi> and transitions (blinks) is something we have to look into but we didn't have enough time for that for 1.4
+[11:08:01] <_|Nix|_> I don't recall ... what's the option?
+[11:08:12] <uGoMobi> arschmitz _|Nix|_ how about https://github.com/jquery/jquery-mobile/issues/5987
+[11:08:12] <b-ot> uGoMobi: Issue #5987 by jzaefferer (4mon 2w ago): Support for using jQuery Mobile without init module
+[11:08:31] <_|Nix|_> That's an ongoing issue ...
+[11:08:37] <arschmitz> in theory everything works there
+[11:08:46] <arschmitz> however we dont have unit test coverage to ensure this
+[11:08:58] <arschmitz> so maybe close that and open a new issue about adding tests to ensure this
+[11:09:14] <_|Nix|_> I've been writing unit tests to make sure modules work independently, but that bug does not need a milestone per se.
+[11:09:31] <uGoMobi> _|Nix|_: Re: "what is the option"... disablePageZoom
+[11:09:42] <_|Nix|_> uGoMobi: OK.
+[11:10:11] <_|Nix|_> So, you set that, transition, restore that?
+[11:10:30] <arschmitz> so i think https://github.com/jquery/jquery-mobile/issues/5987 can be closed and replaced with testing issue when _|Nix|_ finishes creating tests then testing issue can close
+[11:10:30] <b-ot> arschmitz: Issue #5987 by jzaefferer (4mon 2w ago): Support for using jQuery Mobile without init module
+[11:10:46] <uGoMobi> _|Nix|_: no need to restore
+[11:11:03] <uGoMobi> _|Nix|_: the option is only to disable zoom during transition
+[11:11:09] <_|Nix|_> I'd prefder for https://github.com/jquery/jquery-mobile/issues/5987 to stay open w/o a milestone so I can keep referring to it.
+[11:11:09] <b-ot> _|Nix|_: Issue #5987 by jzaefferer (4mon 2w ago): Support for using jQuery Mobile without init module
+[11:11:27] <arschmitz> _|Nix|_: then i think the title should be changed
+[11:12:01] <arschmitz> like add "Add tests to ensure ...." to the beginning or something
+[11:13:10] <_|Nix|_> arschmitz: OK.
+[11:13:40] <uGoMobi> https://github.com/jquery/jquery-mobile/issues/5309
+[11:13:40] <b-ot> uGoMobi: Issue #5309 by Hamdiakoguz (10mon 5d ago): Series 40 and Symbian^3 loading / enhancement issues
+[11:13:53] <uGoMobi> do we have a Symibian or Series 40 device?
+[11:13:53] <_|Nix|_> arschmitz: I'll change it and remove the milestone.
+[11:14:00] <arschmitz> _|Nix|_: sounds good
+[11:14:02] <uGoMobi> _|Nix|_: milestone is already gone
+[11:14:27] <_|Nix|_> uGoMobi: Our c-grade experience is not so good on the demos.
+[11:14:30] <arschmitz> uGoMobi: hmmm thats an intresting one based on the support structure we decided on during dev meeting in austin
+[11:14:41] <_|Nix|_> The footer overlaps the content.
+[11:15:01] <arschmitz> i dont believe core supports that
+[11:15:07] <uGoMobi> _|Nix|_: ok thanks, I will make sure the custom CSS is only applied when A/B-grade
+[11:15:08] <_|Nix|_> This resize-page-to-fit-the-window isn't working, I think.
+[11:15:29] <uGoMobi> _|Nix|_: nah, I made the footer position absolute instead of fixed
+[11:15:36] <agcolom> hey :-)
+[11:15:46] <uGoMobi> so it sticks to the bottom unless the page is longer than the window
+[11:15:53] <uGoMobi> hey agcolom
+[11:16:49] <_|Nix|_> uGoMobi: Either way ... it overlaps the content.
+[11:17:04] <scott_gonzalez> I'm here now :-)
+[11:17:06] <uGoMobi> right
+[11:17:10] <uGoMobi> hey scott_gonzalez
+[11:17:59] <uGoMobi> so re: browser support... what do we do with platforms like Symbian
+[11:18:09] <_|Nix|_> Booo! No PE on github. I can't edit the issue from my N900 :(
+[11:18:30] <_|Nix|_> uGoMobi: Well, it's C-grade, no?
+[11:18:49] <uGoMobi> _|Nix|_: that's the problem, it crashes
+[11:19:05] <_|Nix|_> uGoMobi: Like, the browser?
+[11:19:06] <arschmitz> _|Nix|_: in austin we decided to differentiate between grade in support also
+[11:19:23] <arschmitz> grade will be simple based on feature detection
+[11:19:40] <arschmitz> support will be based on what the versions of core that that version supports support
+[11:19:44] <uGoMobi> arschmitz: but that is more something for future versions
+[11:20:06] <arschmitz> uGoMobi: yes but for any version we cant really support things that core does not
+[11:20:08] <_|Nix|_> My head is spinning ... huh?
+[11:20:09] <uGoMobi> I don't think we can switch our support structure now
+[11:20:30] <arschmitz> because the feature detects that determin grade rely on core
+[11:20:50] <_|Nix|_> So, lemme get this straight: It crashes because of lack of support from core?
+[11:20:59] <arschmitz> _|Nix|_: we dont know why it crashes
+[11:21:06] <uGoMobi> _|Nix|_: not sure why it is
+[11:21:28] <arschmitz> but the point is if core does not support the browser its essentially impossible for us to even on c grade
+[11:21:38] <_|Nix|_> Do we at least know if it's our code crashing it?
+[11:21:49] <arschmitz> _|Nix|_: we know essentially nothing
+[11:21:58] <arschmitz> we dont have a phone that can reproduce
+[11:22:03] <uGoMobi> _|Nix|_: no, did a lot of debugging with help from OP's
+[11:22:17] <uGoMobi> there were multiple tickets
+[11:22:26] <_|Nix|_> OK, cuz I was thinking we could do some plainjs checking early on, before we start relying on core.
+[11:22:45] <arschmitz> _|Nix|_: but checking for what ?
+[11:22:47] <uGoMobi> we test media query support
+[11:22:57] <agcolom> sorry I missed things... what device and what bug. I have a lesson with 100 students on monday, I can check if anyone has a device matching
+[11:23:00] <uGoMobi> and pseudo element support in 1.4
+[11:23:08] <_|Nix|_> arschmitz: UA string in the worst case.
+[11:23:18] <uGoMobi> agcolom: Symbian and Nokia Series 40
+[11:23:28] <agcolom> ok,
+[11:23:53] <agcolom> I may have an old PC with that simulator...
+[11:24:00] <uGoMobi> nice
+[11:24:03] <_|Nix|_> We may want to set up a test page for agcolom with core only.
+[11:24:17] <arschmitz> _|Nix|_: we could UA sniff i guess but im hesitant to add more UA sniffing we already have too much
+[11:24:40] <agcolom> I know I definitely used to use that simulator. I think the PC is under my desk at work!
+[11:24:54] <_|Nix|_> arschmitz: ... and I guess it wouldn't help if it crashes in core.
+[11:25:30] <agcolom> I'll send an announcement to 300 students today to see if anyone has a device
+[11:25:43] <uGoMobi> great
+[11:25:49] <_|Nix|_> uGoMobi: So, do we know that it crashes in core?
+[11:25:57] <arschmitz> agcolom: lol maybe its a really old device though i had trouble even finding one on ebay
+[11:26:07] <arschmitz> _|Nix|_: we dont know where it crashes
+[11:26:12] <_|Nix|_> uGoMobi: Or, at least, sometime before jQM even starts executing?
+[11:26:14] <uGoMobi> it would be nice if we can keep C-grade for platforms like this
+[11:26:25] <uGoMobi> but of course only if they don't crash on just loading core
+[11:26:41] <uGoMobi> _|Nix|_: no, we don't know
+[11:26:45] <arschmitz> uGoMobi: maybe we should change how we do page hiding
+[11:26:57] <_|Nix|_> arschmitz: uGoMobi said something about the OP being really helpful. What exactly did we find out via this helpfulness?
+[11:27:03] <uGoMobi> arschmitz: yeah, could be a solution
+[11:27:10] <_|Nix|_> OK. NM.
+[11:27:13] <arschmitz> instead of hidden by default make it visible and hide once we know grade
+[11:27:19] <agcolom> arschmitz: these used to be v popular!
+[11:27:27] <arschmitz> then if something crashes its auto c grade
+[11:27:33] <uGoMobi> although there is already some sort of fallback that removes the class that hides everything after some seconds
+[11:27:46] <arschmitz> uGoMobi: only if the whole thing does not crash
+[11:27:48] <_|Nix|_> arschmitz: Woul¶n't that cause a FOUC?
+[11:27:58] <arschmitz> that assumes javascript is actually executing
+[11:28:49] <uGoMobi> ok, let's keep that ticket open with milestone 1.4... platform support is something we need to look into before 1.4 final release
+[11:29:06] <_|Nix|_> Wait a sec ... a page can't be hidden by default because of PE.
+[11:29:18] <uGoMobi> _|Nix|_: good point
+[11:29:27] <uGoMobi> it's the JS that adds the class
+[11:29:37] <arschmitz> yeah thats right
+[11:29:43] <uGoMobi> so if the JS doesn't work the class shouldn't be there in the first place
+[11:29:50] <arschmitz> it crashes after the class to hide is applied but before it can be removed
+[11:30:03] <uGoMobi> I haven't tested on Opera Mini for a while
+[11:30:27] <uGoMobi> I think that's another platform we need to test to see if things still work
+[11:30:35] <_|Nix|_> arschmitz: OK. So we definitely need somekind of check before we apply the class.
+[11:31:03] <uGoMobi> we should check the whole list of platforms, test and update
+[11:31:12] <_|Nix|_> arschmitz: Doesn't our applying the class mean we're treating it as > C-grade?
+[11:31:51] <_|Nix|_> arschmitz: I thought C-grade meant we run 0 code of our own.
+[11:32:10] <uGoMobi> we run support JS
+[11:32:24] <arschmitz> _|Nix|_: thats not possible
+[11:32:36] <arschmitz> because c grade is determind by support tests
+[11:32:41] <arschmitz> which is code that has to run
+[11:32:41] <uGoMobi> right
+[11:32:53] <_|Nix|_> true
+[11:33:09] <arschmitz> its some time durring these tests that the crash happens
+[11:33:09] <_|Nix|_> But we can bail earlier than we do now.
+[11:33:25] <_|Nix|_> arschmitz: Oh! That early?
+[11:33:31] <arschmitz> _|Nix|_: yes
+[11:33:40] <arschmitz> or else the class would be removed
+[11:33:45] <arschmitz> and everything would be fine
+[11:33:58] <_|Nix|_> arschmitz: Not actually surprised - we poke and prod in weird places in these tests.
+[11:34:09] <arschmitz> _|Nix|_: series 40 is a really bad platform
+[11:34:16] <arschmitz> it does not support any dom methods at all
+[11:34:24] <arschmitz> but supports js via a proxy browser
+[11:34:32] <uGoMobi> let's move on to some infrastructure things we need to look into for 1.4 final
+[11:34:41] <_|Nix|_> arschmitz: Why do we do any DOM manip before we know the grade? To avoid FOUC?
+[11:34:54] <arschmitz> _|Nix|_: support tests use it
+[11:35:13] <_|Nix|_> *sigh*
+[11:35:25] <_|Nix|_> OK ... bug stays open like uGoMobi said ...
+[11:35:44] <uGoMobi> yes and we can discuss further on -dev
+[11:35:50] <_|Nix|_> OK.
+[11:36:06] <uGoMobi> together with 1.4 final release we switch to new web site
+[11:36:18] <uGoMobi> which means we switch to jquery-wp-content
+[11:36:40] <_|Nix|_> Sweet!
+[11:36:42] <uGoMobi> unfortunately RWhitbeck couldn't attend this meeting
+[11:37:03] <uGoMobi> he said he would work on new web site last weekend
+[11:37:14] <_|Nix|_> I have to bail soon ... bus is arriving at the office.
+[11:37:16] <uGoMobi> I will ask him about the status
+[11:37:18] <agcolom> and one millions thx to scott_gonzalez
+[11:37:19] <uGoMobi> ok
+[11:37:28] <uGoMobi> agcolom: +1
+[11:37:35] <_|Nix|_> +1
+[11:37:44] <arschmitz> +1
+[11:37:58] <uGoMobi> so we have to look into what this means for our Download Builder and ThemeRoller
+[11:38:13] <arschmitz> uGoMobi: i looked into theme roller
+[11:38:24] <arschmitz> its just a folder within jquerymobile.com
+[11:38:45] <_|Nix|_> arschmitz: Could go into /resources.
+[11:39:00] <arschmitz> yes i think thats exactly what the case would be
+[11:39:07] <_|Nix|_> arschmitz: If jquerymobile.com is anything like the API docs.
+[11:39:20] <scott_gonzalez> All sites have /resources.
+[11:39:30] <arschmitz> uGoMobi: as for builder thats a proxy
+[11:39:40] <arschmitz> so as long as we keep the proxy nothing needs to be done there
+[11:39:40] <uGoMobi> yeah
+[11:39:45] <uGoMobi> can we keep that proxy?
+[11:39:45] <_|Nix|_> scott_gonzalez: Can we create some alias so it can stay /themeroller?
+[11:39:52] <scott_gonzalez> But the URL should stay /themeroller
+[11:39:59] <scott_gonzalez> Well, it should be a real page.
+[11:40:12] <scott_gonzalez> Even if it doesn't use the standard template.
+[11:41:33] <arschmitz> scott_gonzalez: theme roller basicly just uses a single php page
+[11:41:36] <uGoMobi> So we create a WordPress to have the link in the menu?
+[11:41:50] <uGoMobi> WordPRess page*
+[11:43:35] <scott_gonzalez> Well, you'll need a themeroller page that has the source in order to get the URL.
+[11:43:49] <scott_gonzalez> Getting the menu item is just a matter of editing an array.
+[11:43:56] <arschmitz> that should be simple enough
+[11:43:59] <uGoMobi> ok
+[11:44:12] <scott_gonzalez> https://github.com/jquery/jquery-wp-content/blob/master/themes/jquery/menu-header.php#L56
+[11:45:20] <scott_gonzalez> gnarf: Can you confirm whether PHP files will be executed in the resources directory?
+[11:46:26] <uGoMobi> in the meantime... the download builder proxy
+[11:46:41] <uGoMobi> can we keep that?
+[11:46:56] <scott_gonzalez> Yeah. The builder is written in node?
+[11:47:01] <arschmitz> yes
+[11:47:13] <scott_gonzalez> Ok, so we should be able to do the same things as UI.
+[11:47:25] <uGoMobi> great
+[11:47:48] <scott_gonzalez> Though, again, you'll want a real page for the GUI.
+[11:48:11] <arschmitz> that will have to be created
+[11:48:16] <scott_gonzalez> I'm not sure how you're managing that now.
+[11:48:22] <scott_gonzalez> What generates http://jquerymobile.com/download-builder/ ?
+[11:48:48] <arschmitz> https://github.com/jquery/jquery-mobile-builder
+[11:49:59] <scott_gonzalez> Where does the actual download happen?
+[11:50:27] <scott_gonzalez> Where does /amd-builder/ come from?
+[11:51:12] <agcolom> maybe gseguin can give some guidance here
+[11:51:13] <_|Nix|_> G2G L8R
+[11:51:20] <arschmitz> scott_gonzalez: its proxied from somewhere i dont recall where right this second
+[11:51:25] <arschmitz> gseguin|away: knows
+[11:51:36] <uGoMobi> later _|Nix|_
+[11:52:23] <arschmitz> scott_gonzalez: i think its on a different server
+[11:54:05] <uGoMobi> ok I will ask gseguin to answer these questions
+[11:54:52] <uGoMobi> then we have the API docs
+[11:55:26] <uGoMobi> scott_gonzalez: anything we have to do?
+[11:55:30] <arschmitz> scott_gonzalez: looks like its on eol2
+[11:55:34] <uGoMobi> to have 1.3 and 1.4 next to each other
+[11:55:43] <scott_gonzalez> Nope. When you're ready to do the release, just let me know.
+[11:55:55] <scott_gonzalez> It should be all ready to go.
+[11:56:01] <uGoMobi> ok great, thanks
+[11:56:26] <uGoMobi> then the demos
+[11:56:39] <uGoMobi> we used view.* since 1.3.1 I think
+[11:56:56] <uGoMobi> but those should go on jquerymobile.com/demos
+[11:57:06] <uGoMobi> I suppose that's just a matter of moving
+[11:57:14] <arschmitz> uGoMobi: not exactly
+[11:57:21] <uGoMobi> and update release script
+[11:57:27] <arschmitz> gseguin|away: already tried but we need to update the global nav menu
+[11:57:46] <arschmitz> because demos occure in the path twice now
+[11:57:52] <uGoMobi> arschmitz: now I changed the structure we can get rid of that
+[11:58:18] <arschmitz> uGoMobi: ok either way we need to update the demos before it will work
+[11:58:20] <uGoMobi> arschmitz: we only have to look at the homepage menu
+[11:58:28] <uGoMobi> arschmitz: good point
+[11:59:13] <arschmitz> uGoMobi: gseguin|away already knows i helped him figure it out when he was trying to put beta 1 up
+[11:59:28] <uGoMobi> yeah saw that yesterday
+[11:59:29] <arschmitz> so that is all set once we update demos
+[11:59:33] <uGoMobi> thanks
+[12:00:03] <uGoMobi> I moved all demos in their own folder
+[12:00:14] <uGoMobi> subfolder of demos/
+[12:00:20] <uGoMobi> so the path is always the same
+[12:00:37] <arschmitz> and those folders never have sub folders?
+[12:00:48] <uGoMobi> arschmitz: correct
+[12:00:53] <uGoMobi> for this reason
+[12:01:02] <agcolom> uGoMobi: In http://api.jquerymobile.com/data-attribute/ we have a broken link but I have no idea where this should point to
+[12:01:07] <agcolom> it Link
+[12:01:14] <agcolom> it's Link ^
+[12:01:30] <uGoMobi> agcolom: Link is not really a feature
+[12:01:42] <agcolom> no... but we have it there
+[12:01:44] <uGoMobi> we have links.js that adds ui-link class
+[12:01:50] <uGoMobi> but that is deprecated
+[12:01:56] <uGoMobi> agcolom: let's just remove the link
+[12:02:03] <uGoMobi> ok?
+[12:02:07] <arschmitz> agcolom: yeah that should not link anywhere
+[12:02:13] <agcolom> should I just remove the link on Link but keep hte text?
+[12:02:21] <arschmitz> agcolom: yeah
+[12:02:21] <uGoMobi> yes sounds good
+[12:02:33] <agcolom> ok, great, that's easy enough ;-)
+[12:03:37] <uGoMobi> so the next few weeks we have to keep working on updating API docs and the demos
+[12:04:12] <uGoMobi> I started to look into the ThemeRoller update
+[12:04:19] <uGoMobi> that is going to take some time
+[12:04:34] <uGoMobi> I hope RWhitbeck has time to work on the new web site
+[12:04:42] <uGoMobi> agcolom: do you have to work on that as well?
+[12:05:19] <agcolom> not sure, I need to check with Ralph
+[12:05:21] <uGoMobi> have time*
+[12:05:29] <uGoMobi> sorry, can't type today
+[12:05:39] <uGoMobi> agcolom:  ok
+[12:06:00] <agcolom> been difficult now that teaching has started again and Alex started secondary school... I have a lot of homework to help with and my day starts at 6.30am!
+[12:06:26] <agcolom> Hoping that things will settle in a bit
+[12:06:26] <uGoMobi> I totally understand
+[12:07:20] <uGoMobi> let's check with RWhitbeck when he is around
+[12:07:31] <uGoMobi> anything else we need to discuss?
+[12:07:37] <uGoMobi> PR's?
+[12:08:50] <uGoMobi> there are two PR's but no need to discuss those now
+[12:09:04] <uGoMobi> one has to wait until after 1.4
+[12:09:19] <uGoMobi> I reviewed the collapsible list item demo PR
+[12:09:38] <uGoMobi> looks like we are done here
+[12:09:46] <uGoMobi> thanks all!

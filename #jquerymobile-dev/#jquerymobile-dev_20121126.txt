@@ -1,0 +1,670 @@
+[01:23:03] <_|Nix|_> uGoMobi: Ping!
+[01:50:32] <uGoMobi> _|Nix|_: pong!
+[01:59:00] <_|Nix|_> uGoMobi: Hey!
+[01:59:10] <uGoMobi> hey _|Nix|_ good morning!
+[01:59:13] <_|Nix|_> I had an idea regarding https://github.com/jquery/jquery-mobile/issues/5009 ...
+[01:59:33] <_|Nix|_> One of the commenters suggested that we use the .unload() event to fix up the button active state.
+[02:00:18] <_|Nix|_> We need to find out why we haven't done that yet - perhaps we've tried, and .unload() is unreliable on all our supported platforms?
+[02:00:30] <_|Nix|_> Anyway, I was thinking that maybe we can do this with CSS.
+[02:00:51] <_|Nix|_> We created a class that turns off the active state after a while - a CSS animation, IINM.
+[02:01:18] <_|Nix|_> So, like, we set the background to blue, and after 300ms, we set (or animate) the opacity to 0.
+[02:01:20] <uGoMobi> _|Nix|_: but does the unload event fire when a page is hidden?
+[02:01:58] <_|Nix|_> uGoMobi: http://api.jquery.com/unload - it fires quite often, so we'd have to coordinate with navigation to find out whether /this/ unload event is the real thing or not.
+[02:02:34] <_|Nix|_> uGoMobi: The problem with CSS is that I can't think of a combination of properties that, when animated, could produce a nice active state.
+[02:02:54] <_|Nix|_> uGoMobi: I mean, animation opacity: 1.0 -> 0.0 would cause the whole button to disappear :)
+[02:03:44] <_|Nix|_> uGoMobi: But if we're willing to indicate active state by some method that does not involve background colour, we might be able to pull this off with CSS only and no new divs.
+[02:03:51] <uGoMobi> we would have to animate from ui-btn-down background-image to ui-btn-active bg-img
+[02:04:27] <_|Nix|_> uGoMobi: Right, but IINM only CSS properties that have numerical values can be animated, right?
+[02:04:42] <uGoMobi> _|Nix|_: this is something for 1.4 where we want to make the active state themeable
+[02:04:43] <_|Nix|_> uGoMobi: You cannot animate, say, backgorund-color, can you?
+[02:05:24] <_|Nix|_> uGoMobi: Like, background-color: #ff0000 -> https://github.com/jquery/jquery-mobile/issues/0000ff ...
+[02:05:27] <_|Nix|_> Gah!
+[02:05:29] <uGoMobi> _|Nix|_: i am not 100% sure it works with background-image, but you can animate bg color
+[02:05:36] <_|Nix|_> Auto-replace! Noooo!
+[02:05:39] <uGoMobi> lol
+[02:05:47] <uGoMobi> yes that works
+[02:05:47] <_|Nix|_> uGoMobi: Great~
+[02:06:08] <_|Nix|_> uGoMobi: That's actually awesome!
+[02:06:09] <uGoMobi> on my on project a use smooth transitions for active state
+[02:06:24] <uGoMobi> and hover
+[02:06:48] <uGoMobi> s/on/own/
+[02:06:57] <uGoMobi> and a=i
+[02:07:03] <uGoMobi> errr can't type
+[02:07:09] <_|Nix|_> uGoMobi: Nice!
+[02:07:59] <_|Nix|_> uGoMobi: Still not sure if we can pull this off, because we'd need background-color: <whatever ui-btn-active is> -> <whatever it was before ui-btn-active was added>
+[02:08:12] <uGoMobi> _|Nix|_: but we would still have the issue... when do we add the active state class
+[02:08:38] <_|Nix|_> uGoMobi: During vclick, just as we do now, but we don't need to remove it, because it would fade out on its own.
+[02:09:01] <uGoMobi> _|Nix|_: but then the class will still be there
+[02:09:15] <_|Nix|_> uGoMobi: That's fine, because it will have no visual effect.
+[02:09:39] <_|Nix|_> uGoMobi: It doesn't matter if it's left behind. We can clean up whenever we get a chance, but so what if there's a useless class tacked on.
+[02:09:41] <uGoMobi> _|Nix|_: we could even do it with data- attribute
+[02:10:15] <_|Nix|_> uGoMobi: No, because data-* requires JS to make work, and again we won't have time to execute the JS, because the page is being unloaded.
+[02:10:31] <uGoMobi> _|Nix|_: ok
+[02:11:39] <_|Nix|_> uGoMobi: We currently clean up ui-btn-active quite nicely, so that code can continue to be used. The only time we /can't/ clean up ui-btn-active is when the page gets unloaded.
+[02:12:13] <_|Nix|_> uGoMobi: So, if we make ui-btn-active such that it cleans up after itself, we don't need to worry about unload, and we can apply ui-btn-active to /all/ buttons.
+[02:12:21] <_|Nix|_> uGoMobi: Just like https://github.com/jquery/jquery-mobile/issues/5009 asks.
+[02:12:36] <uGoMobi> _|Nix|_: we use the pagehide event, but could probably bind to unload as well
+[02:12:51] <uGoMobi> yeah I saw his comment
+[02:13:00] <_|Nix|_> uGoMobi: If you click a non-AJAX link from a page, I don't think you get a pagehide.
+[02:13:09] <_|Nix|_> uGoMobi: I think it goes straight to unload.
+[02:13:52] <uGoMobi> _|Nix|_: so we could bind to both events to fix that
+[02:13:53] <_|Nix|_> uGoMobi: I agree that, given the current setup, the simplest solution for https://github.com/jquery/jquery-mobile/issues/5009 would be to remove the active state during unload. However, this assumes that unload works reliably on all supported platforms.
+[02:14:34] <uGoMobi> _|Nix|_: but this is about removal  of the active state
+[02:14:36] <_|Nix|_> uGoMobi: We currently have no problem cleaning up ui-btn-active for links that remain inside jQM. The only problem is links that result in HTTP navigation such as submit and non-AJAX hrefs.
+[02:14:49] <uGoMobi> there is still the problem that it isn't added in all cases
+[02:15:02] <_|Nix|_> uGoMobi: Adding it is easy.
+[02:15:20] <uGoMobi> _|Nix|_: I understand so we could test unload cross browser
+[02:15:31] <_|Nix|_> uGoMobi: I think we're currently not adding it because someone somewhere realized that if we always add it, there might be times when we don't get a chance to remove it.
+[02:15:41] <uGoMobi> _|Nix|_: is links to popups also still a problem?
+[02:15:50] <_|Nix|_> uGoMobi: No idea. Let's find out.
+[02:16:03] <_|Nix|_> uGoMobi: Actually, shouldn't be because popups now go through nav.
+[02:16:10] <uGoMobi> I https://github.com/jquery/jquery-mobile/issues/4611
+[02:16:36] <uGoMobi> ah fixed by this https://github.com/jquery/jquery-mobile/pull/5145
+[02:16:50] <uGoMobi> PR from same guy who suggested unload
+[02:18:06] <_|Nix|_> Yeah, actually, popup is a special case in terms of removing ui-btn-active.
+[02:18:07] <jqmobilecommit> [13jquery-mobile] 15rahmadid opened issue #5329: The 'text' value of listview's filterCallback function is wrong.  02http://git.io/fqxVbQ
+[02:18:46] <_|Nix|_> In the case of a page, we can leave ui-btn-active until the user clicks some other button, because she can't see that the ui-btn-active is still present on the previous page, because that page is hidden.
+[02:19:08] <uGoMobi> _|Nix|_: this issue https://github.com/jquery/jquery-mobile/issues/1181 won't be fixed by unload either
+[02:19:21] <_|Nix|_> ... and the old ui-btn-active also gets removed during hashchange.
+[02:19:45] <uGoMobi> unload won't fire if you navigate between internal JQM pages
+[02:21:49] <uGoMobi> _|Nix|_: I am not sure about leaving the class... for example persistent navbars do need the active state to be visible
+[02:22:05] <uGoMobi> same for controlgroup radio buttons etc
+[02:22:14] <doesallmagic> Yippie, build fixed!
+[02:22:14] <doesallmagic> Project jQuery Mobile Phantom Master jQuery Git build #179: FIXED in 21 min: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Phantom%20Master%20jQuery%20Git/179/
+[02:22:50] <_|Nix|_> uGoMobi: That's why I'm thinking we should have a second class, and only when both are present do the effects of the active class disappear.
+[02:23:30] <_|Nix|_> uGoMobi: That should work, because in the global click handler we calculate whether the click will take us outside of jQM or not.
+[02:23:47] <_|Nix|_> uGoMobi: Then we can apply the second class only in those cases where the click takes us outside jQM.
+[02:23:57] <uGoMobi> _|Nix|_: another problem is that css animation isn't supported by all browsers we support
+[02:24:00] <_|Nix|_> uGoMobi: Like, form submit and non-AJAX http links.
+[02:24:37] <_|Nix|_> uGoMobi: Well, in those cases, https://github.com/jquery/jquery-mobile/issues/5009 will not be fixed, because the effects introduced by ui-btn-active will be removed immediately by the second class, instead of after a while.
+[02:25:03] <_|Nix|_> uGoMobi: ... asuming we can set up the CSS in that way.
+[02:26:28] <_|Nix|_> uGoMobi: But I guess we should also test unload quite thoroughly to determine whether it can be used.
+[02:29:17] <uGoMobi> _|Nix|_: maybe we can clean up active state before a page is shown
+[02:29:56] <uGoMobi> to fix the problem of when you navigate back with browser back button
+[02:30:44] <_|Nix|_> uGoMobi: We're already doing that, but we can't do that if the page being shown is requested via HTTP.
+[02:31:00] <uGoMobi> we use ui-state-persist class for the navbar to make sure buttons get active state on pageshow event
+[02:31:28] <uGoMobi> we could do the same for controlgroups
+[02:31:55] <_|Nix|_> uGoMobi: Yeah, so if we go with the CSS-based approach, we could select against ui-state-persist when applying the CSS animation. Nice catch!
+[02:33:34] <_|Nix|_> uGoMobi: Of course, if Chrome is any indication, there will be browser that have the bug whereby if you apply an animation and navigate away from the page before the animation completes, when you navigate back, you will see the last portion of the animation.
+[02:33:44] <uGoMobi> _|Nix|_: yes, we can look into that solution as well... then there is no need to clean up before a page is shown
+[02:34:15] <uGoMobi> _|Nix|_: yeah, so I am not really sure if CSS is the solution here
+[02:34:19] <_|Nix|_> uGoMobi: Remember that bug we had in DC where, when you click a link from a popup that takes you to another page, and then you click "Back", you go to the page with the popup, and you can still see the popup as it disappears?
+[02:34:28] <uGoMobi> yup
+[02:34:40] <_|Nix|_> uGoMobi: *sigh* ... 
+[02:34:44] <uGoMobi> :(
+[02:35:02] <_|Nix|_> uGoMobi: I'm hoping that CSS animation !== CSS transition, and that the bug won't happen for an animation.
+[02:35:57] <_|Nix|_> uGoMobi: Either way, I think CSS and unload are two approaches that are both very complicated, very invasive, and in great need of very thorough testing ...
+[02:36:02] <uGoMobi> _|Nix|_: well actually we are talking about CSS transition
+[02:36:10] <_|Nix|_> Oh, we are?
+[02:36:30] <_|Nix|_> I thought animation was the one where you set the value of a single property.
+[02:36:46] * _|Nix|_ has very little experience with high-powered CSS.
+[02:36:56] <uGoMobi> .ui-link, .ui-btn {
+[02:36:56] <uGoMobi> 	-webkit-transition: all 500ms ease;
+[02:36:56] <uGoMobi> 	-moz-transition: all 500ms ease;
+[02:36:56] <uGoMobi> 	-o-transition: all 500ms ease;
+[02:36:56] <uGoMobi> 	transition: all 500ms ease;	
+[02:36:56] <uGoMobi> }
+[02:36:56] <_|Nix|_> I used animations only once, I think ...
+[02:37:43] <uGoMobi> this rule make all possible styles transition from old to new values
+[02:37:48] <_|Nix|_> You know what though - that may be fine. So what if the active state fades out when the user navigates back? As long as it fades out ...
+[02:37:53] <uGoMobi> for links and buttons in this case
+[02:38:32] <_|Nix|_> And, after all, we're only dealing with the case where the user returns to jQM from an external link.
+[02:38:47] <uGoMobi> yes
+[02:38:55] <_|Nix|_> All the cases we're handling now (internal nav) can continue to work the same way as they work now.
+[02:39:06] <uGoMobi> _|Nix|_: I was wondering if we really need a down and active state
+[02:40:08] <_|Nix|_> uGoMobi: That's also a good point - if a strong visual indication can be given before navigation even starts, then we don't need to worry about any of this.
+[02:41:25] <_|Nix|_> uGoMobi: The thing is though that I think the reason for the active state is that the navigation takes such a long time. So, after the user has finished clicking the button, there's a long time before the page actually shows.
+[02:41:35] <uGoMobi> our btn-down class is atually the native active state...  :active
+[02:41:57] <uGoMobi> _|Nix|_: yeah true
+[02:42:45] <_|Nix|_> OK ... I'm going to try to summarize this in a comment on https://github.com/jquery/jquery-mobile/issues/5009 ...
+[02:42:58] <uGoMobi> _|Nix|_: ok cool
+[02:43:59] <_|Nix|_> uGoMobi: We should also ask Wilto about the CSS-based approach ...
+[02:44:20] <uGoMobi> _|Nix|_: sure
+[02:54:45] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 06master: 02http://git.io/aH4Bmg
+[02:54:45] <jqmobilecommit> 13jquery-mobile/06master 14b982e2f 15Gabriel Schulhof: Custom select: Must depend on navigation to open.
+[03:26:30] <_|Nix|_> uGoMobi: Using the transition together with ui-state-persist on internal links such as controlgroups, persistent navbars and checkboxradio will create a regression on browsers that do not support CSS transitions.
+[03:27:03] <_|Nix|_> uGoMobi: So, I think the only choice is to restrict this approach to external links.
+[03:27:39] <_|Nix|_> uGoMobi: I realized this as I was writing the summary ...
+[03:28:07] <uGoMobi> _|Nix|_: I don't think we can solve the actual problem with CSS
+[03:28:43] <uGoMobi> _|Nix|_: so it would be nice if we can fix it with unload
+[03:28:45] <doesallmagic> Project jQuery Mobile Phantom Master jQuery Old build #89: STILL FAILING in 1 hr 20 min: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Phantom%20Master%20jQuery%20Old/89/
+[03:29:23] <_|Nix|_> uGoMobi: What is the smoking gun?
+[03:29:52] <uGoMobi> _|Nix|_: browser support
+[03:30:50] <_|Nix|_> uGoMobi: Can't we make it so that .ui-btn-active.ui-btn-active-remove === {} on browsers that don't support CSS transitions?
+[03:31:19] <_|Nix|_> uGoMobi: I guess we very well might not be able to do that.
+[03:31:36] <_|Nix|_> uGoMobi: In which case the CSS-based approach is indeed dead.
+[03:32:47] <uGoMobi> _|Nix|_: browsers that don't support transitions will just ignore the rules
+[03:33:39] <_|Nix|_> uGoMobi: So, for those browsers the new class (I'm calling it ui-btn-activer-remove in the summary) will just be {}?
+[03:33:56] <_|Nix|_> uGoMobi: I guess that would be bad, because the active class would stick around.
+[03:35:29] <uGoMobi> _|Nix|_: that's indeed the problem
+[03:57:09] <_|Nix|_> uGoMobi: https://github.com/jquery/jquery-mobile/issues/5009#issuecomment-10712843
+[05:05:47] <arschmitz> Morning _|Nix|_: uGoMobi:
+[05:27:39] <_|Nix|_> arschmitz: Hey!
+[05:28:01] <_|Nix|_> Lots of heavyweight issues left for 1.3.0 ...
+[05:28:14] <arschmitz> I know iv been looking at some
+[05:28:23] <_|Nix|_> Need to have some discussion about them.
+[05:28:29] <arschmitz> for sure
+[05:28:44] <arschmitz> i also have a first draft of the range widget todd asked for for 1.3
+[05:29:07] <arschmitz> need some input on a few things though
+[05:29:49] <_|Nix|_> arschmitz: Range widget? Got a pic/branch?
+[05:30:11] <arschmitz> yeah i havent pushed a branch yet but i have it on my github just a sec
+[05:31:11] <arschmitz> http://www.uglymongrel.com/jqm/range/docs/forms/forms-all.html
+[05:31:49] <arschmitz> oh i havent pushed my latest changes on that yet so the highlight acts a little funny lol
+[05:32:10] <_|Nix|_> arschmitz: Niiiiice!
+[05:32:44] <arschmitz> much better then the ui one for accessibility and grasfull degradation too because it uses two inputs vs 1
+[05:32:49] <_|Nix|_> arschmitz: Funny cuz the <input> is type=range for the slider - what is it for range?
+[05:33:24] <arschmitz> i did it like a fieldcontain
+[05:33:31] <_|Nix|_> arschmitz: Oh, right.
+[05:33:35] <_|Nix|_> arschmitz: Two inputs.
+[05:33:39] <arschmitz> you set data-role="range" on a wrapper div with two range inputs
+[05:33:49] <_|Nix|_> arschmitz: Cool!
+[05:33:53] <arschmitz> yeah
+[05:34:03] <arschmitz> and its dosent replicate any code from slider
+[05:34:09] <_|Nix|_> arschmitz: Also, egads! Is this implemented as an extension to the slider?
+[05:34:28] <arschmitz> its two normal sliders positioned exactly on top of eachoter
+[05:34:42] * _|Nix|_ 's jaw drops.
+[05:35:03] <_|Nix|_> arschmitz: Two troughs?
+[05:35:23] <arschmitz> so no replication and just a little magic to sync highlights
+[05:35:26] <arschmitz> yes
+[05:35:38] <arschmitz> when you click a handle it brings that one to the front
+[05:35:47] <_|Nix|_> arschmitz: Aaaah.
+[05:36:04] <arschmitz> which makes it work for wp7 where there are no touch events
+[05:36:16] <_|Nix|_> arschmitz: You know, I was thinking that we should separate the slider widget into an object that has no this.element, and the actually enhacer widget located at $.mobile.slider ...
+[05:36:30] <_|Nix|_> arschmitz: That way, we can "draw" sliders without actually needing any <input>
+[05:36:33] <arschmitz> cool idea
+[05:36:53] <_|Nix|_> arschmitz: I needed that when I was experimenting with my HSV colour picker.
+[05:37:03] <_|Nix|_> arschmitz: I had no choice but to stick a form inside a popup.
+[05:37:04] <arschmitz> yeah that would help with a feature request we got last week to be able to use selects instead of range
+[05:37:13] <_|Nix|_> arschmitz: That's bad though, because widgets should not generate forms.
+[05:37:21] <_|Nix|_> arschmitz: Exactly.
+[05:37:42] <arschmitz> yeah bad for accessibility to generate form elements
+[05:38:00] <_|Nix|_> arschmitz: The slider is totally the kind of widget that can exist without needing any kind of original element.
+[05:38:21] <arschmitz> _|Nix|_: i totally agree
+[05:38:34] <_|Nix|_> arschmitz: If we did this, then all that the current slider widget would have to do is instantiate such a "drawn" widget and tie it into the native input.
+[05:39:00] <_|Nix|_> arschmitz: ... and all the mouse handling for the button would be inside the "drawn" widget's code.
+[05:39:01] <arschmitz> _|Nix|_: i had to make one small change to the slider widget for this because for some reason highlight wasent an option
+[05:39:15] <arschmitz> we refrenched the data attribute directly with out defining it in options
+[05:39:47] <arschmitz> _|Nix|_: we should put that for 1.4 will be easy to do when we are reviewing all the widgets anyway
+[05:39:50] <_|Nix|_> arschmitz: I wonder if we can add this to the widget review.
+[05:40:05] <arschmitz> ^^Hmmm i guess we are thinking alike
+[05:40:22] <_|Nix|_> arschmitz: I suspect it won't be that easy to do, because slider is fairly tightly bound to the input, and it also handles <select> with only two options.
+[05:40:49] <_|Nix|_> arschmitz: So, it'll be a case of ripping slider in half and then patching up all the gaping wounds.
+[05:40:53] <arschmitz> _|Nix|_: maybe easy wasent the right word easiermaybe ...
+[05:41:27] <_|Nix|_> arschmitz: I definitely think it'd be worth it.
+[05:41:54] <arschmitz> _|Nix|_: yeah i think so then people could use it stand alone for other things
+[05:42:09] <arschmitz> like for a slider show widget it could be usefull
+[05:42:13] <arschmitz> all sorts of things
+[05:42:21] <_|Nix|_> arschmitz: Yeah, a seek bar.
+[05:42:29] <arschmitz> custom scroll bars
+[05:43:35] <arschmitz> _|Nix|_: this is very very much a first working draft but you get the idea https://github.com/arschmitz/jquery-mobile/blob/range/js/widgets/forms/range.js
+[05:44:19] <_|Nix|_> arschmitz: Actually, we wouldn't have to rip it in half at all. We only need to make the existing widget look for not only min max value and step attributes but also data-min, data-max, etc. attributes. Then you could instantiate a slider off a <div data-role="slider" data-min="12" data-max="44" ... ></div>
+[05:44:48] <arschmitz> yeah thats perfect
+[05:45:07] <_|Nix|_> arschmitz: ... because the current widget pretty much assumes that if this.element[ 0 ].tagName === "input" then it has those attributes, otherwise it's a <select>
+[05:45:29] <arschmitz> _|Nix|_: then you could even set them as options
+[05:45:52] <arschmitz> and if the options are not defined it will look for the input attributes
+[05:46:01] <_|Nix|_> arschmitz: Yeah. I think we need to do the sync-options-and-attributes dance that we do for all on-the-fly options.
+[05:46:09] <_|Nix|_> arschmitz: Exactly.
+[05:46:45] <_|Nix|_> arschmitz: Actually, if this.element[ 0] .tagName === "input" it can set .attr( "max" ) else it can set .attr( "data-" + $.mobile.ns + "max" ) ...
+[05:46:54] <_|Nix|_> arschmitz: Or rather, value, not max.
+[05:47:14] <arschmitz> _|Nix|_: we seem to have very similar thinking on widgets lol probably why toddmparker wants us to tackle them for 1.4
+[05:47:17] <_|Nix|_> arschmitz: So, I guess, a definite candidate for the 1.4 widget thing.
+[05:47:54] <_|Nix|_> arschmitz: That's great 'n all, but I've learned to be cautious. We don't want to provide too much without having been asked for it, because it can come back to haunt us.
+[05:48:16] <_|Nix|_> arschmitz: On the flipside, we absolutely should have well-behaved widgets ...
+[05:48:23] <arschmitz> _|Nix|_: for sure should be a fairly simple refactor to do with the rest of the stuff we have slated 
+[05:48:48] <_|Nix|_> arschmitz: ... if we ever get past the 16 1.3-doozies.
+[05:49:19] <arschmitz> _|Nix|_: yeah some are pretty rough and very dependant on johnbenders new nav
+[05:49:27] <_|Nix|_> ... of which I'm thinking we can close https://github.com/jquery/jquery-mobile/issues/3347 ... so what if pagebeforechange is emitted twice?
+[05:50:17] <arschmitz> yeah if it was like pageinit or page show i could see more of a problem
+[05:50:25] <_|Nix|_> ... but, of course I dunno whether johnbender's refactor fixes that. The funny thing is it might break a lot of code out there if we did fix it, because a lot of people might be relying on the current setup of getting two events.
+[05:50:27] <arschmitz> because those are used for event bindings a lot
+[05:51:04] <arschmitz> _|Nix|_: thats true never know what people decide to take advantage of even though its clearly wrong
+[05:52:10] <_|Nix|_> arschmitz: Well, in this case it's not necessarily wrong. I guess we could've gone with differently named events to make it clearer, but it's too late now, and besides, just because the name is not different, it's easy enough to distinguish one from the other (via the type of data.toPage).
+[05:52:48] <arschmitz> _|Nix|_: yes i think just much better event documentation is needed
+[05:53:06] <arschmitz> _|Nix|_: so maybe tag for docs / demos but not close
+[05:53:23] <arschmitz> _|Nix|_: untill we update docs that is
+[05:53:54] <arschmitz> _|Nix|_: there also has been no update / stale for 8 months
+[05:54:02] <_|Nix|_> arschmitz: I think I'll submit an update to api.jquerymobile.com pretty soon.
+[05:54:22] <arschmitz> _|Nix|_: yeah i think thats all we need there
+[05:56:33] <arschmitz> https://github.com/jquery/jquery-mobile/issues/2383 for this one i think we just need to do a branch removing that and get toomparker: to test it really thuroughly on all their devices to see if it causes any regression 
+[05:58:21] <_|Nix|_> arschmitz: Yeah. I couldn't really find a good reason why that event gets snubbed.
+[05:58:44] <arschmitz> _|Nix|_: i commented to the same effect
+[06:10:19] <arschmitz> _|Nix|_: so there is really only one bug left for 1.3 all others it looks like are docs / demos / nav or can probably be closed
+[06:31:11] <arschmitz> Morning uGoMobi:
+[06:33:45] <toddmparker> hey everyone
+[06:33:59] <arschmitz> Morning toddmparker 
+[06:34:11] <toddmparker> hey arschmitz - how was your thanksgiving?
+[06:34:16] <_|Nix|_> toddmparker: Hey!
+[06:34:59] <arschmitz> Execlent! Lots of geek talk with my uncle who owns a software company lol
+[06:35:02] <toddmparker> hey _|Nix|_ 
+[06:35:18] <_|Nix|_> arschmitz: Nice!
+[06:35:18] <toddmparker> sounds like you guys have been whittling down the 1.3 list
+[06:35:22] <arschmitz> toddmparker: also got a first draft of the range widget we talked about done
+[06:35:32] <_|Nix|_> toddmparker: Yeah, but we got some really tough ones left.
+[06:35:35] <toddmparker> arschmitz: yeah?
+[06:35:59] <_|Nix|_> toddmparker: ... and a lot of them will be influenced by johnbender's eventual merge of the nav refactor.
+[06:36:08] <arschmitz> toddmparker: http://www.uglymongrel.com/jqm/range/docs/forms/forms-all.html
+[06:36:19] <_|Nix|_> toddmparker: That's a nice one ^
+[06:36:46] <arschmitz> _|Nix|_: Thank you! 
+[06:37:27] <arschmitz> toddmparker: i also added wp7 support for taping a handle then track 
+[06:46:21] <arschmitz> _|Nix|_: ^^ looks like there are some irc cloud issues this morning lol 
+[07:01:28] <_|Nix|_> arschmitz: Good thing I use irssi.
+[07:01:58] <arschmitz> yeah i have quassel right now but i dont really like it i need to switch to something else
+[07:02:34] <_|Nix|_> arschmitz: If you have a shell account on a computer you can reach from the Internet, I highly recommend screen + irssi.
+[07:03:19] <arschmitz> cool yeah i have several servers with shell accounts i could do that will
+[07:03:21] <arschmitz> with
+[07:03:35] <toddmparker> sorry fellas
+[07:03:43] <toddmparker> i'm back
+[07:03:57] <arschmitz> toddmparker: no prob 
+[07:04:45] <_|Nix|_> The Cloud™ ... meh ... all that new-fangled technology *wave*
+[07:05:27] <toddmparker> arschmitz: testing that slider link…nice and short :)
+[07:06:14] <toddmparker> arschmitz: the tap handle then track…that should work on iOS too, right?
+[07:06:22] <arschmitz> yes
+[07:07:17] <toddmparker> oh cool, it works
+[07:07:22] <toddmparker> but it requires a double tap on ios
+[07:07:33] <arschmitz> oh weird ill have to check on that
+[07:08:20] <arschmitz> i havent thuroughly tested yet. Im waiting to talk to uGoMobi: want his oppinion on my css approach i think it may be flawed and want to work that out before i go further
+[07:08:40] <toddmparker> this is great though
+[07:09:04] <arschmitz> yeah its much better for gracefull degradation and accessibility then current ui one too
+[07:09:13] <arschmitz> because it uses two inputs vs 1
+[07:09:47] <toddmparker> wonder if we should have a class you can tack on to put the input on the line above, next to the label
+[07:09:58] <toddmparker> think uGoMobi was working on something like that anyway - the full width slider
+[07:09:59] <arschmitz> ha ha already have it
+[07:10:07] <toddmparker> that would work great for this
+[07:10:10] <toddmparker> arschmitz: really?
+[07:10:11] <arschmitz> also have a class to split it so an inout on each end
+[07:10:18] <arschmitz> toddmparker: YES!
+[07:10:26] <toddmparker> oh, we should also use css to inject a "-" between the inputs
+[07:10:29] <toddmparker> woah
+[07:11:00] <arschmitz> and right now all positioning is done with CSS no js at all
+[07:11:07] <toddmparker> be cool to come up with a good style for those inputs so they look closer to feedback in that mode but are still clearly clickable
+[07:11:12] <toddmparker> more compact vertically
+[07:11:32] <arschmitz> yeah i was thinking about that something more like a filedgroup
+[07:11:48] <arschmitz> put them together
+[07:13:11] <arschmitz> toddmparker: there is also zero code duplication between this and slider because it keeps them as regular sliders
+[07:13:58] <arschmitz> and you can set all the same data-them data-highlight etc as on slider on the container div and it will pass the options through
+[07:19:03] <toddmparker> badass
+[07:19:41] <arschmitz> toddmparker: heres a question for you though
+[07:20:11] <arschmitz> right now it depends on there being exactly 2 inputs inside a wrapper div with data-role range
+[07:20:57] <arschmitz> it there are more or less then that things get weird
+[07:21:11] <toddmparker> i think we can enforce that
+[07:21:31] <arschmitz> ok i figured just be explicit in the docs 
+[07:21:35] <toddmparker> if people put more than 2, maybe we just spit the others out as normal sliders below?
+[07:21:41] <toddmparker> yeah
+[07:21:49] <toddmparker> people will try to add like 5 handles
+[07:21:59] <toddmparker> because, enterprise
+[07:22:22] <arschmitz> yeah i could do that but then which do we split out?
+[07:23:07] <arschmitz> toddmparker: my thought was dont handle it at all and be explicit in the docs and if people dont listen well thats there own fault as long as its well documented
+[07:23:19] <toddmparker> sure, i'm down with that
+[07:23:29] <toddmparker> not worth spending cycles on more than 2 handles
+[07:23:35] <toddmparker> just say "NO"
+[07:23:35] <arschmitz> yeah
+[07:24:02] <arschmitz> and right now it will take  the first and last and make the range from them and the middle ones just sit below looking pretty normal 
+[07:24:09] <arschmitz> so its not like super breaking
+[07:25:17] <arschmitz> toddmparker: ok cool so only thing really left before i finish it up i think is i want to talk to uGoMobi: about some css stuff 
+[07:26:03] <toddmparker> oh, that's cool then
+[07:26:16] <toddmparker> sounds great. really nice feature
+[07:27:19] <arschmitz> toddmparker: thank you it was my project forthanksgiving lol 
+[07:30:42] <toddmparker> so this works by putting two inputs in a field contain and wrapping the second in a div with a role of range
+[07:32:05] <toddmparker> wonder if we could just wrap that second slider in js
+[07:32:21] <toddmparker> not a biggie
+[07:32:38] <arschmitz> toddmparker: what do you mean wrap it in js?
+[07:32:55] <arschmitz> toddmparker: like add it dynamicly?
+[07:35:55] <toddmparker> yeah
+[07:36:10] <toddmparker> but i see how this works, seems fine as is
+[07:36:20] <toddmparker> _|Nix|_: thoughts on this? https://github.com/jquery/jquery-mobile/issues/4986#issuecomment-10714625
+[07:38:02] <arschmitz> toddmparker: i considdered that approach but i thought it would be an accessibility / graceful degrade issue
+[07:38:03] <uGoMobi> hey arschmitz 
+[07:38:24] <toddmparker> hey uGoMobi 
+[07:38:35] <arschmitz> hey uGoMobi:
+[07:38:39] <toddmparker> just looking at arschmitz's range slider
+[07:38:44] <toddmparker> looking good
+[07:38:45] <uGoMobi> sorry, was sick whole weekend and not feeling well yet :(
+[07:38:57] <arschmitz> uGoMobi: oh sorry to hear that!
+[07:39:10] <toddmparker> i was saying we should sync this with your full width slider work since having the inputs up next to the label would be slick for ranges
+[07:39:21] <toddmparker> uGoMobi: feel better!
+[07:39:27] <uGoMobi> thanks
+[07:39:44] <uGoMobi> probably will be fine soon but not very productive at the moment
+[07:40:21] <arschmitz> uGoMobi: well when ever you feel up to it i have some css related stuff id like your oppinion on. 
+[07:40:25] <uGoMobi> arschmitz: did you wrap the slider and number input in a div to make them full width?
+[07:40:54] <arschmitz> uGoMobi: yes i use a wrapper to define the 2 inputs to be used for the range
+[07:41:00] <toddmparker> arschmitz and _|Nix|_ - for 1.4, we should make sure all widgets work outside pages
+[07:41:08] <toddmparker> for popups, panels, etc.
+[07:41:19] <toddmparker> hey jlembeck 
+[07:41:25] <arschmitz> toddmparker: makes sense
+[07:41:40] <uGoMobi> arschmitz: because that's basically all i did
+[07:41:40] <arschmitz> 1.4 is going to be some major widget refactoring!
+[07:42:02] <arschmitz> uGoMobi: yeah this works like that out of the box because of the need for a wrapper to start with
+[07:42:22] <uGoMobi> arschmitz: I didn't push any changes for the slider yet because we were actually talking about less div wrapping etc. for our widgets
+[07:42:42] <uGoMobi> that was when we were looking at css corner styling for controlgroups
+[07:42:48] <arschmitz> uGoMobi: yeah mine dose not involve any changes to slider this is a whole new widget
+[07:43:12] <uGoMobi> arschmitz:  oh ok
+[07:43:50] <arschmitz> uGoMobi: the thing i wanted your input on involves the position of the two sliders on top of each other with css
+[07:44:03] <toddmparker> arschmitz: this is a new widget?
+[07:44:19] <arschmitz> toddmparker: yes but it depends on slider
+[07:44:22] <toddmparker> if so, seems like we should have a different role on the fieldcontain
+[07:44:32] <toddmparker> rangeslider
+[07:44:38] <toddmparker> or whatever
+[07:44:50] <arschmitz> right now im just using range on the field contain but yeah that might be confusing
+[07:44:56] <toddmparker> seems odd it's slider
+[07:45:09] <toddmparker> like collapsibles and grouped versions
+[07:45:18] <jlembeck> hey toddmparker
+[07:45:20] <uGoMobi> arschmitz: where can I see your css?
+[07:46:06] <arschmitz> toddmparker: it dosent use a role of slider on the fieldcontain? it uses data-role="range" 
+[07:46:15] <uGoMobi> toddmparker: arschmitz how about same approach as new table widget
+[07:46:19] <uGoMobi> data-mode
+[07:46:34] <uGoMobi> for the dual handle extension
+[07:47:20] <uGoMobi> arschmitz: it might be confusing data the slider widget is for type="range"
+[07:47:36] <uGoMobi> s/data/that/
+[07:47:48] <arschmitz> uGoMobi: i agree but i think rangeslider or something would work fine
+[07:48:04] <arschmitz> i dont think switching to mode for this makes sense though
+[07:48:10] <uGoMobi> data-mode="dual"
+[07:48:11] <uGoMobi> ?
+[07:48:18] <arschmitz> uGoMobi: https://github.com/arschmitz/jquery-mobile/blob/range/css/structure/jquery.mobile.forms.range.css
+[07:48:54] <arschmitz> uGoMobi: my concern with this is that if someone does any custom styleing of the handle or anything it will visually break
+[07:49:24] <arschmitz> uGoMobi: i think its to "fragile" and that i might be better doing the positioning of the absolute one with js vs css
+[07:49:44] <arschmitz> uGoMobi: right now all positioning and styleing is 100% css 
+[07:49:50] <toddmparker> going by collapsibles, maybe role="range-slider"
+[07:49:50] <toddmparker> http://jquerymobile.com/test/docs/content/content-collapsible-set.html
+[07:50:10] <uGoMobi> arschmitz: for performance I think we should try to stick to css
+[07:50:12] <arschmitz> toddmparker: ^^ +1 i think that makes the most sense
+[07:50:31] <uGoMobi> slider performance is already an issue
+[07:50:35] <toddmparker> at least it's very clear that it's a different animal
+[07:50:44] <toddmparker> uGoMobi: it is
+[07:51:04] <arschmitz> uGoMobi: i agree i just worry this is to fragile to changes and the positioning would only happen when it is created or on orientation / resize
+[07:51:25] <arschmitz> not durring drag
+[07:51:36] <uGoMobi> hmm
+[07:51:50] <uGoMobi> i remember toddmparker posted a fiddle here
+[07:52:07] <uGoMobi> is this same approach?
+[07:52:07] <arschmitz> uGoMobi: yes this is based on that
+[07:52:14] <arschmitz> uGoMobi: yes
+[07:52:18] <uGoMobi> ok
+[07:52:45] <uGoMobi> I don't remember problems with that one when i tested on my phone
+[07:52:50] <arschmitz> my worry is with custom styling the sliders will not be pixel perfect ontop of eachother
+[07:53:12] <arschmitz> its not a problem as long as there is not custom css changes to the slider
+[07:53:22] <uGoMobi> arschmitz: what kind of custom styling are you thinking off?
+[07:53:42] <arschmitz> making handles bigger or smaller or things like that
+[07:54:28] <arschmitz> messing with margins or padding also
+[07:54:40] <uGoMobi> arschmitz: we could test with mini sized version
+[07:55:03] <arschmitz> i havent pushed it yet but it needs special css to handle that
+[07:55:06] <uGoMobi> arschmitz: I don't think we should worry too much about this
+[07:55:55] <uGoMobi> if someone decides to make changes to slider css it's own responsibility to make sure you adjust all css
+[07:56:24] <arschmitz> uGoMobi: ok thats baiscly what i was looking for is your oppinion on if this was a problem or not the way im doing it
+[07:56:44] <arschmitz> if its not great!!
+[07:56:53] <arschmitz> thats what i was hoping for lol
+[07:57:09] <uGoMobi> arschmitz: I would have to see the code/css in action
+[07:58:00] <uGoMobi> but if it works... then it's great and we can use it
+[07:58:15] <arschmitz> well ill finish up the way im doing it now and push a branch its a really simple change if we decide to use js for positioning
+[07:59:06] <uGoMobi> arschmitz: yeah would be great if you canpush this in a branch
+[07:59:39] <uGoMobi> arschmitz: what about the 2 MQ's?
+[07:59:55] <arschmitz> i have it in a branch on my github right now i was just waiting on your oppinion 
+[08:00:17] <arschmitz> oh the second one i have to move to the docs css its specific to the docs
+[08:00:44] <arschmitz> to handle the ui-content-primary secondary media query
+[08:01:27] <uGoMobi> arschmitz: I see... you can move that to jqm-docs.css in docs/_assets/
+[08:01:50] <arschmitz> yeah i already did on my local one i just havent push my latest round of changes
+[08:01:53] <arschmitz> but thank you
+[08:01:56] <uGoMobi> ah ok
+[08:02:20] <arschmitz> there is also a small glitch in the highlight on the preview on my server i already fixed
+[08:02:50] <arschmitz> a few other things once i wrap those up ill push the branch
+[08:09:25] <toddmparker> sounds like we're in good shape
+[08:09:41] <toddmparker> i agree with uGoMobi that if people monkey with styles, they need to take full responsibility
+[08:09:54] <toddmparker> but supporting mini is important and will be a good test
+[08:10:36] <arschmitz> toddmparker: it will support mini because mini assigns a class and i hook to that class and style accordingly for mini
+[08:11:25] <arschmitz> i already have that i just hadent psuhed it yet what i showed is only current as of yesterday i added a bunch since then
+[08:12:24] <arschmitz> toddmparker: uGoMobi: _|Nix|_: https://github.com/jquery/jquery-mobile/issues/2328
+[08:12:56] <arschmitz> this is tough on ios because the vertical threshold dosent work if your scrolling
+[08:13:12] <arschmitz> so on ios it basicly does nothing
+[08:14:03] <arschmitz> the fix suggested has performance issues and was closed shot down as i think it should have been
+[08:19:40] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 2 new commits to 06master: 02http://git.io/YhxlAg
+[08:19:40] <jqmobilecommit> 13jquery-mobile/06master 145534fbc 15Jordan Harband: Fixing global var pollution.
+[08:19:40] <jqmobilecommit> 13jquery-mobile/06master 149f7cbfc 15Gabriel Schulhof: Merge pull request #5320 from @ljharb after rebasing onto master...
+[08:20:45] <toddmparker> arschmitz: that scroll one is tricky for sure. is it only useful when you have a page that fits in the window = no scrolling?
+[08:21:02] <toddmparker> vertical swipe = scroll to me
+[08:21:37] <arschmitz> toddmparker: yeah the issue is if you scroll but drag horizontal it triggers a swipe
+[08:21:52] <arschmitz> left or right
+[08:22:17] <arschmitz> because vertical offset dosent work on ios
+[08:22:37] <arschmitz> because if your scrolling the origin moves with you so its always basicly zero
+[08:23:50] <arschmitz> this can be fixed by tracking scrolltop but as johnbender: noted on the PR this is really expensive so bad on something like touchmove or scroll
+[08:24:52] <arschmitz> and we cant cancel swipe right/left on scroll or something because then it would have to be a 100% perfect left right swipe 
+[08:25:43] <arschmitz> basicly swipe works but on ios swipe right / left dont work they are the same as swipe
+[08:28:14] <arschmitz> toddmparker: we could provide a hook in the event to let people handle left right calculation on their own. so if they want to take the performance hit on calculating scroll top they can
+[08:29:05] <arschmitz> or maybe even provide a sample extension using the scrolltop method and link to it in docs
+[08:29:59] <arschmitz> not really an extension since its not a widget but move the claculation to the prototype so it can be easily modified
+[08:30:38] <toddmparker> arschmitz: I like the hook and demo ide
+[08:30:41] <toddmparker> idea
+[08:31:09] <arschmitz> cool because i just dont think there is a good enuogh solution to let it into the libaray not in everything iv seen
+[08:32:34] <arschmitz> this would also allow people to easily hook to it to add custom other weird angles and vertical swipes etc
+[08:33:40] <arschmitz> toddmparker: i already assigned this one to my self so ill take care of that
+[08:41:07] <toddmparker> sounds great, thanks arschmitz 
+[08:50:42] <johnbender> toddmparker: planning to get back to work on nav today
+[08:50:48] * johnbender crosses his fingers
+[08:52:49] <toddmparker> johnbender: nice!
+[08:53:05] <toddmparker> there were a few issues in the tracker under 1.3 I wanted you to weigh in on too
+[08:53:11] <toddmparker> to see if they should be moved out
+[08:53:29] <toddmparker> uGoMobi and arschmitz - see any potential issues with this change? https://github.com/jquery/jquery-mobile/issues/5231#issuecomment-10722489
+[08:55:48] <uGoMobi> toddmparker: I remember there was something with setting the outline-style... but I don't remember what yet :(
+[08:57:37] <arschmitz> toddmparker: i dont see anything off hand would want to test on like ie 7-8 where there is no boxshadow to make sure everything looks ok there too still
+[08:58:07] <uGoMobi> toddmparker: got it https://github.com/jquery/jquery-mobile/issues/5231#issuecomment-10722489
+[08:58:24] <uGoMobi> but not really a problem
+[08:58:41] <arschmitz> well 8 really 7 dosent support outline-width
+[08:58:57] <uGoMobi> arschmitz: right
+[08:59:40] <uGoMobi> but that means the default width will be used
+[09:00:34] <uGoMobi> and if we set none for the outline style the user won't see any focus styling
+[09:01:00] <uGoMobi> no feedback at all could be bad from UI point of view
+[09:01:23] <arschmitz> uGoMobi: hmm yeah not so sure about that being a good idea either
+[09:02:08] <arschmitz> since its very easy to override as he has by just putting the css in your page maybe just add a note to the docs?
+[09:02:36] <uGoMobi> maybe we have to look at the properties we use
+[09:02:51] <uGoMobi> one sec
+[09:03:11] <arschmitz> this also seems to be a pretty limited device set effected to since jasonDScott__ could not reproduce
+[09:04:01] <arschmitz> toddmparker: uGoMobi: i just realized this issue has not even been confirmed and no test page either
+[09:04:34] <toddmparker> true
+[09:06:38] <toddmparker> arschmitz and uGoMobi 
+[09:06:38] <toddmparker> he links to docs pages where he sees the issue
+[09:07:10] <arschmitz> toddmparker: ah yeah missed that some how
+[09:07:50] <uGoMobi> I wonder if the issue will be solved if  we don't touch outline style at all
+[09:08:07] <uGoMobi> change this line https://github.com/jquery/jquery-mobile/blob/master/css/themes/default/jquery.mobile.theme.css#L1031 to outline-width 0
+[09:08:52] <uGoMobi> and then set it back to 1px for ui-mobile-nosupport-boxshadow to 1px
+[09:08:57] <arschmitz> maybe we could throw it in a jsbin and post it see if it has any effect
+[09:09:15] <arschmitz> ask him too look at the jsbin and let us know
+[09:09:43] <uGoMobi> arschmitz: I will ask him
+[09:10:08] <arschmitz> uGoMobi: sounds good
+[09:10:31] <uGoMobi> he was able to test his solution so I don't think we need to create a JS Bin
+[09:10:38] <arschmitz> true
+[09:10:52] <uGoMobi> if I am not mistaken older BB OS and JS Bin aren't always friends
+[09:11:11] <arschmitz> ah didnt know that good to keep in mind though
+[09:20:46] <toddmparker> oh, BB6
+[09:24:05] <uGoMobi> arschmitz: sorry if I missed it before, but is dual handle (range) slider going to be an extension of slider widget
+[09:24:06] <uGoMobi> ?
+[09:24:39] <arschmitz> uGoMobi: no its a seperate widget that depends on slider but does not extend it
+[09:25:34] <uGoMobi> arschmitz: what is exactly the difference between extension and separate widget that depends on other?
+[09:26:11] <uGoMobi> I mean... what are advantages
+[09:26:48] <arschmitz> uGoMobi: simplicity in this case
+[09:27:23] <arschmitz> uGoMobi: the range widget really does very very little
+[09:27:28] <arschmitz> uGoMobi:https://github.com/arschmitz/jquery-mobile/blob/range/js/widgets/forms/range.js
+[09:29:28] <arschmitz> uGoMobi: there was a better reason then that i did it this way though i discussed it with toddmparker: last week but i cant remember
+[09:30:00] <uGoMobi> ok np
+[09:30:52] <uGoMobi> I am not saying it isn't a good idea or anything... just trying to understand the reason why
+[09:33:11] <arschmitz> uGoMobi: i think it was just a matter of because it contains 2 unaltered sliders making it an extension to slider seems awkward. 
+[09:34:28] <arschmitz> uGoMobi: you would have a widget that has 2 internal instances of other versions of itself or something weird. 
+[09:34:56] <uGoMobi> arschmitz: I see... I was looking at it as an option: 1 or 2 handles/values
+[09:35:56] <uGoMobi> arschmitz: but makes sense that having two instances of the same widget is more a new widget than an extension
+[09:36:08] <arschmitz> uGoMobi: exactly
+[09:36:23] <uGoMobi> same as we do for collapsible and collapsible set
+[09:36:34] <uGoMobi> arschmitz: ok, thanks for explaining
+[09:37:02] <arschmitz> uGoMobi: exactly
+[09:37:16] <arschmitz> i should have just said that to start lol
+[09:42:29] <toddmparker> brb, lunch
+[10:46:50] <Wilto> What’d I miss.
+[10:47:01] <arschmitz> Wilto:EVERYTHING!!!
+[10:47:11] <Wilto> sweet so jqm is done now good game guys
+[10:54:35] <agcolom> Good evening :)
+[11:26:40] <toddmparker> hi agcolom
+[11:30:00] <_|Nix|_> Wilto: What do you think about https://github.com/jquery/jquery-mobile/issues/5009#issuecomment-10712843
+[11:35:00] <agcolom> hi toddmparker, hi everyone...
+[11:36:38] <_|Nix|_> johnbender: Ping!
+[11:37:21] <toddmparker> _|Nix|_: that active link state question is tricky
+[11:37:36] <toddmparker> sure seems like a lot of complexity for active states that lead out of a jQuery Mobile app
+[11:37:58] <toddmparker> (or from one jQuery Mobile page to another with data-ajax=false
+[11:38:26] <_|Nix|_> toddmparker: Yep. Nevertheless, those are some of the missing active state spots.
+[11:38:55] <Wilto> UGH WHAT GOD
+[11:39:02] <Wilto> (Hi guys.)
+[11:39:16] <_|Nix|_> Wilto: I take it you're not optimistic about a CSS-based solution for https://github.com/jquery/jquery-mobile/issues/5009 ...
+[11:39:34] <agcolom> Hi Wilto 
+[11:39:36] <Wilto> Just messing with you guys; I’m catching up now.
+[11:39:49] <agcolom> so we now have this http://learn.jquery.com/jquery-mobile/getting-started/ 
+[11:39:49] <_|Nix|_> :)
+[11:40:35] <agcolom> the chapter is not picking up properly yet, but it will soon I think. 
+[11:40:36] <_|Nix|_> agcolom: Hut diggety! Sweet-looking!
+[11:40:52] <agcolom> Cool yes :)
+[11:41:21] <agcolom> and we can add whatever in the jQuery Mobile folder... so we can have other tutorials...
+[11:41:51] <agcolom> I'm thinking about writing one on how to use Theme Roller... and maybe we could have one on the builder
+[11:42:02] <_|Nix|_> agcolom: Very nice!
+[11:42:35] <agcolom> Then we could add one on how to create dynamic content (a more advanced topic!)
+[11:42:41] <Wilto> Wait wait wait what am I missing here.
+[11:43:08] <Wilto> Why can’t we just open up `:active`?
+[11:43:34] <_|Nix|_> Wilto: ":active"?
+[11:43:42] <_|Nix|_> Wilto: Sorry, I meant to ask "open up"?
+[11:44:24] <Wilto> We can bolt `:active` onto anything—`button`, `marquee`, `blink`, etc.
+[11:44:48] <_|Nix|_> Wilto: I think the motivation is that the button must look active long after the button click has happened, because loading and displaying the destination page can take a long time. Does the button continue to be :active during that time?
+[11:45:00] <Wilto> I sorta hate that we have .ui-active at all, but I guess it’s mostly there to prevent… inadvertant `active` highlighting on nav.
+[11:46:52] <Wilto> I wouldn’t think so, no.
+[11:47:15] <jqmobilecommit> [13jquery-mobile] 15rbu opened issue #5330: Loader widget does not support modal  02http://git.io/SxH8mA
+[11:47:23] <_|Nix|_> Wilto: So that's probably why we need ui-btn-active.
+[11:47:52] <Wilto> I just really hate sending JavaScript to do CSS’ job.
+[11:47:54] * _|Nix|_ is inclined to point rbu to popup's data-dismissable="false" option.
+[11:48:25] <_|Nix|_> Wilto: It's actually improving the browser, which is not making :active sticky enough for our purposes.
+[11:49:30] <_|Nix|_> Wilto: ... but you're right in general.
+[11:49:37] <Wilto> I wonder.
+[11:49:54] <Wilto> My thing lately is that I *know* we have a ton of stuff still kicking around in there for the sake of ratty ol’ IE.
+[11:50:15] <Wilto> And I’d love to have excuses to tear some of that stuff out—this feels like one of ’em.
+[11:50:23] <Wilto> Here’s what I’m thinking.
+[11:50:48] <Wilto> I’ll spin up a branch where we’ve swapped all the .ui-btn-active business for good ol’-fashioned :active, and we’ll see how it plays.
+[11:51:12] <Wilto> If it’s just as good or passably close—but with way less round-trips to DOMtown—it might be worth thinking about.
+[11:51:51] <_|Nix|_> Wilto: Might also wanna tear out most of nav's "vclick" handling ...
+[11:51:59] <Wilto> oh god no
+[11:52:19] <_|Nix|_> Wilto: Yes, you'd want to, because it's mostly concerned with tacking on ui-btn-active ...
+[11:52:28] <Wilto> Oh, gross.
+[11:52:43] <Wilto> Hm.
+[11:53:01] <_|Nix|_> Wilto: although if you gut ui-btn-active, adding it or not will make no difference ... I can yank the JS later.
+[11:54:00] <Wilto> remove all of the javascript I say
+[11:54:04] <Wilto> and the css
+[11:54:08] <Wilto> pure markup all the way
+[11:54:15] <Wilto> the way nature intended
+[11:56:06] <_|Nix|_> Wilto: We couold yank 48 lines out of navigation if we didn't need to maintain ui-btn-active!
+[11:56:20] <_|Nix|_> Wilto: The entire "vclick" handler could go.
+[11:56:24] <Wilto> Oh, I still gotta fix that IE10 transition test.
+[11:56:53] <_|Nix|_> Wilto: Save us, oh master o' CSS!
+[11:57:06] <Wilto> What Could Go Wrong?™
+[11:57:15] <_|Nix|_> Wilto: Deliver us from the claws of the M$ monster!
+[11:58:06] <_|Nix|_> Wilto: It's funny - in a way, with CSS, you can also turn off parts of the code - those parts which add/remove ui-btn-active ...
+[11:58:13] <_|Nix|_> Wilto: So, you can "style" the JS ....
+[12:01:56] <_|Nix|_> What's up with johnbender these days? Nav refactor?
+[12:26:24] <Wilto> urgh yeah this isn’t working
+[12:28:43] <toddmparker> agcolom: looks great
+[12:28:48] <toddmparker> is that live and tweet able?
+[12:30:25] <toddmparker> Wilto and _|Nix|_ - for 1.4, I want to rip out a ton of JS stuff and use CSS but we should probably not try this of r1.3
+[12:30:40] <Wilto> Yeah; I would’ve stashed it away in a branch for later.
+[12:30:46] <Wilto> Not really feelin’ it here, though.
+[12:30:58] <toddmparker> my thought now is if we want to do a bigger code re-factor, let's have 1.4 be all about performance and cleanup
+[12:31:13] <toddmparker> i think we can/should use :active
+[12:31:18] <toddmparker> like that jsbin I made
+[12:31:27] <Wilto> Got that link handy?
+[12:31:33] <Wilto> Scott mentioned you guys had messed with this already
+[12:32:07] <toddmparker> just uses css and i re-scoped the button classes to apply to things with the ui-btn-[theme] class on 'em or child links (might be overreaching there, but we could use that kinda scope for listviews)
+[12:32:37] <toddmparker> Wilto: http://jsbin.com/ejejak/21
+[12:33:15] <toddmparker> in general, if we think we want to re-think deeply, let's move out issues from 1.3 to 1.4 and do it right instead of polishing a turd
+[12:34:36] <agcolom> toddmparker: Yes, it is live... I'm checking with ajpiano what is happening with the chapter element
+[12:37:54] <arschmitz> toddmparker: I think thats a good idea to it seems like we have already slated a lot of big changes some potentially breaking so if we are goings to make changes like these best to try and do them all at once
+[12:38:07] <agcolom> toddmparker: we need to wait for the chapter issue to be fixed before we can announce
+[12:40:02] <agcolom> toddmparker: Yes I'm very excited about the learn site... We'll be able to have all the guides we want there... 
+[12:40:10] <agcolom> (or tutorials...)
+[12:44:53] <_|Nix|_> Hey! I just had a conversation with scott_gonzalez re https://github.com/jquery/jquery-mobile/issues/3602. It looks like we can only fix it partially. If we haven't documented the <widget>init event for widgets other than page (i.e., pageinit), then we can stop emitting <somethingOtherThanPage>init in future versions by moving that offensive override out of $.mobile.widget and into page.
+[12:46:11] <_|Nix|_> That way, the event would be restricted to where it's useful, i.e. pageinit, and things like popupinit, slideinit, checkboxradioinit, etc. would be gone before they were ever documented.
+[12:46:17] <_|Nix|_> What say you all?
+[12:46:33] <_|Nix|_> toddmparker: ^
+[12:46:34] <_|Nix|_> uGoMobi: ^
+[12:46:38] <_|Nix|_> arschmitz: ^
+[12:46:40] <_|Nix|_> gseguin: ^
+[12:46:42] <_|Nix|_> johnbender: ^
+[12:46:48] <_|Nix|_> anyone else I missed: ^
+[12:49:43] <arschmitz> _|Nix|_: I'd be good with that. 
+[12:50:47] <_|Nix|_> arschmitz: The only reason I'm unsure is that it's technically an API break, because we used to emit, like, popupinit and buttoninit and whatever, and we will no longer be doing that.
+[12:51:16] <toddmparker> _|Nix|_: catching up
+[12:51:19] <_|Nix|_> arschmitz: ... and although it was not documented, it's easy enough to see from the $.mobile.widget code that it's happening.
+[12:52:21] <arschmitz> _|Nix|_: yes but my personal feeling is that thats ok as long as we do it at the right time and make it well known at release
+[12:52:43] <toddmparker> _|Nix|_: I think that may make sense. I'd like to wait for 1.4  for that so we roll more API changes in together
+[12:52:52] <arschmitz> _|Nix|_: like 1.4 for example where this is already going to be a potentially breaking release
+[12:52:57] <toddmparker> yeah
+[12:53:55] <arschmitz> at this rate 1.4 is going to be a HUGE release
+[12:54:09] <_|Nix|_> OK. In that case, I'll re-milestone the issue.
+[12:54:22] <toddmparker> cool
+[12:54:26] <_|Nix|_> arschmitz: Might just be easier to create a new tag for these issues, like widget review or something/
+[12:54:34] <_|Nix|_> arschmitz: I mean widget-review.
+[12:54:37] <toddmparker> low on features, big on refactoring
+[12:54:50] <arschmitz> Yeah i think thats a good idea to keep track
+[12:54:52] <toddmparker> tho we should still plan on adding the ui tab widget
+[12:55:07] <toddmparker> yeah, rather get 1.3 out so people can enjoy all the new coolness
+[12:55:08] <_|Nix|_> toddmparker: Yeah. We should aim to actually reduce LOC ...
+[12:55:14] <_|Nix|_> toddmparker: OK.
+[12:55:42] <toddmparker> my main concern is spending cycles re-working code we know we want to deeply re-think in 1.4
+[12:55:52] <arschmitz> seems like 1.4 is where we do the soul searching and fix mistakes from our past lol 
+[12:58:04] <_|Nix|_> :)
+[12:58:09] <_|Nix|_> toddmparker: Remilestoned.
+[12:58:24] <_|Nix|_> Heh ... "stoned" ... heh ... *giggle*
+[12:59:27] <arschmitz> _|Nix|_: and certainly not for the first time since its re stoned
+[12:59:43] <_|Nix|_> arschmitz: Nope ...
+[13:00:16] <_|Nix|_> OK ... 1 down ... 15 to go ...
+[13:00:26] <arschmitz> _|Nix|_: hey they even just leagalized it in 2 states here 
+[13:00:40] <_|Nix|_> arschmitz: Yeah ... heard about that ...
+[13:01:22] <_|Nix|_> So, on to https://github.com/jquery/jquery-mobile/issues/5009  ... how shall we handle that?
+[13:01:54] <_|Nix|_> Are we truly adding ui-btn-active in all instances where we can?
+[13:02:14] <arschmitz> sounded like Wilto: was going to look into something for this? 
+[13:03:07] <_|Nix|_> arschmitz: Good, but even before we look at the tough part (active state for out-of-the-app links): For example, some form submission takes place via AJAX. Are we adding ui-btn-active in that case?
+[13:03:12] * _|Nix|_ thinks not.
+[13:03:56] <arschmitz> _|Nix|_ yeah thats a good point
+[13:03:58] <_|Nix|_> arschmitz: So, we should tackle the lesser issue of adding ui-btn-active to those buttons that submit forms via AJAX.
+[13:05:11] <arschmitz> _|Nix|_: true however you could also make the argument that this falls under what toddmparker: was talking about with not spending time on things that we really just want to rethink to startwith
+[13:05:22] <_|Nix|_> arschmitz: ... and unfortunately, I'm tempted to hack it into $.mobile.button, although the correct way would be to break the click, vclick, and submit handlers out of the nav module, because those portions of nav are mostly concerned with juggling ui-btn-active.
+[13:06:35] <arschmitz> _|Nix|_: yeah its a tough one
+[13:07:58] <toddmparker> I think wilto was thinking more about the future stuff for 1.4
+[13:08:10] <_|Nix|_> toddmparker: So, punt?
+[13:08:17] <toddmparker> so if you guys want to see if we're adding it everywhere we can quickly, then punt
+[13:08:36] <toddmparker> hoping to just use :active and let the browser figure it out
+[13:08:37] <_|Nix|_> toddmparker: Well, I'm pretty sure we're not adding it during AJAX form submission.
+[13:08:51] <toddmparker> so that could be added
+[13:08:52] <_|Nix|_> toddmparker: Yeah, that'd be ideal.
+[13:09:04] <toddmparker> but don't spend much effort on it IMHO
+[13:09:21] <_|Nix|_> toddmparker: OK. I'll see if it can be done moderatly cleanly ...
+[13:09:29] <arschmitz> toddmparker: since we are going through these what about https://github.com/jquery/jquery-mobile/issues/3347 
+[13:09:31] <_|Nix|_> s/tly/tely/
+[13:09:58] <_|Nix|_> arschmitz, toddmparker: I say close it.
+[13:09:59] <arschmitz> _|Nix|_: and i talked about it earlyer and thing this should just be an update to the docs to document this behivor
+[13:10:14] <_|Nix|_> arschmitz: ... which is already in progress on my part.
+[13:10:17] <_|Nix|_> toddmparker: ^
+[13:10:39] <arschmitz> _|Nix|_: at the very most we could considder renaming for clarity on 1.4
+[13:11:35] <arschmitz> _|Nix|_: but because of the potential breaks that should be either 1.4 or not at all
+[13:13:09] <_|Nix|_> I think we made a mistake when we allowed the value of data.toPage to vary between a string and a jQuery object. However, it's not a bad mistake. In a sense, this behaviour is in the process of becoming part of the flavour of jQM. This is simply how it's done.
+[13:13:58] <_|Nix|_> I think if we change this, we should deprecate it as slowly as possible, because it's not really incorrect behaviour or anything.
+[13:14:17] <_|Nix|_> That's also why I argued that https://github.com/jquery/jquery-mobile/issues/3347 is not an issue per se.
+[13:15:19] <arschmitz> _|Nix|_: i agree its not really an issue, i was just saying if we wanted to address this for future clarity it *could* be done 
+[13:15:24] <_|Nix|_> So, we can move it out, if we ever intend to have only one pagebeforecreate during the page change sequence, and then document the deprecation, and document the fact that there are two in the meantime.
+[13:27:09] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof pushed 1 new commit to 06master: 02http://git.io/1jF0Pg
+[13:27:10] <jqcommit> 13api.jquerymobile.com/06master 147d0a1e1 15Gabriel Schulhof: pagebeforechange event: initial documentation
+[13:27:40] <_|Nix|_> toddmparker: I just documented the fact that pagebeforechange happens twice and how it happens ^ I'll mention that in the issue and move it out, OK?
+[13:31:00] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof pushed 1 new commit to 06master: 02http://git.io/-beVgA
+[13:31:01] <jqcommit> 13api.jquerymobile.com/06master 14f8013f7 15Gabriel Schulhof: pagebeforechange event: Documenting the order in which pagebeforechange events are fired during a page change cycle
+[13:41:41] * _|Nix|_ head out ... L8R all ...
+[13:41:54] <arschmitz> see you tomorrow _|Nix|_:
+[13:44:11] <agcolom> see you tomorrow _|Nix|_ 
+[13:44:29] <agcolom> actually, heading that way too :)
+[13:54:32] <jqmobilecommit> [13jquery-mobile] 15bittlelum opened issue #5331: page content is undefined in loadPage  02http://git.io/R95C1Q
+[14:12:56] <toddmparker> bye _|Nix|_ 
+[14:19:35] <arschmitz> Toddmparker: got the swipe event rewrite done and passes all tests
+[14:47:12] <toddmparker> arschmitz: great!
+[15:09:15] <toddmparker> heading home, goodnight
+[15:24:03] <jqmobilecommit> [13jquery-mobile] 15jlembeck created 06slide-panel (+1 new commit): 02http://git.io/cZW6fA
+[15:24:03] <jqmobilecommit> 13jquery-mobile/06slide-panel 1440ff892 15Jeffrey Lembeck: Adding initial pieces to make slide-panels work
+[16:30:18] <jqmobilecommit> [13jquery-mobile] 15johnbender pushed 1 new commit to 06simple-nav: 02http://git.io/JAx5Yw
+[16:30:18] <jqmobilecommit> 13jquery-mobile/06simple-nav 14cc0f247 15John Bender: popup tests passing
+[16:48:00] <jqmobilecommit> [13jquery-mobile] 15johnbender pushed 1 new commit to 06simple-nav: 02http://git.io/N0ADbA
+[16:48:00] <jqmobilecommit> 13jquery-mobile/06simple-nav 14f3416f2 15John Bender: corrected issue with frozen method tests in nav
+[18:15:34] <jqmobilecommit> [13jquery-mobile] 15turiyag opened issue #5332: data-icon won't show in IE8 and lower  02http://git.io/CkqmGA

@@ -1,0 +1,455 @@
+[07:02:12] <toddmparker_> morning
+[07:21:33] <Wilto> Morning, guys.
+[08:33:39] <gseguin> Good morning
+[08:59:34] <toddmparker_> this thing on?
+[08:59:38] <toddmparker_> kinblas: you here?
+[08:59:44] <toddmparker_> thoughts on this - https://github.com/jquery/jquery-mobile/issues/3384
+[08:59:45] <socialhapy> ★ Issue #3384 on jquery-mobile, reported by nisc (21h, 41m ago): $.mobile.activePage empty/incorrect in 'pageinit'
+[08:59:49] <kinblas> toddmparker_: yeah
+[09:00:20] <kinblas> toddmparker_: that's probably because at startup there is no active page until after we've init'd the first one
+[09:00:30] * kinblas notes he hasn't read the bug yet
+[09:00:42] <toddmparker_> :) mind responding?
+[09:01:13] <kinblas> toddmparker_: sure ... btw ... we really need to re-think the way we initialize the framework
+[09:01:22] <toddmparker_> i also have not idea about this one you responded to. it's in an app webview so who knows if it's different - https://github.com/jquery/jquery-mobile/issues/3381
+[09:01:24] <socialhapy> ★ Issue #3381 on jquery-mobile, reported by garg872 (1d, 10h ago): Android 3.1: Text Selection Action Mode not triggering
+[09:01:24] <kinblas> there are a couple of things that folks seem to always get bitten by
+[09:01:35] <toddmparker_> sure, i'm open to re-thinking anything
+[09:02:07] <kinblas> 1. Folks initialize their app on DOMReady ... some folks assume that is before the framework initializes because they are used to doing it there for jQuery stuff in the past
+[09:02:37] <kinblas> problem is ... we initialize on DOMReady too ... so more often than not ... the framework initializes before their code has had a chance to attach bindings
+[09:02:43] <kinblas> so they miss notifications
+[09:03:05] <kinblas> 2. It is not intuitive to most folks that they have to register for mobilinit *BEFORE* including the framework files
+[09:03:35] <kinblas> Those 2 things are what bite people the most ... of course the bugs come in different flavors
+[09:03:42] <kinblas> "no page init on startup"
+[09:03:52] <kinblas> "mobilinit not getting called"
+[09:03:56] <kinblas> blah blah
+[09:05:21] <toddmparker_> riiight
+[09:05:42] <toddmparker_> so do you see ways to re-work this to be easier for folks?
+[09:06:19] <toddmparker_> seems like you could probably add a few sentences to the scripting pages docs to at least give a heads up if it's not there already
+[09:06:24] <toddmparker_> (as a stopgap)
+[09:09:54] <kinblas> toddmparker_: yeah we probably need to document this ... short of that ... we need to rethink how our modules initialize themselves
+[09:10:02] <toddmparker_> totally agree
+[09:10:21] <kinblas> ones that rely on config options should *NOT* initialize until the framework initialize() call happens on DOMReady
+[09:10:24] <toddmparker_> i think in general, the ajax nav complicates life
+[09:10:37] <toddmparker_> so whatever we can do to make it simpler, i'm game
+[09:10:52] <kinblas> also, I was asked again about a framework initialize event
+[09:11:02] <kinblas> "how do I know when the framework is all done and ready"
+[09:11:07] <toddmparker_> a surrogate for a domready
+[09:11:18] <kinblas> note that folks use the first pageInit but
+[09:11:24] <kinblas> that isn't truly when the framework is done
+[09:11:29] <kinblas> because as pointed out by that bug
+[09:11:30] <toddmparker_> gotcha
+[09:11:34] <kinblas> activePage isn't even set yet
+[09:11:38] <toddmparker_> right
+[09:12:02] <toddmparker_> sooo...are there low-hanging fruit things we could have you work on for 1.1?
+[09:12:15] <toddmparker_> or is this a big re-write kinda thing?
+[09:13:54] <toddmparker_> kinblas: see this too? https://github.com/jquery/jquery-mobile/pull/3273#issuecomment-3384954
+[09:13:55] <socialhapy> ★ Pull request on jquery-mobile by jguyomard (3w, 1d ago): Ajax and "base" tag
+[09:16:07] <kinblas> toddmparker_: it basically involves a sweep through all components looking for config option usage and event triggers ... any that happen upon *LOADING* of the JS file need to be moved into a component init() type method that we trigger off the framework init() method
+[09:17:52] <toddmparker_> ok, so it's a biggie
+[09:18:29] <toddmparker_> if you want to focus on sketching out a proposed approach, this could be what you work on next
+[09:18:47] <toddmparker_> oh, btw - did you see my PB test results for the orientation stuff?
+[09:22:51] <gseguin> johnbender: ping
+[09:23:40] <Wilto> I can’t read “PB” without thinking “peanut butter.”
+[09:23:59] <johnbender> gseguin: pong
+[09:24:18] <gseguin> hey did you follow the thread with jrburke?
+[09:24:47] <johnbender> gseguin: just yesterday
+[09:25:04] <johnbender> gseguin: I like the idea of getting rid of the pragmas it just wasn't our initial goal
+[09:25:20] <johnbender> gseguin: I also like he idea of providing a proper export of widgets
+[09:25:49] <johnbender> though I don't know that it provides a huge amount of value
+[09:25:54] <gseguin> yeah the problem is right now we depend only on r.js to build
+[09:26:14] <gseguin> but if we follow that model we'll depend on perl and the Makefile
+[09:26:30] <gseguin> and we can kiss amd-builder.no.de bye bye
+[09:26:30] <johnbender> gseguin: ah you mean stripping the defines, I was thinking we coudl leave them in
+[09:27:11] <johnbender> gseguin: not right now but in the future, just embracing it
+[09:27:30] <johnbender> gseguin: at least that's what I thought he was suggesting
+[09:27:31] <gseguin> oh so you would keep the defines then
+[09:27:52] <johnbender> gseguin: yah, if they serve the same purpose as the anon function then it's not too much bloat
+[09:28:03] <johnbender> but for our initial setup what we have is perfect
+[09:28:09] <johnbender> it gives us a dep graph
+[09:28:18] <johnbender> with no bloat on build
+[09:28:27] <johnbender> totally unobtrusive for folks who don't care about amd
+[09:29:55] <gseguin> k so we leave the defines and in the export we can define define if we're not running in an AMD env
+[09:31:07] <johnbender> gseguin: that was his suggestion I think
+[09:31:22] <johnbender> but I think we should save that for later
+[09:31:24] <gseguin> sort of
+[09:31:48] <gseguin> he was going a step further with the perl script to remove the defines
+[09:31:51] <johnbender> ah
+[09:32:10] <johnbender> yah I think that was only in our case since for some reason he doesn't like pragmas
+[09:32:13] <gseguin> and then wrapping the result in the Makefile
+[09:32:17] <johnbender> personally I think the pragmas are brilliant
+[09:32:39] <johnbender> doing that with a regex scares me
+[09:32:55] <gseguin> yeah it's very error prone
+[09:33:09] <johnbender> gseguin: and having a consistent build is pretty important :D
+[09:33:13] <gseguin> I lost a few brain cells trying it out
+[09:33:17] <johnbender> lol
+[09:47:42] <toddmparker_> johnbender and gseguin - one thing we need to start thinking about is how to host all the amd-builder.no.de stuff on the jQuery servers...might be worth bringing danheberden into the loop on that now-ish
+[09:47:57] <toddmparker_> kinblas: so the orientation fix/testing...
+[09:48:18] <kinblas> ya mon
+[09:48:58] <kinblas> toddmparker: I'm going to land it in a few minutes
+[09:49:05] <kinblas> was just making some changes to the functional test I added
+[09:49:05] <johnbender> gseguin: danheberden: I'll leave that up to you guys but definitely let me know what you come up with
+[09:49:11] <gseguin> toddmparker_: is that required that we run our services on our machines?
+[09:49:18] <kinblas> toddmparker: my test isn't working because of require.js for some reason
+[09:50:43] <toddmparker_> oh, great kinblas
+[09:51:07] <johnbender> kinblas: feel free to just swap it out with the original include
+[09:51:12] <johnbender> it'll "just work"
+[09:51:18] <kinblas> johnbender: I noticed that all the functional tests in tests/functional/
+[09:51:26] <kinblas> are throwing 404 errors when looking for require.js
+[09:51:33] <johnbender> kinblas: hrm
+[09:51:59] <johnbender> kinblas: appears to be working here
+[09:52:03] <johnbender> I did alter them too
+[09:52:33] <kinblas> johnbender: so if you load ...
+[09:52:34] <johnbender> kinblas: do you mean on test?
+[09:52:45] <kinblas> tests/functional/eventlogger.html
+[09:52:52] <kinblas> you don't see a 404 in the console?
+[09:53:03] <kinblas> I just cloned a *FRESH* tree
+[09:53:05] <kinblas> minutes ago
+[09:53:21] <johnbender> kinblas: works on jquerymobile.com/test too :
+[09:53:25] <johnbender> :/
+[09:53:30] <kinblas> locally for you?
+[09:53:46] <johnbender> kinblas: locally and on the server
+[09:54:22] <kinblas> johnbender: I'm a bit mysified then
+[09:54:40] <kinblas> this is a new cloned tree
+[09:54:55] <johnbender> kinblas: is the file there?
+[09:55:00] <johnbender> I guess I would ask :D
+[09:55:02] <kinblas> so the script tag
+[09:55:03] <kinblas> 	<script data-main="../../js/jquery.mobile" src="../../external/requirejs/require.js"></script>
+[09:55:06] <kinblas> yeah it's there
+[09:55:27] <kinblas> what is data-main relative to?
+[09:55:34] <johnbender> gseguin: ^
+[09:55:41] <kinblas> require.js? Or the document?
+[09:55:54] <johnbender> I believe the document but I'm not sure
+[09:56:10] <johnbender> since in this case it can't be require.js and still work
+[09:56:16] <johnbender> oops
+[09:56:22] <johnbender> nevermind it can be
+[09:57:22] <johnbender> kinblas: it looks like its relative to the document in requirejs version 0.23 and higher
+[09:57:25] <johnbender> still double checking
+[09:59:45] <johnbender> kinblas: the docs aren't super clear on it but I'm pretty sure that's accurate
+[10:00:04] <johnbender> kinblas: does it give path information on the 404?
+[10:01:48] * gseguin catches up
+[10:02:18] <kinblas> hmmm cleared my cache, things seem to work ok now
+[10:02:25] <kinblas> but I'm getting a problem in my test case
+[10:02:38] <kinblas> because it looks like some components aren't loaded
+[10:02:44] <kinblas> when my ready function fires
+[10:02:58] <johnbender> kinblas: if it's a bother just revert to the old include
+[10:03:01] <johnbender> not worth the time
+[10:03:02] <kinblas> oh this is a doozy if it is what I think it is
+[10:03:08] * gseguin checks
+[10:03:14] <kinblas> so if we use async loading
+[10:03:29] <kinblas> and below the require.js file include
+[10:03:32] <kinblas> I attach a dom ready
+[10:03:37] <kinblas> function
+[10:03:48] <kinblas> mine will fire *BEFORE* the frameworks
+[10:03:51] <gseguin> it's relative to the document
+[10:03:56] <kinblas> because the framework file might not have been loaded yet
+[10:03:57] <johnbender> kinblas: yep
+[10:04:00] <kinblas> ugh
+[10:04:09] <kinblas> that's only a dev problem
+[10:04:12] <johnbender> correct
+[10:04:12] <kinblas> that sucks
+[10:04:45] <kinblas> how did you guys address this in the unit tests?
+[10:05:02] <johnbender> kinblas: $.testHelper.asyncLoad
+[10:05:17] <johnbender> it nests the require call backs recursively so they have to run after each set
+[10:06:30] <kinblas> johnbender: so if we're loading the component files async
+[10:06:45] <kinblas> what happens if DOMReady fires before the jquery.mobile.init.js loads?
+[10:06:57] <kinblas> does the framework still initialize() ?
+[10:07:00] <kinblas> or is there a race?
+[10:07:03] <Wilto> gseguin: I’m just working from static JSON for now—shoot me a heads-up when that origin thingie is in, yeah?
+[10:07:39] <gseguin> Wilto: yup
+[10:08:09] <Wilto> Thanks dude.
+[10:09:53] <toddmparker_> catching up...
+[10:10:04] <gseguin> Wilto: it's in
+[10:10:21] <Wilto> Oh, sweet. Thanks!
+[10:10:23] <toddmparker_> gseguin - yeah, i think the project generally wants to host everything so it's in our control
+[10:10:39] <toddmparker_> but i'll be danheberden hash it out with you guys
+[10:10:55] <gseguin> k
+[10:14:06] <toddmparker_> so i noted that decision to exclude non-3D supportin' platforms from all but fade transitions in the ticket: https://github.com/jquery/jquery-mobile/issues/3217
+[10:14:07] <socialhapy> ★ Issue #3217 on jquery-mobile, reported by toddparker (1m, 2d ago): Page transition re-think: Smoother, faster
+[10:14:11] <toddmparker_> just tweeted too
+[10:14:29] <toddmparker_> working on a blog post today to talk about 1.0.1, 1.1 and beyond
+[10:22:55] <jqmobilecommit> [jquery-mobile] jblas pushed 1 new commit to master: http://git.io/W8r6XA
+[10:22:55] <jqmobilecommit> [jquery-mobile/master] Fix for issue #2933 - get_orientation() and hence getScreenHeight() doesn't work on some devices - jblas@adobe.com
+[10:24:50] <jqmobilecommit> [jquery-mobile] jblas pushed 1 new commit to master: http://git.io/gCJibQ
+[10:24:50] <jqmobilecommit> [jquery-mobile/master] Corrected the title for the functional test. - jblas@adobe.com
+[10:25:23] <kinblas> toddmparker_: landed the orientationchange fix on the HEAD
+[10:35:03] <kinblas> toddmparker_: do you have ben alman's email?
+[10:36:04] <johnbender> kinblas: sorry had to deal with my daughter
+[10:36:34] <johnbender> kinblas: thinking about your question
+[10:40:02] <johnbender> kinblas: this hasn't been an issue because I think the ready handlers fire as long as you don't use bind("ready")
+[10:40:28] <johnbender> that is, if the ready event has already fired binding using .ready or $() will fire immediately
+[10:40:38] <johnbender> kinblas: http://api.jquery.com/ready/
+[10:41:23] <johnbender> man, this firefox test bug is a doozy
+[10:41:32] <kinblas> johnbender: well, this async in dev only is kind of bothersome since that isn't something folks will see in the outside world
+[10:41:34] <johnbender> there appears to be a spurios hashchange fired
+[10:41:50] <kinblas> it kind of forces us to use other events like pageinit ... which is what I used
+[10:41:53] <kinblas> to fix it
+[10:42:11] <johnbender> kinblas: ahh you mean the original ordering issue
+[10:42:14] <kinblas> yeah
+[10:42:23] <johnbender> kinblas: by rights we should switch back to using the normal include actually
+[10:42:41] <johnbender> since I think they want to avoid loading directly from the server anyway
+[10:42:51] <johnbender> for the docs that is
+[10:43:47] <johnbender> kinblas: though if we want to support loading parts of the framework without blocking we'll need to deal with some of this anyway
+[10:43:52] <johnbender> but that could be well into the future
+[10:45:11] <kinblas> johnbender: ok so this is all the more reason we need framework notifications
+[10:49:32] <johnbender> kinblas: not sure what you mean
+[10:49:40] <johnbender> "framework notifications"
+[10:51:31] <kinblas> johnbender: a notification that gets fired when the framework is done loading and initializing
+[10:51:43] <kinblas> folks assume pageinit is that notification, but it isn't
+[10:52:06] <kinblas> we still do some minor book-keeping after the enhancement of the first page
+[10:54:34] <johnbender> kinblas: ahh
+[10:55:16] <johnbender> gseguin: so I read through the rest of jburkes commentary
+[10:56:16] <johnbender> I agree that it would be nice to remove the extra nested function but I don't know that it's worth all the extra effort right now
+[10:59:35] <gseguin> johnbender: yup, I need to reply to him ( it's a Jive day for me )
+[11:00:10] <gseguin> The problem I see with his approach is that the HTTP service I wrote won't work with it
+[11:00:27] <gseguin> I would like to be able to do everything with r.js
+[11:02:45] <toddmparker_> nice
+[11:10:49] <johnbender> gseguin: how do you feel about doing proper modules at some point int the future?
+[11:11:24] <gseguin> I like the idea, but then we will need something like almond for runtime
+[11:12:26] <gseguin> almond may be overkill because it supports plugins
+[11:22:45] <jqm-jenkins-bot> Project jqm-master build #372: STILL FAILING in 9 min 55 sec: http://10.59.19.240:8080/job/jqm-master/372/
+[11:22:45] <jqm-jenkins-bot> * jblas: Fix for issue #2933 - get_orientation() and hence getScreenHeight() doesn't work on some devices
+[11:22:46] <jqm-jenkins-bot> * jblas: Corrected the title for the functional test.
+[11:28:56] <Wilto> Oh, hey, johnbender: is that test issue you mentioned last night squared-away?
+[11:29:00] <Wilto> Or should I look into it?
+[11:29:20] <toddmparker_> garann - i just tagged this issue to you if you want it: https://github.com/jquery/jquery-mobile/issues/3383
+[11:29:21] <socialhapy> ★ Issue #3383 on jquery-mobile, reported by adammessinger (1d, 1h ago): In dialogs, range inputs not fully enhanced to sliders
+[11:44:33] <jqmobilecommit> [jquery-mobile] gseguin pushed 1 new commit to master: http://git.io/EnBTJQ
+[11:44:33] <jqmobilecommit> [jquery-mobile/master] Merge pull request #3385 from eddiemonge/patch-13 - Ghislain Seguin
+[12:01:50] <johnbender> good golly this firefox test issue is driving me up the wall
+[12:02:00] <johnbender> random hashchange event firing
+[12:04:50] <Wilto> Firefox has been kind of a dingus lately.
+[12:21:55] <jqm-jenkins-bot> Project jqm-master build #373: STILL FAILING in 9 min 5 sec: http://10.59.19.240:8080/job/jqm-master/373/
+[12:21:55] <jqm-jenkins-bot> eddie: increase java cache size
+[12:57:06] <toddmparker_> hey guys - is the branch preview working?
+[12:58:27] <johnbender> toddmparker_: I have no idea I haven't heard back from eddie on where that was
+[12:58:32] <johnbender> nor have I had time to look at it
+[12:58:53] <johnbender> I'm trying to correct these failing tests in firefox
+[12:59:30] <toddmparker_> ok, just wondering. no worries
+[13:01:02] <Wilto> —Wait, still the dialog stuff, johnbender?
+[13:08:59] <Wilto> You want me to take over? Fair’s fair—that’s kinda my bed to sleep in, after all.
+[13:22:14] <johnbender> Wilto: nope has nothing to do with your changes
+[13:22:20] <johnbender> it's entirely load order related
+[13:22:27] <Wilto> (dammit scott)
+[13:22:32] <johnbender> lol
+[13:22:43] <johnbender> I just called it and loaded the old school way
+[13:22:52] <Wilto> That way surely lies madness.
+[13:22:55] <johnbender> we'll have to address that later if we want to do real async
+[13:25:16] <johnbender> hmm
+[13:25:54] <johnbender> awright
+[13:25:57] <johnbender> I have a dentist apt
+[14:18:54] <toddmparker_> hey guys, i just emailed a pretty long blog draft
+[14:19:06] <toddmparker_> i may break it up, can't decide
+[14:19:12] <toddmparker_> want to post monday morning
+[14:25:34] <gseguin> toddmparker_: in the "Improved transitions" section: 2nd paragraph, 2nd sentence
+[14:26:06] <gseguin> s/The/That/
+[14:31:28] <toddmparker_> good catch, thanks gseguin
+[15:28:00] <johnbender> gseguin: so I've identified at least one issue with load order
+[15:28:03] <jqmobilecommit> [jquery-mobile] johnbender pushed 3 new commits to master: http://git.io/ANoGjQ
+[15:28:03] <jqmobilecommit> [jquery-mobile/master] check to make sure cached test page appears - John Bender
+[15:28:03] <jqmobilecommit> [jquery-mobile/master] remove duplicate test run - John Bender
+[15:28:03] <jqmobilecommit> [jquery-mobile/master] conceding defeat on determining the load order issue that's causing the test failure - John Bender
+[15:28:04] <johnbender> sadly
+[15:28:08] <johnbender> I have no idea what it is
+[15:28:09] <johnbender> :(
+[15:29:19] <gseguin> johnbender: which is?
+[15:32:18] <johnbender> gseguin: hmm maybe not, let me get back to you
+[15:33:06] <gseguin> k
+[16:01:43] <gseguin> Shouldn't page sections (header, footer) inherit the page theme?
+[16:02:02] <gseguin> kinblas, johnbender: ^^
+[16:23:36] <jqm-jenkins-bot> Project jqm-master build #374: STILL FAILING in 10 min: http://10.59.19.240:8080/job/jqm-master/374/
+[16:23:36] <jqm-jenkins-bot> * john.m.bender: check to make sure cached test page appears
+[16:23:37] <jqm-jenkins-bot> * john.m.bender: remove duplicate test run
+[16:23:37] <jqm-jenkins-bot> * john.m.bender: conceding defeat on determining the load order issue that's causing the test failure
+[16:25:33] <johnbender> gseguin: I'm guessing they should
+[16:32:06] <jqmobilecommit> [jquery-mobile] Wilto pushed 1 new commit to master: http://git.io/k4KniQ
+[16:32:06] <jqmobilecommit> [jquery-mobile/master] Added download builder metadata. - Mat Marquis
+[16:34:05] <Wilto> ’Bout how long before that stuff shows up, gseguin?
+[16:47:57] <jrburke> btw, I for the tests i'm doing in my branch if i needed to put the require.js script tag before the jquery script tag to catch its module registration. it may not be such an issue for the current master code, but if any module asks for 'jquery' as a dependency, there could be a double load of jQuery. i've updated my branch with that change
+[16:54:08] <gseguin> Wilto: should be pretty quick
+[16:55:25] <gseguin> jrburke: noted
+[16:57:15] <gseguin> Wilto: it's in there I just checked
+[16:57:48] * gseguin jumps up and down, his post_receive hook is working pretty well
+[16:57:50] <Wilto> Huh. At http://amd-builder.no.de/jquery-mobile/amd/dependencies?baseUrl=js , yeah?
+[16:58:29] <gseguin> that's the wrong path
+[16:58:39] <Wilto> Whoop.
+[16:58:41] <Wilto> OH!
+[16:58:43] <Wilto> Hah. Whoops.
+[16:58:47] <Wilto> amd
+[16:58:51] <gseguin> ok, you're not supposed to guess it I slacked on documenting
+[16:59:22] <Wilto> Hm. I assumed http://amd-builder.no.de/jquery-mobile/master/dependencies?baseUrl=js , but nada.
+[16:59:23] <gseguin> awww FUUUUUUU
+[16:59:38] <Wilto> oh man i broke it didn’t i
+[16:59:41] <gseguin> Wilto: you're a joy killer
+[16:59:46] <Wilto> SCOOOOTT
+[16:59:58] <gseguin> let me take a look
+[17:00:11] <Wilto> Thanks dude.
+[17:00:26] <Wilto> Thinkin’ I can have this done over the weekend.
+[17:15:30] <jqmobilecommit> [jquery-mobile] gseguin pushed 1 new commit to master: http://git.io/G9EASg
+[17:15:30] <jqmobilecommit> [jquery-mobile/master] Fixed wrong line break - Ghislain Seguin
+[17:16:19] <Wilto> Oof, my bad.
+[17:16:50] <gseguin> that's what threw off r.js
+[17:17:03] <Wilto> Sorry about that.
+[17:17:10] <gseguin> no problem
+[17:17:42] <gseguin> I'm waiting for that sucker to update
+[17:18:38] <Wilto> Thanks!
+[17:19:41] <jqm-jenkins-bot> Project jqm-master build #375: STILL FAILING in 6 min 45 sec: http://10.59.19.240:8080/job/jqm-master/375/
+[17:19:42] <jqm-jenkins-bot> mat: Added download builder metadata.
+[17:20:10] <Wilto> …?
+[17:20:35] <gseguin> yeah it probably broke the build as well
+[17:20:54] <gseguin> since we're using r,js for the build too
+[17:24:04] <gseguin> Wilto: I have no idea what was going on
+[17:24:12] <gseguin> but it's working now: http://amd-builder.no.de/jquery-mobile/master/dependencies?baseUrl=js
+[17:24:31] <Wilto> Sweet. So, the build should right itself too?
+[17:24:39] <gseguin> yeah
+[17:24:46] <Wilto> Excellent.
+[17:37:48] <gseguin> jrburke: I have a patch to submit to you for your traceFiles branch
+[17:38:15] <gseguin> remind it to me if I forget
+[17:38:34] <jrburke> gseguin: ok, i'll ping you next week
+[17:39:18] <gseguin> jrburke: any plan to merge that into your master at some point or was that just an experiment?
+[17:41:01] <jrburke> gseguin: i was waiting for feedback from folks who might use it if it was useful. i'd be interested to know how you use it. if it is useful then i would merge to master
+[17:41:29] <gseguin> jrburke: I use it for this: http://amd-builder.no.de/jquery-mobile/master/dependencies?baseUrl=js
+[17:41:40] <jrburke> gseguin: also, btw, i just got the tests to pass for me in my branch, but did a change to testHelper.js. anyway i think my branch is complete, just going to work on the java adapter now.
+[17:41:57] <gseguin> this way the GUI can get the dependency map and show it to the user
+[17:42:43] <gseguin> jrburke: that's awesome! I'll try to take look later tonight or over the weekend
+[17:43:24] <jrburke> gseguin: huh. i thought the tracefiles was mostly useful when you needed a complete listing of files, but for a dependency tree, i would have expected that just knowing the dependencies in a given module was enough -- enough to build up the relationship tree
+[17:44:20] <gseguin> jrburke: that's true but how do I extract this info with r.js?
+[17:45:11] <gseguin> is there a way in the traceFiles branch to get only the one-level-up dependencies?
+[17:46:14] <gseguin> jrburke: btw which timezone are you in?
+[17:46:41] <jrburke> gseguin: i can expose the dependency list for a single module, it would just run it through the ast parser and pull out dependency names. I'll do a look at that tonight, i'll do a branch. hmm… or you might be able to get it now… going to try something… (i'm in pacific timezone, north america west coast (canada))
+[17:46:47] <jrburke> vancouver
+[17:47:26] <gseguin> ok, same timezone: SF bay aread
+[17:47:37] <jrburke> ah cool
+[17:47:38] <gseguin> s/d//
+[17:48:30] <gseguin> leaving the office now, will most likely be back online later tonight
+[17:49:39] <jrburke> gseguin: sounds good i'll need to get dinner anyway
+[17:49:43] <jrburke> i'll ping you later
+[17:49:58] <gseguin> have a good weekend folks
+[18:23:38] <jqm-jenkins-bot> Yippie, build fixed!
+[18:23:39] <jqm-jenkins-bot> Project jqm-master build #376: FIXED in 10 min: http://10.59.19.240:8080/job/jqm-master/376/
+[18:23:39] <jqm-jenkins-bot> ghislain: Fixed wrong line break
+[20:59:26] <gseguin> jrburke: ping
+[20:59:33] <jrburke> hi gseguin
+[20:59:49] <gseguin> hey, so I took a look at your branch
+[21:00:20] <gseguin> I don't think that it'll work with my web builder as-is
+[21:00:43] <jrburke> ah ok, what are the mismatches?
+[21:00:48] <gseguin> my web builder just takes params and forwards them to r.js
+[21:01:14] <gseguin> you've got an extra step with the wrapDefine thing
+[21:01:35] <jrburke> how are you forwarding the info to r.js?
+[21:01:36] <gseguin> that's why I used the pragmas originally
+[21:02:32] <jrburke> i thought you might be doing something similar to this: https://github.com/jrburke/r.js/blob/master/build/tests/http/httpBuild.js
+[21:03:53] <gseguin> so it is similar to this but instead of going the "whole project" way with a static config file I went with the "one/several file" approach
+[21:03:59] <gseguin> does that make sense?
+[21:04:12] <gseguin> let me send you a url to illustrate
+[21:06:04] <jrburke> ok, in the meantime, I got a branch with the "just parse out dependencies" call via requirejs.tools.useLib(). Example here: https://github.com/jrburke/r.js/blob/uselib/build/tests/tools/uselib/parseDeps.js
+[21:06:14] <jrburke> you can use this r.js to try it: https://raw.github.com/jrburke/r.js/uselib/dist/r-edge.js
+[21:07:52] <gseguin> http://amd-builder.no.de/jquery-mobile/master/make?baseUrl=js&include=jquery.mobile.buttonMarkup&pragmasOnSave=%7B%22jqmBuildExclude%22%3Atrue%7D
+[21:08:55] <gseguin> jrburke: ^
+[21:10:32] <jrburke> how do you translate those query string args to pass to r.js? do you use something like child_process to call r.js on the command line or do you call requirejs.optimize() inside of a node script?
+[21:11:03] <gseguin> requirejs.optimize
+[21:11:54] <gseguin> https://github.com/gseguin/node-amd-builder/blob/master/server.js#L212
+[21:13:41] <jrburke> ok. how were you planning on handling the jquery version stamping in the comment? it seems like you are trying to do something generic for any amd file set, but may have special things for a jquery-mobile thing?
+[21:14:27] <jrburke> it might be nice to be able to accept something on the command line for the server.js that specifies a filter module for the output. that might be one way to provide the jquery-mobile specific stuff but keep server.js generic
+[21:16:16] <gseguin> to be honest I had completely forgotten about the version stamp
+[21:17:32] <jrburke> something like the wrapDefine.js could do the version stamping too, but i did not want to change the makefile too much, but if it did that and server.js allowed an optional filter for the output that might work for both cases
+[21:19:01] <gseguin> and yes I was trying to build a project agnostic AMD web builder
+[21:20:50] <jrburke> that makes sense
+[21:21:36] <gseguin> adding a filter-out parameter that would tell the server to execute something after the build would work
+[21:22:40] <gseguin> but what about security? Let's say that becomes a public service, how can we prevent people from having the server execute some malicious code
+[21:23:27] <jrburke> ah i was thinking it is a startup arg, so: node server.js ./path/to/filter.js
+[21:23:57] <gseguin> oh but in that case you don't have multi project support
+[21:24:02] <jrburke> and then do a var filter = require(process.argv[2]); to load it (do an if check for the arg
+[21:24:30] <jrburke> ah, what about having server.js look in the baseUrl for the project for a filter?
+[21:25:11] <gseguin> yeah that's what I was thinking about but that is a security hole
+[21:25:17] <gseguin> isn't it?
+[21:25:36] <jrburke> hmm, only the server admin can install code at the allowed baseUrls?
+[21:25:54] <jrburke> IOW, when baseUrl=js, then the server admin has had to put that js dir on the server?
+[21:26:25] <jrburke> i'm assuming the code is run locally on the server though, are you fetching baseUrl from the network?
+[21:26:33] <jrburke> looking...
+[21:26:37] <gseguin> it's pulled in from the default repo for the server
+[21:27:16] <gseguin> I have a /post_receive end point that you point your gihub post_receive to
+[21:27:31] <jrburke> ok. so as long as the caller to the service cannot specify a filter in the query args, then I think it is OK.
+[21:27:31] <jrburke> oh
+[21:27:37] <gseguin> the only manual steps are:
+[21:27:46] <gseguin> cloning the bare repo
+[21:27:54] <jrburke> this server is running and it listens for github calls from random repos?
+[21:28:04] <gseguin> and creating the workspace for the branch you want to enable the builder on
+[21:28:19] <gseguin> yup
+[21:28:50] <gseguin> but if the repo hasn't been cloned on the server it won't do anything
+[21:29:00] <jrburke> hmm. i was assuming a project would set up the server.
+[21:29:12] <jrburke> ok, how clones the repo on the server?
+[21:29:14] <jrburke> hmm well
+[21:29:26] <jrburke> later a project could put something malicious in there
+[21:29:30] <gseguin> right now it's manual
+[21:30:05] <gseguin> but we could easily imagine a UI to do that
+[21:31:23] <jrburke> hmm. some level of trust would be needed. actually, that trust is needed anyway --
+[21:31:43] <jrburke> the build runs loader plugins as real modules, so if they wanted to something malicious they would create a loader plugin
+[21:32:07] <gseguin> true
+[21:32:12] <jrburke> so i think it still comes down to whoever enables the server to deal with a repo, it means the server admin trusts the repo to not do something bad
+[21:32:41] <gseguin> ok
+[21:32:45] <jrburke> so i can see it as just a manually approved thing, done on trust
+[21:33:21] <jrburke> and someone could just run their own server too if they wanted strict security
+[21:33:31] <gseguin> yep
+[21:33:55] <gseguin> done deal, then I'll get started on implementing that filter-out thinggy
+[21:34:33] <jrburke> ok. i'm going to do one small optimization patch for that uselib branch for r.js, look at your pull requests, then do the java adapter for makeDefine.js
+[21:38:28] <jrburke> and i'm done with that uselib update, that r-edge.js link above is still good, but make sure you have the 9:40pm stamped one.
+[21:38:34] <gseguin> so it's basically going to be a child node process, right?
+[21:39:05] <jrburke> gseguin: which "it"?
+[21:39:07] <gseguin> oh that's right le me finish testing that before I start on the filter
+[21:39:28] <gseguin> it = filter-out
+[21:40:02] <jrburke> well the filter can be just a node module, loaded via node's require(). you could keep a hash of  them per baseUrl
+[21:40:48] <jrburke> var baseUrlFilters[baseUrl] = require(path.join(baseUrl, 'somemagicnameOrpackage.jsonEntry.js'));
+[21:41:12] <jrburke> might need a './' on the front of that require path, so node does not go looking in node_modules
+[21:42:24] <gseguin> I don't want to cache it though, I'll cache the result of it
+[21:43:34] <gseguin> or rather: disk cache it
+[21:44:01] <jrburke> you want to be able to reload the module if the repo changes, is that right?
+[21:44:09] <gseguin> yep
+[21:45:12] <jrburke> you can clear it out in that case, looking for the property now...
+[21:45:32] <gseguin> that's true
+[21:45:43] <jrburke> delete require.cache[pathUsedtoLoadModule]
+[21:46:24] <gseguin> cool
+[21:46:26] <jrburke> just to be clear that is on node's require, not the requirejs stuff :P
+[21:46:35] <gseguin> yeah yeah
+[21:46:53] <jrburke> (merged pull request 74, looking at 75 now)
+[21:47:10] <gseguin> oh wow you're fast man
+[21:47:26] <jrburke> well 74 was just a dumb thing on my part :)
+[21:47:52] <gseguin> so talking about that, any plan to be able to clear the requirejs module cache ?
+[21:48:49] <gseguin> We were struggling with some of our tests where it would have been super convenient to kill a module after setting up some environment and then reload that module
+[21:48:53] <jrburke> yeah, i did that manually in the jquery-mobile branch i have, it has come up before for onError recovery, so I'm thinking i'll add it just to the global requirejs object
+[21:49:00] <jrburke> ha
+[21:49:25] <jrburke> yeah the testHelper.js in my branch has a homebrewed undefine for a module name
+[21:50:10] <gseguin> neat!
+[21:50:26] <gseguin> I'll look later
+[21:51:04] <jrburke> so i'll just wrap that up in an official call and put it on requirejs instead of having to have that awful stuff in testHelper.js
+[21:51:56] <gseguin> right on! Thanks
+[21:54:22] <jrburke> will track that in this ticket: https://github.com/jrburke/requirejs/issues/165
+[21:54:22] <socialhapy> ★ Issue #165 on requirejs, reported by jrburke (32.286s ago): Create a top level undef() call
+[21:55:54] <gseguin> gotta go take care of my 2 month old, be back in a few
+[21:58:28] <gseguin> back for now
+[22:04:48] <jrburke> just merged 75, and updated traceFiles r-edge.js: https://raw.github.com/jrburke/r.js/traceFiles/dist/r-edge.js
+[22:05:32] <jrburke> i may not get to the java adapter for wrapDefine.js until later this weekend. i'm going to start tonight, but not sure how far it will get.
+[22:13:51] <gseguin> awesome! the findDependencies seems to be working
+[22:20:54] <gseguin> I'll tackle the filter-out over the weekend
+[22:27:50] <jrburke> cool
+[22:36:39] <gseguin> jrburke: the name of the function to call in the filter module needs to be fixed
+[22:36:56] <gseguin> how about "filter"?
+[22:37:18] <gseguin> or "process"
+[22:38:03] <jrburke> would be nice to name it something related to the service too, maybe start with an _ too, to indicate not a real module?
+[22:38:52] <jrburke> not a real module for the project i mean. other option is to look in a package.json at root of project and extract a path from a property in there
+[22:39:40] <jrburke> otherwise maybe something like _amd-build-filter.js
+[22:40:05] <gseguin> oh I was talking about the function to invoke
+[22:40:17] <jrburke> ah
+[22:40:23] <gseguin> the filename I'll leave it as a url argument
+[22:40:32] <gseguin> what do you think?
+[22:40:53] <jrburke> hmm, the module could just be a function -- module.exports = function () {}, then you don't need to care about its name
+[22:41:41] <gseguin> heh, that's right! Sorry I'm still kind of a n00b with node
+[22:42:37] <jrburke> i'm still getting a handle on it too. i still feel like i don't use it like a node pro
+[22:47:01] <gseguin> alright, I'm going to call it a night
+[22:47:18] <gseguin> thanks very much for jumping and helping the project
+[22:47:55] <jrburke> sure thing, it is fun. later!
+[22:48:11] <gseguin> I'll try to put togeither a better API doc for the amd-builder and advertise it on the requirejs mailing list
+[22:48:25] <gseguin> hopefully it'll be useful to other people
+[22:48:42] <jrburke> yeah, i'm expecting to hear more publicly about it once it is done. i know others will want to hear about it/use it
+[22:49:45] <gseguin> if you know anyone who's already voiced their interest in such a tool have them take a look at the project on github
+[22:49:59] <gseguin> I'd love to get feedback and improve it
+[22:50:30] <gseguin> later...
+[22:50:39] <jrburke> my main experience with it is from the old dojo days, where we always wanted a we builder. i worked on one, but it was java based many years ago. ttyl

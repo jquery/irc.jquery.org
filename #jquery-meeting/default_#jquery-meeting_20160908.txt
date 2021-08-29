@@ -1,0 +1,211 @@
+[12:00:14] <scott_gonzalez> ?pepteam
+[12:00:15] <b-ot> arschmitz bethge jdalton jrossi jrossi1 jrossi2 jrossi3 jrossi9billion M4rius scott_gonzalez snover
+[12:01:16] <bethge> Hi
+[12:01:23] <scott_gonzalez> hey bethge
+[12:02:14] <scott_gonzalez> We have Rick Byers here today (rbyers), though he's in another meeting as well, so may not be too responsive.
+[12:02:35] <scott_gonzalez> But hopefully he can answer any remaining questions about the passive event listeners and touch-action PR.
+[12:02:35] <bethge> Ah great, I was about to respond to his elaborate response on github
+[12:02:41] <arschmitz> hi
+[12:02:44] <scott_gonzalez> hey arschmitz
+[12:04:14] <scott_gonzalez> I think one of our big questions is about the spec wording of "the element with the default touch behavior"
+[12:04:28] <scott_gonzalez> I meant to bring this up on yesterday's PEWG call, but forgot to :-(
+[12:05:06] <bethge> Hehe, indeed.
+[12:05:31] <scott_gonzalez> So touch-action isn't inherited, but ancestor values do come into play.
+[12:05:53] <scott_gonzalez> And it's the intersection of allowable actions that defines the actual actions that the browser will handle.
+[12:06:16] <scott_gonzalez> But the DOM walking stops at some point based on "the element with the default touch behavior" not the root.
+[12:06:26] <scott_gonzalez> rbyers: Can you explain what this means?
+[12:06:48] <scott_gonzalez> How do we determine the "nearest ancestor with the default touch behavior"
+[12:06:48] <rbyers> scott_gonzalez: Yes
+[12:06:58] <rbyers> It's a little complicated.  Hold on a sec
+[12:07:18] <rbyers> Actually for the common case of scrolling it's pretty simple - just walk up until you hit a scroller.
+[12:07:56] <rbyers> The idea is that if you add an overflow:scroll element as a descendant of a touch-action:none region, you should get scrolling back (consider component composition scenarios)
+[12:08:36] <arschmitz> so this is not about an ancestor with something besides touch-action: auto its actually about the scroll parent?
+[12:08:38] <rbyers> It's more complicated when you consider pinch-zoom, but perhaps you can ignore that?  Not sure.
+[12:09:04] <rbyers> Well as you walk up the ancestor chain, you're intersecting all the touch-actions.
+[12:09:52] <rbyers> If you really want the gory details, this is implemented in blink here: https://cs.chromium.org/chromium/src/third_party/WebKit/Source/core/input/TouchActionUtil.cpp?q=computeEffectiveTouchAction&sq=package:chromium&l=47&dr=CSs
+[12:12:00] <rbyers> Bigger picture though, I think the value of this touch-action/passive-listener work will depend largely on whether Safari ships support for more touch-action values.  It won't help on Chrome because we're about to ship native Pointer Events support.  Maybe there are some common scenarios where it would help on Safari 10 - which has passive event listeners
+[12:12:00] <rbyers> but not touch-action (only 'manipulation' which doesn't really help you)?
+[12:14:55] <bethge> Good point. I don't think passive event listeners help us much without touch-action, since we would have to prevent all the touch events at an element with touch-action=none.
+[12:15:30] <scott_gonzalez> So maybe we should just skip this work for now?
+[12:16:21] <bethge> Yeah, we should probably look into getting the behaviour of touch-action right
+[12:16:39] <arschmitz> yeah passive does not seem worth it
+[12:16:50] <rbyers> What about touch-action: auto cases.  Could you detect that case and make your listeners passive (knowing you'll never need to cancel)?
+[12:17:22] <arschmitz> we dont do anything for that case because of how we register
+[12:19:33] <arschmitz> if i recall we only install on touch-action="none"
+[12:20:02] <arschmitz> which isnt really right but thats how it is now at least
+[12:20:12] <bethge> also on pan-x , pan-y afaik
+[12:20:22] <rbyers> Ok.  Sorry if I caused some wasted effort here.  I've been advocating strongly for passive (and that original 'touch-action-delay' code was based on discussions dfreeman and I had years ago).  But native PE events are inherently passive, so it's  a different equation in a PE-polyfill...
+[12:21:56] <scott_gonzalez> No problem. This made us realize we weren't handling touch-action quite right, so it wasn't completely wasted :-)
+[12:22:08] <rbyers> I assume PEP will be a complete no-op when native PointerEvents are detected, right?  I know there's some complexity with the difference in attribute vs. CSS touch-action.
+[12:22:16] <arschmitz> yes
+[12:22:17] <scott_gonzalez> We should still rip out the code for touch-action-delay that never gets used.
+[12:22:34] <arschmitz> rbyers: currently we copy the attribute to css
+[12:22:37] <rbyers> Yep that's just confusing at this point - touch-action-delay will never be a thing.
+[12:22:39] <arschmitz> but want to change how that works
+[12:23:13] <scott_gonzalez> Right, the one noticeable difference between PEP and native is the use of a touch-action attribute instead of a style.
+[12:23:38] <scott_gonzalez> But we're trying to switch to using styles.
+[12:24:21] <rbyers> Oh wow, that's hard - right?  Need to parse the CSS yourself?
+[12:24:34] <arschmitz> no we will only support the attribute on the element
+[12:24:42] <arschmitz> style attribute that is
+[12:25:03] <rbyers> Ah, makes sense.  Thanks!
+[12:25:25] <arschmitz> so not as good as a style sheet but at least will work with or without pep
+[12:32:59] <scott_gonzalez> bethge: Do you want to close your PR and open a new one to just remove TOUCH_ACTION_DELAY?
+[12:33:17] <bethge> Yeah, will do.
+[12:33:21] <scott_gonzalez> Then we can work on fixing the touch-action logic to handle the ancestor intersection.
+[12:34:33] <bethge> Is "overflow: scroll" the only property that can stop propagation? (sounds so simple :-) )
+[12:35:14] <bethge> Wait... would be have to parse css for that?
+[12:36:09] <scott_gonzalez> The browser will parse for us, we can just ask for the computed style.
+[12:45:17] <rbyers> (sorry for the delay - in another meeting as Scott said).
+[12:45:18] <scott_gonzalez> So I guess at this point, we're not waiting on anything to do our next release.
+[12:46:27] <rbyers> Off the top of my head overflow (scroll and auto) are the main things.  <input> and <textarea> also create scrollers but those are probably irrelevant for you.
+[12:48:28] <rbyers> overflow:auto is the trickier case.  I think you may need to check the scrollHeight against the offsetHeight or something to see if the auto case actually scrolls or not.
+[12:48:41] <rbyers> Also have to consider X and Y separately.
+[12:52:26] <scott_gonzalez> There was also this recent PR for W3C tests: https://github.com/w3c/web-platform-tests/pull/3648
+[12:56:43] <scott_gonzalez> I think that's all for today. Does anyone have anything else to discuss?
+[12:58:17] <scott_gonzalez> Thanks everyone (and thanks for joining rbyers).
+[12:58:36] <bethge> yeah, thank you, much appreciated
+[12:58:55] <rbyers> No problem, happy to be here!
+[14:01:00] <arschmitz> apsdehal: agcolom: cgack: cogwurx: gabrielschulhof: meeting time
+[14:01:09] <cgack> howdy
+[14:02:47] <apsdehal> hello
+[14:04:59] <gabrielschulhof> Hey!
+[14:05:18] <arschmitz> lets get started
+[14:05:31] <arschmitz> Got a little more progress on changelog not as much as i would like
+[14:05:54] <arschmitz> an issue came up with the classes option that could potentially effect us
+[14:06:43] <arschmitz> in ui Autocomplete because the menu items are created and destroyed constantly it is causing massive potential memory leaks
+[14:07:00] <gabrielschulhof> Hmmm ...
+[14:07:02] <arschmitz> before we said you should just call _removeClass
+[14:07:06] <arschmitz> to un track
+[14:07:16] <arschmitz> but in some cases thats not really feasible
+[14:08:00] <arschmitz> so we are considering making the factory actually track when an element is removed from the dom and doing cleanup as they are removed
+[14:08:09] <apsdehal> Do you have a link to the ticket?
+[14:08:44] <arschmitz> https://bugs.jqueryui.com/ticket/15043
+[14:08:52] <gabrielschulhof> arschmitz: How can that be tracked? Like, with a timeout, if mutation observers are not available?
+[14:08:58] <arschmitz> no
+[14:09:21] <arschmitz> ui has had an undocumented "remove" event for a long time
+[14:09:33] <arschmitz> it hooks into jQuery core cleanData function
+[14:09:55] <arschmitz> which is called whenever you remove an element through a jquery method like remove
+[14:10:06] <gabrielschulhof> Aaah, that's not bad.
+[14:10:42] <arschmitz> so the factory would have to set a listener on every element it adds a class to for remove
+[14:10:53] <arschmitz> and cleanup when it is triggered
+[14:11:21] <gabrielschulhof> Still sounds pretty heavy.
+[14:11:29] <gabrielschulhof> But I guess there's no choice.
+[14:11:56] <arschmitz> it wont be bad
+[14:12:07] <arschmitz> its a non delegated jquery listener for a custom jquery event
+[14:12:37] <gabrielschulhof> That's just it though - non-delegated means a lot of functions will be generated.
+[14:12:54] <gabrielschulhof> It'd be much nicer to just have one listener attached at the top.
+[14:13:39] <gabrielschulhof> But anyway, sounds good.
+[14:14:18] <arschmitz> no that would be bad for performance on something like remove
+[14:14:36] <arschmitz> because this happen potentially many times quickly
+[14:14:45] <arschmitz> since it can happen as you type or different htings like that
+[14:14:53] <arschmitz> so delegating would be slow
+[14:15:03] <cogwurx> hello...sorry I"m late
+[14:15:10] <arschmitz> cogwurx: no problem
+[14:15:25] <apsdehal> hi cogwurx
+[14:16:41] <gabrielschulhof> arschmitz: Oh, true!
+[14:16:50] <apsdehal> I guess that is settled then, is there any other way it can affect us after the workaround?
+[14:17:21] <arschmitz> apsdehal: what do you mean is there any other way it can effect us
+[14:17:54] <apsdehal> I mean after the workaround it would be good to go, right
+[14:18:03] <arschmitz> yes
+[14:18:19] <apsdehal> Ok
+[14:18:29] <arschmitz> and to be fair its not a bug with classes so much as a bug with how its used
+[14:18:56] <apsdehal> So I was going through the list of recently opened issues and found: https://github.com/jquery/jquery-mobile/issues/8511
+[14:19:08] <arschmitz> we knew this was the case and decided to do it this way but now we think it might be worth doing more automatic cleanup
+[14:20:30] <arschmitz> that one is crazy im not even sure what the problem hes reporting is
+[14:21:04] <apsdehal> Yes, I guess, automatic cleanup makes sense to reach more users. People usually end up making weird markups with long list of items
+[14:21:30] <arschmitz> and specificly the issue with autocomplete and ui is
+[14:21:38] <arschmitz> autocomplete adds and removes the elements
+[14:21:44] <arschmitz> but its menu thats tracking them
+[14:22:05] <arschmitz> so autocomplete does not have the access or knowledge to remove the classes to untrack
+[14:22:51] <gabrielschulhof> arschmitz: So, shouldn't menu have an API for adding/removing elements?
+[14:23:29] <arschmitz> not really its kinda like listview in that it does not care it just enhances the markup
+[14:23:43] <arschmitz> we could add a bunch of widget specific stuff like that
+[14:23:54] <gabrielschulhof> Hmmm ... then listview will also benefit.
+[14:23:55] <arschmitz> but a more general solution seems better
+[14:23:57] <arschmitz> yes
+[14:24:17] <arschmitz> anything that does add remove elements a lot
+[14:24:48] <apsdehal> So in the jqm issue, just read issues' steps to reproduce, what should happen and what happened
+[14:25:12] <arschmitz> the factory right now cleans up classes on destroy and _removeClass
+[14:26:03] <arschmitz> apsdehal: it sounds like they are using some custom autocomplete
+[14:26:13] <arschmitz> that is causing the problem
+[14:27:35] <gabrielschulhof> arschmitz: On a different topic - did you have a chance to reinstate the put-git-version-on-CDN job?
+[14:27:42] <apsdehal> Maybe I will dig into his problem later, right now, hurts my brain to read the whole stuff.
+[14:28:03] <arschmitz> gabrielschulhof: no do we have an issue open for that
+[14:28:09] <apsdehal> So I was testing the latest issue https://github.com/jquery/jquery-mobile/issues/8512
+[14:28:25] <apsdehal> And got another issue https://github.com/jquery/jquery-mobile/issues/8519
+[14:28:29] <arschmitz> apsdehal: yeah we would generally be unlikely to accept an issue like this
+[14:29:06] <apsdehal> We need to go thoroughly through demos to make sure something else is also not broken
+[14:29:19] <gabrielschulhof> arschmitz: Against which repo should I file?
+[14:29:40] <apsdehal> gabrielschulhof: Already open: https://github.com/jquery/jquery-mobile/issues/8515
+[14:29:47] <arschmitz> jquery-mobile
+[14:30:01] <arschmitz> apsdehal: thank you
+[14:30:03] <gabrielschulhof> Aaah, right. Jasper opened that.
+[14:30:43] <apsdehal> arschmitz: Can you have a look at this also: https://github.com/jquery/jquery-mobile/issues/8517
+[14:32:27] <arschmitz> apsdehal: that is infact as designed
+[14:32:35] <arschmitz> i already closed her other issue saying that
+[14:32:54] <apsdehal> Yeah, that is true
+[14:33:12] <arschmitz> gabrielschulhof: you were part of this decision do you have anything to add
+[14:33:13] <apsdehal> But she wants a workaround, but I guess issue tracker is not a place for that
+[14:33:16] <apsdehal> Maybe forums
+[14:34:06] <gabrielschulhof> Wow!
+[14:34:36] <gabrielschulhof> If you're talking about the dialog thing, then that's gonna make a comeback, because we had that exclusion.
+[14:35:02] <gabrielschulhof> ... but if we choose not to handle dialogs specially then we're leaving the implementation of that to users.
+[14:35:20] <arschmitz> gabrielschulhof: right we took that special handling out and they are complaining
+[14:35:42] <gabrielschulhof> A demo, perhaps?
+[14:36:15] <arschmitz> since they are using 1.4.5 there is a simple work around
+[14:36:28] <arschmitz> but for 1.5 it wont work
+[14:36:36] <arschmitz> they can just do it the 1.3 way
+[14:37:06] <arschmitz> this is something we plan to add back in a future version
+[14:37:22] <arschmitz> when we support navigation without adding a history entry
+[14:37:35] <gabrielschulhof> Yeah, that's true.
+[14:37:37] <arschmitz> but it is just not a thing in 1.5
+[14:37:43] <apsdehal> Then probably add a demo
+[14:38:05] <arschmitz> im not sure how easy it will be do do in a demo
+[14:38:14] <arschmitz> gabrielschulhof: thoughts on how we would do it
+[14:38:17] <gabrielschulhof> We might even formulate the demo as a pagecontainer extension.
+[14:38:25] <arschmitz> i guess you still do it in selectmenu
+[14:38:55] <gabrielschulhof> Yeah, but that's because the skip-dialog handling is not removed, it's just that no more dialogs will appear in the history to be skipped.
+[14:39:20] <arschmitz> gabrielschulhof: its not even really pagecontainer thats the issue
+[14:39:29] <gabrielschulhof> selectmenu adds the data mobile-dialog to the widget which will turn on the special handling.
+[14:40:10] <gabrielschulhof> The fact is that the whole behaviour is keyed on data being present at the key "mobile-dialog".
+[14:40:40] <gabrielschulhof> So, if we could make that something else like a data attribute, like, maybe data-ui-no-history
+[14:40:48] <gabrielschulhof> then we'd have this in an instant.
+[14:40:53] <arschmitz> ok
+[14:41:08] <arschmitz> but is it better to modify navigation to just support historyless nav
+[14:41:11] <gabrielschulhof> Of course, it would still be achieved with the dialogHashKey
+[14:41:14] <apsdehal> I gotta go guys, I have an appointment.
+[14:41:19] <gabrielschulhof> L8R
+[14:41:25] <arschmitz> i only have a few more minutes too
+[14:41:31] <apsdehal> Bye, have a great weekend
+[14:41:38] <arschmitz> apsdehal: thanks you too
+[14:41:39] <gabrielschulhof> L8Reah, absolutely.
+[14:42:26] <gabrielschulhof> So, for 1.5 we should just write a demo that tacks this data onto the dialog-styled page to turn on the legacy behaviour, just as with selectmenu.
+[14:42:43] <gabrielschulhof> So, I guess that would make it a page extension.
+[14:43:01] <arschmitz> gabrielschulhof: for 1.5 maybe we should just make it a page option??
+[14:43:09] <arschmitz> since all you do is add data based on it
+[14:43:44] <arschmitz> data-history="true/false"
+[14:44:04] <gabrielschulhof> I guess we could.
+[14:44:21] <gabrielschulhof> That would actually be a step towards our goal.
+[14:44:32] <arschmitz> right in the future we just make it not use hash
+[14:44:40] <gabrielschulhof> Nice ...
+[14:44:53] <arschmitz> and document not to rely on the hash behavior because it will change in future versions
+[14:45:43] <gabrielschulhof> yeah, but there's one more thing: data-history should also be available on links, overriding whatever the page has.
+[14:46:00] <arschmitz> i think we can skip that for 1.5
+[14:46:19] <arschmitz> we dont have fully fleshed out link - page translation yet but thats another future goal
+[14:46:23] <gabrielschulhof> Yes, of course, but for the version where we do the whole think.
+[14:46:30] <gabrielschulhof> s/k\./g./
+[14:47:02] <gabrielschulhof> I like the way popup does it. You can override certain popup options by placing the option on the link.
+[14:47:43] <gabrielschulhof> So, that's how the same popup can open with a myriad different transitions, for example.
+[14:53:41] <arschmitz> gabrielschulhof: yes we planned to abstract this though
+[14:53:47] <arschmitz> to make it general for any widget
+[14:54:16] <gabrielschulhof> Right, yeah.
+[14:54:26] <gabrielschulhof> Well, any widget that has open/close semantics.
+[14:54:32] <arschmitz> right
+[14:56:13] <arschmitz> ok does anyone have anything else?
+[14:56:34] <gabrielschulhof> Nope. I'm good.
+[14:56:47] <arschmitz> ok see everyone next week
+[14:56:51] <gabrielschulhof> L8R
+[14:57:07] <arschmitz> gabrielschulhof: if you have time it would be great if you could whip up that pagecontainer change
+[14:57:12] <arschmitz> shouldnt be big
+[14:57:25] <gabrielschulhof> arschmitz: OK. I'll assign the issue to myself.
+[14:58:19] <arschmitz> gabrielschulhof: thank you

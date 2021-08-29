@@ -1,0 +1,51 @@
+[12:42:00] <s5fs> scott_gonzalez: so whats the story w/the cloudflare deployment issue? could you give me a better rundown of what is happening?
+[12:43:01] <s5fs> I saw your gist but I don't know what was performed leading up to that message.
+[12:45:03] <scott_gonzalez> It was an XML-RPC request to WordPress.
+[12:45:13] <scott_gonzalez> Specifically, a wp.editPost request.
+[12:45:40] <s5fs> do we make a lot of requests to that host during deployment? could it be something that is triggered due to volume?
+[12:46:05] <scott_gonzalez> It's not volume. It's something specific to the request.
+[12:46:11] <scott_gonzalez> Because it dies on the same request every time.
+[12:46:18] <s5fs> did you open a support request with cloudflare?
+[12:46:42] <scott_gonzalez> No, I don't know anything about CloudFlare.
+[12:47:12] <s5fs> which host are you trying to reach?
+[12:47:25] <scott_gonzalez> stage.jquery.com
+[12:52:29] <s5fs> scott_gonzalez: this is hitting xmlrpc.php yes?
+[12:52:51] <scott_gonzalez> yes
+[12:53:26] <s5fs> hrm
+[13:13:45] <s5fs> scott_gonzalez: okay so cloudflare has a WAF rule that blocks all inbound xml-rpc requests
+[13:14:12] <s5fs> I can turn this off, but it's enabled by default, and we get a large number of xml rpc requests that are not legit
+[13:14:26] <s5fs> I worry that enabling xmlrpc from the web will open us up for attack.. again.
+[13:18:45] <s5fs> where are these deployments originating, from github or from your local machine?
+[13:19:12] <s5fs> ie, do we need public dns in order to make this happen, or can you use a private dns server (with records that point directly the stage server)?
+[13:22:04] <scott_gonzalez> They from the builders.
+[13:22:21] <s5fs> scott_gonzalez: so this has been broken a long time, eh?
+[13:22:45] <scott_gonzalez> Perhaps. But presumably only for jquery.com.
+[13:22:54] <scott_gonzalez> We deploy sites pretty frequently.
+[13:22:56] <scott_gonzalez> But not jquery.com
+[13:23:14] <s5fs> one solution is to update the hosts file in the builders to point directly to the stage server's protected IP, rather than cloudflare.
+[13:23:26] <scott_gonzalez> Seems like a fine solution.
+[13:23:40] <s5fs> are you comfortable making that change?
+[13:24:12] <s5fs> if not, give me the hostnames that you want updated and i'll do it right meow
+[13:25:00] <scott_gonzalez> Well, it's a big list. And it grows over time.
+[13:25:00] <scott_gonzalez> https://github.com/jquery/jquery-wp-content/blob/master/sites.php#L9-L295
+[13:26:21] <s5fs> scott_gonzalez: all of those are builder servers?
+[13:26:43] <scott_gonzalez> No, those are the domains that would need entries in the hosts file.
+[13:27:09] <scott_gonzalez> I assume there's something in the infra repo that would have a good list.
+[13:27:27] <s5fs> i have hostnames but not always sure who is doing what lol
+[13:27:54] <scott_gonzalez> https://github.com/jquery/infrastructure/blob/6795f97624fb8665cd3d7ca195b549026394f3bb/manifests/nodes/builder.pp#L49
+[13:28:07] <s5fs> I can take a whack at it though. also, i think all of those domains are hosted on the wordpress servers so that's like 4 machines or something
+[13:28:19] <scott_gonzalez> Seems like that's probably the list to use.
+[13:28:50] <scott_gonzalez> Actually, you can probably handle this directly in config.json for the sites.
+[13:28:57] <scott_gonzalez> gnarf had me add support for this.
+[13:29:23] <scott_gonzalez> https://github.com/scottgonzalez/node-wordpress#wordpresscreateclient-settings-
+[13:29:26] <scott_gonzalez> See the host option.
+[13:29:42] <s5fs> interesting, i'll take a look shortly
+[13:29:43] <scott_gonzalez> I think this is the exact situation he wanted that for.
+[13:31:17] <scott_gonzalez> Here's some background: https://github.com/scottgonzalez/grunt-wordpress/issues/20
+[13:31:36] <scott_gonzalez> I guess we just never took advantage after it was implemented?
+[13:33:24] <s5fs> gnarf: ^^^ that right?
+[13:33:36] <s5fs> scott_gonzalez: looks like exactly what i want tho, for sure
+[18:40:54] <jqcommit> [13infrastructure] 15aulvi pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/12fac7e03584c46090f710e9b843bc29c8ebca61
+[18:40:54] <jqcommit> 13infrastructure/06puppet-stage 1412fac7e 15Adam Ulvi: Added jq01.stage to the builder 'real hosts' list.
+[18:41:04] <jqcommit> [13infrastructure] 15aulvi merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/c3f9f2b4a367...12fac7e03584
+[19:03:12] <s5fs> scott_gonzalez: We rolled the changes for builder, could you push something and test it? thanks!

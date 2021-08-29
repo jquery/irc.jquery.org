@@ -1,0 +1,320 @@
+[06:40:58] <scott_gonzalez> kborchers: I'm going insane
+[06:41:14] <scott_gonzalez> I can reproduce this: http://jsfiddle.net/bA6AF/1
+[06:41:24] <scott_gonzalez> but I can't reproduce it with http://jsfiddle.net/bA6AF/1/show/
+[06:41:51] <kborchers> was this in FF
+[06:43:27] <scott_gonzalez> yeah
+[06:43:56] <kborchers> hmmmm ... in FF7, they look properly aligned in both for me
+[06:44:10] <scott_gonzalez> he said it varies based on window size
+[06:45:08] <scott_gonzalez> actually, you can resize the window after they're positioned and see the problem
+[06:45:16] <kborchers> ok, i see it off a little if i resize or if i zoom
+[06:45:33] <scott_gonzalez> which is odd....
+[06:45:40] <scott_gonzalez> must be something related to jsFiddle
+[06:46:12] <scott_gonzalez> the position relative to the window shouldn't change as you resize the window
+[06:47:48] <kborchers> right ... which i have verified here http://jsfiddle.net/bA6AF/2/ ... it is always the same even though it looks off
+[06:51:55] <kborchers> and i also don't see that movement in /show so it must be a jsfiddle thing
+[06:54:59] <scott_gonzalez> strange, I'll try to figure out what's going on
+[06:54:59] <scott_gonzalez> thanks
+[09:09:03] <kborchers> anybody got a minute to give some feedback on this commit? https://github.com/kborchers/jquery-ui/commit/b66300724b4aeafd4327c519ebc36da1fb31ab74
+[09:09:04] <socialhapy> ★ Commit on jquery-ui by kborchers (3m, 23s ago): Menubar: Refactored _next, _prev, _right and _left into a single method called _move and then created next and previous methods that call _move. Very similar to how Menu handles keyboard interaction.
+[09:09:31] <kborchers> i wanted to tackle that before i got Menu and Menubar handling tables
+[09:09:48] <kborchers> scott_gonzalez, jzaefferer, gnarf ^^
+[09:10:24] <gnarf> kborchers: only thing i don't like about it
+[09:10:32] <gnarf> is that requirement for "event" in _move
+[09:10:42] <gnarf> which makes .menubar( "next" ) blow up
+[09:12:00] <gnarf> but it seems like a good cleanup/DRY
+[09:12:38] <gnarf> how much of it is covered by the unit tests? :)
+[09:12:51] <gnarf> (brb)
+[09:14:19] <kborchers> hmmm, well considering there are no units for Menubar yet ...
+[09:22:14] <gnarf> kborchers: thats where i would be concerned, perhaps you should write some? :)
+[09:23:40] <kborchers> i do plan on writing some ... there were just a lot of todos and questions in the comments so wanted to try to get stuff straightened out there first
+[09:25:15] <gnarf> fair enough
+[10:41:18] <scott_gonzalez> kborchers: sounds good, did you want it reviewed or just an ok on the idea?
+[10:47:32] <kborchers> scott_gonzalez: if you have any specific thoughts, that would be appreciated but i am changing some things based on gnarf's feedback so probably best to wait on any detailed review
+[11:49:51] <scott_gonzalez> anyone have any bugs they want to fix that can land in 1-8-stable?
+[11:49:58] <scott_gonzalez> I want to push 1.8.17 soon
+[11:50:07] <scott_gonzalez> it's been two months!
+[11:50:21] <kborchers> scott_gonzalez: fractions in position :P
+[11:50:27] <scott_gonzalez> hah
+[11:50:41] <scott_gonzalez> I still can't figure out what causes the shift in jsFiddle
+[11:50:59] <scott_gonzalez> I suppose I could create a local page that uses an iframe
+[11:51:03] <scott_gonzalez> and see if that causes it
+[11:51:10] <scott_gonzalez> seems unlikely
+[11:51:48] <scott_gonzalez> might as well give it a try, I want this damn ticket closed
+[11:52:05] <kborchers> yeah, i wouldn't think so ... that one is really strange ... i still don't think i've actually seen the issue outside of jsfiddle :\
+[11:57:39] <kborchers> scott_gonzalez: the div that contains that iframe has a height of 75%. if i remove that ... the grey div is off by a little (1px or less) with both 1.5.2 and 1.6.4 but it doesn't change with resize of the window so it might have to do with fractions on top of fractions making the calcs slightly off
+[11:59:12] <scott_gonzalez> sweet
+[11:59:27] <scott_gonzalez> I wrapped it in <div style="position: absolute; top: 25%; left: 25%">
+[11:59:41] <scott_gonzalez> now it's reproducible as you resize the window
+[11:59:57] <scott_gonzalez> ridiculous
+[12:01:19] <kborchers> this is fun
+[12:01:23] <kborchers> s/fun/stupid
+[12:02:23] <gnarf> Heh
+[12:02:41] <gnarf> I wish I had power... id laugh with you...
+[12:04:11] <kborchers> no power??? dude, your power infra is crap up there in rockford
+[12:04:36] <kborchers> seems like somebody sneezes and your power goes out
+[12:05:03] <kborchers> even through all of those storms we had this year, i lost power once for about 30 mins
+[12:05:07] * kborchers knock on wood
+[12:06:03] <scott_gonzalez> jeez: http://gyazo.com/e890ef53b66e9709279baa3ca2ace417
+[12:06:34] <scott_gonzalez> haha, that's like 50% forced updates
+[12:07:01] <scott_gonzalez> hah, it's every branch besides master that I already had :-P
+[12:07:41] <gnarf> Kborchers, u have underground lines I assume? I live in a neighboorhood with poles :)
+[12:08:34] <kborchers> hmmm, good point. yes, my power is underground
+[12:09:05] <scott_gonzalez> ugh, kborchers: your patch just changes which direction the box moves :-/
+[12:09:06] <gnarf> Pretty sure this one was an automobile accident
+[12:09:38] <kborchers> scott_gonzalez: sweet :(
+[12:10:57] <scott_gonzalez> hmm...this is dumb
+[12:11:08] <scott_gonzalez> we shouldn't care about resizing the window
+[12:11:16] <scott_gonzalez> this might actually be fixed
+[12:11:20] <scott_gonzalez> let me check
+[12:13:20] <scott_gonzalez> hmm....so I can't get it to have the wrong positioning on page load
+[12:13:25] <scott_gonzalez> only when I resize the window after
+[12:14:02] <scott_gonzalez> but I can get it to be positioned incorrectly in jsFiddle on page load
+[12:14:19] <scott_gonzalez> so the 25% caused the resize bug on its own, but not the positioning bug :-/
+[12:15:09] <kborchers> i guess the question then is, is there a positioning bug? other than on resize?
+[12:15:42] <scott_gonzalez> in jsFiddle there is :-/
+[12:16:18] <scott_gonzalez> unless jsFiddle does weird stuff that causes the page to reflow after window.onload
+[12:17:06] <scott_gonzalez> nope, that's not it
+[12:17:14] <scott_gonzalez> I put a 2s timeout and I can still reproduce it in jsFiddle
+[12:17:18] <scott_gonzalez> WTF?!?
+[12:30:47] <kborchers> scott_gonzalez: hmmm, even if i do this http://jsfiddle.net/bA6AF/5/ it is positioned incorrectly. not sure of a way to fix that. seems like FF is just not putting it in the right place?
+[12:32:04] <scott_gonzalez> but it's only in jsFiddle
+[12:33:28] <kborchers> this hurts my head
+[12:48:15] <scott_gonzalez> I give up
+[12:49:29] <scott_gonzalez> WTF? it's the iframe
+[12:49:45] <scott_gonzalez> <div style="position: absolute; top: 25%; left: 25%;">
+[12:49:45] <scott_gonzalez> <iframe src="http://jsfiddle.net/bA6AF/1/show"></iframe>
+[12:49:46] <scott_gonzalez> </div>
+[12:52:09] <scott_gonzalez> kborchers: confirmed that the patch doesn't help
+[12:52:36] <scott_gonzalez> ugh, wtf is going on?
+[12:52:51] <kborchers> damn
+[12:54:29] <scott_gonzalez> hmm....
+[12:54:34] <scott_gonzalez> actually it fixes it for 1.6.x
+[12:54:36] <scott_gonzalez> but not for 1.5.x
+[13:11:56] <kborchers> scott_gonzalez: my guess is it has to do with fractional margin and/or padding.
+[13:12:18] <kborchers> if i pull that example out of jsfiddle and create it locally, there is not position issue
+[13:12:43] <kborchers> but if i add margin: 5.4px or padding: 5.4px to that wrapper div around the iframe, it jumps
+[13:12:58] <kborchers> i'm iframing a local page
+[13:13:09] <kborchers> i can't push it up anywhere from work though to show you
+[13:20:20] <scott_gonzalez> I was able to reproduce it with the iframe
+[13:20:46] <scott_gonzalez> does your patch fix it on your test page?
+[13:21:05] <kborchers> haven't tried yet, hold on
+[13:41:33] <kborchers> scott_gonzalez: i don't think it fixes it. it looks right in 1.6.4 and not 1.5.2 but 1.6.4 is after fraction stuff was fixed in core so i think that's why it works. looks like this patch does not help
+[13:41:52] <scott_gonzalez> yeah, that's what I'm seeing too
+[13:42:15] <scott_gonzalez> it does seem to fix a bug with 1.6.x though
+[13:43:28] <scott_gonzalez> gotta go
+[14:31:04] <jq-jenkins> Project jQuery UI build #129: STILL FAILING in 10 min: http://swarm.jquery.org:8080/job/jQuery%20UI/129/
+[14:31:04] <bot-t> (3 hours 31 mins ago) <DaveMethvin> tell jq-jenkins STOP CRYING WOLF
+[14:31:04] <jq-jenkins> Scott González: Autocomplete: Add 1px to the width of the menu to avoid wrapping in Firefox. Fixes #7513 - Autocomplete: long text wraps in Firefox.
+[14:53:36] <gnarf> hey scott_gonzalez did you ever solve that IE6 spinner button issue with timepicker / spinner mousewheel flying to min/max issue...
+[14:57:36] <scott_gonzalez> yeah
+[14:58:23] <scott_gonzalez> https://github.com/jquery/jquery-ui/commit/26bcf972e681813d00abbe0603267ff4bebac311#ui/jquery.ui.spinner.js
+[14:58:24] <socialhapy> ★ Commit on jquery-ui by scottgonzalez (1w, 5d ago): Spinner: Fixed mousewheel stop timer.
+[15:00:19] <gnarf> cool
+[15:42:26] <jquicommit> [jquery-ui] gnarf37 pushed 1 new commit to master: http://git.io/KSvtow
+[15:42:26] <jquicommit> [jquery-ui/master] Effects Core: Do not overwrite css or class changes that aren't animated during class animation. Fixed #7106 - animateClass: css and class changes during animation are lost - ddstreet
+[15:52:50] <jq-jenkins> Project jQuery UI build #130: STILL FAILING in 10 min: http://swarm.jquery.org:8080/job/jQuery%20UI/130/
+[15:52:51] <jq-jenkins> Corey Frang: Effects Core: Do not overwrite css or class changes that aren't animated during class animation. Fixed #7106 - animateClass: css and class changes during animation are lost
+[15:59:29] <jquicommit> [jquery-ui] gnarf37 pushed 2 new commits to mask: http://git.io/lpDEww
+[15:59:29] <jquicommit> [jquery-ui/mask] Merge branch 'master' into mask - Corey Frang
+[15:59:29] <jquicommit> [jquery-ui/mask] Unit Tests: Updating mask and timepicker units to conform to new suite. - Corey Frang
+[16:03:55] <jq-jenkins> Project jQuery UI Mask build #2: STILL FAILING in 4 min 18 sec: http://swarm.jquery.org:8080/job/jQuery%20UI%20Mask/2/
+[16:03:55] <jq-jenkins> * Scott González: Tooltip: Fixed defaults in tests.
+[16:03:56] <jq-jenkins> * Scott González: Effects tests: Ignore leading/trailing whitespace when comparing style properties.
+[16:03:56] <jq-jenkins> * Scott González: Spinner: Added culture option.
+[16:03:57] <jq-jenkins> * k_borchers: Menubar: Fixed an issue with autoExpand binding that caused the menu to close on fast mouseenter by changing to _bind on the parent menubar item
+[16:03:57] <jq-jenkins> * Corey Frang: Effect core: Making animate class cross-frame safe, style guidence
+[16:03:58] <jq-jenkins> * Corey Frang: Effects: fixing an animateClass issue when the class was empty
+[16:03:58] <jq-jenkins> * Scott González: Accordion: Fixed nested accordions.
+[16:03:59] <jq-jenkins> * dgleal: Autocomplete: Fix stray reference to element.val().
+[16:03:59] <jq-jenkins> * kris.borchers: Menubar: moved mouseleave _bind call into existing _bind block, added the mouseenter binding back in to help with accidental quick mouseouts causing the menu to close and use same close time for all
+[16:04:00] <jq-jenkins> * kris.borchers: Popup: Added tooltip style demo and link to demos index
+[16:04:00] <jq-jenkins> * Scott González: Tooltip demo: Use position option in tracking demo.
+[16:04:01] <jq-jenkins> * Scott González: Spinner: Simulate keyup at the end of incremental tests to stop the repeat timer.
+[16:04:01] <jq-jenkins> * Scott González: Tabs: Force ajax tabs to resolve asynchronously to avoid a bug caused by cached XHRs resolving immediately in IE.
+[16:04:02] <jq-jenkins> * kris.borchers: Popup: Removed the focusout and focusin handlers which are nolonger necessary. Also updated the tooltip style demo to have a little more interactive content.
+[16:04:02] <jq-jenkins> * Scott González: Tooltip tests: Adjust test to deal with blurring being async in IE.
+[16:04:03] <jq-jenkins> * Scott González: Autocomplete: Don't react to menu blurs. Fixes #7742 - Autocomplete: Blur should not change the value of the input.
+[16:04:03] <jq-jenkins> * Scott González: Autocomplete: Use strict equality check.
+[16:04:05] <gnarf> omg jenkins!
+[16:04:14] <jq-jenkins> * Corey Frang: Widget: Refactoring setOptions loop to remove unnesecary closure / that reference
+[16:04:15] <jq-jenkins> * Scott González: Button: Create text span in correct document.
+[16:04:15] <jq-jenkins> * Scott González: Widget: Added window and document properties. Fixes #7801 - Widget: Add document and window properties.
+[16:04:16] <jq-jenkins> * Scott González: Widget: Use parentWindow if defaultView doesn't exist.
+[16:04:16] <jq-jenkins> * Scott González: Autocomplete: Add 1px to the width of the menu to avoid wrapping in Firefox. Fixes #7513 - Autocomplete: long text wraps in Firefox.
+[16:04:17] <jq-jenkins> * Corey Frang: Effects Core: Do not overwrite css or class changes that aren't animated during class animation. Fixed #7106 - animateClass: css and class changes during animation are lost
+[16:04:17] <jq-jenkins> * Corey Frang: Unit Tests: Updating mask and timepicker units to conform to new suite.
+[16:04:22] * gnarf lols
+[16:05:50] <gnarf> that was like pro
+[16:09:09] <gnarf> damnit scott!
+[16:14:06] <jquicommit> [jquery-ui] gnarf37 pushed 1 new commit to mask: http://git.io/9VpWhw
+[16:14:06] <jquicommit> [jquery-ui/mask] Visual Tests: Updating version of jQuery for timepicker and mask - Corey Frang
+[16:14:25] <gnarf> so holy shit
+[16:16:15] <gnarf> heh scott_gonzalez did you get my skype? :)
+[16:16:44] <gnarf> https://gist.github.com/716ab312b6f19fd93517
+[16:16:50] <gnarf> does that look about right?
+[16:19:18] <gnarf> https://gist.github.com/f7491a188a70437dce7b
+[16:22:20] <jq-jenkins> Project jQuery UI Mask build #3: STILL FAILING in 8 min 7 sec: http://swarm.jquery.org:8080/job/jQuery%20UI%20Mask/3/
+[16:22:20] <jq-jenkins> Corey Frang: Visual Tests: Updating version of jQuery for timepicker and mask
+[16:29:32] <scott_gonzalez> gnarf: we'd need to detect the events to prevent the double execution
+[16:29:47] <gnarf> scott_gonzalez: okay
+[16:30:06] <gnarf> scott_gonzalez: assuming its not stopImmediateProp
+[16:30:12] <gnarf> we can do that right?
+[16:30:18] <scott_gonzalez> I think so
+[16:30:33] <gnarf> .bind( "focus.test", fn )
+[16:30:53] <scott_gonzalez> yeah, you won't even need the namespace
+[16:31:00] <scott_gonzalez> because you'll be unbinding immediately by reference
+[16:31:12] <scott_gonzalez> I guess you can use the namespace if you don't want to have a named function
+[16:34:50] <jquicommit> [jquery-ui] scottgonzalez pushed 2 new commits to master: http://git.io/gciDag
+[16:34:50] <jquicommit> [jquery-ui/master] Demos: replace global.js with globalize.js. - midlis
+[16:34:50] <jquicommit> [jquery-ui/master] Merge pull request #505 from midlis/globaljsfix - Scott González
+[16:35:12] <gnarf> hrm
+[16:35:38] <gnarf> scott_gonzalez: https://gist.github.com/f7491a188a70437dce7b
+[16:36:10] <gnarf> wait
+[16:36:11] <gnarf> one more
+[16:36:59] <gnarf> added a test to see what document.activeElement was
+[16:36:59] <gnarf> https://gist.github.com/f7491a188a70437dce7b
+[16:38:23] <scott_gonzalez> element.ownerDocument.activeElement
+[16:38:37] <gnarf> scott_gonzalez: this is in the test suite
+[16:38:49] <gnarf> so like document will always be right?
+[16:38:56] <scott_gonzalez> better to be safe
+[16:39:55] <gnarf> updated
+[16:45:04] <jq-jenkins> Project jQuery UI build #131: STILL FAILING in 10 min: http://swarm.jquery.org:8080/job/jQuery%20UI/131/
+[16:45:05] <jq-jenkins> midlis: Demos: replace global.js with globalize.js.
+[16:45:52] <thomasdavis> jquery ui for life!
+[16:54:06] <jquicommit> [jquery-ui] gnarf37 pushed 1 new commit to mask: http://git.io/UAo4hA
+[16:54:06] <jquicommit> [jquery-ui/mask] Mask: Updating tests to use correct focus/blur triggers - cleaning up uneeded _delay - Corey Frang
+[16:54:09] <gnarf> scott_gonzalez: check that commit, i added it in mask_test_helpers.js
+[16:55:25] <scott_gonzalez> that fixes it in all browsers?
+[16:56:52] <gnarf> help me swarm it
+[16:57:45] <gnarf> http://swarm.jquery.org/job/155/
+[16:57:48] <scott_gonzalez> well, it's tough to test, right?
+[16:58:01] <scott_gonzalez> we need the browsers to not be focused when the tests run
+[16:59:43] <gnarf> attaching ie8
+[17:00:14] <gnarf> i also think this helps me clean up some other shit in timepicker
+[17:00:17] <gnarf> some messy focus bs
+[17:01:09] <gnarf> omg, this might be a green jenkins job
+[17:01:30] <gnarf> common FF 3.6 and O11.1x and IE9!
+[17:02:11] <gnarf> i don't think i have any of those browsers
+[17:02:12] <gnarf> sadly
+[17:02:51] <scott_gonzalez> I have them
+[17:03:03] <gnarf> i need to get a browserstack
+[17:04:24] <jq-jenkins> Project jQuery UI Mask build #4: STILL FAILING in 10 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20Mask/4/
+[17:04:25] <jq-jenkins> Corey Frang: Mask: Updating tests to use correct focus/blur triggers - cleaning up uneeded _delay
+[17:04:28] <gnarf> darnit
+[17:04:31] <gnarf> we didn't beat the clock
+[17:04:32] <gnarf> :)
+[17:05:31] <scott_gonzalez> hahaha
+[17:07:12] <gnarf> thats still a crazy amount of work for a reliable focus
+[17:07:13] <gnarf> :)
+[17:16:13] <gnarf> omg
+[17:16:16] <gnarf> feels so much better
+[17:16:23] <gnarf> scott_gonzalez: headache gone
+[17:16:36] <scott_gonzalez> :-)
+[17:16:52] <scott_gonzalez> we need to move that into .simulate( "focus" )
+[17:18:53] <gnarf> jQuery.simulate ?
+[17:19:03] <jquicommit> [jquery-ui] gnarf37 pushed 2 new commits to mask: http://git.io/1bjX6A
+[17:19:03] <jquicommit> [jquery-ui/mask] Mask: removing some dead code / cleanup - Corey Frang
+[17:19:03] <jquicommit> [jquery-ui/mask] Timepicker: Fixing up tests and removing some unneeded code surrounding focus - Corey Frang
+[17:29:21] <jq-jenkins> Project jQuery UI Mask build #5: STILL FAILING in 10 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20Mask/5/
+[17:29:22] <jq-jenkins> * Corey Frang: Mask: removing some dead code / cleanup
+[17:29:22] <jq-jenkins> * Corey Frang: Timepicker: Fixing up tests and removing some unneeded code surrounding focus
+[18:12:35] <jquicommit> [jquery-ui] gnarf37 pushed 1 new commit to mask: http://git.io/Xvo4eQ
+[18:12:35] <jquicommit> [jquery-ui/mask] Timepicker: value method - Corey Frang
+[18:22:13] <gnarf> timepicker now feels way better with clicks
+[18:22:52] <jq-jenkins> Project jQuery UI Mask build #6: STILL FAILING in 10 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20Mask/6/
+[18:22:53] <jq-jenkins> Corey Frang: Timepicker: value method
+[18:30:39] <Dave_Stein> gnarf gnarf gnarf
+[18:30:45] <gnarf> so like
+[18:30:59] <gnarf> can you repeat the story of what happened and what you're trying to do?
+[18:31:45] <Dave_Stein> yeah
+[18:31:49] <Dave_Stein> sorry was helping out lost guy in other room :)
+[18:32:13] <Dave_Stein> sooooo
+[18:32:18] <Dave_Stein> https://github.com/DaveStein/jquery-ui/commits/interactions
+[18:32:27] <Dave_Stein> you can see i duplicated 8 commit messages somehow via rebase
+[18:32:32] <Dave_Stein> and then have a commit of a remerge
+[18:32:35] <Dave_Stein> im just trying to undo that mistake
+[18:32:46] <gnarf> okay
+[18:32:49] <gnarf> so like
+[18:32:50] <Dave_Stein> i originally intended to edit my 8 commits to have Draggable: in front to folow guideline
+[18:32:53] <gnarf> this is kinda dirty
+[18:33:15] <gnarf> the last merge you took from scott
+[18:33:36] <gnarf> https://github.com/scottgonzalez/jquery-ui/commits/interactions
+[18:33:43] <gnarf> if you were to use this as a new head
+[18:33:45] <gnarf> would that help?
+[18:33:54] <gnarf> then you could cherry-pick the commits you've done since then
+[18:34:19] <gnarf> to reconstruct the new "interactions" head
+[18:34:27] <gnarf> without the duplicated commits
+[18:35:05] <gnarf> oh
+[18:35:44] <gnarf> it seems you were following commit message guides
+[18:35:50] <gnarf> for the first few right?
+[18:36:05] <gnarf> there are a few that don't but tbh this will probably get merged squashed
+[18:36:06] <gnarf> anyway
+[18:36:17] <Dave_Stein> anyway
+[18:36:18] <Dave_Stein> yeesh
+[18:36:18] <Dave_Stein> sorry
+[18:36:20] <gnarf> so i wouldn't be so concerned about individual commits
+[18:36:23] <Dave_Stein> thats why i was in other room same time haha
+[18:36:49] <gnarf> Dave_Stein: what do you think about that strategy?
+[18:36:54] <Dave_Stein> i wanna go up to 8c4e441532
+[18:37:09] <gnarf> Dave_Stein: can you skype?
+[18:37:21] <Dave_Stein> scotts doesnt have all my changes
+[18:37:32] <Dave_Stein> i can skype
+[18:37:34] <gnarf> yes, this i know, but you can start there and pick up right?
+[18:37:35] <Dave_Stein> my gf did just sit on my lap tho
+[18:37:36] <Dave_Stein> haha
+[18:37:52] <gnarf> well tell her its about to git boring
+[18:37:54] <gnarf> ;)
+[18:37:57] <Dave_Stein> haha
+[18:38:13] <gnarf> i should be gnarf37 on skype
+[18:38:26] <gnarf> sup kborchers
+[18:38:31] <kborchers> yo
+[18:38:31] <Dave_Stein> yeah im reading your messages from before errr yeah i was the right method at first
+[18:38:33] <Dave_Stein> and then effed it
+[18:38:40] <Dave_Stein> cause well it was like 2am
+[18:38:41] <Dave_Stein> haha
+[18:38:47] <gnarf> Dave_Stein: so like check this out
+[18:38:58] <Dave_Stein> im gonna get on skype
+[18:39:01] <gnarf> okay
+[18:39:14] <gnarf> kborchers: dunno if you feel like skypin but tryin to help dave with a git weirdness
+[18:39:14] <Dave_Stein> let me dig up my cam
+[18:39:28] <gnarf> don't need the cam, just voice + screenshare ;)
+[18:39:45] <Dave_Stein> my cam is the thing with the mic
+[18:39:46] <Dave_Stein> haha
+[18:39:49] <gnarf> heh
+[18:39:52] <Dave_Stein> where did i put that pos
+[18:39:52] <gnarf> right on
+[18:39:56] <kborchers> i wonder if my mic works with the laptop closed in the dock
+[18:40:04] <Dave_Stein> i can call if anything
+[18:40:06] <Dave_Stein> but im looking
+[18:40:18] <gnarf> so anyway, while you look
+[18:40:21] <Dave_Stein> found it
+[18:40:24] <Dave_Stein> jokery5
+[18:40:25] <gnarf> you have a backup of your bad head?
+[18:40:26] <gnarf> ;)
+[18:40:26] <Dave_Stein> d'oh
+[18:40:32] <gnarf> lolz
+[18:40:35] <Dave_Stein> dont login as me on skype
+[18:40:36] <gnarf> change that
+[18:40:36] <Dave_Stein> haha
+[18:40:44] <gnarf> its a publicly logged channel
+[18:40:48] <gnarf> so like change it everywhere
+[18:40:52] <Dave_Stein> f my life
+[18:41:03] <gnarf> just to be safe
+[18:41:05] <kborchers> that sucks
+[18:41:12] <gnarf> i did it in -meeting one moring
+[18:41:14] <Dave_Stein> thats my chat password
+[18:41:16] <gnarf> racing to get to the meeting
+[18:41:30] <Dave_Stein> dear people reading logs: please dont pretend to be me
+[18:41:35] <kborchers> heh
+[18:41:36] <gnarf> and like introduced myself with my sudo passwd
+[18:42:15] <Dave_Stein> actually i dont think that pass is being used anywhere except skype right now cause i use gmail no AIM anymore
+[18:42:25] <gnarf> maybe your gf will realize how dirty it is to have a conversation about git btw
+[18:42:39] <Dave_Stein> haha
+[18:42:49] <gnarf> kborchers: i'm gnarf37 on skype
+[18:43:12] <Dave_Stein> i hear you
+[18:43:13] <Dave_Stein> do you hear me
+[18:43:14] <Dave_Stein> oh one sec
+[19:26:39] <gnarf> https://gist.github.com/f7491a188a70437dce7b
+[19:45:22] <gnarf> kborchers: welcome to the everliving irc presence ;)
+[19:48:17] <gnarf> im out
+[19:48:21] <kborchers> later

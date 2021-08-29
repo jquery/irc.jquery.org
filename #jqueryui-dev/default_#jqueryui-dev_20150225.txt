@@ -1,0 +1,269 @@
+[00:14:24] <doesallmagic2> Project jQuery UI - 1.8.x core build #676: STILL UNSTABLE in 18 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.8.x%20core/676/
+[05:41:01] <netnichols> Password reset for bugs.jqueryui.com doesn't seem to be working. It says an email has been sent but I never receive one. Can anyone confirm?
+[05:56:30] <scott_gonzalez> netnichols: What's your username?
+[05:56:40] <netnichols> netnichols
+[05:56:41] <netnichols> ;-)
+[05:57:10] <scott_gonzalez> You didn't set your email address when you created your account, so password reset *can't* send you an email.
+[05:57:51] <scott_gonzalez> I sent you a new password.
+[05:58:04] <netnichols> that's funny... i've done it before, but on the bugs.jquery.com trac page. are those two separate user bases?
+[05:58:16] <scott_gonzalez> yes
+[05:59:07] <netnichols> ah, that explains at least a part of my confusion. 
+[05:59:16] <netnichols> ok, i'm logged in now, thanks so much
+[06:00:08] <scott_gonzalez> no problem
+[10:06:00] <jzaefferer> so selectmenu width; outerWidth feature detect, anything else left over?
+[10:06:23] <scott_gonzalez> publishing on npm.
+[10:06:33] <scott_gonzalez> Did you ever get a response from that guy?
+[10:07:08] <jzaefferer> just one, nothing to my second email
+[10:07:34] <jzaefferer> http://bassistance.de/i/79b30d.png
+[10:07:49] <jzaefferer> arguably wasn't worded to solicit a response...
+[10:08:30] <scott_gonzalez> Ok, so we can get ownership of the npm package.
+[10:08:49] <scott_gonzalez> I'm happy with doing nothing on this front until after 1.12.
+[10:09:11] <jzaefferer> yeah, I think if I asked for that, he'd respond and do it
+[10:11:43] <scott_gonzalez> Ok, so I'll mark this is not needing any action for a while.
+[10:12:16] <scott_gonzalez> So that just leaves selectmenu default width.
+[10:12:30] <scott_gonzalez> We've agreed to have an explicit width by default, but need to determine what it is and how it's set.
+[10:13:26] <jzaefferer> did we agree on the outerWidth issue?
+[10:14:40] <jzaefferer> can we translate Kendo's 12.4em to px and use that?
+[10:14:41] <scott_gonzalez> I think so.
+[10:14:53] <scott_gonzalez> We can based on a given size.
+[10:14:59] <scott_gonzalez> But not generically.
+[10:15:12] <scott_gonzalez> I think we agreed. If we get a big perf improvement from attaching to the document, we'll use that.
+[10:15:18] <scott_gonzalez> If not, we'll use inference.
+[10:15:50] <jzaefferer> Alright, outerWidth is done then
+[10:16:04] <arschmitz> scott_gonzalez: to use em couldnt you make null mean do nothing inline and use the value set in css and make match mean the current default?
+[10:16:06] <jzaefferer> "based on given size, but not generically" - I don't understand
+[10:17:58] <scott_gonzalez> arschmitz: So you not only want to change the default, you want to change what null means
+[10:18:16] <scott_gonzalez> jzaefferer: ems are based on the size of the font.
+[10:18:36] <scott_gonzalez> So there's no equivalent of 12.4em. There's only an equivalent given a font size.
+[10:19:02] <arschmitz> scott_gonzalez: i guess what im saying is make the default NOT SET an inline style
+[10:19:08] <arschmitz> however you want to word that
+[10:19:17] <arschmitz> and use whatever is set in css
+[10:19:45] <arschmitz> so then you could .ui-selectmenu-button { width: 12.4em } 
+[10:20:41] <scott_gonzalez> And then we need a third option for the current behavior of null?
+[10:21:19] <arschmitz> im not sure i follow
+[10:21:43] <arschmitz> make default false
+[10:21:46] <arschmitz> and keep null as is
+[10:21:51] <arschmitz> and false means dont do anything
+[10:22:44] <scott_gonzalez> Looking at the code, selectmenu may actually work with strings.
+[10:22:55] <arschmitz> it does
+[10:23:16] <arschmitz> pretty sute
+[10:23:18] <arschmitz> iv done it
+[10:23:37] <scott_gonzalez> It's not documented as supported, but it just passes it straight to .outerWidth().
+[10:23:43] <arschmitz> oh i didnt realize
+[10:23:45] <fnagel> Specs says null or int
+[10:23:58] <fnagel> "auto" for example wont work as expected
+[10:24:00] <arschmitz> ha then im doing it all wrong in controlgroup
+[10:24:07] <arschmitz> auto does work 
+[10:25:23] <arschmitz> http://jsbin.com/kumoha/1/edit?html,js,output
+[10:25:34] <fnagel> crossbrowser?
+[10:25:39] <scott_gonzalez> whoa
+[10:25:56] <scott_gonzalez> I would not expect .outerWidth( "auto" ) to do anything reasonable.
+[10:26:01] <scott_gonzalez> HOW DOES THIS WORK?!?!?!
+[10:26:57] <arschmitz> yes it works everywhere i have tried
+[10:27:13] <arschmitz> im doing it in controlgroup because i thought it was valid i didnt look at the docs close enough :-(
+[10:27:47] <arschmitz> it even works in ie8
+[10:27:49] <jzaefferer> well, is outerWidth as a setter documented at all?
+[10:28:10] <jzaefferer> it is \o/
+[10:28:32] <arschmitz> auto was the only sane way to make controlgroup work it was suggested by both jasper and sfrisk 
+[10:28:43] <arschmitz> because we dont want inline style
+[10:29:09] <jzaefferer> actually: "however, any valid CSS measurement may be used (such as 100px, 50%, or auto)."
+[10:29:09] <scott_gonzalez> Ok, so then how about this.
+[10:29:11] <arschmitz> and its just plugging the string in directly into the inline style
+[10:29:18] <scott_gonzalez> We test { width: "auto" } in every browser.
+[10:29:20] <arschmitz> you get style="width:auto;"
+[10:29:21] <jzaefferer> so "auto" is supported by outerWidth()
+[10:29:23] <scott_gonzalez> If it works, tha'ts our new default.
+[10:29:34] <scott_gonzalez> We also have to test against old jQuery Core.
+[10:29:44] <arschmitz> i just tested chrome safari firefox ie 8,9,10
+[10:29:46] <arschmitz> and it works
+[10:29:53] <arschmitz> didnt test old jquery
+[10:30:36] <arschmitz> works in 1.8.0
+[10:31:04] <scott_gonzalez> Try 1.7.0
+[10:31:21] <arschmitz> yup
+[10:31:49] <scott_gonzalez> Find out if *our* implementation is good :-)
+[10:32:26] <arschmitz> 1.7.0 works fine
+[10:32:37] <scott_gonzalez> Ok, so let's just make "auto" the default value.
+[10:32:38] <scott_gonzalez> DONE
+[10:32:46] <arschmitz> works for me
+[10:32:53] <arschmitz> thats what iv been doing for a while lol
+[10:34:10] <jzaefferer> nice, now Scott can put together is babel + esperanto test :-)
+[10:34:19] <scott_gonzalez> Oh, so auto is really whacky.
+[10:34:49] <scott_gonzalez> Because it seems to actually apply auto, which means the button width changes when you change options.
+[10:34:57] <arschmitz> yes
+[10:35:25] <scott_gonzalez> Native selects do not do that.
+[10:35:26] <arschmitz> it literally sets style="width:auto;"
+[10:36:35] <scott_gonzalez> I don't think that should be the default.
+[10:38:05] <arschmitz> interesting
+[10:38:14] <arschmitz> so width: "12em" does not work
+[10:38:20] <arschmitz> it sets auto
+[10:38:33] <scott_gonzalez> It works for me.
+[10:38:35] <arschmitz> well it sets nothing
+[10:38:54] <arschmitz> http://jsbin.com/kumoha/1/edit?html,js,output
+[10:39:47] <arschmitz> oh its 1.7
+[10:40:08] <arschmitz> 1.7 sets nothing if you pass a number
+[10:40:11] <arschmitz> which is auto
+[10:40:22] <scott_gonzalez> Sure, when you use 1.7
+[10:40:24] <arschmitz> if you *don't pass a number
+[10:41:01] <fnagel> I need to leave for now
+[10:41:01] <arschmitz> so auto is basicly the only non number value that will work in 1.7 because its the default
+[10:41:10] <scott_gonzalez> Right, because you're falling into the UI code.
+[10:41:11] <scott_gonzalez> if ( typeof size !== "number" ) {
+[10:41:31] <scott_gonzalez> No
+[10:41:48] <scott_gonzalez> auto only "works" in 1.7 the sense that it's invalid input and gets ignored.
+[10:41:55] <arschmitz> thats what i meant
+[10:42:02] <arschmitz> auto is the element default
+[10:42:14] <arschmitz> so setting auto works because it does nothing but its the default
+[10:42:53] <scott_gonzalez> Well, we can fix our .outerWidth() implementation.
+[10:42:53] <arschmitz> anyway so we still now dont know what to make the default value
+[10:43:19] <arschmitz> ok so to make this work just like native
+[10:43:25] <arschmitz> we could set auto
+[10:43:30] <scott_gonzalez> no
+[10:43:31] <arschmitz> then measure that
+[10:43:33] <scott_gonzalez> auto is not like native
+[10:43:36] <arschmitz> then set that as width
+[10:43:38] <scott_gonzalez> nope
+[10:43:48] <scott_gonzalez> You'd have to loop through every option and render it.
+[10:43:51] <scott_gonzalez> And get the max.
+[10:43:55] <arschmitz> oh right
+[10:44:12] <arschmitz> which is no good
+[10:45:34] <scott_gonzalez> FWIW, I have no idea how to fix our .outerWidth() implementation.
+[10:46:22] <arschmitz> well we are droppping 1.6 why not 1.7 while we are at it :-p
+[10:46:38] <scott_gonzalez> We've had that discussion already.
+[10:46:52] <arschmitz> i know it was a joke
+[10:47:51] <arschmitz> to fix the implementation couldnt we just look at how core does it now?
+[10:48:19] <scott_gonzalez> hahahaha
+[10:48:34] <scott_gonzalez> I assume you haven't looked at this code before?
+[10:48:35] <arschmitz> i guess thats a no lol
+[10:48:39] <arschmitz> nope
+[10:48:45] <scott_gonzalez> You should do it :-)
+[10:49:05] <arschmitz> the core code for setting outerWidth?
+[10:49:41] <scott_gonzalez> yeah
+[10:52:12] <arschmitz> so yeah thats a little more complex lol
+[11:05:00] <jzaefferer> soo, what are we doing about selectmenu?
+[11:08:06] <arschmitz> scott_gonzalez: well one easy way to fix
+[11:08:14] <arschmitz> box-sizing: border-box
+[11:08:25] <arschmitz> then we can just set width
+[11:08:29] <arschmitz> and ignore
+[11:08:47] <scott_gonzalez> We can't rely on that.
+[11:08:58] <scott_gonzalez> We can make it the default, but we still have to use outerWidth().
+[11:09:12] <scott_gonzalez> And we have to let users choose content-box.
+[11:12:17] <arschmitz> damn core 1.7 lol
+[11:26:26] <jzaefferer> so we still don't have a solution?
+[11:37:07] <scott_gonzalez> Not without getting someone to fix our .outerWidth() implementation.
+[11:37:38] <scott_gonzalez> Or we can just use px.
+[11:38:04] <jzaefferer> let's!
+[11:38:18] <arschmitz> scott_gonzalez: problem with px is it wont adjust then 
+[11:38:21] <arschmitz> when everything else does
+[11:38:30] <arschmitz> if you adjust the font-size on body
+[11:38:49] <scott_gonzalez> And things like dialogs don't adjust either.
+[11:39:15] <arschmitz> right but in this case there is no reason to not allow people to set em
+[11:39:17] <arschmitz> or nothing
+[11:39:21] <arschmitz> and we are stopping that
+[11:39:33] <scott_gonzalez> Only because our code doesn't support it.
+[11:39:44] <scott_gonzalez> As I said, one option is getting someone to fix the code.
+[11:39:50] <scott_gonzalez> And by fix I mean update.
+[11:40:02] <scott_gonzalez> Because we never intended for .outerWidth() to support non-numeric values.
+[11:40:14] <jzaefferer> Just to throw it away when we drop 1.7 support?
+[11:40:14] <scott_gonzalez> But core did it (after us), so we can upgrade to match.
+[11:40:18] <scott_gonzalez> yes
+[11:40:40] <arschmitz> default aside
+[11:40:55] <arschmitz> i think its crazy there is no way to make it just not set any inline style
+[11:41:27] <scott_gonzalez> Do you have examples of existing controls that act that way?
+[11:42:05] <arschmitz> existing controls that dont set inline styles?
+[11:42:50] <arschmitz> im not sure i follow?
+[11:43:21] <scott_gonzalez> Sorry, I was thinking about fixed width, not inline style.
+[11:43:50] <arschmitz> it means even with classes you would need to use !important to style the button with css
+[11:44:19] <scott_gonzalez> No it doesn't.
+[11:44:23] <scott_gonzalez> Just set the width on the select.
+[11:44:31] <arschmitz> wanting to style with css is a perfectly sane and reasonable thing to want to do 
+[11:44:32] <scott_gonzalez> Which is what we expected you to do in the first place.
+[11:44:44] <scott_gonzalez> I agree. So do it.
+[11:44:49] <scott_gonzalez> And it will work with { width: null }
+[11:44:55] <scott_gonzalez> Set the width on the select.
+[11:46:05] <arschmitz> what if your using classes option to apply a different theme that styles with classes
+[11:46:14] <scott_gonzalez> Who cares?
+[11:46:20] <scott_gonzalez> Are your themes going to change the width of the select?
+[11:46:24] <scott_gonzalez> That seems crazy.
+[11:49:21] <arschmitz> also
+[11:49:28] <arschmitz> select { width: auto } 
+[11:49:30] <arschmitz> does not work
+[11:50:07] <scott_gonzalez> Isn't that the original complaint?
+[11:50:38] <arschmitz> right so you cant just set on the css and just setting in px does not solve that
+[11:51:04] <arschmitz> but allowing someone to just set it on the button does
+[11:51:51] <arschmitz> not completely the same as native but let people deal with that on their own
+[11:52:22] <arschmitz> we should not restrict what people can do with the css unnecessarily by forcing inline styles 
+[11:52:40] <scott_gonzalez> That's how selects work.
+[11:52:44] <scott_gonzalez> They have a fixed width.
+[11:53:03] <scott_gonzalez> They're magical elements.
+[11:53:10] <arschmitz> but ours is not truely a select its a span so why should we restrict its styling
+[11:53:19] <arschmitz> part of the reason for the widget is to allow more flexible styling
+[11:54:13] <arschmitz> if we are sticking to the styles you can do native well we need to change a lot because most of how we style them cant be done natively 
+[11:54:30] <scott_gonzalez> I didn't say that.
+[11:54:52] <arschmitz> so why should the width remain magical when nothing else does?
+[11:55:04] <scott_gonzalez> It doesn't.
+[11:55:08] <scott_gonzalez> The width is not magical.
+[11:55:16] <scott_gonzalez> And I've never suggested that it should be.
+[11:55:20] <scott_gonzalez> It should be fixed.
+[11:55:25] <scott_gonzalez> And that's what we have today.
+[11:55:39] <scott_gonzalez> By default the fixed width is based on the magical width.
+[11:55:50] <arschmitz> why should it be fixed?
+[11:56:26] <arschmitz> and why shouldnt we allow you to style ui-selectmenu-button directly if you want?
+[11:56:33] <scott_gonzalez> I cannot tell if you're asking why do we ever set a fixed width or why do not allow actually auto width.
+[11:56:48] <arschmitz> why not allow width auto
+[11:56:57] <scott_gonzalez> By style you mean specifically the width.
+[11:57:01] <arschmitz> yes
+[11:57:19] <scott_gonzalez> I never said we couldn't.
+[11:57:25] <scott_gonzalez> I think it's unexpected.
+[11:58:26] <scott_gonzalez> There has also been no requests for auto width.
+[11:59:03] <arschmitz> the auto i don't care as much about . being able to not add the inline style at all i think is more important
+[12:04:04] <arschmitz> i also dont like px since it breaks setting font-size on body which is generally respected by form elements ( including buttons ) 
+[12:10:22] <arschmitz> also maybe this is just me but it seems rather counter intuitive to tell people to set the width in css on the button but if you want to change ANYTHING ELSE target .ui-selectmenu-button
+[12:10:39] <arschmitz> i mean to tell them to set the width in css on the select
+[12:12:45] <scott_gonzalez> Well, that's just because we're built on progressive enhancement, so they should already be doing that.
+[12:13:25] <arschmitz> how is width PE but nothing else?
+[12:13:58] <scott_gonzalez> I'm not sure what you're asking. Styling a brand new replacement element is obviously going to be done by styling that element.
+[12:14:13] <arschmitz> right
+[12:14:45] <scott_gonzalez> My point was that if they care about setting the width, they've probably already done it directly on the native select.
+[12:14:54] <scott_gonzalez> Because that's the first experience.
+[12:15:45] <arschmitz> but you may want different widths for native and the button
+[12:15:53] <scott_gonzalez> Presumably you want { width: null } to change to not applying an inline style.
+[12:15:58] <scott_gonzalez> Why?
+[12:16:10] <scott_gonzalez> In what scenario would you want that?
+[12:16:22] <scott_gonzalez> Fixed widths are generally for matching your page layout.
+[12:16:34] <arschmitz> your page layout may change based on it
+[12:16:45] <arschmitz> for example with media queries 
+[12:16:46] <scott_gonzalez> Based on using the selectmenu widget?
+[12:17:19] <arschmitz> in essence yes for example in mobile where we have a c grade css only experience
+[12:17:39] <scott_gonzalez> You would want a different width for c grade browsers?
+[12:18:40] <arschmitz> yes it generally effects page layout so you may want to adjust accordingly 
+[12:19:15] <scott_gonzalez> o_O
+[12:20:09] <arschmitz> for example we have examples of panels that are part of a page when wide and open close when narrow. if you dont have js the panel will likely be down at the bottom and not take any width
+[12:21:22] <scott_gonzalez> Not take any width? You mean it's hidden?
+[12:21:45] <arschmitz> no but its in the flow after the page it self so it take no width on the page
+[12:22:04] <scott_gonzalez> I'm not following what you're saying.
+[12:22:53] <arschmitz> ok think media queries how would you set the width of a selectmenu right now with a media query 
+[12:23:17] <arschmitz> that does not use !important
+[12:24:11] <arschmitz> it wont do anything on the select we dont listen to window resize
+[12:24:31] <arschmitz> and it wont do anything on .ui-selectmenu-button because we set the style inline
+[12:25:34] <scott_gonzalez> You've just completely changed what we're discussing.
+[12:25:56] <scott_gonzalez> You've brought up like half a dozen different things at this point.
+[12:26:07] <arschmitz> yes i have but i think it shows why its important to allow not setting the inline style
+[12:27:01] <scott_gonzalez> What would that API look like?
+[12:27:17] <arschmitz> now that im open to suggestion on 
+[12:27:25] <arschmitz> width: false maybe?
+[12:27:44] <arschmitz> to not set anything
+[12:36:26] <jquicommit> [13jquery-ui] 15scottgonzalez pushed 1 new commit to 06master: 02http://git.io/ANj8
+[12:36:26] <jquicommit> 13jquery-ui/06master 14c4e367b 15Marco Ziech: Tooltip: Register event handlers before content is loaded...
+[12:36:36] <jquicommit> [13jquery-ui] 15scottgonzalez closed pull request #1053: 2nd Reopen - Suggested fix for #8740 (06master...06fix-8740) 02http://git.io/ANjE
+[12:41:51] <doesallmagic2> Project jQuery UI build #1534: UNSTABLE in 5 min 37 sec: http://jenkins.jquery.com/job/jQuery%20UI/1534/
+[12:41:51] <doesallmagic2> Scott González: Tooltip: Register event handlers before content is loaded
+[14:15:17] <fnagel> arschmitz: In my experience most JS widgets like UI (with no real RWD support) need some custom JS to fire some changes when a break point matches.
+[14:15:53] <fnagel> So, do we need to consider RWD? A bunch of UI widgets do not support RWD very well (autocomplete, dialog, ...) atm.
+[14:44:01] <gabriel_schulhof> Wow! /. just got real ... just ... wow ... http://ask.slashdot.org/story/15/02/25/1636259/ask-slashdot-terminally-ill---what-wisdom-should-i-pass-on-to-my-geek-daughter
+[15:37:18] <arschmitz> fnagel: just because other widget don't currently support it well does not mean we should not hear where its very very easily donedoes 
+[15:37:37] <fnagel> word
+[15:37:48] <arschmitz> fnagel: also part of our move in the future moving to chassis ( which will be rwd ) will be thinking more about how to support uses like this
+[15:39:06] <fnagel> yes and we should start early, some RWD features are not that easy to adapt
+[15:39:41] <arschmitz> fnagel: mobile works pretty much entirely with rwd currently 
+[15:43:14] <fnagel> Thats what I tell people :-D
+[22:14:16] <jqcommit> [13jquerymobile.com] 15joshoolin opened pull request #116: Pages: Added EZoApp to Resources (06master...06ezoapp) 02http://git.io/ApSU

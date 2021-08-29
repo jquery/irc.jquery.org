@@ -1,0 +1,101 @@
+[06:38:37] <Fox`> i'm altering a plugin so i'd be able to set custom triggers for the plugin to act upon, but the plugin isn't able to access the trigger outputs. this is a bit clearer: http://pastebin.com/184QcaCU
+[06:45:21] <jaubourg> Fox`: #jquery
+[06:45:48] <jaubourg> this here chan is about developping jQuery itself ;)
+[06:46:09] <Fox`> ok
+[06:46:21] <Fox`> i thought jquery was about using it
+[06:46:59] <jaubourg> which is what you do ;)
+[06:47:50] <jaubourg> using as is developping with jQuery
+[06:47:53] <jaubourg> as in
+[08:20:47] <paul_irish> just kinda fwiwiwiw  http://blog.mindedsecurity.com/2011/07/jquery-is-sink.html
+[08:25:39] <miketaylr> neat
+[08:28:22] <DaveMethvin> paul_irish: yep, the best example is docs#9521, we'll fix that case in 1.7 but there's no way to "fix" it other than neuter $() for scripts
+[08:28:25] <bot-t> paul_irish, #9521 (XSS with $(location.hash) and $(#<tag>) is needed ... - Opened 7 weeks ago http://bugs.jquery.com/ticket/9521
+[08:39:32] <scott_gonzalez> tbranyen: you around?
+[09:05:53] <ben_alman> hey DaveMethvin i was just looking at that bug
+[09:06:05] <DaveMethvin> the xss one?
+[09:06:15] <ben_alman> yeah because someone pointed out that i was using it in a BBQ example
+[09:06:17] <ben_alman> so like
+[09:06:28] <ben_alman> can you give me an example where it would like, cause a problem?
+[09:06:39] <ben_alman> like $(location.hash)
+[09:06:42] <DaveMethvin> i linked to a demo in my fiddle
+[09:07:01] <DaveMethvin> so an attacker can excecute js in your domain, as if you wrote it
+[09:07:07] <ben_alman> looking
+[09:07:09] <DaveMethvin> steelin yer cookies etc
+[09:07:26] <ben_alman> oh wait like $("<script>...</script>") ?
+[09:07:43] <DaveMethvin> like $("#<script ...") etc
+[09:07:52] <ben_alman> what's the # for?
+[09:08:04] <DaveMethvin> well for that case it was document.location.hash
+[09:08:14] <DaveMethvin> ppl were expecting to be able to use it as an id input to $()
+[09:08:17] <ben_alman> it's really window.location.hash now
+[09:08:19] <ben_alman> but no matter
+[09:08:25] <ben_alman> oh right
+[09:08:34] <ben_alman> like $('#' + location.hash)
+[09:08:41] <DaveMethvin> but yeah in the general case it's a "feature" that $() executes scripts
+[09:08:47] <ben_alman> hmmn
+[09:08:50] <DaveMethvin> although i would prefer it didn't unless you asked
+[09:08:58] <ben_alman> +1
+[09:09:04] <DaveMethvin> but my time machine is broken atm
+[09:09:13] <ben_alman> ask rwaldron, he'll fix it
+[09:09:20] <DaveMethvin> and there is too much code out there that would break
+[09:09:22] <ben_alman> so what about this example
+[09:09:39] <ben_alman> $("[id=" + location.hash + "]")
+[09:09:40] <DaveMethvin> this one isn't too hard to change, we just assume anything starting # is an id
+[09:09:45] <ben_alman> will that be injectable?
+[09:09:47] <DaveMethvin> even if it has htmlish things beyond
+[09:10:00] <DaveMethvin> no we'll getElementById and it will prolly fail to find anything
+[09:10:04] <ben_alman> ok
+[09:10:45] <ben_alman> they said there was a vulnerability in http://benalman.com/code/projects/jquery-bbq/examples/fragment-basic/
+[09:10:55] <ben_alman> but i do $( 'a[href="#' + url + '"]' )
+[09:11:09] <ben_alman> can you see anything in my code on that page that's vulnerable?
+[09:11:27] <ben_alman> or is that (Waht i did there) bad?
+[09:11:36] <DaveMethvin> looking...
+[09:11:39] <ben_alman> thanks
+[09:13:59] <DaveMethvin> ben_alman: i don't see it passing the fragment to $() so it looks okay to me
+[09:14:22] <DaveMethvin> the most common bug is when someone has a url like whatever.htm#myid
+[09:14:35] <DaveMethvin> and they just do $(location.hash)
+[09:14:44] <DaveMethvin> assuming it will be an id like #myid
+[09:14:58] <DaveMethvin> but of course it might be whatever.htm#<script>
+[09:17:22] <ben_alman> right
+[10:32:15] <scott_gonzalez> FYI: you can now test jQuery UI against jquery-git: http://view.jqueryui.com/master/tests/unit/all.html?jquery=git
+[10:33:01] <scott_gonzalez> if that goes red while http://view.jqueryui.com/master/tests/unit/all.html stays green, someone's gonna be in trouble :-)
+[10:33:54] <rwaldron> DaveMethvin i move to close 9932 as invalid
+[10:34:08] <rwaldron> scott_gonzalez that's awesome!
+[10:34:34] * DaveMethvin schemes to reddify the tests :P
+[10:35:23] <DaveMethvin> rwaldron: i figure that uglify prolly does some strange syntactic optimizations, which is why i asked him about analyzing the minned version
+[10:35:39] <DaveMethvin> but then i hope he will run it on the unminned version and figure that out
+[10:35:57] <DaveMethvin> cause i am too lazy to get closure running to try it
+[10:36:20] <DaveMethvin> so let him reply
+[10:36:22] <scott_gonzalez> well, it's interesting that closure compiler is detecting code that lacks side effects after going through uglify
+[10:38:02] <DaveMethvin> yeah so that's why i am interested in a run at the unminned code :)
+[10:38:43] <DaveMethvin> rwaldron: docs#9146 and docs#7930 were closed as dups of each other??
+[10:38:45] <bot-t> rwaldron, [#9146] jQuery( jsObject ).trigger() executes object methods (closed bug: duplicate) - http://jqbug.com/9146
+[10:38:45] <bot-t> rwaldron, [#7930] Methods on custom objects are being called when an event with the same name is triggered on it (closed bug: duplicate) - http://jqbug.com/7930
+[10:39:02] <DaveMethvin> i think you prolly meant to keep 7930 open?
+[10:40:20] <scott_gonzalez> because I'm lazy, what's the outcome of http://bugs.jquery.com/ticket/7818 ?
+[10:41:09] <DaveMethvin> i don't think we ever wrote them down
+[10:41:30] <scott_gonzalez> why is it closed then?
+[10:41:30] <DaveMethvin> but i think it's data/bind/unbind/prop
+[10:41:40] <scott_gonzalez> and trigger :-)
+[10:41:43] <DaveMethvin> john closed it
+[10:41:44] <DaveMethvin> yeah
+[10:41:50] <DaveMethvin> but we need it written down
+[10:41:58] <DaveMethvin> so i am gonna reopen that ticket
+[10:42:12] <scott_gonzalez> anyway, if you're using objects, use .triggerHandler() to avoid the method invocation
+[10:42:32] <DaveMethvin> right,  i was just about to ask you about  docs#9841 too
+[10:42:33] <bot-t> right, [#9841] .trigger()ed events should not bubble to window (assigned bug) - http://jqbug.com/9841
+[10:43:22] <DaveMethvin> oic, 7818 is marked as needsdocs, and we do let them be closed if it's just a docs issue
+[10:45:14] <scott_gonzalez> events should not be bubbling to the window
+[10:45:19] <rwaldron> DaveMethvin i suspect that was a mistake
+[10:46:22] <rwaldron> i can say with complete confidence, that was a mistake
+[10:48:06] <scott_gonzalez> ugh, http://www.w3.org/TR/DOM-Level-3-Events/#event-flow says otherwise (and is different from some other part of the Events spec that says to stop at the documents)
+[10:49:38] <DaveMethvin> scott_gonzalez: oh man, that sucks
+[10:49:57] <DaveMethvin> bubbling to window makes me nervous since that namespace can get so polluted
+[10:50:23] <DaveMethvin> and we either let it die a strange death (as we do now) or rewrite things very defensively
+[10:50:44] <scott_gonzalez> DOM level 2 says to stop at document: http://www.w3.org/TR/DOM-Level-2-Events/events.html#Events-flow-bubbling
+[10:51:08] <DaveMethvin> i think some browsers actually do bubble to window but i thought it would be good to follow the spec
+[10:58:12] <scott_gonzalez> I just emailed Doug Schepers (editor for DOM Events spec to see if he can shed some light on why the behavior changed
+[11:00:11] <DaveMethvin> scott_gonzalez: i wonder if they are just formalizing the actual behavior of browsers, which do seem to bubble to window afaict
+[11:00:36] <DaveMethvin> thanks
+[16:12:17] <eddiemonge> in firefox, why does $(document).keypress work but not $('body').keypress ? is it a bug?
+[20:08:26] <timmywil> ?down epbfi.com
+[20:08:29] <bot-t> timmywil, It's just you. - http://epbfi.com is up.

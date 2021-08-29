@@ -1,0 +1,293 @@
+[02:42:19] <doesallmagic> Project jQuery UI - git core build #133: STILL FAILING in 12 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%20git%20core/133/
+[03:14:27] <doesallmagic> Project jQuery UI - 1.6.x core build #75: STILL FAILING in 32 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.6.x%20core/75/
+[03:46:45] <doesallmagic> Project jQuery UI - 1.7.x core build #74: STILL FAILING in 24 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.7.x%20core/74/
+[04:01:31] <doesallmagic> Project jQuery UI - 1.8.x core build #51: STILL FAILING in 14 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.8.x%20core/51/
+[05:40:33] <kborchers> hey scott_gonzalez any idea on that error i was getting last night?
+[06:43:58] <scott_gonzalez> kborchers: Are your deps updated?
+[06:44:41] <kborchers> scott_gonzalez: i think so i did npm update
+[06:45:04] <scott_gonzalez> hmm...
+[06:45:18] <scott_gonzalez> Deploying is working fine for me.
+[06:45:47] <scott_gonzalez> What version of download.jqueryui.com do you have?
+[06:45:54] <kborchers> scott_gonzalez: i pulled latest web-base-template and jqueryui.com, npm update, grunt deploy and it dies
+[06:46:02] <kborchers> one sec checking but i think it was correct
+[06:47:11] <kborchers> 1.0.2
+[06:50:13] <scott_gonzalez> Ok, I just resinstalled download and I'm getting the same error.
+[06:50:26] <kborchers> \o/ not just me this time
+[06:52:08] <scott_gonzalez> heh, well that's kind of a mess.
+[06:52:26] <scott_gonzalez> jzaefferer tagged 1.0.2 on the commit after I changed package.json :-P
+[06:52:31] <scott_gonzalez> That's not the problem though.
+[07:00:31] <scott_gonzalez> Ok, I found the problem, but I'm not sure why it's failing.
+[07:00:45] <scott_gonzalez> It's not able to determine the name of the directory for the generated build.
+[07:01:31] <kborchers> hmmm
+[07:01:32] <scott_gonzalez> grunt.file.expandDirs() is returning an empty array.
+[07:01:40] <scott_gonzalez> This is in the copy task in download.jqueryui.com
+[07:02:39] <rxaviers> scott_gonzalez, kborchers, any problem deploying download builder?
+[07:05:11] <scott_gonzalez> rxaviers: jqueryui.com is dying when it runs `grunt prepare` on download builder.
+[07:11:10] <rxaviers> reproduced the error, checking
+[07:11:49] <rxaviers> scott_gonzalez, somehow it did not produced the release folder
+[07:12:18] <rxaviers> checking
+[07:15:32] <rxaviers> Installing api.jqueryui.com npm modules
+[07:15:32] <rxaviers> >> Installed npm modules
+[07:15:32] <rxaviers> >> Error updating npm modules: npm http GET https://registry.npmjs.org/grunt-wordpress/1.0.3
+[07:15:32] <rxaviers> >> npm http GET
+[07:22:16] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/mWIa1g
+[07:22:16] <jquicommit> [jquery-ui/master] Autocomplete cache demo: Let the widget handle request synchronization. Fixes #8616 - Remote autocomplete example can leave pending request tracking out of sync. - Scott González
+[07:30:11] <doesallmagic> Project jQuery UI build #674: STILL FAILING in 7 min 55 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/674/
+[07:30:12] <doesallmagic> Scott González: Autocomplete cache demo: Let the widget handle request synchronization. Fixes #8616 - Remote autocomplete example can leave pending request tracking out of sync.
+[07:33:50] <scott_gonzalez> rxaviers: For me the build is running fine, but grunt isn't finding the dir.
+[07:34:10] <rxaviers> scott_gonzalez, download builder grunt prepare is buggy
+[07:34:28] <rxaviers> do you have a release directory in download builder?
+[07:35:15] <scott_gonzalez> It's empty.
+[07:35:24] <rxaviers> Running grunt prepare* manually, it's failing. Im trying to figure out whats going on
+[07:35:26] <scott_gonzalez> I have tmp/jquery-ui/dist/jquery-ui-1.9.0-rc.1/ though.
+[07:35:39] <scott_gonzalez> The first line of the copy task is failing.
+[07:39:22] <scott_gonzalez> nacin: We're going to go with 1-8.api.jqueryui.com because using subdirectories was causing lots of pain points for us.
+[07:39:29] <rxaviers> scott_gonzalez, 1st error I saw is:
+[07:39:39] <rxaviers> ./tmp/jquery-ui $ grunt manifest
+[07:39:47] <rxaviers> <WARN> Unable to parse "build/core.json" file (Unexpected token }). Use --force to continue. </WARN>
+[07:39:48] <rxaviers> Aborted due to warnings.
+[07:40:05] <scott_gonzalez> nacin: I assume we shouldn't replace the entry in sites.php? We should just add to it and leave an entry for a site that we won't use?
+[07:40:17] <scott_gonzalez> hmm...
+[07:40:42] <scott_gonzalez> grunt manifest works fine for me.
+[07:40:59] <rxaviers> pardom I checked now with master
+[07:41:04] <rxaviers> nevermind
+[07:55:30] <rxaviers> scott_gonzalez, two issues, the first one is:
+[07:55:46] <rxaviers> Installing api.jqueryui.com npm modules
+[07:55:46] <rxaviers> >> Error updating npm modules: npm http GET https://registry.npmjs.org/grunt
+[07:56:06] <rxaviers> I dont know yet why this happens. But, manually it completes just fine.
+[07:56:17] <rxaviers> Then, running grunt prepare again, one more failure:
+[07:56:35] <rxaviers> Copying jQuery UI release over to release/undefined
+[07:56:36] <rxaviers> >> Error copying: cp: impossível obter estado de "tmp/jquery-ui/dist/undefined":
+[07:56:47] <scott_gonzalez> Yes, that's the problem that needs to be fixed.
+[07:56:49] <rxaviers> because .expandDirs( "tmp/jquery-ui/dist/jquery-ui-*" )[ 0 ]
+[07:57:08] <rxaviers> needs to be: .expandDirs( "tmp/jquery-ui/dist/jquery-ui" )[ 0 ]
+[07:57:08] <scott_gonzalez> But the directory exists for you, right?
+[07:57:25] <scott_gonzalez> umm...
+[07:57:40] <scott_gonzalez> what?
+[07:57:44] <rxaviers> dont know why it changed
+[07:57:51] <scott_gonzalez> The directory name is jquery-ui-1.9.0-rc.1
+[07:58:28] * rxaviers is cleaning tmp and running `grunt prepare:1.9.0-rc.1` again to double check
+[07:58:56] <scott_gonzalez> rxaviers: Don't pass arguments to prepare
+[07:59:01] <scott_gonzalez> Just run `grunt prepare`
+[07:59:26] <scott_gonzalez> I centralized the version info.
+[07:59:32] <scott_gonzalez> It's in a config file now.
+[08:00:01] <rxaviers> right, ok, I remember
+[08:00:12] <rxaviers> Just testing it with less changes first
+[08:01:47] <scott_gonzalez> ok
+[08:01:57] <scott_gonzalez> Well, the wildcard has been there for months (probably since day 1)
+[08:02:30] <rxaviers> scott_gonzalez, tmp/jquery-ui didnt build for me
+[08:02:44] <scott_gonzalez> hmm...
+[08:05:05] <scott_gonzalez> Ok, I see what that problem is.
+[08:05:13] <scott_gonzalez> Though I'm not sure why we're getting that error.
+[08:05:14] <scott_gonzalez> One sec.
+[08:05:36] <rxaviers> scott_gonzalez, yeah, now it worked just fine weird.
+[08:05:58] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/2h39Lg
+[08:05:58] <jquicommit> [jquery-ui/master] Build: Fixed core.json syntax. - Scott González
+[08:06:08] <rxaviers> please can you help me checking something. On download builder, if you `rm -Rf tmp release`
+[08:06:12] <rxaviers> `grunt prepare`
+[08:06:32] <rxaviers> Do you also get an error "Installing api.jqueryui.com npm modules"? (about npm install)
+[08:09:33] <scott_gonzalez> https://gist.github.com/3819933
+[08:10:33] <scott_gonzalez> This sure is strange.
+[08:12:09] <rxaviers> aha
+[08:13:23] <rxaviers> right now, I'm skipping the former errors and Im at `function copy`. The  dir = require( "path" ).basename( grunt.file.expandDirs( "tmp/jquery-ui/dist/jquery-ui-*" )[ 0 ] ) is weirdly returning undefined
+[08:13:48] <rxaviers> running node interactively, it gives me the correct result.
+[08:14:50] <scott_gonzalez> ben_alman: ping
+[08:15:25] <rxaviers> it seems to be an intermittent error. Running it several times, it worked once. omg
+[08:18:04] <doesallmagic> Project jQuery UI build #675: STILL FAILING in 12 min: http://swarm.jquery.org:8080/job/jQuery%20UI/675/
+[08:18:04] <doesallmagic> Scott González: Build: Fixed core.json syntax.
+[08:19:31] <rxaviers> scott_gonzalez, mm.. I think I found where we may have a problem
+[08:20:04] <rxaviers> Updated npm modules is runnign in parallel
+[08:20:27] <nacin> scott_gonzalez: hello
+[08:20:28] <bot-t> (97 hours 10 mins ago) <scott_gonzalez> tell nacin api.jqueryui.com/1.8/ seems to be working well :-) Thanks.
+[08:20:32] <nacin> what kind of pain points?
+[08:20:33] <rxaviers> we need to chain them via async.series
+[08:20:41] <scott_gonzalez> oops, that's my fault.
+[08:20:50] <rxaviers> np, let me check
+[08:21:00] <rxaviers> fixing that and check if that sovels
+[08:21:22] <scott_gonzalez> nacin: The biggest pain point is writing correct URLs.
+[08:21:34] <scott_gonzalez> We'd need to write /1.8/whatever everywhere.
+[08:21:43] <scott_gonzalez> And that will change as we release new versions.
+[08:21:52] <nacin> rather than just using root-relative URLs.
+[08:22:00] <scott_gonzalez> right
+[08:22:03] <nacin> in content, you're referring to?
+[08:22:06] <scott_gonzalez> yeah
+[08:22:18] <nacin> we could always do a global filter on that.
+[08:22:27] <scott_gonzalez> So 1.9 docs at api.jqueryui.com will start with things like /foo, but then as soon as 1.10 comes out, we'd need to change it to /1.9/foo
+[08:23:05] <nacin> look for (src|href)=('")/, replace with $1=$2/1.9/
+[08:23:49] <scott_gonzalez> ok
+[08:24:32] <nacin> if it's just inside post_content that we're worried about, it'd be super easy
+[08:25:16] <scott_gonzalez> We'd also need to do something with resource URLs
+[08:25:30] <rxaviers> scott_gonzalez, prepare fixed :D
+[08:25:31] <scott_gonzalez> Though if we just prefix that should work.
+[08:25:38] <scott_gonzalez> rxaviers: Awesome. commit :-)
+[08:25:43] <rxaviers> :) ok
+[08:25:45] <nacin> I can adjust the rewrite rules for resources. it's up to you as to whether it should be api.jqueryui.com/resources/1.8/ or api.jqueryui.com/1.8/resources/. after that, it's a matter of changing them.
+[08:25:47] <scott_gonzalez> jzaefferer: We'll need 1.0.3 published.
+[08:25:49] <rxaviers> ah
+[08:25:58] <rxaviers> do you want me to update packages to 1.03 as well?
+[08:26:02] <rxaviers> and tag it?
+[08:26:07] <scott_gonzalez> rxaviers: yeah
+[08:26:16] <scott_gonzalez> I wish we could publish to npm.
+[08:26:18] <rxaviers> ok, I've never tag something. How do you?
+[08:26:24] <scott_gonzalez> git tag 1.0.3
+[08:26:29] <rxaviers> cool
+[08:26:32] <scott_gonzalez> After you do the commit.
+[08:26:34] <rxaviers> after the commit?
+[08:26:35] <rxaviers> ok
+[08:26:41] <scott_gonzalez> It just takes the current commit and stores a reference to the SHA.
+[08:26:50] <rxaviers> ah ok
+[08:26:57] <scott_gonzalez> nacin: api.jqueryui.com/1.8/resources/ should be the easiest.
+[08:27:05] <rxaviers> git is awesome
+[08:27:51] <scott_gonzalez> It would mean having just a single rule for rewriting URLs.
+[08:28:20] <scott_gonzalez> Though I guess we'd also need to think about the HTTP rewrites.
+[08:29:09] <ben_alman> scott_gonzalez: hi
+[08:29:57] <scott_gonzalez> ben_alman: We were having some strange issues with grunt.file.expandDirs() not finding a directory, but it sounds like maybe it was just a bug from an earlier error.
+[08:30:04] <ben_alman> ok
+[08:30:45] <nacin> scott_gonzalez: I just want to be careful with not accidentally catching a URL with /resources/ in the middle of it
+[08:30:52] <jquicommit> [download.jqueryui.com] rxaviers pushed 2 new commits to master: http://git.io/xAwiMQ
+[08:30:52] <jquicommit> [download.jqueryui.com/master] Fix `npm update` to run in series, otherwise we have concurrent issues - Rafael Xavier de Souza
+[08:30:52] <jquicommit> [download.jqueryui.com/master] Tagging 1.0.3. - Rafael Xavier de Souza
+[08:31:17] <rxaviers> scott_gonzalez, do I need to push the tag as well explicitly?
+[08:31:32] <scott_gonzalez> yeah, `git push --tags`
+[08:31:50] <scott_gonzalez> nacin: We can do /resources/1.8/
+[08:32:04] <nacin> scott_gonzalez: okay
+[08:32:12] <scott_gonzalez> That part really only concerns the rewrites
+[08:33:12] <rxaviers> done
+[08:33:57] <scott_gonzalez> jzaefferer: .
+[08:53:33] <jzaefferer> rxaviers: Scott can publish now, too: https://npmjs.org/package/download.jqueryui.com
+[08:53:56] <jquicommit> [jqueryui.com] scottgonzalez pushed 2 new commits to master: http://git.io/xu_JpQ
+[08:53:56] <jquicommit> [jqueryui.com/master] Added 1.8.9 and 1.8.10 changelogs. - Scott González
+[08:53:56] <jquicommit> [jqueryui.com/master] Upgrade download.jqueryui.com to 1.0.3. - Scott González
+[08:53:56] <scott_gonzalez> kborchers: UPDATE!!!1
+[08:54:15] <kborchers> trying now!
+[08:55:00] <scott_gonzalez> The suspense is killing me...
+[08:57:24] <kborchers> hmmm, getting EACCESS permission denied on the about page during grunt-clean which i never got before :/
+[08:58:49] <jquicommit> [api.jqueryui.com] scottgonzalez pushed 1 new commit to 1-8: http://git.io/YtQQOA
+[08:58:49] <jquicommit> [api.jqueryui.com/1-8] Use the CDN. - Scott González
+[08:58:52] <scott_gonzalez> nacin: I've got some code for you to test with.
+[08:59:02] <scott_gonzalez> The api.jqueryui.com repo has a 1-8 branch.
+[08:59:15] <scott_gonzalez> If you deploy that to api.jqueryui.com/1.8 then you can test the post_content filtering.
+[08:59:21] <nacin> cool, will do
+[08:59:32] <nacin> give me a few
+[08:59:35] <scott_gonzalez> http://dev.api.jqueryui.com/1.8/category/effects/ has a link in the first paragraph.
+[08:59:47] <scott_gonzalez> The word "easings" links to /easings/
+[08:59:56] <scott_gonzalez> So that should get rewritten to /1.8/easings/
+[09:00:28] <scott_gonzalez> I need to update the index page to get it out of web-base-template and into the content repo so that we can have different index pages for 1.8 and 1.9
+[09:00:32] <scott_gonzalez> But that's unrelated.
+[09:01:30] <scott_gonzalez> lunch, back in a bit
+[09:36:58] <scott_gonzalez> back
+[10:29:39] <nacin> scott_gonzalez: are /resources/ referenced directly in content as well?
+[10:32:02] <jquicommit> [download.jqueryui.com] rxaviers pushed 1 new commit to master: http://git.io/TwGOiA
+[10:32:02] <jquicommit> [download.jqueryui.com/master] Put theme comment in the top banner - Rafael Xavier de Souza
+[10:49:03] <scott_gonzalez> nacin: They can be.
+[10:49:20] <nacin> okay.
+[10:52:17] <_zoggy_> sup
+[10:54:47] <_zoggy_> so that customize themeroller link only appears in the normal css not the minified version
+[11:01:30] <scott_gonzalez> _zoggy_: Yup, I think rxaviers is fixing that.
+[11:01:35] <scott_gonzalez> It's because of which header it apperas in.
+[11:03:59] <_zoggy_> ok coo
+[11:11:58] <_zoggy_> brb
+[11:13:44] <rxaviers> scott_gonzalez, themeroller link only appears on normal css, not in the minified. Shall it show up in minified as well?
+[11:13:57] <scott_gonzalez> probably
+[11:14:22] <scott_gonzalez> I can see people throwing away the source files and then getting mad later :-P
+[11:14:27] <rxaviers> scott_gonzalez, another place Im not including it is on base css bundle
+[11:14:53] <scott_gonzalez> You mean the individual jquery.ui.theme.css file?
+[11:15:12] <rxaviers> no, I mean development-bundle/themes/base/jquery-ui.css
+[11:16:29] <scott_gonzalez> Oh, I wouldn't put it there.
+[11:18:01] <rxaviers> ;) great then
+[11:20:45] <_zoggy_> scott_gonzalez, you need someone to test something with ie6? swarm? or manually?
+[11:23:31] <_zoggy_> i have a xp vm that i use for legacy testing, ie6-8, firefox 3.6.28, opera 10.54, safari 4.0.5, chrome 5.0.375.125
+[11:24:25] <scott_gonzalez> _zoggy_: I'm sure kborchers would've appreciated some help with testing all the demos and visual tests about a week ago :-P
+[11:25:13] <_zoggy_> well  guess im just late to the party
+[11:26:33] * kborchers dies a little inside
+[11:27:06] <scott_gonzalez> _zoggy_: Are you going to the Developer Summit?
+[11:27:17] <kborchers> _zoggy_: you use an actual IE6 install or IE Tester?
+[11:27:18] <_zoggy_> dunno what or where that is
+[11:27:30] <kborchers> i don't trust IE Tester
+[11:27:33] <_zoggy_> kborchers, the ie testers are flawed
+[11:27:55] <scott_gonzalez> I'll take that as a no :-P
+[11:27:55] <scott_gonzalez> http://events.jquery.org/2012/developer-summit/
+[11:28:01] <_zoggy_> the closest thing that works is the Util IE Collection which can do ie6 and 7 in xp
+[11:28:02] <kborchers> man i wish you would have been around :) … testing via browserstack turned a 1 hour job into 3
+[11:28:22] <Krinkle> ?
+[11:28:27] <Krinkle> You mean the opposite?
+[11:28:40] <Krinkle> I certainly hope so.
+[11:29:04] <kborchers> Krinkle: no … testing IE6 via Browserstack is painfully slow
+[11:29:13] <_zoggy_> http://coding.smashingmagazine.com/2011/09/02/reliable-cross-browser-testing-part-1-internet-explorer/
+[11:29:15] <_zoggy_> go read that
+[11:29:28] <_zoggy_> it expalins why ietester and such dont work well
+[11:29:33] <Krinkle> I read that when it came out last year
+[11:29:40] <_zoggy_> yeah, why i made my vm
+[11:29:41] <kborchers> _zoggy_: i know i already said i don't trust it :)
+[11:29:59] <_zoggy_> i run win7, which i test the latest browsers (minus ie10, have win8 laptop for that)
+[11:30:08] <_zoggy_> then i load up my vbox for all the legacy stuff
+[11:30:59] <Krinkle> I definitely prefer browserstack over my own setup. It starts faster than my local vm would most of the time (and it has a lot more versions, and it has easy setup for tunneling localhost to any hostname I want)
+[11:31:09] <Krinkle> kborchers: what kind of slowness?
+[11:32:03] <_zoggy_> i can share my vbox image if youd like :)
+[11:32:35] <kborchers> browsing around and going through every visual test and demo … loading a single page is fine but actually browsing around that much just gets slower and slower and the animations are almost impossible to test because of the delay in the rendering of the image
+[11:32:46] <scott_gonzalez> nacin: Since we're going with /resources/1.8/... grunt-wordpress won't even need to do any special handling. I'll just use home_url() for the base dir and it'll automatically give us that URL structure.
+[11:33:29] <scott_gonzalez> nacin: I'll get that part working now.
+[11:33:33] <nacin> scott_gonzalez: yep, the thought occurred to me.
+[11:34:54] <Krinkle> kborchers: Don't want to imply anything, but could it be related to your internet connection? After all, the one bottle neck of browserstack is that it has to stream it all over the net.
+[11:34:58] <_zoggy_> kborchers, you tried browsershots ?
+[11:35:03] <_zoggy_> http://browsershots.org/
+[11:35:12] <Krinkle> No interaction with browsershots
+[11:35:28] <Krinkle> and its pretty slow/unreliable from what I remember
+[11:35:38] <_zoggy_> yeah, its more of a emulation to do a static output to see
+[11:36:01] <Krinkle> if you need screenshots, use adobe browserlabs. Its free (sign up for an Adobe ID). It has the advantage of allowing the screenshot to be taken after a short delay (so stuff can init beyond document ready)
+[11:36:19] <kborchers> Krinkle: doubt it … i have 15MB down
+[11:36:22] <Krinkle> worked pretty well for me.
+[11:36:30] <Krinkle> kborchers: k, like I said, just a hunch.
+[11:36:34] <scott_gonzalez> nacin: done
+[11:36:36] <Krinkle> could be their end of course.
+[11:36:41] <Krinkle> (nearest data center slow)
+[11:36:45] <kborchers> sure
+[11:37:00] <kborchers> don't get me wrong. i love browserstack
+[11:37:16] <kborchers> just doing that much on it was painful
+[11:38:48] <_zoggy_> well let me know if you want this vbox image, its 4gb
+[11:42:50] <_zoggy_> or not, its 8.8gb
+[11:42:55] <_zoggy_> or not, its 6.8gb rather
+[11:45:07] <_zoggy_> raring now to see if that shaves off any
+[11:46:30] <scott_gonzalez> gnarf: What staging server has the jqueryui.com checkout?
+[11:47:51] <_zoggy_> hmm guess a vdi isnt really that compressed.. getting 44% compression on it so far
+[11:49:45] <_zoggy_> okay, yeah so 3gb exactly now
+[11:50:42] <scott_gonzalez> gnarf: Nevermind, I found it.
+[11:54:24] <jquicommit> [jqueryui.com] scottgonzalez pushed 1 new commit to master: http://git.io/tglaRA
+[11:54:24] <jquicommit> [jqueryui.com/master] Upgrade grunt-jquery-content to 0.5.x. - Scott González
+[11:57:39] <scott_gonzalez> _zoggy_: Any interest in trying to improve the syntax highlighter that we use?
+[11:58:15] <scott_gonzalez> That task actually sounds a bit daunting.
+[12:03:16] <_zoggy_> scott_gonzalez, ha no :) never have been good at lexical stuff that consists of regex wizardity
+[12:04:45] <_zoggy_> brb
+[12:14:27] <jquicommit> [download.jqueryui.com] rxaviers pushed 1 new commit to master: http://git.io/ybZpFw
+[12:14:27] <jquicommit> [download.jqueryui.com/master] Put themeroller link comment in the top banner of the minified bundle as well - Rafael Xavier de Souza
+[12:14:33] <rxaviers> scott_gonzalez, _zoggy_, ^
+[12:43:58] <jquicommit> [download.jqueryui.com] rxaviers pushed 1 new commit to master: http://git.io/hORZIw
+[12:43:58] <jquicommit> [download.jqueryui.com/master] Fix themeParams=none - Rafael Xavier de Souza
+[12:56:41] <jquicommit> [download.jqueryui.com] rxaviers pushed 1 new commit to master: http://git.io/-0iEdw
+[12:56:41] <jquicommit> [download.jqueryui.com/master] Remove hotkeys, capture color change instead - Rafael Xavier de Souza
+[12:57:05] <_zoggy_> yay
+[12:57:22] <rxaviers> :)
+[12:58:02] <rxaviers> _zoggy_, if there's anything else, please just let me know
+[13:17:37] <scott_gonzalez> nacin: If I turn on the static index plugin for api.jqueryui.com, do you have an idea for how to get the sidebar on the page?
+[13:21:39] <scott_gonzalez> nacin: Figured it out. I just added a page template to the api.jqueryui.com theme.
+[13:26:25] <jquicommit> [api.jqueryui.com] scottgonzalez pushed 1 new commit to master: http://git.io/fmoXHA
+[13:26:25] <jquicommit> [api.jqueryui.com/master] Convert index page to content. - Scott González
+[13:29:36] <jquicommit> [api.jqueryui.com] scottgonzalez pushed 1 new commit to 1-8: http://git.io/qOG-PA
+[13:29:36] <jquicommit> [api.jqueryui.com/1-8] Convert index page to content. - Scott González
+[13:31:24] <jquicommit> [api.jqueryui.com] scottgonzalez pushed 1 new commit to master: http://git.io/sZzPtw
+[13:31:24] <jquicommit> [api.jqueryui.com/master] Add link to 1.9.0 release announcement. - Scott González
+[17:23:51] <jquicommit> [jqueryui.com] scottgonzalez pushed 1 new commit to master: http://git.io/ed29uQ
+[17:23:51] <jquicommit> [jqueryui.com/master] Added 1.8.5 - 1.8.8 changelogs. - Scott González
+[18:06:59] <jquicommit> [jqueryui.com] scottgonzalez pushed 1 new commit to master: http://git.io/Gv8K3A
+[18:06:59] <jquicommit> [jqueryui.com/master] Added 1.8.1 - 1.8.4 changelogs. - Scott González
+[18:13:55] <kborchers> scott_gonzalez: thoughts? http://cl.ly/image/0N1Z3Z1i3i1m
+[18:22:00] <kborchers> scott_gonzalez: could also go this route … just leaning away from the gradient since it's not supported in any IE < 10 http://cl.ly/image/1M1e3G2z2927
+[18:23:58] <kborchers> hmmm seems to work in IE9 actually
+[18:25:26] <kborchers> ah, filter fallback
+[18:53:12] <scott_gonzalez> kborchers: Neither of those feel right to me (the current doesn't either though).
+[18:53:53] <kborchers> yeah … i'm still not happy either.
+[18:54:18] <scott_gonzalez> Does the dark text look better without the shadow?
+[18:58:34] <kborchers> scott_gonzalez: http://cl.ly/image/280y430Y1U2r
+[18:59:17] <scott_gonzalez> meh
+[18:59:23] <kborchers> yeah
+[23:25:21] <FJ1> is there a release date for 1.9? or a range, let's say between october and december?

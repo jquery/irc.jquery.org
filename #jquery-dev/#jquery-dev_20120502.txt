@@ -1,0 +1,133 @@
+[04:08:25] <jqcommit> [qunit] jzaefferer pushed 1 new commit to master: http://git.io/KQW66A
+[04:08:25] <jqcommit> [qunit/master] Only check for an exports object to detect a CommonJS enviroment. Fixes #237 - Incompatibility with require.js - Jörn Zaefferer
+[04:23:52] <jq-jenkins> Project QUnit build #113: FAILURE in 15 min: http://swarm.jquery.org:8080/job/QUnit/113/
+[04:23:53] <jq-jenkins> joern.zaefferer: Only check for an exports object to detect a CommonJS enviroment. Fixes #237 - Incompatibility with require.js
+[06:58:50] <gibson042> .
+[10:55:04] <jzaefferer> Krinkle: looking at your node-testswarm PR#2 now
+[10:55:10] <Krinkle> k
+[10:55:19] <jzaefferer> The result logging will produce a ton of output for something like UI
+[10:55:27] <Krinkle> jzaefferer: btw, can you help me with something random for a sec?
+[10:55:34] <jzaefferer> I'd like to compress that, maybe just:
+[10:55:41] <jzaefferer> Chrome: passed [resulturl]
+[10:55:49] <jzaefferer> Firefox: failed (3) [resulturl]
+[10:55:54] <jzaefferer> IE10: new/progress
+[10:56:13] <Krinkle> Use runResultsLabel so you get "passed (120)"
+[10:56:14] <jzaefferer> Then leave the rest to TestSwarm itself
+[10:56:38] <jzaefferer> runResultsLabel: '303'
+[10:56:42] <jzaefferer> getting that for a passed test
+[10:56:50] <jzaefferer> doesn't include the status
+[10:56:55] <Krinkle> it is the label used on JobPage
+[10:57:01] <Krinkle> Obviously ti doesn't include the status
+[10:57:07] <Krinkle> I mean use it for the () part
+[10:57:21] <Krinkle> so you don't have to calculate and go through total/failed/error etc.
+[10:57:34] <jzaefferer> okay
+[10:57:45] <Krinkle> I'm working on a unit test for mediawiki.loader (don't worry about what that is or does), the thing is it is injecting some css and we want to validate that the @import url in that css is indeed being applied.
+[10:58:01] <Krinkle> so we have a .php file that takes ?selector=..&prop=..&value= for this kind of debugging
+[10:58:06] <Krinkle> then we check that it has that style, so far so good
+[10:58:23] <Krinkle> however the problem is that we need to delay that test until the @import url is actually loaded
+[10:58:58] <Krinkle> The only way I could find was to inject the css, then create new Image() and use onerror  - assuming that it will get fired at or after the css parser loaded the url
+[10:59:06] <Krinkle> works fine, except in Safari 4 the onerror callback isn't called at all
+[10:59:20] <Krinkle> I can't figure out what is going on in Safari 4, it just isn't called at all (neither is onload) -
+[10:59:24] <Krinkle> is this some known issue ?
+[10:59:30] <Krinkle> I can't find anything
+[11:00:31] <jzaefferer> are you assigning onerror before changing the src attribute?
+[11:00:48] <Krinkle> before
+[11:00:55] <Krinkle> Yes
+[11:01:04] <jzaefferer> That's all I had :/
+[11:01:11] <Krinkle> I tested everything in BrowserStack, all of them
+[11:01:18] <Krinkle> just failing in Safari 4, no callback at all
+[11:01:36] <Krinkle> I was hoping to find some awesomeness in jquery.js under load() but it appears there is no special handling
+[11:01:46] <Krinkle> fails with on('error load') as well (not called, times out)
+[11:01:57] <Krinkle> so not jquery specific
+[11:02:00] <jzaefferer> Can you fall back to just polling with a timeout?
+[11:02:07] <Krinkle> polling what/
+[11:02:16] <jzaefferer> For the style change
+[11:02:21] <Krinkle> oh, nice.
+[11:02:43] <Krinkle> There is a stop()/start() already for the onerror  thing, I can just use that in a timeout loop instead
+[11:02:45] <Krinkle> Thakns
+[11:02:52] <Krinkle> Thanks*, I'll try right away
+[11:03:07] <Krinkle> btw, found one result in google that confirms my suspicion: http://stackoverflow.com/questions/1085207/suppress-image-loading-errors-in-safari
+[11:03:13] <Krinkle> "The older version of Safari is broken and the image.onload doesn't working properly."
+[11:03:14] <Krinkle> interesting
+[11:20:55] <Krinkle> jzaefferer: http://cl.ly/3A17373j1d1X0l3h2L0S
+[11:21:01] <Krinkle> thank you so much, working fine in Safari 4
+[11:21:04] <Krinkle> any feedback?
+[11:23:52] <jzaefferer> Krinkle: ok(true) is not very useful. If it timed out, that should be ok(false), right?
+[11:24:05] <jzaefferer> Othe then that, seems fine, considering the mess you're already in ;)
+[11:24:14] <Krinkle> styleTestAssertions contains the actual QUnit assertions
+[11:24:29] <Krinkle> yeah, I'll ditch the ok(true)
+[11:29:06] <Krinkle> jzaefferer: btw, with my changes in testswarm-browserstack (which are live now) the jquery-ui jobs almost complete within 15 minutes
+[11:29:18] <Krinkle> I tested it yesterday by triggering a build
+[11:29:30] <Krinkle> about 20 seconds after Jenkins declared timeout, IE6 finished it
+[11:29:38] <jzaefferer> hehe, so close
+[11:29:51] <Krinkle> once browserstack supports concurrent browser workers, we'll make it easily
+[11:31:05] * Krinkle joins his Firefox 12 in the swarm
+[11:31:31] <Krinkle> yeah, that's another problem. browserstack is a little behind on FF release. 12 went in beta last month
+[11:31:40] <Krinkle> 12 and 13 are "out there" but not in bs yet
+[11:32:24] <jzaefferer> As long as its still beta I don't care
+[11:32:30] <Krinkle> 12 is stable
+[11:32:34] <jzaefferer> Ah, okay
+[11:32:35] <Krinkle> and it is in testswarm
+[11:32:38] <Krinkle> but we can't run it
+[11:32:40] <jzaefferer> Well, that's not so great
+[11:32:43] <Krinkle> I'm using my own client now
+[11:32:56] <jzaefferer> Just pushed a few updates to node-testswarm, including your PR
+[11:33:02] <Krinkle> cool
+[11:33:19] <jzaefferer> published 0.2.2
+[11:33:50] <Krinkle> jzaefferer: ah nice, you use the same logic as in JobPage. check runResultsUrl instead of fidling with status/errors/fails etc.
+[11:34:07] <jzaefferer> yeah, that makes more sense
+[11:34:22] <jzaefferer> now we just need the reruns check
+[11:36:20] <Krinkle> yep
+[11:36:29] <Krinkle> that's going to be a bit complicated though
+[11:36:36] <Krinkle> for node-testswarm it'll be easy
+[11:36:55] <Krinkle> but for testswarm-browserstack (which has to be fixed first, or node will keep polling for ever) it is more complicated
+[11:38:33] <Krinkle> but TestSwarm requires a re-run to be in a different client ID than he client that failed the test
+[11:38:36] <Krinkle> either we need to accept re-runs in the same client that failed the test (and not just that, but let the re-run take place right after the failed run) - or we need to restart a browser stack worker after every run (at least before every re-run)
+[11:39:17] <Krinkle> I was hoping maybe JohnResig could chime in and maybe elaborate on his choice to require a different client to do the re-run. It kinda makes sense, but not sure if there is more behind that
+[11:39:53] <Krinkle> the problem is that if there is only one client (e.g. the browserstack client) the re-run is never distributed
+[11:40:07] <Krinkle> (unless that worker is restarted and, thusly, gets a new client id)
+[11:40:17] <JohnResig> Krinkle: oh hey, so the reason is that often times if a client gives a failing run it does it because of strange reasons -- often times a client will just be 'broken' in some way
+[11:40:29] <JohnResig> Krinkle: this was the case when we were accepting clients from on the open web
+[11:40:36] <Krinkle> yeah, I figured. Like some stupid toolbar or plugin.
+[11:40:45] <JohnResig> if you're only looking to use this in controlled situations you can probably disable that
+[11:40:55] <Krinkle> right
+[11:41:35] <Krinkle> I'd like to keep the re-runs though, even when the swarm is restricted to controlled clients.
+[11:41:41] <Krinkle> but I guess we can do both.
+[11:41:58] <Krinkle> just conditionally exclude part of the "getrun" query
+[11:42:22] <Krinkle> JohnResig: https://github.com/jquery/testswarm/blob/master/inc/actions/GetrunAction.php#L45
+[11:43:42] <Krinkle> (that comment is wrong by the way, should end with "and wasn't previously ran by the current client"
+[11:44:09] <JohnResig> yeah, that sounds about right
+[11:46:28] <Krinkle> JohnResig: btw, have you had some time to checkout the 1.0 beta? I hope you don't' feel like I'm hijacking the project, all your logic is still there (a few minor bug fixes, but most changes are features and bug fixes in the front-end, the backend is almost the same still - very solid foundation)
+[11:46:53] <JohnResig> Krinkle: oh, I haven't really had the chance, I assume you're doing good work :)
+[11:49:32] <Krinkle> although small, the changes I like best is the "Project" dropdown,  nat-sort order of browsers and link back to project from /job/ page.
+[11:50:01] <JohnResig> :)
+[11:50:50] <Krinkle> looking forward to meet you one day on a conference maybe, too bad I can't make it to the sf conf this year. maybe next time
+[11:51:10] <JohnResig> ah yeah, definitely!
+[11:51:52] <jzaefferer> Krinkle: https://gist.github.com/cd4e07af696d0d828ea5 to address https://github.com/jzaefferer/node-testswarm/issues/3 - seems to work, but isn't trivial to test :/
+[11:51:53] <socialhapy> ★ Github API: no issue found
+[11:52:55] <Krinkle> jzaefferer: !== 'passing' instead
+[11:53:07] <Krinkle> and runs < max is sufficient, passing tests are set runs=max
+[11:53:33] <Krinkle> but yeah, for node-testswarm part that might do it, nice one
+[11:53:52] <Krinkle> but don't commit yet, we need support in testswarm-browserstack first
+[11:54:16] <Krinkle> or change behavior testswarm (which is probably what we'll do)
+[11:54:29] <jzaefferer> why !== passing?
+[11:54:38] <jzaefferer> we care about reruns only when a run failed, right?
+[11:54:40] <Krinkle> jzaefferer: because there is more non-passing states
+[11:54:42] <Krinkle> timeout for instance
+[11:54:53] <Krinkle> you made the same mistake last week ;-)
+[11:55:08] <Krinkle> timeout isn't just when the test takes too long
+[11:55:10] <jzaefferer> okay
+[11:55:18] <Krinkle> also when the client doesn't respond at all (server side timeout)
+[11:55:34] <jzaefferer> so as I'm checking for new|progress first, !== passed is any failure state
+[11:55:35] <Krinkle> e.g. browser crashed or iframe exploded
+[11:55:38] <jzaefferer> makes sense
+[11:55:52] <Krinkle> but yeah, runs > max
+[11:56:05] <Krinkle> runs < max * and maybe with !== "passing" will do it
+[11:56:25] <jzaefferer> I could just commit/push, publish as 0.2.3 - as long as we don't update anything, it doesn't matter
+[11:56:55] <jzaefferer> so https://gist.github.com/c0208ad3670992af1be3
+[11:57:14] <Krinkle> I'd say it is a little premature, we might end up changing it in which case this would be obsolete
+[11:57:46] <Krinkle-away> brb
+[11:58:01] <jzaefferer> okay, let's address it in TestSwarm first
+[14:28:41] <gnarf> rwaldron: https://github.com/SineSwiper/jquery-ui/commit/238e01f9e68c6baea606c2cd09eac785c5c257e8#commitcomment-1284710
+[14:28:42] <socialhapy> ★ Commit on jquery-ui by SineSwiper (4w, 33m ago): Slide function now works without DIV wrapping, utilizing clip Split out clip step routines to use cssHook, including TBLR "virtual" CSS properties Add CSS3 units to cssUnitConvert function Add directionNormalize function to help out with direction naming Fixed 404s for tests/index.html
+[14:29:17] <gnarf> rwaldron: we might want to put a general note in there about not using vertical alignment of assignment operators

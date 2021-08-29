@@ -1,0 +1,1020 @@
+[05:28:53] <scott_gonzalez> ?tell DaveMethvin ping me about the click/drag bug when you're around
+[05:28:54] <bot-t> scott_gonzalez, Okay.
+[05:29:52] <mikesherov_> scott_gonzalez: I know a bit about it
+[05:30:09] <scott_gonzalez> oh, great
+[05:30:23] <scott_gonzalez> how does it affect UI?
+[05:30:37] <scott_gonzalez> the bug is just that native drag and drop events don't copy over mouse properties, right?
+[05:31:04] <mikesherov_> right
+[05:31:10] <mikesherov_> and DaveMethvin and I discussed a hack
+[05:31:23] <mikesherov_> he said we're going to resolve it in 1.7.2
+[05:31:40] <mikesherov_> just couldn't make it in under the 1.7.1 deadline
+[05:31:47] <scott_gonzalez> ok, cool
+[05:32:05] <scott_gonzalez> I think I understand his comment about using $.extend() now too
+[05:32:20] <mikesherov_> which one?
+[05:32:28] <scott_gonzalez> I didn't understand the context before, but now I realize he meant we should do that in UI instead of walking the event props array
+[05:32:50] <scott_gonzalez> http://bugs.jquery.com/ticket/10729#comment:14
+[05:33:33] <mikesherov_> I see
+[05:33:53] <mikesherov_> I had spoken to Dave more than two days ago about it
+[05:34:13] <mikesherov_> so maybe his opinion on whether it needs to be in 1.7.1 has changed
+[05:34:35] <scott_gonzalez> I'll look into what caused all the failures for him
+[05:36:08] <scott_gonzalez> I bet he did $.extend( newEvent, oldEvent )
+[05:36:25] <scott_gonzalez> and it copied over methods and other stuff it shouldn't have
+[05:36:39] <mikesherov_> right
+[05:37:11] <mikesherov_> well, I'm not that close with the issue, but do you have access to the .originalEvent property?
+[05:37:31] <mikesherov_> as I understood it, that contains the original event that the new Events system wraps
+[05:37:46] <mikesherov_> not sure if that's helpful at all...
+[05:38:08] <scott_gonzalez> yeah, we have the original event
+[05:38:24] <scott_gonzalez> what we do now is we walk $.event.props and copy the properties from event.originalEvent to event
+[05:39:42] <mikesherov_> so then can you do $.extend( newEvent, event.originalEvent) ?
+[05:40:48] <scott_gonzalez> that causes failures
+[05:40:52] <scott_gonzalez> need to figure out why
+[05:40:56] <mikesherov_> i see
+[05:41:20] <scott_gonzalez> but first I need to figure out what jzaefferer broke in widget so that I have a passing test suite to start with :-P
+[05:41:27] <mikesherov_> LOL
+[05:41:45] <mikesherov_> git checkout HEAD~1
+[05:41:47] <mikesherov_> and you're done
+[05:42:25] <scott_gonzalez> heh
+[05:42:33] <scott_gonzalez> tracked it down and fixed it
+[05:42:38] <scott_gonzalez> let's hope the event stuff is that easy
+[05:43:00] <mikesherov_> I mean, the fix in core *SHOULD* be easy enough
+[05:43:25] <mikesherov_> it was just about finding a proxy property for drag/drop events in IE, which there is.
+[05:47:16] <scott_gonzalez> isTrigger?
+[05:47:49] <scott_gonzalez> what's that?
+[05:48:30] <scott_gonzalez> the event isn't actually get triggered for some reason
+[05:50:37] <mikesherov_> well, you can't automate a unit test for drag events
+[05:50:42] <mikesherov_> unfortunately
+[05:51:03] <mikesherov_> which is part of the problem with this issue
+[05:51:13] <mikesherov_> the only way to verify it works is manually
+[05:51:45] <mikesherov_> if you do .trigger("drag"), there are no mouse events associated with it
+[05:52:25] <mikesherov_> the proxy for IE to detect a drag/drop event is e.dataTransfer
+[05:52:46] <scott_gonzalez> the tests that fail in UI aren't actually related to drag/drop
+[05:52:47] <scott_gonzalez> https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.widget.js#L376
+[05:53:11] <scott_gonzalez> this line does nothing if we use $.extend() instead of walking $.event.props: https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.widget.js#L400
+[05:55:03] <mikesherov_> are they related to keyHooks? i.e. pressing the keyboard?
+[05:55:44] <mikesherov_> oops, trains in the station, gotta run
+[05:55:59] <mikesherov_> Sorry I couldn't be more of a help
+[05:56:14] <scott_gonzalez> no problem
+[06:28:57] <scott_gonzalez> DaveMethvin: hey
+[06:29:45] <DaveMethvin> scott_gonzalez: hey
+[06:30:08] <scott_gonzalez> so looking at the drag bug
+[06:30:16] <scott_gonzalez> I switched UI to use $.extend()
+[06:30:26] <DaveMethvin> did it work?
+[06:30:49] <scott_gonzalez> and the test failures are because .trigger() doesn't actually trigger an event
+[06:30:49] <scott_gonzalez> any idea why that would happen?
+[06:31:04] <scott_gonzalez> some property on the original event that would prevent the new event from actually firing?
+[06:31:35] <DaveMethvin> hmmm
+[06:31:51] <DaveMethvin> yeah i had probs too but it was late and i was tired so i wasn't sure what was going on
+[06:32:03] <DaveMethvin> can't figure out why it wouldn't fire an event
+[06:32:04] <scott_gonzalez> or maybe some property that needs to exist that doesn't?
+[06:32:52] <DaveMethvin> so what's the name of the event you're trying to _trigger?
+[06:34:30] <scott_gonzalez> testwidgetfoo
+[06:34:43] <scott_gonzalez> and the name of the original event is originalTest
+[06:34:58] <DaveMethvin> yeah that is the one i was failing i think
+[06:35:51] <DaveMethvin> here is my branch: https://github.com/dmethvin/jquery-ui/commit/ce91b63140c34a3bdbee8338192508206845404d
+[06:35:52] <socialhapy> ★ Commit on jquery-ui by dmethvin (1m, 51s ago): Try using $.extend to make new event; still fails some unit tests.
+[06:37:15] <DaveMethvin> so it's failing accordion for example, test 43
+[06:38:02] <scott_gonzalez> haha
+[06:38:17] <scott_gonzalez> did you do $.extend( event, event.originalEvent ) ?
+[06:39:06] <DaveMethvin> i created a new one and then stuffed into it
+[06:39:26] <scott_gonzalez> but did you extend the new event with that line of code?
+[06:39:59] <DaveMethvin> no
+[06:40:28] <DaveMethvin> although the new event has the current event as its originalEvent
+[06:40:45] <DaveMethvin> which i am not sure it should
+[06:40:55] <DaveMethvin> but i think it was more failey without that
+[06:45:18] <scott_gonzalez> https://gist.github.com/a640f92084111a91bfea
+[06:46:01] <DaveMethvin> yeah i pulled mine out but still lots of fail
+[06:46:48] <DaveMethvin> you said it's because the events aren't firing once they reach .trigger()?
+[06:46:57] <DaveMethvin> oh
+[06:47:03] <DaveMethvin> is default prevented on those events perhaps?
+[06:47:51] <DaveMethvin> let's drill into one of the failures, which one are you looking at?
+[06:48:06] <scott_gonzalez> the problem is that event.originalEvent.type was being copied over
+[06:48:26] <scott_gonzalez> I'm a bit nervous about using $.extend() with events
+[06:49:09] <DaveMethvin> i wanted to ask how you're using the "originalEvent chain", it sounds like this may be somewhat related
+[06:51:59] <DaveMethvin> $.extend shoudl be fine for copying a jQuery.Event to another one, but it's not ok to copy native events
+[06:52:31] <scott_gonzalez> I'm just nervous about things like stopPropagation now pointing directly to the original event's stopPropagation
+[06:52:44] <scott_gonzalez> basically we're killing everything that $.Event() does
+[06:53:05] <DaveMethvin> oh i see what you're saying
+[06:53:14] <DaveMethvin> yeah it depends on your scenarios
+[06:53:34] <DaveMethvin> mainly i am still not sure why the events need to be nested
+[06:53:47] <DaveMethvin> how are you using originalEvent in those cases?
+[06:57:09] <DaveMethvin> back in about 10 minutes
+[07:05:33] <scott_gonzalez> probably the most common case would be just detecting if originalEvent exists to figure out if the event was scripted
+[07:06:06] <scott_gonzalez> e.g., .bind( "slidechange", function( event ) { if ( event.originalEvent ) { ... } } );
+[07:07:00] <scott_gonzalez> which is really useful for preventing infinite event recursion if you're reacting to the change in a way that could potentially cause another change
+[07:07:44] <scott_gonzalez> let's say you've got a video and you're using a slider to control the time
+[07:08:07] <scott_gonzalez> and you're programmatically updating the slider's value as the movie plays
+[07:08:24] <scott_gonzalez> but if the user moves the slider, you want to jump to that part of the video
+[07:08:44] <scott_gonzalez> there are also cases where people want to know stuff about the original event, but I can't recall actual scenarios right now
+[07:09:04] <scott_gonzalez> but I remember cases where people wanted to know if an event was caused by the mouse or keyboard
+[07:24:29] <DaveMethvin> scott_gonzalez: do people just need to know the true original event, or do they also need to know "how deep" and all the intermediate events? If the former, maybe originalEvent should always be the base event
+[07:24:43] <scott_gonzalez> not sure
+[07:25:26] <DaveMethvin> i suspect we're both in the same boat, i know whenever i change anything in the event system i am sure to break stuff
+[07:25:34] <DaveMethvin> no matter how obscure
+[07:25:43] <scott_gonzalez> well, I don't actually need to change the event chain here
+[07:25:57] <scott_gonzalez> I'm just concerned about blindly copying properties from one event to another
+[07:26:13] <scott_gonzalez> is it ok to copy things like the propagation methods?
+[07:27:07] <DaveMethvin> that will be the current state of the originalEvent
+[07:27:18] <DaveMethvin> but when you update the new event it won't affect the old
+[07:28:11] <DaveMethvin> the jQuery.Event doesn't have much in it except a handful of normalized props
+[07:28:26] <DaveMethvin> instead of extend we could use a loop with hasOwnProperty
+[07:29:02] <DaveMethvin> but that's definitely better than having to redo the logic in fix to determine which properties to copy
+[07:29:37] <scott_gonzalez> ok, so what about this scenario:
+[07:29:49] <scott_gonzalez> original event has propagation stopped
+[07:30:11] <scott_gonzalez> we create a new event from it
+[07:30:21] <scott_gonzalez> the new event does not have propagation stopped, correct?
+[07:30:32] <DaveMethvin> depends on how you create it :)
+[07:30:38] <scott_gonzalez> $.Event( original )
+[07:30:44] <DaveMethvin> right then it doesn't
+[07:30:50] <DaveMethvin> but if you copy everything it does
+[07:31:24] <scott_gonzalez> right, so we should do event = $.Event( original )
+[07:31:38] <scott_gonzalez> then loop over original event and copy all the properties
+[07:31:47] <scott_gonzalez> but exclude anything that exists in $.Event.prototype
+[07:31:52] <scott_gonzalez> which is safer than hasOwnProperty
+[07:32:06] <DaveMethvin> right b/c if they stopped prop it will have a property for that
+[07:32:12] <scott_gonzalez> because it will not copy isPropagationStopped()
+[07:32:16] <scott_gonzalez> right
+[07:32:25] <scott_gonzalez> so sounds like we have a safe fix :-)
+[07:32:51] <scott_gonzalez> I'm comfortable with that copying, much more than $.extend()
+[07:33:00] <DaveMethvin> but in general if we need that i think the Event should be providing methods; for backcompat we pretty much have to do it this way
+[07:33:19] <DaveMethvin> and that approach should work all the way back no problem
+[07:33:59] <scott_gonzalez> https://github.com/jquery/jquery/blob/master/src/event.js#L634
+[07:34:07] <scott_gonzalez> that could just be updated to copy everything
+[07:34:15] <scott_gonzalez> not just two props
+[07:34:34] <scott_gonzalez> that's kind of what I've wanted for several years
+[07:34:55] <DaveMethvin> that is basically moving fix to the constructor?
+[07:35:44] <DaveMethvin> there probably IS some better way to refactor that
+[07:36:18] <scott_gonzalez> yeah, I've wanted to "re-fix" events
+[07:36:30] <scott_gonzalez> but I think the straight copy would work better
+[07:36:48] <DaveMethvin> well fix could just limit itself to truly fixing the properties, and the constructor's job could be to copy them
+[07:37:05] <DaveMethvin> b/c there is no reason to try and fix an event twice
+[07:37:33] <scott_gonzalez> right
+[07:37:44] <DaveMethvin> also i don't think we want to slow down a simple .trigger( "custom" ) by adding a loop that copies things that aren't there
+[07:37:53] <DaveMethvin> so we'd need to be careful of that
+[07:38:09] <DaveMethvin> but we already have the new fixHooks logic that would apply there now
+[07:39:36] <DaveMethvin> alrighty then, the main thing left on that ticket is whether we should be copying over the mouse properties on drag/drop events
+[07:39:42] <danzik171> sure, but you'd only use the loop logic if the src was an object and it maybe had a .stopPropagation property or something - that wouldn't slow that down then, right?  ( was working on something like this back for the drag event properties )
+[07:40:27] <DaveMethvin> danzik171: yeah i think we could figure out whether it was a native event or not and save some time
+[07:42:40] <jaubourg> I wonder who's this guy who broke events in jQuery... I DEMAND TEH PRODUCT BE FIEXED!!!
+[07:42:48] <jaubourg> and oh hai!
+[07:43:13] <DaveMethvin> "Thank you for calling jQuery technical support. All our representatives are busy blowing off other customers. Please stay on the line so  you can be disconnected after 20 minutes."
+[07:43:22] <jaubourg> hahaha
+[07:43:35] <jaubourg> man, it's just so customer services
+[07:44:20] <scott_gonzalez> DaveMethvin: we wouldn't slow down .trigger( "custom" )
+[07:44:38] <scott_gonzalez> the conditional already checks for the parameter to be an object and not a string
+[07:45:39] <DaveMethvin> yep, you're right
+[07:46:03] <DaveMethvin> so if it has an object we could just copy over the non-prototyped properties
+[07:46:29] <DaveMethvin> you could still pass in an object to add more props
+[07:47:00] <DaveMethvin> it would just be the creator's responsibility to fake whatever might be needed for that event since it wouldn't go through fix
+[07:47:06] <timmywil> DaveMethvin: actually, I fixed this issue in attr docs#10844
+[07:47:15] <timmywil> ugh, bot
+[07:47:22] <timmywil> http://jqbug.com/10844
+[07:47:27] <DaveMethvin> timmywil: yep you did, the one with #id?
+[07:47:32] <DaveMethvin> WAKE UP BOT
+[07:47:32] <timmywil> yea
+[07:47:47] <DaveMethvin> i will have to copy that to quickIs, yeah :(
+[07:48:04] <scott_gonzalez> yeah, I think that's good
+[07:48:10] <jaubourg> "But this was working with jQuery v1.6.4, after upgrading to v1.7 it's broken."
+[07:48:35] <DaveMethvin> stop taunting the browser!
+[07:48:45] <jaubourg> haha
+[07:48:46] <timmywil> on a form, elements can be accessed by property notation, by spec. If you get id the same way you got class...
+[07:48:50] <DaveMethvin> right
+[07:49:11] <DaveMethvin> i never got class
+[07:49:17] <DaveMethvin> ain't got no class
+[07:49:32] <jaubourg> you're the classiest person I ever met Dave
+[07:49:48] <jaubourg> and funniest too
+[07:49:50] <DaveMethvin> awwww
+[07:50:01] <timmywil> hence we had to sing a song about you
+[07:50:01] <jaubourg> true
+[07:50:05] <jaubourg> heh
+[07:50:20] <DaveMethvin> so scott_gonzalez your take on whether we need to copy the mouse props for drag/drop events? are you in need of the dataTransfer property on those events?
+[07:51:16] <scott_gonzalez> we never use native events
+[07:51:26] <scott_gonzalez> errr....we never use native drag/drop events
+[07:51:32] <DaveMethvin> i didn't see you were but i wanted to be sure
+[07:51:43] <scott_gonzalez> they're actually problematic for us
+[07:51:54] <scott_gonzalez> and we need to change our event names because of them
+[07:52:02] <scott_gonzalez> we're probably changing to draggable:drag
+[07:52:18] <DaveMethvin> draggable rag lol
+[07:52:34] <scott_gonzalez> or more generally, plugin:action
+[07:52:36] <DaveMethvin> colonizing them is a good idea
+[07:52:58] <DaveMethvin> or underscore or dash
+[07:53:05] <scott_gonzalez> yeah, I'm trying to get the DOM spec to forbid colons in native events
+[07:53:24] <DaveMethvin> a lot of MVC guys use colons as well
+[07:53:44] <scott_gonzalez> yeah, it's the most common naming convention I know
+[07:53:52] <scott_gonzalez> and we need something that is future proof
+[07:53:59] <DaveMethvin> there are a few places in the event system in core where it has to do special things based on the name, so a custom name of click is definitely risky
+[07:54:12] <DaveMethvin> drag, drop, load, etc
+[07:55:19] <scott_gonzalez> hmm....
+[07:55:40] <scott_gonzalez> could I just say if the property doesn't exist on the new event, then copy it over?
+[07:55:55] <scott_gonzalez> that seems like it should do the same thing
+[07:56:02] <scott_gonzalez> plus keep anything that $.Event might do
+[07:58:37] <DaveMethvin> scott_gonzalez: yeah, since it will see the prototype property?
+[07:58:43] <scott_gonzalez> yeah
+[07:58:49] <DaveMethvin> dunno if the isDefaultPrevented affects you or not
+[07:59:16] <DaveMethvin> really seems like when you're changing the event type that might not be appropriate
+[08:01:05] <DaveMethvin> oh, and i remember why that was put in ... a jQuery.Event is constructed in the native event handler out of the native event, which may have default prevented .... but shoudln't ever have propagation stopped (that's a "how did i get here then" thing)
+[08:01:54] <DaveMethvin> but maybe that belongs in the native event handler instead of here in the constructor
+[08:03:11] <scott_gonzalez> yeah, I feel like we should probably always start with it not being prevented
+[08:03:19] <scott_gonzalez> but so far seems like we haven't run into any issues
+[08:03:32] <scott_gonzalez> probably just because we catch the original event so early and we're the first to handle it
+[08:03:42] <DaveMethvin> that would be my guess too
+[08:09:43] <scott_gonzalez> haha, is there any reason not to reduce this? https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.widget.js#L402-404
+[08:09:54] <scott_gonzalez> that could just be [ event ].concat( args ), right?
+[08:10:01] <scott_gonzalez> s/args/data/
+[08:11:28] <DaveMethvin> scott_gonzalez: yeah i wondered about that too but was too chicken to change it
+[08:11:47] <scott_gonzalez> heh, I clearly just wasn't thinking
+[08:11:54] <scott_gonzalez> I'm pretty sure it came from a pull request
+[08:12:51] <scott_gonzalez> a little part of me died inside when I accepted that change
+[08:12:51] <scott_gonzalez> it allows people to pass multiple parameters to events
+[08:12:59] <scott_gonzalez> which breaks one of the patterns that the widget factory creates
+[08:14:50] <scott_gonzalez> https://github.com/jquery/jquery-ui/commit/91ef69d7503f11f2b6223b9c0061fca51e3a006f
+[08:14:51] <socialhapy> ★ Commit on jquery-ui by scottgonzalez (33.897s ago): Widget: Don't use $.event.props when creating events.
+[08:15:26] <DaveMethvin> you should have been a hardass and said, pass your own damn array
+[08:16:52] <scott_gonzalez> heh, the problem is that he was passing an array
+[08:17:05] <scott_gonzalez> and it worked as he expected for the events
+[08:17:05] <scott_gonzalez> b
+[08:17:08] <scott_gonzalez> but not for the callback
+[08:17:21] <scott_gonzalez> since we invoke the callback and just pass the data param as a normal param
+[08:17:36] <scott_gonzalez> that's why we do the normalization after we trigger the event but before we trigger the callback
+[08:17:53] <scott_gonzalez> and it was only because there was inconsistency that I landed the change
+[08:20:13] <timmywil> SlexAxton: yt?
+[08:20:44] <timmywil> just making sure I'm not crazy.  require.ready was removed?
+[08:21:55] <timmywil> i guess the point is that all dependencies of dependencies are now guaranteed to be loaded before execution
+[08:23:20] <scott_gonzalez> so DaveMethvin, is this something I need to merge into 1-8-stable?
+[08:23:28] <scott_gonzalez> it shouldn't matter, right?
+[08:23:41] <scott_gonzalez> I can just keep copying $.event.props in 1.8.x
+[08:23:53] <scott_gonzalez> we won't get all the properties for some specific events
+[08:23:56] <DaveMethvin> except...since we have other props in keyHooks and mouseHooks you won't get those
+[08:24:08] <scott_gonzalez> hmm...ok
+[08:24:16] <scott_gonzalez> so I should do this in 1-8-stable also
+[08:24:18] <DaveMethvin> i suspect you'll need to put it in the stable branch
+[08:24:19] <DaveMethvin> yeah
+[08:24:22] <scott_gonzalez> ok
+[08:31:26] <timmywil> SlexAxton: nvm, found it in the notes
+[08:33:43] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/DZUGcA
+[08:33:43] <jqcommit> [jquery/master] Fix #10844. Harden quickIs() against form-aliasing of the id property. - Dave Methvin
+[08:37:08] <timmywil> DaveMethvin: I wonder if we could support attributes with that
+[08:37:15] <timmywil> eh, don't do that
+[08:37:39] <DaveMethvin> i think attributes were only like 10% more of the common cases anyway
+[08:37:52] <DaveMethvin> most selectors are id, tag, or class
+[08:41:54] <timmywil> yea
+[08:42:06] <timmywil> and i'd like to remove the need for quickIs
+[08:43:39] <DaveMethvin> yep, agreed, and we prolly can if we do some sort of caching of parsed selectors in sizzle.matchesSelector
+[08:43:59] <jaubourg> dang
+[08:44:10] <jaubourg> ok guys, I won't be at the meeting :|
+[08:44:25] <jaubourg> damnit, it's like this timeslot is cursed or something
+[08:45:57] <timmywil> DaveMethvin: I don't think there's a need if we have tagOnly, idOnly, and classOnly regexes
+[08:46:12] <timmywil> and remove matchesSelector
+[08:46:21] <timmywil> native that is
+[08:46:43] <jq-jenkins> Project jQuery build #212: STILL FAILING in 1 min 24 sec: http://swarm.jquery.org:8080/job/jQuery/212/
+[08:46:44] <jq-jenkins> dave.methvin: Fix #10844. Harden quickIs() against form-aliasing of the id property.
+[08:46:47] <DaveMethvin> you'll have to bench it, i was seeing that the regexp really cut into the perf benefit
+[08:47:06] <timmywil> which regexp?
+[08:47:12] <timmywil> we don't have them yet
+[08:47:14] <DaveMethvin> the quickIs regexp
+[08:47:53] <DaveMethvin> that is, checking against a regexp for each time someone called matchesSelector was a lot slower than parsing the first time and then caching that for later calls
+[08:48:25] <timmywil> ah
+[08:49:11] <timmywil> i see, well checking it's presence in a cache is quicker than going through 4 regexes
+[08:49:16] <timmywil> that is true
+[08:49:35] <timmywil> hmmmmm
+[08:49:39] <DaveMethvin> yeah and i was only going through one regexp
+[08:49:44] <timmywil> but that doesn't seem necessary for regular selections
+[08:50:04] <timmywil> well, it could be 2
+[08:50:08] <DaveMethvin> oh i better get us an agenda
+[08:50:09] <timmywil> actually
+[08:50:24] <timmywil> one for tag#id.class and the chunker
+[08:51:23] <timmywil> but it may turn out to be 3 or 4 depending on what else needs to be done, but the point is to skip the chunker if possible
+[08:53:25] <timmywil> I suppose if it's simple enough, the parsing cache could be used for everything
+[08:53:45] <timmywil> especially since matchesSelector uses the main function with an extra arg
+[08:54:18] <timmywil> I don't see it adding much, but it wouldn't hurt either
+[08:54:24] <DaveMethvin> and i think we'd want  to limit the cache there so it wouldn't grow without bounds
+[08:54:27] <timmywil> adding much to selections that is
+[08:54:31] <DaveMethvin> like 50-100 max
+[08:54:42] <timmywil> good point
+[08:54:51] <DaveMethvin> that's always been an issue with the frag cache
+[08:55:14] <DaveMethvin> it makes the benchmarks fast but it eats up memory
+[08:55:27] <timmywil> maybe it can act more like a queue
+[08:55:43] <DaveMethvin> yeah but then you have to figure what to throw out
+[08:55:57] <timmywil> first in last out
+[08:56:03] <DaveMethvin> i am hoping when we look at createContextualFragment or insertAdjacentHTML they will replace the frag cache
+[08:56:09] <DaveMethvin> how do you know what's first in tho
+[08:56:13] <DaveMethvin> you'd need a queue
+[08:56:19] <timmywil> i just said that
+[08:56:24] <DaveMethvin> morememory
+[08:56:32] <DaveMethvin> and overhead to manage
+[08:56:42] <timmywil> how's that?
+[08:56:55] <DaveMethvin> how do you get rid of the first?
+[08:57:00] <DaveMethvin> x.shift()?
+[08:57:16] <timmywil> last, but delete probably
+[08:57:34] <DaveMethvin> push/pop are cheap but i think shift/unshift are expensive
+[08:57:37] <timmywil> i'm just thinking out loud
+[08:57:42] <DaveMethvin> last i looked but that was several years ago
+[08:57:46] <DaveMethvin> yeah just brainstorming
+[08:58:00] <timmywil> well, it can't be an array right?
+[08:58:04] <DaveMethvin> that's why im hoping createContextualFragment or insertAdjacentHTML save us
+[08:58:09] <timmywil> we need associative keys
+[08:58:13] <DaveMethvin> so we don't need the frag cache at all
+[08:58:22] <DaveMethvin> right i think we'd need the queue on top of the hash
+[08:58:27] <timmywil> oh, im still on parsed selection cache
+[08:58:32] <DaveMethvin> oh
+[08:58:33] <DaveMethvin> lol
+[08:58:43] <timmywil> hehe
+[08:58:56] <DaveMethvin> for that i was thinking that the first 50 or so would be fine and then we just stop saving them
+[08:59:00] <timmywil> i'm hoping the same for frag cache
+[08:59:07] <DaveMethvin> yeah that could be too
+[08:59:27] <timmywil> you don't think we should have the most recent 50 or so cached?
+[08:59:34] <DaveMethvin> if someone is using a lot of unique selectors and/or fragments we might be better to give up once we reach some point
+[08:59:37] <timmywil> after 50 selections, performance would drop
+[08:59:44] <DaveMethvin> rather than try to manage a big list
+[08:59:55] <timmywil> it depends on the overhead of managing that list
+[09:00:06] <DaveMethvin> right this is definitely something to bench
+[09:00:11] <DaveMethvin> whoops better go to the meeting
+[09:00:15] <timmywil> kk
+[09:01:06] <DaveMethvin> ugh, i don't have sysop on that channel
+[09:01:08] <DaveMethvin> gnarf?
+[09:02:02] <ajpiano> yes you do
+[09:02:25] <timmywil> i just did it
+[09:29:32] <timmywil> bbs
+[09:29:40] <DaveMethvin> yep, lunch 4 me
+[09:32:24] <mikesherov> should I add a ticket for the isLocal thing?
+[09:32:50] <ryanneufeld> can someone help me understand why this is invalid:
+[09:32:54] <ryanneufeld> ?10836
+[09:33:02] <ryanneufeld> http://bugs.jquery.com/ticket/10836
+[09:33:20] <ryanneufeld> So because one promise fails, all the successes are thrown away? Sounds like a "throw the baby out with the bath water" situation.
+[09:38:38] <ryanneufeld> ?tell jaubourg Can you expand on why this is invalid? http://bugs.jquery.com/ticket/10836  I don't fully grok why it works the way it does
+[09:40:47] <danzik171> DaveMethvin: timmywil :  here's an (untested) idea i wrote up real quick for your selector cache - uses the idea of dual caches with a couple of threshholds - https://gist.github.com/1383281
+[09:41:32] <danzik171> that way "common" selectors are still always cached with a "young" cache that has a max limit on what's in it
+[09:47:02] <ajpiano> http://twitter.com/#!/taitems/status/138469743391817728 :(
+[09:47:03] <socialhapy> ★ Tweet from taitems: Do the @jquery team do unit tests? Stuff like this is sloppy and should have been picked up by automation, right? http://t.co/GOrYUL2q ★ http://bit.ly/uXupUg
+[09:51:03] <SlexAxton> some days i cannot help but feed trolls
+[09:51:04] <SlexAxton> https://twitter.com/#!/SlexAxton/status/138675688331952128
+[09:51:05] <socialhapy> ★ Tweet from SlexAxton: @taitems @jquery is an open-source project - I'm they'd love you to add this unit test to the other couple thousand: http://t.co/scdngOeV ★ http://bit.ly/rIOBMZ
+[09:51:31] <rwaldron> speaking of which...
+[09:51:39] <rwaldron> have we figured out where the missing tests are?
+[09:51:55] <rwaldron> we were >6200 during the 1.7rc push
+[09:52:03] <rwaldron> and now ~5700
+[09:52:13] <rwaldron> seems like an entire module isn't running?
+[09:52:20] <rwaldron> but which?
+[09:53:33] <rwaldron> DaveMethvin timmywil did I misunderstand, are we going to land those tickets?
+[09:53:43] <rwaldron> er. PRs i meant
+[09:54:21] <DaveMethvin> yeah i think so, after lunch
+[09:54:42] <rwaldron> ok cool
+[09:54:51] <SlexAxton> My consultant told me to always land pull requests at 4pm on fridays
+[09:54:57] <SlexAxton> there's less of a scene
+[09:58:39] <rwaldron> DaveMethvin timmywil gnarf http://twitter.com/#!/rwaldron/status/114437968101511168
+[09:58:40] <socialhapy> ★ Tweet from rwaldron: jQuery has passed 6000 unit tests. ★ http://bit.ly/uMHZaj
+[09:58:47] <rwaldron> I knew I wasn't crazy
+[09:59:12] <DaveMethvin> how do you KNOW you're not crazy
+[09:59:22] <DaveMethvin> oh you mean the test count thing?
+[09:59:25] <rwaldron> yeah
+[09:59:34] <rwaldron> i remember i posted that
+[09:59:34] <DaveMethvin> well that's a different mystery
+[09:59:47] <rwaldron> and then during early 1.7rc, we were at 6200
+[09:59:49] <rwaldron> ish
+[09:59:53] <rwaldron> we've lost 500 tests
+[10:00:26] <DaveMethvin> i know i removed a few when i pulled out some functionality in quickIs but that shoul have been maybe 20 or so
+[10:01:25] <DaveMethvin> generally we are adding more on each bug fix, but sometiimes it is only 1 or 2
+[10:02:07] <rwaldron> yeah, but not losing 500
+[10:05:31] <rwaldron> i think it might've been the removal of iterated object properties from test loops in test/unit/callbacks.js
+[10:05:43] <rwaldron> not sure...
+[10:09:04] <kswedberg> DaveMethvin: the call for 1.8 suggestions post looks good. I just tweaked a couple things in the google doc.
+[10:09:15] <DaveMethvin> kswedberg: thanks!
+[10:09:25] <kswedberg> np.
+[10:25:28] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/G5fS7g
+[10:25:28] <jqcommit> [jquery/master] Landing pull request 611. Adds Contributing to jQuery Guidelines section to readme. Fixes #10611. - Rick Waldron
+[10:27:16] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/dxRA9g
+[10:27:16] <jqcommit> [jquery/master] Landing pull request 581. Updates original patch by Orkel. Fixes #10006. - Rick Waldron
+[10:41:02] <jq-jenkins> Project jQuery build #213: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery/213/
+[10:41:02] <jq-jenkins> timmywillisn: Landing pull request 611. Adds Contributing to jQuery Guidelines section to readme. Fixes #10611.
+[10:42:05] <jq-jenkins> Project jQuery build #214: STILL FAILING in 57 sec: http://swarm.jquery.org:8080/job/jQuery/214/
+[10:42:06] <jq-jenkins> timmywillisn: Landing pull request 581. Updates original patch by Orkel. Fixes #10006.
+[10:43:32] <timmywil> hmm http://cl.ly/2x2a2o3E0R450Y11222b
+[10:45:44] <DaveMethvin> timmywil: when did that start happening?
+[10:46:04] <DaveMethvin> i think it was caused by rwaldron changing the readme
+[10:46:07] <timmywil> not sure
+[10:46:12] <timmywil> ha, yea
+[10:47:03] <DaveMethvin> i have a bug with ie change simulation that just got filed, imma try to get that one in but i may push it if it seems too complicated
+[11:12:55] <DaveMethvin> timmywil: wanna see something bizarre?
+[11:13:08] <DaveMethvin> http://jsfiddle.net/KUTmS/8/ try that in ie7 or ie8
+[11:13:20] <DaveMethvin> then change the .attr to .prop
+[11:21:58] <timmywil> DaveMethvin: nothing's happening
+[11:22:05] <timmywil> should there be?
+[11:22:14] <DaveMethvin> the check box should toggle
+[11:22:17] <DaveMethvin> but it doesn't
+[11:22:21] <DaveMethvin> unless you change it to .prop
+[11:22:38] <timmywil> toggles for me
+[11:23:10] <timmywil> the change event doesn't do anything tho
+[11:23:40] <timmywil> ah, well, "input[type=checkbox" won't select anything
+[11:24:11] <DaveMethvin> you know what's funny about that? it works in ie8
+[11:24:20] <DaveMethvin> that's why i didn't notice it
+[11:24:27] <DaveMethvin> they "auto fix" missing ]
+[11:24:50] <DaveMethvin> and now its broken
+[11:25:03] <DaveMethvin> the way i expect it to be broken that is :P
+[11:25:33] <DaveMethvin> so i think this has something to do with the simulated change event but I don't quite understand why attr and prop would behave differently
+[11:25:47] <DaveMethvin> i have a meeting tho, gotta go
+[11:26:13] <DaveMethvin> this can prolly wait for 1.7.2 now that i have seen it and there is a workaround (use .prop as you should)
+[11:26:25] <timmywil> weird, it doesn't even select the checkbox
+[11:26:49] <timmywil> DaveMethvin: agreed, I'm not even sure we can fix this
+[11:27:11] <timmywil> oh DaveMethvin
+[11:27:17] <timmywil> the checkbox has the same name
+[11:27:34] <timmywil> that must be some internal IE thing
+[11:27:46] <DaveMethvin> oh goody
+[11:46:20] <gibson042> independent of jQuery, IE clears the checkbox on selection of either radio button because of matching name attribute
+[11:47:31] <ajpiano> timmywil: DaveMethvin http://bugs.jquery.com/ticket/10263#comment:8
+[11:48:00] <ajpiano> i noticed that something still seemed broken when i was putting my slides together last week
+[11:48:16] <ajpiano> forgot to mention it though
+[11:48:19] <ajpiano> ... until now
+[11:50:06] <timmywil> gibson042: http://bugs.jquery.com/ticket/10840#comment:5
+[11:53:34] <rwaldron> i dont get it...
+[11:53:35] <rwaldron> https://github.com/jquery/jquery/pull/612
+[11:53:35] <socialhapy> ★ Pull request on jquery by Orkel (5m, 24s ago): Refactoring for better compress
+[11:53:46] <rwaldron> why doesnt homeboy just join us in here
+[11:53:52] <rwaldron> or work on tickets
+[11:54:02] * rwaldron bangs head against wall
+[11:54:54] <timmywil> ajpiano: yea, there's some issue there, but technically, there is no indication for toggling http://jsfiddle.net/timmywil/F5sTJ/2/
+[11:55:15] <timmywil> state tracking is only automatic if the value for the property being animated is 'toggle'
+[11:55:30] <timmywil> otherwise, it's user driven power
+[11:56:55] <timmywil> otherwise, the code is really doing exactly what the user is telling it to do
+[11:57:39] <ajpiano> so we're saying "if you're using a toggle animation, you don't have to use stop anymore?'
+[11:58:16] <timmywil> no, we're saying state tracking associated with stop is not triggered unless it is a toggled animation where jQuery must make calculations for the user
+[12:01:23] <timmywil> there is no indication that the user desires a toggled animation unless we are told that it is a toggled animation, in which case we treat stop differently.
+[12:02:40] <timmywil> otherwise, we'd have to do much more complex calculations to predict whether we need to treat some animation like a toggled animation, and then we'd have bug reports about being wrong in those predictions.
+[12:03:10] <ajpiano> i assume this falls into the exact same bucket?
+[12:03:14] <ajpiano> http://jsfiddle.net/ajpiano/gqZL5/65/
+[12:04:24] <timmywil> ajpiano: that looks right. I'm not sure what you're getting at there.
+[12:04:35] <ajpiano> if i click that fast enough, eventually the height gets destroyed
+[12:04:47] <timmywil> orly?
+[12:05:02] <ajpiano> http://ajpiano.com/cap/9fc2a0.png
+[12:05:04] <timmywil> man, i'm clicking as fast as i can
+[12:05:34] <ajpiano> it's weird, it's not even an "as fast as you can" type thing - it definitely involves fast clicking but like, at a particular moment in the animation, ithnk
+[12:05:48] <ajpiano> yeah
+[12:06:00] <ajpiano> like, if, RIGHT as it finishes being slide up, you click real fast
+[12:06:12] <ajpiano> it'll slide back down to the wrong height and get borked
+[12:06:35] <timmywil> ahh, yea i see now
+[12:06:56] <timmywil> yea, that's a bug
+[12:07:03] <ajpiano> probably a bit easier to see with this than with focus and blur on some text
+[12:07:19] <ajpiano> but my guess is the two issues are related
+[12:08:07] <timmywil> well, the focus/blur isn't doing a toggle, so that's different. but you could probably reproduce it with some focus/blur events.
+[12:08:24] <ajpiano> it isn't?
+[12:08:51] <timmywil> http://jsfiddle.net/F5sTJ/1/ < no toggle
+[12:08:59] <timmywil> http://jsfiddle.net/timmywil/F5sTJ/2/ < toggle
+[12:09:19] <ajpiano> ohh, i was only looking at your fiddle
+[12:09:33] <timmywil> ah
+[12:10:09] <timmywil> but yea, i can reproduce there too
+[12:11:01] <ajpiano> ah, ok, good
+[12:11:13] <ajpiano> yeah, i totally get your point about if you're using slideUp and slideDown
+[12:11:26] <ajpiano> but as long as we sniffed out the existing issue with toggle i'm happy
+[12:20:34] <timmywil> ajpiano: http://bugs.jquery.com/ticket/10848
+[12:21:33] <ajpiano> cool
+[12:21:50] <ajpiano> can you reply to 10263 about the toggle semantics?
+[12:42:59] <timmywil> oh sure
+[12:47:27] <timmywil> ajpiano: you think that's a needsdocs?
+[12:47:47] <ajpiano> i'd say so, otherwise we'll only get more qustions
+[12:47:55] <timmywil> ok
+[12:48:00] <ajpiano> thx much timmywil
+[12:59:11] <timmywil> no ty
+[13:01:00] <ajpiano> NO U
+[13:15:20] <wycats> hehe
+[13:38:55] <mikesherov> DaveMethvin: you here?
+[13:51:22] <mikesherov> bot-t: tell ?DaveMethvin to check his github inbox when he gets a chance
+[13:51:22] <bot-t> mikesherov, Invalid nick: "?DaveMethvin".
+[13:51:37] <mikesherov> bot-t: tell DaveMethvin to check his github inbox when he gets a chance
+[13:51:37] <bot-t> mikesherov, Okay.
+[15:44:34] <DaveMethvin> .
+[15:44:35] <bot-t> (10 hours 10 mins ago) <scott_gonzalez> tell DaveMethvin ping me about the click/drag bug when you're around
+[15:44:35] <bot-t> (1 hour 52 mins ago) <mikesherov> tell DaveMethvin to check his github inbox when he gets a chance
+[16:08:49] <Krinkle> Hey folks. I'm looking for an official blog post saying that jQuery switched to MediaTemplate for their own CDN. I did find an announcement about it being at Amazon S3 / CloudFront.
+[16:09:00] <Krinkle> To be used as reference in a Wikipedia article.
+[16:09:38] <Krinkle> At some point it was redirecting to googleapis also
+[16:11:20] <ajpiano> i'm not sure if one exists
+[16:15:00] <ryanneufeld> anyone hangin out in here?
+[16:15:27] <ajpiano> somewhart
+[16:15:42] <ryanneufeld> I was hoping someone could help me understand this: http://bugs.jquery.com/ticket/10836
+[16:15:56] <Krinkle> ajpiano: can you create one?
+[16:16:06] <Krinkle> I heard it was a donation, must be worth a post ?
+[16:16:09] <ajpiano> Krinkle: you want me to blog about something that took place in the past?
+[16:16:17] <ajpiano> like, a long time ago?
+[16:16:35] <Krinkle> hehe, well if you put it that way.. It doesn't have to be a blog post I guess. I note about it somewhere not related to time is good too.
+[16:16:36] <ajpiano> Krinkle: are you just looking for like a citation in a wikipedia article?
+[16:16:55] <Krinkle> s/"I note"/"A note"
+[16:17:05] <Krinkle> Like on code.jquery.org
+[16:17:11] <Krinkle> oh crap, it already says it there
+[16:17:18] <ajpiano> lol
+[16:17:24] <ajpiano> ?cc
+[16:17:25] <bot-t> CASE CLOASED >: |
+[16:17:31] <Krinkle> :)
+[16:22:38] <ajpiano> ryanneufeld: are you asking *why it is the case* that rejecting immediately causes the entire deferred to reject?
+[16:22:51] <ryanneufeld> yes
+[16:23:22] <ryanneufeld> perhaps it's the semantics of always, but it seems to me that it would make sense to also get the results of any resloved() promises as well
+[16:23:48] <ajpiano> i'm not sure at that point it knows which have or haven't been resolved
+[16:23:54] <ajpiano> yo'ud have to really ask jaubourg
+[16:23:56] <ryanneufeld> yeah
+[16:24:04] <ryanneufeld> I was hoping to
+[16:24:19] <ryanneufeld> but I get the sense that he's fairly protective of the deferreds
+[16:24:21] <ryanneufeld> lol
+[16:25:49] <ryanneufeld> I'm honestly just trying to grok the deferreds/promise stuff right now
+[16:26:11] <ryanneufeld> danheberden's preso on it durring the summit was really good
+[16:26:19] <ajpiano> i don't think it's so much protectiveness as much as parity
+[16:26:30] <ajpiano> with other implementations, and http://wiki.commonjs.org/wiki/Promises/A
+[16:26:33] <ajpiano> i'm not entirely sure of that
+[16:26:53] <ryanneufeld> ah
+[16:26:57] <ajpiano> kriszyp: might be able to help
+[16:27:37] <ryanneufeld> I probably just have hack some more code to get used to using it
+[16:27:48] <ryanneufeld> i can see a lot of uses for it in code we have in production now
+[16:27:53] <ryanneufeld> and in my personal stuff
+[16:27:58] <ajpiano> yeah, it's generally incredible
+[16:28:05] <ryanneufeld> yeah
+[16:28:13] <ajpiano> you understand *why* it is the case that you wouldn't have all the data in the first always() in a reject
+[16:28:30] <ajpiano> just not *why* reject causes the entire $.when to call its callback immediately?
+[16:28:31] <ryanneufeld> Actually, no, that's more my question
+[16:28:32] <ajpiano> right?
+[16:28:37] <ajpiano> or
+[16:28:49] <ryanneufeld> my understanding is that as soon as one promise rejects
+[16:28:57] <ryanneufeld> it just fails()
+[16:29:01] <ryanneufeld> right away
+[16:29:05] <ajpiano> right.
+[16:29:12] <ryanneufeld> why?
+[16:29:21] <ryanneufeld> if there is more than one
+[16:29:27] <ryanneufeld> and not all are bad
+[16:29:33] <ajpiano> that's what i was saying i don't know
+[16:29:43] <ryanneufeld> it just kinda seems like throwing the baby out with the bath water you know?
+[16:30:00] <ryanneufeld> (and that just made me sound old didn't it?)
+[16:30:11] <ajpiano> i am not sure that's an a propos analogy
+[16:30:18] <ajpiano> i'm also not sure if it isn't one
+[16:30:28] <ryanneufeld> well, effectively
+[16:30:37] <ryanneufeld> if you have four promises for example
+[16:30:43] <ryanneufeld> and three are good, and one fails
+[16:30:48] <ryanneufeld> you lose the three good ones
+[16:31:09] <ryanneufeld> unless you pipe the failures into resolves again
+[16:32:40] <ajpiano> if you want a wishy washy, intuition based explanation it's like the difference between && and ||
+[16:33:00] <ajpiano> a promise is saying, for this to have completed successfuly, everything IN IT has to have completed sucessfuly
+[16:33:10] <ajpiano> the second any of them fails, the entire construct has failed
+[16:33:18] <ajpiano> so therefore, the jig is up
+[16:33:37] <ryanneufeld> i see
+[16:33:40] <ryanneufeld> that does make sense
+[16:33:53] <Krinkle> ajpiano: http://en.wikipedia.org/wiki/JQuery#Including_the_library
+[16:34:00] <Krinkle>  jQuery has a CDN sponsored by Media Temple[11] (previously at Amazon[12]). Google [13] and Microsoft host it as well.
+[16:34:18] <ajpiano> ah
+[16:34:46] <Krinkle> even tough you had it for almost 2 years, it was never included in the WP article
+[16:34:49] <Krinkle> though*
+[16:34:58] <ajpiano> danke schön
+[16:35:10] <Krinkle> not shocking important, but since it did mention G/MS
+[16:35:13] <Krinkle> thought I'd add that :)
+[16:35:52] <ryanneufeld> thanks ajpiano I'd better get back to work, distraction mode disengage!
+[16:35:57] <ajpiano> hehe!
+[16:36:08] <ajpiano> ok, glad i was able to say something of use
+[16:36:51] <ajpiano> ryanneufeld: to go back to your "analogy"
+[16:37:00] <ajpiano> if you had
+[16:37:33] <ajpiano> $.when( thereIsABaby(), theBathIsFull() ).always( emptyTheBathOfEverythingInsideOfItNoMatterWhat() )
+[16:37:44] <ajpiano> what if there is no baby :)
+[16:38:04] <ryanneufeld> :O
+[16:38:33] <ryanneufeld> :/ you.. but... what is... I don't even..
+[16:39:10] <Krinkle> without "()" I assume ?
+[16:39:34] * Krinkle doesn't know .when very well
+[16:39:43] <ryanneufeld> Krinkle: you're right
+[16:39:55] <ryanneufeld> ajpiano: okay, that clears it up for me
+[16:39:57] <ajpiano> $.when( thereIsABaby(), theBathIsFull() ).always( function( baby, water ) { /* can't assume i even got a baby */   } )
+[16:40:11] <ajpiano> and yes guys, no () in the always
+[16:41:41] <ryanneufeld> okay
+[16:42:06] <ryanneufeld> every "but what if..." I can think of can be addressed by not writing ass-hat  code
+[16:42:14] <ryanneufeld> I think I got it now
+[16:42:16] <ajpiano> exactly
+[16:42:16] <ryanneufeld> thansk
+[16:42:19] <ajpiano> :)
+[16:42:21] <ajpiano> sweet
+[16:42:38] <ryanneufeld> you know it's funny, I spend all day helping people in #jquery
+[16:42:49] <ryanneufeld> and the only people I have left to help me at the end of the day
+[16:42:52] <ryanneufeld> are the devs :P
+[16:42:53] <ryanneufeld> lol
+[16:43:23] <ajpiano> welcome to the party
+[16:43:25] <ajpiano> :D
+[16:43:26] <ryanneufeld> haha
+[16:43:30] <ajpiano> #storyofmylife
+[16:43:38] <ryanneufeld> yeah, like who do you go to when *you* need help
+[16:43:39] <ryanneufeld> ?
+[16:43:48] <ajpiano> i just walk the plank
+[16:44:05] <ryanneufeld> haha
+[16:44:08] <DaveMethvin> ajpiano needs help?
+[16:44:12] <DaveMethvin> we knew that.
+[16:44:16] <ajpiano> ryanneufeld: same deal though, initially showed up in #jquery cause i needed help
+[16:44:16] <ryanneufeld> hahah
+[16:44:22] <ajpiano> and here we are 4 years later :o
+[16:44:46] <ryanneufeld> yeah, I struggle with asking for help, I don't want to bother anyone
+[16:44:48] <DaveMethvin> ryanneufeld: yer thing with $.when ... I think the way to look at it is, how would you *like* it to work?
+[16:45:14] <DaveMethvin> and then i'll explain why it can't work that way :P
+[16:45:33] <ryanneufeld> DaveMethvin: well, I was thinking that you should still get any results from any resolved promises in always even if it's triggered by a fail
+[16:45:44] <ryanneufeld> I'm thinking though
+[16:45:50] <ryanneufeld> that cause it's async
+[16:45:52] <ryanneufeld> that's why
+[16:46:43] <DaveMethvin> can you write a fiddle with an example of how you want it to work?
+[16:47:04] <DaveMethvin> i think the main problem is that once something goes bad, all bets are off
+[16:47:09] <ryanneufeld> I can do you one better ;)
+[16:47:13] <ryanneufeld> ?10836
+[16:47:14] <bot-t> [#10836] $.when().always() only passes results of rejected promises (closed bug: invalid) - http://jqbug.com/10836
+[16:47:46] <ryanneufeld> to be clear, I'm not disputing it as a bug
+[16:47:56] <ryanneufeld> I just want to be sure I understand
+[16:47:56] <ajpiano> exactly... like, what do the arguments look like
+[16:48:16] <ajpiano> all it does is let you do function( baby, water ) { if (baby) { } }
+[16:48:19] <DaveMethvin> but your example expects everything to wait?
+[16:48:50] <ryanneufeld> yes...
+[16:49:04] <ryanneufeld> but after talking with ajpiano I'm starting to think that's silly
+[16:49:08] <DaveMethvin> but once something fails, that wouldn't be a good idea quite often
+[16:49:17] <DaveMethvin> like maybe the network is broken
+[16:49:29] <ajpiano> right, it just would let you handle the 'undefined' inside of always
+[16:49:31] <ryanneufeld> wouldn't that timeout and be a reject?
+[16:50:00] <DaveMethvin> the promise doesn't have the concept of a timeout
+[16:50:06] <DaveMethvin> so you could build something over it
+[16:50:14] <DaveMethvin> like, hey, how about a pipe? :P
+[16:50:14] <ryanneufeld> it seems to me now that if that's what I want, I should be handling my promises individually instead of with when
+[16:50:35] <ryanneufeld> or with pipe
+[16:50:45] <DaveMethvin> yeah, if you know just what you want to do on reject
+[16:50:52] <DaveMethvin> i think of reject as it all going to hell
+[16:51:08] <DaveMethvin> and actually prefer to resolve if it's something fixable
+[16:51:14] <ryanneufeld> S**t hit the fan, abort!
+[16:51:18] <DaveMethvin> right
+[16:51:31] <ryanneufeld> yeah, that's what I figure as well
+[16:51:43] <ryanneufeld> I've got it now
+[16:51:46] <DaveMethvin> in some ways i don't think we need reject you can always pass whatever you want as a return value
+[16:52:00] <DaveMethvin> it just complicates the code
+[16:52:18] <ryanneufeld> if that was the case, then always would work the way I suggested :p
+[16:52:29] <DaveMethvin> yeah see, we shoulda done it your way
+[16:52:34] <danzik17> as long as you can get at like deferred.state() in .done, then.....yea
+[16:52:49] <ryanneufeld> I shit you not, my shirts says "I'm right" on it today
+[16:52:51] <ryanneufeld> LOL
+[16:53:06] <DaveMethvin> it's like you are a fortune teller
+[16:53:19] <ryanneufeld> haha, I think it's fine the way it is honestly
+[16:53:25] <ryanneufeld> I just needed to understand it properly
+[16:53:36] <ryanneufeld> I don't like to use constructs I don't understand well enough to debug
+[16:54:14] <DaveMethvin> ok well i need to get 1.7.1 out now ... anybody have any last minute bugs?
+[16:54:32] <ryanneufeld> Can you make it purple?
+[16:55:02] <DaveMethvin> perhaps a lovely shade of blue
+[16:55:13] <ryanneufeld> I accept your terms
+[16:55:24] <ryanneufeld> and thanks btw
+[16:56:25] <DaveMethvin> sure, and i applaud your desire to actually know wtf you are doing, better than me most of the time
+[16:56:33] <DaveMethvin> well except for 1.7.1 of course, that's rock solid
+[16:56:51] <ryanneufeld> yeah, I always wait for the .1 release
+[16:57:09] <ryanneufeld> no one ever tests the first one enough find all the bugs
+[16:57:16] <ryanneufeld> just happens that way it seems
+[16:58:03] <DaveMethvin> normally we put out a .1 about a week later, jzaefferer was hollerin at me to get it out so he should be happy
+[16:58:22] <DaveMethvin> but we kept getting bugs every day so i didn't see a reason to put one out until the bugs died down
+[16:58:34] <ryanneufeld> yeah
+[16:58:37] <ryanneufeld> good idea
+[16:58:40] <ryanneufeld> do it when it's ready
+[16:58:49] <ryanneufeld> not when people think it should
+[16:59:17] <ryanneufeld> someone sent me money for helping them in #jquery the other day
+[16:59:28] <ryanneufeld> gonna donate it to jquery
+[16:59:59] <DaveMethvin> yay! or go make me a pizza: http://mashable.com/2011/11/21/dominos-ipad/
+[17:00:18] <ryanneufeld> Done
+[17:00:20] <ryanneufeld> donated
+[17:00:31] <ryanneufeld> not much, but it's something
+[17:00:38] <DaveMethvin> achievement unlocked: mushrooms!
+[17:00:51] <ryanneufeld> I feel guilty taking someones money for what I did
+[17:01:09] <ryanneufeld> All I did was open his code, and point out that he was using buttons where a link would be better
+[17:01:11] <DaveMethvin> you know we're only gonna spend it on beer when we get together, or maybe a new set of heels for ajpiano
+[17:01:24] <ryanneufeld> haha
+[17:01:29] <ryanneufeld> you guys in SF?
+[17:01:34] <DaveMethvin> haha, wheels! WHEELS!
+[17:01:45] <DaveMethvin> but heels would do
+[17:01:54] <DaveMethvin> ajpiano is in nyc, i am in baltimore
+[17:02:12] <ryanneufeld> spread out in case of disaster
+[17:02:13] <ryanneufeld> gotcha
+[17:02:17] <ryanneufeld> lol
+[17:02:40] <DaveMethvin> jquery survives nuclear attacks
+[17:03:17] <ryanneufeld> indeed
+[17:03:43] <ryanneufeld> I have to say though, it's pretty incredible that the team does what it does
+[17:03:59] <ryanneufeld> I wish I had a job where I had time to contribute to OSS
+[17:04:07] <ryanneufeld> instead of just using it
+[17:04:40] <DaveMethvin> hey do what you can, even if it's just helping people use it that's good
+[17:05:19] <ryanneufeld> I figure it's a good use of my time
+[17:05:27] <ryanneufeld> and I always learn a little when I help someone
+[17:05:43] <ryanneufeld> which only makes it more frustrating when I can't find an answer :P
+[17:09:48] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/u6R5eg
+[17:09:48] <jqcommit> [jquery/master] Update release notes version. - Dave Methvin
+[17:10:22] <DaveMethvin> ?swarm
+[17:10:22] <bot-t> Swarm Status: http://swarm.jquery.org/user/jquery/ http://swarm.jquery.org/user/jqueryui/ http://swarm.jquery.org/user/qunit/ http://swarm.jquery.org/user/jquerycolor/ -- Jenkins http://swarm.jquery.org:8080
+[17:11:01] <jq-jenkins> Project jQuery build #215: STILL FAILING in 1 min 4 sec: http://swarm.jquery.org:8080/job/jQuery/215/
+[17:11:02] <jq-jenkins> dave.methvin: Update release notes version.
+[17:15:46] <DaveMethvin> hey rwaldron
+[17:17:00] <rwaldron> hey DaveMethvin
+[17:17:11] <DaveMethvin> just about ready to go for 1.7.1
+[17:17:15] <rwaldron> nice
+[17:17:18] <DaveMethvin> tryna figure out the swarm fails
+[17:17:27] <rwaldron> link?
+[17:17:30] <DaveMethvin> they seem to have started with this commit but i can't see why
+[17:17:34] <DaveMethvin> https://github.com/jquery/jquery/commit/299bc655c90cc89652417675f976ae1bfefc4d8b
+[17:17:35] <socialhapy> ★ Commit on jquery by timmywil (6h, 51m ago): Landing pull request 581. Updates original patch by Orkel. Fixes #10006.More Details: - https://github.com/jquery/jquery/pull/581 - http://bugs.jquery.com/ticket/10006
+[17:18:04] <rwaldron> link to fails?
+[17:18:28] <DaveMethvin> http://swarm.jquery.org/job/457/
+[17:19:34] <DaveMethvin> the tests seem to pass for me locally
+[17:19:53] <rwaldron> um...
+[17:19:55] <rwaldron> weird
+[17:20:05] <rwaldron> these dont appear to be directly related
+[17:20:12] <DaveMethvin> no they do not
+[17:20:25] <rwaldron> i'm sure you've been through all this
+[17:20:27] <DaveMethvin> the preceding commit was one for the readme, i blame that one
+[17:20:30] <DaveMethvin> lol
+[17:20:32] <rwaldron> hahaha
+[17:21:26] <DaveMethvin> yeah the fails were in chrome and ie9, works for me locally
+[17:22:06] <rwaldron> I see the same fails in Opera
+[17:22:12] <DaveMethvin> locally?
+[17:22:28] <rwaldron> no
+[17:22:31] <rwaldron> on swarm
+[17:22:41] <rwaldron> they're not really failures either...
+[17:22:47] <rwaldron> like the cleanup is not cleaning up
+[17:22:52] <DaveMethvin> yeah man i am starting to wonder if the swarm ahs some kindda prob
+[17:23:12] <rwaldron> have you ever clicked "re-run"?
+[17:23:20] <DaveMethvin> NO U
+[17:23:42] <rwaldron> REAL MATURE METHVIN
+[17:24:12] <DaveMethvin> damn still borked
+[17:24:18] <DaveMethvin> i sees  your operas
+[17:24:28] <DaveMethvin> lemme connect my ie9
+[17:25:27] <DaveMethvin> Y U FAIL IE9?
+[17:25:40] <rwaldron> we should modify the jQuery.cache cleanup test in testinit.js to actually tell us what the hell is in jQuery.cache
+[17:26:20] <rwaldron> BOOM
+[17:26:22] <rwaldron> found it
+[17:26:31] * DaveMethvin waits
+[17:26:35] * DaveMethvin wonders
+[17:26:41] <rwaldron> http://gyazo.com/dc5e770d20f8f0012d535cf4d624a111.png
+[17:26:58] <rwaldron> someshit is getting left behind somehow, somewhere
+[17:27:12] <rwaldron> possibly someone is creating an element, possibly its me
+[17:27:22] <DaveMethvin> oh well maybe it IS that commit
+[17:27:40] <DaveMethvin> https://github.com/jquery/jquery/commit/299bc655c90cc89652417675f976ae1bfefc4d8b yeah
+[17:27:40] <socialhapy> ★ Commit on jquery by timmywil (7h, 1m ago): Landing pull request 581. Updates original patch by Orkel. Fixes #10006.More Details: - https://github.com/jquery/jquery/pull/581 - http://bugs.jquery.com/ticket/10006
+[17:27:45] <rwaldron> I never remove that div or span
+[17:27:56] <rwaldron> let me do that
+[17:28:03] <rwaldron> and then we'll see what's up
+[17:28:29] <rwaldron> weird
+[17:28:30] <DaveMethvin> but why would it be different for the swarm? no sense it makes
+[17:28:47] <rwaldron> for some reason I thought stuff added to qunit-fixture was always cleaned up
+[17:28:51] <rwaldron> i agree
+[17:28:55] <rwaldron> but worth the try
+[17:29:57] <rwaldron> waaaait
+[17:30:01] <rwaldron> i didnt write these tests
+[17:30:17] <rwaldron> i did run them, with no problems though
+[17:30:22] <rwaldron> same as you
+[17:30:46] <DaveMethvin> oh it's not cleaning up the html and it's detached
+[17:30:51] <rwaldron> yeah
+[17:31:00] <DaveMethvin> so if the olddisplay is there it won't be cleaned up
+[17:31:14] <DaveMethvin> but that tells me it's not the code it's just the unit test
+[17:32:00] <DaveMethvin> well most of them are removed now that i look at it
+[17:32:07] <DaveMethvin> did he miss any?
+[17:33:29] <rwaldron> yeah
+[17:33:45] <rwaldron> i just added the correct (div|span).remove()
+[17:33:49] <rwaldron> for all missing lines
+[17:33:57] <DaveMethvin> no it actually looks like they are all .remove()d or appended to qunit-fixture tho weren't they?
+[17:34:03] <rwaldron> but why does this not fail locally?
+[17:34:13] <rwaldron> for you or me
+[17:34:22] <DaveMethvin> yeah i wondered
+[17:34:36] <rwaldron> https://github.com/jquery/jquery/pull/613
+[17:34:37] <socialhapy> ★ Pull request on jquery by rwldrn (6.285s ago): Ensure all elements are removed from 10006 test block
+[17:34:40] <rwaldron> shall we?
+[17:34:41] <DaveMethvin> does the display check work differently in the swarm?
+[17:35:18] <rwaldron> shouldnt?
+[17:36:06] <DaveMethvin> and why would it show up in callbacks?????
+[17:36:10] <DaveMethvin> and queue?
+[17:36:40] <ajpiano> danzik17: omg sorry
+[17:36:43] <ajpiano> misfocused right click
+[17:36:48] <ajpiano> iwill unban you right away
+[17:37:00] <danzik17> hah figured as much
+[17:37:50] <DaveMethvin> i dunno danzik17 that seemed like a freudian right-click to me
+[17:39:03] <DaveMethvin> so rwaldron that test is in effects and it's way far away from queue and callbacks
+[17:39:23] * rwaldron shrugs
+[17:39:34] <rwaldron> what is the worst that could happen?
+[17:39:38] <rwaldron> that it doesnt work?
+[17:39:46] <DaveMethvin> oh never say that... :D
+[17:40:02] <DaveMethvin> well if it DOES work someone has got a lot of splaining to do
+[17:40:14] <DaveMethvin> cause i don't understand how that could break it
+[17:40:19] <DaveMethvin> but it certainly does seem to have broken it
+[17:41:17] <rwaldron> would be nice to have a "dry run" for jenkins
+[17:41:43] <DaveMethvin> yeah
+[17:42:04] <rwaldron> "Excuse me Jenkins, ol' man - could we trouble you to run this set of tests before we commit to them completely?"
+[17:42:12] <rwaldron> "Right, right, good day then!"
+[17:43:06] <rwaldron> ahahahahaha
+[17:43:09] <rwaldron> ajpiano
+[17:43:10] <rwaldron> https://github.com/mythz/jquip/pull/6/files
+[17:43:11] <socialhapy> ★ Pull request on jquip by jeyb (22h, 42m ago): innerHTML wrappers
+[17:43:20] <rwaldron> GET YOUR FUCKIN' BLOAT ON
+[17:44:38] <ajpiano> hahah
+[17:46:03] <DaveMethvin> rwaldron: running a full test in chrome here just for kicks
+[17:46:16] <rwaldron> do it
+[17:46:18] <rwaldron> i did!
+[17:46:21] <rwaldron> it passed.
+[17:46:25] <rwaldron> shocking!!
+[17:46:29] <rwaldron> :O
+[17:47:33] <DaveMethvin> yep
+[17:47:55] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/EFFVSg
+[17:47:55] <jqcommit> [jquery/master] Ensure all elements are removed from 10006 test block - Rick Waldron
+[17:47:59] <DaveMethvin> eat that jerkins!
+[17:48:10] <rwaldron> ajpiano i did some digging
+[17:48:20] <rwaldron> and they added "jQuery" after the fact
+[17:48:40] <jq-jenkins> Project jQuery build #216: STILL FAILING in 38 sec: http://swarm.jquery.org:8080/job/jQuery/216/
+[17:48:41] <jq-jenkins> dave.methvin: Ensure all elements are removed from 10006 test block
+[17:48:49] <ajpiano> rwaldron: oh right
+[17:48:51] <rwaldron> ...to support some dude that wanted to use "jquip" with jQuery Colorbox
+[17:48:52] <rwaldron> https://github.com/mythz/jquip/issues/7
+[17:48:53] <socialhapy> ★ Issue #7 on jquip, reported by mgatto (3h, 47m ago): Working with jQuery Colorbox Plugin
+[17:48:57] <ajpiano> they added it because people using jQuery in their code expected it to work
+[17:49:01] <ajpiano> lol
+[17:49:02] <ajpiano> #fail
+[17:49:04] <rwaldron> so... i think that qualifies
+[17:49:16] <rwaldron> actually...
+[17:49:23] <rwaldron> DaveMethvin have you seen "jquip"
+[17:49:28] <DaveMethvin> yeah,
+[17:49:37] <DaveMethvin> i dunno what they hope to accomplish
+[17:49:40] <rwaldron> so, they're actually defining a "jQuery"
+[17:49:45] <rwaldron> and think that's bad news
+[17:49:50] <DaveMethvin> but note that they ADDED stuff
+[17:49:54] <rwaldron> and I'd like to at least file a ticket
+[17:50:07] <rwaldron> the whole thing is broken
+[17:50:17] <DaveMethvin> well if they have noconflict ... they do have noconflict, or is that bloaty too?
+[17:50:34] <rwaldron> Im worried that unknowing devs might encounter problems
+[17:50:50] <rwaldron> and see "jQuery"
+[17:50:54] <rwaldron> and blame jQuery
+[17:50:58] <DaveMethvin> if they are using jquip they are definitely unknowing
+[17:51:14] <rwaldron> there is no "noConflict"
+[17:51:15] <DaveMethvin> i am more concerned that is STILL FAILING
+[17:51:22] <rwaldron> fuck really?
+[17:51:29] <DaveMethvin> how important is that patch?
+[17:51:46] <rwaldron> pull it dude
+[17:51:57] <rwaldron> we can sort it out later
+[17:52:14] <rwaldron> i'd rather ship a confident 1.7.1
+[17:52:20] <DaveMethvin> yeah me too
+[17:53:21] <rwaldron> so... DaveMethvin what do you think... I'd like to file a ticket
+[17:53:26] <rwaldron> with "jquip"
+[17:53:30] <rwaldron> "Many micro libraries have cropped up in the last year, all of them claiming some level of compatibility with jQuery, but none of them actually use the jQuery variable - because they are not jQuery. Using the jQuery _Identifier_ variable is misleading to end developers and grossly misrepresents both your project and the jQuery project."
+[17:53:40] <ajpiano> DaveMethvin, they intend to accomplish "getting our attention"
+[17:53:56] <ajpiano> The primary goal of this project would be for the feedback/demand to kickstart jquery.com into re-organizing its code-base so it's more modular since we believe we've proved the most useful parts of jQuery is a fraction of its code-base.
+[17:54:59] <DaveMethvin> i have better things to do than to respond to trolls, i think we indicated more than a month ago that we wanted to deal with file size but chopping out random apis and bug fixes is not the right way to do it
+[17:55:21] <ajpiano> exactly
+[17:55:46] <ajpiano> so the question is ... do we get on them for actually calling it jQuery In Parts
+[17:56:01] <DaveMethvin> like how do we get on them?
+[17:56:26] <ajpiano> "stop calling this jQuery"
+[17:56:48] <DaveMethvin> sure
+[17:56:58] <DaveMethvin> it's not, it's chopped up parts of jquery
+[17:57:40] <rwaldron> well, that's all I'm saying
+[17:58:01] <rwaldron> they can do whatever-the-fuck-they-want, but they really shouldnt call it jQuery
+[17:58:09] <rwaldron> oh weird.
+[17:58:23] <rwaldron> i followed the author on twitter and he just followed me back
+[17:58:31] <rwaldron> like, within 60 seconds
+[17:59:02] <rwaldron> hm
+[17:59:06] <rwaldron> I wonder...
+[17:59:28] <rwaldron> yep
+[17:59:41] <rwaldron> he removed the Diego Perini credit
+[18:00:26] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/oGPcKg
+[18:00:26] <jqcommit> [jquery/master] Revert "Landing pull request 581. Updates original patch by Orkel. Fixes #10006." - Dave Methvin
+[18:00:29] <ajpiano> everyone knows jquery is just bloated up with comments attributing people's ideas roperly
+[18:00:40] <rwaldron> well...
+[18:00:58] <rwaldron> Diego actually gets pissed
+[18:01:14] <DaveMethvin> ?swarm
+[18:01:14] <bot-t> Swarm Status: http://swarm.jquery.org/user/jquery/ http://swarm.jquery.org/user/jqueryui/ http://swarm.jquery.org/user/qunit/ http://swarm.jquery.org/user/jquerycolor/ -- Jenkins http://swarm.jquery.org:8080
+[18:01:25] <rwaldron> considering whatever amount of insane labors he put into findng that hack
+[18:01:32] <rwaldron> he deserves the credit
+[18:03:16] <rwaldron> DaveMethvin ajpiano this is interesting... https://news.ycombinator.com/item?id=3260730
+[18:03:41] <rwaldron> overwhelmingly in favor of "I use jQuery because it just works"
+[18:04:11] <DaveMethvin> also notice the one zepto guy wasn't after size, he was after speed
+[18:04:18] <rwaldron> yeah
+[18:04:18] <DaveMethvin> i think our support.js stuff needs work
+[18:04:23] <DaveMethvin> and lazy eval
+[18:04:24] <rwaldron> definitely
+[18:04:42] <rwaldron> that will give considerable improvement
+[18:04:51] <rwaldron> so, should i post that "ticket"
+[18:04:55] <rwaldron> I'd like to
+[18:05:02] <DaveMethvin> memory leak gone
+[18:05:05] <rwaldron> I'd feel better if we at least say "we tried"
+[18:05:13] <DaveMethvin> i reopened the ticket with a note
+[18:05:39] <rwaldron> which?
+[18:05:41] <rwaldron> 10006?
+[18:05:52] <DaveMethvin> yep
+[18:06:52] <rwaldron> ajpiano...?
+[18:06:56] <rwaldron> stop avoiding me
+[18:16:00] <jq-jenkins> Project jQuery build #217: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery/217/
+[18:16:00] <jq-jenkins> dave.methvin: Revert "Landing pull request 581. Updates original patch by Orkel. Fixes #10006."
+[18:17:07] <rwaldron> DaveMethvin ^^^
+[18:18:00] <DaveMethvin> wehere's he fail?
+[18:19:50] <rwaldron> i dont see a fail
+[18:20:04] <rwaldron> can I file this damn ticket with "jquip"?
+[18:21:09] <ajpiano> i would say yes, but with the revisions i menteioned when we were talking earlier
+[18:21:24] <rwaldron> your revisions were...lacking
+[18:21:44] <rwaldron> ajpiano here... revise: http://oksoclap.com/mEez7FVjjc
+[18:22:34] <DaveMethvin> ajpiano: will you be availble to tweet the 1.7.1 release in about 10 minutes?
+[18:23:38] <rwaldron> DaveMethvin yes he will be
+[18:23:55] <rwaldron> he is editting content for the ticket I am filing with "jquip"
+[18:23:58] <DaveMethvin> when is he not here
+[18:24:14] <rwaldron> and his irc is being restarted
+[18:26:36] <jqcommit> [jquery] dmethvin pushed 2 new commits to master: http://git.io/BUmThw
+[18:26:36] <jqcommit> [jquery/master] Tagging the 1.7.1 release. - Dave Methvin
+[18:26:36] <jqcommit> [jquery/master] Updating the source version to 1.7.2pre - Dave Methvin
+[18:31:50] <rwaldron> ajpiano we good to go?
+[18:31:57] <rwaldron> nvm
+[18:31:58] <ajpiano> yeah i guess
+[18:32:08] <ajpiano> trying to get that last sentence to materialise, not sure it will
+[18:32:15] <rwaldron> few more mins?
+[18:32:23] <rwaldron> i'll go check on Ezio
+[18:32:32] <rwaldron> (he's collecting ;)   )
+[18:33:00] <ajpiano> haha now that's what i'm talking about :D
+[18:40:42] <DaveMethvin> ajpiano rwaldron timmywil gnarf: if you guys are around can you take a look? http://blog.jquery.com/2011/11/21/jquery-1-7-1-released/
+[18:41:46] <jq-jenkins> Project jQuery build #218: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery/218/
+[18:41:47] <jq-jenkins> * dave.methvin: Tagging the 1.7.1 release.
+[18:41:47] <gnarf> +1
+[18:41:47] <jq-jenkins> * dave.methvin: Updating the source version to 1.7.2pre
+[18:41:48] <bot-t> (83 hours 5 mins ago) <scott_gonzalez> tell gnarf https://github.com/DaveStein/jquery-ui/pull/5/files
+[18:41:49] <socialhapy> ★ Pull request on jquery-ui by scottgonzalez (3d, 22h ago): Droppable review
+[18:41:56] <gnarf> i like how you theme your posts DaveMethvin
+[18:42:13] * gnarf goes back to lurking
+[18:42:21] <DaveMethvin> tryna make them interesting, and we see you there gnarf
+[18:43:39] <ajpiano> rwaldron: looking good, i suppose
+[18:43:48] <rwaldron> great
+[18:43:49] <rwaldron> posting
+[18:43:56] <rwaldron> this guy seems like an arguer
+[18:44:15] <DaveMethvin> i don't want to get in a pissing contest
+[18:44:22] <DaveMethvin> that's not our style
+[18:44:31] <rwaldron> we're not
+[18:44:36] <DaveMethvin> so don't get into an argument whatever you do
+[18:45:02] <DaveMethvin> alright lemme see what still needs to be done here
+[18:47:53] <ajpiano> rwaldron: if you want to post that, you can, i'm semi in favor of it
+[18:48:05] <ajpiano> but also i hear what DaveMethvin is saying
+[18:48:05] <rwaldron> I did
+[18:48:08] <ajpiano> ok
+[18:48:13] <rwaldron> I'm not going to argue
+[18:48:16] <ajpiano> they can probably fail all on their own
+[18:48:18] <rwaldron> I jsut want it on record
+[18:48:21] <ajpiano> yeah
+[18:48:25] <rwaldron> that we tried
+[18:48:37] <DaveMethvin> ajpiano if  that blog post looks ok to you it's ready to tweet
+[18:49:16] <ajpiano> hahah, one lol so far
+[18:49:25] <rwaldron> hahah what?
+[18:49:27] <rwaldron> where?
+[18:49:50] <ajpiano> no dave's post
+[18:49:52] <ajpiano> is awesome
+[18:49:57] <ajpiano> im counting my lols
+[18:50:12] <rwaldron> oh got ya
+[18:50:36] <ajpiano> DaveMethvin: looks good, i'm gonna go tell the hounds they're released
+[18:50:43] <DaveMethvin> go fer it
+[18:56:06] <DaveMethvin> ajpiano: i'm giving thanks for U!
+[18:56:32] <ajpiano> :D
+[18:56:35] <ajpiano> likewise
+[19:36:59] <rwaldron> ajpiano whaddaya think?
+[19:36:59] <rwaldron> https://github.com/mythz/jquip/issues/8#issuecomment-2829956
+[19:37:00] <socialhapy> ★ Issue #8 on jquip, reported by rwldrn (52m, 55s ago): Remove "jQuery" variable name
+[19:39:49] <ajpiano> interesting
+[19:40:21] <rwaldron> As many action movie heroes have said...
+[19:40:26] <ajpiano> i think the most actionable thing he mentions is the fact that we didn't say anything about the CC support in the blog post
+[19:40:35] <rwaldron> I don't negotiate with terrorists/criminals/murderers
+[19:40:36] <rwaldron> etc.
+[19:41:33] <rwaldron> sure
+[19:41:36] <rwaldron> so...
+[19:42:23] <ajpiano> if he's only doing it academically, we may as well let him keep the damn variable
+[19:42:55] <ajpiano> the existing project is going to be like my sense of humour
+[19:42:59] <ajpiano> self deprecating
+[19:43:15] <ajpiano> when they realise that like, they're gonna be getting issues like the one they got every single day
+[19:43:47] <rwaldron> yeah
+[19:43:48] <rwaldron> worse
+[19:43:55] <rwaldron> because he's removed so much stuff
+[19:44:11] <rwaldron> people are going to think this can "replace" jQuery
+[19:44:56] <DaveMethvin> how come he put the jQuery.clean wrapper hacks back? I thought he was removing IE support, and that's what it's for
+[19:45:43] <DaveMethvin> ajpiano: i think you've seen the blog post for tomorrow?
+[19:45:49] <DaveMethvin> it mentions cc
+[19:45:58] <ajpiano> true story
+[19:45:59] <rwaldron> DaveMethvin that one is AWESOME
+[19:46:07] <DaveMethvin> i just didn't want to do two on the same day
+[19:46:10] <rwaldron> https://github.com/mythz/jquip/pull/6
+[19:46:11] <socialhapy> ★ Pull request on jquip by jeyb (1d, 45m ago): innerHTML wrappers
+[19:46:13] <rwaldron> ahahahhahahaha
+[19:46:15] <ajpiano> DaveMethvin: yeah, for real
+[19:47:00] <ajpiano> the lesson of that issue is that
+[19:47:15] <ajpiano> while people may complain about bloat, a little bloat is comfy padding when you fall right on your ass
+[19:47:23] <DaveMethvin> it's a lot harder than someone might think to just hack stuff out, half the time ***I*** cannot remember all the reasons it's there
+[19:48:02] <rwaldron> well, i think we're doing a better job of leaving comments and ticket numbers for this stuff
+[19:48:05] <rwaldron> or I am anyway
+[19:48:25] <DaveMethvin> it's the same with the ppl bitching about tests, generally the way you get new unit tests is by screwing things up and saying, well i'd better make some unit tests so THAT won't happen again
+[19:48:25] <rwaldron> because otherwise we get crazy shit like the original jQuery.fragments stuff
+[19:48:30] <rwaldron> that was an adventure.
+[19:48:52] <DaveMethvin> i mean, by definition the bugs are from things you're not testing
+[19:48:57] <DaveMethvin> and you can't test EVERYTHING
+[19:49:00] <rwaldron> exactly
+[19:49:33] <DaveMethvin> danheberden: you around?
+[19:49:50] <ajpiano> well at least they can always get "Back at us" by running 1.4.3 until the end of days
+[19:49:58] <rwaldron> another thing is that people dont realize... likely the same people that are crying out for modular jay-kweriez... is that they are the reason for most of the shit in jQuery
+[19:50:10] <rwaldron> I'd like to refer to defaultDisplay
+[19:50:20] <rwaldron> ajpiano i tried to explain that to greg
+[19:50:49] <ajpiano> what, that it actually doesn't feel like someone is doing a revenge to us
+[19:50:53] <rwaldron> and he actually said... "I have never done that" (re:  div {display: none;} )
+[19:50:58] <ajpiano> when people choose not to update their js libs on their sites
+[19:51:02] <ajpiano> ohhh
+[19:51:08] <DaveMethvin> i am totally ok with ppl not updating
+[19:51:42] <DaveMethvin> i mean, there are still web sites from 1995 out there, they don't need to be updated
+[19:52:00] <DaveMethvin> http://www2.warnerbros.com/spacejam/movie/jam.htm
+[19:52:17] <DaveMethvin> That's why i want to Be Like Mike
+[19:52:36] <DaveMethvin> WARNER BROS WHY U NO USE JQUERIES
+[19:52:55] <rwaldron> DaveMethvin did you make that?
+[19:53:17] <DaveMethvin> no, but i did it would be AWESOME
+[19:54:15] <rwaldron> there is NO JAVASCRIPT
+[19:54:18] <rwaldron> :O
+[19:54:39] <DaveMethvin> so it is totally compatible with jquery 1.7.1
+[20:09:56] <danzik17> so just curious with events - rather than use fixHooks, why not just copy all of the non-function properties of the original event?  i feel like there's a reason since that seems kind of obvious, but none of the tests failed when i just tried it
+[20:12:15] <gnarf> im sure there is a good reason (other than performance) to avoid looping/copying every property on an event (like the pageX pageY warnings in chrome)
+[20:16:10] <danzik17> true enough for that, did forget about those annoying warnings
+[20:17:45] <ajpiano> danzik17: part of it is that there are a lotttt of properties and it can take awhile to copy them
+[20:17:56] <ajpiano> so whitelisting the ones we want is faster
+[20:18:00] <ajpiano> IIRC
+[20:20:04] <danzik17> ajpiano: yea i'm about to profile the difference between just copying all of them and say the subset for a key or mouse event - mainly out of curiosity
+[23:19:06] <matjas> jquery-1.7.1.min.js.gz is 23 bytes smaller than jquery-1.7.0.min.js.gz \o/ http://mathiasbynens.be/demo/jquery-size

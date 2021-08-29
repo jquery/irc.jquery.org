@@ -1,0 +1,340 @@
+[10:46:33] <mikesherov> .
+[11:13:20] <ben_alman> so i'm confused about deferreds
+[11:18:36] <mikesherov> talk to me
+[11:18:41] <mikesherov> what's confusing?
+[11:18:52] <mikesherov> because they are confusing, but what part
+[11:19:01] <mikesherov> ben_alman: ^^^
+[11:19:26] <ben_alman> sec
+[11:23:39] <ben_alman> why are 3 arguments applied to fn in $.ajax(url).done(fn); and $.when($.ajax(url)).done(fn); but not in $.when($.ajax(url), "foo").done(fn); ? And if the response from url is "bar" why are the arguments passed into fn different in: $.when($.ajax(url)).done(fn); $.when("bar").done(fn);
+[11:23:45] <ben_alman> this is super duper confusing
+[11:25:02] <ben_alman> Do I always have to $.when($.ajax(url).pipe(String)).then(fn); or something?
+[11:25:25] <mikesherov> well, in 1.8, .pipe and .then are the same thing
+[11:25:32] <ben_alman> it seems super awkward the convert an jqXHR into a single-resolution-value deferred
+[11:27:26] <mikesherov> so in the first example: $.ajax(url).done(fn), you're just attaching a done onto the jqXHR promise, which could be passing along other values
+[11:27:38] <mikesherov> so doesn't seem weird that there might be three arguments
+[11:28:02] <ben_alman> the point i'm making is that the instant you add another promise into $.then, jqXHR resolved values are seen differently
+[11:28:38] <mikesherov> add another promise into $.when you mean, right?
+[11:28:42] <ben_alman> but if there's only one promise, the jqXHR resolution array are applied
+[11:28:46] <ben_alman> yes into $.when
+[11:28:55] <ben_alman> this feels very inconsistent
+[11:29:29] <mikesherov> right, so I guess the semantics are that if you only pass one promise into $.when with no additional args, it uses the resolveWith args from the original promise
+[11:29:40] <mikesherov> confusing
+[11:31:04] <mikesherov> actually, your example: $.when($.ajax(url), "foo").done(fn); doesn't seem to be documented
+[11:31:15] <ben_alman> what do you mean
+[11:31:33] <ben_alman> "deferredsOne or more Deferred objects, or plain JavaScript objects."
+[11:31:55] <ben_alman> i think the resolved values could be anything, no?
+[11:32:45] <ben_alman> http://danheberden.com/presentations/deferreds-putting-laziness-to-work/#32
+[11:32:47] <ben_alman> http://danheberden.com/presentations/deferreds-putting-laziness-to-work/#33
+[11:33:00] <ben_alman> i think it's pretty normal for people to use any non-deferred value
+[11:33:38] <mikesherov> sure, that's right
+[11:33:46] <ben_alman> maybe the docs coul be updated
+[11:33:53] <mikesherov> but isn't "foo" not a plain javascript object?
+[11:34:03] <ben_alman> fine, make it one
+[11:34:08] <ben_alman> it'll still behave the same way
+[11:34:12] <ben_alman> that's not the issue
+[11:34:28] <mikesherov> jQuery.isPlainObject("test") // false
+[11:34:35] <ben_alman> ugh
+[11:35:54] <mikesherov> ok, so you asked this: And if the response from url is "bar" why are the arguments passed into fn different in: $.when($.ajax(url)).done(fn); $.when("bar").done(fn);
+[11:36:14] <ben_alman> yeah, i know why
+[11:36:20] <ben_alman> but it's confusing
+[11:36:24] <mikesherov> you're just saying you feel it's confusing
+[11:36:27] <mikesherov> I get it
+[11:36:44] <mikesherov> I'm trying to understand why it's confusing? What did you expect to happen?
+[11:37:27] <ben_alman> i guess rhe big problem i'm having
+[11:38:49] <ben_alman> is that when a promise is resolved with .resolveWith, the arguments are passed in differently to the then/done callback when there is only one deferred vs when there are more than one deferred
+[11:39:06] <mikesherov> oh, for sure
+[11:39:27] <mikesherov> how else would you track the resolveWith values for each of the original deferreds?
+[11:39:28] <ben_alman> it's like, when you use $.when() with a single deferred it just passes that deferred through instead of properly wrapping it in a new deffered
+[11:39:34] <mikesherov> I see
+[11:39:47] <ben_alman> var dfd = $.Deferred(); dfd.resolveWith({a:1}, [4, 5, 6]); $.when(dfd.promise(), dfd.promise()).done(function() { console.log(arguments.length, arguments); });
+[11:39:48] <mikesherov> you expect the single deferred to be the first element of an array
+[11:40:06] <ben_alman> that logs 2 [[4,5,6], [4,5,6]]
+[11:40:13] <ben_alman> var dfd = $.Deferred(); dfd.resolveWith({a:1}, [4, 5, 6]); $.when(dfd.promise()).done(function() { console.log(arguments.length, arguments); });
+[11:40:20] <mikesherov> you expect $.when to always aggregate the resolved values for both the single and multi case
+[11:40:29] <ben_alman> i would expect that to log 1 [[4,5,6]]
+[11:40:29] <mikesherov> That makes sense actually
+[11:40:34] <ben_alman> but it logs 3 [4, 5, 6]
+[11:40:39] <ben_alman> which seems really bad to me
+[11:40:40] <mikesherov> right
+[11:40:57] <mikesherov> especially because of the fact of what you expect $.when to be doing
+[11:41:03] <ben_alman> i'm going to file an issue
+[11:41:15] <mikesherov> if you're passing a single deferred to $.when, it's because you don't know ahead of time how many
+[11:41:33] <mikesherov> and so the handler should always be treating it like it's many
+[11:41:42] <ben_alman> interesting
+[11:41:44] <mikesherov> and you expect the array of resolved arrays
+[11:41:52] <mikesherov> you have a great point
+[11:41:58] <ben_alman> well, that's interesting
+[11:42:07] <ben_alman> the thing is
+[11:42:21] <ben_alman> what if you don't know if the thing being passed into $.when() is a deferred or a plain object
+[11:42:38] <ben_alman> what if the plain object is what the deferred was resolved with
+[11:42:41] <ben_alman> maybe this isn't an issue
+[11:42:54] <mikesherov> the plain object isn't what the deferred is resolved with
+[11:43:13] <mikesherov> a plain object passed to when gets converted to an immediately resolved deferred with the object as the resolved data
+[11:43:25] <mikesherov> $.when( { testing: 123 } ).done(
+[11:43:25] <mikesherov>    function(x){ alert(x.testing); } /* alerts "123" */
+[11:43:26] <mikesherov> );
+[11:43:46] <mikesherov> oh, maybe you're saying the same thing
+[11:44:41] <ben_alman> so i've been laboring under some misinformation
+[11:44:51] <ben_alman> i've figured out what the problem is
+[11:45:04] <ben_alman> i don't know where i got the information from, but it went something like this:
+[11:45:24] <ben_alman> you can pass deferreds or plain objects into $.when
+[11:45:28] <ben_alman> that's true
+[11:46:22] <ben_alman> then they went on to say that you could, instead of passing in a jqXHR, pass in value it was resolved with instead
+[11:46:22] <mikesherov> you thought the plain objects get appended on as additional resolveWith values?
+[11:46:26] <ben_alman> no.
+[11:46:32] <ben_alman> which is true
+[11:47:01] <mikesherov> ok
+[11:47:32] <ben_alman> if a jqXHR gets resolved with [{a: 1, b: 2}, "success", jqXHR]
+[11:47:43] <ben_alman> you could pass that in, instead of the jqXHT
+[11:47:50] <ben_alman> jqXHR and it would work
+[11:48:11] <ben_alman> but the example i saw at the time was that {a: 1, b: 2} was passed in, instead
+[11:48:41] <mikesherov> oh
+[11:48:47] <mikesherov> ohhhhhhh
+[11:48:50] <ben_alman> which means that instead of accessing the arr[0] to get {a: 1, b: 2} fro mthe jqXHR
+[11:48:58] <ben_alman> you'd access arr
+[11:49:05] <mikesherov> like a pirate
+[11:49:23] <mikesherov> which is not how $.when works
+[11:49:27] <ben_alman> correct
+[11:49:36] <mikesherov> glad we had this chat then
+[11:49:40] <ben_alman> but it's how this example / presentation / whatever was explained
+[11:49:46] <ben_alman> which has always confused me
+[11:49:49] <ben_alman> SO
+[11:50:17] <ben_alman> 1: $.when is too smart for its own good
+[11:50:41] <ben_alman> it behaves differently when you pass it a single deferred
+[11:50:48] <ben_alman> like new Array(10)
+[11:50:49] <mikesherov> but it doesn't
+[11:50:55] <mikesherov> or at least it shouldn't
+[11:51:06] <mikesherov> http://api.jquery.com/jQuery.when/ says:
+[11:51:13] <mikesherov> $.when( $.ajax("test.aspx") ).then(function(ajaxArgs){
+[11:51:13] <mikesherov>      alert(ajaxArgs[1]); /* ajaxArgs is [ "success", statusText, jqXHR ] */
+[11:51:14] <mikesherov> });
+[11:51:55] <mikesherov> so both the single arg and multi arg case, it's supposed to convert the args of the original deferred into an array which make up a single arg per deferred for $.when
+[11:52:16] <ben_alman> mikesherov: it definitely does NOT behave that way
+[11:52:28] <ben_alman> or is this a new thing fixed in 1.8?
+[11:52:29] <mikesherov> but it should! At least according to the docs
+[11:52:32] <ben_alman> because 1.7.2 it doesn't
+[11:52:33] <ben_alman> se
+[11:52:34] <mikesherov> which would make sense
+[11:52:35] <ben_alman> sec
+[11:53:14] <ben_alman> http://benalman.com/grab/a4aaf6.png
+[11:53:16] <ben_alman> this is 1.7.2
+[11:53:27] <ben_alman> 3 arguments are being passed in
+[11:53:29] <ben_alman> not 1
+[11:53:38] <ben_alman> am i totally misunderstanding
+[11:53:39] <ben_alman> ?
+[11:53:49] <mikesherov> no, I think you're right
+[11:54:08] <mikesherov> it's not working as documented
+[11:54:16] <mikesherov> and the documented way seems to make sense to me
+[11:54:17] <ben_alman> this has been driving me crazy
+[11:54:23] <ben_alman> yes, the documented way is awesome
+[11:54:29] <mikesherov> +9001
+[11:54:34] <ben_alman> posting an issue
+[11:54:47] <mikesherov> because you're only passing a single dfd to $.when() if you either:
+[11:54:55] <mikesherov> A. Don't know how deferred works
+[11:55:09] <mikesherov> B. don't know how many deferreds you're passing to $.when
+[11:55:15] <mikesherov> and if it's A., well, sorry
+[11:55:49] <mikesherov> and if it's B., your done handler certainly should expect an arguments array of arrays
+[11:56:11] <mikesherov> rather than having to special case the single deferred case
+[11:56:24] <mikesherov> did you test 1.8?
+[11:56:54] <ben_alman> trying now
+[12:02:21] <ben_alman> well i don't know that this makes any sense but http://bugs.jquery.com/ticket/12348
+[12:03:14] <ben_alman> i think the docs contradict themself
+[12:03:25] <ben_alman> i dunno
+[12:03:43] <mikesherov> the docs seem perfectly reasonable
+[12:03:52] <ben_alman> that example seems broken though
+[12:03:52] <mikesherov> that's the way they SHOULD work
+[12:05:15] <mikesherov> not sure I follow
+[12:05:29] <mikesherov> I'm dense
+[12:05:43] <ben_alman> the first example on that page doesn't actually DO that
+[12:05:48] <ben_alman> it does something else
+[12:06:20] <mikesherov> right
+[12:06:23] <mikesherov> but it SHOULD do that
+[12:06:30] <mikesherov> so the code is broken, not the example, no?
+[12:06:33] <ben_alman> weellll
+[12:06:36] <ben_alman> here's the thing
+[12:07:10] <mikesherov> the question becomes this:
+[12:07:11] <ben_alman> because $.when is too smart for its own good, it sees a single jqXHR as a single Deferred
+[12:07:13] <ben_alman> and as it says "If a single Deferred is passed to jQuery.when, its Promise object (a subset of the Deferred methods) is returned by the method."
+[12:07:25] <mikesherov> right
+[12:07:33] <mikesherov> which is silly
+[12:07:40] <ben_alman> so it's assuming, incorrectly, that the single jqXHR is a Deferred wrapper around other deferreds
+[12:07:44] <ben_alman> and thus applies the arguments
+[12:08:58] <mikesherov> $.when.apply($, array of deferred).done(function(){console.log(arguments.length)});
+[12:09:33] <mikesherov> if that thing is "3", how do we know that it's 3 deferred or 1 deferred with 3 resolvedWith args
+[12:09:54] <mikesherov> without complex inspection, we don't
+[12:10:21] <ben_alman> read my comment http://bugs.jquery.com/ticket/12348#comment:1
+[12:12:52] <mikesherov> but that's not what the code says
+[12:12:58] <mikesherov> unless I'm reading it wrong
+[12:13:37] <mikesherov> https://github.com/jquery/jquery/blob/master/src/deferred.js#L118
+[12:14:07] <mikesherov> https://github.com/jquery/jquery/blob/master/src/deferred.js#L100
+[12:14:12] <mikesherov> maybe we're saying the same thing
+[12:14:23] <ben_alman> yeah i don't know anything abotu the internals
+[12:14:38] <ben_alman> i just know that example is wrong
+[12:14:47] <mikesherov> but there is code specifically saying that if the number of deferred passed in is 1, $.when just returns that
+[12:15:17] <ben_alman> and that if $.when expects a single deferred to be a wrapper around other deferreds, because a jqXHR is a deferred that is NOT a wrapper around other deferreds, it should never be passed in as the only argument to $.when
+[12:15:26] <ben_alman> ↑
+[12:16:12] <mikesherov> otherwise, it just is thinly passed through
+[12:19:22] <mikesherov> I don't get the part about "Deferred wrapper around other deferreds"
+[12:19:50] <mikesherov> all the docs say are: If a single Deferred is passed to jQuery.when, its Promise object (a subset of the Deferred methods) is returned by the method
+[12:20:45] <mikesherov> and then I guess the example IS wrong
+[12:21:02] <mikesherov> the docs match the source, but the example is wrong
+[12:21:09] <kswedberg> ben_alman, mikesherov: I'm feeling a little loopy, so only partially following this thread, but you should definitely pull Julian into this discussion when he's online
+[12:21:32] <ben_alman> when you do $.ajax("/foo").done(fn); the arguments are applied
+[12:21:46] <mikesherov> yeah, kswedberg: I think the docs and the source agree, but the example is wrong
+[12:21:57] <mikesherov> but what cowboy and I are saying is that the example is awesome
+[12:22:04] <ben_alman> basically, when the deferred isn't a wrapper around other deferreds (like what $.when() returns if you pass more than one thing) the arguments are applied
+[12:22:21] <kswedberg> ah, ok.
+[12:22:23] <kswedberg> interesting
+[12:22:40] <mikesherov> well, I'm not so sure about wrapper deferred, unless I'm reading source wrong
+[12:22:53] <ben_alman> so at no point would a jqHXR passed to $.when result in a deferred that passes the arguments as an array into a .then callback
+[12:23:00] <mikesherov> I just think the issue is about whether or not you pass 1 or many deferreds to $.when
+[12:23:28] <ben_alman> ok let me put it this way
+[12:23:32] <mikesherov> ben_alman: I think that's true for ANY single deferred passed to $.when
+[12:23:39] <ben_alman> yes
+[12:23:43] <mikesherov> right
+[12:23:49] <ben_alman> i'm going to put it in the way that sums it up, i thinkl
+[12:24:19] <mikesherov> $.animate() has same problem.
+[12:25:38] <ben_alman> if you have a deferred that is going to be resolvedWith an array that is NOT an array of deferreds, and you pass it to $.when as a single argument, those resolveWith arguments will be applied in to the .done / .then function
+[12:26:38] <ben_alman> the only way to make this consistent would be to never apply arrays and always pass in a single value as the 1st argument. which is gross
+[12:27:19] <ben_alman> my head hurts
+[12:30:45] <mikesherov> i see
+[12:32:57] <mikesherov> right, and the example assumes to do that
+[12:33:26] <mikesherov> because of what we were saying before specifically about expecting an array of arrays for $.when
+[12:33:39] <mikesherov> those are at odds with each other
+[12:38:45] <mikesherov> bot-t: tell jaubourg please review the conversation ben_alman and I had about deferreds here: http://irc.jquery.com/%23jquery-dev/%23jquery-dev_20120819.log.html#t11:13:20
+[12:38:46] <bot-t> mikesherov, Okay.
+[12:52:59] <mikesherov> DaveMethvin: you here?
+[12:53:10] <DaveMethvin> yep
+[12:53:25] <mikesherov> http://bugs.jquery.com/ticket/12329
+[12:53:39] <mikesherov> I took this one, but it looks like this one is really you
+[12:54:02] <DaveMethvin> yeah i'll look at it mikesherov
+[12:54:10] <mikesherov> I'll reassign to you then
+[12:54:13] <DaveMethvin> sure
+[12:54:25] <DaveMethvin> i'll be going through the piles tonight including pull requests
+[12:54:56] <mikesherov> OK, I'm going through piles now
+[12:55:00] <mikesherov> you can't do science without piles
+[12:56:00] <mikesherov> Science can not move forward without heaps!
+[13:05:17] <mikesherov> https://github.com/jquery/jquery/pull/898
+[13:05:40] <mikesherov> wtf, can't rely on bots these days
+[13:05:46] <mikesherov> socialhapy, b-ot, bot-t
+[13:30:44] <mikesherov> https://github.com/jquery/jquery/pull/900
+[14:18:07] <mikesherov> DaveMethvin: good news. Able to repro that IE9 ready before ready failure!
+[14:43:02] <mikesherov> https://github.com/jquery/jquery/pull/901
+[14:43:44] <mikesherov> DaveMethvin: I think that's all my 1.8.1 fires
+[14:44:12] <mikesherov> timmywil: scott_gonzalez: please review https://github.com/jquery/jquery/pull/900
+[14:44:16] <mikesherov> oops
+[14:44:19] <mikesherov> https://github.com/jquery/jquery/pull/901 I meant
+[14:47:42] <scott_gonzalez> mikesherov: That doctype triggers "almost standards" mode for IE 6/7.
+[14:47:50] <mikesherov> oh
+[14:47:53] <mikesherov> I'll fix
+[14:48:23] <mikesherov> wait, it's the doctype we use in all our tests
+[14:48:48] <scott_gonzalez> o_O
+[14:49:06] <scott_gonzalez> I guess we support almost standards mode then ;-)
+[14:49:25] <mikesherov> https://github.com/jquery/jquery/tree/master/test/data/event all of these and all of the iframe tests use that
+[14:49:54] <mikesherov> I'll update though
+[14:51:59] <mikesherov> think I should update to just html5?
+[14:52:07] <mikesherov> scott_gonzalez: ^^^
+[14:52:22] <scott_gonzalez> Yeah, if you're going to change it, that makes the most sense.
+[14:54:17] <mikesherov> I'm going to leave it for right now, as it doesn't affect the tests
+[14:54:23] <mikesherov> and in a subsequent PR, I
+[14:54:24] <mikesherov> '
+[14:54:27] <mikesherov> I'll change them all
+[14:58:03] <doesallmagic> Project jQuery Color build #69: SUCCESS in 2 min 2 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/69/
+[14:58:04] <doesallmagic> Corey Frang: Fixing readme for string methods - Fixes #40
+[15:04:53] <doesallmagic> Project jQuery Color build #70: SUCCESS in 1 min 26 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/70/
+[15:04:53] <doesallmagic> * Corey Frang: Updating README to include note about string methods - Further Fixes #40
+[15:04:54] <doesallmagic> * Corey Frang: Fixing typo in unit test
+[17:28:35] <ben_alman> what's a use-case for specifying a custom this using dfd.resolveWith() ?
+[17:29:55] <scott_gonzalez> jQuery does it for .ready(), .promise(), animations, etc.
+[17:30:11] <ben_alman> ah, fair enough
+[17:30:57] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/LO7WhA
+[17:30:57] <jqcommit> [jquery/master] Fix #12149. Avoid memory leak on oldIE change events. Close gh-878. - Nikita Govorov
+[17:41:10] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/zfXypw
+[17:41:10] <jqcommit> [jquery/master] jQuery.contains() handles document objects directly. Close gh-879. - Oleg Gaidarenko
+[17:53:16] <doesallmagic> Project jQuery Core build #316: STILL FAILING in 22 min: http://swarm.jquery.org:8080/job/jQuery%20Core/316/
+[17:53:17] <doesallmagic> dave.methvin: Fix #12149. Avoid memory leak on oldIE change events. Close gh-878.
+[17:57:58] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/BEr-cQ
+[17:57:58] <jqcommit> [jquery/master] Improve oldIE unit tests for fuzzy object clone. Close gh-880. - Elijah Manor
+[18:09:04] <doesallmagic> Yippie, build fixed!
+[18:09:05] <doesallmagic> Project jQuery Core build #317: FIXED in 15 min: http://swarm.jquery.org:8080/job/jQuery%20Core/317/
+[18:09:05] <doesallmagic> dave.methvin: jQuery.contains() handles document objects directly. Close gh-879.
+[18:13:09] <mikesherov> .
+[18:13:31] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/ZlFUyw
+[18:13:31] <jqcommit> [jquery/master] Don't expect QUnit to clean up jQuery internal data. Close gh-883. - Dave Methvin
+[18:17:42] <mikesherov> .
+[18:23:32] <mikesherov> rwaldron: currently no good way I can see to detect that IE9 and IE10 have fired interactive too early
+[18:23:57] <mikesherov> although, you can take the unit test I wrote and run with it, now that there's a repeatable test case :-)
+[18:25:19] <scott_gonzalez> mikesherov: What was the user doing in the test?
+[18:25:32] <scott_gonzalez> s/ test/ir code/
+[18:25:37] <mikesherov> https://github.com/jquery/jquery/pull/901
+[18:25:46] <mikesherov> so basically, if you have output buffering off
+[18:26:15] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/0mR4ow
+[18:26:15] <jqcommit> [jquery/master] Add README info on how to create custom builds. Close gh-892. - Mathias Bynens
+[18:26:20] <mikesherov> and part of the page starts rendering, and you have jquery load in a body script tag...
+[18:26:39] <mikesherov> then document.ready will fire before the whole page is even downloaded
+[18:27:15] <mikesherov> so I'm using a weak inference to detect IE
+[18:27:25] <mikesherov> it effects all IE's
+[18:27:30] <mikesherov> document.attachEvent
+[18:30:38] <mikesherov> I'm just excited that I have a repeatable example of how to trigger interactive mode when it's clearly not yet interactive
+[18:31:14] <scott_gonzalez>  /<\/body>/.test( document.documentElement.innerHTML ) :-P
+[18:31:36] <scott_gonzalez> I guess you don't need to close the body though.
+[18:31:42] <scott_gonzalez> Not that this would be a good idea anyway...
+[18:32:08] <mikesherov> right
+[18:32:22] <mikesherov> but that's just one way in which interactive is fired too early
+[18:33:25] <mikesherov> because the thing here is that document.body exists! It just doesn't have everything
+[18:33:44] <mikesherov> so both the doScroll and the document.body hacks fail
+[18:33:55] <ben_alman> do piped promises resolve before the deferred they were piped from?
+[18:34:01] <ben_alman> i'm seeing this, it seems odd
+[18:34:19] <ben_alman> well, slightly counterintuitive… but i'm guessing it shouldn't matter really
+[18:34:52] <mikesherov> my head still hurts from our earlier conversation, ben_alman
+[18:35:47] <doesallmagic> Project jQuery Core build #318: FAILURE in 19 min: http://swarm.jquery.org:8080/job/jQuery%20Core/318/
+[18:35:48] <doesallmagic> * dave.methvin: Improve oldIE unit tests for fuzzy object clone. Close gh-880.
+[18:35:48] <doesallmagic> * dave.methvin: Don't expect QUnit to clean up jQuery internal data. Close gh-883.
+[18:37:26] <mikesherov> why are there so many new bots now?
+[18:37:41] <mikesherov> b-ot, doesallmagic
+[18:38:01] <mikesherov> Whatever happened to the good old days with just jqlog, bot-t, and socialhapy?
+[18:38:40] <mikesherov> and why is jenkins not jenkins, why is he doesallmagic?
+[18:39:04] <mikesherov> great, now imaginary scorrgonzalez shows up
+[18:39:13] <mikesherov> scottgonzalez*
+[18:41:04] <scott_gonzalez> MBP just crashed :-(
+[18:41:17] <scott_gonzalez> I need to stop using Chrome dev channel.
+[18:41:58] <ben_alman> scott_gonzalez: my MBP crashed a little while ago
+[18:42:07] <ben_alman> not using dev channel
+[18:42:09] <ben_alman> f that
+[18:42:27] <scott_gonzalez> It started when my MBP was replaced.
+[18:42:39] <scott_gonzalez> It crashed like 3 times in the first 2 days.
+[18:42:45] <scott_gonzalez> Hasn't crashed since, until now.
+[18:43:10] <scott_gonzalez> mikesherov: http://bugs.jqueryui.com/ticket/7738
+[18:43:27] <scott_gonzalez> widget do all magic
+[18:44:06] <mikesherov> LOL
+[18:44:34] <scott_gonzalez> DaveMethvin changed it to i-hate-dave when core was constantly failing.
+[18:44:48] <scott_gonzalez> Not sure who changed it to doesallmagic though, but it was shortly after that.
+[18:44:57] <DaveMethvin> it was gnarf
+[18:46:13] <mikesherov> DaveMethvin, my 3 PR's should be good to go
+[18:46:25] <DaveMethvin> yeah, working my way up from the bottom mikesherov
+[18:46:40] <mikesherov> k, cool
+[18:47:32] <mikesherov> I'm hopping off irc now, let me know if you need anything DaveMethvin
+[18:47:43] <DaveMethvin> k
+[18:53:49] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/CSrV2g
+[18:53:49] <jqcommit> [jquery/master] Fix #12278. Promises on non-default queue wait until a dequeue is attempted on an empty queue. Close gh-893. - Corey Frang
+[18:54:24] <doesallmagic> Project jQuery Core build #319: STILL FAILING in 18 min: http://swarm.jquery.org:8080/job/jQuery%20Core/319/
+[18:54:25] <doesallmagic> dave.methvin: Add README info on how to create custom builds. Close gh-892.
+[19:13:17] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/0npWcA
+[19:13:17] <jqcommit> [jquery/master] Fix #12273. Don't call easing functions for duration 0 animations. Close gh-895. - Corey Frang
+[19:24:41] <doesallmagic> Project jQuery Core build #320: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/320/
+[19:24:42] <doesallmagic> dave.methvin: Fix #12278. Promises on non-default queue wait until a dequeue is attempted on an empty queue. Close gh-893.
+[19:40:33] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/QRGOMQ
+[19:40:33] <jqcommit> [jquery/master] Fix #12350. Remove BOM in jQuery.trim. Close gh-897. - Wesley Walser
+[19:42:40] <doesallmagic> Project jQuery Core build #321: STILL FAILING in 17 min: http://swarm.jquery.org:8080/job/jQuery%20Core/321/
+[19:42:40] <doesallmagic> dave.methvin: Fix #12273. Don't call easing functions for duration 0 animations. Close gh-895.
+[19:49:28] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/7AcrGQ
+[19:49:28] <jqcommit> [jquery/master] Fix #12324, line-height "normal" isn't always "1". Close gh-898. - Mike Sherov
+[20:02:42] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/cZsW2w
+[20:02:42] <jqcommit> [jquery/master] Fix #12283. Return null for dimension getters on non elements. Fix gh-900. - Mike Sherov
+[20:12:56] <doesallmagic> Project jQuery Core build #322: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/322/
+[20:12:56] <doesallmagic> dave.methvin: Fix #12350. Remove BOM in jQuery.trim. Close gh-897.
+[20:29:08] <doesallmagic> Project jQuery Core build #323: STILL FAILING in 16 min: http://swarm.jquery.org:8080/job/jQuery%20Core/323/
+[20:29:08] <doesallmagic> * dave.methvin: Fix #12324, line-height "normal" isn't always "1". Close gh-898.
+[20:29:09] <doesallmagic> * dave.methvin: Fix #12283. Return null for dimension getters on non elements. Fix gh-900.
+[20:47:29] <doesallmagic> Project jQuery Core build #324: STILL FAILING in 18 min: http://swarm.jquery.org:8080/job/jQuery%20Core/324/
+[20:58:34] <snover> holy crap

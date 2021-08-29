@@ -1,0 +1,443 @@
+[07:10:55] <timmywil> DaveMethvin: did we make a conclusion about node 0.6.5 support?
+[07:11:58] <DaveMethvin> what exactly is the error? Will switching to jshint change the situation?
+[07:12:05] <DaveMethvin> i haven't tried 0.6.5 myself
+[07:12:08] <DaveMethvin> won't work on window
+[07:12:09] <DaveMethvin> s
+[07:12:18] <timmywil> oh, maybe it will
+[07:12:30] <DaveMethvin> looked like the issue was in jslint
+[07:12:33] <timmywil> you land that already?
+[07:12:43] <DaveMethvin> not yet
+[07:12:47] <timmywil> i have 1.7.1 checked out, was doing a size comparison
+[07:13:13] <DaveMethvin> good or bad?
+[07:13:23] <timmywil> not sure yet, I don't have nave
+[07:13:28] <DaveMethvin> seemed like we were treading water
+[07:13:34] <timmywil> new computer and all
+[07:13:41] <DaveMethvin> we saved a lot on that one commit but a bunch of others bumped it up
+[07:13:56] <timmywil> which commit?
+[07:14:00] <bot-t> (11 hours 10 mins ago) <mikesheroc> tell DaveMethvin I'm not sure what was wrong with https://github.com/jquery/jquery/pull/406 except for possibly using a better test for when to use docElem scrollTop stuff instead of jQuery.boxModel
+[07:14:00] <bot-t> (11 hours 10 mins ago) <mikesheroc> tell DaveMethvin also, I'm not sure what other fixes I need to roll up into https://github.com/jquery/jquery/pull/528 (10413) besides for https://github.com/jquery/jquery/pull/406 (7986)
+[07:14:00] <bot-t> (11 hours 9 mins ago) <mikesheroc> tell DaveMethvin, if you could, just summarize responses to these questions on the trac ticket, and I'd be much obliged
+[07:14:00] <socialhapy> ★ Pull request on jquery by AaronAsAChimp (6m, 3d ago): FIx support.boxModel when padding or other styles are applied to div (#7986)
+[07:14:01] <socialhapy> ★ Pull request on jquery by mikesherov (2m, 3d ago): make sure box-sizing:border-box children of a hidden div report inner/outer/Width()/Height() correctly, fixes #10413
+[07:14:07] <timmywil> wo
+[07:14:09] <DaveMethvin> ohai bot-t
+[07:14:09] <bot-t> bbq bbq bbq bbq bbq bbq
+[07:14:32] <DaveMethvin> ok, everybody done?
+[07:14:37] <DaveMethvin> geez
+[07:14:42] <timmywil> he's relentless
+[07:14:55] <timmywil> heh
+[07:14:58] <DaveMethvin> the change to jQuery.access to allow undefined to chain
+[07:15:05] <DaveMethvin> that saved like 125 bytes
+[07:15:09] <timmywil> oh did we save space there? cool!
+[07:15:25] <timmywil> hmm, how
+[07:15:38] <DaveMethvin> ruthless refactoring
+[07:15:42] <ajpiano> lol if we knew that was a space-saving feature we would have gone for it so long ago
+[07:15:49] <DaveMethvin> true dat
+[07:16:33] <timmywil> oh, it runs more methods through access
+[07:16:48] <DaveMethvin> yeah, there was only one or two that he had to special case
+[07:17:18] <DaveMethvin> of course the sig for jQuery.access is pretty bizarre but it's an internal method so meh
+[07:17:47] <DaveMethvin> i am sure we'll get a bug filed, "you borked my code becusz i use jQuery.access!!"
+[07:18:03] <timmywil> hmm, there's an extra function call for data, dimensions, text, html, and offset
+[07:18:33] <DaveMethvin> well if you look at data, the big cost is firing those events
+[07:18:38] <timmywil> i think I'm ok with it though.  It was inconsistent to have access in some and not in others
+[07:19:12] <timmywil> DaveMethvin: you really despise those data events don't you
+[07:19:20] <DaveMethvin> yep
+[07:19:48] <timmywil> you know, this might expand the signatures of those methods
+[07:19:55] <timmywil> maybe
+[07:20:32] <DaveMethvin> oh timmywil  http://bugs.jquery.com/ticket/10970 showed a couple of bugs
+[07:21:04] <timmywil> uhohs, pos changes?
+[07:21:17] <DaveMethvin> yeah but what's strange is that selector fails the POS test
+[07:21:35] <DaveMethvin> THEN, it goes to Sizzle.matchesSelector and has a second failure
+[07:21:59] <DaveMethvin> b/c chrome's matchesSelector doesn't throw on :first
+[07:22:31] <gibson042> .
+[07:22:32] <timmywil> wait WHAT
+[07:22:39] <DaveMethvin> yeah WHAT
+[07:22:48] <timmywil> chrome doesn't throw?
+[07:22:52] <timmywil> WHAT?
+[07:23:02] <DaveMethvin> no it returns false for tr:not(:first)
+[07:23:15] <DaveMethvin> but that's not a standard selector
+[07:23:22] <DaveMethvin> so we never get a chance to parse it inside sizzle
+[07:25:22] <timmywil> yea, but WHAT
+[07:25:40] <timmywil> ok, lemme dig into this
+[07:27:45] <timmywil> DaveMethvin: can you reproduce not throwing? http://jsfiddle.net/LMeFc/4/
+[07:30:00] <DaveMethvin> not there, but lemme go back to the debugger, i was watching it break there
+[07:30:46] <timmywil> it's possible that matchesSelector is called without the not part first
+[07:31:20] <timmywil> i'll just walk through as well
+[07:31:53] <DaveMethvin> nope, it's not breaking now!
+[07:32:03] <DaveMethvin> i still had my breakpoints set up too
+[07:32:46] <timmywil> on the same fiddle?  I'm using edge now
+[07:32:59] <DaveMethvin> yeah i am using edge too
+[07:33:13] <DaveMethvin> i single-stepped it and ended up on the code right below the // IE9 comment
+[07:33:19] <DaveMethvin> but not now
+[07:35:02] <DaveMethvin> ok timmywil i cannot repro it now
+[07:35:13] <timmywil> weird
+[07:35:17] <DaveMethvin> yeah
+[07:36:06] <DaveMethvin> ok well that leaves the POS.test() problem in jQuery.fn.is
+[07:36:32] <DaveMethvin> for some reason it's not seeing tr:not(:first) as a positional selector so lemme look at the regex
+[07:38:16] <timmywil> yea, just noticed that
+[07:39:08] <DaveMethvin> looks okay to me, should match the $ case
+[07:41:11] <DaveMethvin> and it does? http://jsfiddle.net/dmethvin/LyLdQ/
+[07:42:23] <timmywil> that's not what POS is tho
+[07:42:56] <DaveMethvin> looks that way in the debugger
+[07:43:26] <timmywil> DaveMethvin: http://jsfiddle.net/timmywil/LyLdQ/2/
+[07:43:52] <timmywil> that regex is a little strange
+[07:44:11] <timmywil> ?! is cannot match, why put the chars in [^…] ?
+[07:44:37] <DaveMethvin> oh i was looking at the chopped-off one
+[07:45:05] <timmywil> i guess it's cannot match something that is not...
+[07:45:46] <timmywil> but that includes a closing paren
+[07:46:23] <timmywil> yea, check it out http://jsfiddle.net/timmywil/LyLdQ/3/
+[07:46:23] <DaveMethvin> where is POS set?
+[07:46:28] <timmywil> sizzle
+[07:46:35] <timmywil> and top of traversing
+[07:46:41] <timmywil> gets it from sizzle
+[07:47:12] <DaveMethvin> right but where in sizzle?
+[07:47:17] <timmywil> cannot have a closing parent after it
+[07:47:18] <DaveMethvin> i see where it sets POS to the string i had
+[07:47:26] <timmywil> expr.MATCH
+[07:47:27] <DaveMethvin> and where it saves that in origPOS
+[07:47:53] <timmywil> oh match
+[07:48:34] <timmywil> L#380 in sizzle.js
+[07:48:54] <DaveMethvin> yeah i see now
+[07:49:02] <timmywil> oh, but that doesn't have the (?!'s ?
+[07:49:44] <timmywil> im confused now
+[07:50:19] <DaveMethvin> L906 in sizzle.js
+[07:50:24] <timmywil> yup
+[07:50:39] <timmywil> well, that's inconsistent
+[07:50:56] <DaveMethvin> lol yeah
+[07:52:09] <DaveMethvin> it uses origPOS while parsing ... why exactly is it adding the extra stuff to POS?
+[07:53:39] <timmywil> i guess it's saying cannot be within brackets or parens
+[07:54:10] <timmywil> brackets makes sense, can't have a selector inside an attr check
+[07:54:17] <DaveMethvin> i guess so it won't match attr values yeah
+[07:54:49] <DaveMethvin> but it's not allowing a plain end of string
+[07:55:13] <timmywil> i thought it was?
+[07:55:29] <timmywil> see most recent fiddle link
+[07:56:11] <timmywil> removing the closing paren actually matches POS
+[07:57:22] <timmywil> so maybe for sizzle's purposes, POS shouldn't match because it's wrapped in :not, but it nullifies our intention for .is POS
+[07:57:29] <DaveMethvin> ok yeah i see the last one
+[07:57:57] <DaveMethvin> i think this is another one of those cases where a regexp is not a very good substitute for a parser
+[07:58:08] <DaveMethvin> since we're nested in a :not
+[07:58:43] <timmywil> what if we switch traversing.js to use origPOS?
+[07:58:52] <DaveMethvin> the origPOS works for .is if we expose it
+[07:58:58] <timmywil> heh
+[07:59:01] <timmywil> great minds
+[07:59:18] <DaveMethvin> jQuery.expr.match.orig.POS.ha.ha
+[08:00:29] <timmywil> it should probably be exposed anyway
+[08:02:37] <timmywil> origPOS would also be fine for closest
+[08:03:12] <timmywil> if i'm reading it right
+[08:04:03] <timmywil> brb
+[08:08:44] <timmywil> back
+[08:48:09] <DaveMethvin> ok i'm back too
+[09:34:18] <sindresorhus> I have a fix for the .live() bug on iOS. jqbug.com/10546
+[09:34:18] <sindresorhus> Could someone take a look? https://github.com/sindresorhus/jquery/tree/bug_10546
+[09:35:08] <DaveMethvin> sindresorhus: sure! looking now
+[09:35:19] <justin_> Could someone guide me through the steps to automatically run all the jQuery tests from https://github.com/jquery/jquery/tree/master/test ?
+[09:35:46] <rwaldron> justin_ you have the repo cloned locally?
+[09:36:23] <rwaldron> ack, brb
+[09:36:51] <DaveMethvin> sindresorhus: i dunno about that one, it's specific to iPhone/iPad/iPodtouch
+[09:37:01] <DaveMethvin> but if someone wants clicks they shoudl do that
+[09:37:11] <DaveMethvin> i dunno if we shoudl be forcing it
+[09:37:29] <DaveMethvin> also, they may be setting the click handler to catch clicks bubbling from below
+[09:39:26] <sindresorhus> DaveMethvin: It's not really forcing anything, since I can't find any backside to it. Setting the cursor to pointer lets the event bubble up to the document, instead of stopping before the body.
+[09:41:08] <DaveMethvin> since it's a mobile-specific thing it seems like we should let Mobile handle it if they need to, otherwise someone using bare jQuery core should do it themselves
+[09:41:16] <justin_> rwaldron: Yes. I have the repo cloned locally, I went I open index.html I get "jQuery Test Suite (minified)" -- that's it
+[09:42:07] <sindresorhus> DaveMethvin:  Maybe your right, but isn't the point of jQuery to be one file for everything? Putting it in jQM will only benefit mobile apps using jQM.
+[09:42:29] <DaveMethvin> the downside is that we are changing the cursor and creating a side effect
+[09:42:51] <sindresorhus> DaveMethvin:  But the cursor is not visible on touch devices.
+[09:43:20] <DaveMethvin> we're changing the cursor property
+[09:43:38] <DaveMethvin> oh how about android does it do the same?
+[09:43:46] <sindresorhus> DaveMethvin:  Sure, but only on touch devices, where it's not visible.
+[09:44:09] <sindresorhus> DaveMethvin: No, Android click events bubble to the document.
+[09:44:41] <DaveMethvin> does it pass the test though?
+[09:44:46] <sindresorhus> DaveMethvin: It seems like an iOS only artificial limit. Couldn't find any docs on the internetz on why they did that.
+[09:45:24] <DaveMethvin> ok, well let's say we do this, which i'm not convinced we should ...
+[09:45:33] <DaveMethvin> normally we'd feature detect the actual issue
+[09:45:41] <DaveMethvin> so we'd want to see if click doesn't bubble
+[09:45:49] <DaveMethvin> and then cache that fact so we could use it
+[09:45:54] <sindresorhus> DaveMethvin:  Yes, passes the tests. I've also added an extra test for this in delegatetest.html
+[09:47:17] <DaveMethvin> i think we should talk to the mobile guys since they may already have something like this in  place
+[09:47:27] <DaveMethvin> again, whether we do something or not
+[09:47:47] <sindresorhus> DaveMethvin:  I'm with you on that one, but don't know if it's possible to feature detect the bug without bloating.
+[09:48:07] <DaveMethvin> yeah i don't either, and i know we have also seen perf issues with "in" for some cases
+[09:48:20] <DaveMethvin> and this is happening at page load the way it is written now
+[09:48:53] <sindresorhus> DaveMethvin:  Yeah, I didn't really know the right place to put it, please correct me if you have a better place fo it ;)
+[09:49:02] <DaveMethvin> btw, thanks for all your help on the bug tracker, it's great to have another person beating on them
+[09:49:20] <DaveMethvin> imma look at mobile now, odds are they are having to do this
+[09:49:30] <sindresorhus> DaveMethvin: Sure, just trying to give back some of the hours jQuery has saved me in the past ;)
+[09:50:19] <DaveMethvin> oh i think they may be synthesizing clicks
+[09:50:35] <DaveMethvin> b/c click is not a good thing to wait for on mobile platforms
+[09:50:40] <DaveMethvin> it takes too long
+[09:50:51] <sindresorhus> DaveMethvin:  They did and then they didn't I think.
+[09:51:23] <sindresorhus> DaveMethvin: At least the first implementation was really buggy. Can't remember if it was shipped in 1.0.
+[09:51:34] <DaveMethvin> the virtual events are in there
+[09:51:39] <sindresorhus> ok
+[09:51:42] <DaveMethvin> they trigger vclick on touchend
+[09:51:46] <DaveMethvin> looking at the 1.0 code
+[09:52:10] <DaveMethvin> but i am not sure if click gets fired
+[09:52:19] <DaveMethvin> i don't see the hack for cursor in here
+[09:53:03] <DaveMethvin> yeah they're blocking clicks
+[09:53:12] <sindresorhus> Found another reason to fix this, think of all the iPads in the world, and then on how big percent of the internet that uses jQuery.
+[09:53:14] <sindresorhus> ok
+[09:54:04] <sindresorhus> iPads usually loads desktop websites, with just jQuery, not jQM.
+[09:54:36] <DaveMethvin> well you may have a point, but i just want to be sure we don't cause more trouble
+[09:54:54] <DaveMethvin> it looks to me like mobile will block the click events anyway so it may not affect them
+[09:55:51] <DaveMethvin> oh but that's only for wayward click events i think
+[09:56:02] <DaveMethvin> good grief there's a lot of code here :D
+[09:56:34] <sindresorhus> Cross platform is not easy, easpecially not on mobile
+[09:57:55] <DaveMethvin> sindresorhus: go ahead and file the pull request, then we can point the mobile guys to it for an opinion
+[09:59:15] <sindresorhus> Ok
+[10:01:22] <sindresorhus> Pull request sent
+[10:01:35] <DaveMethvin> thanks .. btw http://jsperf.com/direct-check-vs-in
+[10:01:40] <DaveMethvin> but either are very fast
+[10:01:49] <DaveMethvin> and of course the two are testing different things :P
+[10:03:31] <sindresorhus> DaveMethvin:  Doesn't the prop check fail in IE or something if it's undefined?
+[10:03:59] <DaveMethvin> depends on what you're checking, host objects act strange sometimes
+[10:04:18] <DaveMethvin> plus i don't think there's an ontouchstart on document, you're just looking to see if that property exists
+[10:04:29] <DaveMethvin> so we have to use "in" I think
+[10:04:37] <DaveMethvin> but i just remembered it being slower
+[10:04:48] <DaveMethvin> but like slower as in 2 MILLION ops per second
+[10:04:56] <DaveMethvin> which ain't that slow
+[10:05:36] <sindresorhus> Yeah, when I first saw the graph I thought yeez, but then I saw the numbers :P
+[11:16:17] <mikesherov> gnarf: you here?
+[11:17:55] <gnarf> yup
+[11:18:16] <Clooth> no hes not
+[11:18:17] <Clooth> hes here
+[11:18:50] <mikesherov> was working on the animate thing
+[11:19:10] <mikesherov> What do you make of this? important or not: http://jsperf.com/concatenate-vs-replace
+[11:19:30] <mikesherov> I'm trying to figure out whether I need to remove the border*Width thing or not
+[11:20:41] <gnarf> if you can use the concat and still keep it tiny code size wise go for it
+[11:21:04] <mikesherov> ok, great
+[11:21:53] <gnarf> i used the replace thing because i needed the bytes
+[11:21:56] <gnarf> not the perf
+[11:21:57] <gnarf> :)
+[11:24:00] <mikesherov> yeah
+[11:24:10] <mikesherov> I got 24 more bytes out of it, WITH concat
+[11:24:21] <gnarf> nice
+[11:24:27] <mikesherov> but unfortunately, I can't DRY it any further
+[11:24:34] <mikesherov> so I made a remote tracking branch
+[11:24:47] <mikesherov> how do I submit a PR to you based off of it?
+[11:24:51] <mikesherov> do you know?
+[11:24:53] <gnarf> yup
+[11:25:02] <gnarf> its a dirty trick
+[11:25:13] <gnarf> whats your branch / my branch name?
+[11:25:56] <gnarf> mikesherov: no way to reuse any of that in getWH?
+[11:26:06] <mikesherov> not really
+[11:26:09] <mikesherov> I'm going to keep trying
+[11:26:17] <gnarf> darn
+[11:26:21] <gnarf> branch name? :)
+[11:26:29] <mikesherov> same name as yours
+[11:26:34] <mikesherov> I didn't push to my origin yet
+[11:27:52] <gnarf> push it
+[11:28:42] <mikesherov> ok, pushed
+[11:28:47] <mikesherov> saved 21 bytes
+[11:30:11] <gnarf> did you merge with master or somethin too?
+[11:30:16] <mikesherov> I rebased
+[11:30:27] <gnarf> oh - then i can't pull it
+[11:30:35] <mikesherov> oh, shucks
+[11:30:48] <gnarf> if you merged it
+[11:30:52] <gnarf> it would work
+[11:30:57] <gnarf> https://github.com/mikesherov/jquery/compare/gnarf37:1.7-cssHooks-expand...1.7-cssHooks-expand
+[11:31:04] <gnarf> but you should be able to file a pull from that page
+[11:31:39] <gnarf> but notice all the extra commits
+[11:31:41] <gnarf> :)
+[11:31:50] <gnarf> or you could just file the pull against master
+[11:31:53] <gnarf> im cool with that too
+[11:31:58] <gnarf> pick up the branch :)
+[11:32:25] <mikesherov> cool
+[11:32:27] <mikesherov> I'll do that for you
+[11:32:37] <gnarf> cuz https://github.com/mikesherov/jquery/compare/1.7-cssHooks-expand looks clean
+[11:33:04] <mikesherov> here's the patch: https://github.com/mikesherov/jquery/commit/01e610c9ae974ff5a62f7a0d0a202fecf1445ba7
+[11:33:04] <socialhapy> ★ Commit on jquery by mikesherov (6m, 5s ago): use concat instead of replace to save bytes and performance
+[11:33:28] <gnarf> yeah, i saw that on the diff
+[11:33:29] <gnarf> :)
+[11:33:36] <gnarf> nice discovery
+[11:39:59] <mikesherov> wait, I have no idea how to fix the history now
+[11:40:05] <mikesherov> is there an unrebase or something!??
+[11:44:58] <Eviltwin> mikesherov: You can reset to the remote
+[11:45:33] <Eviltwin> Unless there is no remote
+[11:45:42] <Eviltwin> Or other head pointing to the commit you were at
+[11:49:15] <mikesherov> I'm lazy
+[11:49:18] <mikesherov> Eviltwin: what's the command for that?
+[11:49:53] <Eviltwin> mikesherov: So your goal is to make your HEAD and files match some other head?
+[11:50:06] <Eviltwin> Or do you want to preserve the files in their current state
+[11:50:23] <mikesherov> I did a rebase of a remote tracking branch
+[11:50:26] <mikesherov> then I made a commit
+[11:50:52] <mikesherov> now I'm trying to my rebased branch into the unrebased remote tracking branch
+[11:51:01] <mikesherov> so essentially, I need to reset
+[11:51:10] <mikesherov> and then redo the commit
+[11:51:36] <mikesherov> or gnarf needs to man up and rebase his stuff too!
+[11:51:55] <mikesherov> anyway, I've saved 24 bytes
+[11:52:00] <mikesherov> I don't know if it's enough
+[11:52:06] <mikesherov> but it's faster and smaller
+[11:52:13] <mikesherov> I'll keep swinging at it
+[11:53:11] <gibson042> mikesherov: thanks for the congrats and the heads-up
+[11:53:22] <gibson042> https://github.com/jquery/jquery/pull/624 (#10858) is ready
+[11:53:23] <socialhapy> ★ Pull request on jquery by gibson042 (56.253s ago): Fix #10858: CSS regular expressions recognize non-integer and explicit positive numbers
+[11:56:05] <clarkbox> danheberden, you around?
+[11:56:12] <clarkbox> just reading buffer from todays ui meeting
+[11:56:22] <clarkbox> noticed the issue with the view script
+[11:56:38] <danheberden> clarkbox ya, it couldn't delete the files since i think the original pull was by root
+[11:56:39] <clarkbox> what was the problem? i am unclear. was there a change on the server that was not pushed?
+[11:56:45] <danheberden> i changed ownership and all was cool
+[11:56:46] <clarkbox> ahahaha
+[11:57:00] <clarkbox> that is - "ahhhh"
+[11:59:06] <danheberden> root?! HAHAHAHAHA
+[11:59:08] <danheberden> :p
+[12:00:52] <gibson042> bot-t: tell mikesherov thanks for the congrats and heads-up on #10858
+[12:00:52] <bot-t> gibson042, Okay.
+[12:12:31] <DaveMethvin> sindresorhus: you around?
+[12:12:43] <sindresorhus> DaveMethvin:  Yeah
+[12:12:49] <DaveMethvin> got a chance to talk with kinblas over in #jquerymobile-dev
+[12:12:57] <DaveMethvin> he built a test case: http://www.shinarp.com/RnD/events/mouse-event-bubbling.html
+[12:13:30] <DaveMethvin> he says when the div is clicked and the hack is in place, it highlights the div
+[12:13:38] <DaveMethvin> i do see a short flash but it doesn't stay
+[12:13:46] <DaveMethvin> do you have some iOS devices to test?
+[12:13:52] <DaveMethvin> oh mine was an iPad2 btw
+[12:14:30] <sindresorhus> yeah, just let me find my iPad 1.
+[12:16:55] <sindresorhus> just tested with my iPad, and the testcase, just like mine, proves that the cursor:pointe fix actually works ;)
+[12:18:06] <sindresorhus> it seems the problem is with mousedown and mouseup too, and the cursor:pointer fixes these too.
+[12:18:14] <DaveMethvin> right but does the div do anything different when clicked, as in its look?
+[12:18:55] <DaveMethvin> i do see it flash briefly, that doesn't happen when the cursor isn't set
+[12:19:04] <sindresorhus> No, not really, when I click it, it get the usual grey click effect, but this is normal.
+[12:19:07] <DaveMethvin> but it doesn't stay highlighted, at least for me
+[12:20:10] <sindresorhus> what kind of brief flash? You mean the grey highlight?
+[12:20:18] <DaveMethvin> " yeah not sure ... but that hilighting behavior is a negative :-) Folks would have to use -webkit-hilight-color: none"
+[12:20:22] <DaveMethvin> that's from kinblas
+[12:20:35] <DaveMethvin> i don't think it was gray for me, lemme re-check
+[12:20:49] <DaveMethvin> yeah it is
+[12:20:58] <DaveMethvin> if i hold my finger down
+[12:21:05] <sindresorhus> that grey highlight just indicates to the user that they're tapping a clickable element
+[12:21:11] <DaveMethvin> ugh, i see what he means tho
+[12:21:20] <DaveMethvin> hold your finger down on the text
+[12:21:25] <DaveMethvin> which doesn't have a click attached
+[12:22:07] <DaveMethvin> so if you rest your finger on the text and then scroll up down it appears then goes away
+[12:22:21] <sindresorhus> right, I didn't think of that. I agree, that is a problem.
+[12:22:41] <sindresorhus> you now can't select any text
+[12:22:54] <DaveMethvin> the reason Mobile doesn't see this is that they attach events directly to elements
+[12:23:03] <DaveMethvin> since they have to "process" it when it's injected
+[12:23:35] <DaveMethvin> ugh
+[12:23:59] <sindresorhus> right
+[12:24:15] <DaveMethvin> so i guess that's why clicks are disabled by default
+[12:24:51] <DaveMethvin> and we need to keep them that way i guess?
+[12:25:16] <sindresorhus> Yeah, probably, being able to select text comes in handy ;)
+[12:25:27] <DaveMethvin> there could be a special event handler that turned on the hack only when you did delegated clicks, but i bet that would really confuse people
+[12:26:00] <DaveMethvin> This really does suck tho
+[12:26:07] <sindresorhus> But, the good thing is that we have another reason why .live() is bad, and .on() (delegate) is good.
+[12:26:24] <DaveMethvin> true, if you delegate to something lower than the body?
+[12:26:29] <sindresorhus> Yes, there are a LOT of people using live, with iPad users, so...
+[12:26:43] <DaveMethvin> does the event bubble TO the body?
+[12:26:52] <sindresorhus> Yes, it bubbles up to right before the body
+[12:27:12] <DaveMethvin> so like if i attach an event to "body" does it work?
+[12:27:28] <sindresorhus> No
+[12:27:55] <DaveMethvin> ok well like you say it's another reason to use on/delegate i guess :P
+[12:28:12] <sindresorhus> We could document it though, that user could add cursor:pointer to elements they want to work with .live() ?
+[12:28:17] <DaveMethvin> yes
+[12:28:41] <DaveMethvin> can it be added just to the element, or does it have to be added to the document element?
+[12:29:28] <sindresorhus> I first discovered the fix on a single element, and then found out it worked on the documentElement too. So yes, you can do it on a single element.
+[12:29:46] <DaveMethvin> but of course in the delegated event case the element(s) may not exist
+[12:30:05] <sindresorhus> yeah, exactly.
+[12:30:16] <DaveMethvin> i think this is a documentation thing
+[12:30:23] <DaveMethvin> too bad b/c it may break a lot of code
+[12:30:33] <DaveMethvin> but really they shoudl be using links or buttons if they want clickable things
+[12:30:40] <sindresorhus> though, if you set the class in css and have that class on new elements, I'm almost sure it will get the fix.
+[12:31:22] <sindresorhus> yeah, button and links can be styled just as much as a div
+[12:31:59] <DaveMethvin> we could do a "learning jquery" post on this, i think there are several good practices that avoid the problem
+[12:32:32] <DaveMethvin> use links and buttons, delegate lower than body, apply the cursor hack only where needed, etc
+[12:32:39] <sindresorhus> You could also do <div class="live"></div> on new elements and with the live class with cursor: pointer, then it would work on live().
+[12:32:53] <DaveMethvin> but introduce the selection issue, right?
+[12:33:10] <sindresorhus> Yes, but then you would know about it
+[12:33:19] <sindresorhus> Since you're setting it yourself.
+[12:33:23] <ajpiano> https://github.com/jquery/learn.jquery.com/tree/master/content/how-to
+[12:33:24] <ajpiano> ^^
+[12:33:26] <DaveMethvin> right, which is different than core doing it behind your back :D
+[12:33:31] <ajpiano> those guys need friends
+[12:34:05] <sindresorhus> I like the dex.md :P
+[12:34:33] <DaveMethvin> sindresorhus: if you put a demo together (or steal the one from kinblas) I can work with you on that
+[12:34:37] <DaveMethvin> and ajpiano will be happy
+[12:35:26] <sindresorhus> DaveMethvin:  Ok, what is the demo for? learnin.jquery.com?
+[12:35:50] <DaveMethvin> you can do it in .md if you want ... ajpiano when will that launch?
+[12:36:08] <DaveMethvin> i mean, ajpiano, when will  you be deleting these? :P
+[12:36:13] <sindresorhus> Yes, md is fine
+[12:36:21] <ajpiano> it's gonna be with all the new site launch stuff
+[12:36:25] <ajpiano> so hopefully.. mid jan?
+[12:36:25] <DaveMethvin> k
+[12:36:31] <DaveMethvin> sounds good
+[12:36:31] <ajpiano> ps LOL
+[12:36:58] <DaveMethvin> ok an anniversary present
+[12:37:42] <sindresorhus> DaveMethvin:  Ok, just to be clear. You want an learning article on learning.jquery.com about .live() issues on iOS with a demo?
+[12:38:18] <DaveMethvin> yeah, and i'll help  you finish it up once the demo is done if you want
+[12:38:47] <DaveMethvin> oh man, gotta go and do some payin work
+[12:38:54] <sindresorhus> DaveMethvin:  Ok, sure, I'll draft something for you ;) But it's also important that we get a few lines in the docs about it too.
+[12:39:17] <sindresorhus> Ok
+[12:39:21] <sindresorhus> Hehe
+[12:39:34] <sindresorhus> It's 21:40 here ;)
+[12:42:48] <ajpiano> i know a thing or two about that 6 hour time diff... got on the amtrak the other day in boston  and it auto-detected my location from wifi...
+[12:42:52] <ajpiano> as being in norway :/
+[12:43:01] <ajpiano> changed the clock and everything
+[12:45:03] <sindresorhus> ajpiano:  Be glad it was only your clock ;)
+[12:46:17] <hashar> ajpiano: have you enjoyed the fjord?
+[12:47:12] <ajpiano> it was cold
+[12:47:46] <sindresorhus> it IS cold
+[12:49:13] <sindresorhus> Usually around this time of year the temp goes down to -30c in Lillehammer where I live. Beat that.
+[12:51:01] <hashar> dohh
+[12:51:25] <hashar> I used to live near the France coldest city. But never had less than -25°c
+[12:52:34] <sindresorhus> Yeah, I feel you, more time for coding though, since it's unlivable outside ;)
+[13:01:13] <Eviltwin> Not strictly on topic: Anyone know of a jQuery UI plugin that has content (like a dialog or whatever) stops propagation of a click event from inside?
+[13:01:39] <Eviltwin> I'm trying to show someone where blindly using .live() will screw them
+[13:01:43] <Eviltwin> Without first explaining event bubbling
+[13:02:15] <Eviltwin> I'll get to it eventually but I'd like to take them out of their comfort zone first
+[13:13:15] <DaveMethvin> rwaldron: NO TABS!
+[13:13:22] <DaveMethvin> lol
+[13:14:52] <rwaldron> huh?
+[13:15:04] <rwaldron> I'm just saying "bro, please don't make extra work for us"
+[16:10:04] <mikesherov> gnarf, I think I can squeeze some more bytes out
+[16:10:05] <bot-t> (4 hours 9 mins 10 secs ago) <gibson042> tell mikesherov thanks for the congrats and heads-up on #10858
+[16:10:40] <mikesherov> gnarf: I'm going to keep devving on my rebased version. It just makes sense
+[16:10:45] <mikesherov> I'll keep you posted
+[16:10:58] <gnarf> mikesherov: yeah, go for it
+[16:11:08] <gnarf> if i ever want to do anything i'll just pick up your branch
+[16:37:08] <mikesherov> gnarf: BOOM https://github.com/mikesherov/jquery/compare/01e610c9ae...ffcef5eec6
+[16:37:25] <mikesherov> gnarf: lose a bit on clarity
+[16:37:29] <mikesherov> but win on bytes
+[16:38:12] <gnarf> i wonder if "padding" "border" "Width" are becoming gzip keys or not
+[16:38:35] <gnarf> prolly are
+[17:24:30] <davidmurdoch> paul_irish, SlexAxton modernizr.com was just down for a bit. it is back up now.
+[17:24:53] <davidmurdoch> paul_irish, SlexAxton also, do you guys not get the strange animation artifacts in the background when hovering over the logo?
+[17:25:12] <davidmurdoch> And the 2+ second load time for the body text?
+[17:25:43] <davidmurdoch> This is on Chrome 17.0.963.0 dev-m Windows 7 64bit
+[17:27:12] <paul_irish> davidmurdoch: blame typekit for 2s
+[17:27:13] <paul_irish> :/
+[17:27:18] <paul_irish> im not crazy about it
+[17:27:29] <paul_irish> but github.com/Modernizr/site in case you wanna fix the css transition speed
+[17:27:34] <paul_irish> worthwhile
+[17:27:42] <paul_irish> dunno about artifacts. dont get on mac
+[17:27:45] <davidmurdoch> http://bit.ly/usltgM
+[17:28:07] <davidmurdoch> I'll mess with the site a bit tomorrow
+[19:13:41] <mikesherov> gnarf: I have more optimizations coming!
+[19:14:06] <mikesherov> DaveMethvin: I think I can get gnarf's PR small enough with DRYing it out that we can land it
+[19:20:19] <gnarf> nice - thanks for the second set of eyes on it!
+[19:22:14] <mikesherov> gnarf: https://github.com/mikesherov/jquery/compare/03f39229e2...1.7-cssHooks-expand
+[19:22:22] <mikesherov> I have one more trick up my sleeve
+[19:22:31] <mikesherov> that I'm going to try
+[19:23:17] <mikesherov> saved 44 bytes off the original PR so far
+[19:23:29] <gnarf> gzip?
+[19:23:45] <mikesherov> yeah, gzip
+[19:23:49] <gnarf> crazy
+[19:24:14] <mikesherov> I think I can squeeze another 10 bytes out or so
+[19:24:16] <mikesherov> we'll see
+[19:24:23] <gnarf> glwt
+[19:24:35] <gnarf> im head deep in some PHP ACL bullshit
+[19:25:14] <mikesherov> ACL?
+[19:25:19] <gnarf> access control lists
+[19:25:24] <gnarf> permissions
+[19:25:59] <mikesherov> glwt too
+[19:26:08] <gnarf> i think i just cracked it
+[19:26:11] <gnarf> *flex*
+[20:13:52] <mikesherov> gnarf: I gotta run, I was able to squeeze 43 bytes total out of the PR for a total impact of 119 (down from 162)
+[20:13:53] <mikesherov> should I submit a new PR?
+[20:14:03] <mikesherov> or do you want to take it?
+[20:14:18] <gnarf> go ahead
+[20:14:31] <mikesherov> OK
+[20:18:30] <mikesherov> https://github.com/jquery/jquery/pull/626
+[20:18:31] <socialhapy> ★ Pull request on jquery by mikesherov (1m, 58s ago): 1.7 - adding a cssHooks[prop].expand for use by animate() - Fixes #8498
+[20:40:34] <rwaldron> ?tell mikesherov your handling of cssExpand = [ "Top", "Right", "Bottom", "Left" ], to replace the other two arrays is killer. brings a tear of joy to my eye
+[20:40:34] <bot-t> rwaldron, Okay.

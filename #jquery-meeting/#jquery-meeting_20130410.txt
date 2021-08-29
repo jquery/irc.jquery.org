@@ -1,0 +1,93 @@
+[09:01:27] <scott_gonzalez> gnarf: jzaefferer kborchers mikesherov ngsilverman petersendidit rxaviers tj_vantoll
+[09:01:33] <kborchers> yo
+[09:01:36] <rxaviers> helloo
+[09:01:38] <tj_vantoll> hey
+[09:02:45] <scott_gonzalez> rxaviers: Want to start us off?
+[09:03:21] <rxaviers> Sure, this week on DB ImageMagick guy snibgo gave a solution for the IM6.6 requirement we use to have
+[09:03:51] <rxaviers> he pointed out a change IM6.7.9 (actually) had which were leading to the bug-effect we noticed
+[09:04:03] <rxaviers> So, DB now is fixed and works with (virtually) all IM versions
+[09:04:34] <scott_gonzalez> :-)
+[09:04:45] <rxaviers> Recently, we had a big PR about moving grunt tasks from jQueryUI into DB. It waits review.
+[09:05:45] <rxaviers> Other than that, another big thing I'd work on is "Prototype adding support for jQuery Mobile"
+[09:06:06] <scott_gonzalez> We shouldn't do that since Mobile is planning changes to their theming.
+[09:06:11] <rxaviers> I'd like to know where you guys think I'd be more useful, so I can put my energies on
+[09:06:41] <rxaviers> (ok, so I will hold on that)
+[09:07:12] <rxaviers> actually, the prototype is for the download part
+[09:09:32] <gnarf> here
+[09:09:45] <scott_gonzalez> Let's finish the Grunt de-duping and then figure out a roadmap beyond that.
+[09:09:58] <rxaviers> ok
+[09:10:05] <scott_gonzalez> Can you addres jzaefferer's comment about moving the release tasks out of grunt and into release.js?
+[09:10:09] <gnarf> rxaviers: so, is that code for IM deployed?
+[09:10:30] <gnarf> rxaviers: can I revert the stuff that forces the old IM versions to be installed and go back to the debian package now?
+[09:11:08] <rxaviers> Im afraid we have to address things prior to that, which are the two points before that comment
+[09:11:43] <rxaviers> So, we may eventually waste work
+[09:11:45] <rxaviers> Or*
+[09:13:23] <rxaviers> high level questions I have... I understand we want to keep the release process in the jQueryUI, while reusing low level tools offered by downloadBuilder to not duplicate work.
+[09:14:19] <scott_gonzalez> correct
+[09:14:23] <rxaviers> The PR I sent is: (a) exposing low level objects of downloadBuilder, (b) changing jQueryUI to use them to generate the release things.
+[09:15:21] <rxaviers> The release files are not identical to the download files. Therefore, we have (plenty) code to customize it in the jQueryUI side.
+[09:17:49] <rxaviers> (af taking long time to formulate what I need to ask)
+[09:17:57] <rxaviers> DownloadBuilder does two things: (a) given jqueryUI files, prepare them (b) serve the download.
+[09:18:20] <scott_gonzalez> rxaviers: Don't think about what it does today.
+[09:18:29] <scott_gonzalez> Because it doens't do all the things we want it to do.
+[09:19:10] <rxaviers> the preparation step was previously over the release files. But, now it has been changed to prepare over the build files instead. So, we dont require the release package and then can be used to generate it.
+[09:20:30] <rxaviers> If we want to export more away from  jQueryUI into downloadBuilder (eg. release_cdn had no much benefit from last PR, since its generate_theme part was already being done by DB), we need to let DB do more things, like  `build`
+[09:20:55] <rxaviers> Is that the intent?
+[09:22:17] <rxaviers> Thinking out of the box, I think we should have a unique code that handles the packages (download, release, and even the build)
+[09:22:48] <rxaviers> The benefit of not duplicating code, besides not needing to repeat-yourself in different places is to make maintenance easier and less error prone.
+[09:23:32] <rxaviers> So, ideally jQueryUI and DownloadBuilder should use this (same) set of low level tools to develop its tasks.
+[09:23:52] <rxaviers> DownloadBuilder the site, download.jqueryui.com should limit itself to serving packages.
+[09:24:17] <scott_gonzalez> What the site does and what's in download.jqueryui.com don't need to be the same.
+[09:24:19] <rxaviers> The jqueryui-builder set of low level tools should be an API of classes that abstracts build
+[09:24:41] <scott_gonzalez> And that code should live in download.jqueryui.com.
+[09:24:43] <rxaviers> release and any kind of arrangements
+[09:24:58] <scott_gonzalez> But we're still going to need to run things like min, concat, etc. in grunt.
+[09:27:03] <rxaviers> Current PR is the minimum-change I saw to accomplish the cleanup. But, if we need more stuff to get away from jQueryUI, please just let me know which parts... I didnt want to change more than what we should in advance.
+[09:29:28] <scott_gonzalez> Ok, I'll review what you've sent.
+[09:29:51] <rxaviers> cool thks ;) no hurry
+[09:31:06] <scott_gonzalez> I was thinking about the classes option some more.
+[09:31:38] <scott_gonzalez> I don't think we want classes like ui-widget to be in the list.
+[09:32:33] <scott_gonzalez> So we'd have the option like: { "ui-dialog": "ui-corner-all" }
+[09:33:08] <scott_gonzalez> But then we'd do .addClass( this._classes( "ui-dialog", "ui-widget" ) )
+[09:33:31] <scott_gonzalez> So there would be the main functional class, which is still used for the key when looking up style/optional classes.
+[09:33:44] <scott_gonzalez> But there'd also be a list of other classes to add.
+[09:34:00] <scott_gonzalez> Which would always be framework classes.
+[09:34:17] <gnarf> hrm
+[09:34:32] <tj_vantoll> I see where you're coming from.  My only concern is the complexity that would add.
+[09:34:32] <gnarf> would it also look up translations/additionals for ui-widget ?
+[09:34:35] <scott_gonzalez> This is sort of like sortable's cancel option.
+[09:34:47] <scott_gonzalez> You don't really want to remove the defaults.
+[09:35:04] <scott_gonzalez> gnarf: No, ui-widget wouldn't have additionals.
+[09:35:50] <scott_gonzalez> If you want to effect something that broad, just style the class.
+[09:36:05] <gnarf> sure
+[09:36:25] <scott_gonzalez> Most of the time this will either be to remove our corner classes or to use an existing style that you just want to apply to a specifc part of a widget.
+[09:36:36] <scott_gonzalez> Ideally the latter part is handled via CSS mixins.
+[09:36:38] <tj_vantoll> You could make _classes add it to the list for the base functional class.
+[09:36:41] <gnarf> so like
+[09:36:44] <gnarf> here's a tricky one
+[09:36:46] <gnarf> dialogs
+[09:36:54] <gnarf> what if you want your dialog buttons to have additional classes?
+[09:37:06] <scott_gonzalez> Individual buttons?
+[09:37:14] <gnarf> does the .button() call from dialog get passed the dialog's classes button?
+[09:37:30] <gnarf> individual seems trickier
+[09:37:38] <scott_gonzalez> No, each button uses the .attr( attrs, true ) type funcctionality.
+[09:38:28] <scott_gonzalez> https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.dialog.js#L422
+[09:38:40] <scott_gonzalez> So you can already customize classes per button.
+[09:38:44] <gnarf> ah yeah
+[09:38:45] <gnarf> cool
+[09:38:55] <gnarf> was just thinking about that as a possible edge
+[09:39:34] <tj_vantoll> On a related note I pinged the mobile team and they said they would look at the classes option docs when they do their theming review and get back with us.
+[09:39:43] <scott_gonzalez> ok
+[09:41:21] <scott_gonzalez> petersendidit: Can you update the PR based on that?
+[09:41:29] <scott_gonzalez> I started writing tests for Pointer Events.
+[09:42:05] <scott_gonzalez> Here's a list of the assertions that we want to test: http://www.w3.org/wiki/PointerEvents/TestAssertions
+[09:42:21] <scott_gonzalez> I wrote tests for the pointerdown event and the PointerEvent interface.
+[09:42:44] <scott_gonzalez> I also refactored the submissio from Nokia and merged everything into a single test page.
+[09:43:00] <scott_gonzalez> DaveMethvin is working on more tests this week at Test the Web Forward.
+[09:43:24] <scott_gonzalez> I discussed some ideas with him this morning about how to implement some more of the assertions by building on top of the existing file.
+[09:44:14] <scott_gonzalez> These tests are a bit tricky because they require user interaciton, so you want to get as much test coverage as you can from the easiest/smallest user interaction.
+[09:46:31] <tj_vantoll> To sum up the classes chat, I think the main use case of the classes option is things like wanting to add a class to the menu that autocomplete uses.
+[09:46:31] <tj_vantoll> How we handle ui-widget internally is just an implementation detail because I doubt anybody would care to toggle that class… but I agree that we probably shouldn't expose ui-widget.  I'll document our discussion on the wiki page later.
+[09:47:59] <scott_gonzalez> Thanks tj_vantoll
+[09:48:05] <scott_gonzalez> Anyone have anything else?
+[09:50:30] <scott_gonzalez> Ok, see everyone back in -dev.

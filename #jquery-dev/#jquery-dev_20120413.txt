@@ -1,0 +1,122 @@
+[05:21:30] <mikesherov> .
+[05:32:53] <socialhapy> ★ Tweet from jquerymobile: Announcing jQuery Mobile 1.1.0 Final - faster, smother and more polished with true fixed toolbars, new transitions - http://t.co/DwRrxEvU ★ http://bit.ly/HOlDuY
+[05:34:22] <socialhapy> ★ Tweet from jquerymobile: Announcing jQuery Mobile 1.1.0 Final - faster, smoother and more polished with true fixed toolbars, new transitions - http://t.co/DwRrxEvU ★ http://bit.ly/HOlLuo
+[05:48:11] <gibson042> .
+[05:55:18] <socialhapy> ★ Tweet from jquerymobile: Let us know as you update and launch your 1.1.0 based sites and apps! ★ http://bit.ly/IJvxiV
+[06:28:30] <gnarf> hey gibson042
+[06:28:50] <gnarf> have you had a chance to look over pull 731 yet?
+[06:29:02] <gibson042> hey gnarf, I'm just prepping the low-hanging fruit optimizations for commit
+[06:29:14] <gibson042> -83 min+gzipped
+[06:29:17] <gnarf> nice man
+[06:29:39] <gnarf> lemme know what fork/branch to cherry pick the commit from
+[06:30:09] <mikesherov> gnarf: I've been busy with a .ready PR, I haven't issued the PR for cssProps yet
+[06:30:16] <mikesherov> I will do that this weekend
+[06:30:28] <gibson042> and I'm pretty sure there's more available with the Deferreds, but I don't quite understand how they relate
+[06:30:42] <gibson042> you've done an amazing job wrangling such complexity
+[06:30:55] <gnarf> gibson042: thanks, if you managed to find -83 thats the crazy shit
+[06:31:07] <gnarf> scott_gonzalez and I are both out of compression ideas :)
+[06:31:30] <gibson042> I got my "think like gzip" training from mikesherov :)
+[06:31:44] <mikesherov> LOL @ gibson042
+[06:31:56] <mikesherov> I haven't had a chance to examine the compression aspect yet gnarf, I'll also do that this weekend
+[08:07:07] <DaveMethvin> https://github.com/jquery/jquery/commit/166b9d252a025009413eee1584dc364996dcb1c2#commitcomment-778049
+[08:07:08] <bot-t> (29 hours 2 mins ago) <jaubourg> tell DaveMethvin did you get the problem with the ajax tests or is it something I broke that I need to go back to?
+[08:07:08] <socialhapy> ★ Commit on jquery by dmethvin (4m, 1w ago): Fix #10466. jQuery.param() should treat object-wrapped primitives as primitives.
+[08:15:05] <wycats> DaveMethvin: https://github.com/rack/rack/blob/master/test/spec_utils.rb#L123-202
+[08:15:18] <gibson042> gnarf: https://github.com/gibson042/jquery/commit/5886b269ce961a91897dba0fe310b64f83c6bd28 is ready for your cherry-picking
+[08:15:19] <socialhapy> ★ Commit on jquery by gibson042 (6m, 3s ago): code compression: -84 bytes min+gzip
+[08:22:11] <gnarf> gibson042: sent a couple of comments
+[08:22:21] <gnarf> gibson042: also did it still pass ?filter=effects units?
+[08:22:49] <gnarf> gibson042: lemme know if you have a new commit in response - otherwise I'll just cherry that one and move from there
+[08:39:29] <DaveMethvin> http://forum.jquery.com/topic/fix-is-slow
+[08:50:46] <jaubourg> gnarf: why preFilter rather than prefilter (which would make it on par with ajaxPrefilter)?
+[08:52:06] <mikesherov> jaubourg: that would also probably save a min_gz byte
+[08:52:10] <mikesherov> min+gz byte
+[08:52:30] <mikesherov> gzip is a hilarious thing to optimize for
+[08:53:38] <jaubourg> mike: as in 'as predictable as a 60 year old hooker on drugs lat at night in panama'?
+[08:53:52] <jaubourg> with a gun
+[08:54:57] <jaubourg> I'll admit I hate this kind of optimization, especially too early on the discussion/refactoring
+[08:55:12] <jaubourg> even if the results are quite impressive
+[08:57:08] <jaubourg> I'm 100% positive we'd get far better results by taking ajax and effects out of core and having them as separate plugins (these are the two components people could -- should? -- use/create alternatives for)... with a core below 32kb, we'd have far better compression anyway
+[08:57:38] <jaubourg> the whole re-ordering files deal a while ago just proved the 32kb barrier is the issue imo
+[08:59:59] <gnarf> jaubourg: um - brain fart? i dunno
+[09:00:50] <jaubourg> gnarf: well, there is no right or wrong, really, but since we already have a prefilter with lowercase f, just seemed weird to me
+[09:00:57] <mikesherov> yeah, 32KB is the barrier for sure.
+[09:01:09] <mikesherov> I think we can get there without removing anything, honestly.
+[09:01:17] <jaubourg> I seem to remember preFilter was suggested for ajax at one point
+[09:01:28] <jaubourg> mikesherov: I doubt it
+[09:01:32] <mikesherov> just using some sane deprecations and removing archaic code that's no longer needed
+[09:01:36] <jaubourg> we passed it for a reason
+[09:01:49] <jaubourg> when we drop IE8- support maybe
+[09:01:59] <jaubourg> that is in 2037
+[09:02:07] <mikesherov> for example, we just removed .5KB from core because all supported browsers now have a way to properly get offset
+[09:02:26] <jaubourg> .5KB min gzip?
+[09:02:27] <mikesherov> there are checks all over the place for things that are unnecessary
+[09:02:32] <mikesherov> yeah, min gzip
+[09:02:37] <jaubourg> not bad
+[09:02:53] <mikesherov> I removed most of the support tests, and most of the offset code
+[09:02:59] <jaubourg> I dunno, I always felt like ajax and effects are out weak modules
+[09:03:13] <mikesherov> of course, I took half of that back to support border-box, but that's a different story
+[09:03:19] <mikesherov> Oh, I agree
+[09:03:31] <mikesherov> I'm just saying, we don't need to sacrifice them to get under 32KB
+[09:03:34] <jaubourg> it'd be sane to open competition on this by removing them from core and making them plugins
+[09:04:18] <jaubourg> ajax has an archaic API that has to stay for compatibility reason, no matter how pluggable it is, it will stay clunky
+[09:04:53] <mikesherov> For example, some times we do: if( standardExists ) {} else if ( nonstandardExists) {}
+[09:05:04] <jaubourg> do we?
+[09:05:11] <mikesherov> when we can do: if( standardExists ) {} else {}
+[09:05:23] <mikesherov> for example, look at doc ready
+[09:05:32] <jaubourg> well, most of the time we just do if( standardExists ) {} else { /* IE CODE */ }
+[09:05:49] <mikesherov> we do: if ( window.addEventListener ) else if ( window.attachEvent ) {}
+[09:05:53] <jaubourg> seems sane to me to somehow state the fact we're doing some IE hack
+[09:05:55] <mikesherov> it's unnecessary
+[09:06:05] <mikesherov> we can state that in a comment
+[09:06:21] <mikesherov> same thing happens in css
+[09:06:32] <mikesherov> sometimes we do if (curCSS)
+[09:06:39] <jaubourg> right until Google lauches a new non-W3C browser for the sake of breaking the web?
+[09:06:44] <mikesherov> and curCSS is either getComputedCtyle or currentStyle
+[09:07:02] <mikesherov> sure, but YAGNI
+[09:07:40] <mikesherov> if google launched a new standard, jQuery would break completely for it
+[09:07:49] <jaubourg> true
+[09:08:04] <mikesherov> so it's silly, really
+[09:08:23] <mikesherov> those checks are probably so like Opera super old version didn't just outright crash
+[09:08:24] <jaubourg> why haven't I seen this "remove unnecessary tests" PR of yourse then? :P
+[09:08:34] <mikesherov> It's coming
+[09:08:40] <mikesherov> it's in my pipeline
+[09:08:45] <mikesherov> first was border-box
+[09:08:46] <jaubourg> maybe it's also about mobile browsers
+[09:08:58] <mikesherov> sure, maybe it is
+[09:09:08] <mikesherov> but again, jQuery would be broken outright
+[09:09:17] <mikesherov> that check in css is like the last place it should be
+[09:09:44] <jaubourg> I guess the idea is to have a gracious degradation... like, some things would not work but you'd be able to use jQuery for most of the rest
+[09:10:03] <jaubourg> while with your approach, you forbid the use of some jQuery functionality is one can fail with an exception
+[09:10:36] <jaubourg> makes a lot of sense in old clunky mobile browsers
+[09:11:12] <mikesherov> yeah
+[09:11:15] <jaubourg> now I don't have data to bak this up but I find it a bit sad to remove those protections for the sake of a few bytes while we can take much more energic measures
+[09:11:27] <mikesherov> sure, you're probably right
+[09:11:36] <mikesherov> I'm also about code clarity too
+[09:11:37] <jaubourg> like removing parts we know can be put as a plugin
+[09:11:49] <mikesherov> someone has to support that else if unnecessarily
+[09:12:00] <mikesherov> ok, g2g, great chat
+[09:12:02] <mikesherov> I'
+[09:12:08] <jaubourg> cya mike
+[09:12:10] <mikesherov> I'll open a PR, and then you can smash it to bits
+[09:12:15] <jaubourg> hahaha
+[09:12:20] <jaubourg> sure will then :P
+[09:28:35] <jaubourg> gotta fly
+[09:35:21] <socialhapy> ★ Tweet from jquerymobile: We just noticed that the new TR app is incorrectly packaging "loader.png" with 1.1 instead of the animated gif "loader.gif". Fixing now. ★ http://bit.ly/HAhN5a
+[09:40:21] <socialhapy> ★ Tweet from jquerymobile: Until we fix the loader gif in ThemeRoller's zip file, you can grab this image and drop it into your theme: http://t.co/caDvyYI9 ★ http://bit.ly/HDbK4n
+[10:00:18] <socialhapy> ★ Tweet from jquerymobile: Alright, the loader gif is now fixed up on the new jQuery Mobile ThemeRoller, sorry for the hiccup folks: http://t.co/AeDhxKnb ★ http://bit.ly/HGk2I3
+[10:20:07] <gibson042> gnarf: I'm late in getting to this, but all tests pass
+[10:20:56] <gnarf> gibson042:  awesome - i'll cherry pick that into that pull in a minute
+[10:49:39] <mikesherov> https://github.com/jquery/jquery/pull/736
+[10:49:40] <socialhapy> ★ Pull request on jquery by mikesherov (6.912s ago): Fixes #10067 Introducing.... jQuery.quickReady
+[10:49:50] <mikesherov> DaveMethvin: please check this one out
+[10:49:59] <mikesherov> pretty interesting stuff!
+[10:50:59] <mikesherov> rwaldron: I would also love your input on: https://github.com/jquery/jquery/pull/736
+[10:51:00] <socialhapy> ★ Pull request on jquery by mikesherov (1m, 27s ago): Fixes #10067 Introducing.... jQuery.quickReady
+[10:53:00] <mikesherov> gnarf: if you stop leaking effects rewrite code from your eyeballs, perhaps you can review that PR as well
+[11:42:00] <mikesherov> DaveMethvin: you here?
+[11:42:26] <mikesherov> nvm, I'll just communicate on github
+[13:53:18] <ajpiano> ?channels
+[13:53:19] <bot-t> For support please go to #jquery or #jquerymobile. Development Channels: #jquery-dev - #jqueryui-dev - #jquerymobile-dev ; Meetings held in#jquery-meeting
+[16:00:59] <socialhapy> ★ Tweet from jquery: Bowling night is decidedly underway! Thanks to everyone for coming on down! http://t.co/Vo80wXmC ★ http://bit.ly/HEa0Uk
+[21:06:07] <Krinkle> .

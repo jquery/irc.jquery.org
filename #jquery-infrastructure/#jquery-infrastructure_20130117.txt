@@ -1,0 +1,111 @@
+[11:05:46] <gnarf> clarkbox: you here?
+[11:05:54] <gnarf> there's something strange happening with /var/log/messages on jq02
+[11:06:06] <gnarf> all these plugins.jquery.com log messages aren't showing up in splunk
+[11:09:35] <clarkbox> looking
+[11:10:36] <gnarf> clarkbox: it was working just fine until the logs rotated yesterday, at least it seemed it was
+[11:11:58] <clarkbox> i see data
+[11:11:58] <clarkbox> https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20source%3D%2Fvar%2Flog%2Fmessages%20host%3D%22jq02%22&earliest=-60m%40m&latest=now
+[11:12:50] <gnarf> excuse spam everyone:
+[11:12:56] <gnarf> Jan 17 11:10:03 nc02 plugins.jquery.com[5417]: Added livesearch v0.1.0 to plugins DB
+[11:12:57] <gnarf> Jan 17 11:10:03 nc02 plugins.jquery.com[5417]: Done processing request: github/samuelcole/jquery-livesearch
+[11:12:57] <gnarf> Jan 17 11:10:06 nc02 plugins.jquery.com[5418]: Added livesearch v0.1.0 to WordPress
+[11:12:58] <gnarf> Jan 17 11:10:41 nc02 plugins.jquery.com[5417]: Received request: github/revolverjs/revolver-jquery
+[11:13:00] <gnarf> Jan 17 11:10:41 nc02 plugins.jquery.com[5417]: No tags to process for github/revolverjs/revolver-jquery
+[11:13:02] <gnarf> Jan 17 11:10:41 nc02 plugins.jquery.com[5417]: Done processing request: github/revolverjs/revolver-jquery
+[11:13:04] <gnarf> Jan 17 11:10:58 nc02 plugins.jquery.com[5417]: Received request: github/lemmon/Lemmon-Slider
+[11:13:06] <gnarf> Jan 17 11:10:58 nc02 plugins.jquery.com[5417]: No tags to process for github/lemmon/Lemmon-Slider
+[11:13:08] <gnarf> Jan 17 11:10:58 nc02 plugins.jquery.com[5417]: Done processing request: github/lemmon/Lemmon-Slider
+[11:13:10] <gnarf> these messages don't show up
+[11:13:12] <gnarf> but they are def in /var/log/messages
+[11:20:35] <clarkbox> k i am investigating. doing 10 other things, so ill be a while
+[11:28:47] <gnarf> no prob
+[11:28:53] <gnarf> same here (10 other things)
+[11:34:01] <clarkbox> ah we are tagging it with the wrong host
+[11:34:13] <clarkbox> its using the "nc02" text in the event as host value
+[11:34:20] <clarkbox> what is nc02?
+[11:34:44] <gnarf> clarkbox: i have NO CLUE where the hell thats coming from
+[11:35:09] <clarkbox> if its supposed to be the host, we should change it then we will be all good...
+[11:35:29] <gnarf> even source=/var/log/messages "plugins.jquery.com"
+[11:35:33] <gnarf> doesn't show these messages tho
+[11:35:44] <gnarf> is it getting thrown out cause nc02 isn't indexed or something?
+[11:36:23] <clarkbox> hmm, they are going to var/log/syslog
+[11:36:32] <clarkbox> no thats not the prob
+[11:38:06] <clarkbox> looks like the log messages are being duplicated?
+[11:39:16] <clarkbox> only a small fraction are going to syslog
+[11:39:29] <clarkbox> i mean /messages
+[11:39:48] <clarkbox> can we specify a specific log file to log to
+[11:40:31] <gnarf> clarkbox: we could make a new log specifically for the plugins.jquery.com stuff, yeah - syslog
+[11:40:33] <gnarf> but
+[11:40:39] <gnarf> they are all in /var/log/messages on the server....
+[11:40:58] <gnarf> i'm tailing/greppin that shit like a madman, but would like to be able to give out some of the info from splunk
+[11:42:22] <ajpiano> http://bugs.jquery.com/ticket/13247
+[11:42:26] <ajpiano> do we care to investigate later
+[11:43:55] <clarkbox> i doubt there is a problem
+[11:44:15] <clarkbox> ask for traceroute at least?
+[11:44:43] <gnarf> ajpiano: forward to chris lea
+[11:44:48] <gnarf> ajpiano: ill do it
+[11:44:52] <ajpiano> thxnk
+[11:45:02] <gnarf> ajpiano: it's definitely stuck in that same "block area" that that last russian guy was
+[11:45:12] <gnarf> traceroute to 168.187.87.45 (168.187.87.45), 30 hops max, 60 byte packets
+[11:45:12] <gnarf>  1  nc025.mediatemple.net (72.47.221.11)  0.076 ms  0.013 ms  0.012 ms
+[11:45:12] <gnarf>  2  e1.2.as02.lax01.mtsvc.net (72.10.63.249)  0.280 ms  0.333 ms  0.397 ms
+[11:45:13] <gnarf>  3  * * *
+[11:45:19] <gnarf> MT's network kills the packets
+[11:45:30] <gnarf> this means that IP likely attacked MT servers like months ago
+[11:45:32] <gnarf> and is still banned
+[11:45:36] <clarkbox> ha nice
+[11:46:07] <gnarf> this time its kuwait
+[11:46:08] <gnarf> :)
+[12:09:08] <gnarf> clarkbox: would it be possible to add a "meta" param to our accesscombined of the actualy "server_hostname"
+[12:11:01] <clarkbox> ill have to look into that
+[12:11:05] <clarkbox> i know what you mean
+[12:11:10] <clarkbox> should be possible
+[12:29:19] <gnarf> danheberden ajpiano ryanneufeld: regarding possible IP "bans" - email shiftops@mediatemple.net from a jquery email
+[12:29:39] <ryanneufeld> gnarf: I don't have a jquery email
+[12:29:56] <gnarf> ryanneufeld: you're on our account at (mt) tho, just reference it 
+[12:30:06] <ryanneufeld> ok
+[12:30:27] <gnarf> but for the most part, none of these are "emergency"
+[12:30:41] <gnarf> just putting it out there so more than just me has this in an address book :)
+[12:31:22] <gnarf> ajpiano: re the ticket:
+[12:31:22] <gnarf> Chris:  okay, that IP is cleared, it was tagged as generating DDOS traffic at some point in the past.
+[12:31:42] <ajpiano> can you reply on there?
+[12:31:49] <gnarf> yup
+[12:32:41] <gnarf> ajpiano: also, it seems events.jquery.org is already setup, but dns points wrong
+[12:32:46] <ajpiano> right
+[12:32:53] <ajpiano> well events.jquery.org needs to point to legacy dns
+[12:32:59] <gnarf> yeah, stage.
+[12:33:05] <ajpiano> but stage needs to point to jquery-wp-content land
+[12:33:08] <gnarf> should get that working here in a minute
+[12:33:13] <ajpiano> which box is that, btw, so i know
+[12:33:16] <gnarf> and try to setup those redirects
+[12:33:18] <gnarf> jq01.stage
+[12:33:20] <ajpiano> awesome
+[12:33:21] <gnarf> .jquery.com
+[12:33:33] <ajpiano> and live is jq01.jquery.com ?
+[12:33:39] <gnarf> yup
+[12:41:42] <danheberden> gnarf: thanks for the email - is it ok to forward people's requests about banned ips?
+[12:41:51] <danheberden> (assuming you spoke with them about it?)
+[12:42:32] <gnarf> danheberden: yeah, i generally check that a traceroute from the webserver dies in (mt) land
+[12:42:36] <gnarf> if it does
+[12:42:37] <gnarf> email em
+[13:01:22] <jqcommit> 01[13infrastructure01] 15gnarf37 pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/250d0cf1f7d7028754d48fb69daadd4bd6313a50
+[13:01:22] <jqcommit> 13infrastructure/06puppet-stage 14250d0cf 15Corey Frang: events.jquery.org rewrites
+[13:21:34] <jqcommit> 01[13infrastructure01] 15gnarf37 pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/e493e49f2fe5eebaddfee56a4b0c1a7fb743837a
+[13:21:34] <jqcommit> 13infrastructure/06puppet-stage 14e493e49 15Corey Frang: fixing proxies for events site
+[16:12:43] <ryanneufeld> gnarf: you around?
+[16:16:44] <gnarf> kinda
+[16:17:46] <ryanneufeld> quick q for you, merging a branch onto master in git, I have conflicts, I want to take what's in the branch over what's in master
+[16:17:59] <ryanneufeld> I don't care to manually resolve conflicts
+[16:18:06] <ryanneufeld> is there an easy way to just do it
+[16:19:19] <gnarf> git checkout branch filename
+[16:19:27] <gnarf> that meansns branch wins
+[16:19:35] <gnarf> so be careful to review diff
+[16:19:50] <ryanneufeld> basically I'm doing a git merge stage
+[16:19:53] <ryanneufeld> onto master
+[16:20:03] <ryanneufeld> and stage conflicts with master
+[16:20:10] <ryanneufeld> I want stage to be master
+[16:20:24] <ryanneufeld> and just ignore what was/is in master
+[16:20:38] <ryanneufeld> would -s ours do that?
+[16:20:43] <ryanneufeld> or does that go the other way?
+[16:23:31] <gnarf> im not sure
+[16:32:42] <ryanneufeld> Thanks, I ended up having to resolve manually, no biggie

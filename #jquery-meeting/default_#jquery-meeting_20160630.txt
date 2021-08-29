@@ -1,0 +1,132 @@
+[12:04:46] <scott_gonzalez> arschmitz bethge
+[12:04:52] <bethge> Hi
+[12:09:29] <scott_gonzalez> Sorry, getting pulled into other converstaions.
+[12:10:20] <bethge> no problem
+[12:10:47] <scott_gonzalez> So the W3C test download breaking was probably my fault.
+[12:10:53] <scott_gonzalez> I assume that broke when I upgraded dependencies.
+[12:11:01] <scott_gonzalez> And since I had an existing directory, I didn't get an error.
+[12:11:09] <scott_gonzalez> But that fix was merged, so we're good now :-)
+[12:11:12] <scott_gonzalez> https://github.com/jquery/PEP/pull/301
+[12:11:54] <bethge> Ok sweet. At first I didn't notice either. Not even sure how I worked before. jdalton did some lodash magic
+[12:12:14] <bethge> s/how I/how it/
+[12:13:13] <scott_gonzalez> Yeah, I'm assuming that API changed.
+[12:13:25] <scott_gonzalez> Anyway, thanks for fixing it :-)
+[12:13:42] <scott_gonzalez> We also had a PR from a community member to forward modifier keys from touch events.
+[12:13:46] <scott_gonzalez> I filed a bug based on the PR: https://github.com/jquery/PEP/issues/304
+[12:14:16] <scott_gonzalez> And the PR was merged this morning: https://github.com/jquery/PEP/issues/300
+[12:14:36] <scott_gonzalez> Which brings us to the mouseup outside of the window problem: https://github.com/jquery/PEP/issues/279
+[12:14:44] <scott_gonzalez> Which bethge has a PR for: https://github.com/jquery/PEP/pull/297
+[12:15:01] <scott_gonzalez> I like the number shuffling between the issue and the PR :-) 279...297
+[12:15:06] <bethge> :D
+[12:15:31] <scott_gonzalez> This should handle all of #279, right?
+[12:17:01] <bethge> Yeah, mostly. Except for if the user does some odd 2 button click or something :)
+[12:17:15] <bethge> And only release one of them
+[12:18:15] <scott_gonzalez> We're not firing the up event though, right?
+[12:18:49] <bethge> No, since, I believe, mouse doesn't fire one either
+[12:18:54] <bethge> should we?
+[12:19:04] <scott_gonzalez> I think so.
+[12:19:26] <scott_gonzalez> Otherwise you'll could get two down events without an up between them.
+[12:19:31] <scott_gonzalez> For the same pointer id.
+[12:19:54] <scott_gonzalez> Right, mouse doesn't fire one, but that's what the bug is ;-)
+[12:20:10] <bethge> Oh, I was wondering about that
+[12:21:11] <bethge> Mouseup doesn't get fired I if the mouse up is outside of the document. I was just mirroring that
+[12:21:36] <bethge> I am curious how edge and chrome are approaching, like is this mentioned in the spec or anywhere?
+[12:21:45] <scott_gonzalez> Right, and this has historically caused a lot of pain.
+[12:22:35] <scott_gonzalez> This is why we have this code in jQuery UI: https://github.com/jquery/jquery-ui/blob/master/ui/widgets/mouse.js#L73-L83
+[12:22:50] <scott_gonzalez> If we get a down event and we're already tracking the mouse, then we know we missed an up, so we have to behave as if up happened.
+[12:22:58] <scott_gonzalez> And then right after that process the new down event.
+[12:23:05] <scott_gonzalez> I think we need the same thing for pointer.
+[12:25:53] <bethge> I see what you mean. Would you say we should fire an pointerup event in this situation, eventhough chrome / Edge does not?
+[12:26:16] <scott_gonzalez> Oh, they don't?
+[12:27:03] <bethge> Hmm... let me double check, I might be testing wrong. I am checking on chrome with pe activated
+[12:31:31] <bethge> It doesn't look like Chrome does. Behaves just like mouse.
+[12:31:39] <scott_gonzalez> hmm...
+[12:31:40] <scott_gonzalez> ok
+[12:31:44] <scott_gonzalez> So I guess this is fine then.
+[12:32:18] <scott_gonzalez> Hopefully we can get the browsers to eventually fire the evnets.
+[12:32:28] <scott_gonzalez> But if they're not doing it now, then we certainly don't need to.
+[12:33:30] <bethge> Yeah, I wonder if, in an application code, one can check pointerenter for the buttons property, once the pointer reenters the document
+[12:36:39] <scott_gonzalez> Well, you can certainly just hammer on it like we do in jQuery UI :-)
+[12:36:59] <scott_gonzalez> After pointerdown, just listen to all pointermove events and see if buttons is 0.
+[12:37:09] <bethge> :D
+[12:37:22] <scott_gonzalez> If it is and you haven't gotten pointerup, you know the browser just never fired it.
+[12:37:32] <bethge> Pointermove, every performance advocates best friend :D
+[12:42:31] <scott_gonzalez> So, I guess this is good to merge, then?
+[12:43:06] <bethge> I hope :)
+[12:44:07] <bethge> For Chrome, https://github.com/jquery/PEP/pull/282 already updated our buttons state, such that the pointermove are correct.
+[12:46:43] <bethge> I am actually having a hard time missing an mouse up with chrome canary. It is only missing if the mousedown fires an alert: http://jsbin.com/neweyesoso/edit?html,js,console,output
+[12:48:15] <scott_gonzalez> That's good, actually.
+[12:48:36] <scott_gonzalez> I mean, it's not GOOD, but it's better than missing it when going out of the window.
+[12:48:41] <scott_gonzalez> I think that's more of an old IE problem.
+[12:49:25] <bethge> Probably. Safari also receives those mouseup events. Seems quite a special case with an alert
+[12:50:36] <scott_gonzalez> Yeah, native modal windows in browsers are whacky.
+[12:51:28] <scott_gonzalez> The other day I noticed in Chrome if you click on a file input field and then open a new tab, the file dialog stays open even in the new tab and you can't interact until you close it.
+[12:52:27] <bethge> Meh. We need first-class browser tabs!
+[12:53:17] <bethge> With the advent of progressive web apps, it's about time for the browser to keep up ;)
+[12:54:15] <scott_gonzalez> indeed
+[12:55:10] <scott_gonzalez> Ok, so go ahed and merge that PR then :-)
+[12:56:10] <bethge> Ok, will do
+[12:56:14] <scott_gonzalez> And that brings us to the last thing I have on the agenda...
+[12:56:23] <scott_gonzalez> Chrome's release of Pointer Events behind a flag :-)
+[12:56:24] <scott_gonzalez> https://github.com/jquery/PEP/issues/303
+[12:56:30] <scott_gonzalez> yay
+[12:56:31] <bethge> \o/ \o/
+[12:56:56] <bethge> Really nice
+[12:58:30] <bethge> Now Safari would be the only one missing. And afaik it is not even listed for Safari 10, coming in fall
+[12:58:37] <scott_gonzalez> correct
+[12:58:44] <scott_gonzalez> They still have not shown any interest in implementing.
+[12:59:30] <bethge> They just love their touch events and their very limited mouse events ;-)
+[13:00:29] <scott_gonzalez> heh
+[13:01:59] <sfrisk_> ha
+[13:03:59] <scott_gonzalez> Well, I guess that's all for today.
+[13:04:40] <bethge> Yeah. Thanks!
+[14:02:59] <cogwurx> Hello!
+[14:03:02] <apsdehal> Hi
+[14:03:15] <arschmitz> apsdehal: jasperdegroot: agcolom: cogwurx: gabriels1hulhof meeting time
+[14:03:25] <apsdehal> https://docs.google.com/spreadsheets/d/11-mngR57h54cIOjGDE2Z6LjaiyRgDwlcvKUzZn2Fw6M/edit#gid=1108892341
+[14:03:44] <apsdehal> 88 open tickets yay!
+[14:04:18] <arschmitz> great job
+[14:04:40] <arschmitz> i think the main thing to to discuss today is merging to master and 1.5-alpha
+[14:04:57] <arschmitz> the only think holding up both of these really is getting passing tests
+[14:05:10] <arschmitz> we have some failures on travis im not seeing locally
+[14:07:25] <arschmitz> i dont really have much other then that apsdehal and i have been working on getting tests green
+[14:08:25] <apsdehal> I have some and I see gabriels1hulhof isn't here
+[14:09:06] <cogwurx> despite valiant efforts, i've not had that time to look into anything on demos. keep getting broadsided when I have a minute
+[14:09:10] <apsdehal> I am going to discuss some super old issues today
+[14:09:44] <apsdehal> https://github.com/jquery/jquery-mobile/issues/4113
+[14:09:49] <apsdehal> Super old issue ^
+[14:11:28] <apsdehal> Should we close this one or do something to fix it?
+[14:14:56] <apsdehal> Stuff stills pushed up on opening keyboard
+[14:14:58] <apsdehal> arschmitz: ^
+[14:15:30] <arschmitz> i would close that
+[14:15:51] <arschmitz> we deprecated hide on focus it does not work consistently
+[14:16:25] <apsdehal> https://github.com/jquery/jquery-mobile/issues/7873
+[14:16:40] <apsdehal> In this one, we decided to add info to docs
+[14:16:48] <apsdehal> Do we require that now?
+[14:17:02] <apsdehal> I mean is it really the important?
+[14:17:04] <arschmitz> we should have a docs issue
+[14:17:16] <arschmitz> and yes we have had several complaints
+[14:17:26] <apsdehal> Ok, I will add a docs issue
+[14:18:02] <apsdehal> https://github.com/jquery/jquery-mobile/issues/7535
+[14:20:26] <apsdehal> ^ No jqm member comments, views?
+[14:20:31] <apsdehal> Should we add this?
+[14:24:02] <apsdehal> arschmitz: ^
+[14:24:12] <arschmitz> reading
+[14:24:38] <arschmitz> sounds like a bug we should fix
+[14:25:50] <apsdehal> https://github.com/jquery/jquery-mobile/issues/7682
+[14:26:04] <apsdehal> We need to take a final decision on this one, else I can close this
+[14:30:06] <apsdehal> arschmitz: ^
+[14:31:58] <arschmitz> if we cant show where its wrong we should remove and close
+[14:33:26] <apsdehal> Last issue: https://github.com/jquery/jquery-mobile/issues/7278\
+[14:33:53] <arschmitz> yeah we need docs for that
+[14:34:04] <apsdehal> Ok
+[14:34:14] <apsdehal> Adding milestone 1.5
+[14:34:34] <apsdehal> That is all I have
+[14:35:58] <apsdehal> cogwurx: Got anything else?
+[14:36:37] <apsdehal> arschmitz: I think we can close as noone else is here.
+[14:41:20] <arschmitz> i tink
+[14:41:21] <arschmitz> so
+[14:41:21] <cogwurx> nope, sorry
+[14:41:27] <arschmitz> bye every one
+[14:41:36] <cogwurx> bye! Have a great week!
+[14:42:41] <apsdehal> later guys, Have a great weekend

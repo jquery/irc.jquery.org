@@ -1,0 +1,79 @@
+[00:02:31] <jqmobilecommit> 01[13jquery-mobile01] 15uGoMobi pushed 3 new commits to 06grunticon: 02http://git.io/DoHgKQ
+[00:02:31] <jqmobilecommit> 13jquery-mobile/06grunticon 1456349c4 15Jasper de Groot: Added default icons stylesheet with inline SVG and external PNG as fallback.
+[00:02:31] <jqmobilecommit> 13jquery-mobile/06grunticon 143cb5c0e 15Jasper de Groot: Added inline SVG support test; add "no-svg" class if not supported.
+[00:02:31] <jqmobilecommit> 13jquery-mobile/06grunticon 14b25a23a 15Jasper de Groot: Correction in check icon background-image url.
+[00:24:15] <jqmobilecommit> 01[13jquery-mobile01] 15uGoMobi pushed 1 new commit to 06ext-panels: 02http://git.io/5bHUpA
+[00:24:15] <jqmobilecommit> 13jquery-mobile/06ext-panels 14e21a933 15Jasper de Groot: Demos: Correction JS and CSS source panel test pages.
+[05:53:13] <jzaefferer> DaveMethvin: TestSwarm gets stuck on ajax test, Running: ajax: jQuery.ajax() - script, Remote with POST, across all browsers: http://swarm.jquery.org/result/523966
+[05:53:32] <jzaefferer> otherwise there's just one failure in the css module: http://swarm.jquery.org/job/854
+[05:54:18] <DaveMethvin> jzaefferer Has ajax ever worked since the new server? I think that may be a ngnix config issue
+[06:04:07] <jzaefferer> DaveMethvin: I don't know, I didn't know it has been an issue since the move.
+[06:04:41] <DaveMethvin> jzaefferer i'm not sure either, all i know is I have been testing locally the past two months
+[06:04:43] <DaveMethvin> :D
+[06:04:56] <DaveMethvin> if I rerun that test here it succeeds
+[06:05:05] <jzaefferer> This fails: http://builds.jenkins.jquery.com/jquery/c33108cad16ba6ff831d5cbc45b9dfbf12650e0e/test/index.html?module=ajax
+[06:05:25] <jzaefferer> that is, gets stuck at the same position
+[06:05:31] <jzaefferer> or not?
+[06:05:41] <jzaefferer> looks like it timed out instead
+[06:05:54] <jzaefferer> but there's tons of 404s logged
+[06:06:16] <jzaefferer> I'm not sure how many of those are on purpose
+[06:06:26] <DaveMethvin> yeah a lot of those are expected
+[06:06:30] <DaveMethvin> testing 404
+[06:06:56] <jzaefferer> what the hell is "404 World"
+[06:06:57] <jzaefferer> ?
+[06:07:27] <DaveMethvin> it's a post to a non-existent page
+[06:07:37] <DaveMethvin> two params, 404 and World
+[06:08:15] <DaveMethvin> hmm, i'm getting several errors locally, let me rebuild
+[06:10:01] <DaveMethvin> oh that's why, my master was not up to date
+[06:10:41] <jzaefferer> DaveMethvin: going back a little, when you notice issues like that, please ping me about them or log an issue on jquery-infrastructure
+[06:11:25] <DaveMethvin> sorry, i thought you guys knew about it so I didn't want to be a pest 
+[06:11:42] <jzaefferer> if nothing happens for a few days, assume the worst ;)
+[06:12:08] <jzaefferer> with the new server most things are running pretty well by now
+[06:12:16] <jzaefferer> still not really reliable, but getting close
+[06:15:20] <jzaefferer> DaveMethvin: so no local issues anymore? Any idea what exactly goes wrong on TestSwarm? It looks like its executing PHP just fine, so probably just a specific issues for one specific request?
+[06:20:22] <DaveMethvin> jzaefferer i'm having an unrelated build issue now, something on my system has a file open
+[06:20:27] <DaveMethvin> so i have to track that down
+[06:25:20] <DaveMethvin> jzaefferer finally got it all to build, and yes ajax runs locally without errors
+[06:28:11] <jzaefferer> I guess after several timeouts handled by QUnit, TestSwarm kills the run as timed-out, even though it might continue running
+[06:28:26] <jzaefferer> but as long as we can see failures here, it'll also fail when run by TestSwarm: http://builds.jenkins.jquery.com/jquery/c33108cad16ba6ff831d5cbc45b9dfbf12650e0e/test/index.html?module=ajax
+[06:29:03] <jzaefferer> DaveMethvin: I don't know what's going on e.g. here: http://builds.jenkins.jquery.com/jquery/c33108cad16ba6ff831d5cbc45b9dfbf12650e0e/test/index.html?module=ajax&testNumber=490
+[06:29:29] <jzaefferer> ah, actually, there's a 502 Bad Gateway error
+[06:29:38] <DaveMethvin> that one works for me 
+[06:29:49] <jzaefferer> so nginx won't allow POST requests? Is that it?
+[06:30:07] <DaveMethvin> right, it thinks a POST to an html page is crazy :)
+[06:30:12] <jzaefferer> yeah...
+[06:30:24] <jzaefferer> its not?
+[06:30:37] <DaveMethvin> we just need to test the client side of the request for those
+[06:30:48] <jzaefferer> can you request on of the php files instead?
+[06:30:57] <DaveMethvin> not sure why we don't
+[06:32:49] <jzaefferer> doing a post on echoQuery.php works fine
+[06:35:02] <DaveMethvin> jzaefferer there are a few like "jQuery.ajax() - script, Remote with POST" that would be tricky to do that way
+[06:35:32] <DaveMethvin> we could create a php program that retrieved the content from another file
+[06:35:53] <DaveMethvin> although having that on a public url would be a big security hole
+[06:36:07] <DaveMethvin> it would need to only accept specific requests
+[06:36:28] <DaveMethvin> "PHP get me data/test.js"
+[06:37:46] <DaveMethvin> this looks fixable on our side though, i agree
+[06:38:48] <jzaefferer> DaveMethvin: I don't really understand what's going on there, but it seems sane for nginx to reject post requests to html files
+[06:39:09] <jzaefferer> someone running nginx locally (like me) would have that same problem, I suppose
+[06:39:19] <DaveMethvin> we just want to have it return the html content regardless of get/post
+[06:39:23] <DaveMethvin> yes
+[06:39:27] <jzaefferer> though I don't have the php extension installed, it wouldn't work here anyway
+[06:40:06] <jzaefferer> okay, can you look at fixing that, and let me know if there's something that you can't resolve on your end?
+[06:40:17] <DaveMethvin> yep
+[06:40:29] <jzaefferer> all green is the goal, once its there you can actually yell at people if they make it red ;)
+[06:40:55] <jzaefferer> we can also have Jenkins email people when they break the build
+[09:54:14] <jquicommit> [13jquery-ui] 15mikesherov closed pull request #1027: Revert duration when using draggables with sortables and connectToSortable and sortable has numeric revert value (06master...06master)  02http://git.io/aX2wNw
+[14:01:12] <jqmobilecommit> 01[13jquery-mobile01] 15gabrielschulhof pushed 4 new commits to 06collapsible-widget-review: 02http://git.io/n0FA6Q
+[14:01:12] <jqmobilecommit> 13jquery-mobile/06collapsible-widget-review 14c135660 15Gabriel Schulhof: Collapsible: Implement the "enhanced" option.
+[14:01:12] <jqmobilecommit> 13jquery-mobile/06collapsible-widget-review 1483724c6 15Gabriel Schulhof: Demos: Collapsible: Provide an example of a pre-rendered collapsible.
+[14:01:12] <jqmobilecommit> 13jquery-mobile/06collapsible-widget-review 1447097ef 15Gabriel Schulhof: Integration tests: collapsible: Add pre-rendered collapsible to markup.
+[14:35:19] <jqmobilecommit> 01[13jquery-mobile01] 15gabrielschulhof pushed 1 new commit to 06master: 02http://git.io/ujn9bQ
+[14:35:19] <jqmobilecommit> 13jquery-mobile/06master 142d29b58 15Gabriel Schulhof: Helpers and page: Whitespace breaking the linter.
+[14:50:51] <travis-ci> [travis-ci] jquery/jquery-mobile#474 (master - 2d29b58 : Gabriel Schulhof): The build passed.
+[14:50:51] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/1ab53cd13d00...2d29b58450c0
+[14:50:51] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/9049740
+[14:58:39] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof opened pull request #6161: Collapsible widget review (06master...06collapsible-widget-review)  02http://git.io/TasrEg
+[14:58:58] <jqmobilecommit> 01[13jquery-mobile01] 15gabrielschulhof pushed 2 new commits to 06collapsible-widget-review: 02http://git.io/fCCd_w
+[14:58:58] <jqmobilecommit> 13jquery-mobile/06collapsible-widget-review 14f0e035e 15Gabriel Schulhof: Merge branch 'master' into collapsible-widget-review...
+[14:58:58] <jqmobilecommit> 13jquery-mobile/06collapsible-widget-review 1493761a7 15Gabriel Schulhof: Merge branch 'master' into collapsible-widget-review
+[15:02:57] <jqmobilecommit> [13jquery-mobile] 15foz1284 opened issue #6162: Phonegap button layout issue  02http://git.io/iyan6Q

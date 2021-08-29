@@ -1,0 +1,168 @@
+[06:14:54] <scott_gonzalez> So sad that I can't do this anymore: $( "<button type='button'></button>" ).attr( props, true )
+[06:20:40] <scott_gonzalez> Hmm...did `$( "<button></button>", { type: "button" } )` always work?
+[06:22:45] <scott_gonzalez> DaveMethvin: ^
+[06:22:53] <scott_gonzalez> https://github.com/jquery/jquery-ui/commit/cd7f10d480c923d095af6cbd844cbbdb5bb3813e#commitcomment-159519
+[06:22:54] <socialhapy> ★ Github API: no commit found
+[06:23:20] <scott_gonzalez> peol: socialhapy is sad
+[06:27:22] <DaveMethvin> > scott_gonzalez: Hmm...did `$( "<button></button>", { type: "button" } )` always work?
+[06:27:25] <DaveMethvin> i think so, it
+[06:27:32] <DaveMethvin> is writable once even in oldIE,right?
+[06:27:53] <scott_gonzalez> That seems right, maybe I just trusted jitter's comment and didn't test.
+[06:28:20] <scott_gonzalez> Buttons don't seem to submit forms by default in IE anyway.
+[06:28:23] <scott_gonzalez> That's interesting.
+[06:28:32] <DaveMethvin> right, in oldIE
+[06:28:37] <DaveMethvin> i think it changed in IE8?
+[06:28:58] <scott_gonzalez> yup, Just got up to IE8 and it submitted.
+[06:29:24] <scott_gonzalez> So moment of truth coming up as I test { type: "button" } in IE8.
+[06:29:43] <scott_gonzalez> Seems to work just fine.
+[06:29:46] <DaveMethvin> jitter's comment was about $(html, props) needing a single tag-only element
+[06:30:07] <scott_gonzalez> Yes, but read his last sentence.
+[06:30:20] <DaveMethvin> oh ok
+[06:30:26] <DaveMethvin> well i think he's wrong there :D
+[06:30:33] <scott_gonzalez> apparently :-)
+[06:30:44] <scott_gonzalez> This is the only place we use .attr( props, true ) in UI.
+[06:30:49] <scott_gonzalez> I'll git rid of that right now.
+[06:31:44] <gibson042> awesome news, scott_gonzalez
+[06:31:48] <kswedberg> scott_gonzalez, DaveMethvin: in OldIE, button needs type="submit" in order to submit
+[06:32:10] <DaveMethvin> yup
+[06:32:31] <DaveMethvin> de browser has de fault wrong
+[06:37:50] <scott_gonzalez> https://github.com/jquery/jquery-ui/commit/a8de99c791ae24e558920e1756fb7d0bf9dfc166 :-)
+[06:37:50] <socialhapy> ★ Commit on jquery-ui by Scott González (29.863s ago): Dialog: Don't use .attr( props, true ).
+[07:04:22] <scott_gonzalez> DaveMethvin: It's ok to manually prune the CLA spreadsheet, right?
+[07:04:34] <scott_gonzalez> Entries like 278.
+[07:06:14] <DaveMethvin> scott_gonzalez: yeah, it won't hurrt
+[07:07:41] <scott_gonzalez> deleted
+[07:08:57] <morrijr> Hi, could anyone give an opinion on http://bugs.jquery.com/ticket/12833 ?  Thanks.
+[07:22:28] <DaveMethvin> morrijr: what are you doing that makes selection a bottleneck? have you profiled the code?
+[07:23:18] <morrijr> These are just simple class selections.  I don't know where jQuery altered, but the performance tests clearly show the difference.
+[07:23:32] <morrijr> (It's IE7 - no profiler)
+[07:23:55] <DaveMethvin> hmmm, right
+[07:24:17] <DaveMethvin> well ie6 and ie7 lack querySelectorAll so i suspect that is why they are slow
+[07:24:19] <morrijr> IE8+ no problems, same with FF etc
+[07:24:29] <DaveMethvin> everyone else has some qSA
+[07:24:37] <DaveMethvin> but still
+[07:24:42] <morrijr> agreed - but 50% reduction between $1.7.2 and 1.8.0?
+[07:24:56] <DaveMethvin> look at it this way, 70 ops per second
+[07:25:01] <DaveMethvin> that' the "slow" one
+[07:25:12] <DaveMethvin> how many queries are you doing per second
+[07:25:22] <DaveMethvin> 1 would take 1/70 of a second
+[07:26:08] <DaveMethvin> if you're doing a class selection in a scroll or mouseover  handler, that would be bad for example
+[07:26:21] <morrijr> All I can say is that the user's (rightly) kicked up a storm when we upgraded (we'd not noticed since all the developers use 'modern' browsers
+[07:27:05] <DaveMethvin> things get faster and slower from version to version, and sometimes something being fast can mask a practice that is always bad for performance but not noticed before
+[07:27:55] <morrijr> Possibly, but there's no way I can get the budget to go and find the issue within our code when somebodies 'proved' a change in jQuery did it :(
+[07:28:30] <DaveMethvin> go profile the code in your favorite browser and find out where the hot spots are
+[07:28:31] <morrijr> esp when it was somebody more senior who 'proved' it.
+[07:28:42] <DaveMethvin> even if it's not ie7
+[07:29:02] <DaveMethvin> or just examine the code by eye and see where you'reusing class selectors, if they're the problem
+[07:29:05] <morrijr> there's nothing showing in any modern browsers.  We checked.
+[07:29:41] <DaveMethvin> but you've got to be able to see what is slow, right?
+[07:29:46] <DaveMethvin> look at that code path
+[07:29:51] <DaveMethvin> what's being called
+[07:29:52] <morrijr> All the operations are fractions of a second in a modern browser
+[07:30:02] <DaveMethvin> yes, you've said that
+[07:30:07] <DaveMethvin> so what's being called
+[07:30:12] <DaveMethvin> what jquery operations?
+[07:30:28] <DaveMethvin> did you settle on benching class selectors because you do a lot of that?
+[07:30:34] <DaveMethvin> if so, in what kind of code paths?
+[07:30:45] <DaveMethvin> are you selecting things dozens of times a second?
+[07:30:47] <DaveMethvin> if so why?
+[07:30:53] <DaveMethvin> do they change constantly>
+[07:30:57] <DaveMethvin> could they be cached?
+[07:31:34] <morrijr> No, but the dom can get very large and it's dynamic so there are lots of $(x).on('', '.selector', function()) setup
+[07:31:58] <DaveMethvin> where is x? is it document?
+[07:32:03] <morrijr> table
+[07:32:20] <DaveMethvin> and the table is probably hundreds of elements, eh?
+[07:32:25] <morrijr> should it matter?
+[07:32:30] <morrijr> probably 1000s
+[07:32:44] <DaveMethvin> well yeah it matters
+[07:32:50] <morrijr> for some of the page instances
+[07:32:55] <DaveMethvin> big doms run slower, right?
+[07:33:11] <morrijr> Yes... however, in 1.7.2 it wasn't an issue
+[07:33:19] <morrijr> it is in 1.8.0+
+[07:33:30] <DaveMethvin> it would really help to see some code
+[07:33:58] <morrijr> difficult, can we not see why the performance tests run so slow?
+[07:34:45] <DaveMethvin> who is "we"?
+[07:35:33] <morrijr> Ok, "how can I, in a shit browser work out why there is such a marked change in class selectors between the version 1.7.2 and 1.8.0"
+[07:36:14] <DaveMethvin> normally we triage tickets by impact which includes severity and number of people affected
+[07:36:34] <mikesherov> morrijr: you need to provide a test case to investigate, there are literally thousands of reasons why certain selectors would be slow
+[07:36:34] <DaveMethvin> so that's why i'm hesitant to drop everything to fix this for one person's report
+[07:36:41] <morrijr> I'm hoping that somebody with more experience of the jQuery codebase can point out something that might have changed between those two versions which could have affected it.
+[07:36:48] <DaveMethvin> a lot of things changed
+[07:36:52] <DaveMethvin> they do on every release
+[07:36:56] <mikesherov> morrijr: sizzle got an entire reqrite
+[07:36:57] <DaveMethvin> so that's why a test case helps
+[07:36:59] <DaveMethvin> we can track it down
+[07:37:02] <morrijr> there was another ticket, but IIRC it was closed through lack of response.
+[07:37:15] <mikesherov> morrijr: then provide a new test case and a new ticket
+[07:37:23] <mikesherov> and test against 1.8.2, not 1.8.0
+[07:37:31] <DaveMethvin> http://bugs.jquery.com/ticket/12833 mikesherov
+[07:37:33] <morrijr> mikesherov: yeah, that's why I can't see any changes
+[07:37:41] <DaveMethvin> we really need a test case
+[07:37:47] <morrijr> mikesherov: been testing against git too
+[07:37:50] <DaveMethvin> but from the description it sounds pretty pathological
+[07:38:18] <morrijr> surely http://jsperf.com/id-vs-class-vs-tag-selectors/2 would do for a start?
+[07:38:25] <DaveMethvin> and sure, things get faster and slower between releases but in general if it's not pathological it won't make a bunch of differences
+[07:38:28] <morrijr> DaveMethvin: it's not pathological
+[07:38:46] <DaveMethvin> the code would help us determine that
+[07:38:52] <morrijr> The numbers are easy to reproduce
+[07:38:53] <DaveMethvin> or perhaps there is just one bad selector you can fix
+[07:39:05] <DaveMethvin> those are not in real code
+[07:39:32] <DaveMethvin> the ability to select classes 70 times per second would generally be fine for most code... see what i'm saying?
+[07:39:54] <morrijr> I see what you're saying - but it's still 50% slower than it was.
+[07:40:12] <morrijr> and for the clients in corp environemnts who can't change browsers that's noticible
+[07:40:15] <DaveMethvin> yes and for your case (which we havne't seen code) it makes a diff
+[07:40:58] <morrijr> I *can't* show you the code
+[07:41:08] <DaveMethvin> then make up a similar test case
+[07:41:53] <morrijr> why does it matter that the performance tests aren't *real* code?
+[07:42:04] <DaveMethvin> so even if there is a "no change to jQuery" solution here, we aren't able to help you since we can't see the code
+[07:42:11] <DaveMethvin> you can see our code though
+[07:42:26] <DaveMethvin> because perf tests in isolation don't mean much
+[07:42:36] <mikesherov> morrijr: it matters because performance is a mix of decisions about structures that real people use in real code
+[07:42:44] <mikesherov> sometimes it's not possible to speed everything up
+[07:42:48] <morrijr> and there were too many changes between the two versions for me to make any head way in seeing anything which might have caused it.
+[07:42:49] <mikesherov> and so you make tradeoffs!
+[07:43:10] <DaveMethvin> just a very simple example morrijr
+[07:43:12] <mikesherov> and so we made tradeoffs that benefit most of the real markup structures we've found
+[07:43:14] <morrijr> do you guys think I don't understand this?!
+[07:43:16] <DaveMethvin> $(x).on('', '.selector'
+[07:43:25] <DaveMethvin> $(x).on('', 'tr.selector'
+[07:43:29] <DaveMethvin> that might make a huge difference
+[07:43:31] <DaveMethvin> i don't know
+[07:43:35] <DaveMethvin> i haven't seen your code
+[07:43:40] <mikesherov> "why does it matter that the performance tests aren't *real* code?" <---- I'm responding to this
+[07:45:26] <DaveMethvin> morrijr: i have no doubt that you're reporting some performance issue, but we can't just go and rewrite a bunch of code because it's impacted one person who can't even show us the code that is affected
+[07:45:28] <jqcommit> [testswarm] scottgonzalez pushed 1 new commit to master: http://git.io/cMha2Q
+[07:45:28] <jqcommit> testswarm/master 5b2edf2 Scott González: Revert "make sure the run page iframe doesn't cause scrollbars which can pollute IE8 environments"...
+[07:45:51] <DaveMethvin> what if we rewrote it and it didn't fix YOUR issue?
+[07:46:07] <morrijr> OK, the bulk of the selectors are of the form; $('#orderContainer').on('keypress', '.qty', function(e) { /* do some validation and upload */)
+[07:46:15] <DaveMethvin> keypress?
+[07:46:32] <DaveMethvin> is .qty an input then?
+[07:46:39] <DaveMethvin> so like input.qty
+[07:46:43] <morrijr> I'm not asking for a re-write just some help to identify what might have changed in jQuery to result in this slow down
+[07:46:45] <morrijr> y
+[07:46:53] <DaveMethvin> so change that and let us know
+[07:47:02] <morrijr> sorry - change how?
+[07:47:10] <DaveMethvin> change the code to say "input.qty"
+[07:47:55] <morrijr> Sorry, checked the code - it is already
+[07:48:01] <morrijr> input.qty
+[07:48:02] <DaveMethvin> wow
+[07:48:09] <morrijr> wow?
+[07:48:11] <DaveMethvin> okay, imma stop guessing then and walk the dog
+[07:48:23] <morrijr> Sorry - thanks for your time.
+[07:48:27] <morrijr> Enjoy your walk.
+[10:03:10] <scott_gonzalez> http://twitter.com/scott_gonzalez/status/265514438931668993
+[10:03:11] <socialhapy> ★ Tweet from scott_gonzalez: 3 full weeks of more jQuery UI tickets closed than opened http://t.co/lexYcIJS :-) ★ http://bit.ly/Uuar9h
+[10:29:27] <rwaldron> Sorry I missed the meeting, but in response to the discussion about my tickets: like Dave said, most of it is meta stuff for consideration or to simply keep track of ideas. I regularly revisit the list and there is regularly not much to change (yet)
+[14:24:44] <jqcommit> [jquery] gibson042 pushed 2 new commits to master: http://git.io/_B8TXQ
+[14:24:44] <jqcommit> jquery/master 80d45a6 Richard Gibson: Fix #12840: remove undocumented parameter "pass" from .attr. Close gh-1017.
+[14:24:44] <jqcommit> jquery/master 81b094b Richard Gibson: No ticket: update test suite to pass QUnit globals check in most environments. Close gh-1016.
+[14:49:26] <doesallmagic> Yippie, build fixed!
+[14:49:26] <doesallmagic> Project jQuery Core build #486: FIXED in 24 min: http://swarm.jquery.org:8080/job/jQuery%20Core/486/
+[14:49:27] <doesallmagic> * richard.gibson: Fix #12840: remove undocumented parameter "pass" from .attr. Close gh-1017.
+[14:49:27] <doesallmagic> * richard.gibson: No ticket: update test suite to pass QUnit globals check in most environments. Close gh-1016.
+[14:57:17] <Krinkle> Triggering a new build of jQuery Mobile Phantom Master jQuery Git #145
+[14:57:17] <Krinkle> Triggering a new build of jQuery UI - git core #199
+[14:57:18] <Krinkle> jzaefferer:
+[14:57:34] <Krinkle> jzaefferer: Do the builds wait for those or do they not affect the jquery core build?
+[14:58:18] <Krinkle> When I fiddled with child jobs on a test machine I could only get it to work when they wait for eachtother. That's what I wanted in one case, but not always.
+[15:09:51] <mikesherov> Krinkle: yt?

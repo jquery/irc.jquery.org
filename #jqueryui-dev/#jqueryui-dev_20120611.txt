@@ -1,0 +1,355 @@
+[05:35:42] <scott_gonzalez> kswedberg: .
+[05:35:42] <bot-t> (12 hours 2 mins ago) <mikesherov> tell scott_gonzalez to check out http://bugs.jquery.com/ticket/8158 and let me know if you can still repro. I believe it's fixed.
+[05:35:44] <scott_gonzalez> kborchers: .
+[05:35:57] <kswedberg> scott_gonzalez: hey.
+[05:36:02] <scott_gonzalez> hey
+[05:36:05] <scott_gonzalez> what's up?
+[05:36:36] <kswedberg> I was having a problem running grunt wordpress-validate yesterday on api.jquery.com (locally)
+[05:37:11] <kswedberg> it bailed on the xml-rpc validation. "Error: Unknown XML-RPC tag 'BR'"
+[05:37:58] <scott_gonzalez> The first thing I do in that case is check the PHP error log.
+[05:38:11] <kswedberg> ah. ok. will do
+[05:38:34] <scott_gonzalez> If it's reproducible with what's in master, I can take a look if the error long doesn't provide anything obvious.
+[05:39:15] <scott_gonzalez> I know enough about the internals on both sides to track down the actual content that's being sent in both directions.
+[05:40:39] <kswedberg> hmm. looks like it might be something in web-base-template that I introduced. :(
+[05:41:49] <kswedberg> scott_gonzalez: ha. fixed it. thx for the tip on checking the PHP error log.
+[05:42:05] <scott_gonzalez> kswedberg: no problem :-)
+[05:42:19] <kborchers> scott_gonzalez: hey, i was just pinging you last night because i had an awesome idea! let's build hiding into tabs :P
+[05:42:31] <scott_gonzalez> kborchers: ugh
+[05:42:36] <kborchers> LOL
+[05:42:46] <kborchers> that conversation is rediculous
+[05:42:55] <scott_gonzalez> All I want is examples of real world usages.
+[05:43:08] <scott_gonzalez> This guy is fighting as hard as he can to not provide that.
+[05:43:16] <kborchers> yeah, i even tried chiming in to see if another voice would stop him
+[05:43:18] <scott_gonzalez> At least he finally linked to other people wanting hidden tabs.
+[05:43:22] <scott_gonzalez> I haven't had time to look at them yet.
+[05:43:28] <kborchers> i haven't either
+[05:43:39] <scott_gonzalez> But I have a really good feeling they're not going to present cases where they want visually disabled + hidden.
+[05:44:09] <kborchers> yeah
+[06:00:07] <kswedberg> scott_gonzalez: after fixing my error, still have a problem. error log says:
+[06:00:07] <kswedberg> "PHP Warning:  stripslashes() expects parameter 1 to be string, array given in […]/wp-includes/kses.php on line 1290"
+[06:00:41] <kswedberg> it was bailing because I had error handling set to display as well as log.
+[06:01:19] <scott_gonzalez> ?tell mikesherov #8158 is totally busted in edge.
+[06:01:19] <bot-t> scott_gonzalez, Okay.
+[06:01:25] <kswedberg> that warning might actually be due to something I did, too, so I'll look into it.
+[06:02:18] <scott_gonzalez> hmm...ok, I'll have to run it locally.
+[06:02:28] <scott_gonzalez> Is everything committed?
+[06:04:20] <kswedberg> scott_gonzalez: well, I created a local feature branch and ran it there, so the problem might not be committed yet. running grunt deploy on my local master now.
+[06:04:42] <scott_gonzalez> ok
+[06:05:48] <kswedberg> I'm trying to get category descriptions to accept HTML. currently all html (other than <p>) is being stripped.
+[06:07:49] <kswedberg> scott_gonzalez: ok, everything is running fine on master. I'll poke at it some more later on today to see if I can get html into the category descriptions.
+[06:09:07] <scott_gonzalez> Ah, ok. Give me a few minutes to finish what I'm doing and I'll see if I can figure that out. It's probably just a matter of removing an existing filter.
+[06:10:38] <kswedberg> scott_gonzalez: it's not that easy. we can discuss when you have a minute
+[06:12:42] <scott_gonzalez> kswedberg: Ok, I've got a few minutes now.
+[06:13:05] <kswedberg> wanna skype chat so we don't pollute this channel?
+[06:13:08] <scott_gonzalez> sure
+[06:40:58] <jzaefferer> kswedberg: I learned from Krinkle that you shouldn't put a closing ?> tag into .php files - you've got the in those web-base-template api themes functions.php files
+[06:41:56] <jzaefferer> also it looks like accident that you killed the global $tlsite; setting in the ui and mobile functions.php
+[06:42:42] <kswedberg> oh crap. ok, I'll fix. sorry.
+[06:42:42] <jzaefferer> cleaning that up now, unless I'm missing something?
+[06:43:09] <kswedberg> oh. go ahead. my mistake
+[06:43:47] <scott_gonzalez> jzaefferer: The ?> is mostly personal opinion.
+[06:44:05] <scott_gonzalez> I've worked on very large PHP projects where we always closed PHP and never had any problems.
+[06:44:34] <jzaefferer> scott_gonzalez: Krinkle had some actual argument about that, I think about accidental whitespace after the closing tag, can't remember the details
+[06:44:48] <scott_gonzalez> You just need to be mindful of trailing whitespace.
+[06:45:27] <scott_gonzalez> Leaving it out guarantees that you don't have mistakes, so it's a good idea.
+[06:45:38] <Krinkle> yeah, so the rationale I use is: Since PHP is originally created as to be embedded in html output, it means anything after ?> means it triggers html output, and you can easily get "Header sent conflicts".
+[06:46:02] <Krinkle> And since I prefer (and many others) that every file should have a trailing new line break, this regularly happens on those projects
+[06:46:12] <Krinkle> git highlights them by default as well
+[06:46:36] <Krinkle> they are not needed, and it is supported not to have them, and they avoid a common mistake
+[06:46:39] <Krinkle> seems like a simple gain
+[06:47:39] <jzaefferer> kswedberg: is there a way to share api-jquery-com/category.php and others with the ui, mobile and qunit API themes?
+[06:47:47] <kswedberg> Krinkle: +1. I had heard that ?> was optional, but didn't know the rationale. makes sense
+[06:47:58] <scott_gonzalez> Krinkle: Yeah, I think my comment was my bad developer instinct of sticking with habit :-P
+[06:47:59] <jzaefferer> more includes?
+[06:48:04] <scott_gonzalez> It's clearly better to exclude them.
+[06:48:43] <kswedberg> jzaefferer: dunno how to do it without making it the default category.php (by putting it in themes/jquery/)
+[06:48:47] <scott_gonzalez> jzaefferer: Ready for our call?
+[06:49:08] <Krinkle> But I also know many projects that have an unspoken hate against leaving them away, and will blindly close discussions that speak of them. Whatever that means.
+[06:49:13] <jzaefferer> kswedberg: is making it the default a problem?
+[06:49:38] <Krinkle> so make of that what you want, I try to spread this preference in projects I"m involved in, but if not, I don't care :-/
+[06:50:21] <Krinkle> I still can't believe douglas deleted the issue tracker of jslint :P
+[06:50:23] <kswedberg> jzaefferer: I don't know. depends on how many other sites (blog.*, jquery.org, jquery.com, plugins, learn, etc) will need to override it
+[06:52:54] <jzaefferer> kswedberg: how about an API parent theme that inherits from the main theme?
+[06:53:12] <jzaefferer> which we can then inherit from from all the api themes
+[06:54:12] <kswedberg> jzaefferer: sure! if that works. I've never made a grandchild theme, so didn't know it was possible. but if it works, it makes sense to me
+[06:54:34] <jzaefferer> I have no idea if that works...
+[06:54:50] <kswedberg> we should ask nacin when he's online. :)
+[07:18:22] <jzaefferer> kswedberg: can find anything either way, but a theme should be able to just inherit from another theme, which also inherits...
+[07:18:30] <jzaefferer> no mention here at all: http://codex.wordpress.org/Child_Themes
+[07:18:42] <jzaefferer> except that style.css overrides, while ALL functions.php files will be included
+[07:19:11] <jzaefferer> and templates can override...
+[07:20:17] <kswedberg> ok.
+[07:20:28] <jzaefferer> well, this indicates it doesn't work: http://wordpress.org/support/topic/inheriting-from-child-themes?replies=3
+[07:21:24] <kswedberg> bummer. :(
+[07:31:51] <scott_gonzalez> kswedberg jzaefferer: Official WP response: "it's not something we planned to do at the moment"
+[07:33:02] <kswedberg> ok. can we just sym-link templates?
+[07:33:46] <scott_gonzalez> kswedberg: Can you hop into #wordpress-dev and tell westi what problem you're trying to solve?
+[07:43:29] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/KBn4hg
+[07:43:29] <jquicommit> [jquery-ui/master] Tabs: jQuery <1.7.2 treats .data() as a getter if the value to set is undefined. - Scott González
+[07:53:01] <kswedberg> jzaefferer: westi in #wordpress-dev suggested we use get_template_part(), which seems to work well. So, I'm putting category-api.php in the parent "jquery" theme and calling it with get_template_part() from the child category.php
+[07:55:48] <jzaefferer> cool
+[07:57:16] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/GUR-kw
+[07:57:16] <jquicommit> [jquery-ui/master] Build: Adding missing require in build.js and add buid/tasks/*.js to lint. - Scott González
+[08:15:03] <jq-jenkins> Project jQuery UI build #506: STILL FAILING in 31 min: http://swarm.jquery.org:8080/job/jQuery%20UI/506/
+[08:15:03] <jq-jenkins> Scott González: Tabs: jQuery <1.7.2 treats .data() as a getter if the value to set is undefined.
+[08:46:41] <jq-jenkins> Project jQuery UI build #507: STILL FAILING in 31 min: http://swarm.jquery.org:8080/job/jQuery%20UI/507/
+[08:46:42] <jq-jenkins> Scott González: Build: Adding missing require in build.js and add buid/tasks/*.js to lint.
+[10:20:28] <scott_gonzalez> gnarf: .
+[10:27:43] <Krinkle> jzaefferer: kswedberg: style.css overrides indeed, that is annoying. but you can @import the other one if you want to
+[10:28:27] <Krinkle> I do a fair bit of wordpress development (created/maintain about 30 sites for other people)
+[10:30:25] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/u8yoTQ
+[10:30:25] <jquicommit> [jquery-ui/master] Widget: Work around bug in jQuery <1.6.3 where .removeData( dashed-name ) doesn't work. - Scott González
+[10:34:50] <gnarf> scott_gonzalez: hey
+[10:35:17] <scott_gonzalez> gnarf: I want to change the plugins site to run a node HTTP server for the post receive hooks.
+[10:35:23] <scott_gonzalez> That shouldn't be a problem, right?
+[10:35:26] <gnarf> nope
+[10:35:32] <scott_gonzalez> We can just use nginx to redirect the request.
+[10:35:36] <gnarf> nginx can still proxy it
+[10:35:40] <gnarf> exactly ;)
+[10:35:52] <scott_gonzalez> Ok, I'll work on that this week.
+[10:36:02] <scott_gonzalez> Since I'm gone all next week :-/
+[10:36:07] <gnarf> I'm gonna be @ TXJS this week
+[10:36:18] <gnarf> but should be around
+[10:36:24] <scott_gonzalez> ok
+[10:39:45] <scott_gonzalez> gnarf: Any chance jQuery Color will be ready before the conf?
+[10:39:57] <scott_gonzalez> I know I still need to write the grunt file.
+[10:41:53] <scott_gonzalez> Does anyone have Firefox 12 installed locally?
+[10:42:40] <kborchers> scott_gonzalez: i have FF12
+[10:42:54] <scott_gonzalez> Do the tabs tests pass for you?
+[10:43:09] <scott_gonzalez> I just tried running them in 13 on BrowserStack and they passed.
+[10:43:19] <scott_gonzalez> So I'm wondering if it's a legit failure in 12.
+[10:43:27] <kborchers> pass for me
+[10:43:35] <gnarf> scott_gonzalez: I'll do my best - I think I can get it polished up
+[10:43:56] <scott_gonzalez> kborchers: hmm....
+[10:43:58] <gnarf> although with the change I want to make, I really feel like it should still be a beta for a few weeks :)
+[10:44:16] <gnarf> so I'll see if I can hack it out in my TXJS downtime/flight
+[10:44:18] <kborchers> scott_gonzalez: wait
+[10:44:24] <gnarf> PS
+[10:44:24] <scott_gonzalez> gnarf: I want to pull it into UI for a beta release before the conf.
+[10:44:29] <gnarf> new macbook air
+[10:44:39] <gnarf> no more batteryless pro
+[10:44:40] <gnarf> ;)
+[10:44:49] <scott_gonzalez> :-)
+[10:44:52] <kborchers> scott_gonzalez: opened FF then ran the tests in Chrome ... derp
+[10:44:57] <kborchers> running in FF now
+[10:45:01] <gnarf> kborchers: lol
+[10:45:06] <scott_gonzalez> gnarf: Did you wait for prices to drop?
+[10:45:06] <kborchers> :)
+[10:45:16] <gnarf> scott_gonzalez: work bought it
+[10:45:18] <kborchers> scott_gonzalez: looks like an error
+[10:45:19] <gnarf> so i didn't care
+[10:45:29] <gnarf> when did "prices drop"
+[10:45:29] <gnarf> ?
+[10:46:20] <scott_gonzalez> gnarf: Well, WWDC is today, so people are selling used laptops for a few hundred less than they're really worth.
+[10:47:16] <scott_gonzalez> gnarf: http://twitter.com/1Marc/status/211916712633843712
+[10:47:17] <socialhapy> ★ Tweet from 1Marc: Tons of MacBook Airs for sale today before WWDC tomorrow. My computer, bought only four months ago, has lost ~$650 in value. Ouch. ★ http://bit.ly/N4lR5y
+[10:47:54] <kborchers> scott_gonzalez: breaks at test 16
+[10:48:04] <scott_gonzalez> kborchers: It just stalls?
+[10:48:09] <kborchers> yeah
+[10:48:14] <kborchers> only see warnings in the console
+[10:48:27] <kborchers> getAttributeNode() is deperecated
+[10:48:57] <kborchers> Use of attributes' specified attribute is deprecated. It always returns true.
+[10:49:10] <kborchers> that' sit
+[10:52:47] <scott_gonzalez> I'm so confused.
+[10:53:06] <kborchers> yeah, it's really weird
+[10:56:23] <scott_gonzalez> hmm...I get inconsistent results if I refresh.
+[10:56:41] <scott_gonzalez> Sometimes it dies on the first first keyboard test, sometimes on the third.
+[11:04:06] <jq-jenkins> Project jQuery UI build #508: STILL FAILING in 31 min: http://swarm.jquery.org:8080/job/jQuery%20UI/508/
+[11:04:07] <jq-jenkins> Scott González: Widget: Work around bug in jQuery <1.6.3 where .removeData( dashed-name ) doesn't work.
+[11:51:19] <scott_gonzalez> I've apparently made a splash in the Drupal pool. Just got an email from Dries :-P
+[11:57:55] <danielchatfield> Hi Scott - it is Daniel Chatfield here - I emailed you yesterday
+[12:03:07] <scott_gonzalez> Hey danielchatfield
+[12:03:15] <danielchatfield> Hey
+[12:03:31] <scott_gonzalez> Have you talked to nacin at all about our setup?
+[12:03:49] <danielchatfield> No
+[12:03:56] <danielchatfield> I think I understand it tthough
+[12:04:03] <scott_gonzalez> ok
+[12:04:11] <danielchatfield> From what you said in the email - it seems logical
+[12:04:16] <scott_gonzalez> So we've got http://github.com/jquery/web-base-template which we use as wp-content.
+[12:04:48] <scott_gonzalez> For the plugins site, I've written some custom XML-RPC stuff https://github.com/jquery/web-base-template/blob/master/mu-plugins/plugins.jquery.com-xmlrpc.php and some custom post stuff https://github.com/jquery/web-base-template/blob/master/mu-plugins/plugins.jquery.com-posts.php
+[12:05:18] <scott_gonzalez> One thing that we need to get working is the page and jquery_plugin (the custom post) should both have permalinks in the form of /<postname>
+[12:05:56] <scott_gonzalez> Since the rewrite option in register_post_type() doesn't handle that and the permalinks settings in the UI are only for posts, I'm not sure how to go about setting that up.
+[12:09:54] <danielchatfield> I'll have a play and get back to you
+[12:35:07] <kborchers> scott_gonzalez: not sure if you saw it but is that addition to the wiki appropriate?
+[12:36:09] <scott_gonzalez> yeah
+[12:36:19] <scott_gonzalez> Didn't see it till just now, but definitely appropriate.
+[12:36:23] <kborchers> ok, just happened to notice working with phpMyAdmin today
+[12:36:40] <scott_gonzalez> cool
+[12:36:52] <scott_gonzalez> After 1.9, I'll reach out to them.
+[12:36:59] <scott_gonzalez> I'm a bit overwhelmed right now :-P
+[12:39:40] <kborchers> heh, sure
+[12:40:12] <kborchers> scott_gonzalez: they're on 1.8.16 from what i could tell (at least the version i was using)
+[12:40:15] <kborchers> fyi
+[12:43:57] <scott_gonzalez> kborchers: That's good, they're keeping up-to-date then.
+[12:44:04] <kborchers> yep
+[12:45:24] <danielchatfield> Scott - why does the plugin custom post-type need to have /%post-name%/ permalinks rather than /plugin/%postname%/?
+[12:46:25] <danielchatfield> The only way I can see of doing it is replacing a WordPress class that handles routing (which is pretty ill-advised)
+[12:47:07] <scott_gonzalez> danielchatfield: Because we want the URLs for individual plugins to be at the top level.
+[12:47:25] <scott_gonzalez> I think nacin might've had an idea about how to accomplish this?
+[12:47:38] <danielchatfield> How many pages are there?
+[12:47:45] <danielchatfield> (as in regular top level pages)
+[12:48:38] <nacin> I have an idea. much easier than what danielchatfield is suggesting. :-)
+[12:48:52] <danielchatfield> :)
+[12:49:07] <nacin> also, # pages don't play a role anymore in performance.
+[12:50:54] <danielchatfield> I know - I was wondering whether it would be feasible to write explicit rules for each page and then just match the post type to that permalink but that just seems like a horrible way of doing it and with loads of pages, extremely messy.
+[12:51:08] <nacin> Th
+[12:51:14] <nacin> That's what core used to do for pages and posts.
+[12:51:18] <nacin> We have better ways now.
+[12:51:28] <scott_gonzalez> danielchatfield: We'll only have a few regular pages, probably 2-5.
+[12:51:35] <danielchatfield> good
+[12:51:59] <scott_gonzalez> danielchatfield: But the number of jquery_plugin posts will be large.
+[12:52:07] <danielchatfield> Naturally
+[12:54:05] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/IVVHPQ
+[12:54:05] <jquicommit> [jquery-ui/master] Test: Set testswarm.runMax from config file - Timo Tijhof
+[12:57:23] <nacin> scott_gonzalez: danielchatfield: This works for me: https://gist.github.com/2912292
+[12:59:34] <scott_gonzalez> nacin: I'll try it out with the existing site.
+[13:03:44] <Krinkle> scott_gonzalez: Any idea what the failures in Tabs are about in FF11 and FF12 lately?
+[13:03:59] <scott_gonzalez> Krinkle: No idea. I'm looking at it right now.
+[13:04:00] <Krinkle> consistently timing out (client side timeout, test runner aborting run after 300 seconds)
+[13:04:10] <scott_gonzalez> They pass in Firefox 13 though :-P
+[13:04:17] <scott_gonzalez> Yeah, there's a test that never fishes.
+[13:04:23] <scott_gonzalez> Even though it gets to the end.
+[13:04:26] <scott_gonzalez> It's very odd.
+[13:04:53] <scott_gonzalez> s/fishes/finishes/
+[13:05:00] <scott_gonzalez> :-P
+[13:05:17] <kborchers> scott_gonzalez: fix it with /* ... */  :P
+[13:05:37] <scott_gonzalez> :-)
+[13:05:49] <scott_gonzalez> if ( firefox <13 ) { return; }
+[13:06:05] <kborchers> $.browser!!! :)
+[13:06:14] <kborchers> MOAR
+[13:07:20] <scott_gonzalez> FML
+[13:07:27] <scott_gonzalez> setTimeout( start, 1 ) // consistent failure
+[13:07:34] <scott_gonzalez> setTimeout( start, 1000 ) // consistent success
+[13:07:42] <Krinkle> scott_gonzalez: http://swarm.jquery.org/git/jquery-ui/db5f95fcdf37dbf540bb7ac88a4e2229cceda049/tests/unit/tabs/tabs.html?nojshint=true
+[13:07:46] <Krinkle> Doing that in FF12
+[13:07:53] <Krinkle> shows me it stops at tabs: core: keyboard support - LEFT, RIGHT, UP, DOWN, HOME, END, SPACE, ENTER
+[13:08:00] <Krinkle> https://github.com/jquery/jquery-ui/commit/db5f95fcdf37dbf540bb7ac88a4e2229cceda049
+[13:08:01] <socialhapy> ★ Commit on jquery-ui by scottgonzalez (2d, 17h ago): Tabs: Panel keyboard support tests.
+[13:08:10] <scott_gonzalez> Krinkle: I know. It finishes the test though.
+[13:08:16] <kborchers> scott_gonzalez: you have delay on keyboard stuff right? you have to setTimeout for those :)
+[13:08:38] <kborchers> like that crazyness i did in menu ... can you set the delay to 0?
+[13:08:44] <scott_gonzalez> I've got setTimeouts everywhere.
+[13:09:03] <scott_gonzalez> This doesn't make any sense.
+[13:09:06] * kborchers admits he hasn't looked at Tabs recently
+[13:09:18] <scott_gonzalez> If the delay isn't long enough, it shouldn't kill the test.
+[13:09:30] <scott_gonzalez> Worst case, it should cause a failure with the wrong number of assertions.
+[13:09:44] <scott_gonzalez> But even that's not possible because setTimeout( start, 1 ) is the last line, after all assertions.
+[13:09:48] <kborchers> yeah ... i don't think i ever say the timeout issues kill a test in menu, just fail
+[13:10:00] <kborchers> s/say/saw
+[13:10:01] <scott_gonzalez> It seems like start just doesn't get called.
+[13:10:06] <scott_gonzalez> It doesn't make any sense at all.
+[13:10:22] <kborchers> blame qunit and in turn, jzaefferer :P
+[13:11:24] <scott_gonzalez> WTF?
+[13:11:33] <scott_gonzalez> Hold on...
+[13:12:43] <scott_gonzalez> wat?
+[13:12:48] <scott_gonzalez> setTimeout( start, 1 ) // fail
+[13:12:57] <scott_gonzalez> setTimeout(function() { start(); }, 1 ) // pass
+[13:13:03] <Krinkle> Yep, I thought so
+[13:13:08] <scott_gonzalez> That's bullshit.
+[13:13:12] <scott_gonzalez> They're the same.
+[13:13:23] * kborchers stops reading the crazyness posted by scott_gonzalez
+[13:13:27] <kborchers> :)
+[13:13:44] <kborchers> that is crazy
+[13:13:48] <Krinkle> scott_gonzalez: No, in chrome they are the same
+[13:13:50] <Krinkle> not in Firefox
+[13:13:56] <scott_gonzalez> OH MY GOD
+[13:13:56] <Krinkle> firefox passes arguments to the function
+[13:13:56] <kborchers> wat?
+[13:13:57] <scott_gonzalez> You're right
+[13:14:01] <scott_gonzalez> QUnit sucks
+[13:14:02] <scott_gonzalez> :-P
+[13:14:06] <kborchers> lol
+[13:14:07] <Krinkle> scott_gonzalez: setTimeout(function () { console.log(this, arguments); }, 1);
+[13:14:10] <Krinkle> scott_gonzalez: Firefox sucks
+[13:14:14] <scott_gonzalez> indeed
+[13:14:32] <scott_gonzalez> hm...so are we actually getting 0 ms delay?
+[13:14:35] * scott_gonzalez checks
+[13:14:55] <scott_gonzalez> HAH, negative delay
+[13:14:59] <scott_gonzalez> -4
+[13:15:06] <scott_gonzalez> über-optimized setTimeout FTL.
+[13:15:13] <kborchers> TIME TRAVEL!!!
+[13:15:23] <scott_gonzalez> I'm taking my tests and going home.
+[13:15:29] <Krinkle> start; function (count) { config.semaphore -= count || 1;
+[13:15:33] <Krinkle> :D
+[13:15:35] <scott_gonzalez> Yup.
+[13:15:50] <Krinkle> as we say in wikipedia, {{sofixit}}
+[13:15:59] <scott_gonzalez> I wonder if that means they dropped this in 13.
+[13:16:15] <Krinkle> Probably, the standard mentions no arguments for setTimeout
+[13:16:21] <kborchers> scott_gonzalez: i already beat you to it because i used setTimeout(goHome, -60000)
+[13:16:25] <kborchers> just not in FF
+[13:16:41] <scott_gonzalez> They did.
+[13:16:45] <jq-jenkins> Project jQuery UI build #509: STILL FAILING in 22 min: http://swarm.jquery.org:8080/job/jQuery%20UI/509/
+[13:16:46] <jq-jenkins> Scott González: Test: Set testswarm.runMax from config file
+[13:16:48] <scott_gonzalez> kborchers: haha
+[13:17:59] <kborchers> scott_gonzalez: they're doing versions like monthly now aren't they? or something pretty short?
+[13:18:11] <scott_gonzalez> I'm marking every one of these as // support: Firefox 12
+[13:18:22] <scott_gonzalez> I think 6 weeks?
+[13:18:38] <kborchers> scott_gonzalez: yeah, i would too because we won't have to support 12 for more than a couple more months
+[13:19:23] <scott_gonzalez> June 17
+[13:19:33] <scott_gonzalez> Sorry, July 17.
+[13:21:25] <scott_gonzalez> here it comes :-)
+[13:21:38] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/eddgOQ
+[13:21:38] <jquicommit> [jquery-ui/master] Tabs tests: Don't call start directly from setTimeout because Firefox <13 is dumb. - Scott González
+[13:21:44] <kborchers> LOL
+[13:21:52] <scott_gonzalez> It's the truth
+[13:22:01] <scott_gonzalez> And less profane than what was going through my head.
+[13:22:21] <kborchers> heh
+[13:23:05] <kborchers> scott_gonzalez: so july 17 is when 13 comes out? so we would need to support 12 for ~6 weeks after that since we support current - 1 right?
+[13:23:18] <kborchers> or is 13 out now?
+[13:23:26] <scott_gonzalez> July 17 is when 14 comes out :-)
+[13:23:32] <kborchers> nice!
+[13:23:38] <scott_gonzalez> 13 was released last week.
+[13:23:41] <kborchers> so i just don't use ff enough to get the update :)
+[13:23:54] <scott_gonzalez> :-P
+[13:25:14] <scott_gonzalez> And now time to test nacin's routing changes for the plugins site.
+[13:25:32] <scott_gonzalez> nacin: Is that install script gonna land?
+[13:25:41] <scott_gonzalez> I'll like to test it out tomorrow morning.
+[13:26:11] <nacin> yeah, as soon as I can pull away from WP core for a few moments. in a meeting atm.
+[13:30:39] <scott_gonzalez> nacin: The routing actions work great.
+[14:00:37] <scott_gonzalez> nacin: Actually, after rebuilding the site, it doesn't seem to be working :-/
+[14:00:53] <nacin> scott_gonzalez: how is the post type registered?
+[14:01:33] <scott_gonzalez> nacin: https://github.com/jquery/web-base-template/blob/master/mu-plugins/plugins.jquery.com-posts.php#L8
+[14:02:31] <nacin> scott_gonzalez: what is your setting in Settings > Permalinks?
+[14:03:03] <scott_gonzalez> default? I rebuilt the db.
+[14:03:23] <nacin> scott_gonzalez: I gotcha. Choose "Postname" and see if that fixes it.
+[14:03:32] <scott_gonzalez> Yup, that fixes it.
+[14:03:41] <scott_gonzalez> That expains why it worked when I first tried it.
+[14:03:56] <scott_gonzalez> Since that was the last thing I had done when I was trying to get this working myself.
+[14:04:25] <scott_gonzalez> How can I force that in a mu-plugin?
+[14:04:45] <scott_gonzalez> Or should we just put that in the install script?
+[14:05:01] <nacin> It's going in the install script, but a lot of things in the install script can/should probably be enforced in a mu-plugin too.
+[14:05:03] <scott_gonzalez> If we can do it in a plugin, that seems best, since that's easy to update.
+[14:05:42] <scott_gonzalez> nacin: The rules are a bit more complicated actually.
+[14:06:06] <scott_gonzalez> jquery_plugin is heirarchical.
+[14:06:29] <scott_gonzalez> The links are being generated properly, e.g., http://wordpress.local/jquery.foo/0.0.1a4/
+[14:06:38] <nacin> okay. still doable, but may need a tweak. testing.
+[14:06:43] <scott_gonzalez> But that's getting rewritten to http://wordpress.local/0.0.1a4/ when I navigate.
+[14:09:39] <nacin> scott_gonzalez: return user_trailingslashit( home_url( get_page_uri( $post ) ) );
+[14:10:06] <nacin> hrm. might need more than that.
+[14:10:20] <scott_gonzalez> URL is right, but I end up on a 404 :-P
+[14:14:12] <nacin> scott_gonzalez: needs a bit more than that. will have something for you in a bit.
+[14:14:26] <jq-jenkins> Yippie, build fixed!
+[14:14:26] <jq-jenkins> Project jQuery UI build #510: FIXED in 10 min: http://swarm.jquery.org:8080/job/jQuery%20UI/510/
+[14:14:27] <jq-jenkins> Scott González: Tabs tests: Don't call start directly from setTimeout because Firefox <13 is dumb.
+[14:24:41] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/5LV83A
+[14:24:41] <jquicommit> [jquery-ui/master] Accordion tests: Fixed typos. - Scott González
+[14:42:50] <jzaefferer> hey nacin, are you around?
+[14:42:58] <nacin> hi jzaefferer
+[14:43:04] <jzaefferer> ah, hello!
+[14:43:19] <jzaefferer> so there's this one small thing I'd like to see land in web-base-template, to finish to qunitjs.com site
+[14:43:33] <jzaefferer> those resource redirects we need to embed some live code examples as iframes
+[14:43:44] <jzaefferer> pretty sure Scott talked to you about that before
+[14:43:58] <nacin> Oh, right.
+[14:44:24] <nacin> I think I was waiting on confirmation of the final filesystem locations and the final desired public URLs.
+[14:44:29] <jzaefferer> the iframe is actually live on qunitjs.com, but that's not yet wordpress-powered
+[14:44:40] <jzaefferer> mhm, okay
+[14:45:22] <jzaefferer> I'm not exactly sure about those either, but I know that Scott has something planned
+[14:45:37] <jzaefferer> I'll ask him to ping you about that tomorrow
+[14:46:10] <jzaefferer> though even if the URLs aren't final, could you implement something and we'll update the URLs when deploying the qunitjs.com changes?
+[14:46:44] <jzaefferer> for the grunt-wordpress plugin, everything in the dist/resources/ folder already gets uploaded
+[14:46:58] <jzaefferer> and it should be available as /resources/... on the site itself
+[14:49:10] <nacin> that sounds fine.
+[14:49:21] <nacin> this is outside of WP entirely; we'll be handling this on the nginx level I think.
+[14:59:49] <jq-jenkins> Project jQuery UI build #511: SUCCESS in 7 min 50 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/511/
+[14:59:50] <jq-jenkins> * Scott González: Accordion tests: Fixed typos.
+[14:59:50] <jq-jenkins> * Scott González: Tabs: Removed cookie demo since the cookie option is deprecated.

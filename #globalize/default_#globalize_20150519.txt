@@ -1,0 +1,93 @@
+[12:29:29] <rxaviers> apsdehal, Hi, how are you running the tests?
+[12:30:07] <rxaviers> Have you installed development dependencies (https://github.com/jquery/globalize/#install-development-external-dependencies) and followed https://github.com/jquery/globalize/#tests?
+[16:06:07] <apsdehal> hi, rxaviers I have installed all the deps
+[16:06:23] <apsdehal> I am able to pass all the unit tests in intern environment
+[16:06:28] <apsdehal> Except two
+[16:06:40] <apsdehal> One is due to issue with qunit interface of intern
+[16:07:01] <apsdehal> 2nd is I don't know about
+[16:07:11] <apsdehal> Let me point you toward my fork
+[16:07:32] <apsdehal> https://github.com/apsdehal/globalize/tree/intern
+[16:08:15] <apsdehal> If you want to run test locally
+[16:08:25] <apsdehal> Use grunt task `grunt test-local`
+[16:09:50] <apsdehal> https://github.com/apsdehal/globalize/blob/intern/test/unit/date/tokenizer.js#L687
+[16:09:54] <apsdehal> This one fails
+[16:10:02] <apsdehal> Rest all 262 unit tests pass
+[16:10:19] <apsdehal> For functional tests I have to do a little more effort
+[16:10:46] <apsdehal> Also for running intern tests you need to run chromium webdriver
+[16:11:04] <apsdehal> Use `chromedriver --port=4444 --url-base=wd/hub`
+[16:53:05] <awayrxaviers> apsdehal, please paste your full output in a gist file and share it with us.
+[16:53:22] <apsdehal> Just a sec
+[16:53:23] <awayrxaviers> Trying to reproduce it, I got a preliminary error:
+[16:53:28] <awayrxaviers> Error: [POST http://localhost:4444/wd/hub/session] connect ECONNREFUSED
+[16:53:29] <awayrxaviers> Error: connect ECONNREFUSED
+[16:53:30] <awayrxaviers> brb
+[16:53:38] <apsdehal> You didn't run chromedriver
+[16:53:49] <apsdehal> on specified port as mentioned by me
+[16:54:04] <rxaviers> I havent. Ok will retry
+[16:57:15] <apsdehal> https://gist.github.com/apsdehal/73b8c9ec285630934ea0
+[17:55:58] <rxaviers> apsdehal, Im finally back. Apparently, the test for error exception fails.Although, E_MISSING_BUNDLE is being correctly thrown.
+[17:56:13] <rxaviers> s/.A/. A/g
+[17:56:46] <rxaviers> try inspecting what error.code you get there
+[17:57:11] <apsdehal> Leave that one, I need to fix the interface for that, can you tell me about the other one?
+[18:05:00] <rxaviers> ah ok, that's the 1st one you've referred to above.
+[18:05:21] <rxaviers> About the second one, all we get from the output is that expected [ Array(1) ] to deeply equal [ Array(1) ]
+[18:06:10] <rxaviers> can you add a console.log on test/unit/date/tokenizer.js:35 and output both the return of the tokenizer function and the expected value?
+[18:06:21] <rxaviers> s/and/to
+[18:06:42] <rxaviers> It will help to know what the difference is.
+[18:25:25] <rxaviers> apsdehal, ^
+[21:35:53] <apsdehal> I am not sure how to console log from chrome driver, I think arschmitz can help us with that
+[21:37:03] <arschmitz> apsdehal: yeah im not super sure on that
+[21:37:15] <arschmitz> apsdehal: ill need to look more into it
+[21:39:48] <arschmitz> apsdehal: wait why arnt you just opening the inspector and looking at the console directly?
+[21:40:20] <apsdehal> Because intern closes the driver as soon as it is done with tests
+[21:43:09] <arschmitz> apsdehal: use leaveRemoteOpen
+[21:43:59] <apsdehal> I need to run intern directly for that, I was running it currently from grunt, not sure how to pass that arg from grunt
+[21:44:47] <arschmitz> apsdehal: https://theintern.github.io/intern/#grunt
+[21:44:54] <arschmitz> you should just set it in the options
+[21:45:31] <arschmitz> apsdehal: i have not tried it but it should work
+[21:46:46] <apsdehal> Yes works
+[21:47:01] <arschmitz> cool
+[21:47:09] <arschmitz> so then you can just use the normal inspector
+[21:54:51] <apsdehal> Yes
+[22:03:20] <apsdehal> Ok I see tests fail because in https://github.com/jquery/globalize/blob/master/test/unit/date/tokenizer.js#L687
+[22:03:26] <apsdehal> Value returned is -0
+[22:03:30] <apsdehal> not 0
+[22:03:37] <apsdehal> that is why tests fail
+[22:03:43] <arschmitz> oh -0
+[22:03:46] <arschmitz> thats fun
+[22:03:55] <arschmitz> i love negative zero and it so rare
+[22:04:00] <apsdehal> lol
+[22:04:23] <arschmitz> really thats like one in a million to get something to actually return a legit -0
+[22:04:24] <apsdehal> awayrxaviers: ^ you should have a look at this
+[22:04:50] <apsdehal> tokenizer __/\__
+[22:04:54] <arschmitz> most people dont even know there is such a thing as -0
+[22:05:17] <apsdehal> In js so much weird stuff happens
+[22:05:30] <arschmitz> thats not js
+[22:05:37] <apsdehal> well, in maths in limits -0 has so much significance
+[22:05:52] <arschmitz> IEEE 754 standard
+[22:06:07] <arschmitz> defines the floating point number system used by js and most other programming languages
+[22:06:16] <arschmitz> which includes -0
+[22:07:50] <arschmitz> apsdehal: open any browser console ( or any language you choose really ) and type in .1 + .2 === .3
+[22:07:53] <arschmitz> and see what you get
+[22:08:36] <apsdehal> I get false in chrome
+[22:08:41] <arschmitz> yup
+[22:08:51] <arschmitz> you well in most programming languages
+[22:10:08] <arschmitz> i know most builds of c++ fail java fails ruby fails php fails
+[22:10:26] <arschmitz> fortran fails
+[22:10:45] <arschmitz> because they all use ieee 754 to define their number system
+[22:10:54] <apsdehal> http://stackoverflow.com/questions/588004/is-floating-point-math-broken
+[22:11:11] <arschmitz> yeah
+[22:11:19] <arschmitz> im well aware of the reason :-)
+[22:11:59] <apsdehal> good stuff
+[22:12:17] <apsdehal> I didn't know that
+[22:12:20] <arschmitz> if you want a really good in depth explanation https://www.youtube.com/watch?v=MqHDDtVYJRI
+[22:13:38] <arschmitz> apsdehal: another fun one is !!new Boolean( false );
+[22:14:27] <apsdehal> lol
+[22:15:29] <arschmitz> apsdehal: using new means its a constructor and will always return an object
+[22:15:37] <arschmitz> and objects are always truthy
+[22:15:38] <apsdehal> Yeah
+[22:16:01] <arschmitz> but with the primitive value of false
+[22:16:34] <arschmitz> apsdehal: some people have a really really hard grasping that one lol
+[22:16:48] <arschmitz> and accepting that its actually correct not a bug
+[22:17:01] <apsdehal> It is correct in js world
+[22:17:07] <arschmitz> yup

@@ -1,0 +1,211 @@
+[04:25:46] <agcolom> rworth: ping
+[04:38:08] <agcolom> DaveMethvin hi Dave, I noticed that the copyright for jQuery 1.9.0 and 1.9.1 were still saying 2012, but I have now seen that you have updated that to 2013, so I guess it will be fine in the next release?
+[04:39:14] <agcolom> rworth: ^ this is what I wanted to tell you, but I think it's now all under control :-) 
+[06:37:57] <scott_gonzalez> nacin: When you're around, I've got a question about how WordPress handles dates.
+[06:44:50] <scott_gonzalez> Heh, 4 minutes after I wrote that Mottie filed an issue for it.
+[06:46:15] <Mottie> LOL sorry
+[06:46:40] <Mottie> I didn't see you say that here, honest!
+[06:47:39] <scott_gonzalez> No problem. We noticed it the minute we deployed the site.
+[06:47:46] <scott_gonzalez> The problem seems to be inside WordPress.
+[06:47:56] <scott_gonzalez> The database has the correct timestamp.
+[06:48:13] <Mottie> I figured that :P
+[06:59:00] <nacin> scott_gonzalez: yessir?
+[07:00:00] <nacin> looking at the issue
+[07:03:14] <scott_gonzalez> So the database has the timestamp stored correctly.
+[07:03:50] <scott_gonzalez> If I take Mottie's tablesorter plugin and post it to my local plugins site, it's post 507.
+[07:03:52] <scott_gonzalez> SELECT post_date, UNIX_TIMESTAMP(post_date) FROM wp_4_posts WHERE ID = 507
+[07:04:00] <scott_gonzalez> 2013-02-06 09:13:13	1360159993
+[07:04:21] <scott_gonzalez> new Date(1360159993000)
+[07:04:21] <scott_gonzalez> Wed Feb 06 2013 09:13:13 GMT-0500 (EST)
+[07:04:31] <scott_gonzalez> Which is ~1 hour ago.
+[07:04:37] <scott_gonzalez> So that's correct.
+[07:04:51] <nacin> nah, something is wrong.
+[07:04:57] <nacin> can you show me where this gets inserted into the DB?
+[07:05:12] <nacin> GW or higher in the stack?
+[07:06:42] <scott_gonzalez> It's higher, and goes through a few levels.
+[07:06:54] <scott_gonzalez> https://github.com/jquery/plugins.jquery.com/blob/master/scripts/wordpress-update.js#L27
+[07:07:04] <nacin> yeah, there right now
+[07:07:17] <scott_gonzalez> https://github.com/jquery/plugins.jquery.com/blob/master/lib/service/github.js#L122
+[07:08:03] <scott_gonzalez> Then of course that goes through XML-RPC.
+[07:08:13] <scott_gonzalez> But like I said, the timestamp in MySQL is correct.
+[07:08:18] <nacin> no it's not
+[07:08:36] <nacin> still looking, should be done in a moment
+[07:08:39] <scott_gonzalez> SELECT UNIX_TIMESTAMP( post_date ) => 1360159993
+[07:08:54] <scott_gonzalez> echo get_the_time('U'); => 1360141993
+[07:08:59] <scott_gonzalez> How are those different?
+[07:10:08] <nacin> your date conversion is off
+[07:10:21] <nacin> 9:13 am −0400 is 1360156393, not 1360159993
+[07:11:31] <scott_gonzalez> I'm GMT-0500
+[07:11:45] <scott_gonzalez> I'm also not doing any math, only the DB and WordPress are.
+[07:11:58] <nacin> git is, too.
+[07:12:29] <nacin> git log —pretty='%cD' −1, for me, returns a local time, not GMT
+[07:12:54] <scott_gonzalez> Well, regardless of that, why is WordPress reporting a different timestamp than MySQL?
+[07:13:34] <nacin> you'll have an answer when I do.
+[07:13:46] <scott_gonzalez> %cD shouldn't be a localized time for you, it should be based on the author's timezone.
+[07:16:22] <scott_gonzalez> On a related note, why does post_date_gmt exist?
+[07:17:19] <nacin> _gmt is the best piece of raw data to have, but it isn't always feasible for other calculations
+[07:17:29] <agcolom> I'm in GMT, do you want me to test something?
+[07:18:39] <scott_gonzalez> nacin: Does WordPress try to account for the difference between the timezone setting and the server's timezone?
+[07:19:07] <nacin> scott_gonzalez: I'll never have time to fix this if you keep asking me questions :-)
+[07:19:19] <scott_gonzalez> haha
+[07:19:55] <nacin> how does GW transition from customFields to custom_fields?
+[07:20:57] <scott_gonzalez> https://github.com/scottgonzalez/node-wordpress/blob/master/lib/fields.js
+[07:21:02] <scott_gonzalez> node-wordpress has a map of field names.
+[07:29:26] <nacin> scott_gonzalez: could you place a plugin on stage that was updated in the last hour?
+[07:29:45] <nacin> (not sure how that works; there is some data there but it is a bit old)
+[07:30:02] <scott_gonzalez> Yeah, one sec.
+[07:30:51] <scott_gonzalez> Ok, Mottie's tablesorter plugin is on there now.
+[07:34:35] <nacin> scott_gonzalez: according to the DB, it was last edited 2013-02-06 06:13:13 GMT
+[07:34:53] <Mottie> Sonic Guage was just updated
+[07:35:07] <Mottie> Gauge
+[07:38:50] <nacin> scott_gonzalez: so, I think this is in GW
+[07:39:00] <nacin> scott_gonzalez: or NW, not sure. it's not in WordPress.
+[07:39:15] <nacin> git log --pretty='%cD' -1 for tablesorter returns Wed, 6 Feb 2013 08:13:13 -0600 for me (author's time, as you said)
+[07:39:49] <nacin> but 2013-02-06 06:13:13 GMT (which should be −0800) is ending up in the DB
+[07:40:40] <nacin> the DB, as far as I can tell, has correct information.
+[07:43:17] <gnarf> Maybe after nacin is looking at time issues, maybe he can help us figure out why the "Recently Updated" and "New Plugins" queries are returning the same results too?  Did we ever make an issue about that scott_gonzalez?
+[07:43:42] <Mottie> *cough* LOL
+[07:44:16] <nacin> scott_gonzalez: again with sonic-gauge, the PST time of 7:30:47 got injected as "GMT" time into WordPress
+[07:45:02] <nacin> scott_gonzalez: note that since all jQuery sites are set to GMT, you can use post_date or post_date_gmt as fields, and as long as you insert a GMT time, it will work. but, you're not inserting a GMT time. :-)
+[07:45:23] <Mottie> The error log has the correct time: http://plugins.jquery.com/error.log
+[07:45:56] <gnarf> so we need to convert to gmt?
+[07:46:08] <nacin> gnarf: looks like GMT conversion is being attempted and is somehow failing
+[07:46:16] <nacin> grunt is running on the server, which is set to −0800
+[07:46:29] <nacin> WordPress does not think it is running on −0800, we correct to GMT specifically.
+[07:46:43] <nacin> so the offset issue is somewhere in the node scripts, not WordPress.
+[07:47:23] <gnarf> hrm
+[07:48:13] <scott_gonzalez> nacin: The database uses a date field, it's impossible to not insert a GMT time.
+[07:48:35] <scott_gonzalez> You're saying that you think the timestamp in MySQL is incorrect?
+[07:48:41] <nacin> scott_gonzalez: you're inserting a time that WordPress is treating as GMT but is actually Pacific.
+[07:49:01] <nacin> I can double-check one other thing.
+[07:49:09] <nacin> it's possible there is a bug in the XML-RPC implementation.
+[07:49:10] <scott_gonzalez> I don't think MySQL stores timezone info.
+[07:49:26] <scott_gonzalez> UNIX_TIMESTAMP( post_date ) gives the expected value.
+[07:49:43] <nacin> look at sonic-gauge in the DB
+[07:50:19] <gnarf> on a DATE field, it stores the timestamp as  https://dev.mysql.com/doc/refman/5.5/en/datetime.html https://dev.mysql.com/doc/refman/5.5/en/time-zone-support.html
+[07:50:37] <gnarf> basically, whatever you have set for your connection as a timestamp is what it uses
+[07:51:28] <nacin> scott_gonzalez: UNIX_TIMESTAMP is tricking you.
+[07:51:50] <nacin> UNIX_TIMESTAMP takes a *local* date and converts it to a timestamp.
+[07:51:53] <scott_gonzalez> That's upsetting. timestamps should be the only thing that is 100% accurate all the time.
+[07:52:19] <nacin> the field inside the DB is supposed to be holding GMT, but is actually holding a local date. so when you convert the local date, it works.
+[07:52:24] <nacin> one offsets the other.
+[07:52:58] <nacin> select post_date_gmt, UNIX_TIMESTAMP( post_date_gmt ) from wp_4_posts where post_name = 'sonic-gauge';
+[07:53:02] <nacin> 2013-02-06 07:30:47 |                      1360164647
+[07:53:34] <nacin> that timestamp is Wed, 06 Feb 2013 10:30:47 -0500
+[07:53:38] <nacin> that time is PST
+[07:53:47] <nacin> despite it being in a "gmt" field
+[07:53:52] <scott_gonzalez> :-/
+[07:54:09] <scott_gonzalez> Ok, let me see how the date is being passed by node-wordpress.
+[07:54:42] <gnarf> nacin
+[07:55:13] <gnarf> try SET time_zone = 'UTC'; then do that query again
+[07:56:00] <nacin> invalid timezone
+[07:56:03] <nacin> think you can do +0:00 though
+[07:56:08] <gnarf> yeah
+[07:56:18] <nacin> | 2013-02-06 07:30:47 |                      1360135847 |
+[07:56:31] <nacin> now it treats it as a GMT timestamp, yes
+[07:56:56] <nacin> by default it uses system time, which as said previously, is -0800
+[07:57:14] <nacin> (we don't use UNIX_TIMESTAMP in core, it isn't that)
+[07:58:26] <gnarf> so basically, we need to convert the date to GMT before pushing 
+[08:00:10] <gnarf> https://github.com/jquery/jquery-wp-content/blob/master/themes/plugins.jquery.com/functions.php#L64 @nacin 
+[08:00:11] <scott_gonzalez> <name>post_date</name><value><dateTime.iso8601>20130205T09:37:53</dateTime.iso8601></value>
+[08:00:17] <gnarf> the post_parent part doesn't seem to be working
+[08:00:47] <scott_gonzalez> That's what's being sent. for Sonic Gauge
+[08:01:11] <gnarf> scott_gonzalez: no timezone on that iso8601?
+[08:01:14] <scott_gonzalez> nope
+[08:01:18] <gnarf> it that supposed to be Z ?
+[08:01:25] <gnarf> or is it local 
+[08:01:50] <scott_gonzalez> "A pseudo ISO8601 timestamp, like 19980717T14:08:55. However, compared to a true ISO8601 value, milliseconds, and time zone informations are missing."
+[08:01:52] <scott_gonzalez> http://ws.apache.org/xmlrpc/types.html
+[08:02:02] <scott_gonzalez> Trying to figure that out.
+[08:02:19] <scott_gonzalez> Not sure if it's a problem in our code, node-xmlrpc, or the WordPress XML-RPC.
+[08:02:42] <scott_gonzalez> But seeing that there's no timezone and it's not passed as a timestamp, I wouldn't doubt that it's on our side.
+[08:03:13] <nacin> what is 20130205T09:37:53 supposed to correspond to?
+[08:03:36] <nacin> 9:37GMT? 13:37 GMT? 16:37 GMT?
+[08:04:19] <gnarf> thats kinda strange
+[08:04:20] <scott_gonzalez> nacin: That's what I'm trying to figure out right now -)
+[08:04:26] <gnarf> the date entered is -2 hours?
+[08:04:30] <gnarf> in the DB?
+[08:04:36] <nacin> -8
+[08:04:39] <scott_gonzalez> It does seem strange that it's not part of XML-RPC.
+[08:05:06] <gnarf> 2013-02-06 07:30:47 and 20130205T09:37:53 aren't even close tho
+[08:05:15] <gnarf> so maybe we aren't looking at the same post?
+[08:06:22] <nacin> reading through our date handling, I think it is good.
+[08:06:47] <nacin> 09:37:53, sans-timezone or Z, would properly be interpreted as GMT
+[08:08:07] <nacin> best I can tell, only GMT is accepted as part of the XML-RPC spec, and we follow that in WordPress.
+[08:09:07] <scott_gonzalez> XML-RPC is apparently timezone agnostic and it's up to the server to state which timezone it will assume.
+[08:09:18] <scott_gonzalez> So we just need to get node-wordpress to always send the GMT time.
+[08:09:29] <scott_gonzalez> It sucks that XML-RPC doesn't support timezones.
+[08:09:51] <nacin> really? I find that much simpler. :-)
+[08:10:16] <scott_gonzalez> Dear Dave Winer, I though you were gone from my life. Please go away.
+[08:11:03] <nacin> it is up to the server to state which timezone it will assume; and all of jquery.com is set to assume GMT.
+[08:11:15] <nacin> what I would do is explicitly pass a GMT value to post_date_gmt, rather than a GMT value to post_date
+[08:11:27] <nacin> that way even if the timezone on jquery.com changes, you will always be safe.
+[08:11:43] <nacin> (for comparison, right now, you're passing a PST value to post_date, which WP thinks is GMT)
+[08:12:15] <nacin> if I changed the jquery.com offset to PST, everything might work as-is.
+[08:12:31] <scott_gonzalez> Yeah, it would. I've already verified on my local server.
+[08:12:42] <scott_gonzalez> But I'm not sure that's what we want to do.
+[08:12:50] <scott_gonzalez> We probably want to fix the dates, right?
+[08:13:03] <scott_gonzalez> Otherwise if the server moves, we'll have a real problem.
+[08:13:15] <scott_gonzalez> Because then the timezones in the db will be mixed.
+[08:13:29] <scott_gonzalez> And the timezone info isn't stored, so we'd be at a loss.
+[08:14:16] <gnarf> if we send the _gmt 
+[08:14:49] <gnarf> seems the right thing to do
+[08:17:17] <gnarf> gotta agree with nacin that its easier to just work in gmt :)
+[08:21:19] <jqcommit> [13api.jquery.com] 15nathanpitman opened issue #248: Documentation example for unwrap() doesn't work  02http://git.io/l_A-3A
+[08:27:45] <gnarf> hrm
+[08:27:57] <gnarf> why is the button getting display:none in the example on http://api.jquery.com/unwrap/ ?
+[08:28:46] <gnarf> oh
+[08:28:51] <gnarf> is it the .toggle( fn, fn ) signature 
+[08:28:54] <gnarf> er
+[08:28:55] <gnarf> it is
+[08:28:59] <gnarf> deprecated
+[08:34:00] <Mottie> Would it be a crazy idea to add a wiki section to each API page? So people can post more examples and such?
+[08:37:31] <gnarf> We have pull requests?
+[08:37:47] <gnarf> I'll fix that example and add another
+[08:45:09] <jqcommit> 01[13api.jquery.com01] 15gnarf37 pushed 1 new commit to 06master: 02http://git.io/DAiDxQ
+[08:45:09] <jqcommit> 13api.jquery.com/06master 146c679d5 15Corey Frang: unwrap: Remove deprecated use of .toggle( fn, fn ) - Fixes gh-248
+[11:15:08] <jqcommit> 01[13jquery.com01] 15ajpiano pushed 1 new commit to 06master: 02http://git.io/h41Rhw
+[11:15:09] <jqcommit> 13jquery.com/06master 148669f8c 15adam j. sontag:  Change "shell" to "bash" in download.md so that git code blocks highlight properly. Fixes #16.
+[11:33:07] <jqcommit> 01[13jquery-wp-content01] 15ajpiano pushed 1 new commit to 06master: 02http://git.io/N33idA
+[11:33:07] <jqcommit> 13jquery-wp-content/06master 1489168fd 15adam j. sontag: Remove top/bottom padding on `code` elements so they don't bleed into each other on successive lines
+[11:45:46] <gnarf> hey
+[11:45:51] <gnarf> https://github.com/jquery/jquery.com/pull/3 is dead in the water yes?
+[11:45:51] <b-ot> gnarf: Pull request #3 by alexmcpherson (7mon 1w 2d 13h 18m 35s): Basically whatever we got done
+[11:46:07] <gnarf> cc ajpiano DaveMethvin
+[11:46:45] <ajpiano> i do believe so
+[11:46:53] <ajpiano> i wish i hadn't forgot about that when we went to redo jquery.com
+[11:47:01] <ajpiano> i wonder what it look slike
+[11:47:06] <ajpiano> probably the mockup
+[13:48:03] <jquicommit> 01[13jqueryui.com01] 15scottgonzalez pushed 1 new commit to 06master: 02http://git.io/NG8Bkw
+[13:48:03] <jquicommit> 13jqueryui.com/06master 14bb85e0c 15Scott González: About: Updated my info.
+[14:16:13] <jquicommit> 01[13api.jqueryui.com01] 15scottgonzalez pushed 1 new commit to 06master: 02http://git.io/I8ceGg
+[14:16:13] <jquicommit> 13api.jqueryui.com/06master 14b4dd72d 15Scott González: Dialog: Update description of title option. Fixes #102.
+[14:19:47] <jqcommit> 01[13jquery-wp-content01] 15ajpiano pushed 2 new commits to 06master: 02http://git.io/NcoOIw
+[14:19:47] <jqcommit> 13jquery-wp-content/06master 143ba3553 15Klein Maetschke: Fixing sidebar issue that makes jQueryUI.com not make full-width on mobile devices.
+[14:19:47] <jqcommit> 13jquery-wp-content/06master 14aace93d 15Klein Maetschke: Fixing both jQueryUI and API.jQueryUI.com's full-width on mobile.
+[14:36:15] <jqcommit> 01[13jquery-wp-content01] 15ajpiano pushed 1 new commit to 06master: 02http://git.io/r7CbtQ
+[14:36:15] <jqcommit> 13jquery-wp-content/06master 14f01caa5 15Klein Maetschke: Temporary fix for the navigation breaking into two-lines on small screens. Fixes #185.
+[15:26:07] <jqcommit> 01[13jquery-wp-content01] 15ajpiano pushed 2 new commits to 06master: 02http://git.io/UpLesw
+[15:26:07] <jqcommit> 13jquery-wp-content/06master 14f3e645b 15adam j. sontag: Remove padding on #content on small widths,  which caused odd whitespace around #banner-secondary
+[15:26:07] <jqcommit> 13jquery-wp-content/06master 14b733730 15adam j. sontag: Fix appearance of #banner-secondary (prevent overlap/underlap) at smaller breakpoints
+[15:48:48] <ajpiano> scott_gonzalez: do we need this page anymore https://github.com/jquery/jquery-wp-content/blob/master/responsive.html
+[15:49:16] <ajpiano> doesn't seem like it belongs in the root of jquery-wp-content
+[15:50:10] <ajpiano> rworth: also what's the deal with this package.json in jquery-wp-content https://github.com/jquery/jquery-wp-content/blob/master/package.json
+[16:35:30] <rworth> ajpiano that's for `npm version`
+[16:35:57] <rworth> see scott_gonzalez 
+[16:36:08] <rworth> 's email from Jan 24 to jquery-devs-team
+[16:36:14] <rworth> subject: Deploying sites
+[16:43:06] <ajpiano> right
+[16:43:08] <ajpiano> but
+[16:43:19] <ajpiano> jquery-wp-content didn't have a package json
+[16:43:22] <ajpiano> i was holding off on adding one
+[16:43:26] <ajpiano> until there was like, actually ... one
+[16:43:59] <gnarf> but it makes npm version a breeze :)
+[16:44:03] <ajpiano> rather i had a assumed we would wait to use npm version on jquery-wp-content until such point that we added a package.json
+[16:44:04] <ajpiano> true
+[16:46:56] <ajpiano> it doesn't matter, esp now that we are adding grunt stuff to jquery-wp-content anyway
+[17:30:37] <scott_gonzalez> ajpiano: That page should definitely go away. I didn't even realize it existed.
+[17:31:35] <scott_gonzalez> And I added the package.json because we should be using `npm version` for everything that we deploy via tags.
+[17:42:08] <ajpiano> granted
+[17:42:19] <ajpiano> was just jarring for a sec to see one at all and then one so sparse
+[17:45:06] <scott_gonzalez> :-)

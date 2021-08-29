@@ -1,0 +1,249 @@
+[01:59:25] <jzaefferer> scott_gonzalez: no? What was the issue?
+[02:55:30] <doesallmagic> Project jQuery UI - git core build #122: FAILURE in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%20git%20core/122/
+[03:00:44] <jquicommit> [jquery-ui] jzaefferer force-pushed build-themes from 322145b to 7dc7b30: http://git.io/-KIccA
+[03:00:44] <jquicommit> [jquery-ui/build-themes] Grunt: New task for downloading themes using new themeroller. - Jörn Zaefferer
+[03:19:48] <doesallmagic> Project jQuery UI - 1.6.x core build #63: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.6.x%20core/63/
+[03:28:16] <doesallmagic> Yippie, build fixed!
+[03:28:17] <doesallmagic> Project jQuery UI - 1.7.x core build #62: FIXED in 26 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.7.x%20core/62/
+[03:54:36] <doesallmagic> Project jQuery UI - 1.8.x core build #38: STILL FAILING in 23 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.8.x%20core/38/
+[04:55:14] <scott_gonzalez> jzaefferer: The problem is that I was using that feature and the results of not having the lifecycle run is seeming random failures :-/
+[04:55:51] <scott_gonzalez> I was also updating from like 1.1.0 or something super old like that.
+[04:59:22] <jzaefferer> aye
+[04:59:25] <jzaefferer> long changelog since then...
+[05:02:30] <jzaefferer> I just mentioned the new themeroller on twitter, pointing at our stage server - so far now one has followed my invite to download a theme...
+[05:03:27] <jzaefferer> scott_gonzalez: I can publish download.jqueryui.com and update the dependency in jqueryui.com - what about the logger module?
+[05:04:55] <scott_gonzalez> Yeah, we need to publish the logger module as well.
+[05:05:05] <scott_gonzalez> I was talking to gnarf about it yesterday.
+[05:05:42] <scott_gonzalez> I I landed some updates yesterday. It now supports the full console.log() API.
+[05:05:51] <jzaefferer> I guess I can just do that, too. At some point we need to add a few others with publishing rights on those modules
+[05:06:01] <jzaefferer> Nice
+[05:06:03] <scott_gonzalez> So you can pass any type of data, multiple arguments, printf-style messages, etc.
+[05:06:09] <rxaviers> jzaefferer, shall we move "zipstream": "git://github.com/rxaviers/node-zipstream.git" to ctalkington fork?
+[05:06:43] <scott_gonzalez> jzaefferer: No error handling on async tasks for themes?
+[05:06:57] <jzaefferer> See, that's why there's a PR
+[05:07:19] <jzaefferer> rxaviers: yeah, can you give that a try?
+[05:07:24] <rxaviers> sure
+[05:07:56] <jzaefferer> rxaviers: regarding Scott's question above - what happens when theme.fetchImages goes bad?
+[05:08:07] <jzaefferer> Looks like its missing its error argument
+[05:08:41] <rxaviers> it is missing the error handler // TODO catch errors
+[05:09:24] <rxaviers> if it goes wrong, what shall we do? abort package?
+[05:10:14] <jzaefferer> call the callback with an error argument
+[05:10:23] <jzaefferer> otherwise leave the first argument null and provide the files as the second argument
+[05:10:33] <jzaefferer> as in any other callback api in nodejs
+[05:11:06] <rxaviers> jzaefferer, ok for that.. But, I mean on lib/builder.. When user is downloading a package
+[05:11:47] <rxaviers> (for the server point of view with the user)
+[05:12:03] <rxaviers> I think the proper would be returning an error status 500?
+[05:12:04] <scott_gonzalez> Well, that's an interesting part of streaming immediately.
+[05:12:19] <scott_gonzalez> We should return a 500, but are we already streaming the zip?
+[05:13:01] * rxaviers brb in 2min
+[05:18:46] <jzaefferer> another drawback of streaming: we don't provide a content-length header
+[05:18:55] <jzaefferer> so currently the browser can't display the size of the download
+[05:20:08] <jzaefferer> I wonder what happens if the content-length header doesn't match exactly the size of the actual download
+[05:20:14] <jzaefferer> if the browser doesn't care, we can just make a guess
+[05:20:52] <rxaviers> wait
+[05:21:02] <rxaviers> streaming only begins when build has completed, isnt it?
+[05:21:23] <rxaviers> on writeTo
+[05:21:39] <scott_gonzalez> jzaefferer: The browser probably does care.
+[05:21:53] <jzaefferer> "build", yeah, but zipping and download happens simultaneously
+[05:22:42] <rxaviers> zipping begins when theme.fetchImages finishes
+[05:23:09] <rxaviers> so, we are able to tell if anything went wrong and we should return a 500 instead of start zipping and serving the download
+[05:23:10] <scott_gonzalez> Ok, in that case, we can respond appropriately.
+[05:26:24] <jzaefferer> Yeah, Chrome stops a download after the given number of byes of Content-Length is present
+[05:27:34] <jzaefferer> btw. https://twitter.com/cfjedimaster/status/249118277538828288 https://twitter.com/gonsfx/status/249121227673849856
+[05:32:04] <scott_gonzalez> 	:-)
+[05:34:59] <scott_gonzalez> WTF? stage.jqueryui.com regressed.
+[05:35:42] <scott_gonzalez> The index and demos pages are gone.
+[05:36:27] <rxaviers> FYI using zipstream-ctalkington, npm test completed just fine
+[05:36:52] <rxaviers> Shall I stick with current 0.3.3 version in package.json, or set "latest"?
+[05:37:47] <scott_gonzalez> 0.3.3
+[05:38:11] <scott_gonzalez> Did someone log in to the server and change the jqueryui.com checkout?
+[05:39:43] <scott_gonzalez> hmm.... gnarf, does your script checkout specific SHAs instead of pulling master?
+[05:41:22] <scott_gonzalez> I logged in and deployed and everything is back.
+[05:41:25] <jzaefferer> scott_gonzalez: I deployed without pulling
+[05:41:31] <jzaefferer> sorry bout that
+[05:41:41] <scott_gonzalez> Oh, you deployed from your local machine?
+[05:41:52] <jzaefferer> yeah..
+[05:42:03] <scott_gonzalez> Oh, well I just overwrote whatever you deployed :-P
+[05:42:08] <jzaefferer> yeah, that's fine
+[05:42:40] <jzaefferer> well, assuming you've got a current download repo locally as well..
+[05:42:52] <scott_gonzalez> No, I deployed from the server.
+[05:43:16] <scott_gonzalez> So whatever was there before is what's going to be there now.
+[05:43:22] <scott_gonzalez> I assume that's not what you want.
+[05:43:22] <jzaefferer> that's stuck to an older git revision?
+[05:43:59] <scott_gonzalez> Probably. npm won't update dependendies from git repos.
+[05:44:00] <jzaefferer> actually seems fine
+[05:45:37] <jzaefferer> scott_gonzalez: btw since I got used to jQuery's space-heavy formatting style, I really miss that whenever I get on another project...
+[05:45:46] <jzaefferer> everythings so clamped!
+[05:46:24] <scott_gonzalez> yeah
+[05:53:21] <jquicommit> [download.jqueryui.com] rxaviers pushed 1 new commit to master: http://git.io/A0uziQ
+[05:53:21] <jquicommit> [download.jqueryui.com/master] Use zipstream-ctalkington fork - Rafael Xavier de Souza
+[06:27:22] <jquicommit> [download.jqueryui.com] rxaviers pushed 2 new commits to master: http://git.io/-Nasug
+[06:27:22] <jquicommit> [download.jqueryui.com/master] Update title - Rafael Xavier de Souza
+[06:27:22] <jquicommit> [download.jqueryui.com/master] Double quoting strings - Rafael Xavier de Souza
+[06:28:02] <rxaviers> scott_gonzalez, how do you reference commits in the comments? Do you create a link explicitly with []() or, github has a shortcut for that?
+[06:28:17] <rxaviers> ,* or
+[06:31:03] <scott_gonzalez> rxaviers: Just put the SHA, it auto-links.
+[06:31:10] <rxaviers> ah cool thks
+[06:38:26] <rxaviers> scott_gonzalez, jzaefferer, To pass a variable from the server to the client javascript, I'm using the below. Are you ok with passing it globally in a script tag that way or should we pass it through another way? Like a data- attribute in the div.themeroller, or inserting an element there, or via any other way?
+[06:38:36] <rxaviers> <script>
+[06:38:41] <rxaviers> var downloadJqueryuiHost = "{{host}}";
+[06:38:41] <rxaviers> </script>
+[06:39:22] <scott_gonzalez> I'd rather use a data- attribute or put it on an object.
+[06:40:25] <rxaviers> <div data-downloadJqueryuiHost="{{host}}" class="content themeroller">
+[06:41:14] <rxaviers> suggestions for the above data name? ^
+[06:41:24] <rxaviers> if so, say now :)
+[06:41:51] <jzaefferer> rxaviers: don't use camelcase in data attributes, separate with dashes instead
+[06:42:03] <jzaefferer> data-download-host="{{host}}" seems fine
+[06:42:06] <rxaviers> exactly what I was asking
+[06:42:07] <rxaviers> hehe
+[06:42:09] <rxaviers> ok thks
+[06:42:27] <jzaefferer> rxaviers: then remember to include "stage." in there, as in themeroller.js and download.js right now
+[06:43:55] <rxaviers> jzaefferer, shouldn't "stage." be added to the side that uses it?
+[06:44:06] <jzaefferer> side?
+[06:44:12] <rxaviers> I mean, probably on jqueryui.com
+[06:44:32] <jzaefferer> what's there right now works, just update that to work with the data attribute?
+[06:44:52] <scott_gonzalez> If the URL is in the page content, it will automatically work.
+[06:45:23] <scott_gonzalez> The way the URL rewriting works is we buffer all output, then replace the URLs based on the environment and the flush the buffer.
+[06:46:04] <scott_gonzalez> Why do we need to pass the host as a variable though?
+[06:46:12] <scott_gonzalez> Shouldn't it always be download.jqueryui.com?
+[06:46:24] <rxaviers> scott_gonzalez, instead of hardcoding it
+[06:46:32] <scott_gonzalez> Why?
+[06:46:35] <scott_gonzalez> What's the benefit?
+[06:46:40] <rxaviers> for dev purposes
+[06:46:46] <rxaviers> it can be localhost:8088
+[06:47:07] <rxaviers> or stage. *
+[06:47:15] <rxaviers> or anything else, for testing perhaps
+[06:47:16] <scott_gonzalez> stage.* isn't something that we need to configure.
+[06:47:25] <scott_gonzalez> Are you talking about testing outside of the sites?
+[06:47:43] <rxaviers> could be another usage
+[06:48:31] <scott_gonzalez> What use cases exist today that require something other than *.download.jqueryui.com?
+[06:48:40] <rxaviers> dev
+[06:48:44] <rxaviers> localhost:8088
+[06:48:53] <scott_gonzalez> For testing outside of jqueryui.com?
+[06:53:43] <scott_gonzalez> When is this used and how is it different from the form's action?
+[06:55:43] <rxaviers> This host is used to let client side knows where to request for some additional data from download.jquery.com server.
+[06:56:03] <rxaviers> the form action on download index is {{host}}/download
+[06:57:06] <scott_gonzalez> Won't that be the same host?
+[06:57:33] <rxaviers> currently, host is being assigned "localhost:8088" when developing download.jqueryui.com, or "download.jquery.com" when jqueryui.com deploys it
+[06:58:40] <rxaviers> yes, same host
+[06:59:00] <rxaviers> are you suggesting to take the url from action and parse it instead?
+[06:59:11] <rxaviers> it works on download, but on themeroller, the form has no action
+[06:59:39] <scott_gonzalez> ah, ok
+[06:59:39] <rxaviers> the download this theme is a link that makes a GET back to download, not a post
+[07:00:01] <scott_gonzalez> Yeah, so add a data attribute.
+[07:00:09] <rxaviers> and I think we'd need that anyway
+[07:00:11] <rxaviers> alright
+[07:00:48] <scott_gonzalez> Also, kinda sucks that forms aren't treated as Location objects.
+[07:00:55] <scott_gonzalez> No form.host.
+[07:09:37] <scott_gonzalez> kborchers: How's the testing going?
+[07:10:56] <jquicommit> [download.jqueryui.com] rxaviers pushed 1 new commit to master: http://git.io/rFQvtg
+[07:10:56] <jquicommit> [download.jqueryui.com/master] Use data attribute instead of global variable to pass host - Rafael Xavier de Souza
+[07:11:29] <kborchers> scott_gonzalez: slow … keep getting pulled away by work … i am half-way through Safari then have IE9 and 6 left
+[07:16:25] <jzaefferer> aaaagh, stupid broken DNS crap
+[07:16:39] <jzaefferer> github.com resolving to some wikipedia IP address :(
+[07:17:41] <jzaefferer> Chrome then, correctly, complains about the SSL certificate not matching the domain, ssh (for pushing git) complains about the IP address not matching the stored RSA host
+[07:19:23] <jzaefferer> wasn't so bad when it happened for facebook.com
+[07:19:29] <jzaefferer> but github.com is pretty crippling
+[07:20:53] <scott_gonzalez> jzaefferer: /etc/hosts?
+[07:41:52] <jquicommit> [download.jqueryui.com] rxaviers pushed 1 new commit to master: http://git.io/EnQpfw
+[07:41:52] <jquicommit> [download.jqueryui.com/master] Simplify code since we have no bookmarklet anymore - Rafael Xavier de Souza
+[07:51:19] <jzaefferer> rxaviers: catching up on github comments
+[07:51:24] <jzaefferer> https://github.com/jquery/download.jqueryui.com/commit/ddeebd46c1cc23177718c3d1b42a9037c18f7aaa#commitcomment-1888044
+[07:52:13] <jzaefferer> rxaviers: other todos/fixmes that need input?
+[07:52:40] <rxaviers> jzaefferer, thks! So far so good
+[07:52:42] <rxaviers> :)
+[07:54:06] <jquicommit> [download.jqueryui.com] rxaviers pushed 2 new commits to master: http://git.io/r0tAkg
+[07:54:06] <jquicommit> [download.jqueryui.com/master] Coding standards fix - Rafael Xavier de Souza
+[07:54:06] <jquicommit> [download.jqueryui.com/master] Simplify DL theme button code - Rafael Xavier de Souza
+[08:02:56] <jquicommit> [download.jqueryui.com] rxaviers pushed 2 new commits to master: http://git.io/zXEnsQ
+[08:02:56] <jquicommit> [download.jqueryui.com/master] Make version a template property - Rafael Xavier de Souza
+[08:02:56] <jquicommit> [download.jqueryui.com/master] Minor indent and sort - Rafael Xavier de Souza
+[08:05:13] <rxaviers> jzaefferer, scott_gonzalezone more FIXME question I had: On download builder, we have a link pointing to TR. It always links to base theme. Shall I update frontend, so it points to TR with themeVars of current selected theme in download builder?
+[08:05:21] <rxaviers> scott_gonzalez ^
+[08:05:55] <scott_gonzalez> yeah
+[08:06:02] <rxaviers> okie dokie
+[08:06:43] <rxaviers> one more nice to have thing I was considering making is: TR app should be affixed, so that when user scrolls down to see demos, the app is always visible.
+[08:07:14] <rxaviers> brb in 1h30
+[08:10:06] <scott_gonzalez> rxaviers: Nice in theory, but probably bad in practice. The settings panel is very tall.
+[09:56:41] <rxaviers> scott_gonzalez, ah, I see.
+[09:59:22] <rxaviers> scott_gonzalez, indeed, when panels are opened it gets pretty tall
+[10:35:05] <jquicommit> [download.jqueryui.com] rxaviers pushed 1 new commit to master: http://git.io/Zp-y6w
+[10:35:05] <jquicommit> [download.jqueryui.com/master] Handle GET params by reloading it with hash variables - Rafael Xavier de Souza
+[10:35:45] <rxaviers> jzaefferer, remember the themeroller url in the CSS had a ? and we're wondering change it to hash #. I've updates the frontend to check that and reload if necessary. ^ Ok?
+[10:35:59] <rxaviers> updated*
+[10:43:09] <jquicommit> [jqueryui.com] scottgonzalez pushed 1 new commit to master: http://git.io/Ism-hg
+[10:43:09] <jquicommit> [jqueryui.com/master] Added development page. - Scott González
+[10:47:35] <jquicommit> [download.jqueryui.com] rxaviers pushed 1 new commit to master: http://git.io/BBAIPw
+[10:47:35] <jquicommit> [download.jqueryui.com/master] Update themeroller link of download to add themeVars of current selected theme - Rafael Xavier de Souza
+[11:38:49] <kswedberg> scott_gonzalez: btw, my style "fixes" fall apart if you start resizing your browser. I'm working on a different approach.
+[11:39:29] <kswedberg> the sticky footer thing has to be ditched because we can't rely on a footer height with all the media queries changing stuff around
+[11:40:14] <kswedberg> and the sidebar breaks if the browser starts out narrow and then is resized to wide in certain cases
+[11:43:30] <gnarf> scott_gonzalez: yes, it does check out specific SHA
+[12:07:16] <rxaviers> all: just to make sure, jQuery has no util like javascript es5 Array.prototype.reduce method, right?
+[12:07:32] <gnarf> scott_gonzalez: the rewrite only works if its http://download.jqueryui.com and download.jqueryui.com is listed as a "site" in the config file
+[12:07:55] <scott_gonzalez> gnarf: oh
+[12:08:54] <gnarf> it might just need //host
+[12:08:58] <gnarf> but i think its http://host
+[12:09:33] <gnarf> scott_gonzalez: https://github.com/jquery/web-base-template/blob/master/config.php#L62-69
+[12:29:36] <jquicommit> [jqueryui.com] scottgonzalez pushed 1 new commit to master: http://git.io/hg2uJg
+[12:29:36] <jquicommit> [jqueryui.com/master] Added support page. - Scott González
+[12:30:15] <scott_gonzalez> nacin: Any update on subdirectory sites?
+[12:30:44] <scott_gonzalez> jzaefferer rxaviers: Any update on error handling so that https://github.com/jquery/jquery-ui/pull/730 can land?
+[12:30:47] <nacin> scott_gonzalez: should have it committed to web-base-tempalate later today
+[12:31:00] <nacin> scott_gonzalez: you only care right now about first level and only for api.jqueryui.com, yeah?
+[12:31:09] <scott_gonzalez> nacin: correct
+[12:31:20] <scott_gonzalez> I doubt we'll ever want more than first level.
+[12:31:21] <rxaviers> scott_gonzalez, jzaefferer has worked on that (AFAIK). Waiting on him..
+[12:31:31] <scott_gonzalez> rxaviers: thanks
+[12:31:46] <scott_gonzalez> I assume jzaefferer is gone for the day.
+[12:34:30] <jquicommit> [download.jqueryui.com] rxaviers pushed 2 new commits to master: http://git.io/zPApdQ
+[12:34:30] <jquicommit> [download.jqueryui.com/master] Coding standards fix - Rafael Xavier de Souza
+[12:34:30] <jquicommit> [download.jqueryui.com/master] When every component is deselected, deselect toggle all. When every component is selected, select toggle All. - Rafael Xavier de Souza
+[12:34:57] <rxaviers> scott_gonzalez, check it ^ out :)
+[12:35:04] <rxaviers> (I still wanna make that code thinner)
+[12:41:05] <gnarf> rxaviers: is that in node code or in client side?
+[12:41:08] <gnarf> .reduce ?
+[12:42:35] <gnarf> also, why not just do something like "checked = allGroup(elem).filter(function() { return this.checked; });" then just check if checked.length is 0 or allGroup(elem).length
+[12:43:03] <rxaviers> gnarf, client, I've added a fix old browser section below
+[12:43:22] <gnarf> if you just use .filter() you can skip the need for the reduce
+[12:43:35] <gnarf> its like 10 elements tops right, not like a ton of perf wasted
+[12:43:35] <rxaviers> gnarf, good idea
+[12:43:45] <rxaviers> and count its lenght
+[12:43:45] <rxaviers> mm
+[12:43:47] <rxaviers> thks
+[12:44:08] * rxaviers is leaving for today. But, will be online tomorrow
+[12:44:21] <gnarf> rxaviers: avoid punching system prototypes in general is the jQuery way
+[12:44:49] <gnarf> also -- just FYI .get() is a shorter .toArray()
+[12:48:37] <scott_gonzalez> kborchers: If you think walking through demos is boring, you should try going through the generated changelog and manually removing commits that were cherry-picked into 1-8-stable.
+[12:48:53] <scott_gonzalez> There *has* to be a better way to do this.
+[12:50:03] <kborchers> ouch
+[12:50:18] <scott_gonzalez> cmd+shift+right, cmd+f, cmd+g, esc, cmd+d, cmd+g, cmd+d, repeat
+[12:50:37] <gnarf> scott_gonzalez: can you get a log of the picked commits and the sha they were picked from?
+[12:50:44] <scott_gonzalez> gnarf: yes
+[12:50:53] <scott_gonzalez> I assume there's a way to do this with grep.
+[12:50:58] <gnarf> grep -v ?
+[12:51:09] <gnarf> grep -v dontshowmethis
+[12:51:36] <scott_gonzalez> I need to pipe in the list of all SHAs though.
+[12:51:38] <gnarf> what are the commands you use for getting these lists?
+[12:51:39] <scott_gonzalez> xargs?
+[12:52:18] <gnarf> for sha in $( command ); do cat file | grep -v $sha > file.new ; mv file.new file ; done
+[12:52:20] <scott_gonzalez> git log 1-8-stable --pretty=format:"%H %s" | grep "cherry picked" | sed 's/^.*cherry picked from commit \([0-9a-f]*\).*$/\1/' | sort
+[12:53:07] <gnarf> for sha in $( command ); do grep -v $sha file > file.new ; mv file.new file ; done
+[12:55:20] <scott_gonzalez> I'm now in escpaing hell.
+[12:55:26] <gnarf> for what?
+[12:55:32] <scott_gonzalez> That massive command
+[12:55:36] <scott_gonzalez> Inside $()
+[12:55:45] <gnarf> no need to escape anything you didn't before inside $()
+[12:56:23] <gnarf> for sha in $( git log 1-8-stable --pretty=format:"%H %s" | grep "cherry picked" | sed 's/^.*cherry picked from commit \([0-9a-f]*\).*$/\1/' ) ; do grep -v $sha file > file.new ; mv file.new file; done
+[12:56:25] <scott_gonzalez> Oh, I had accidentally put two closing parens.
+[12:56:27] <gnarf> should work
+[12:57:05] <scott_gonzalez> Oh, I'm going to asume that worked :-)
+[12:57:13] <scott_gonzalez> thanks
+[12:57:18] <gnarf> np
+[12:57:27] <gnarf> walkin out the door now, you're on your own :)
+[12:57:28] <scott_gonzalez> That just saved me a ton of time.
+[12:57:37] <gnarf> shell for loops rule
+[12:57:47] <scott_gonzalez> Sorry kborchers, I don't think grep is going to help you with the demos :-P
+[12:58:18] <kborchers> yeah :(
+[13:25:18] <scott_gonzalez> hmm...how can I find the first commit in master that's not in 1-8-stable?
+[13:30:41] <scott_gonzalez> Oh well, I just created a list of all commits in 1-8-stable that aren't in master. That was a much longer list than I wanted, but it was useful.

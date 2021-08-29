@@ -1,0 +1,901 @@
+[02:13:32] <Cork> w3gi: what do you mean empty?
+[02:13:43] <Cork> w3gi: you can't inspect a formdata object in javascript
+[03:22:39] <Whiskey> document.querySelector("#this").innerHTML <- not same as $("#this").html()?
+[03:22:47] <Cork> yes
+[03:23:05] <Whiskey> strange that it don´t work
+[03:23:15] <Cork> what doesn't work?
+[03:23:52] <Whiskey> https://jsfiddle.net/Slaktarn/dtnaho9L/22/
+[03:23:57] <Whiskey> last line
+[03:24:28] <Cork> uh, your setting the return value from html() to a string
+[03:24:44] <Cork> html() is a function not a setter
+[03:25:04] <Whiskey> but so does document.querySelector("#this").innerHTML =
+[03:25:16] <Cork> ya, cause innerHTML is a getter + setter
+[03:25:21] <Cork> notice the lack of ()
+[03:25:44] <Whiskey> aaa :)
+[03:26:28] <FilipNortic_> feels more like a field varible but i guess that's java thinking not js
+[03:26:57] <Cork> FilipNortic_: https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Functions/set
+[03:27:13] <Cork> it could be a variable, but as it actually modifies other things it is still a function
+[03:27:39] <Whiskey> return String(string).replace(/[&<>"'`=\/]/g, function (s) { <- is it possible to make that line work for both strings and regexs?
+[03:28:20] <Cork> you would have to make it multiple regex search/replace
+[03:28:27] <FilipNortic_> yeah more or less figuered it would come down to something like this. exposing the real internals is almost always bad
+[03:28:30] <Cork> cause you can't map regex strings to an object
+[03:28:50] <Cork> FilipNortic_: it is actually very close to the real internals
+[03:28:53] <Whiskey> Have no clue how to do that
+[03:29:04] <Whiskey> Also sounds like not a superfast way to do it :D
+[03:29:10] <Cork> FilipNortic_: the only difference is that innerHTML predates setters by about a decade
+[03:29:20] <Cork> Whiskey: .replace(//, '').replace(//, '').replace(//, '').replace(//, '').replace(//, '').replace(//, '')
+[03:32:14] <Whiskey> cork
+[03:32:21] <Whiskey> but that won´t work if you don´t know what comes in
+[03:33:04] <Whiskey> its for a regexp tester, so the replace code can be anything
+[03:33:24] <Cork> Whiskey: an alternative would be https://jsfiddle.net/dtnaho9L/25/
+[03:33:41] <Cork> not much need for the object
+[03:34:32] <Whiskey> yeh, but the problem is not that one, the problem is the find that do the job where search string are applyed
+[03:34:34] <Cork> Whiskey: ya, but the only safe way to do this is to not use .html
+[03:34:40] <Whiskey> it will fail if you do lets say, "var find = escapeHtml("/jQuery/gim")"
+[03:34:45] <Cork> instead create dom elements and set the text content with .text()
+[03:34:54] <Cork> then you can't ever get injected code
+[03:36:26] <Whiskey> well the match is the problem
+[03:36:39] <Cork> Whiskey: you mean you want /jQuery/gim to be valid regex?
+[03:36:49] <Cork> meaning without escaping // ?
+[03:36:50] <Whiskey> Cork give me a sec
+[03:36:56] <Whiskey> i try to show you the real case
+[03:37:03] <Cork> well this has problem on multiple levels
+[03:37:28] <Whiskey> https://jsfiddle.net/Slaktarn/ku1rf0w3/15/
+[03:38:09] <Whiskey> if you click on, try an example, you will see nothing get highlighted, i try to make it a safe way so its escaped and some stuff don´t error
+[03:38:14] <Cork> what's that suppose to tell me about the search string?
+[03:38:46] <Whiskey> not sure, its just have to handle both strings and regexp to replace
+[03:38:53] <Whiskey> else it will fail
+[03:39:52] <Cork> Whiskey: note that if the visitor can show there own content on this page you have a risk of xss injection where ppl can link to the page and run arbitrary javascript
+[03:40:06] <Cork> so you should really rethink the use of escapeHtml
+[03:40:22] <Cork> and possibly even adding csp and forbid inline javascript
+[03:40:57] <Whiskey> in to bad coder to know about those things
+[03:41:25] <Cork> then you should prob rethink making the site at all
+[03:41:46] <Whiskey> naaa, im like the only user of it so i think its fine
+[03:41:49] <Cork> as it leaves the visitor exposed to kinda bad things
+[03:43:08] <Whiskey> https://jsfiddle.net/Slaktarn/ku1rf0w3/3/ <- thats a working case, if you klick on the example, but then the error comes as it not escaped
+[03:45:53] <Whiskey> try to fix this now for like 3 days i hate this stupid thing :D
+[03:52:18] <Whiskey> Cork, if i use text() i need to have a way to replace it back
+[03:52:29] <Whiskey> as it will escape everything
+[03:52:39] <Cork> Whiskey: the point is you split the string instead of .replacing
+[03:52:56] <Cork> and then you create spans and set the content with .text()
+[03:53:18] <Whiskey> last example use replace
+[03:57:25] <Whiskey> const matchHTML = test.replace(regex, '<span class="match">$&</span>'); <- problem here is if you escape after the replace, the highlight span will also be escaped and no working
+[03:58:04] <Cork> yes, and that is why i said replace is a bad choice
+[03:58:11] <Cork> cause it means you have to allow xss injection
+[03:59:18] <Whiskey> what is csp?=
+[04:00:45] <Cork> Content Security Policy
+[04:00:55] <Cork> https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
+[04:01:31] <Cork> it means you can make things like elm.innerHTML = '<script>evil javascript</script>'; not do anything
+[04:02:12] <Cork> or <script src="evil-javascript.js"></script> for that matter
+[04:04:04] <Whiskey> hmm
+[04:10:54] <Whiskey> it refuse to load my things :_D
+[04:11:37] <Cork> you have to move the js out of the html page and into a .js file located in a location you explicitly allow in the csp header
+[04:16:26] <Whiskey> it don´t like me :D
+[04:16:38] <Guest74638> Hello. I don't know if this is the right place to ask but here is my question. I have a bootstrap accordion with all panel bodies closed (hidden) when the page loads. In each panel body I have <div> with id "map1|2|3...etc". What I want to do is when open (show) panel body to show google map in the div. When the page is loaded and I click to open o
+[04:16:38] <Guest74638> ne of the panels (doesn't matter which), the map in it shows and there is no problem. But then when I click on other panel to open, no map is shown (only a grey background). I tried many suggestions from Internet but nothing helped. Any help would be appreciated. I can show code also.
+[04:17:28] <Whiskey> i manage to add "<meta http-equiv="Content-Security-Policy" content="default-src regexp.mysite.com">" but i don´t manage to add support for "cdnjs.cloudflare.com/ajax/libs/jquery"
+[04:19:18] <keka> is this correct syntax?
+[04:20:50] <Cork> Guest74638: => ##bootstrap
+[04:21:45] <keka> contentDiv.css('overflow', 'scroll');
+[04:21:54] <keka> is this correct syntax?
+[04:22:08] <Cork> keka: yes, though i would recommend just using a class and have the css in the css file
+[04:24:00] <Whiskey> Cork, what about <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdnjs.cloudflare.com"> ?
+[04:24:17] <Cork> you can't set content-security-policy with meta tags as far as i know
+[04:24:29] <Whiskey> it works fine
+[04:25:29] <Cork> huh... it didn't use to; wonder how they handle not having the entire thing falling apart by the attacker just injecting a meta tag then...
+[04:26:10] <Whiskey> Cork, like i get Content Security Policy: Sidans inställningar blockerade laddningen av en resurs på https://code.jquery.com/jquery-3.2.0.js (“default-src https://regexp.nukenet.se https://cdnjs.cloudflare.com”).
+[04:26:17] <Cork> Whiskey: but the rule is fairly find ya
+[04:26:20] <Whiskey> as it only allow it :D
+[04:26:39] <Cork> *fairly fine
+[04:26:57] <Whiskey> i did find another way but i never got it working where do you place it?
+[04:27:12] <Cork> in the web servers config for headers
+[04:27:21] <Cork> or through php if you use that
+[04:27:21] <Whiskey> Well yeh thats a safe place :D
+[04:27:28] <Whiskey> yeh i do
+[04:28:07] <Cork> ya, you preferably want it somewhere where the site scripts don't have write access
+[04:29:35] <Whiskey> i only have a index.php :D whit read access
+[04:30:02] <Cork> i meant in a file where other sites on the page can't modify the content of
+[04:30:15] <Cork> uh *other pages on the site can't*
+[04:31:04] <Whiskey> I don´t fallow i have a index.php whit read access thats all i don´t see who would edit the content of it
+[04:31:54] <Cork> Whiskey: for example if you have support for uploading to the site, they can possibly replace the index.php with a new file if that script has write access there the index.php is located
+[04:31:56] <Cork> and so on
+[04:33:39] <Whiskey> yeh i have, case that i don´t use then :D
+[04:36:17] <Whiskey> Cork: like this more
+[04:36:17] <Whiskey> header("Content-Security-Policy: default-src 'self'; script-src 'self' cdnjs.cloudflare.com;");
+[04:36:17] <Whiskey> header("X-Content-Security-Policy: default-src 'self'; script-src 'self' cdnjs.cloudflare.com;");
+[04:36:29] <Cork> yup
+[04:36:52] <Whiskey> well lets commit it then
+[04:41:44] <Whiskey> Cork, just the main problem left :D
+[05:05:23] <Cork> Whiskey: could you make a reduced example of the problem the latest escapeHtml method didn't handle?
+[06:00:39] <tuskkk___> how do we get the value of aria fields? https://jsfiddle.net/La4y91hd/1/
+[06:01:08] <Cork> remove the [="true"] from .attr
+[06:01:26] <Cork> it returns the string value of the attribute
+[06:01:54] <Cork> so https://jsfiddle.net/La4y91hd/2/
+[06:02:23] <Cork> on the other hand, why use aria-disabled?
+[06:02:29] <Cork> why not just disabled?
+[06:02:39] <tuskkk___> Its used by a library called slick
+[06:02:54] <tuskkk___> I need to get the disabled button
+[06:02:57] <Cork> https://jsfiddle.net/La4y91hd/4/ <--
+[06:03:42] <Cork> there are no real reason to use aria-disabled for <button>s as it has a native disabled property
+[06:05:45] <tuskkk___> the scenario is, instead of this disabled button I want to show a check mark (making an onboarding slider), and when the back button is pressed I want to put it back to normal, so I needed to detect that button with disabled attr
+[06:12:39] <Cork> then aria-disabled is the wrong attribute
+[06:13:04] <Cork> as it will mean reading helper will say the element is disabled and can't be pressed
+[06:13:25] <Cork> better use a class on the element instead to dignify the different states
+[06:13:32] <Cork> *signify*
+[06:15:02] <tuskkk___> seems like it it, when I press back the disabled thing is still there
+[06:15:06] <tuskkk___> let me try with a class
+[07:10:12] <Sagar> how can i make a spinable/rotatable div for mobile users like this via jquery, css3 and angularjs combinations? The wheels should be adjustable and show get the value of the TEXT if in front of "<" Help appreciated, thanks! http://prntscr.com/et48x0
+[07:26:59] <Sagar> anyone?
+[10:26:31] <Es0teric> i have this: https://pastebin.com/XaD9fGzB but for some reason it wont fadeToggle the div i want to target
+[10:51:14] <jquery378> Are all global variables read before running any functions?
+[10:53:45] <sillyslux> global variables and order of execution of whatever are completely unrelated
+[10:54:08] <sillyslux> do mean something like hoisting?
+[10:54:25] <jquery378> Kind of
+[10:54:47] <jquery378> I'm creating a javascript game where I am cleaning up the code. I call my player array as an empty array on load
+[10:55:14] <jquery378> but now I'm not sure if I'll be able to access their office location before accessing the player
+[10:55:49] <sillyslux> not sure? as in race condition?
+[10:56:01] <jquery378> 1 sec, making fiddle :)
+[10:58:27] <jquery378> sorry, fiddle won't generate me a new url T_T   here is a paste bin
+[10:58:29] <jquery378> https://pastebin.com/PLUQNTsW
+[10:58:55] <jquery378> if you look on line 5, I declare player, but then need to access the player score in office location
+[10:59:44] <sillyslux> Es0teric_, https://jsfiddle.net/o7x6kpd5/ :)
+[11:00:34] <sillyslux> ok first off, your player is not a global
+[11:00:37] <jquery378> I'm wondering if I should instead of generating the empty array, just make a create player function
+[11:00:48] <jquery378> do globals have to be outside doc ready?
+[11:01:04] <jquery378> (sorry i suck at scoping) trying to get better tho
+[11:01:21] <sillyslux> yes, this one is local to function (){// Play Game... 's scope
+[11:02:18] <jquery378> Yeah I think I'll need to seperate them all out into "create player" and "update player"
+[11:02:20] <sillyslux> globals are considert "dirt" anyway, so this is good :)
+[11:02:30] <jquery378> but want to keep the vars accessible within each
+[11:02:37] <sillyslux> dirt as in "polluting global space"
+[11:02:49] <jquery378> makes sense
+[11:02:58] <Es0teric_> sillyslux i dont get it.. thats the code i made exactly..
+[11:03:14] <sillyslux> function (){// if everything happens inside here, your good to go}
+[11:03:24] <jquery378> So if I have the vars sitting within my doc ready, I'll be good to go?
+[11:04:05] <sillyslux> Es0teric_, maybe there's no <div id="buddypress"> when your js executes
+[11:04:15] <Es0teric_> there is
+[11:04:16] <sillyslux> jquery378, yes
+[11:04:31] <sillyslux> Es0teric_, you sure? console.log it
+[11:05:11] <midori-rus> Hello there. Could anybody help me to understand test? https://jsfiddle.net/omssxs54/3/ I have to append dot to each number in ID column using css. The requirement is only 1 css rule
+[11:05:16] <midori-rus> sorry for offtop
+[11:06:12] <Es0teric> sillyslux
+[11:06:22] <Es0teric> #buddypress does exist
+[11:07:03] <jquery378> awesome, yeah sorry for noob questions, scope is just something that makes no sense to me lol
+[11:07:13] <jquery378> quick question, are globals when they sit outside of the doc ready?
+[11:07:48] <Es0teric> sillyslux my problem is that when i click on one react button, it toggles ALL of the .bp_reactions_reactions_list uls when i dont want it to
+[11:07:55] <Es0teric> i just want it to toggle the immediate one
+[11:09:05] <sillyslux> Es0teric, there, a bigger console.log, none of those three should be undefined
+[11:09:07] <sillyslux> https://jsfiddle.net/o7x6kpd5/2/
+[11:09:51] <Es0teric> sillyslux none are undefined
+[11:09:54] <sillyslux> jquery378, not necessarily, they are local to the scope of a function if it happens inside one
+[11:10:23] <sillyslux> you can have your doc.ready code inside another function, then it wouldn't be global
+[11:10:43] <sillyslux> you can (shouldn't) omit `var` and get globals
+[11:10:55] <sillyslux> you can write window.somevar to create globals
+[11:11:33] <jquery378> Ah that makes sense, cool cool I'll work on some restructuring, thanks for the help :)
+[11:11:34] <sillyslux> there are a few rules, once you get used to it, you're golden :)
+[11:12:57] <sillyslux> Es0teric, ah, i thought it doesn't toggle at all, but you say it toggles on the wrong elements?
+[11:13:05] <Es0teric> yes
+[11:13:08] <Es0teric> it toggles all elements
+[11:15:02] <Es0teric> sillyslux
+[11:15:09] <sillyslux> so you have multiple "bp_reactions_reactions_list" elements inside "button react"?
+[11:15:26] <Es0teric> no
+[11:15:39] <Es0teric> i have multiple bp_reactions_reactions_list inside of .activity-reactions
+[11:15:50] <Es0teric> so each .activity-reactions has a .bp_reactions_reactions_list
+[11:15:54] <sillyslux> well then use the fiddle to show exactly what's going on...
+[11:16:14] <Es0teric> how am i supposed to replicate it when its working in the fiddle?
+[11:16:23] <Es0teric> sillyslux https://jsfiddle.net/o7x6kpd5/1/
+[11:16:33] <sillyslux> ".activity-reactions"... i see none
+[11:16:35] <Es0teric> ohh
+[11:16:36] <Es0teric> wait
+[11:16:37] <Es0teric> hold up
+[11:20:00] <sillyslux> still holding... can i let go now?
+[11:20:07] <sillyslux> :)
+[11:22:25] <Es0teric> sillyslux ha
+[11:22:32] <Es0teric> sillyslux still building out the blocks
+[11:23:16] <sillyslux> meanwhile... i start cooking! yay
+[11:25:13] <jquery378> Is it better to declare 5 variables, or to create them using a for loop?
+[11:28:36] <Es0teric> sillyslux https://jsfiddle.net/o7x6kpd5/4/
+[11:28:52] <useretail> Hi guys, I have this HTML: <label><input id="myid">Foo</label> How to replace text? Using this: $("#myid").parent().text('Bar') replaces text but also removes <input>
+[11:31:03] <jquery378> useretail: do you want to replace foo?
+[11:31:24] <useretail> jquery378, yes
+[11:31:29] <useretail> only Foo
+[11:32:30] <useretail> but also to leave <input> tag
+[11:33:03] <jquery378> can you edit your html at all?
+[11:33:26] <useretail> yes i can
+[11:33:50] <jquery378> Okay, 1 sec
+[11:37:39] <sillyslux> Es0teric, https://jsfiddle.net/o7x6kpd5/5/
+[11:38:01] <Es0teric> wow
+[11:38:07] <Es0teric> that makes so much sense
+[11:38:11] <Es0teric> lol
+[11:38:14] <Es0teric> i was missing one method
+[11:38:18] <sillyslux> useretail, this supposed to be input type=button or what? why .parent()?
+[11:38:28] <Es0teric> sillyslux
+[11:39:03] <jquery378> try this: https://jsfiddle.net/b38uuvat/1/ useretail
+[11:39:57] <useretail> sillyslux, no it is type="checkbox". i don't know any other ways
+[11:41:54] <useretail> jquery378, thanks, nice hack. but what is length of the text is unknown?
+[11:42:07] <useretail> *if
+[11:42:50] <Es0teric> man... i should kick myself for that.. now that i think about it, it was ridiculously obvious
+[11:46:40] <jquery378> https://jsfiddle.net/b38uuvat/2/   try this one
+[11:49:58] <useretail> jquery378, is it possible to bind this to id?
+[11:50:51] <jquery378> https://jsfiddle.net/b38uuvat/3/  like this?
+[11:52:14] <newer> Hello
+[11:52:56] <newer> I am trying to hide a very simple element with Jquery and css
+[11:53:08] <newer> can you help me checking what I am doing wrong?
+[11:53:11] <newer> it is just one line
+[11:53:12] <newer> https://jsfiddle.net/0qycxr7u/
+[11:54:22] <jquery378> Hi newer, you don't have the jquery library enabled on jsfiddle, see here: https://jsfiddle.net/0qycxr7u/1/
+[11:54:48] <useretail> jquery378, yes, thanks a lot. you are amazing :)
+[11:55:29] <sillyslux> useretail, https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input
+[11:55:44] <sillyslux> Permitted content: None, it is an empty element.
+[11:56:13] <sillyslux> oh wait, sry i was confused by a line brask :/
+[11:56:19] <sillyslux> break
+[11:57:17] <sillyslux> fff shhh... i'll go and eat something, that should help
+[11:57:34] <jquery378> hey silly before you go
+[11:58:38] <jquery378> if I have 5 vars to update in my object, (3 on start) (those 3 + 2 on complete), should I declare all 5 variables in my start function?
+[12:02:21] <sillyslux> hmm, i don't know, what i do know, is that i like to declare them as close as possible to where i need them
+[12:03:00] <jquery378> Yeah I usually do that too. but since they are in an object I'm not 100% sure how to handle it
+[12:03:28] <robertmaxrees> what's the Q ?
+[12:03:29] <sillyslux> ah you're talking about an object and it's properties?
+[12:03:40] <jquery378> if I have 5 vars to update in my object, (3 on start) (those 3 + 2 on complete), should I declare all 5 variables in my start function?
+[12:03:49] <jquery378> Yeah, ill get a jsfiddle started
+[12:04:10] <jquery378> https://jsfiddle.net/4oa09gx4/
+[12:04:16] <sillyslux> i'd say prepare the object as early as possible and avoid having to check if something is set/unset
+[12:04:28] <robertmaxrees> ^
+[12:04:28] <jquery378> I'm talking about the players_project = {}
+[12:04:49] <jquery378> So in my next function, would I call the whole object again, or just those last 2?
+[12:04:50] <robertmaxrees> create the object and set defaults.
+[12:05:00] <newer> jquery378: I know I dont have the jQuery library, but as it was only one line..
+[12:05:08] <newer> jquery378: do you think the line is ok then?
+[12:05:18] <newer> jquery378: because I am trying it but the object is not hidden
+[12:06:36] <sillyslux> newer, the link jquery378 gave you works for me
+[12:07:17] <newer> sillyslux: that true actually, any idea why that can fail iside a bigger DOM?
+[12:08:04] <robertmaxrees> newer clarify what you mean by "fail"
+[12:08:58] <newer> robertmaxrees: the element is not hidden
+[12:10:06] <robertmaxrees> newer any console errors?
+[12:10:53] <newer> actually this returns object length:0
+[12:10:53] <newer> jQuery(".list_edit_image.icon-add.btn.disabled")
+[12:11:01] <robertmaxrees> there you go, then
+[12:11:06] <robertmaxrees> make sure your selector is good.
+[12:11:28] <jquery378> @robertmaxrees when I update the player project in completeProject, should I only declare the 2 that update or do I need to do the whole object?
+[12:11:41] <newer> robertmaxrees: should it work if that class is inside an span, which is inside a tr, etc?
+[12:11:45] <robertmaxrees> jquery378 declare the entire object - set defaults for things.
+[12:12:02] <robertmaxrees> newer it'll work on any element with all of those classes.
+[12:12:10] <newer> I wan to hide this line
+[12:12:10] <robertmaxrees> but only if they hjave those classes when the code runs.
+[12:12:10] <newer> <i class="list_edit_image icon-add btn disabled" title="Insert a new row..."><span class="sr-only">Insert a new row...</span></i>
+[12:12:12] <jquery378> yeah, I have that, but when the two vars update, I declare the whole thing again?
+[12:12:21] <newer> in the jsfiddle seems to work
+[12:12:25] <robertmaxrees> jquery378 if you're gonna use state vars, nah.
+[12:12:30] <robertmaxrees> just update the bits you care about.
+[12:12:36] <robertmaxrees> newer are you adding/remove classes from that LI?
+[12:12:41] <jquery378> perfect, thanks!
+[12:12:42] <newer> nop
+[12:12:50] <robertmaxrees> newer then something is off.
+[12:13:46] <newer> oh, got it
+[12:13:50] <newer> I was inside a frame
+[12:13:52] <robertmaxrees> ah
+[12:14:17] <newer> any way to prevent that?
+[12:14:28] <newer> something like window.top or am I mixing too many things?
+[12:14:40] <robertmaxrees> is the iframe on the same domain?
+[12:14:49] <newer> yes
+[12:15:51] <robertmaxrees> any reason you can't just pop that content onto the same page?
+[12:15:58] <robertmaxrees> because otherwise you get into some jank.
+[12:16:54] <newer> I see thanks
+[12:16:57] <newer> last question
+[12:17:17] <newer> there is some code that is adding classes like that
+[12:17:36] <newer> I think there is a way to set the css for all that classes that keep appearing right?
+[12:17:45] <robertmaxrees> hrm?
+[12:17:55] <robertmaxrees> you mean define css that'll work for those classes that get added/removed?
+[12:18:06] <newer> yes
+[12:18:09] <robertmaxrees> yeah.
+[12:18:13] <robertmaxrees> it's called "css" ;)
+[12:18:19] <newer> :)
+[12:18:21] <robertmaxrees> stick that kinda stuff in your normal css files.
+[12:18:29] <newer> not so easy
+[12:18:36] <newer> can I insert it dinamically?
+[12:18:37] <robertmaxrees> it'll be even harder with the JS.
+[12:18:46] <newer> I mean, after the DOM is created
+[12:18:54] <robertmaxrees> i wouldn't.
+[12:18:59] <newer> I dont have access to the HTML code
+[12:19:06] <robertmaxrees> erm.
+[12:19:12] <robertmaxrees> can you create a css file?
+[12:19:21] <robertmaxrees> 'cause then you could link that into the page.
+[12:19:33] <robertmaxrees> you just want to avoid trying to write style tags onto the page.
+[12:19:34] <robertmaxrees> brb
+[12:19:43] <newer> I dont thinks so, its kind of a weird framework
+[12:20:04] <newer> so I can execute js once the page is loaded
+[12:21:50] <jquery378> Hey newer, sorry if this is a little personal, but I've worked with a ton of frameworks and had to make some hacky solutions, would you be able to say which one? :)
+[12:22:12] <sigdk> back2basics, this: $("#foobar").html("Hello World!"); is different from this: $("#foobar").html(function(){ return "Hello World!"});  in that, the first is synchronous, the other asynchronous, correct?
+[12:29:52] <newer> jquery378: I would bet you havent used it, but sure, you can open me a private chat :)
+[12:30:09] <robertmaxrees> aaaand back.
+[12:30:18] <pavonia> sigdk: Why is the latter asynchronous?
+[12:30:32] <newer> I guess inserting the css to the DOM though jQuery would work
+[12:30:33] <newer> :)
+[12:30:43] <robertmaxrees> sigdk not really.
+[12:30:52] <robertmaxrees> newer there are a lot of caveats to doing that.
+[12:31:01] <robertmaxrees> i'd do some research on it before implementing.
+[12:32:19] <sigdk> pavonia, At least in a sense that, if there is a statement like console.log("printme!"); right after the one I wrote before, it can be printed before the content of #foobar is changed. This does not happen in the first case... at least this is how I perceive the two cases
+[12:32:44] <robertmaxrees> sigdk that doesn't make it async
+[12:33:35] <sigdk> robertmaxrees, in the first case you have 1 thread that executes everything sequentially. In the second we have 2 threads. Is that statement wrong?
+[12:33:45] <robertmaxrees> yes
+[12:34:01] <robertmaxrees> unless you're using workers, you have 1 thread.
+[12:34:54] <sigdk> robertmaxrees, hmm... okay, what is the difference between these two:  $("#foobar").html("Hello World!");  and  $("#foobar").html(function(){ return "Hello World!"});
+[12:35:02] <robertmaxrees> one uses a function
+[12:35:05] <robertmaxrees> that's it.
+[12:35:42] <robertmaxrees> passing a function gives you some different functionality.  the docs explain it.
+[12:46:04] <anasule> I'm trying to add a class to a child node and getting nowhere any help appreciated code here https://pastebin.com/bLrLLMJM
+[12:46:29] <robertmaxrees> anasule this.node is a jquery object?
+[12:47:00] <robertmaxrees> because if so, you want .children(), not .childNodes
+[13:24:32] <maslo> Anyone know a good plugin to open up a modal but either within a div or regular modal but spawn on top of the div that spawned it?
+[13:25:04] <robertmaxrees> so a modal for part of a page?
+[13:25:12] <maslo> yeah
+[13:25:27] <maslo> or a regular modal with default x,y being on top of the element that created it
+[13:26:00] <robertmaxrees> mind if I ask why you need that?
+[13:26:53] <maslo> imagine an interface with a lot of windows you can move around with each of them having different content...there's the usual close button for each of them but also a cogwheel that would open up the modal for settings specific to that window
+[13:27:12] <robertmaxrees> is the cogwheel what you're looking to use that modal for?
+[13:28:01] <maslo> clicking the cogwheel would open up the modal or a setting box within that window yeah
+[13:28:10] <maslo> maybe have a hidden div dropdown from the toolbar
+[13:28:13] <robertmaxrees> Why bot use a dropdown or tooltip?
+[13:28:32] <maslo> that's a good idea
+[13:28:59] <maslo> it's silly..sometimes you just have to talk with someone who has no idea what you're doing to think of a solution
+[13:34:39] <Boi> Hey I need some help
+[13:34:50] <robertmaxrees> sup?
+[13:58:14] <jquery378> Hey Robertmaxrees can you help me solve a scoping issue? I'm having trouble working with an object that I will need to continually update
+[13:58:23] <robertmaxrees> no need to ask just me
+[13:58:24] <robertmaxrees> :)
+[13:58:32] <robertmaxrees> can just ask the channel.  if somebody can help, they will.
+[13:58:46] <jquery378> Well you and I were talking about it earlier :p
+[13:59:00] <robertmaxrees> what's the question?
+[13:59:47] <jquery378> So i need to continually update the variable of player
+[14:00:07] <jquery378> but I am getting it to only return as [object] so now I can't access it outside of the function
+[14:00:17] <robertmaxrees> code pls
+[14:00:23] <robertmaxrees> describing it doesn't help much :)
+[14:01:10] <jquery378> I know, my jsfiddle isn't giving me a new url when I click update :c
+[14:01:40] <robertmaxrees> could copy the code into a new one.
+[14:02:17] <jquery378> Well I can't get a new url, it keeps resetting it -sigh-
+[14:02:21] <sillyslux> jquery378, is your cpu at 100%?
+[14:02:31] <robertmaxrees> can also use bpaste or another service.
+[14:03:47] <jquery378> I'll make fiddle with the html, and pastebin the js :)
+[14:04:18] <robertmaxrees> eh, avoid pastebin.
+[14:04:22] <robertmaxrees> too many ads imo.
+[14:04:54] <jquery378> fair enough, js: https://bpaste.net/show/3d7028115adc
+[14:05:01] <jquery378> https://jsfiddle.net/a7cy0szv/4/  html
+[14:05:04] <sillyslux> there're ads in pastebin?
+[14:05:14] <robertmaxrees> si
+[14:05:20] <hlve> dumb question, but can you chain the props in this math.max function? https://jsfiddle.net/zx6Lcwz8/1/
+[14:05:25] <jquery378> so I can create the object, but it wont return baxk as [player]
+[14:05:26] <hlve> it seems awfully redundant;/
+[14:05:39] <robertmaxrees> jquery378 should be able to.
+[14:05:53] <sillyslux> haha - AD-BLOCK DETECTED - PLEASE SUPPORT PASTEBIN BY BUYING A PRO ACCOUNT
+[14:06:01] <hlve> lol
+[14:06:24] <jquery378> should be able to return as player?
+[14:06:49] <robertmaxrees> jquery378 so whwhere's the issue?
+[14:07:08] <jquery378> if you click the button, then check console.log
+[14:07:23] <jquery378> it returns [object], then I can't access it as [player]
+[14:07:41] <robertmaxrees> huh?
+[14:08:00] <hlve> robertmaxrees, real quick homie
+[14:08:02] <jquery378> if I type player in the console, it returns as undefined
+[14:08:08] <hlve> you know I love yu.
+[14:08:14] <sillyslux> hlve chain what?
+[14:08:15] <hlve> in a javascripty kinda way
+[14:08:16] <robertmaxrees> jquery378 because your console is running in a different context.
+[14:08:32] <hlve> the redundant el.prop seems like it could be cleaned up
+[14:08:53] <hlve> like .prop('scrollHeight offsetHeight clientHeight') or something
+[14:08:59] <robertmaxrees> newp.
+[14:09:03] <hlve> lame.
+[14:09:04] <hlve> =[
+[14:09:05] <jquery378> What do you mean? will I not be able to access anything as player?
+[14:09:16] <robertmaxrees> jquery378 not in jsfiddle.
+[14:09:40] <jquery378> Should I run it locally? Im personally in a codepen at,
+[14:09:41] <jquery378> atm
+[14:09:42] <robertmaxrees> the console has access to "global" scope.
+[14:09:50] <hlve> could you do something like;   elProp = $el.prop; elProp('scrollHeight'), etc?
+[14:09:56] <hlve> that seems a *little* cleaner
+[14:09:58] <robertmaxrees> jquery378 sure, though why?
+[14:10:10] <jquery378> why in codepen?
+[14:10:34] <robertmaxrees> i'd guess it's using an iframe for thje results.
+[14:10:46] <robertmaxrees> hlve very easy to get that answer...
+[14:10:51] <hlve> i know.
+[14:11:01] <jquery378> yeah, i think. I use codepen for the syntax highlighter. I'll try running it locally. thanks!
+[14:11:18] <robertmaxrees> jquery378 get an editor with highlighting instead.
+[14:11:22] <robertmaxrees> save time and effort ;)
+[14:13:57] <sillyslux> hlve where are yuo?
+[14:14:02] <robertmaxrees> he left
+[14:14:09] <sillyslux> dang https://jsfiddle.net/zx6Lcwz8/2/
+[14:14:20] <robertmaxrees> hahahaha
+[14:14:37] <sillyslux> cleaned things up for him :)
+[14:14:41] <jquery378> I have sublime
+[14:14:51] <robertmaxrees> sillyslux yuck hahaha
+[14:14:59] <robertmaxrees> jquery378 that has syntax highlighting in it.
+[14:15:31] <jquery378> true, I actually type my js in that then move to codepen. I'm weird. lol
+[14:15:46] <robertmaxrees> why?
+[14:16:10] <jquery378> Just how I learned lol
+[14:16:24] <robertmaxrees> use local pages yo.
+[14:16:26] <robertmaxrees> refresh the page.
+[14:16:27] <robertmaxrees> etc
+[14:16:43] <jquery378> yeah, current;y on a local now
+[14:17:06] <jquery378> not getting any functions to run on click. sigh
+[14:17:13] <robertmaxrees> any console errors?
+[14:17:20] <jquery378> none
+[14:17:33] <robertmaxrees> share the full page itself via bpaste?
+[14:20:11] <jquery378> https://bpaste.net/show/1d052a8eb9f7
+[14:20:22] <jquery378> its probably something simple, Im just brain dead atm
+[14:20:43] <robertmaxrees> and <script src="js/game.js"></script> is what you shared earlier?
+[14:20:52] <jquery378> yup
+[14:21:28] <robertmaxrees> check your network tab for 404s
+[14:22:09] <robertmaxrees> make sure things are actually loading.
+[14:22:15] <jquery378> none
+[14:22:27] <robertmaxrees> stick a console.log in that doc ready and make sure it shows up.
+[14:23:15] <jquery378> yeah it's there haha
+[14:24:09] <robertmaxrees> wat
+[14:24:33] <robertmaxrees> and doing a console.log($('#create-player').length) before that bind handler?
+[14:24:42] <jquery378> status 200 on jquery.js?
+[14:24:47] <robertmaxrees> yep.
+[14:24:50] <robertmaxrees> what about the other file?
+[14:24:57] <jquery378> finished
+[14:25:16] <jquery378> that second log returns 1
+[14:25:41] <robertmaxrees> hrmmmmm.
+[14:27:20] <jquery378> let me try to run it on a python simpleserver
+[14:27:46] <robertmaxrees> oh you weren't already?
+[14:27:52] <robertmaxrees> also: <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+[14:27:52] <robertmaxrees>    "http://www.w3.org/TR/html4/strict.dtd"><html>
+[14:28:17] <robertmaxrees> can just make that <!DOCTYPE html> these days
+[14:29:32] <jquery378> LOL still nothing
+[14:30:02] <jquery378> nothing in apache, nothing in python simple server, nothing in a reg html window
+[14:30:20] <robertmaxrees> oh, https - try swapping that to just http
+[14:31:14] <jquery378> nope
+[14:36:07] <jquery378> lol, i feel like I'm done with this project for the day. this is pretty ridiculous
+[14:37:00] <jquery378> something is seriously broken, I just pulled all of the script into html and cant even get it to execute
+[14:42:59] <robertmaxrees> and if you view source on the page, you see it?
+[14:43:10] <robertmaxrees> also: check to make sure you don't have errors filtered out
+[14:49:26] <jquery378> Just got it to work, thank god
+[14:49:39] <robertmaxrees> what was it?
+[14:49:40] <jquery378> (sorry wasnt scrolled down)
+[14:49:58] <jquery378> In the office_loc var, I was looking for player.score
+[14:50:17] <robertmaxrees> so there was an error?
+[14:50:28] <jquery378> yeah but no console error
+[14:51:07] <robertmaxrees> wut
+[14:51:18] <jquery378> I know!
+[14:51:33] <jquery378> atleast now I can access things with player :)
+[14:51:39] <jquery378> so you were right about the JSfiddle
+[14:51:51] <robertmaxrees> also: global vars are bad.
+[14:52:13] <jquery378> I don;t know how else I would handle it
+[14:52:22] <robertmaxrees> which browser are you using?
+[14:52:42] <jquery378> chrome
+[14:52:44] <robertmaxrees> http://fixingthesejquery.com/
+[14:52:49] <robertmaxrees> check out the stuff about using a debugger.
+[14:52:58] <robertmaxrees> you can set a breakpoint and then inspect from there.
+[14:53:22] <robertmaxrees> also: console.log(player) or w/e the object is called will let you browse through it.  try console.table(), too.
+[14:53:50] <jquery378> I dont have a problem with debugging per say
+[14:54:09] <jquery378> its more of, if the variable isn't global, how do I pass it through each and every function?
+[14:58:00] <jquery378> oh wait
+[14:58:09] <jquery378> i just pass the object through as params, right?
+[15:04:32] <robertmaxrees> err.  see howit's defined in the same doc ready as the functions?
+[15:04:47] <jquery378> yes
+[15:05:02] <robertmaxrees> all those functions have access to that scope.
+[15:05:08] <robertmaxrees> since they're "children" of it.
+[15:05:19] <jquery378> that makes sense
+[15:05:30] <jquery378> so they can all access the empty player object?
+[15:05:38] <robertmaxrees> yep
+[15:06:03] <jquery378> so i update this player object in createPlayer, how can I pass that through to the next functions?
+[15:06:15] <robertmaxrees> you don't want to if it's a state var.
+[15:06:54] <jquery378> what do you mean?
+[15:07:09] <robertmaxrees> are you trying to update it?
+[15:07:10] <jquery378> doesn't it make sense to just update this object as a user does tasks?
+[15:07:24] <robertmaxrees> right.  so don't pass it in.
+[15:07:30] <jquery378> yea in each function, something will need to be updated
+[15:07:30] <robertmaxrees> otherwise you break that reference
+[15:07:36] <jquery378> but then I can't access it?
+[15:07:42] <robertmaxrees> yes you can.
+[15:07:48] <robertmaxrees> it's defined in the parent scope.
+[15:07:53] <robertmaxrees> all those functions have access to it.
+[15:08:08] <jquery378> but the parent one doesn't get updated?
+[15:08:14] <robertmaxrees> huh?
+[15:08:17] <robertmaxrees> it does.
+[15:08:25] <jquery378> on line 6?
+[15:08:27] <robertmaxrees> so long as you don't pass it in as an arg.
+[15:08:32] <robertmaxrees> link
+[15:08:54] <jquery378> https://bpaste.net/show/015133e20ab4
+[15:09:07] <robertmaxrees> woah woah woah.
+[15:09:08] <robertmaxrees> back up.
+[15:09:22] <robertmaxrees> you're mixing up when/how to use the var keyword :)
+[15:09:32] <jquery378> oh christ
+[15:09:41] <jquery378> im all ears, er, eyes
+[15:09:56] <robertmaxrees> https://bpaste.net/show/1d399345c586
+[15:10:03] <robertmaxrees> the var keyword says "make me a new variable in this scope.
+[15:10:13] <robertmaxrees> what you were doiung was creating a global player var.
+[15:10:24] <robertmaxrees> then a different one with the same name in the click handler.
+[15:10:50] <jquery378> ah
+[15:10:59] <jquery378> so I had the right idea, but not the right execution?
+[15:11:25] <robertmaxrees> more like the wrong idea about how vars work.
+[15:11:53] <robertmaxrees> also: notice that you use dot notation for that, too.
+[15:12:28] <jquery378> I had the idea of dot notation correct (if you look at the bottom) it was the fact I was remaking it
+[15:12:46] <robertmaxrees> just pointing out the differences.
+[15:12:50] <jquery378> So I should probably move my players project one outside too
+[15:13:04] <jquery378> I know, i'm just kind of thinking outloud
+[15:15:16] <jquery378> Do i still want to use colons or change them to =s?
+[15:15:25] <robertmaxrees> huh?
+[15:15:37] <jquery378> in the createplayer function
+[15:15:51] <robertmaxrees> oh yeah, equals
+[15:16:03] <robertmaxrees> what will that function eventually do?
+[15:16:19] <jquery378> so create player adds the base info
+[15:16:36] <jquery378> then I have start project/complete project which will be updating the players scores/stats
+[15:17:35] <robertmaxrees> lemme rephrase: why do you think you need a state var?
+[15:18:17] <jquery378> because there are a handful of variables that don;t change, I want to keep a;; pf the player's info in 1 place
+[15:18:20] <jquery378> all of*
+[15:18:40] <robertmaxrees> are you reading that info a lot?
+[15:19:22] <jquery378> I'll be needing the score, office location, multiplyer, notified and projects completed  pretty much during any task
+[15:19:38] <robertmaxrees> 'cause it seems like you could make some utility functions to get this data so you still have your convenient "one place" thing but without needing to maintain state.
+[15:19:41] <robertmaxrees> which is always preferred.
+[15:20:41] <jquery378> can you define that? i've never heard of utility functions
+[15:22:03] <robertmaxrees> https://bpaste.net/show/494eceaba27e
+[15:22:17] <robertmaxrees> now whenever you need player data, you just call that.
+[15:23:20] <jquery378> Do I want to put thatn in the createplayer function?
+[15:23:25] <robertmaxrees> no.
+[15:23:25] <jquery378> or keep it in the ready?
+[15:23:34] <robertmaxrees> or before!
+[15:24:07] <jquery378> so keep it at top of doc ready?
+[15:24:13] <robertmaxrees> or before the doc ready.
+[15:24:14] <robertmaxrees> either/or.
+[15:24:19] <jquery378> Ah I gotcha
+[15:24:54] <jquery378> then just call getPlayerData at the beginning of my functions?
+[15:25:01] <robertmaxrees> that's one way.
+[15:25:08] <robertmaxrees> or you just call it when you actually need that data.
+[15:25:17] <robertmaxrees> and then you don't need to update that object.
+[15:25:28] <robertmaxrees> you'll need to find a way to hold those constants for player data.
+[15:25:49] <jquery378> so this would replace the player.name = etc things
+[15:25:59] <robertmaxrees> yep.
+[15:26:20] <robertmaxrees> since you're just reading out of the dom you don't need to keep anything in sync.
+[15:27:50] <jquery378> hm, Im still returning [object Object] when I try to get player from a different function
+[15:27:56] <robertmaxrees> show me?
+[15:29:28] <jquery378> https://bpaste.net/show/a9a7f1c4ee67
+[15:29:57] <robertmaxrees> console.log(getPlayerData());
+[15:29:58] <jquery378> also it no longer is updating that info
+[15:30:10] <robertmaxrees> right...
+[15:30:13] <robertmaxrees> you don't want the state var,
+[15:30:17] <robertmaxrees> you want to read out of the dom.,
+[15:30:37] <robertmaxrees> by way of that function.
+[15:31:01] <robertmaxrees> the issue with your prior approach is you're trying to manually maintain state and keep sync with the DOM, which is a little funky.
+[15:31:07] <jquery378> I'm getting office_loc is not defined
+[15:31:08] <robertmaxrees> brb
+[15:31:40] <robertmaxrees> you'll still need to get those defaults from somewhere.
+[15:31:53] <robertmaxrees> you can abandon this line of thinking, just something to consider.
+[15:33:22] <jquery378> the thinking makes sense, I've just never worked with something like this so I'm confused
+[15:40:58] <jquery378> do i need topass any args through with the getPlayerData(); call?
+[15:42:57] <robertmaxrees> ;nope.
+[15:43:20] <jquery378> weird, it just keeps returning undefined no matter what I try
+[15:43:47] <robertmaxrees> the idea is that you always call that function to get those values.
+[15:43:52] <robertmaxrees> and ditch global state vars entirely.
+[15:43:56] <robertmaxrees> so player stops being a thing.
+[15:44:01] <jquery378> yeah
+[15:44:25] <jquery378> im trying to call getPlayerData
+[15:44:30] <robertmaxrees> sec
+[15:46:40] <robertmaxrees> okay so what's with the score?
+[15:46:43] <robertmaxrees> is that being used anywhere?
+[15:47:08] <jquery378> that will need updated upon project completion
+[15:47:15] <jquery378> I think I figured it out though
+[15:47:22] <jquery378> I have it returning an object now
+[15:47:49] <robertmaxrees> one sec.
+[15:48:01] <jquery378> to access those vars in the getPlayerData function, do I just use getPlayerData.score?
+[15:48:03] <robertmaxrees> https://bpaste.net/show/9f642c883555
+[15:48:05] <robertmaxrees> no.
+[15:48:11] <robertmaxrees> you don't update that object any more.
+[15:48:14] <robertmaxrees> since the document already has that data.
+[15:53:17] <robertmaxrees> like i said, you can ditch this approach.
+[15:53:31] <robertmaxrees> just trying to simplify your life a bit and probably failing haha
+[15:54:12] <jquery378> well like I said, I never worked with something like this, so Im just trying to understand it
+[15:54:14] <jquery378> :o
+[15:56:48] <jquery378> Okay, so based off your bpaste, the console log on line 40 isn't returning anything
+[15:57:18] <jquery378> Oh wait
+[15:57:32] <jquery378> im literally stupid. its returning blank because i left name blank
+[15:57:57] <jquery378> boom! its there
+[16:07:56] <jquery378> so based off of this set up, if I need to access something, I need to set it as a variable? (how score is made)
+[16:08:06] <robertmaxrees> well
+[16:08:11] <robertmaxrees> so what's the story with that?
+[16:08:16] <robertmaxrees> is that going to be displayed anywhere?
+[16:08:39] <jquery378> the score?
+[16:08:44] <robertmaxrees> yes
+[16:08:47] <jquery378> yea
+[16:09:05] <robertmaxrees> so if you're grabbing all those other values from the dom...
+[16:09:07] <jquery378> that should always be visible, but we do the math to update it at the end of the project
+[16:09:20] <robertmaxrees> that's easy enough todo.
+[16:09:27] <jquery378> Which I have completed
+[16:09:28] <robertmaxrees> *to do
+[16:09:53] <jquery378> but for instance, I need to check the netprofit of the project
+[16:10:05] <robertmaxrees> how is net profit calculated?
+[16:10:18] <jquery378> I am using math random to generate random numbers based on checkboxes they click
+[16:10:30] <jquery378> but not all of that is created yet
+[16:10:31] <robertmaxrees> on pageload?
+[16:10:45] <jquery378> on fire of the completed function
+[16:10:57] <jquery378> completeProject(); function
+[16:11:06] <robertmaxrees> so you can run all the calculations in there.
+[16:11:12] <robertmaxrees> no need for a state var, yeah?
+[16:11:14] <jquery378> in complete project?
+[16:11:18] <robertmaxrees> yeah.
+[16:11:31] <jquery378> ah, so I should do that in the cost as well?
+[16:11:53] <jquery378> how do I call it if it's in that object?  players_project.netProfit?
+[16:11:56] <robertmaxrees> i don't have your code in front of me so it's hard to know.
+[16:12:07] <jquery378> I'm on the part you just sent over :p
+[16:12:13] <robertmaxrees> https://bpaste.net/show/9f642c883555 ?
+[16:12:18] <jquery378> https://bpaste.net/show/9f642c883555
+[16:12:30] <robertmaxrees> there's no complete project function in there.
+[16:12:38] <jquery378> see how you have netProfit in the player project funtion?
+[16:12:48] <robertmaxrees> *object
+[16:12:48] <jquery378> yeah I added it, but it's not relevant for the question
+[16:12:53] <jquery378> *object
+[16:12:58] <robertmaxrees> actually it IS relevant heh
+[16:13:10] <jquery378> well it is, but it's accessed the same way
+[16:13:12] <jquery378> hold
+[16:13:31] <jquery378> https://jsfiddle.net/vtrcbp51/
+[16:13:47] <jquery378> okay, so on like 42, i calc their score - the cost of the project
+[16:14:02] <jquery378> but I added a state var (i think)
+[16:14:18] <robertmaxrees> score and cost.
+[16:14:23] <robertmaxrees> are those displayed in the page at all?
+[16:14:32] <jquery378> cost will be on each project
+[16:14:41] <robertmaxrees> is it displayed on the page?
+[16:14:55] <jquery378> not sure what you mean by page?
+[16:14:57] <jquery378> like the UI?
+[16:15:00] <robertmaxrees> yes.
+[16:15:01] <robertmaxrees> the html.
+[16:15:02] <robertmaxrees> the page.
+[16:15:04] <jquery378> yes
+[16:15:04] <robertmaxrees> heh
+[16:15:11] <robertmaxrees> then just grab it from there.
+[16:15:16] <jquery378> ;_;
+[16:15:20] <jquery378> ah I gotcha
+[16:15:36] <jquery378> so that would be something like $('.cost').html?
+[16:15:43] <robertmaxrees> .text() probably.
+[16:15:50] <robertmaxrees> if it's just the text content you care about.
+[16:16:21] <jquery378> Okay, so now, on line 42
+[16:16:34] <jquery378> I access it by saying players_project.cost?  correct?
+[16:16:49] <robertmaxrees> is that value going to update?
+[16:16:55] <robertmaxrees> again
+[16:17:00] <jquery378> the cost?
+[16:17:05] <robertmaxrees> remember
+[16:17:10] <robertmaxrees> the entire idea here is to avoid state vars.
+[16:17:22] <jquery378> different projects will be have values
+[16:17:29] <robertmaxrees> that's fine.
+[16:17:33] <jquery378> which makjes sense to pull the value from the html
+[16:17:43] <jquery378> so on click it will populate said cost
+[16:19:06] <jquery378> ie, something like this?  		player_score = player_score - players_project.cost;
+[16:19:32] <robertmaxrees> so long as you grab player_score from the page and the samne with the cost.
+[16:19:40] <robertmaxrees> instead of those state vars
+[16:20:03] <jquery378> getPlayerData().score?
+[16:20:16] <robertmaxrees> lol
+[16:20:28] <robertmaxrees> i might do it that way but you'll need to update how that's getting the score.
+[16:20:41] <jquery378> so score will be static 1000 at start
+[16:20:58] <robertmaxrees> and will be displayed as such to the user, right?
+[16:21:02] <jquery378> yes
+[16:21:12] <robertmaxrees> then grab it from the page?
+[16:21:19] <jquery378> shieeeet lol
+[16:21:42] <jquery378> should I remove the var set on line 9?
+[16:21:58] <robertmaxrees> what do you think? ;)
+[16:22:14] <jquery378> Well you put it in so i dont know anymore haha
+[16:22:59] <robertmaxrees> safe assumption ;)
+[16:23:18] <jquery378> So i just grab it from the page every single time?
+[16:23:33] <robertmaxrees> yes.
+[16:24:27] <jquery378> better? https://jsfiddle.net/vtrcbp51/1/
+[16:24:57] <jquery378> or, remove line 9 and set it to 1000 on line 23?
+[16:25:16] <robertmaxrees> the issue is that you were doiung a mix of updating th epage and then updating vars to match without any real state management other than "i hope i remember to do this.
+[16:25:21] <robertmaxrees> why do you need that var at all?
+[16:25:27] <robertmaxrees> just read from the page >.>
+[16:25:42] <jquery378> I dont know who I am anymore
+[16:26:19] <robertmaxrees> lol
+[16:26:33] <robertmaxrees> unless you wanna build a proper state management setup.
+[16:26:38] <robertmaxrees> keep it simple.
+[16:26:50] <jquery378> 'simple'  ;_;
+[16:26:58] <robertmaxrees> is this less simple than what you had before?
+[16:27:53] <jquery378> getPlayerData().score = getPlayerData().score - players_project.cost;
+[16:28:02] <jquery378> true, its just different to me?
+[16:28:15] <jquery378> is that where I want to pull from the page, or pull from page at getPlayerData?
+[16:28:38] <robertmaxrees> both of those should pull from page.
+[16:28:48] <jquery378> 		getPlayerData().score = $('#score').text() - $('.cost').text();
+[16:28:50] <robertmaxrees> but getPlayerData().score = nonono
+[16:28:59] <jquery378> ahhh
+[16:29:09] <jquery378> what do I use to update that object?
+[16:29:26] <robertmaxrees> mind if I pm you?
+[16:29:30] <jquery378> go for it
+[16:30:27] <Whiskey> why does this fail? https://jsfiddle.net/Slaktarn/xuzbzL8a/2/ line 14-18
+[16:32:35] <robertmaxrees> because it's parsing the string like it would a regex and it's not understanding what you want.
+[16:32:44] <robertmaxrees> you keep asking the same question Whiskey heh
+[16:33:32] <Whiskey> but, the strange thing is
+[16:33:53] <Whiskey> https://jsfiddle.net/Slaktarn/xuzbzL8a/1/ <- that does exaclty the same thing and works
+[16:34:01] <Whiskey> i just try to make a loop for multiply matches
+[16:34:20] <robertmaxrees> Whiskey that's a great question for ##javascript.,
+[16:34:45] <Whiskey> but this was jQuery code that fail not the javascript itself
+[16:35:02] <robertmaxrees> you sure about htat?
+[16:35:34] <Whiskey> it is when i add the $.each
+[16:35:49] <robertmaxrees> wait.
+[16:35:50] <robertmaxrees> .replace(new RegExp(escapeHtml(value),"ig"), function(match) {
+[16:35:53] <robertmaxrees> what are you replacing?
+[16:35:58] <robertmaxrees> you're calling a method on nothing >.>
+[16:36:46] <Whiskey> var found = test.match(/jQuery/ig);
+[16:36:46] <Whiskey> var loop = $.unique(found)
+[16:36:50] <Whiskey> koop hold the value ?
+[16:36:58] <Whiskey> so i replace the value
+[16:37:09] <robertmaxrees> huh?
+[16:37:15] <Whiskey> yeh
+[16:37:16] <robertmaxrees> i'm talking abnout the .replace() itself.
+[16:37:24] <robertmaxrees> you're just doing .replace() on nothing.
+[16:37:58] <Whiskey> its replace the match whit <span class="match">' + match + '</span>
+[16:38:10] <robertmaxrees> again
+[16:38:20] <robertmaxrees> it's a method.
+[16:38:31] <robertmaxrees> you have to call it against a string in this case.
+[16:38:54] <robertmaxrees> but you're just doing .replace() - you need to call it on an object.
+[16:39:36] <Whiskey> are not that what foreach does, return strings? in a loop?
+[16:39:43] <robertmaxrees> ....
+[16:39:53] <robertmaxrees> let's reframe this.,
+[16:39:59] <Whiskey> hmm each, sorry
+[16:40:41] <robertmaxrees> https://jsfiddle.net/robertmaxrees/s0rojsky/
+[16:40:44] <robertmaxrees> why is this broken, Whiskey?
+[16:42:37] <Whiskey> well it hold a function and a variable that don´t exist but its not the current problem
+[16:42:42] <robertmaxrees> no
+[16:42:49] <robertmaxrees> you're not paying attentionm.
+[16:43:10] <robertmaxrees> https://jsfiddle.net/robertmaxrees/s0rojsky/1/
+[16:43:11] <robertmaxrees> try this.
+[16:43:13] <robertmaxrees> see why this fails?
+[16:43:45] <Whiskey> yeh it don´t know what to replace
+[16:43:58] <robertmaxrees> because you're not calling in on anything, right?
+[16:44:08] <Whiskey> yeh
+[16:44:16] <robertmaxrees> so what does that mean?
+[16:44:53] <Whiskey> good question
+[16:44:59] <robertmaxrees> ...
+[16:45:01] <robertmaxrees> do you not see it?
+[16:45:19] <robertmaxrees> your code just calls a method without the object you're calling it against.
+[16:45:29] <robertmaxrees> just because you're in a callback doesn't mean you can suddenly omit things like that.
+[16:45:33] <Whiskey> no i don´t i try to figure out why it work and not when it comes in to it
+[16:45:47] <Whiskey> well yeh, but i don´t see what it happens ether
+[16:46:00] <robertmaxrees> huyh?
+[16:46:37] <robertmaxrees> what's the string you're running this against?
+[16:46:44] <Whiskey> yeh i got lost in my own code
+[16:46:51] <robertmaxrees> so you have it now?
+[16:47:23] <Whiskey> line 3 to 4
+[16:47:51] <robertmaxrees> huh?
+[16:47:54] <robertmaxrees> gotta fix that, too.
+[16:50:21] <Whiskey> yeh
+[16:57:31] <Whiskey> https://jsfiddle.net/Slaktarn/xuzbzL8a/4/ seems batter for still broken
+[16:58:26] <robertmaxrees> lol
+[16:59:59] <robertmaxrees> text is a jquery object there.
+[17:00:48] <Whiskey> not sure this work even if it would "work"
+[17:01:29] <robertmaxrees> you're just using the wrong regex there.
+[17:02:16] <Whiskey> ok
+[17:02:39] <Whiskey> but both need replace
+[17:03:15] <robertmaxrees> check out https://jsfiddle.net/robertmaxrees/dd8ykfst/
+[17:03:18] <robertmaxrees> see what's happening?
+[17:04:01] <Whiskey> yeh it says that replace not a function
+[17:04:22] <robertmaxrees> right - what's the last thing that gets logged out before that error?
+[17:04:33] <Whiskey> an array whit a value inside it
+[17:04:37] <robertmaxrees> yep.
+[17:04:39] <robertmaxrees> so what does thatmean?
+[17:04:59] <Whiskey> i don´t know
+[17:05:09] <Whiskey> but i wuld guss that replace need a string and not an array
+[17:05:11] <robertmaxrees> new RegExp(escapeHtml(found)
+[17:05:19] <robertmaxrees> why are you passing that to that function?
+[17:05:26] <robertmaxrees> like - var found = test.match(/jQuery/ig);
+[17:05:34] <robertmaxrees> what are you expecting to happen there?
+[17:05:59] <Whiskey> well replace multiply matches
+[17:06:14] <robertmaxrees> huh?
+[17:06:20] <robertmaxrees> do you know what .match() returns?
+[17:06:39] <Whiskey> yeh it returns "jQuery"
+[17:06:42] <robertmaxrees> no.
+[17:06:44] <robertmaxrees> the type it returns
+[17:06:57] <robertmaxrees> https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/match#Return_value
+[17:07:12] <Whiskey> yeh we allredy know its an array
+[17:07:16] <robertmaxrees> right.
+[17:07:21] <robertmaxrees> so why are you passing an array to that function?
+[17:07:33] <Whiskey> ffs
+[17:07:35] <Whiskey> i don´t
+[17:07:38] <robertmaxrees> you do.
+[17:07:56] <robertmaxrees> var found = test.match(/jQuery/ig); returns an array.  found is now an array.
+[17:08:08] <robertmaxrees> then later you call escapeHtml(found)
+[17:08:20] <Whiskey> it was why i try to make a .each(), to loop the array
+[17:08:28] <robertmaxrees> so then go back to that?
+[17:08:35] <robertmaxrees> i don't understand why you ditched that.
+[17:08:55] <robertmaxrees> aren't you just trying to replace all the angle brackets in that string?
+[17:09:14] <Whiskey> i actully dident i just removed it to clean up some things
+[17:09:19] <robertmaxrees> O.o
+[17:09:20] <robertmaxrees> wat
+[17:09:41] <Whiskey> the only way to pass an array is to loop it it can´t be done any other way
+[17:09:50] <robertmaxrees> uhm.
+[17:09:53] <robertmaxrees> then use the loop?
+[17:11:08] <Whiskey> yeh that did work out well :D
+[17:11:09] <Whiskey> https://jsfiddle.net/Slaktarn/dd8ykfst/1/
+[17:16:34] <Es0teric> robertmaxrees how would you handle multiple click events for classes inside a $.each() ?
+[17:17:12] <robertmaxrees> huh?
+[17:17:31] <Es0teric> if i am in a $.each() and this $.each() contains classes that will be clicked on
+[17:17:42] <robertmaxrees> i would invert that logic.
+[17:17:45] <Es0teric> again?
+[17:17:47] <Es0teric> so a filter?
+[17:17:51] <robertmaxrees> and not use an $.each() to bind listeners.
+[17:18:01] <Es0teric> robertmaxrees so what would you use?
+[17:18:20] <robertmaxrees> i'd use a generic listener and then check IDs/Classes/whatever on the element to see if it matches some criteria.
+[17:18:53] <Whiskey> robertmaxrees: i don´t see the problem. https://jsfiddle.net/Slaktarn/xuzbzL8a/5/
+[17:19:03] <Es0teric> robertmaxrees example?
+[17:19:14] <robertmaxrees> Es0teric show me what you're working with duder :)
+[17:19:20] <robertmaxrees> Whiskey you declare data in that callback.
+[17:19:22] <robertmaxrees> different scope.
+[17:19:25] <robertmaxrees> not available outside.
+[17:20:12] <Whiskey> but "var data;" make it global
+[17:20:17] <robertmaxrees> exact opposite.
+[17:20:19] <robertmaxrees> var scopes it down.
+[17:20:21] <robertmaxrees> which you want.
+[17:20:44] <robertmaxrees> you have var twice there.
+[17:20:45] <Whiskey> if i don´t it just says it not exist
+[17:20:52] <robertmaxrees> var data = escapeHtml(test).replace(new RegExp(escapeHtml("jQuery"),"ig"), function(match) {
+[17:20:57] <robertmaxrees> that's scoped to the callback duder.
+[17:21:25] <Whiskey> it can´t be done any other way whit foreach
+[17:21:39] <robertmaxrees> ...
+[17:21:41] <robertmaxrees> dude lol
+[17:21:51] <robertmaxrees> https://jsfiddle.net/robertmaxrees/xuzbzL8a/6/
+[17:22:00] <robertmaxrees> just needed to delete the var keyword in that callback.
+[17:22:01] <Whiskey> ofc
+[17:22:11] <Whiskey> i reset the shit whit var
+[17:22:14] <Whiskey> and need to remove it
+[17:22:34] <robertmaxrees> you didn't reset anything.
+[17:22:39] <robertmaxrees> you declared a new var in a specific scope.
+[17:22:46] <Whiskey> well yeh that two
+[17:22:49] <robertmaxrees> no.
+[17:22:51] <robertmaxrees> not "that too"
+[17:22:55] <robertmaxrees> that's exactly what you were doing.
+[17:22:59] <Whiskey> so the var exist both outside and inside it
+[17:23:01] <robertmaxrees> so the original data var was never getting anything set.
+[17:23:03] <robertmaxrees> right.
+[17:23:08] <robertmaxrees> two separate objects.
+[17:23:33] <Whiskey> i still don´t think this shit will work :)
+[17:23:47] <robertmaxrees> it probably won't.
+[17:23:49] <robertmaxrees> but meh
+[17:25:42] <Es0teric> i basically have an array of objects... 5 objects to be exact that contain a key/value pair of 'class' which have the class that is being used
+[17:25:47] <Es0teric> in each anchor
+[17:26:01] <Whiskey> what?
+[17:26:11] <Es0teric> robertmaxrees
+[17:26:17] <Whiskey> var found = test.match(/script = (jQuery)\( "<(script)>" \).(prop)/ig); <-- does that not give me "jQuery, script, prop" ?
+[17:26:19] <robertmaxrees> Es0teric i'ma be 100% honest: we're in the middle of a site launch right now so i won't be able to parse through descriptions of things.
+[17:26:31] <Es0teric> its cool man
+[17:26:35] <robertmaxrees> Whiskey hit up ##javascript.
+[17:26:52] <Es0teric> i just needed the concept of it
+[17:29:16] <robertmaxrees> Es0teric you can check on click to see if the element has a class that's contained within that array.
+[17:29:18] <robertmaxrees> pretty basic stuff.
+[17:32:46] <Whiskey> robertmaxrees: it faill as it only can handle one value :D
+[17:33:05] <Whiskey> maybe i can slove that
+[17:34:01] <Es0teric> robertmaxrees i'll let that stick in my brain for a bit
+[17:34:05] <Es0teric> but thanks
+[17:34:34] <Whiskey> maybe not
+[17:34:42] <Whiskey> i give up this shit im to crappy
+[17:36:20] <robertmaxrees> just need to step back from the problem duder
+[17:36:55] <Whiskey> well i know what i need, just not how to make it happen
+[17:37:21] <robertmaxrees> which is why you step back.
+[17:37:24] <robertmaxrees> change perspective for a bit.
+[17:38:31] <Whiskey> my javascript knowledge is too limited
+[17:42:00] <robertmaxrees> great chance to learn duder.
+[17:42:46] <Whiskey> i use it to littel to read month about it
+[17:43:33] <Whiskey> i think i have another way to fix this, maybe not the best lets see how it works out
+[17:50:07] <Kartagis> if I am pushing to array as id,blob how can I get the blob of the given id?
+[17:50:46] <robertmaxrees> a few ways.
+[17:50:52] <robertmaxrees> check out array.find() and array.filter()
+[18:00:38] <Kartagis> am I doing this wrong? var fd=new FormData;var xhr=new XMLHttpRequest; fd.append("bookuser",2); fd.append("image",arr.findIndex(function(){return "19802"}),"image.jpg"); xhr.open("POST","http://iothook.com:8000/api/v1/books/");xhr.send(fd);
+[18:25:51] <whoisaCe> If an element has an id with two names including a space, is there a way to select it? I'm working on a clients site, and I've already told their devs to fix that garbage, but in the meantime, I need to still select it.
+[19:09:48] <rhizome> whoisaCe: throw it over the wall to them to fix and work on something else
+[19:13:26] <robertmaxrees> whoisaCe not without some really painful jank
+[19:14:29] <robertmaxrees> whoisaCe https://jsfiddle.net/robertmaxrees/xnzrLrk3/
+[19:14:35] <robertmaxrees> but they really need to fix their shiz.
+[19:16:34] <rhizome> it's really not anything development time should be spent doing anything about it except that
+[19:16:51] <rhizome> oops, not sure if that qualifies as english
+[19:16:55] <robertmaxrees> (shrug) sometimes you don't get to make that call.
+[19:16:56] <whoisaCe> yea im really curious how as an ecom
+[19:17:00] <whoisaCe> this site hasn't crashed lol
+[19:17:10] <robertmaxrees> hah
+[19:17:14] <robertmaxrees> you'd be surprised ;)
+[19:17:30] <whoisaCe> i also used :eq(1)
+[19:17:36] <whoisaCe> to just go up and down the div's lol
+[19:17:41] <robertmaxrees> whoisaCe err.
+[19:17:47] <robertmaxrees> use the example i tossed out.
+[19:17:50] <whoisaCe> kk
+[19:18:21] <rhizome> clean
+[19:19:29] <robertmaxrees> from https://learn.jquery.com/using-jquery-core/faq/how-do-i-select-an-element-by-an-id-that-has-characters-used-in-css-notation/ ;)
+[19:23:52] <whoisaCe> would that work with three id names? I just found one like that lol
+[19:24:11] <robertmaxrees> did you try? ;)
+[19:24:24] <whoisaCe> yessir
+[19:24:28] <whoisaCe> and it did
+[19:24:29] <whoisaCe> lol
+[19:24:31] <robertmaxrees> ;)
+[20:16:11] <prtila> I'm trying to make divs position next to each other is this a jQuery problem or css https://jsfiddle.net/bx9yt4vb/

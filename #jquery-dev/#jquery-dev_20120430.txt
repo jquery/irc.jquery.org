@@ -1,0 +1,342 @@
+[03:05:19] <jzaefferer> .
+[04:15:31] <jzaefferer> .
+[04:15:31] <bot-t> (9 hours 54 secs ago) <Krinkle> tell jzaefferer issue with php-posix @ swarm01 solved, https://gist.github.com/3972c96b702ee3124a25.
+[04:15:31] <bot-t> (8 hours 42 mins ago) <Krinkle> tell jzaefferer swarm01: clean working copy, maintenance scripts are working now
+[04:15:31] <bot-t> (8 hours 42 mins ago) <Krinkle> tell jzaefferer swarm: set client.require_run_token=1 and ran scripts/refreshRunToken.php and put it in testswarm-browserstack.run.sh and enabled it in crontab. working nicely
+[04:35:23] <jzaefferer> clarkbox: Submitted a PR for testswarm-browserstack. Along with the updates from Krinkle it looks like you can close most issues.
+[04:42:26] <Krinkle> jzaefferer: https://github.com/jquery/jquery-ui/pull/642
+[04:42:27] <socialhapy> ★ Pull request on jquery-ui by Krinkle ( ago): Update grunt.js
+[04:44:46] <jzaefferer> Krinkle: thanks. Btw. you should join #jqueryui-dev :-)
+[04:44:55] * Krinkle adds to auto-join
+[04:46:35] <jzaefferer> Too bad that Jenkins online outputs full lines. My "progressbar" isn't showing up in the Jenkins console :/
+[04:59:09] <Krinkle> jzaefferer: what about dropping (and/or finding a replacement for) gbs?
+[05:01:01] <Krinkle> jzaefferer: btw, all data (at least the data we care about most) from swarmstateAction is also on HomePage
+[05:01:04] <Krinkle> easier to read :)
+[05:01:21] <jzaefferer> Krinkle: good call :-)
+[05:01:53] <Krinkle> hm.. although I see the pending run for chrome, I wonder whats keeping the browserstack vm from running it
+[05:02:04] <Krinkle> jzaefferer: Safari just got in
+[05:02:35] <jzaefferer> Once it runs, its pretty quick :-)
+[05:03:08] <jzaefferer> I'll take a look at the core tests, someone didn't bother running that somewhere outside of Chrome..
+[05:03:12] <Krinkle> yep, the cooldown=2 did a lot of that
+[05:03:21] <Krinkle> the 15 second cool down killed a lot of time
+[05:03:38] <Krinkle> the rest timeout is still 30s
+[05:03:42] <Krinkle> which should be fine
+[05:03:45] <jzaefferer> How about just dropping that to 0?
+[05:03:56] <Krinkle> (we won't be using rest-timeout since we kill idle vms)
+[05:04:07] <Krinkle> jzaefferer: be my guest, we have an ini file now :D
+[05:04:19] <Krinkle> should be fine
+[05:04:19] <jzaefferer> We can increase the Jenkins poll timeout, but I'd rather first try to get things to finish in time
+[05:05:23] <Krinkle> jzaefferer: we might also be able to experiment with more than 1 vm of a browser
+[05:05:52] <jzaefferer> I've set the cooldown to 9
+[05:05:54] <jzaefferer> to 0
+[05:06:03] <Krinkle> thinking about it it, it is kind of dull to be running the tests 1 at a time, when we have organized everything nicely in modules and testswarm support for multiple clients
+[05:06:16] <Krinkle> especially for IE6, having more clients would be nice
+[05:07:03] <Krinkle> I'm not sure what the browserstack take on it is, but as far as testswarm-browserstack.js is concerned we could easily implement it so that we require 2 clients if pendingRuns > 0 instead of 1
+[05:09:13] <jzaefferer> yeah, for the slower browsers that would be nice
+[05:09:41] <Krinkle> jzaefferer: I'm going to see if I can expose 'updated' on UserPage for browsers instead of just 'created'
+[05:10:00] <jzaefferer> any idea what we can do about BrowserStack ignoring certains runs? Like the 1 pending run for Chrome?
+[05:10:01] <Krinkle> so that you can see "Last active: 5 minute ago", and know that the vm is already gone
+[05:10:13] <Krinkle> jzaefferer: I'm not surre
+[05:10:45] <jzaefferer> that still had rerun=0
+[05:10:47] <Krinkle> jzaefferer: btw testswarm-browserstack output "testswarm needs these browsers:" should be "testswarm statistics:", it dumps all, not just needed. The logic is fine, just the label.
+[05:10:54] <jzaefferer> Maybe the cleanup isn't quite complete?
+[05:11:10] <Krinkle> jzaefferer: I'm joining now with my own Chrome and see if I get the run
+[05:11:38] <Krinkle> oh, right, runToken. lets see
+[05:13:20] <Krinkle> nope, not getting the run
+[05:13:23] <Krinkle> checking database now
+[05:13:41] <jzaefferer> What was the debug flag to see what queries are ran?
+[05:14:23] <Krinkle> check testswarm.ini
+[05:14:56] <Krinkle> run_id = 90 for that one
+[05:15:00] <Krinkle> (Tabs_deprecated, job 7)
+[05:17:34] <Krinkle> WOW
+[05:17:36] <Krinkle> |     90 | Chrome       | 4294967295 |   1 |         0 |      0 | 20120430111856 | 20120430111610 |
+[05:17:40] <Krinkle> | run_id | useragent_id | runs       | max | completed | status | updated        | created        |
+[05:18:00] <Krinkle> it has been re-running all night
+[05:18:03] <Krinkle> like crazy
+[05:18:05] <Krinkle> wtf
+[05:18:14] <Krinkle> 4294967295 !!!
+[05:18:19] <jzaefferer> uuhm
+[05:18:25] <Krinkle> and increasing
+[05:18:55] <Krinkle> no, not increasing. not anymore atleast
+[05:19:17] <Krinkle> so... how did that get set in the first place
+[05:20:02] <Krinkle> oh..
+[05:20:12] <Krinkle> jzaefferer: Unsigned: From 0 to 4294967295
+[05:20:23] <Krinkle> CleanupAction: runs = runs - 1,
+[05:21:03] <Krinkle> it shouldn't be possible for that query to run for a row that has runs=0
+[05:27:56] <Krinkle> All three have the same symptoms
+[05:27:56] <Krinkle> |     90 | Chrome       | 4294967295 |   1 |         0 |      0 | 20120430111856 | 20120430111610 |
+[05:27:57] <Krinkle> |     91 | Firefox|11   | 4294967295 |   1 |         0 |      0 | 20120430111858 | 20120430111610 |
+[05:27:57] <Krinkle> |     92 | Firefox|10   | 4294967295 |   1 |         0 |      0 | 20120430111825 | 20120430111610 |
+[05:28:44] <Krinkle> The number itself is caused by CleanupAction, but the defective row leading to the scenario Cleanup messes up is not caused by Cleanup but by something else..
+[05:31:52] <Krinkle> jzaefferer: I set it back to 0 manually and everything is fine now
+[05:31:57] <Krinkle> for run 92
+[05:32:37] <Krinkle> no idea how that got set. I've bookmarked query "SELECT * FROM run_useragent WHERE runs > 4;" for future use to see if it happens again
+[05:32:41] <jzaefferer> ff10 just got killed, ff11 is still running
+[05:33:45] <Krinkle> I've reset 91 and 90 as well
+[05:33:51] <Krinkle> should be fixed within a minute
+[05:33:59] <Krinkle> 91/ff11 done
+[05:34:23] <Krinkle> as soon as a chrome vm joins now, that will be fixed too
+[05:34:55] <Krinkle> darn, ie6 is still running..
+[05:35:12] <jzaefferer> yeah, that gets killed before finishing one of the tabs tests
+[05:35:20] <Krinkle> killed?
+[05:35:21] <jzaefferer> oh hey, Tabs is done
+[05:35:47] <jzaefferer> but yeah, running multiple VMs for a single browser would probably help here
+[05:35:53] <Krinkle> btw http://swarm.jquery.org/user/jqueryui doesn't look very good
+[05:36:24] <Krinkle> oh, the nonscheduled column placeholder is working now with 1.0.0 :) table is not distorted by IE10
+[05:36:37] <jzaefferer> heh, yeah
+[05:36:43] <jzaefferer> so, what's not looking good?
+[05:36:47] <jzaefferer> apart from all the red...
+[05:36:52] <Krinkle> my point exactl
+[05:36:54] <Krinkle> my point exactly
+[05:36:58] <jzaefferer> hehe, okay
+[05:37:14] <jzaefferer> well, at least that's not the fault of the testing infrastructure
+[05:37:16] <jzaefferer> I think
+[05:37:22] <jzaefferer> looking into the failing core tests now
+[05:37:47] <jzaefferer> also I'll probably kick out the beta tag again, I don't want to test ie10
+[05:39:06] <jzaefferer> how often are you running the clean cronjob?
+[05:39:20] <Krinkle> cronjob * * *
+[05:39:25] <Krinkle> every minute
+[05:39:26] <jzaefferer> one a minute?
+[05:39:27] <jzaefferer> okay
+[05:40:01] <Krinkle> cleanup itself uses 5 minutes as maximum execution time to determine a timeout from the client
+[05:41:01] <Krinkle> and /run/ uses ini client.run_timeout (def: 180) 2 minutes to determine timeout between parent page and iframe
+[05:46:57] <Krinkle> jzaefferer: holy moly, just checking out browserstack twitter and one of the followers is promoting  http://browserling.com/ - just checked it out, pretty cool.
+[05:47:20] <Krinkle> no-registration 100% free instant stuff, using in-browser canvas just like browserstack
+[05:47:25] <Krinkle> no api or any of the other features thouguh
+[05:53:38] <jzaefferer> yeah, I once emailed substack about that and potential testswarm integration, he just pointed out http://testling.com/
+[05:53:59] <Krinkle> ok
+[05:54:10] <Krinkle> anyway, we're doing fine with browserstack
+[05:54:48] <jzaefferer> yeah
+[05:54:56] <Krinkle> and it looks like browserstack is cheaper too for commercial users
+[05:55:06] <jzaefferer> btw. substack is one of those who publishes new modules at least weekly, e.g. http://substack.net/posts/16a9d8/multi-server-continuous-deployment-with-fleet
+[05:55:19] <jzaefferer> he's got fun drawings :-)
+[05:55:23] <Krinkle> but I'm not sure if jquery is, is it? or is it a free deal (I heard Wikimedia for a free deal)
+[05:55:35] <Krinkle> s/for/got
+[05:55:55] <Krinkle> with jquery and browserstack
+[05:56:00] <jzaefferer> BrowserStack is sponsoring jQuery: http://jquery.org/sponsors
+[05:56:04] <Krinkle> right
+[05:56:58] <Krinkle> well, substack/testling/fleet certainly doesn't look bad either on first impression
+[05:58:03] <Krinkle> but just like crossbrowsertesting.com it is more expensive, limits the minutes and sessions ("4 tests at once per account", "## minutes")
+[06:00:55] <jzaefferer> Krinkle: Would you look into starting up multiple VMs per browser? We've got 47 pending runs for IE6...
+[06:01:08] <Krinkle> yeah
+[06:01:24] <Krinkle> Im afraid doing so the bold way won't do any good though
+[06:01:35] <Krinkle> I suspect it'll only increase the kill-start-queue repetition
+[06:02:01] <jzaefferer> okay
+[06:02:16] <jzaefferer> well, need to figure out something
+[06:02:27] <Krinkle> we should probably contact browserstack first and ask them if they can help us get 2 sessions for 12 browsers simultaneously, making clear that we do not intend to idle and will properly terminate no longer used clients (most of them will only be up for a few minutes, every few hours)
+[06:02:59] <Krinkle> is there a contact person we have there?
+[06:08:49] <jzaefferer> scott_gonzalez: ^^^
+[06:11:15] <scott_gonzalez> Can't we just make our code smarter?
+[06:11:33] <scott_gonzalez> If # of tests > # of browsers, use one worker per browser.
+[06:11:43] <scott_gonzalez> If # of tests < # of browsers, double up on workers.
+[06:12:12] <scott_gonzalez> If we're only going to have instances up for a few minutes per hour, then it sounds like we've got lots of idle time, which means lots of # of tests < # of browsers
+[06:12:25] <scott_gonzalez> Those are probably the wrong stats.
+[06:12:40] <scott_gonzalez> # of needed browsers < # of simultaneous workers.
+[06:13:54] <Krinkle> I'm not sure I follow, can you rephrase?
+[06:14:10] <scott_gonzalez> Let's say we have 15 browsers that we test against.
+[06:14:18] <Krinkle> k
+[06:14:24] <scott_gonzalez> And we run at most 10 workers at a time.
+[06:14:57] <Krinkle> ok
+[06:15:05] <scott_gonzalez> If we have tests to run in all browsers, we'd spawn 10 workers, and then move on to the next browsers as other workers finish.
+[06:15:18] <Krinkle> ah, okay that makes sense
+[06:15:22] <scott_gonzalez> But if we only have 2 browsers to run in, we can spawn multiple workers for those browsers.
+[06:15:34] <Krinkle> yeah, but we'd have to know the limit
+[06:15:52] <Krinkle> (or pretend there is one and use it)
+[06:16:06] <scott_gonzalez> Yeah, it seems reasonable to have a configurable limit in our code.
+[06:16:12] <Krinkle> indeed
+[06:16:22] <scott_gonzalez> We can just ask BrowserStack what their current limit is and set it to that.
+[06:16:32] <Krinkle> that will also prevent browsers lower in the list from being continuously queued/killed until they are higher up in the list
+[06:16:39] <scott_gonzalez> That would also avoid us queueing on their system. Not that queueing on their system is a problem for us or them.
+[06:16:47] <Krinkle> yep
+[06:28:05] <jzaefferer> Krinkle: So you're going to implement that?
+[06:28:19] <Krinkle> Euh, sure :)
+[06:28:27] <jzaefferer> If clarkbox isn't around and you want to deploy, you can just add your remote and pull from there
+[06:28:37] <Krinkle> okay
+[06:28:46] <Krinkle> so is there someone we can contact at browserstack for more info?
+[06:29:03] <jzaefferer> I'll add QUnit to make sure node-testswarm works with something other then jQuery UI
+[06:29:12] <Krinkle> ok
+[06:29:16] <jzaefferer> I guess scott_gonzalez didn't yet answer that :-)
+[06:29:22] <jzaefferer> I don't know, he does
+[06:29:40] <rworth> would be great to get a blog post out about this. Maybe this week?
+[06:31:10] <scott_gonzalez> Ask them what?
+[06:32:09] <rworth> Krinkle what do you think?
+[06:32:21] <Krinkle> I love writing documentation and blog posts
+[06:32:29] <rworth> awesome
+[06:32:43] <Krinkle> scott_gonzalez: what is up with the queue and limit n stuff
+[06:33:52] <scott_gonzalez> Are you just wondeirng how many simultaneous workers we can have?
+[06:34:07] <Krinkle> yep
+[06:34:55] <Krinkle> and I got a few minor bug/feature tickets I want to tell them about. I'm filling in feedback form now, will put you (scott_gonzalez , jzaefferer ) on CC.
+[06:38:33] <scott_gonzalez> Currently 4
+[06:38:38] <jqcommit> [qunit] jzaefferer pushed 1 new commit to master: http://git.io/qi9_8g
+[06:38:38] <jqcommit> [qunit/master] Add testswarm integration as grunt task - Jörn Zaefferer
+[06:38:42] <scott_gonzalez> The number will go up when they come out of beta.
+[06:40:53] <jzaefferer> QUnit job updated. Should be starting any second
+[06:42:38] <jzaefferer> well, after jQuery Mobile Branch Preview is done tarring and untarring a bunch of branches
+[06:43:53] <jzaefferer> That's silly: https://github.com/jquery/jquery-mobile/blob/master/build/branch-preview.sh#L30
+[06:44:12] <jzaefferer> scott_gonzalez: didn't you do something similar once? git show or something?
+[06:44:45] <scott_gonzalez> Yeah, git show is what they want.
+[06:44:55] <scott_gonzalez> I'll let them know what to do.
+[06:45:25] <jzaefferer> That's also very similar to our branch preview script...
+[06:45:36] <scott_gonzalez> Oh, they want the whole branch though.
+[06:45:55] <scott_gonzalez> Oh yeah, this is for their branch preview?
+[06:46:02] <scott_gonzalez> Tell them to stop doing that.
+[06:47:02] <jzaefferer> Yeah, and the script doesn't bother checking if anything actually changed
+[06:48:35] <jzaefferer> we even have that in a repo: https://github.com/jquery/web-view-jquery-org
+[06:59:22] <jq-jenkins> Yippie, build fixed!
+[06:59:22] <jq-jenkins> Project QUnit build #107: FIXED in 15 min: http://swarm.jquery.org:8080/job/QUnit/107/
+[06:59:23] <jq-jenkins> joern.zaefferer: Add testswarm integration as grunt task
+[07:09:00] <Krinkle> jzaefferer: scott_gonzalez clarkbox https://toolserver.org/~krinkle/tmp/psty/kjdnfiuwyv/
+[07:15:00] <Krinkle> jzaefferer: scott_gonzalez clarkbox Anything to add / update ?
+[07:15:50] <scott_gonzalez> "having tests run in parralel would significantly increase the average run time of a job" wouldn't it decrease?
+[07:16:04] <Krinkle> Yes please, thank you :)
+[07:16:15] <Krinkle> refresh
+[07:16:41] <Krinkle> . significantly improve the average run time.
+[07:17:01] <scott_gonzalez> The limit is definitely 4
+[07:17:06] <Krinkle> ok
+[07:17:27] <scott_gonzalez> I can also answer the last paragraph.
+[07:17:33] <scott_gonzalez> We should implement a limit on our end.
+[07:17:39] <scott_gonzalez> It's more efficient.
+[07:17:58] <scott_gonzalez> It also allows for smarter queuing.
+[07:18:03] <Krinkle> yeah
+[07:18:09] <Krinkle> I'll trim the last part down
+[07:18:14] <scott_gonzalez> For instance, we could get to the point where we always run 2 IE 6 VMs.
+[07:18:59] <scott_gonzalez> We could have priority queues and group fast and slow browsers.
+[07:19:15] <scott_gonzalez> Of course to start we'll just do a simple queue.
+[07:22:54] <Krinkle> refresh
+[07:25:08] <scott_gonzalez> "Is the limit of 4 currently enforced (should we use it in the script?) and if so, are there plans for increasing the maximum number of simultaneous workers in the near future?" Yes and yes.
+[07:25:49] <Krinkle> Right..
+[07:26:43] <Krinkle> It is a polite way to fish for their advice (maybe they have a better idea) and some insight information on the near future.
+[07:28:50] <Krinkle> trim trim, refresh
+[07:29:08] <Krinkle> 2 paragraphs gone
+[07:32:49] <jzaefferer> Krinkle: Maybe include a link to testswarm-browserstack?
+[07:32:55] <Krinkle> yeah
+[07:36:08] <Krinkle> done
+[07:41:40] <Krinkle> sent
+[07:56:33] <jzaefferer> Krinkle: What are you currently using at Wikimedia to submit jobs to TestSwarm? Is node-testswarm interesting to you?
+[07:57:15] <Krinkle> Right now our phpunit build configuration calls a little php script at the end to create a post request to testswarm
+[07:57:30] <Krinkle> From Jenkins
+[07:57:46] <Krinkle> but we'll probably use node-testswarm, and testswarm-browserstack as soon as we're up to 1.0.0 as well
+[07:58:08] <Krinkle> but we need to have node available on the server for that, and right now node has not been approved yet on WMF production servers
+[07:58:46] <Krinkle> that could take a while to get approved, so we may have to postpone that until testswarm is moved to a new server that isn't in the production cluster (we we wanted to do anyway to keep it more sandboxed /secure)
+[08:09:25] <jzaefferer> Krinkle: Okay. Let me know how node-testswarm works for you when you get around to that. I'll probably add a little abstraction to make specifying testsuites easier, but that's about all I can think of right now
+[08:09:52] <jzaefferer> The code in jQuery UI's and QUnit's grunt.js is for the most part just data
+[10:13:34] <jaubourg> was there a meeting today? did I miss it?
+[10:13:49] <ajpiano> didn't seem like it
+[10:13:53] <jaubourg> k
+[10:22:05] <Krinkle> scott_gonzalez: I'm gonna take a quick food break, you're not working on testswarm-browserstack right now, correct? If so, I'll start on the queue thing after lunch
+[10:23:03] <scott_gonzalez> I'm never working on testswarm-browserstack :-P
+[10:23:29] <Krinkle> oh, right. I confused you with jzaefferer / clarkbox
+[10:33:55] <Krinkle> rworth: can you give me a few pointers regarding general coverage you like the blog post / documentation to have? It can be as wide and as brief as you'd like it to be.
+[10:36:36] <gnarf> Krinkle-away: i got a request for testswarm-browserstack - Is it possible/useful to spawn up multiple of the same client when there are only one or two clients requiring runners?  Like if IE6 is the only browser needed, why not run 4 of em to get caught up faster?
+[10:37:07] <Krinkle-away> gnarf: Yes, that's exactly what we're going to do :)
+[10:37:31] <Krinkle-away> loop through needs until limit is reached
+[10:37:42] <gnarf> cool, love it when people are a step ahead of me :)
+[10:38:27] <Krinkle-away> you're welcome
+[10:38:47] <rworth> Krinkle-away cover all the major changes you've been working on, the new design, what's still planned before 1.0
+[10:38:56] <rworth> feel free to go deep
+[10:39:02] <gnarf> ?ts
+[10:39:03] <bot-t> That's Sexual™
+[10:39:16] <Krinkle-away> rworth: and where would this be published?
+[11:16:13] <scott_gonzalez> gnarf: Can we get a server with WordPress + HTTPS so I can test something?
+[12:05:59] <gnarf> scott_gonzalez: self signed alright?
+[12:06:03] <gnarf> scott_gonzalez: and which domain do you want?
+[12:06:20] <scott_gonzalez> gnarf: Self signed is fine. I don't need it anymore though :-P
+[12:06:34] <scott_gonzalez> I realized I could just run a HTTPS server in node to test.
+[12:06:37] <gnarf> heh
+[13:50:17] <clarkbox> krinkle-away, jzaefferer: im around, let me know if you need any help or need a push merged on testswarm-browserstack
+[13:50:57] <Krinkle-away> clarkbox: nah, nothing yet. I'll be working on the queue thing tonight. Probably test it tonight and create a PR for you
+[13:51:11] <clarkbox> if i dont respond here, email me
+[13:51:24] <Krinkle-away> okay, will do. Did you get the browserstack cc ?
+[13:51:28] <clarkbox> yes
+[13:51:31] <Krinkle-away> k
+[13:51:33] <clarkbox> sounds good
+[13:55:01] <clarkbox> krinkle-away: you can also catch me on gtalk almost always
+[13:55:18] <Krinkle-away> I haven't been on there for a while, but I'll add you to the list
+[13:55:20] <Krinkle-away> thx
+[14:06:39] <danzik171> so is testing/testswarm now being done entirely by browserstack?  just saw that public joiniing is disabled
+[14:07:17] <Krinkle-away> danzik171: Yes, testswarm is configured to require a token. Anonymous joins are disabled.
+[14:08:36] <Krinkle> I'll be writing a blog post soon describing these and other changes and explaining why and how we did it.
+[14:08:53] <Krinkle> If you're interested I can discuss it here is as well, just let me know.
+[14:08:59] <danzik171> Krinkle: ok cool - the link to join the swarm in the top right isn't disabled btw, it just throws an exception
+[14:09:11] <Krinkle> danzik171: You're logged in?
+[14:09:17] <danzik171> Krinkle: yes
+[14:09:27] <Krinkle> Oh, that is a use case I didn't forsee
+[14:09:42] <Krinkle> TestSwarm 1.0 is currently still in alpha, I'll file a bug report about that
+[14:09:49] <Krinkle> user accounts are going to be ditched as well
+[14:09:54] <Krinkle> they serve no purpose
+[14:10:13] <danzik171> score keeping / internet points?  /shrug
+[14:10:22] <Krinkle> No, that is not what user accounts do
+[14:10:32] <Krinkle> you don't need an account to join the swarm and get scores
+[14:10:49] <Krinkle> before we disabled public joining, one could join with any usernrame you want, no need to create an account for it
+[14:11:47] <Krinkle> the only thing that a user account provides is the ability to (if you have database access) submit jobs to be ran. So it doesn't make sense to have an unlimited unused account system in addition to project creations from the database side.
+[14:12:13] <Krinkle> danzik171: For instance, you'll see browserstack and myself on ./scores/ right now, but neither are logged in or have an account.
+[14:12:41] <danzik171> anyway i assume that public joining was disabled to ward off some test problems with stuff like :focus ( i remember seeing lots of problems with that in particular )
+[14:13:05] <Krinkle> indeed, that is one of the reasons
+[14:13:37] <danzik171> cool, anyway ill look for the blog post - tks for the quick answers
+[14:14:04] <Krinkle> https://github.com/jquery/testswarm/issues/106
+[14:14:05] <socialhapy> ★ Issue #106 on testswarm (jzaefferer; 2m, 3w ago): Add option to require authentication for joining the swarm
+[14:15:40] <Krinkle> danzik171: there's 2 other reasons: 1) security. Depending on how we configure Jenkins, it will be possible to run the code of a pull-reuqested branch on TestSwarm. That means it is potentially possible for untrusted users to put arbitrary javascript online in their github repo, and have it be submitted to the jquery testswarm. If innocent users are joining the swarm with their personal computers, we risk cookie theft or redirecting to malicious sit
+[14:15:40] <Krinkle> and what not
+[14:16:37] <Krinkle> 2) accidental or intentional result fraud: If you have a browser with a "bad" user agent (such as Epihany on Linux looks very similar to Safari and is identified as such, but it has bugs that Safari doesn't have, so it would pollute the results)
+[14:16:47] <Krinkle> (btw, don't worry about me losing time in explaining this, this is practice :) )
+[14:18:10] <Krinkle> and 3) , you already  mentioned, false positives about :focus and other stuff when the tab is not active (aside from :focus, another problem in this category is with old versions of Chrome and setTimeout in an inactive tab)
+[14:18:49] <danzik171> Krinkle: definitely interesting - setting up an internal testswarm for my department/group has been something i've wanted to do for a while, so i try to stay up to date on the latest happenings and all that for when i finally can do it
+[14:19:53] <Krinkle> If you set up a new TestSwarm install, it won;t be like this by default
+[14:20:13] <Krinkle> by default the TestSwarm software itself doesn't require a token or stuff like that. It is still open and join-for-all.
+[14:20:38] <clarkbox> danzik171: now is def the time to do that. krinkle has done a great job on this re-write with many improvements
+[14:20:38] <Krinkle> You can optionally configure it to require token. See config/testswarm-defaults.ini (client.require_run_token) for more info.
+[14:20:42] <clarkbox> good job krinkle!
+[14:21:17] <Krinkle> and of course together with clarkbox's work on testswarm-browserstack, if your company has a BrowserStack account, you can make awesomeness happen in notime :)
+[14:21:51] <clarkbox> go team!
+[14:40:57] <johnbender> ben_alman: is there a way to execute dependencies for a given grunt task, I can't seem to find it in the docs
+[14:44:31] <Krinkle> clarkbox: scott_gonzalez btw, I've been testing locally using my own browserstack credentials and the live swarm.jquery.org site, it appears no matter what I do, browserstack won't run more than 1 worker for a browser
+[14:44:53] <Krinkle> clarkbox: scott_gonzalez Even if I stay well below the limit,  if I give 2 start commands for IE6, only 1 will start and the other stays put in the queue
+[14:45:26] <clarkbox> ya i have noticed similar behavior. must be a restriction on their end.
+[14:45:49] <Krinkle> I'll continue writing the script for now, but this is a blocker for using it
+[14:46:08] <clarkbox> only way around this would be to cycle multiple browserstack accounts. but thats not ideal
+[14:46:23] <Krinkle> Maybe we can convince them to allow it?
+[14:47:45] <clarkbox> ya they may allow it. they have been very accommodating with our requests.
+[14:48:21] <Krinkle> I've experienced the same so far (I've been reporting random bugs through their interface, always quick responses and usually fixes within days)
+[14:58:43] <Krinkle> wow, Im stunned by the 3D inspector in the latest Firefox
+[14:58:49] <Krinkle> that is some piece of art
+[15:04:26] <johnbender> broadening my search here, anyone know if you can define grunt deps in a fashion similar to Makefile deps?
+[15:04:41] <johnbender> I'm in the process of converting jqm's build to grunt
+[15:07:59] <gnarf> johnbender: try in #grunt, and/or ping scott_gonzalez jzaefferer ben_alman
+[15:08:00] <gnarf> :)
+[15:08:25] <gnarf> johnbender: afaik you define the deps via the standard node ways
+[15:08:29] <gnarf> npm install
+[15:08:38] <gnarf> or did you mean for tasks
+[15:08:44] <gnarf> like task a depends on task b
+[15:10:32] <johnbender> gnarf: yah task dependencies
+[15:10:41] <gnarf> i'm pretty sure its possible
+[15:10:50] <gnarf> check the ui grunt.js?
+[15:11:00] <johnbender> gnarf: well it's possible but it only defines a requirement it doesn't run them
+[15:11:06] <johnbender> and run just queues them
+[15:11:13] <johnbender> grunt.task.run
+[15:11:14] <johnbender> that is
+[15:24:52] <jzaefferer> johnbender: there are no prerequisites, just the thing you found. By specifying alias tasks, you can get around that pretty easily
+[15:25:27] <jzaefferer> Was a little irritating at first, but I actually things its better that way. Lets you build more custom arrangements
+[15:32:51] <johnbender> jzaefferer: yah that's what  kimyashiro pointed me at
+[15:32:54] <johnbender> should work fine
+[15:33:35] <johnbender> gnarf: ^
+[15:33:39] <johnbender> for your own notes :D
+[15:46:45] <jzaefferer> johnbender: how's the grunt migration going?
+[16:00:09] <johnbender> jzaefferer: not too bad
+[16:00:17] <johnbender> spending the day learning mostly
+[16:00:31] <johnbender> I think the vast majority of the work will be porting the bash over
+[16:00:45] <johnbender> it's going though
+[16:01:29] <jzaefferer> johnbender: the porting isn't so much fun, but its really nice when you can add new build features with just a few lines of js :-)
+[16:01:46] <jzaefferer> e.g. http://github.com/jzaefferer/grunt-css https://github.com/jzaefferer/grunt-html
+[16:20:50] <johnbender> jzaefferer: I'm in for the window support
+[16:21:11] <johnbender> project maturity is often signaled by inclusive decisions imo
+[16:21:13] <jzaefferer> like, windows?
+[16:21:26] <johnbender> yar, window => windows
+[16:22:09] <johnbender> and hopefully it'll be easier for the people who would be working on the project to maintain
+[16:22:37] <johnbender> otherwise I like bash just fine :D
+[16:22:46] <jzaefferer> its certainly a big advantage to have a build tool written in JavaScript if that is the one language all the project's developers are familiar with
+[16:23:13] <jzaefferer> also dealing with lists maps and such is pretty decent in JS, less so in Bash...
+[16:23:24] <jzaefferer> we ended up needing a lot of that for the UI build
+[16:23:27] <johnbender> yah
+[17:21:05] <alanjhogan> hey folks
+[17:21:32] <alanjhogan> just wanted to drop a friendly note here that it would seem the lovely jQuery conference banner on jQuery.com has a backwards apostrophe for ’12: http://static.jquery.com/promotion/banners/sf-2012.png
+[17:21:43] <alanjhogan> in hopes someone here could get that taken care of :)

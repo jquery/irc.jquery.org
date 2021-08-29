@@ -1,0 +1,275 @@
+[09:01:07] <DaveMethvin> who's here today?
+[09:01:15] <gibson042> yo
+[09:01:21] <arthurvr> I am, ‘allo!
+[09:01:43] <DaveMethvin> thinking jaubourg may pop up too
+[09:01:52] <DaveMethvin> if he doesn't he's a bum!
+[09:03:01] <DaveMethvin> timmywil's all busy!
+[09:03:16] <markelog_> hey-hey
+[09:03:46] <timmywil> hi there
+[09:03:47] <m_gol> present
+[09:04:19] <timmywil> I'm in a dentist waiting room catching up on jQuery stuff
+[09:04:28] <DaveMethvin> which is more painful? :)
+[09:04:34] <timmywil> My wife is the one with the dentist, so I'm happy
+[09:04:42] <timmywil> :P
+[09:04:46] <DaveMethvin> haha
+[09:05:13] <timmywil> Trying to get this build stuff done
+[09:05:18] <DaveMethvin> awesome
+[09:06:24] <DaveMethvin> gibson042 i guess you're still hoping for input from jaubourg re your pull request?
+[09:06:33] <DaveMethvin> i haven't looked at the one he just did
+[09:06:53] <gibson042> that seems to be the input.... we're each like "do this instead"
+[09:06:58] <timmywil> "This script is not smart enough to handle major release"
+[09:07:03] <timmywil> you're telling me
+[09:07:35] <timmywil> Looks like the first 3.0 release needs to be manual
+[09:07:43] <timmywil> jquery-release is skiddish
+[09:08:02] <DaveMethvin> timmywil: as long as it stops in a predictable place that's fine
+[09:08:15] <DaveMethvin> i did the last couple steps manually and it's not bad
+[09:08:22] <DaveMethvin> as long as the raw material is still there
+[09:08:41] <timmywil> It stops even before building
+[09:08:48] <DaveMethvin> really?
+[09:08:55] <timmywil> Yea, fails version validation
+[09:09:03] <DaveMethvin> hmmm
+[09:09:12] <timmywil> saying 3.0.0 cannot be handled by jquery-release
+[09:09:17] <DaveMethvin> well it needs to make it past that somehow?
+[09:09:29] <DaveMethvin> oh like a major version change?
+[09:09:32] <timmywil> Yea, maybe we can just force it through for this release
+[09:09:34] <DaveMethvin> wonder what the problem is
+[09:09:53] <DaveMethvin>  basicallly we just want to be careful we aren't breaking some assumption it has
+[09:10:01] <timmywil> I'll still make the changes to get it up to jquery-dist
+[09:10:57] <DaveMethvin> yeah and if you could check why it doesn't like 3.0.0 ... just in case there's some assumption that would build bogus files
+[09:11:09] <timmywil> will do
+[09:11:33] <DaveMethvin> so we had a discussion on one of the tickets about our cherry-pick process
+[09:11:45] <DaveMethvin> i've been just doing the cp -x and keeping the comments the same in compat
+[09:12:01] <m_gol> it's explicetly checking against a major update, weird: https://github.com/jquery/jquery-release/blob/340c3d245f252e1ad95d2861609f70f6892b6dde/lib/repo.js#L176
+[09:12:06] <DaveMethvin> if that seems reasonable let's keep doing that
+[09:12:33] <DaveMethvin> i wonder what makes it too dumb
+[09:12:46] <DaveMethvin> maybe just an overabundance of caution ... scott_gonzalez ?
+[09:13:20] <m_gol> he's not in the channel
+[09:13:42] <timmywil> wife is done, gotta run. bbl
+[09:13:51] <DaveMethvin> ok thanks timmywil
+[09:14:05] <DaveMethvin> we can ping him later about it
+[09:14:35] <DaveMethvin> so on $.when I think the change to return a freshly baked Deferred is uncontroversial, right?
+[09:15:06] <DaveMethvin> it shouldn't break anything to a greater extent than all our other .then() changes
+[09:15:13] <DaveMethvin> which could be a lot :)
+[09:15:29] <DaveMethvin> but we can't accept a thenable and then expect to monkey with it
+[09:16:12] <DaveMethvin> on accepting a single arg of an array, I'd prefer to keep behavior as-is and make a separate method for the array case
+[09:16:43] <DaveMethvin> the existence of the new method will make it clear how an array behaves for $.when
+[09:16:50] <DaveMethvin> since we can ref it in the docs
+[09:17:30] <DaveMethvin> but i'd prefer not to head further down the road of helper methods and point people to something like Bluebird for an extensive set
+[09:17:44] <DaveMethvin> so whenArray or whatever would be it
+[09:17:59] <gibson042> then we should just leave it
+[09:18:16] <gibson042> $.when is two operations mixed together and differentiated by arguments.length
+[09:18:41] <DaveMethvin> well maybe more than two
+[09:18:57] <DaveMethvin> we shoudln't be reusing the promise that's coming in
+[09:19:15] <DaveMethvin> esp if we accept different things
+[09:19:24] <DaveMethvin> there'd be no guarantee of what came out
+[09:19:27] <gibson042> right, but that's just a hasty optimization on our part that should be safe to remove, especially with a major bump
+[09:19:28] <scott_gonzalez> jquery-release doesn't handle major releases because I never wrote the logic to determine what version came before.
+[09:19:48] <DaveMethvin> gibson042: agreed on that
+[09:19:59] <DaveMethvin> now the array thing is a different question tho
+[09:20:12] <gibson042> but it still looks like two operations to me: $.when( singleValue ) is analogous to Promise.resolve (i.e., cast) and $.when( val1, val2, ... ) is analogous to Promise.all
+[09:20:59] <DaveMethvin> but promise.all takes an array explicitly
+[09:21:03] <gibson042> and both seem to have an equal claim on the "when" name
+[09:21:19] <gibson042> indeed it does
+[09:21:41] <DaveMethvin> one thing i *don't* like about Bluebird is the proliferation of names for all the variations of promise ops
+[09:22:00] <DaveMethvin> it gets pretty confusing until you spent time with the nomenclature
+[09:22:10] <DaveMethvin> and you see their tracker filled with confused people
+[09:22:16] <gibson042> it's still confusing even then :)
+[09:22:20] <DaveMethvin> lol yeah
+[09:22:25] <DaveMethvin> so i don't want to get into that business
+[09:22:39] <gibson042> anyway, I guess we should just leave the polymorphism alone
+[09:22:47] <DaveMethvin> i don't really like the name whenArray but you gotta say it does what it says on the tin
+[09:23:06] <gibson042> meh
+[09:23:14] <gibson042> let someone do it with a plugin
+[09:23:26] <gibson042> jquery-bluejay ;)
+[09:23:43] <DaveMethvin> the main reason for us to define it is to clarify the behavior of $.when with a single array :)
+[09:24:02] <gibson042> well, a single array is a single value is "cast"
+[09:24:39] <DaveMethvin> yes, so changing that would be a big api break, potentially at least
+[09:24:59] <DaveMethvin> our docs for $.when are silent on array inputs right now so we at least need to fix that
+[09:25:00] <gibson042> I would definitely argue *against* that change
+[09:25:14] <gibson042> we don't treat arrays special now, and I don't think we should start
+[09:25:19] <DaveMethvin> agreed
+[09:25:33] <DaveMethvin> one arg means cast, multiple is all
+[09:25:39] <DaveMethvin> for better or worse
+[09:25:42] <gibson042> yep
+[09:26:24] <DaveMethvin> ok
+[09:27:09] <DaveMethvin> so now that we've switched to gh issues, should we reverse how we're referencing tickets?
+[09:27:19] <DaveMethvin> or, more generally, "change"?
+[09:27:42] <gibson042> I like the explicit prefixes over too-generic "#"
+[09:27:43] <DaveMethvin> I was proposing we use the trac-xxxx notation
+[09:27:54] <m_gol> I think it's a little soon :)
+[09:27:54] <gibson042> +1
+[09:28:00] <DaveMethvin> we could use notation for both
+[09:28:03] <markelog_> it might be confusuing in the future, if two years ago ticket would reference #123 and we would need to guess if it a trac or gh issue
+[09:28:05] <DaveMethvin> trac-xxxx and gh-xxxx
+[09:28:06] <m_gol> we've just switched and # used to have a diff. meaning
+[09:28:23] <m_gol> DaveMethvin: that's better
+[09:28:29] <markelog_> s/ticket/commit
+[09:28:35] <arthurvr> I’m +1 on gh-xxxx and trac-xxxx
+[09:28:51] <DaveMethvin> ok so, use gh-xxxx and trac-xxxx consistently on both commit and ticket references?
+[09:29:13] <arthurvr> yup
+[09:29:28] <arthurvr> be sure to open issue to change this on contribute.jquery.org
+[09:29:51] <markelog_> ui team, might be against that, since they still use trac
+[09:30:08] <DaveMethvin> well they're in a different situation
+[09:30:20] <markelog_> other projects might also don't like it, if they never used trac
+[09:30:35] <DaveMethvin> so for at least core we have to change something
+[09:30:37] <markelog_> i mean, i'm not sure where we shuold document it
+[09:30:55] <markelog_> i think we should
+[09:31:02] <DaveMethvin> right ... just don't know where
+[09:31:17] <DaveMethvin> we could note that core does it differently in the contribute guide
+[09:31:27] <markelog_> yeah
+[09:31:33] <markelog_> just wanted to wrote that )
+[09:31:35] <arthurvr> seems fine
+[09:31:40] <DaveMethvin> if a project starts from scratch on gh issues then it makes sense to use #
+[09:31:53] <arthurvr> nah let’s be consistent
+[09:32:12] <DaveMethvin> we have dozens of projects and a lot of them already use # for gh issues and prs
+[09:32:12] <markelog_> i hope there wouldn't be a lot of diffs with other projects, so contribute wouldn't became cluttered
+[09:32:13] <arthurvr> it’s all confusing enough :)
+[09:32:47] <DaveMethvin> I'd rather edit a PR before i landed it to change something trivial like that if somene got it wrong
+[09:33:54] <DaveMethvin> I'll open a ticket at contribute, we can move it elsewhere if needed, even put it in our README or something
+[09:33:59] <DaveMethvin> i agree it shoudl be documented
+[09:36:00] <DaveMethvin> https://github.com/jquery/contribute.jquery.org/issues/102
+[09:36:25] <arthurvr> thanks DaveMethvin!
+[09:37:25] <DaveMethvin> away|away|faraway
+[09:37:31] <markelog_> )
+[09:37:58] <DaveMethvin> https://github.com/jquery/jquery/issues?q=is%3Aopen+is%3Aissue+milestone%3A3.0.0
+[09:38:03] <DaveMethvin> a lot of stuff left to do here
+[09:38:17] <markelog_> DaveMethvin, m_gol: i can take https://github.com/jquery/jquery/issues/1835
+[09:38:27] <DaveMethvin> certainly!
+[09:38:28] <m_gol> markelog_: go for it
+[09:38:38] <markelog_> also
+[09:38:43] <markelog_> there is https://github.com/jquery/sizzle/issues/310
+[09:38:49] <markelog_> we would need to change jquery too
+[09:38:54] <markelog_> so need a ticket for it too
+[09:38:57] <markelog_> is that 3.0?
+[09:39:01] <DaveMethvin> yes
+[09:39:08] <markelog_> i can take that too )
+[09:39:32] <DaveMethvin> I looked at doing the sizzle one but suspected gibson042 or timmywil might have an opinion on how they'd like to expose it
+[09:39:40] <DaveMethvin> thanks markelog_
+[09:39:47] <gibson042> nah; just like jQuery seems fine to me
+[09:40:31] <markelog_> so?
+[09:40:49] <markelog_> mine or not? :-)
+[09:40:54] <DaveMethvin> grab it
+[09:40:54] <gibson042> you can have it
+[09:40:59] <markelog_> cool
+[09:41:11] <markelog_> when is the release date?
+[09:41:32] <DaveMethvin> i would like a beta soon but we need to land the important changes for that to be useful
+[09:41:37] <DaveMethvin> gibson042: i know the entire rewrite of Promises is like chewing an entire elephant, are you feeling pretty good about it?
+[09:41:44] <DaveMethvin> Deferred*
+[09:42:23] <gibson042> it sure cost a lot of effort on other 3.0 work, but I think the worst of it is over
+[09:42:33] <DaveMethvin> the big behavior changes are Deferred and Data
+[09:42:48] <m_gol> jaubourg has a separate version of the PR now
+[09:43:04] <DaveMethvin> yeah i saw it this morning but haven't reviewed it
+[09:43:05] <gibson042> m_gol: it looks the same as before
+[09:43:23] <DaveMethvin> i think he said he messed up the git part :)
+[09:43:25] <gibson042> and I feel it is very much lacking unit tests
+[09:43:45] <gibson042> and mishandles edge cases
+[09:43:47] <DaveMethvin> i want to get his input but we can't afford to wait forever
+[09:44:16] <gibson042> it's looking like a call has to be made between the two approaches
+[09:45:04] <gibson042> maybe we should set a deadline for it?
+[09:45:08] <DaveMethvin> i didn't feel like jaubourg's PR addressed several important issues
+[09:45:24] <DaveMethvin> but it's been a while
+[09:45:29] <gibson042> yeah, that's just it
+[09:45:40] <gibson042> really, the review should focus on unit test changes
+[09:45:49] <gibson042> implementation is secondary IMO
+[09:45:59] <markelog_> gibson042: like the way you think )
+[09:46:21] <DaveMethvin> it's nice to see the spec refrerences in the code, as well
+[09:46:38] <DaveMethvin> i think we need to go with your pr gibson042
+[09:47:01] <DaveMethvin> and if jauborg has feedback he needs to give it asap
+[09:47:03] <gibson042> heh, the funny thing is that they're mostly there so I can bitch about the increased code required to support what I consider bad qualities of the spec ;)
+[09:47:29] <DaveMethvin> oh yeah, i definitely saw it that way, like "why the HELL? .... oh the spec says you gotta"
+[09:48:25] <DaveMethvin> ok so maybe i can rope rwaldron into working on the data tickets?
+[09:48:33] <gibson042> he said he was game
+[09:48:46] <DaveMethvin> sucker! uh i mean, SWEET!
+[09:48:58] <gibson042> but that we should land a PR first
+[09:49:04] <gibson042> let me see if I can find it
+[09:49:29] <DaveMethvin> it would be nice to have people stop complaining about .data() being slower in 2.0
+[09:49:35] <gibson042> https://github.com/jquery/jquery/pull/1668
+[09:50:02] <m_gol> gibson042: wasn't this 2 PRs to land first?
+[09:50:02] <DaveMethvin> so what's the order here?
+[09:50:07] <gibson042> https://github.com/jquery/jquery/pull/1428
+[09:50:46] <DaveMethvin> yeah i'm a little confused at this point, but maybe that would be part of the work
+[09:51:03] <DaveMethvin> figure out what to land and clean it up
+[09:51:08] <gibson042> http://irc.jquery.org/%23jquery-dev/default_%23jquery-dev_20150112.log.html#t13:15:13
+[09:51:31] <DaveMethvin> ok
+[09:51:40] <gibson042> so the order is first land those PRs, then the changes build on top of them
+[09:51:56] <DaveMethvin> ok
+[09:52:09] <DaveMethvin> how about if i land those and then ping rwaldron ?
+[09:52:59] <gibson042> sounds good to me
+[09:53:24] <DaveMethvin> alright, if we can get Deferred and Data cleaned up this week i think we'll be in good shape
+[09:54:16] <DaveMethvin> i have been working on the ajax url and low-level event tickets, to limited success
+[09:54:30] <DaveMethvin> but i hope to get through them this week
+[09:54:40] <DaveMethvin> any other stuff we should discuss here?
+[09:54:41] <markelog_> one more thing
+[09:54:44] <markelog_> browserstack will soon have support for yandex.browser
+[09:54:55] <DaveMethvin> who uses THAT!? :)
+[09:54:59] <m_gol> markelog_: I see where you're going... ;)
+[09:55:16] <markelog_> Russia, and couple other countries
+[09:55:23] <markelog_> i remember we talked about this
+[09:55:27] <DaveMethvin> i think they'll give markelog_  a raise if he gets us to test with it :)
+[09:55:28] <markelog_> couple months ago
+[09:55:30] <m_gol> yup
+[09:55:34] <DaveMethvin> yeah fine with me
+[09:55:44] <m_gol> in the periodic run, next to its friend Opera
+[09:55:46] <markelog_> i'm persistent :-)
+[09:55:58] <DaveMethvin> it's based on Blink?
+[09:56:02] <markelog_> yep
+[09:56:09] <markelog_> just like opera
+[09:56:13] <markelog_> same thing
+[09:56:21] <DaveMethvin> cool
+[09:56:29] <DaveMethvin> in that case the weekly job sounds good
+[09:56:36] <DaveMethvin> periodic
+[09:56:39] <markelog_> yep
+[09:56:51] <markelog_> no reason to put it on every commit
+[09:57:06] <DaveMethvin> anything else?
+[09:57:08] <m_gol> I have one minor thing but it can wait if you want to go as it's late
+[09:57:20] <DaveMethvin> we have a couple minutes markelog_
+[09:57:26] <markelog_> cool )
+[09:57:57] <m_gol> DaveMethvin: was this to me or markelog_? ;)
+[09:58:05] <DaveMethvin> oh sorry m_gol
+[09:58:12] <DaveMethvin> yeah ga
+[09:58:22] <m_gol> yeah, so we now have a single dependency in the project that requires node-gyp to work
+[09:58:31] <m_gol> which on Windows means Visual studio & all that crap
+[09:58:42] <DaveMethvin> yes i noticed
+[09:58:44] <DaveMethvin> :(
+[09:58:44] <m_gol> I've been mailed about it being a problem for seasonal contributors
+[09:58:47] <m_gol> so
+[09:58:55] <DaveMethvin> i now do grunt dev to avoid it
+[09:59:01] <m_gol> it's because the vm module in Node 0.10 sucks & they have to work around it
+[09:59:12] <m_gol> it's fixed in Node 0.11.4 or sth, 1.5 years ago
+[09:59:24] <m_gol> so it won't be needed in Node 0.12 and it's not needed in io.js
+[09:59:33] <m_gol> but we're on Node 0.10 now so it's becoming a problem
+[09:59:38] <DaveMethvin> i meant to bring that up but since i skip it i figured i could struggle through for now
+[09:59:49] <DaveMethvin> if they just grunt dev it skips that test
+[10:00:02] <DaveMethvin> and even tho the npm install fails that part it works fine
+[10:00:08] <m_gol> I thought about bypassing package.json and applying custom installation logic or sth
+[10:00:10] <m_gol> does it?
+[10:00:14] <DaveMethvin> does for me
+[10:00:21] <m_gol> I'm not sure what npm does if only one package fails installation
+[10:00:30] <DaveMethvin> depends on what the type of fail is
+[10:00:35] <m_gol> DaveMethvin: did you try to 'npm install' on a clear project?
+[10:00:47] <m_gol> you've had previous node_modules, this might be why it worked for you
+[10:00:47] <DaveMethvin> yeah
+[10:00:53] <DaveMethvin> i blew em away and reinstalled
+[10:01:02] <m_gol> ok, if it works this way then it's good!
+[10:01:09] <m_gol> but it can still scary off contributors
+[10:01:12] <DaveMethvin> have them try grunt dev
+[10:01:14] <DaveMethvin> i agree
+[10:01:17] <DaveMethvin> ideally it would be simpler
+[10:01:36] <m_gol> if Node 0.12 was already released (*sigh*) it'd be easier to tell people to install Node 0.12 for jQuery development than to have them install all these dev tools
+[10:01:44] <DaveMethvin> yes, agreed
+[10:01:50] <DaveMethvin> or we switch to io.js
+[10:01:53] <DaveMethvin> :)
+[10:01:53] <m_gol> ;)
+[10:02:02] <DaveMethvin> eventually we may
+[10:02:02] <arthurvr> :-)
+[10:02:11] <DaveMethvin> but for now have them try grunt dev
+[10:02:16] <m_gol> we could apply custom logic to install this package manually with some kind of a fallback
+[10:02:23] <m_gol> but that looks ugly even in my head :-)
+[10:02:23] <DaveMethvin> we could make that test optional so the default wouldn't need it
+[10:02:34] <DaveMethvin> yeah, ugly
+[10:02:48] <m_gol> now it's node_smoke_test, later it'll be Promises/A+ tests as well
+[10:03:02] <DaveMethvin> ok, let's wrap up
+[10:03:02] <m_gol> next jsdom version will support only io.js btw
+[10:03:10] <m_gol> k
+[10:03:23] <DaveMethvin> see you guys back in -dev! thanks!
+[10:03:33] <arthurvr> bye!

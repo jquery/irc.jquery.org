@@ -1,0 +1,179 @@
+[00:10:37] <x12x63> hello
+[04:43:09] <_|Nix|_> Hey! Has .data( "events" ) moved somewhere, or has it become inaccessible?
+[05:06:02] <DaveMethvin> _|Nix|_: http://bugs.jquery.com/ticket/10589
+[05:15:55] <_|Nix|_> DaveMethvin: I saw that from the git log in the meantime, and I also noticed that we are actually skipping the test that was using .data( "events" ), but the criteria for skipping the test were ill-defined: if( !( $.fn.jquery.match(/^1.8/) )) { /* perform test */ } I'm making the criteria more flexible now.
+[05:16:06] <_|Nix|_> DaveMethvin: Thanks for looking though!
+[06:54:34] <jqcommit> [jquery] gibson042 pushed 1 new commit to master: http://git.io/rXWQJA
+[06:54:34] <jqcommit> jquery/master e889134 Richard Gibson: Fix #11795, #10470: keep scripts in DOM; execute only on first insertion. Close gh-864.
+[07:59:46] <scott_gonzalez> Oh no, Boris is mad at us: http://bugs.jquery.com/ticket/9628
+[08:01:01] <scott_gonzalez> Can we respond with "subpixels sucks, please stop using them" ? :-P
+[08:55:21] <doesallmagic> Project jQuery Core build #502: STILL FAILING in 22 min: http://swarm.jquery.org:8080/job/jQuery%20Core/502/
+[08:55:21] <doesallmagic> richard.gibson: Fix #11795, #10470: keep scripts in DOM; execute only on first insertion. Close gh-864.
+[09:21:00] <Krinkle> ben_alman: Hi, is it by design that grunt changes the cwd to the directory where the --gruntfile is?
+[09:21:09] <ben_alman> yes
+[09:21:27] <Krinkle> ben_alman: Can that be disabled and/or is there a better way to do what I'm doing?
+[09:21:35] <Krinkle> What I'm doing (briefly):
+[09:21:41] <ben_alman> i don't know what you're doing, but you can change the cwd from within the gruntfile itself
+[09:21:52] <Krinkle> well, that's the thing.
+[09:22:07] <Krinkle> If that was fixed, the gruntfile would simply be in that directory
+[09:22:26] <Krinkle> I'm using it from Jenkins in the current workspace (for 100s of repositories)
+[09:22:34] <Krinkle> so I have it checked out in /var/lib/git
+[09:22:40] <Krinkle> (the grunt-tasks-wikimedia repository)
+[09:22:50] <ben_alman> you're using the same gruntfile across multiple projects?
+[09:24:19] <Krinkle> then run (from the workspace for the current repository) :/var/lib/jenkins/jobs/somerepo/workspace$ grunt --gruntfile /var/jenkins/jobs/_shared/gruntfile.js
+[09:24:22] <Krinkle> Yes
+[09:24:41] <ben_alman> why not have the gruntfile in once place and then do the stuff you need in js in the gruntfile
+[09:24:48] <ben_alman> instead of externally to the gruntfile
+[09:25:22] <Krinkle> the gruntfile.js is just a 5-liner that does loadTasks() from directory grunt-contrib-wikimedia/tasks
+[09:25:51] <Krinkle> ben_alman: Hm.. interesting, can you be more exact?
+[09:26:06] <ben_alman> you're looping in bash or something similar
+[09:26:11] <ben_alman> why not do that in js
+[09:26:13] <ben_alman> in the gruntfile
+[09:26:17] <Krinkle> No, I'm not looping
+[09:26:24] <Krinkle> This is from jenkins.
+[09:26:32] <ben_alman> i don't know what that means
+[09:26:33] <Krinkle> There are 100s of repositories being monitored.
+[09:26:47] <Krinkle> ben_alman: The continuous integration application (we use the same at jQuery)
+[09:26:53] <ben_alman> shouldn't each repo have its own gruntfile? so they all can be tested on their own?
+[09:26:54] <Krinkle> http://swarm.jquery.org:8080/
+[09:27:28] <Krinkle> ben_alman: By default we run the 'lint' tasks (which is an alias to 'jshint csslint phplint puppetlint')
+[09:27:39] <Krinkle> ben_alman: If the repo has a custom gruntfile.js, we use that instead.
+[09:27:52] <ben_alman> but if the repo has no gruntfile
+[09:28:00] <ben_alman> the repo can't be tested without your test runner
+[09:28:01] <Krinkle> Then we use the default one that enforces linting.
+[09:28:07] <ben_alman> which kinda sucks, right?
+[09:28:24] <ben_alman> wouldn't it be nice if the repo contained its gruntfule? i mean, if maintainability were no issue
+[09:28:25] <mikesherov> ben_alman: LOL
+[09:28:31] <mikesherov> "never"
+[09:29:23] <Krinkle> ben_alman: So, the alternative approach I see is to add this 5-liner to each repository and have another 5-liner package.json with dependencies: 'grunt-contrib-wikimedia': '*'
+[09:29:55] <ben_alman> well, that allows each repo to stand on its own
+[09:30:04] <ben_alman> so that it can be tested or developed on individually
+[09:30:26] <ben_alman> that was the intention at least
+[09:30:48] <Krinkle> However since we can't use npm directly from the build (npm is not an approved repository), that is not an option. Because then it requires running 'npm install' first. Whereas now we have a central repo that has the node_modules directory in the git repo included (ultra shrinkwrap if you will)
+[09:31:11] <Krinkle> ben_alman: On its own people use proper editors with linting built-in or node-jshint from the command line.
+[09:31:23] <Krinkle> If they lint at all, which is another problem.
+[09:31:36] <ben_alman> bueditors with built-in linting will possibly follow different rules than your preferred linting
+[09:31:41] <Krinkle> Anyhow, I could talk for another 3 weeks and explain the situation. At this point all I need is to make sure the cwd goes back to what it was.
+[09:31:49] <ben_alman> bueditors=editors
+[09:32:24] <ben_alman> you'd have to pass in the cwd on the command-line and then use that to set it back
+[09:32:29] <ben_alman> grunt is going to change the cwd
+[09:33:21] <Krinkle> ben_alman: hm.. as an extra task that runs before the others?
+[09:34:33] <ben_alman> you could do var cwd = grunt.option('cwd'); if (cwd) { grunt.file.setBase(cwd); }
+[09:34:46] <ben_alman> and then run grunt with an additional --cwd=.
+[09:34:48] <ben_alman> or maybe ..
+[09:34:51] <ben_alman> or whatever
+[09:34:57] <ben_alman> -cwd=foo
+[09:35:04] <ben_alman> grunt.option('cwd') // "foo"
+[09:35:37] <Krinkle> Ah, that's what I was looking for
+[09:35:54] <ben_alman> it would be --cwd=foo
+[09:36:03] <Krinkle> I didn't see the .option() in the documentation. Thought maybe I'd had to add commader.js to the dependencies.
+[09:36:14] <Krinkle> I figured grunt would have this internally already
+[09:36:24] <Krinkle> Thanks
+[09:36:31] <ben_alman> np
+[09:36:44] <Krinkle> ben_alman: And yes, I will strive for a gruntfile in each repo. And be able to do things like grunt watch locally, I like that a lot.
+[09:37:02] <ben_alman> cool
+[09:37:42] <Krinkle> But we wouldn't be able to use it from Jenkins, because any merge request from the community could modify package.json in the not-yet-approved change, and then running "npm install" could bring in any arbitrary code.
+[09:38:04] <Krinkle> since npm is a loose repository.
+[09:38:15] <Krinkle> which is nice in a trusted model.
+[09:38:34] <Krinkle> (where you trust individual dependencies), but not when dealing with npm as a whole.
+[09:39:24] <Krinkle> So given the choice of packaging each node module in debian in our own apt repo -- or: commit node_modules to the central git repo and refresh that periodically.
+[09:39:32] <Krinkle> I choose the latter, so I can use npm install locally still.
+[09:39:51] <Krinkle> Oh well, a mess that is hopefully resolved once we run each build in a vagrant box.
+[09:42:37] <Danwe> Does it make sense  at all (conceptionally) to have jQuery widgets which depend on other jQuery widgets on the SAME dom node? E.g. A view which can be extended with additional fancy functionality by other optional widgets.
+[09:44:18] <Krinkle> gibson042: https://github.com/jquery/jquery/commit/e889134058232c5e19156353c5fc3bf3b4915a94#commitcomment-2176067
+[09:44:18] <socialhapy> ★ Github API: no commit found
+[09:44:22] <Krinkle> gibson042: please fix :)
+[09:50:49] <DaveMethvin> Krinkle: i talked to gibson042 he had to run but said he'd look at it when he got back
+[09:51:33] <DaveMethvin> either that or we'll drop support for Safari 5.1 ... heck maybe that would be easier, let's do that :D
+[09:52:19] <DaveMethvin> brw Krinkle my OCD is acting up, can you make it so that the Safari 6 column isnt so wide?
+[09:52:53] <Krinkle> No, not on the short term.
+[09:53:11] <Krinkle> But make an appointment and we'll discuss it :P
+[09:53:12] <DaveMethvin> BUT MY OCD!
+[09:53:27] <Krinkle> Actually, I have a few optimisations for the width already
+[09:53:35] <Krinkle> and they make the icons bigger, in the same space
+[09:54:12] <DaveMethvin> yeah i was trying to think of a better way to organize that so it woudn't be so visually cluttered
+[09:54:24] <Krinkle> but I'm finishing the "projects" branch first, which has priority (it refactors the user/client relationship to scale more, and it'll make it possible to generate a visualised real-time swarm)
+[09:54:35] <DaveMethvin> oh that sounds like a lot more fun
+[09:54:48] <Krinkle> yeah, sure you'll like it.
+[11:28:14] <Krinkle> paul_irish: made a little mod to rAF demo: http://jsfiddle.net/XQpzU/4357/ (that way the thing keeps visibly animating even after the grid is complete)
+[11:29:18] <Krinkle> or http://jsfiddle.net/XQpzU/4358/
+[11:29:24] <Krinkle> whatever, you get the idea ;)
+[12:51:49] <danielwrobert> hello
+[12:52:05] <danielwrobert> oops … wrong window. :P
+[12:56:21] <paul_irish> Krinkle|detached: http://paulirish.com/2011/requestanimationframe-for-smart-animating/ updated
+[13:34:12] <Krinkle> paul_irish_: Thanks!
+[14:05:32] <timmywil> DaveMethvin: ping
+[14:06:32] <DaveMethvin> timmywil: pong
+[14:07:05] <timmywil> DaveMethvin: see my notes on href/src?
+[14:07:10] <DaveMethvin> yeah just did
+[14:07:31] <DaveMethvin> i was just going back to check it
+[14:07:42] <DaveMethvin> that ticket for hrefNormalized has been around for a long time
+[14:08:03] <timmywil> yea, seems that ticket caused some confusion. I forgot to close it
+[14:08:53] <timmywil> the point of using Microsoft's .getAttribute( "href", 2 ) rather than 4 was so we can return an unaltered string. .getAttribute("href") in ie6/7 already returns the absolute url
+[14:09:06] <DaveMethvin> right, for attributes
+[14:09:08] <timmywil> hence the original bug
+[14:09:17] <DaveMethvin> but i thought props were full urls
+[14:09:46] <timmywil> lol, I'm tried
+[14:09:49] <timmywil> tired
+[14:09:55] <timmywil> I have attributes on the mind
+[14:10:10] <DaveMethvin> http://jsfiddle.net/dmethvin/ZCFKC/
+[14:10:42] <DaveMethvin> now  that you mentioned it tho, i didn't check to see if script.src followed the same rule
+[14:11:15] <timmywil> it probably does
+[14:11:20] <timmywil> sorry for the confusion
+[14:11:25] <DaveMethvin> yeah it does
+[14:11:35] <DaveMethvin> so both of those are good as-is
+[14:12:45] <timmywil> yes
+[14:12:53] <DaveMethvin> whew!
+[14:13:04] <DaveMethvin> don't worry, i have those days too
+[14:13:39] <timmywil> I thought we just changed 2 to 4 and started freaking out.
+[14:13:46] <DaveMethvin> lol
+[14:13:54] <DaveMethvin> HES BREAKING EVERYTHING!
+[14:18:25] <jqcommit> [jquery] gibson042 pushed 1 new commit to master: http://git.io/U036pQ
+[14:18:26] <jqcommit> jquery/master 22f58bd Richard Gibson: fix Safari test failures
+[14:18:57] <DaveMethvin> finally, a use for jQuery.type!
+[14:19:07] <gibson042> :P
+[14:19:25] * DaveMethvin shakes fist at Safari
+[14:19:51] <snover> DaveMethvin: :[
+[14:19:52] <gnarf> why did that not have color!
+[14:19:53] <gnarf> grrr
+[14:23:39] <gibson042> while we're on jQuery.type, does anyone here know the reason for using `toString.call( obj )` instead of `obj + ""`?
+[14:24:06] <gibson042> seems like we wouldn't want to support weird overrides of toString
+[14:24:06] <snover> because objects have their own toString methods
+[14:24:25] <gibson042> ah, nevermind
+[14:24:40] <gibson042> for the purposes of type detection, we would
+[14:25:24] <ajpiano> weird https://npmjs.org/package/jquery-builder
+[14:29:41] <gnarf> huh
+[14:39:15] <doesallmagic> Yippie, build fixed!
+[14:39:16] <doesallmagic> Project jQuery Core build #503: FIXED in 16 min: http://swarm.jquery.org:8080/job/jQuery%20Core/503/
+[14:39:17] <doesallmagic> richard.gibson: fix Safari test failures
+[15:50:55] <ajpiano> where is "The Big Red Box"
+[15:51:14] <ajpiano> for trac
+[15:51:45] <ajpiano> http://bugs.jquery.com/ticket/12921
+[15:52:02] <ajpiano> we should update it to say where the right place for website and docs bugs is
+[15:52:09] <ajpiano> and probably stop talking about the "Official jQuery Plugins"
+[15:52:18] <ajpiano> ugh that phrase itself hurts my soul
+[17:07:19] <gnarf> ajpiano: like where is the text in the big red box located?
+[17:07:23] <gnarf> somewhere in a plugin i think
+[17:09:13] <snover> it’s a wiki page
+[17:09:51] <snover> like, in the trac wiki
+[17:15:40] <snover> “The guidelines are specified in the wiki pages 'TicketGuidelines/NewShort' and 'TicketGuidelines/ModifyShort'.” according to the plugin description. dunno if that is true or not
+[17:15:42] <gnarf> snover: i'm glad you pay attention
+[17:15:55] <snover> nope it’s a lie
+[17:15:55] <snover> http://bugs.jquery.com/wiki/TicketGuidelines/NewTicketSummary
+[17:16:01] <snover> andhttp://bugs.jquery.com/wiki/TicketGuidelines/ModifyTicketSummary
+[17:16:05] <snover> are what you are looking for
+[17:16:07] <snover> the end
+[17:16:11] <snover> i’m glad too gnarf
+[17:48:57] <jqcommit> [13jquery.com] 15dmethvin pushed 3 new commits to 06master: 02http://git.io/hPFNAQ
+[17:48:57] <jqcommit> 13jquery.com/06master 1449a6f7c 15Dave Methvin: I wonder if this will ever push to the live site.
+[17:48:57] <jqcommit> 13jquery.com/06master 14aa9ae0f 15Dave Methvin: Merge branch 'master' of github.com:jquery/jquery.com
+[17:48:57] <jqcommit> 13jquery.com/06master 14e4ebc04 15Dave Methvin: Fix link to 1.8.2 and add 1.8.3 release notes link.
+[19:40:56] <jqcommit> [13testswarm] 15Krinkle pushed 2 new commits to 06master: 02http://git.io/1FWrBw
+[19:40:56] <jqcommit> 13testswarm/06master 14f6d6709 15Timo Tijhof: Inject: Report filepath/linenr in onerror handling.
+[19:40:56] <jqcommit> 13testswarm/06master 1420f8d21 15Timo Tijhof: jshintignore: Add inc/libs/...
+[21:02:10] <jqcommit> [13testswarm] 15Krinkle 04force-pushed 06master from 14ad7cdd9 to 145b3c9dd: 02http://git.io/9_ezCQ
+[21:02:10] <jqcommit> 13testswarm/06master 145b3c9dd 15Timo Tijhof: Add IE6 logo and alphabetise the order.
+[21:06:00] <jqcommit> [13testswarm] 15Krinkle pushed 1 new commit to 06master: 02http://git.io/OERwZA
+[21:06:00] <jqcommit> 13testswarm/06master 145b91968 15Timo Tijhof: Optimise swarm-results table width....
+[21:17:42] <jqcommit> [13testswarm] 15Krinkle 04force-pushed 06master from 145b91968 to 14142f43d: 02http://git.io/9_ezCQ
+[21:17:42] <jqcommit> 13testswarm/06master 14142f43d 15Timo Tijhof: Optimise swarm-results table width....

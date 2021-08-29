@@ -1,0 +1,354 @@
+[03:30:15] <jzaefferer> gnarf around?
+[06:09:10] <gnarf> jzaefferer: sup
+[06:09:41] <jzaefferer> I messed around with commit hooks this morning
+[06:09:52] <jzaefferer> this is a good overview: http://fourkitchens.com/blog/2011/09/20/trigger-jenkins-builds-pushing-github
+[06:10:22] <jzaefferer> I installed that plugin, created a github user and gave it the right permissions, added the url to the QUnit project as a post-receive hook - and then nothing happens
+[06:10:49] <gnarf> hrm
+[06:10:55] <jzaefferer> I tried curling the hook url, which, without any arguments throws an exception about null json something, which makes sense as github is supposed to send json
+[06:11:42] <jzaefferer> I tried to check jenkins logs, but whatever I do with /var/log/jenkins gives me Permission Denied
+[06:12:01] <gnarf> sudo less /var/log/jenkins ?
+[06:12:41] <jzaefferer> [jqadmin@swarm-01 log]$ sudo less /var/log/jenkins
+[06:12:41] <jzaefferer> /var/log/jenkins is a directory
+[06:12:41] <jzaefferer> [jqadmin@swarm-01 log]$ sudo cd /var/log/jenkins
+[06:12:41] <jzaefferer> sudo: cd: command not found
+[06:12:58] <gnarf> sudo bash
+[06:13:02] <gnarf> cd /var/log/jenkis
+[06:13:19] <jzaefferer> thanks
+[06:13:30] <gnarf> np
+[06:13:33] <gnarf> sudo bash is useful
+[06:13:35] <gnarf> when you want a root shell
+[06:14:18] <jzaefferer> okay, that gets us somewhere...
+[06:14:20] <jzaefferer> Oct 10, 2011 1:13:54 PM hudson.security.csrf.CrumbFilter doFilter
+[06:14:20] <jzaefferer> WARNING: No valid crumb was included in request for /github-webhook/.  Returning 403.
+[06:14:36] <jzaefferer> whatever that means
+[06:14:41] <gnarf> heh
+[06:14:48] <jzaefferer> maybe the #jenkins folks can help me with that
+[06:14:53] <jzaefferer> so far they ignored me /o\
+[06:15:03] <gnarf> ?glwt
+[06:15:03] <bot-t> Good Luck With That
+[06:16:22] <jzaefferer> https://issues.jenkins-ci.org/browse/JENKINS-10263?page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel&focusedCommentId=150337#comment-150337
+[06:16:38] <jzaefferer> I guess I'll disable csrf then...
+[06:17:49] <gnarf> ummm
+[06:18:02] <gnarf> the fact that you CAN disable that is kinda scary... :)
+[06:20:57] <gnarf> looks like that did somethig jzaefferer
+[06:23:50] <jzaefferer> mhm, true, it still checks if there actually are changes: http://swarm.jquery.org:8080/job/QUnit/GitHubPollLog/?
+[06:24:04] <jzaefferer> so it only builds when there's new stuff, which is fine
+[06:24:11] <jzaefferer> and will break again if the repo is "corrupt"
+[06:28:05] <jzaefferer> gnarf: the changes page now links back to github for each commit: http://swarm.jquery.org:8080/job/QUnit/changes
+[06:28:49] <gnarf> we are still having the problem of browser headers
+[06:29:10] <gnarf> also, is there a status other than pass/fail we can use for incomplete swarms?
+[06:47:25] <ThiefMaster|work> hi, is the following issue with draggable in IE already known? http://jsfiddle.net/EHHJx/
+[06:47:37] <ThiefMaster|work> (ignore the line 192 error; it's something broken in jsfiddle itself and unrelated to the problem)
+[06:47:58] <ThiefMaster|work> basically draggable breaks as soon as the contents of the draggable element are replaced with something else onmousedown
+[06:48:34] <kborchers> which IE, seems ok in 9
+[06:48:37] <gnarf> jzaefferer: omg that email ;)
+[06:48:37] <ThiefMaster|work> 8
+[06:48:55] <kborchers> hold on, have to fire up a vm for that one
+[06:50:44] <ThiefMaster|work> might also break in ie8 mode of ie9
+[06:50:46] <gnarf> kborchers: just liked that fiddle because it has .box ;)
+[06:51:15] <kborchers> i can't resist .box
+[07:00:17] <kborchers> ThiefMaster|work: I do see the issue you are referring to and I do not see a ticket similar to that issue. Please file the bug at http://bugs.jqueryui.com. Thanks
+[07:03:04] <ThiefMaster|work> http://bugs.jqueryui.com/ticket/7778
+[07:24:25] <jzaefferer> gnarf: haven't yet looked into the headers stuff, there might be an open pull request for that
+[07:24:49] <jzaefferer> as for incomplete, I'm ignoring that until we get the browserstack guys on board
+[07:24:57] <jzaefferer> or they say that they aren't on board...
+[07:25:13] <gnarf> right
+[07:25:30] <gnarf> was just a random thought that it might be better to only report failing for a failed test
+[07:25:51] <gnarf> just "Incomplete" for tests that didn't finish
+[07:34:32] <jq-jenkins> Project jQuery UI build #95: STILL FAILING in 1 min 20 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/95/
+[07:34:33] <jq-jenkins> * kris.borchers: Popup: Added tooltip style demo and link to demos index
+[07:34:33] <jq-jenkins> * Scott González: Tooltip demo: Use position option in tracking demo.
+[07:36:51] <jzaefferer> gnarf: makes sense, and Jenkins even supports three states for build results, but getting TestSwarm to support that is a bit too involved
+[07:49:34] <jzaefferer> hey wwalser, finally merged your pull request, as well as all others
+[07:55:02] <gnarf> jzaefferer: because it requires writing java code?
+[07:55:27] <jzaefferer> gnarf: pretty much
+[07:55:31] <gnarf> or like swarm can't build that report?
+[07:55:57] <jzaefferer> swarm reports notstarted, so that's fine
+[07:56:15] <gnarf> cuz if we could have a "jobstatus" url to spit out json
+[07:56:22] <gnarf> does that make it any easier in java?
+[07:56:54] <jzaefferer> maybe
+[07:56:56] <jzaefferer> see https://github.com/appendto/jenkins-testswarm/blob/master/src/main/java/com/appendto/hudson/testswarm/TestSwarmDecisionMaker.java
+[07:57:40] <gnarf> that just returns true false
+[07:58:11] <gnarf> https://github.com/appendto/jenkins-testswarm/blob/master/src/main/java/com/appendto/hudson/testswarm/TestSwarmIntegrationBuilder.java#L196
+[07:58:17] <gnarf> i assume we can do an incomplete there
+[08:00:00] <gnarf> hr
+[08:00:10] <gnarf> seems that it never actually sets a "ok" result
+[09:48:30] <jzaefferer> gnarf: probably "ok" is the default, you only change it on failure
+[09:51:13] <jzaefferer> hey scott_gonzalez, any news from browserstack? any replies that need to get drafted?
+[09:53:12] <scott_gonzalez> they're aiming for the end of the month to have clients available for us
+[09:56:19] <jzaefferer> ah, nice
+[09:56:31] <jzaefferer> Jenkins is now working reasonably well
+[09:56:47] <jzaefferer> we've got jQuery, jQuery UI, jQuery Color, jQuery Mobile and QUnit hooked up via commit hooks
+[09:56:55] <scott_gonzalez> awesome
+[09:57:13] <jzaefferer> the commit bot is in three channels, though currently not posting anything for mobile
+[09:57:21] <jzaefferer> thats just a checkbox
+[09:57:30] <jzaefferer> will be more useful once we actually have the clients connected
+[09:57:38] <scott_gonzalez> can we change the naming from "jQuery UI commit #647bab506e288658c8a28dab1083c657ad61951e" to "647bab5"?
+[09:57:53] <jzaefferer> ah, yeah, need to figure out how to get at the short hash
+[09:58:35] <jzaefferer> https://wiki.jenkins-ci.org/display/JENKINS/Git+Plugin#GitPlugin-AdvancedFeatures
+[09:58:56] <jzaefferer> just GIT_COMMIT (in use) and GIT_BRANCH, no GIT_SHORTCOMMIT or something...
+[09:59:11] <scott_gonzalez> hmm....the test result snapshots are pointing at a bad stylesheet
+[09:59:13] <scott_gonzalez> http://swarm.jquery.org/?state=runresults&run_id=2108&client_id=153
+[09:59:14] <gnarf> or to do a substr on it
+[09:59:59] <gnarf> hrm
+[10:00:02] <gnarf> that should be there
+[10:00:03] <scott_gonzalez> jzaefferer: https://github.com/jquery/jquery-ui/pull/491
+[10:00:04] <socialhapy> ★ Pull request on jquery-ui by chrisleishman (3h, 34m ago): Add renderMenu option to autocomplete
+[10:01:21] <jzaefferer> gnarf: maybe its gone as TestSwarm stores just the html, and we delete old revisions, including css files?
+[10:01:29] <gnarf> pretty much
+[10:01:36] <gnarf> thats my assumption
+[10:01:43] <jzaefferer> newer ones work fine: http://swarm.jquery.org/?state=runresults&run_id=2140&client_id=209
+[10:02:00] <gnarf> we could make a rewrite for that
+[10:02:34] <gnarf>  /git/jquery-ui/.*/external/qunit.css -> /git/jquery-ui/master/external/qunit.css
+[10:02:55] <jzaefferer> that's probably fine
+[10:03:43] <jzaefferer> hey kborchers, I moved the menu issue from the selectmenu to the menu page: http://wiki.jqueryui.com/w/page/12137997/Menu
+[10:04:17] <kborchers> jzaefferer: cool. i was planning on looking at that and continuing on popup tonight
+[10:04:49] <kborchers> scott_gonzalez: goodness! i saw you close that pull this morning and thought nothing else of it.
+[10:06:37] <scott_gonzalez> if he wants a render option so badly he should just write an extension
+[10:06:49] <scott_gonzalez> I don't understand why he's so against this
+[10:06:53] <gnarf> scott_gonzalez: point him at your extensions?
+[10:07:04] <gnarf> i use the html extension
+[10:07:07] <gnarf> its awesome
+[10:07:38] <scott_gonzalez> :-)
+[10:16:25] <kborchers> jzaefferer: do we want popup to not allow the user to tab out of it? Only way to exit popup with keyboard is escape
+[10:18:16] <jzaefferer> yeah, pretty much - in that case it behaves like a dialog
+[10:18:23] <gnarf> hey jzaefferer http://swarm.jquery.org:8080/job/jQuery%20Color/lastFailedBuild/console
+[10:18:32] <gnarf> how did we fix this?
+[10:18:42] <jzaefferer> chown to jenkins
+[10:19:09] <jzaefferer> basically anything in htdocs/git should be owned by jenkins
+[10:20:07] <gnarf> hrm
+[10:20:10] <gnarf> something sems wrong here
+[10:20:21] <gnarf> the swarm injection seems to be injecting itself
+[10:20:29] <gnarf> http://cl.ly/0m3B3b3N3B1U1O0Y0z0R
+[10:21:16] <kborchers> jzaefferer: ok, so then what purpose does the focusout handler serve that isn't covered by the "click outside" handler?
+[10:21:34] <kborchers> the reason i ask is that the focusout is being triggered by an event bubbling from a focused element inside the popup when you click inside causing it to close
+[10:21:44] <kborchers> thus the issue with selecting text inside, etc.
+[10:21:54] <jzaefferer> gnarf: INCEPTION
+[10:22:10] <jzaefferer> kborchers: no idea
+[10:22:19] <jzaefferer> sure, I may have written that at some point...
+[10:23:05] <kborchers> so probably safe to remove the focusout handler then
+[10:23:30] <gnarf> scott_gonzalez: fixed http://swarm.jquery.org/?state=runresults&run_id=2108&client_id=153 jzaefferer
+[10:23:45] <gnarf> RewriteRule ^jquery-ui/[^/]+/external/qunit.css$ jquery-ui/master/external/qunit.css
+[10:23:56] <gnarf> done after the check for the real file
+[10:24:06] <gnarf> so while its testing it should serve up the actual branch
+[10:24:41] <gnarf> jzaefferer: have you seen that swarm recursion before / know where i should start looking?
+[10:31:19] <gnarf> aha, found it
+[10:33:15] <gnarf> hrm
+[10:33:17] <gnarf> okay
+[10:33:29] <gnarf> now it seems that my test suite isn't reporting back
+[10:33:32] <gnarf> its running
+[10:33:35] <gnarf> but yellow
+[10:33:39] <gnarf> http://swarm.jquery.org/job/232/
+[10:34:53] <jzaefferer> did you add the swarminject stuff in jquery-color itself?
+[10:34:58] <gnarf> nope
+[10:35:04] <jzaefferer> k, then that's missing
+[10:35:53] <gnarf> its that chunk of code from testrunner.js ?
+[10:36:14] <jzaefferer> see https://github.com/jquery/qunit/commit/3006fa77db4625c4293c368a8999ddb1abba7f48
+[10:36:15] <socialhapy> ★ Commit on qunit by jzaefferer (1w, 2d ago): Make QUnit work with TestSwarm
+[10:39:19] <gnarf> awesome
+[10:39:21] <gnarf> thanks
+[10:39:25] <gnarf> http://swarm.jquery.org/user/jquerycolor/
+[10:47:19] <jzaefferer> nice
+[10:47:26] <jzaefferer> now just need to get back those browser icons...
+[11:00:49] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/vBNwPA
+[11:00:49] <jquicommit> [jquery-ui/grid] Grid: Move focus back to grid. Makes sense, and fixes the tooltip issue. - Jörn Zaefferer
+[11:01:40] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/DaiZjg
+[11:01:40] <jquicommit> [jquery-ui/master] Spinner: Simulate keyup at the end of incremental tests to stop the repeat timer. - Scott González
+[11:02:45] <jq-jenkins> Project jQuery UI build #96: STILL FAILING in 59 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/96/
+[11:02:45] <jq-jenkins> Scott González: Spinner: Simulate keyup at the end of incremental tests to stop the repeat timer.
+[11:03:00] <jzaefferer> ajpiano danheberden: did you consider using octopress as the static site generator for learning and other pages with git-based deployments?
+[11:03:30] <scott_gonzalez> holy crap, 59 seconds is a bit low
+[11:03:37] <danheberden> i was relying on ajpiano's judgement so hadn't looked at any others
+[11:04:14] <scott_gonzalez> that'd be like 100 clients connected
+[11:04:56] <jzaefferer> scott_gonzalez: a test timed out, killing the entire job
+[11:05:09] <jzaefferer> jenkins ignores everything else once that happens
+[11:05:13] <scott_gonzalez> oh
+[11:05:33] <jzaefferer> stops polling on timeout or failure
+[11:05:43] <jzaefferer> makes sense in a more ideal world :-)
+[11:05:54] <scott_gonzalez> maybe I'll dig into autocomplete next
+[11:06:26] <jzaefferer> danheberden: okay, makes sense - apparently nanoc and jekyll and octopress aren't that different anyway
+[11:06:35] <danheberden> yeah, they all seem pretty similar
+[11:06:40] <danheberden> we need a node one to be cool kids
+[11:06:48] <jzaefferer> friend of mine is working a lot on octropress these days, that's why I asked
+[11:06:52] <jzaefferer> true dat!
+[11:07:09] <jzaefferer> I wanted to try it, ended up compiling Ruby 1.9.2
+[11:07:15] <jzaefferer> wtf
+[11:07:30] <jzaefferer> what's wrong with these people? whats wrong with binaries?
+[11:07:43] <scott_gonzalez> rvm
+[11:08:01] <jzaefferer> yeah, rvm is what is compiling Ruby...
+[11:09:56] <jquicommit> [jquery-ui] fnagel pushed 2 new commits to selectmenu: http://git.io/Q7--OQ
+[11:09:56] <jquicommit> [jquery-ui/selectmenu] Selectmenu: fixed destroy method, show original select again, thx to @jzaefferer - Felix Nagel
+[11:09:56] <jquicommit> [jquery-ui/selectmenu] Selectmenu: added test for methods - Felix Nagel
+[11:10:48] <scott_gonzalez> hmm...Status: Error connecting to server, retrying...
+[11:19:20] <jzaefferer> scott_gonzalez: who said that?
+[11:19:57] <scott_gonzalez> my IE 8 client connected to TestSwarm
+[11:20:04] <scott_gonzalez> I refreshed the page and it started working again
+[11:23:56] <jzaefferer> ah
+[11:27:53] <jquicommit> [jquery-ui] fnagel pushed 1 new commit to selectmenu: http://git.io/g4VaBQ
+[11:27:53] <jquicommit> [jquery-ui/selectmenu] Selectmenu: improved event handling, fixed anchor problem when clicking menu item - Felix Nagel
+[11:34:49] <scott_gonzalez> view.jqueryui still doesn't work on branches/tags
+[11:34:50] <scott_gonzalez> http://view.jqueryui.com/1.8.16/demos/autocomplete/default.html
+[11:36:52] <scott_gonzalez> got the bottom half of our tests all green :-)
+[11:37:16] <scott_gonzalez> http://gyazo.com/63f5269cb01c413614640c076427ef22
+[11:42:11] <gnarf> http://view.jqueryui.com/1-8-stable/demos/autocomplete/default.html
+[11:42:44] <gnarf> dude, the source options are visible when i view the page source
+[11:42:46] <gnarf> fix it
+[11:43:24] <gnarf> tags is a little different
+[11:43:29] <gnarf> i don't know if this ever worked on tags
+[11:46:47] <kborchers> wow, that's a huge problem gnarf! i can't believe those UI guys make the source visible when you view source!
+[11:56:10] <gnarf> RE: https://github.com/jquery/jquery-ui/pull/492 -- we are trying to move away from var that=this right?
+[11:56:11] <socialhapy> ★ Pull request on jquery-ui by fnagel (20m, 10s ago): Selectmenu: Code review
+[11:59:48] <kborchers> gnarf: i think so ... especially since "that" looks unnecessary in a lot of places he uses it
+[12:01:34] <jzaefferer> gnarf, kborchers: just post that on the PR along with suggestions how to replace it
+[12:03:44] <gnarf> also, agreed that we really need some units on that branch
+[12:05:14] <jzaefferer> yeah, no need to point that out anymore
+[12:05:30] <jzaefferer> if anything, let's help him out there
+[12:05:42] <jzaefferer> maybe put the initial tests structure in place along with the destory method test
+[12:05:51] <jzaefferer> that could be enough to get Felix to write others
+[12:11:37] <jquicommit> [jquery-ui] fnagel pushed 1 new commit to selectmenu: http://git.io/_mG62w
+[12:11:37] <jquicommit> [jquery-ui/selectmenu] Selectmenu: added custom_render.html demo to index.html - Felix Nagel
+[12:20:48] <gnarf> maybe some event related test too
+[12:26:18] <jzaefferer> yeah, basically replacing the stuff in tests/visual/selectmenu
+[12:27:18] <jzaefferer> btw. here's fnagel \o/
+[12:27:49] <fnagel> hey there
+[12:29:49] <gnarf> hey
+[12:35:17] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/IEue4g
+[12:35:17] <jquicommit> [jquery-ui/master] Tabs: Force ajax tabs to resolve asynchronously to avoid a bug caused by cached XHRs resolving immediately in IE. - Scott González
+[12:36:25] <jq-jenkins> Project jQuery UI build #97: STILL FAILING in 1 min 1 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/97/
+[12:36:26] <jq-jenkins> Scott González: Tabs: Force ajax tabs to resolve asynchronously to avoid a bug caused by cached XHRs resolving immediately in IE.
+[12:42:30] <scott_gonzalez> jzaefferer: IE 8 died on TestSwarm again: http://gyazo.com/97c22bfba2153bb09b700145d0eeda87
+[12:44:42] <jzaefferer> scott_gonzalez: crap
+[12:44:48] <jzaefferer> btw. how did you get autocomplete to work?
+[12:44:55] <scott_gonzalez> MAGIC
+[12:45:04] <scott_gonzalez> I connect my client to TestSwarm and ran the test twice
+[12:45:13] <scott_gonzalez> I still have no idea what the problem is
+[12:45:17] <scott_gonzalez> but it only dies on the first run
+[12:45:53] <jzaefferer> ah, also crap
+[12:46:02] <jzaefferer> btw. here's the IE8 killing line: https://github.com/jquery/testswarm/blob/master/js/run.js#L121
+[12:46:23] <jzaefferer> Member not found  - means e is undefined?
+[12:46:24] <scott_gonzalez> yeah, no idea why that line is causing a problem
+[12:46:28] <scott_gonzalez> maybe?
+[12:46:51] <jzaefferer> data undefined wouldn't cause an error, retrySend undefined doesn't make sense at all
+[12:47:27] <jzaefferer> this is where handleMessage is used: https://github.com/jquery/testswarm/blob/master/js/run.js#L12
+[12:47:53] <scott_gonzalez> hmm...should it be using || window.event ?
+[12:47:58] <jzaefferer> is that the old `var e = e || window.event` crap?
+[12:48:07] <jzaefferer> without the var actually
+[12:48:16] <jzaefferer> I guess we can test that :/
+[12:48:37] <jzaefferer> e = e || window.event;
+[12:50:37] <jzaefferer> deployed
+[12:51:01] <jzaefferer> scott_gonzalez: keep an eye on your IE :-)
+[12:51:09] <scott_gonzalez> ok :-)
+[12:51:36] <scott_gonzalez> this doesn't look right: http://gyazo.com/4e8c99bf452031b9e5a9619028b951f7
+[12:51:52] <scott_gonzalez> oh boy
+[12:52:01] <scott_gonzalez> it has the main swarm page open in the iframe
+[12:53:55] <scott_gonzalez> seems to be working properly now that I refreshed
+[12:56:21] <gnarf> scott_gonzalez: there are some bugged jQuery color jobs
+[12:56:27] <gnarf> its working now tho
+[12:56:30] <scott_gonzalez> ah, ok
+[12:57:14] <jzaefferer> I can clean out all jobs once to get rid of those
+[12:58:14] <jzaefferer> gnarf scott_gonzalez; someone willing to pair with me on fixing the browser icons
+[12:58:15] <jzaefferer> ?
+[12:59:02] <jzaefferer> actually seems like this issue: https://github.com/jquery/testswarm/pull/73
+[12:59:03] <socialhapy> ★ Pull request on testswarm by pascal-bach (3m, 2w ago): Issue #13 - Icons rendering in jobstatus and tinder
+[13:00:15] <scott_gonzalez> jzaefferer: I can work on it with you tomorrow
+[13:00:20] <scott_gonzalez> getting on a 1 hour call right now
+[13:00:38] <jzaefferer> I'll check if that PR fixes it - if not, let's look into it tomorrow
+[13:02:09] <jzaefferer> yeah, that's it
+[13:04:00] <jzaefferer> sweet: http://swarm.jquery.org/user/qunit/
+[13:04:08] <jzaefferer> also gnarf: http://swarm.jquery.org/user/jquerycolor/
+[13:06:30] <jzaefferer> holy crap, original issue is from Sepetember 2009: https://github.com/jquery/testswarm/issues/13
+[13:06:31] <socialhapy> ★ Issue #13 on testswarm, reported by Xorath (2y, 3w ago): Job status and tinder should not assume first row is equal to others
+[13:10:06] <gnarf> heh
+[13:10:09] <gnarf> qunit fails on ie6
+[13:10:10] <gnarf> :)
+[13:11:15] <gnarf> so guys
+[13:11:25] <gnarf> im still curious what to do about those failing units in effects
+[13:11:43] <gnarf> i think i'm just going to comment them out as a "it would be nice to find a fix for this"
+[13:14:34] <jzaefferer> you mean those FF failures?
+[13:15:40] <gnarf> yeah
+[13:16:47] <gnarf> there is code in there trying to support that right now
+[13:16:49] <gnarf> and well
+[13:16:53] <gnarf> it just doesn't work
+[13:22:27] <scott_gonzalez> jzaefferer: http://gyazo.com/7391758a1f25261ae9c66d59b84dcad0
+[13:22:53] <jzaefferer> bah, yeah
+[13:22:57] <jzaefferer> I'll clear out old jobs
+[13:22:59] <jzaefferer> that is, all jobs
+[13:23:18] <jzaefferer> those are from the time where we were moving things around...
+[13:28:00] <jq-jenkins> Project jQuery UI build #98: STILL FAILING in 1 min 8 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/98/
+[13:30:55] <jzaefferer> scott_gonzalez: would you be fine with pulling this into an editable branch and giving rxaviers access to work on it? similar to fnagel working on selectmenu within our repo - https://github.com/jquery/jquery-ui/pull/456/files#diff-0
+[13:30:56] <socialhapy> ★ Pull request on jquery-ui by rxaviers (3w, 5d ago): Editable: new widget created (actually, revived from previous inlineedit)
+[13:31:14] <jzaefferer> that way view… works as usual and people can send PRs against jquery-ui instead of a fork
+[13:31:27] <scott_gonzalez> sure, if you're going to manage it :-P
+[13:38:32] <jzaefferer> its not worse then trying to write it myself besides all the other grid stuff
+[13:42:50] <jquicommit> [jquery-ui] jzaefferer created editable (+11 new commits): http://git.io/2r-F3A
+[13:42:50] <jquicommit> [jquery-ui/editable] Inlineedit: reviving this widget. jQuery UI has no such functionality available. - Rafael Xavier de Souza
+[13:42:50] <jquicommit> [jquery-ui/editable] Inlineedit: parameterizing class-strings, jsfying html, and organizing methods. Hardcoded strings all over the code was confusing and methods could simply be made more clear. - Rafael Xavier de Souza
+[13:42:50] <jquicommit> [jquery-ui/editable] Editable: renamed Inlineedit to Editable. The latter is simpler than the former and has been preferred by the core team. - Rafael Xavier de Souza
+[13:44:26] <jzaefferer> okay, pushed the editable branch and gave rxaviers write access
+[13:44:32] <jzaefferer> same deal as for selectmenu
+[13:44:53] * rxaviers :)
+[13:46:32] <jzaefferer> not sure yet how to deal with widgets that aren't on master
+[13:47:14] <jzaefferer> integration branches aren't that much fun, merging mask into editable means we can't merge editable into master until mask is ready
+[13:48:59] <jzaefferer> I guess the best strategy is: get em done!
+[13:49:10] <jzaefferer> maintaining lots of branches over a long time is a bad idea anyway
+[13:56:31] <jzaefferer> rxaviers: I did some more testing, added TODOs on the wiki: http://wiki.jqueryui.com/w/page/12137959/Editable
+[13:58:44] <rxaviers> jzaefferer, excelent! I will work on those time permitting. I assume there's no urgency, but if it is just let me know and I try to give it some higher priority.
+[13:58:58] <jzaefferer> well, asap of course :-)
+[13:59:21] <jzaefferer> the earlier we get it in master, the earlier we can integrate it with other branches, like mask and selectmenu
+[14:00:16] <rxaviers> jzaefferer, alright ;)
+[14:01:56] <jzaefferer> rxaviers, could you also review the eidtable that Ca-Phun mentioned in the comments? check out the controls option and how the live() support is implemented
+[14:02:06] <jzaefferer> *edtiable
+[14:02:07] <jzaefferer> darn
+[14:02:55] <jzaefferer> other then that - have you worked with QUnit?
+[14:03:19] <jzaefferer> if not, take a look at the autocomplete and spinner unit tests
+[14:03:23] <jzaefferer> those are probably good references
+[14:03:51] <jzaefferer> once we notice issues that aren't apparent by looking at the demos, we should start with the unit tests
+[14:06:04] <rxaviers> jzaefferer, I havent found anything new on Ca-Phun version of editable. But, I may have overlooked it. I will check it again with emphasis on that method and options.
+[14:06:24] <gnarf> jzaefferer: what stops us from pulling timepicker/mask into master?
+[14:06:25] <rxaviers> jzaefferer, nope, will learn it.
+[14:06:44] <gnarf> demos
+[14:06:45] <gnarf> docs?
+[14:06:57] <jzaefferer> gnarf: not docs, those are missing for tooltip etc as well
+[14:07:14] <gnarf> so we need some demos?
+[14:07:26] <gnarf> i can write them if someone has some contrived ideas for demos to write
+[14:07:43] <jzaefferer> scott_gonzalez rworth: could we do a gang review of mask branch sometime this week?
+[14:07:59] <gnarf> we can skype it
+[14:08:08] <jzaefferer> nitpickers gonna nitpick :-)
+[14:08:09] <rworth> I'm available Tue or Thu
+[14:09:03] <jzaefferer> scott_gonzalez?
+[14:09:14] <gnarf> i'm free
+[14:09:53] <scott_gonzalez> yeah, I should be available
+[14:10:12] <scott_gonzalez> the client I'm working with is being unresponsive, so as of right now I've got plenty of time :-P
+[14:10:19] <gnarf> nice
+[14:10:35] <scott_gonzalez> does tomorrow work for everyone?
+[14:12:08] <jzaefferer> yeah, preferably sometime EST morning
+[14:12:23] <jzaefferer> like, before 11am
+[14:12:59] <jzaefferer> gonna head out for out JS meetup about then, meet with the octopress commiter about static site generators and later talk about testing team...
+[14:13:06] <jzaefferer> maybe I can get some more recruits :-)
+[14:14:55] <gnarf> i can prolly pull off 10am
+[14:15:10] <gnarf> much earlier and i debate staying up
+[14:15:11] <gnarf> :)
+[14:15:17] <gnarf> (EST)
+[14:16:04] <gnarf> I'm trying to fill in the browser holes in swarm
+[14:16:24] <gnarf> kborchers: ie6 position fails?
+[14:16:38] <gnarf> http://swarm.jquery.org/?state=runresults&run_id=19&client_id=12
+[14:17:06] <jzaefferer> gnarf: its a hit-the-mole-game - you'll never win :p
+[14:17:18] <kborchers> exactly ... could not track it down
+[14:17:37] <gnarf> is it always 42?
+[14:17:41] <gnarf> :)
+[14:17:49] <jzaefferer> it must be
+[14:18:01] <gnarf> is that the padding/margin or something?
+[14:19:22] <kborchers> if you look further down though, they're off by more and it just seems really weird. much more than just a couple of pixels that could be explained by some padding or a margin.
+[14:19:49] <kborchers> it's always left too, never top
+[14:23:09] <gnarf> whitespace?
+[14:23:11] <gnarf> :)
+[14:24:42] <kborchers> hmm
+[14:31:41] <kborchers> nope ... i removed all whitespace and re-ran with same results
+[14:32:12] <kborchers> gotta head out ... i'll be working on menu, popup and i'll take another look at this issue to later tonight
+[22:07:38] <jquicommit> [jquery-ui] kborchers pushed 1 new commit to master: http://git.io/ME0HSw
+[22:07:38] <jquicommit> [jquery-ui/master] Popup: Removed the focusout and focusin handlers which are nolonger necessary. Also updated the tooltip style demo to have a little more interactive content. - kborchers
+[22:08:59] <jq-jenkins> Project jQuery UI build #99: STILL FAILING in 1 min 13 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/99/
+[22:08:59] <jq-jenkins> kris.borchers: Popup: Removed the focusout and focusin handlers which are nolonger necessary. Also updated the tooltip style demo to have a little more interactive content.
+[22:09:00] <bot-t> (1 hour 45 mins ago) <DaveMethvin> tell jq-jenkins yeah I KNOW
+[22:11:43] <kborchers> wat?
+[22:12:01] <kborchers> must be because there are no units yet for popup

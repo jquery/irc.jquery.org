@@ -1,0 +1,415 @@
+[02:13:19] <drduck> So it seems to be no suprise that Jquery's ComboBox grows increasingly slower as you have more data to be loaded in it. I would like to load partitions of a large data set into a ComboBox -- to improve speed -- with a button at the bottom of the dropdown for loading (re-rendering) a new partition. I'd like to do all of this while being able to do autocompletion on all partitions collectively.
+[02:14:50] <drduck> Are there any examples online of doing such a thing? My attempts so far have resulted in displaying my first partition and all data collectively being searchable through autocompletion, but after pressing a button to render a new partition, autocompletion becomes restricted to said partition rather than the collective.
+[02:16:21] <Cork> drduck: isn't combobox built around autocomplete?
+[02:16:34] <drduck> Yes.
+[02:16:49] <Cork> then just limit the number of results returned by the server
+[02:17:03] <Cork> then you can either use filter or offset
+[02:17:13] <Cork> should be fairly simple
+[02:18:58] <drduck> Offset? I have the data in bulk. I'm using begin and end indices to denote partitions. These indices change upon clicking a "load more" item in the combobox which does a new .slice(begin,end) on the bulk data.
+[02:19:17] <Cork> ah, so you run completely with local data?
+[02:19:22] <drduck> Yes.
+[02:19:29] <Cork> that will make it a bit more complicated
+[02:19:48] <Cork> but you could try using the source function in autocomplete
+[02:19:50] <drduck> Somehow after the first call, I am no longer able to autocomplete on the bulk local data.
+[02:19:53] <Cork> not sure how well it will work though
+[02:20:07] <drduck> Yes this is being done in the source function.
+[02:23:41] <drduck> Anyone ever had to deal with a similar situation? Basically I just want to speed up a combobox which must load over 2k items.
+[02:24:06] <Cork> your best option is to make a jsfiddle showing what problem you have
+[02:24:09] <drduck> I thought partitioning the data would work out well, but it seems I can't continue collective autocompletion if I partition in source.
+[02:25:21] <Cork> cause no paginating local data in autocomplete isn't something many will do i believe
+[02:33:30] <drduck> Ok. Gonna make some quick edits to an already existing jsfiddle combobox example.
+[02:40:53] <drduck> Cork: Here is such an example, ignoring the corner cases of the load more button. http://jsfiddle.net/1gjhtxkp/10/
+[02:41:48] <drduck> This was forked from an existing jsFiddle. My changes were adding a function associated with the select event, adding begin and end indices to denote partitions, and adding a .slice() in the source method.
+[02:41:51] <Cork> you have two select functions
+[02:42:05] <drduck> Oh woops.
+[02:42:53] <drduck> http://jsfiddle.net/1gjhtxkp/12/
+[02:42:58] <drduck> There we are
+[02:43:41] <drduck> Notice that initially autocompletion can be done on the data collectively.
+[02:44:18] <drduck> If you render another partition via the "load more" button, this is no longer the case.
+[02:45:14] <drduck> Could I workaround that in any way which would allow me to render new partitions while being able to autocomplete on the collective?
+[02:52:56] <drduck> Anyone? The whole reason for doing this in the first place is due to Combobox slowing down to an almost unusable point when a couple thousand items are loaded.
+[02:53:21] <Cork> drduck: you need to clear the begin/end when a text search is done
+[02:53:42] <Cork> the the problem isn't in the default widget but in your modifications
+[02:54:59] <jeckyt> b
+[02:55:32] <drduck> Cork, when a text search is being done? Can you elaborate?
+[02:55:51] <Cork> when load more is clicked the begin/end is updated
+[02:55:56] <Cork> but they aren't ever cleared
+[02:56:14] <Cork> so when one later make a search it will slice from 3+ or so
+[02:56:19] <Cork> resulting in an empty array
+[02:56:32] <Cork> (if one search for "f" for example)
+[02:57:20] <drduck> If I'm not mistaken, doesn't clicking the 'Show All Items' button, also result in a search though?
+[02:57:33] <Cork> sure and?
+[02:57:41] <drduck> I would want the partitioning to persist there.
+[02:57:58] <Cork> doesn't change what causes the problem
+[02:58:12] <Cork> you need to separate those two cases so you can know when you need to reset it
+[02:58:59] <Cork> also i would prob use infinite scroll instead of injecting a click line in the dropdown
+[02:59:15] <Cork> less mocking around needed
+[02:59:59] <drduck> Infinite scroll? Wouldn't this just result in a combobox that ultimately becomes quite slow just as it would with loading all of the items?
+[03:00:25] <Cork> sure, but only if they actually look for the target by scrolling quite some time
+[03:00:33] <drduck> I guess the whole point of doing this partition thing was to kind of encourage the user to use autocompletion anyway.
+[03:00:40] <Cork> normally ppl search when it becomes more then say 100 results
+[03:00:43] <drduck> And get rid of the slow down.
+[03:00:56] <Cork> and when it gets slow it automatically pushes them there
+[03:01:09] <Cork> (and 100 lines shouldn't be slow)
+[03:02:07] <drduck> I'm dealing with thousands; not hundreds.
+[03:02:25] <Cork> ...
+[03:02:31] <Cork> read what i said again...
+[03:02:35] <drduck> Also once you reach the point of the dropdown becoming slow, there is no turning back with infinite scroll unless you reload the page.
+[03:02:40] <Cork> read what i said again...
+[03:05:15] <drduck> Yes I agree that it encourages the user to use autocompletion (both do), and it is cleaner.
+[03:06:03] <drduck> I will look into it. I'll also look into adding something to a search method for when an empty string is searched if I decide to go with the partitioning.
+[03:06:20] <Cork> no not for when an empty string is search
+[03:06:42] <Cork> identify then when dropdown is clicked or when the string isn't an addition to the old string
+[03:06:55] <Cork> and in those cases reset the pagination
+[03:08:04] <drduck> Ok. I will do that.
+[03:08:04] <Cork> or actually when the string isn't identical to the old string
+[03:08:13] <Cork> cause that means you should do a new filter
+[03:14:02] <drduck> Oh that sounds right.
+[03:14:13] <drduck> Cork: Also, do you know of a good example of inifinite scroll with combobox that you've referenced?
+[03:14:59] <Cork> nope, but i would look at catching scroll events on autocomplete('widget') (i THINK that should be the dropdown)
+[03:15:39] <drduck> Alright going to bed now. Thanks.
+[03:15:44] <Cork> np
+[04:26:23] <MacroMan> When using an object method as a click event callback, `this` refers to the jQuery object inside the method. How can I refer to the original `this` as in the object the method is attached to?
+[04:28:04] <MacroMan> https://jsfiddle.net/tyba7uz8/
+[04:30:17] <AdamPDotty> just check your output
+[04:31:39] <MacroMan> AdamPDotty: Do you think I would've asked this question blind? Of course I've checked the output, and `this` doesn't refer to my object
+[04:33:20] <Cork> MacroMan: 1. this is bound to a function through the dot reference
+[04:33:34] <Cork> you are giving .click the function directly so the reference is lost
+[04:33:54] <MacroMan> So I have no way of accessing the object instance?
+[04:34:01] <Cork> also click handlers call the function with .call(element) so the this object is the dom element the event was fired on
+[04:34:33] <Cork> MacroMan: .click(function() { return lib.ev.apply(lib, arguments); });
+[04:35:07] <Cork> but that means you will lost the reference to the event element
+[04:35:17] <Cork> as it isn't exposed any other way
+[04:35:28] <MacroMan> Ah OK.
+[04:35:40] <Cork> s/lost/lose/
+[04:35:41] <MacroMan> I'll try and find a workaround, thanks for your help
+[04:35:59] <Cork> MacroMan: check the data argument to the event handlers
+[04:36:14] <MacroMan> the data arg is null
+[04:36:38] <Cork> .on('click', lib, lib.ev)
+[04:36:56] <Cork> then you can reference to lib through event.data.ev for example
+[04:37:19] <MacroMan> Ah, that loks like it may work
+[04:37:23] <MacroMan> looks*
+[04:37:52] <Cork> though a better option is prob to store the unique data on the $(this).data() instead
+[04:38:26] <Cork> as an event handler can handle more then one element, it is normally not a good idea to store the data like this, unless it is shared cross all elements in the page
+[04:39:07] <MacroMan> Well .on('click', lib, lib.ev) seems to have the desired behaviour. Thank you
+[04:39:45] <Cork> MacroMan: this is how i would recommend doing it https://jsfiddle.net/tyba7uz8/3/
+[04:41:08] <MacroMan> I can see what you're getting at, but in reality my object is much bigger, and I don't want to start storing on elements.
+[04:49:42] <Cork> MacroMan: then add the object per element
+[04:49:55] <Cork> MacroMan: the point is currently you will get one object for all elements you select
+[04:50:00] <Cork> and that is normally not what you want
+[04:50:21] <Cork> $('*).on('click', lib, lib.ev) <-- this will have one lib for all elements in the page
+[05:01:43] <MacroMan> Cork, Actually in this case, it is what I want. Thanks for your help.
+[05:09:27] <karstenk> Good morning! Please can someone help with this https://paste.fedoraproject.org/paste/W-bryi755uXM5lYx5lrEUw ?  My Problem is the ajax.rpc call which is not completed before start.
+[05:10:43] <Cork> karstenk: what "start"
+[05:13:09] <Cork> karstenk: anyway ajax isn't blocking so you will have to trigger the next step from when the ajax is complete
+[05:13:18] <Cork> you can't have them run syncronosly as you are right now
+[06:10:36] <preference> hello again. is there a way for me to mark my jquery as priority?
+[06:11:27] <Woet> over what?
+[07:03:14] <emihir0> Hi, really bad with jquery/js but I need to get something working - say I have a function that I want to trigger when an element is clicked; however, there are multiple identical elements (e.g. quick 'add to cart' on catalogue view)
+[07:03:52] <emihir0> I can put something like id='myelement{{ product.id}}' to make it unique, but then how do I (1) trigger my desired function and (2) how do I determine what element triggered it?
+[07:22:09] <Cork> emihir0: just use a delegated click handler and a class
+[07:23:01] <emihir0> Cork: thanks, I'll have a look at that
+[07:23:06] <Cork> <button class="add-to-cart"></button> $('.parent').on('click', '.add-to-card', function() { $(this).data() or $(this).closest() })
+[07:23:23] <Cork> this will be the explicit element you clicked on
+[07:23:36] <Cork> so just store what you need to do the correct action there
+[07:23:41] <Cork> no need for separate functions
+[07:34:30] <emihir0> ah, nice
+[07:34:32] <emihir0> thanks Cork
+[08:42:27] <karstenk> Hello! Have small divs(nodes) and want to animate them zoomed and centered. Do you know a plugin which does the job?
+[08:56:43] <Cork> karstenk: just use css3 transform
+[08:57:00] <Cork> and with transition or animate should do the job
+[09:22:43] <mad_moses> Hi, I've install jquery-ui with yarn. Which file should I include within my website? I am looking for the jquery-ui.js but can't find anything related?
+[09:25:20] <Cork> mad_moses: it's documented here https://jquery.com/download/
+[09:26:39] <mad_moses> Cork: I am talking about jquery-UI ? Can't see anything related. Or do I miss something?
+[09:26:49] <Cork> ah shoot right
+[09:27:12] <Cork> ui uses a build system might affect it
+[09:28:15] <mad_moses> Cork: do you know where the buildsystem is descripbed?
+[09:30:39] <Cork> mad_moses: i meant http://jqueryui.com/download/
+[09:30:56] <Cork> i usually just download it from code.jquery.com/jquery-ui
+[09:31:13] <mad_moses> Cork: okay hmm, wanted to use my package manager
+[09:33:39] <Cork> mad_moses: not actually sure if yarn is officially supported for jquery ui (never used yarn my self)
+[09:34:01] <Cork> mad_moses: ui requires both js and css to be included so that might make things difficult
+[09:34:13] <Cork> there is also https://learn.jquery.com/jquery-ui/environments/ that might help
+[09:36:28] <mad_moses> Cork: thank you
+[10:14:01] <preference> can someone explain what .next() does? i'm finding the jquery article very confusing
+[10:14:34] <preference> is it like finding the next element along in a line? or the descendant elements?
+[10:18:37] <karstenk> Cork iam searching for something like http://dev.vast.com/jquery-popup-overlay/  but without transforming the original content. This plugin only popups hidden content, but I want to make existing content bigger, centered, animated
+[10:20:33] <Cork> preference: it does the same as elm.nextSibling
+[10:21:19] <Cork> karstenk: do you want the content around it to slide away?
+[10:21:29] <Cork> else transform is what you want
+[10:22:56] <karstenk> Cork I would like to zoom (animated) into every match http://pbc.tomws.ddnss.de/tournament/4?debug=assets
+[10:23:05] <VX> using an iframe which as you browse shows scrollbars when the content is taller than the height, is there a way to determine if the scrollbar shows up or content is taller and dunamically adjust the height as the visitor browsers, iframe is from an external site
+[10:23:06] <preference> Cork: thank you
+[10:23:35] <Cork> VX: no, that is a security restriction
+[10:23:45] <VX> cool
+[10:23:56] <karstenk> Cork So when click on match it should zoom in as overlay with background. So that it is exclusivly
+[10:24:11] <Cork> VX: if it was possible it would be possible to detect if a user has an account for example just form loading a hidden iframe
+[10:24:28] <Cork> VX: so the site has to provide cross domain hooks to support it
+[10:24:43] <Cork> karstenk: so you want transform
+[10:24:53] <VX> Cork ic, yeah no issue, i just wanted to double check without spending too much time on it
+[10:25:40] <Cork> VX: there are csswg work ongoing to allow autosized iframes in the future, but the site inside the iframe will still have to opt into the support through a http header
+[10:25:47] <Cork> (if it lands at all)
+[10:25:57] <Cork> only time will tell :)
+[10:26:01] <VX> Cork for the initial page i download it via php and present it then as they browse it gets the scroll bars, its a job listing page on a corporate site
+[10:26:37] <Cork> VX: ya, that's fine, the reason iframe is blocked is cause you don't load it as the server but as the user with there cookies
+[10:26:45] <Cork> so it can potentially leak a lot of data
+[10:26:53] <VX> Cork no i get it
+[10:28:09] <karstenk> Cork I think so
+[10:31:08] <karstenk> But all I find is for hidden popups or for images, but not content
+[10:31:25] <Cork> karstenk: cause you don't need a plugin
+[10:31:38] <Cork> just css transform like i've told you what 8 times now
+[10:32:14] <Cork> alternatively if you absolutely don't want to use transform you will have to clone the original content
+[10:32:22] <Cork> else the page will jump around when you do things
+[10:33:13] <Cork> and if you go that route you can just use any of the different popup libs, just give it the cloned content
+[10:38:15] <hellyeah> is there a plugin or something for doing "historical scale" http://cdn.avansas.com/assets/58644/ark-cetvel-50-cm-seffaf-1-detail.jpg
+[10:38:41] <Cork> of what?
+[10:39:12] <hellyeah> like 1850,1860...1930,1940,1950..
+[10:39:27] <Cork> that is just numbers
+[10:39:35] <hellyeah> this is date
+[10:39:44] <preference> a plugin for a line with numbers?
+[10:39:44] <Cork> if anything it is years, but again it is just number
+[10:39:48] <Cork> +s
+[10:39:51] <hellyeah> well when user click one of the number it filters out something
+[10:40:10] <hellyeah> yeah it is number
+[10:40:14] <hellyeah> humm
+[10:40:20] <Cork> hellyeah: and the context of where you're using it affects A LOT on what you need
+[10:40:21] <hellyeah> i may be draw with inkscape
+[10:40:33] <hellyeah> hmm
+[10:40:34] <preference> hellyeah: .onclick() doesn't work for what you want?
+[10:40:35] <Cork> i suspect this is for use in a graph
+[10:40:51] <Cork> preference: its for the jumping in the numbers
+[10:41:00] <hellyeah> actually not a graph i have some cards include car pictures
+[10:41:20] <hellyeah> every cars were manufactured in spesicif year like 1860
+[10:41:35] <Cork> hellyeah: ok, then look at any of the hundreds graph axis libs
+[10:41:39] <hellyeah> when people click 1860 they will only see the spesific card
+[10:41:48] <hellyeah> axis
+[10:41:49] <Cork> either with svg or canvas
+[10:41:54] <Cork> both will do the job
+[10:42:09] <hellyeah> graph axis libs svg
+[10:42:13] <hellyeah> is that what you mean?
+[10:42:30] <Cork> uh...
+[10:42:55] <preference> Cork: can commenting out something in an scss file cause unexpected side-effects? i'm commenting out .tabs {...} and it's affecting a bunch of shit on the front page, where there aren't any tabs to speak of. do i have to be extra careful or something?
+[10:43:03] <hellyeah> so http://c3js.org/examples.html
+[10:43:41] <Cork> preference: you have nesting, but beside that; no
+[10:43:53] <hellyeah> that is not gonna work
+[10:45:38] <hellyeah> okay i will draw that with svg
+[10:46:25] <hellyeah> in inkscape
+[10:46:30] <Cork> ...
+[10:46:33] <Cork> what ever
+[10:46:48] <hellyeah> is there any suggestion pls do it
+[10:47:05] <Cork> there are literally hundreds of libs out there that can do what you want
+[10:47:19] <Cork> just pick one of them doing it how you want it
+[10:47:43] <Cork> graphing libs exists in plentiful
+[10:47:56] <Cork> with and without jquery dependency
+[10:48:19] <Cork> rapahael, d3, c3, dot.js... the list is endless
+[10:48:51] <hellyeah> i have an better idea now
+[10:49:07] <hellyeah> drawing a circle and connect this with a line
+[10:49:12] <hellyeah> that seems better
+[11:10:40] <karstenk> Cork Ok Ive done it with clone http://pbc.tomws.ddnss.de/tournament/4?debug=assets   Thanks. Do you like it?
+[11:13:20] <karstenk> Pitty not working in fullscreen mode :-(
+[12:17:15] <pagios> hi
+[12:17:17] <pagios>            "authorization":"Bearer"+localStorage.getItem('access_token')
+[12:17:17] <pagios>  
+[12:17:27] <pagios> can i  concate like this in jquery?
+[12:17:33] <oscurochu> I am looking for a calandar pop up window that i can use to select dates, while being able to highlight special dates
+[12:50:16] <smorkie> hey all
+[13:40:42] <smorkie> i got trouble loading a page that contains some php tags, with $("#div").load("x.html"); it loads the page fine, but it the php tags are ignored and ends up as a string, terrible explanation without example code sorry, new to this stuff and just playing around, but i was hoping someone could push me in the right direction  x)
+[13:42:43] <smorkie> string whatever word i should use, it not showing what the php stuff is supposed to show,  however if i include the file directly into the div id i want to update it works tho,
+[13:46:58] <robertmaxrees> smorkie because your site isn't processing them as PHP files then.
+[13:47:02] <robertmaxrees> that's a server-side concern.
+[13:47:04] <robertmaxrees> not a client-side.
+[13:53:22] <smorkie> robertmaxrees hrm but using php tags in .html works fine elsewhere, is .load() doing something to the output when it loads the html? oh so much more questions arise hehe
+[13:54:48] <robertmaxrees> check your network tab - are you loadng those files the same way you would hitting them directly?
+[14:04:06] <smorkie> when i use load() i can see the .html file being loaded in the network tab, when i use <?php include ... > i do not
+[14:12:13] <robertmaxrees> smorkie right, because the php include tag tells the server to process it as a php file.
+[14:12:23] <robertmaxrees> gotta set up your server to process other files as php, as well.
+[14:20:22] <smorkie> robertmaxrees like this? https://www.cyberciti.biz/tips/lighttpd-map-html-pages-to-php-execute-html-pages-as-php.html tho for a single .html file? or could i instead load a .php that echo the html code?
+[14:21:05] <robertmaxrees> i don't know anything about php tbh.
+[14:21:22] <robertmaxrees> I might ask in ##PHP
+[14:21:31] <Anthaas> I know a fair bit
+[14:21:33] <smorkie> i dont know much about what iam doing hehe, just playing around
+[14:21:40] <Anthaas> But I dont know what you are doing..
+[14:21:45] <Anthaas> #
+[14:21:45] <Anthaas> #
+[14:21:46] <Anthaas> oops
+[14:22:07] <Anthaas> ##php would be your best bet tbh - they'd have all the resources to help you learn in their channel bot too
+[14:22:22] <taplar> personally i'd just rename the html files to php files
+[14:22:32] <robertmaxrees> well there you go.
+[14:22:38] <Anthaas> Not doing inline PHP is a great start...
+[14:22:43] <Anthaas> The same with inline CSS and inline JS
+[14:22:44] <taplar> a php processed file without <? ?> will just echo the contents
+[14:23:00] <robertmaxrees> he's trying to load some includes directly via ajax Anthaas
+[14:23:17] <Anthaas> For what purpose?
+[14:23:23] <Anthaas> To send resources to pre-populate, for example?
+[14:23:29] <robertmaxrees> (shrug) it's a valid case for some things.
+[14:23:38] <Anthaas> If so, he would be best looking up a templating engine, Twig is a popular choice.
+[14:23:43] <smorkie> updating a div every x seconds hehe
+[14:23:44] <robertmaxrees> lol
+[14:24:02] <robertmaxrees> Anthaas no need to do a complete frontend templating setup if you're just doing some small things.
+[14:24:03] <robertmaxrees> :)
+[14:24:18] <Anthaas> Yeah, then you are going about it wrong - you'd have an ajax which makes a call, you send the values back in the call, and update the UI in JS
+[14:24:22] <taplar> thepage.php:  <div><?php ...php stuff for latest mark up... ?></div>
+[14:24:31] <Anthaas> ^ that wouldnt need a templating engine, but at the same time doesn't inline stuff...
+[14:24:40] <Anthaas> ...in the callback*
+[14:24:46] <robertmaxrees> Anthaas no need to overengineer a solution (shurg)
+[14:24:56] <Anthaas> Its not overengineering.
+[14:25:01] <Anthaas> Inline PHP is very frowned upon
+[14:25:06] <Anthaas> Just as inline CSS/JS is.
+[14:25:17] <robertmaxrees> (shrug)
+[14:25:41] <Anthaas> A repeating AJAX call where the response contains the new values, and you update the UI in the callback isn't overengineered I dont think...
+[14:26:00] <taplar> depends on how dynamic the contents are
+[14:26:03] <robertmaxrees> ^
+[14:26:06] <robertmaxrees> and if you're just doing it in a handful of spots.
+[14:26:49] <taplar> at some level i agree with you.  general best case, return data, update ui
+[14:26:55] <taplar> but that's not a 100% answer
+[14:26:58] <robertmaxrees> ^^^^
+[14:27:34] <taplar> it's like telling people about being able to use an attribute selector to select duplicate ids.  you should never use it in production.  but it is a thing
+[14:28:05] <smorkie> oh well the change from .html to .php sure did it ehehe derp, thanks
+[14:29:44] <smorkie> this is fun, just playing around with a bunch of stuff, probably reinventing the wheel and doing stuff in weird ways, good thing i dont get paid for this x)
+[14:30:11] <robertmaxrees> heh
+[14:31:53] <taplar> one of the best ways to learn
+[14:32:03] <smorkie> what its doing is, executing a shell script on the server to get cpu, ram, hdd info and and updating the values in a div tag
+[14:33:17] <smorkie> never even touched this javascript stuff a week ago, yesteray i added that setinterval stuff to a function, WOW
+[14:33:19] <smorkie> x)
+[14:33:32] <robertmaxrees> heh
+[14:33:42] <robertmaxrees> you should avoid setInterval btw.,
+[14:34:08] <smorkie> oh yeah?
+[14:34:14] <robertmaxrees> yeah.
+[14:34:30] <robertmaxrees> especially if you're doing ajax calls in them.
+[14:34:57] <smorkie> this is what happens when you start on page 847 hehe, why avoid? and what to use instead?
+[14:35:19] <robertmaxrees> so the interval will fire every x milliseconds, right?
+[14:35:48] <smorkie> yes sir
+[14:36:02] <robertmaxrees> regardless of whether or not an ajax call actually finishes.
+[14:37:30] <smorkie> hmm yes, right now everything happens regarldess of anything really hehe
+[14:37:43] <robertmaxrees> right.
+[14:38:09] <robertmaxrees> which is why you want somethng that calls a setTimeout when the call successfully completes.
+[14:39:37] <smorkie> setTimeout rings a bell, pretty sure ive seen that around, i think it was something about making alert box pop up, setTimeout - start somethingsomething
+[14:41:42] <dimi1947> is it possible that when the error function of an ajax request is triggered...I can customize the info that goes from the server to the client?
+[14:41:54] <robertmaxrees> dimi1947 you mean, like, edit the response?
+[14:42:08] <dimi1947> more or less...yes
+[14:42:22] <smorkie> i should start taking notes, so much to keep track of
+[14:42:44] <robertmaxrees> dimi1947 why not just do your changes in-place instead of editing the response?
+[14:42:48] <robertmaxrees> like, in the callback.
+[14:43:19] <dimi1947> you mean with in the function body?
+[14:43:24] <robertmaxrees> dimi1947 yeah.
+[14:44:50] <dimi1947> in order to do that I must know what happened in the server...specifically what statement was executed....that is the problem here....I want to edit the function but I have to know what statement run in the server
+[14:45:20] <dimi1947> give me a minute...to show you an example
+[14:45:32] <robertmaxrees> dimi1947 so how does editing the response client-side solve that problem?
+[14:46:03] <dimi1947> I am not sure...I just asked
+[14:46:09] <robertmaxrees> heh.
+[14:46:15] <robertmaxrees> i think you have your answer then :)
+[14:47:43] <dimi1947> https://hastebin.com/yubisamofa.php   suppose the error function is triggered with this function is called(see hastebin)...Is there someway I can know that...so I can edit the error function accordingly?)
+[14:48:27] <dimi1947> in other words I want to edit the error function depending on which function call was made
+[14:48:58] <dimi1947> I am trying to find out if there is a way I can learn this
+[14:50:09] <robertmaxrees> are you passing the error information to as apart of the response?>
+[14:50:20] <robertmaxrees> (i don't know php which is why i ask)
+[14:52:01] <dimi1947> no...I do not pass anything at all...when the error function is triggered no info from the server is passed along...which is the problem I am trying to solve here
+[14:52:39] <robertmaxrees> your client can't know any of that unless you pass it.
+[14:55:19] <dimi1947> yes I understand....but I do not know how to pass that info...maybe is not possible at all...this is what I am trying to find out
+[14:55:47] <robertmaxrees> (shrug) i'd ask in ##php how to do that :)
+[14:56:03] <smorkie> oh how rude of me, didnt give proper thanks... thanks robertmaxrees + Anthaas + taplar  for replies
+[14:56:12] <robertmaxrees> smorkie all good my dude :)
+[14:57:04] <smorkie> ill stick around and probably ask more questions whenever i get stuck again and dont have any more hairs to pull out
+[14:57:50] <smorkie> when i got that div tag to update with the current time i got hooked
+[14:59:22] <smorkie> now its showing a counter, counting from 0 up to the number of rows in my arduino temperature database and updates it every 1min and whoknows what at the end of the day, hoooked x)=
+[14:59:43] <robertmaxrees> lol
+[15:16:02] <smorkie> what am i looking for if i want parts of a code to run only if a variabale has changed since last time(the code was run or something else happened) or if value=0,  just a ehm..simple if else if elseif somewhere around some code? thinking out loud here
+[15:16:33] <robertmaxrees> okay so.
+[15:16:38] <robertmaxrees> how complex is this frontend getting?
+[15:18:06] <smorkie> ooh, i wont say very complex, yet
+[15:18:12] <robertmaxrees> heh
+[15:18:20] <robertmaxrees> but do you plan on doing more like you're doing now?
+[15:18:22] <smorkie> i could give an example of the js in question this time tho
+[15:18:27] <smorkie> yes
+[15:18:34] <robertmaxrees> okay so
+[15:18:46] <robertmaxrees> this is where Anthaas' advice becomes very important.
+[15:18:49] <smorkie> data into graphs and wherever i randomly fancy
+[15:19:03] <robertmaxrees> you're quickly moving out of what jQuery is good at and into some complex territory.
+[15:19:37] <smorkie> there be dragons?
+[15:19:50] <robertmaxrees> more like "thar be headaches"
+[15:19:59] <smorkie> ;D
+[15:20:15] <robertmaxrees> jquery is great for DOM abstraction and manipulation, but now you're looking for state management
+[15:21:45] <robertmaxrees> i'd look into a framework to manage that.  react, riot, vue, and angular are all popular.
+[15:22:35] <smorkie> mmm, will look into that
+[15:22:44] <smorkie> duly noted
+[15:24:00] <smorkie> i just keep falling deeper and deeper into the rabbit hole
+[15:27:16] <robertmaxrees> heh.
+[15:59:00] <Azrael_-> hi
+[16:00:23] <Azrael_-> i've got a table with data and i want to provide filters. currently i think about using this here: https://bootsnipp.com/snippets/featured/panel-table-with-filters-per-column  but do you perhaps know an example where you can also check possible values of this specific row and filter by this? (like excel)
+[16:01:45] <taplar> most plugins i've ran across like this, which are few, require you to write your own custom sorting for column specific filtering.
+[16:01:54] <taplar> r/sorting/filtering
+[16:02:38] <Azrael_-> hoped there were some nice snippets i could use for a start as i'm not really good with js :)
+[16:03:38] <taplar> logically it's a fairly straight forward process to implement
+[16:04:16] <taplar> if you give all the elements in the column you want to filter a shared class, then a change to the filter would find all of them that did( not) match, then find their parent row and show/hide them
+[16:05:14] <Azrael_-> the logical part isn't what i fear. i just hate the layout stuff. e.g. read all possible values of a specific row, get only the unique values and then create a drop-down box where i offer them with checkboxes for filtering
+[16:05:34] <taplar> ooooh, so you don't want an open text input?
+[16:05:56] <Azrael_-> i want both, an open text input and also optional a checkbox-option for avoiding to write so much
+[16:06:14] <Azrael_-> with a checkbox-option you can also create OR-conditions without much hassle
+[16:07:15] <taplar> ah, so yeah that'd be a little more complicated.  but there are multiselect options out there you could employ for the ui
+[16:12:12] <Azrael_-> a text-box with an icon which would turn it into a drop-down would be probably the best.
+[16:13:54] <taplar> https://hemantnegi.github.io/jquery.sumoselect/sumoselect_demo.html  look at the second one under Search Support
+[16:14:47] <Azrael_-> nearly, at best the dropdown shouldn't automatically open, only upon request
+[16:19:27] <Azrael_-> thanks for the suggestion :)
+[16:19:35] <taplar> yeah, np
+[16:21:25] <Zapy> If you guys havent heard/read about EU and the planned " Censorship machines " that regulates all contest beeing published online, even the sourcecode of applications to be scanned for copyright infrigment, you might want to read up https://juliareda.eu/2018/04/free-software-censorship-machines/ https://blog.github.com/2018-03-14-eu-proposal-upload-filters-code/
+[17:45:16] <Levin^> hello
+[17:45:19] <Levin^> https://codepen.io/anon/pen/geqbBv
+[17:45:34] <Levin^> how do I create a <span> inside a div?
+[17:46:06] <taplar> can you explain this more?
+[17:46:23] <taplar> i only ask because your selectors are wrong with the markup
+[17:46:57] <Levin^> I want <div><span>content</span></div>
+[17:47:07] <Levin^> span will be generated with jquery
+[17:47:17] <taplar> where the text does not have spans around them already?
+[17:48:01] <Levin^> what do you mean where?
+[17:48:12] <taplar> there are no span tags in your markup
+[17:48:18] <Levin^> exactly
+[17:48:27] <Levin^> can it be created using jquery?
+[17:48:37] <taplar> sure, i'm just making sure what you want
+[17:48:51] <Levin^> yes, I need it to be created
+[17:49:01] <Levin^> wrapping the text
+[17:49:08] <taplar> so you'd select the text of the first div, put it in a span, and then do the replace
+[17:49:32] <Levin^> how do I write that?
+[17:49:48] <taplar> you can create a new span in various ways, such as $('<span>, text: theText)
+[17:49:59] <taplar> $('<span>', text: theText)
+[17:50:04] <taplar> crap
+[17:50:08] <taplar> one sec
+[17:51:46] <taplar> https://codepen.io/anon/pen/aYXOBJ?editors=1011
+[17:54:28] <Levin^> uhm
+[17:54:39] <Levin^> the <span> isn't showing
+[17:54:56] <taplar> i'm just console logging it.  showing you one way to create a span
+[17:55:01] <taplar> you can put it where ever it should go
+[17:56:09] <Levin^> I don't understand the console results..
+[17:57:01] <taplar> refresh it, i change it to get(0) so it's not in an array
+[17:57:31] <Levin^> ok
+[17:57:41] <Levin^> do I use appendTo after that?
+[17:57:55] <taplar> you can use replaceWith if you want
+[17:58:04] <taplar> depends on what you want to happen
+[17:59:10] <Levin^> oh
+[18:09:07] <Levin^> taplar: https://codepen.io/anon/pen/WzPvMN?editors=1010
+[18:09:35] <Levin^> if you can see, the div got replaced by the span
+[18:09:47] <Levin^> but I need the span to be inside the div
+[18:10:13] <taplar> so you'd append it
+[18:10:26] <Levin^> and how to remove the previous text?
+[18:10:33] <Levin^> .empty()?
+[18:10:39] <taplar> you could empty it, sure
+[18:10:42] <Levin^> ok
+[18:10:53] <taplar> or you should be able to use html() iirc
+[18:11:15] <Levin^> hmm
+[18:11:34] <taplar> https://codepen.io/anon/pen/aYXOYL?editors=1010
+[18:13:48] <Levin^> ok
+[18:15:51] <Levin^> my final result: https://codepen.io/anon/pen/QmYbxb?editors=1010
+[18:15:54] <Levin^> thanks
+[19:09:59] <Anthaas> Is there a general guide for turning css into well structured sass?
+[19:10:04] <Anthaas> Im not talking just a simple syntax switch.
+[19:10:34] <robertmaxrees> i mean, technically css is valid scss.
+[19:10:45] <Anthaas> Of course, but css isnt necessarily good scss
+[19:10:49] <Anthaas> If that makes sense?
+[19:10:57] <robertmaxrees> sure.
+[19:11:10] <robertmaxrees> depends on the maturity and size of the codebase.
+[19:11:15] <robertmaxrees> and how many people are working in it.
+[19:11:15] <robertmaxrees> etcv.
+[19:11:23] <Anthaas> Just me
+[19:11:34] <Anthaas> There are only....5 css files
+[19:11:43] <Anthaas> (Excluding a simple palette/colors file)
+[19:11:50] <Anthaas> The project is still young
+[19:11:55] <robertmaxrees> then I'd just look into good sass practices and go from there.

@@ -1,0 +1,177 @@
+[03:39:38] <scott_gonzalez> jzaefferer: ping
+[03:51:28] <jzaefferer> scott_gonzalez: what's up?
+[03:52:25] <scott_gonzalez> I'm working on the Grunt 0.4 upgrade for sites.
+[03:52:45] <scott_gonzalez> One of the big changes is the deprecation of exposting utilities.
+[03:53:04] <scott_gonzalez> So for example, we can't use grunt.util.async anymore.
+[03:53:28] <scott_gonzalez> We can obviously just add the modules we care about as deps in each site.
+[03:53:31] <scott_gonzalez> But, there's another option.
+[03:53:40] <scott_gonzalez> We can just expose them from grunt-jquery-content.
+[03:53:54] <scott_gonzalez> We can even do it through require() instead of just properties.
+[03:54:05] <scott_gonzalez> So: require( "grunt-jquery-content/public-modules/async" )
+[03:54:24] <jzaefferer> What's "public-modules"?
+[03:54:40] <scott_gonzalez> Just a directory name I chose.
+[03:54:58] <scott_gonzalez> We can make require( "grunt-jquery-content/async" ) work, but only if we're willing to put an async.js in the root of grunt-jquery-content.
+[03:55:23] <scott_gonzalez> Because of the way that module loading works, if we don't want the files in the root, we have to add another level to the require path.
+[03:55:37] <jzaefferer> Seems odd
+[03:55:48] <scott_gonzalez> You can't, for instance, make public-modules/ the main path.
+[03:56:00] <jzaefferer> Can we specify them as peerDependencies?
+[03:56:01] <scott_gonzalez> What seems odd? The way the module loading works or exposing the modules?
+[03:56:18] <jzaefferer> Maybe along with bundleDependencies to make installation even faster? Like npm does: https://github.com/npm/npm/blob/master/package.json#L98
+[03:56:47] <jzaefferer> the putting modules inside another module in a non-standard location seems ood
+[03:56:49] <jzaefferer> *odd
+[03:57:37] <scott_gonzalez> Well, modules are actually designed to have submodules.
+[03:57:49] <scott_gonzalez> People just don't tend to publish modules that way.
+[03:58:07] <scott_gonzalez> http://nodejs.org/api/modules.html#modules_folders_as_modules
+[03:58:43] <scott_gonzalez> The docs are written for managing internal dependencies.
+[03:58:56] <scott_gonzalez> But there's really no reason it needs to be limited that way.
+[03:59:45] <scott_gonzalez> bundleDependencies doesn't seem to be documented very well.
+[03:59:57] <scott_gonzalez> I'm not entirely sure what it's doing.
+[04:00:15] <scott_gonzalez> Is it basically the equivalent of committing node_modules at the time of publishing?
+[04:00:32] <scott_gonzalez> So that the specified deps don't need to be looked up at install time?
+[04:00:48] <jzaefferer> I think so
+[04:01:01] <jzaefferer> npm is the only module I've seen using it
+[04:01:16] <scott_gonzalez> Well, that could be useful if it actually improves install times.
+[04:01:44] <scott_gonzalez> But it doesn't help with the problem of updating async means updating a dozen repos.
+[04:02:08] <jzaefferer> Eventually that shouldn't make a difference anymore, but as long as each regular dependency is loaded as its own tar.gz file, bundling will make things a lot faster when there are many dependencies
+[04:02:53] <jzaefferer> Also I have no idea if peerDependencies and bundleDependencies work together
+[04:03:27] <jzaefferer> If we go with public-modules/, how would be get files in there in the first place?
+[04:05:49] <scott_gonzalez> It's as simple as having ./public-modules/async.js be: module.exports = require( "async" );
+[04:15:53] <scott_gonzalez> Let me explain what first made me want public-modules.
+[04:15:58] <jzaefferer> ok
+[04:16:14] <scott_gonzalez> We use grunt helpers extensively in our site deployment.
+[04:16:17] <scott_gonzalez> Those no longer exist.
+[04:16:27] <scott_gonzalez> And there is no upgrade path.
+[04:17:08] <scott_gonzalez> So the only way to expose methods that affect how a grunt task works is to expose a standard node module API in addition to your Grunt API.
+[04:18:21] <scott_gonzalez> Because of this, it's no longer viable to have grunt-wordpress be the actual implementation of how to go from HTML files in directories to WordPress.
+[04:18:36] <scott_gonzalez> So there's now Gilded WordPress which only exposes a node API and does all the work.
+[04:18:46] <scott_gonzalez> grunt-wordpress is now just a thin wrapper around Gilded WordPress.
+[04:19:24] <scott_gonzalez> However, grunt-wordpress has to use an exact version dependency on Gilded WordPress because it must be paired with the appropriate WordPress plugin.
+[04:20:28] <jzaefferer> So grunt-jquery-content will have to update whenever grunt-wordpress has to update when the WordPress plugin has to update?
+[04:20:31] <scott_gonzalez> Some users of grunt-wordpress (like us) need to access the Gilded WordPress module to do custom extensions.
+[04:21:14] <scott_gonzalez> Yes, but grunt-jquery-content needed to update any time grunt-wordpress updated anyway.
+[04:21:36] <scott_gonzalez> And the only time grunt-wordpress will ever update now is when Gilded WordPress updates, because grunt-wordpress itself is essentially no code.
+[04:21:58] <scott_gonzalez> jquery-wp-content has to update in sync with that as well.
+[04:22:34] <jzaefferer> If grunt-wordpress is essentially no code, do we even need it anymore?
+[04:23:01] <scott_gonzalez> In order to ensure that if you're getting the correct version of Gilded WordPress when doing custom extensions and using grunt-wordpress, grunt-wordpress exposes its Gilded WordPress dependency.
+[04:23:27] <scott_gonzalez> Well, it'd be pretty terrible of us to duplicate the code when there's a perfectly good module for us to use.
+[04:23:49] <scott_gonzalez> Do we need grunt-contrib-jshint?
+[04:24:03] <scott_gonzalez> It's basically the same question.
+[04:24:09] <scott_gonzalez> I'd say the answer is yes to both of those.
+[04:24:13] <scott_gonzalez> But no to things like grunt-contrib-clean.
+[04:24:20] <scott_gonzalez> Which are just bloat.
+[04:25:05] <scott_gonzalez> Since grunt-wordpress only concerns itself with one thing, it's main points to Gilded WordPress
+[04:25:19] <scott_gonzalez> So `require( "grunt-wordpress" )` and `require( "gilded-wordpress" )` are the same thing.
+[04:25:36] <jzaefferer> Okay, so grunt-jquery-content can do require("grunt-wordpress/gilded-wordpress") (or whatever the name) to do custom WordPress stuff?
+[04:25:54] <scott_gonzalez> Yes, and it's just `require( "grunt-wordpress" )`
+[04:26:21] <scott_gonzalez> Now, for a site to do something custom, it needs to get to the Gilded WordPress module.
+[04:26:42] <scott_gonzalez> So I wanted a way to expose Gilded WordPress from grunt-jquery-content.
+[04:27:08] <jzaefferer> So that's where public-modules comes in?
+[04:27:13] <scott_gonzalez> right
+[04:27:27] <scott_gonzalez> Because I didn't want `require( "grunt-jquery-content" )` to be Gilded WordPress.
+[04:27:38] <scott_gonzalez> Since that's not the only thing it does, even though it's the main thing.
+[04:28:02] <scott_gonzalez> You could imagine us exposing some of the internal modules too, like syntax highlighting.
+[04:28:26] <scott_gonzalez> Which, BTW, is now an actual module in grunt-jquery-content.
+[04:28:34] <scott_gonzalez> I've untagled a lot of the code.
+[04:29:00] <jzaefferer> Nice
+[04:29:17] <scott_gonzalez> So, does any of that change your thoughts of public-modules?
+[04:29:33] <scott_gonzalez> I'm torn on the non-essential dependnecies like async.
+[04:29:44] <jzaefferer> No, makes sense to have that
+[04:29:45] <scott_gonzalez> Right now the only module I'm exposing is Gilded WordPress.
+[04:30:05] <scott_gonzalez> But I figured, since this pattern now exists in grunt-jquery-content, we could leverage it if we wanted to.
+[04:30:38] <scott_gonzalez> And we were essentially saying this is an ok thing to do when we bought into using grunt.util.async.
+[04:31:09] <scott_gonzalez> But I'm not set on going either way for modules beyond Gilded WordPress.
+[04:31:23] <scott_gonzalez> So I wanted to ping someone else for input :-)
+[04:31:57] <scott_gonzalez> On a related note, I've found a fairly clean way to pass grunt tasks through dependencies.
+[04:31:59] <jzaefferer> What's there besides grunt.util.async?
+[04:32:26] <scott_gonzalez> Every site uses rimraf.
+[04:32:30] <scott_gonzalez> Only some use async.
+[04:32:33] <scott_gonzalez> But...
+[04:32:45] <scott_gonzalez> 90% of sites only use rimraf for one thing.
+[04:32:58] <scott_gonzalez> grunt.registerTask( "clean", function() { rimraf.sync( "dist" ); });
+[04:33:10] <scott_gonzalez> So we can just make a clean task inside grunt-jquery-content.
+[04:33:20] <jzaefferer> Sounds good
+[04:33:35] <scott_gonzalez> Though if we're going to bundle a task that cleans a specific directory, we might want to change the name to clean-dist
+[04:34:27] <scott_gonzalez> It always bothered me that grunt-jquery-content depended on grunt-wordpress, but in order to run the wordpress tasks for a site, the site had to also include grunt-wordpress as a dependency in order to load the tasks.
+[04:34:49] <scott_gonzalez> You couldn't have grunt-jquery-content load the tasks from its dependency because the task loading doesn't walk the right directories.
+[04:34:54] <scott_gonzalez> BUT
+[04:35:08] <scott_gonzalez> This works: require( "grunt-wordpress/tasks/wordpress" )( grunt );
+[04:35:35] <scott_gonzalez> And that task file doesn't even need any special design or API to make that work.
+[04:35:49] <scott_gonzalez> It's just a typical task file: https://github.com/scottgonzalez/grunt-wordpress/blob/master/tasks/wordpress.js
+[04:36:05] <jzaefferer> That's the same call that grunt.loadNpmTask does?
+[04:36:12] <scott_gonzalez> But doing that inside grunt-jquery-content, makes it run as if it were just a regular old task inside grunt-jquery-content.
+[04:36:32] <scott_gonzalez> I assume so, after doing some path finding.
+[04:37:57] <jzaefferer> So with that dependencies can also load tasks, and we don't have to do everything in the Gruntfile?
+[04:38:30] <scott_gonzalez> right
+[04:38:38] <scott_gonzalez> So we can do this with grunt-check-modules too.
+[04:38:47] <scott_gonzalez> And then we don't need to specificy those as dependencies in each site.
+[04:39:26] <scott_gonzalez> check-modules would just become another task exposed by grunt-jquery-content.
+[04:39:38] <scott_gonzalez> Which is basically how we tried to use grunt-jquery-content in the beginning.
+[04:39:46] <scott_gonzalez> A collection of tasks that we want all sites to run.
+[04:40:05] <scott_gonzalez> But we ended up having to just list each task's module as a direct dependency of each site.
+[04:40:27] <scott_gonzalez> Which is not something we would have done if we weren't tied into Grunt's API.
+[04:41:40] <scott_gonzalez> The simple one-liner works well for small modules that only have one task.
+[04:42:04] <scott_gonzalez> Or rather, if you know the name of the task file won't change and you know which task files to load.
+[04:42:51] <scott_gonzalez> BTW, you should update grunt-check-modules to not use grunt.util.spawn() since it's deprecated.
+[04:43:12] <scott_gonzalez> It'd actually be smaller to use child_process.exec() anyway :-P
+[04:43:43] <scott_gonzalez> I'll send a PR. This can actually be reduced even more with the Grunt 0.4 API.
+[04:44:10] <jzaefferer> Ok
+[04:46:07] <scott_gonzalez> I'll go ahead with exposing the dependent tasks.
+[04:46:21] <scott_gonzalez> Once that's done, I'll see if there are any modules left that make sense to expose.
+[04:46:32] <scott_gonzalez> There may not be (beside Gilded WordPress).
+[04:49:36] <jzaefferer> Okay
+[04:49:36] <jzaefferer> Btw. why "gilded"?
+[04:50:31] <scott_gonzalez> https://github.com/jzaefferer/grunt-check-modules/pull/4
+[04:50:59] <jzaefferer> Will be fun updating jqueryvalidation.org to all that new stuff.
+[04:51:17] <scott_gonzalez> I was originally going to name it wordpress-sync, but when I was doing the updates, I realized I couldn't change the key I use to store all the metadata on the posts.
+[04:51:59] <scott_gonzalez> I use gwcs for the checksum and gw-resources for the resource directory.
+[04:52:12] <scott_gonzalez> So I needed a name that kept the same initials as grunt-wordpress.
+[04:53:21] <scott_gonzalez> And since this provides a nicer way to work with WordPress (for our use cases anyway), gilded seemed like a good word.
+[04:55:37] <jzaefferer> Fun
+[04:55:51] <jzaefferer> This looks like a good opportunity to bump grunt-check-modules to 1.0.0
+[04:56:40] <scott_gonzalez> Yay for 1.0.0!
+[04:56:56] <scott_gonzalez> grunt-jquery-content is making it to 1.0.0 as well :-)
+[04:58:22] <jzaefferer> Okay, published 1.0.0
+[08:36:43] <scott_gonzalez> ajpiano: Why do "legacy" authors go to the top of the list when everyone else is alphabetized?
+[08:36:44] <scott_gonzalez> https://github.com/jquery/learn.jquery.com/blob/master/grunt.js#L103-L105
+[08:44:09] <jqcommit> [13codeorigin.jquery.com] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/o-YzUQ
+[08:44:09] <jqcommit> 13codeorigin.jquery.com/06master 147700cb3 15Jörn Zaefferer: qunitjs: Added version 1.16.0
+[08:47:13] <ajpiano> i think the idea was that if someone like largely did most of the authoring for a thing and then contributed it, it's weird to put them in an alpha list, like to give them more cred
+[08:47:31] <ajpiano> it's probably not a real issue and they can all be sorted together if you want to simplify
+[08:48:10] <scott_gonzalez> Yeah, I want to just merge them all.
+[08:48:19] <scott_gonzalez> Because the same can be true of someone contributing directly to the repo.
+[08:48:28] <scott_gonzalez> All new articles are written largely by *someone*
+[09:02:42] <jqcommit> [13qunitjs.com] 15JamesMGreene closed pull request #84: Cookbook: Use assert.async instead of asyncTest, start, and stop (06master...06async-done) 02http://git.io/IHiGNA
+[09:04:05] <jqcommit> [13qunitjs.com] 15jzaefferer closed pull request #90: Cookbook update (06master...06cookbook-update) 02http://git.io/QTFB6g
+[09:06:06] <jqcommit> [13api.qunitjs.com] 15jzaefferer closed pull request #66: Dump: Document QUnit.dump.maxDepth (06master...06dump-maxdepth) 02http://git.io/aH7Z6Q
+[09:07:10] <jqcommit> [13api.qunitjs.com] 15JamesMGreene closed pull request #67: Entries: Add runtime property to QUnit.log (06master...06log-runtime) 02http://git.io/Ye7J-Q
+[09:08:01] <jqcommit> [13api.qunitjs.com] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/9gUV3Q
+[09:08:01] <jqcommit> 13api.qunitjs.com/06master 14a9ef08b 15James M. Greene: Entries: Add runtime property to QUnit.moduleDone...
+[09:11:39] <jqcommit> [13api.qunitjs.com] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/cOqdZQ
+[09:11:39] <jqcommit> 13api.qunitjs.com/06master 1438bb970 15Leonardo Balter: Hooks: Rename setup/teardown to beforeEach/afterEach...
+[09:14:07] <jqcommit> [13api.qunitjs.com] 15leobalter closed pull request #77: API: Documents QUnit.skip (06master...0675-skip) 02http://git.io/Hjfxcw
+[09:17:30] <jqcommit> [13api.qunitjs.com] 15JamesMGreene closed issue #79: Document QUnit.assert.async 02http://git.io/ti8YPA
+[09:20:06] <jqcommit> [13api.qunitjs.com] 15JamesMGreene closed issue #80: Document QUnit.test's support for Promises 02http://git.io/1hiuFw
+[09:20:51] <jqcommit> [13api.qunitjs.com] 15mikesherov closed pull request #85: Entries: Replace config.testNumber with config.testId (06master...06testId) 02http://git.io/D56mkQ
+[09:21:36] <jqcommit> [13api.qunitjs.com] 15jzaefferer closed pull request #88: Throws: Add note about raises-alias (06master...06raises) 02http://git.io/VXFfnQ
+[09:26:38] <jqcommit> [13qunitjs.com] 15jzaefferer tagged 06v1.16.0 at 145fb05ad: 02http://git.io/3OUlAg
+[09:36:00] <jqcommit> [13qunitjs.com] 15jzaefferer closed issue #86: QUnit 2.0 upgrade guide 02http://git.io/qLvm-Q
+[09:36:58] <jqcommit> [13jquery-wp-content] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/lsaV9g
+[09:36:58] <jqcommit> 13jquery-wp-content/06master 148228bfe 15Jörn Zaefferer: qunitjs.com: Add link to 2.x ugprade guide
+[09:38:53] <jqcommit> [13qunitjs.com] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/L9E0Yw
+[09:38:53] <jqcommit> 13qunitjs.com/06master 1477be9d5 15Jörn Zaefferer: 1.16.1
+[09:39:05] <jqcommit> [13jquery-wp-content] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/RJIihw
+[09:39:05] <jqcommit> 13jquery-wp-content/06master 147a3af6f 15Jörn Zaefferer: 3.5.5
+[10:23:43] <scott_gonzalez> ajpiano danheberden: It's kinda strange that external authors get linked to the original content on learn.
+[10:23:50] <scott_gonzalez> For example, the first three authors on http://learn.jquery.com/code-organization/deferreds/
+[10:24:15] <scott_gonzalez> Wouldn't it make more sense to just have a line that said something like "Originally posted on [link]"
+[10:24:24] <scott_gonzalez> And then not have links on the authors.
+[10:28:43] <scott_gonzalez> ajpiano: I think the source links may be the real reason that these authors are pushed to the top of the list.
+[10:40:19] <jqcommit> [13learn.jquery.com] 15scottgonzalez pushed 1 new commit to 06master: 02http://git.io/faYJ9Q
+[10:40:19] <jqcommit> 13learn.jquery.com/06master 1447c2b40 15Scott González: Build: General cleanup and removal of grunt-specific APIs
+[11:37:10] <scott_gonzalez> DaveMethvin: Is it ok if I leave plugins.jquery.com in an undeployable state?
+[11:37:33] <scott_gonzalez> Meaning we won't be able to make changes to the not-linked-to docs pages anymore.
+[11:37:38] <DaveMethvin> yeah, i suspect it will be gutted at some point anyway
+[11:37:41] <scott_gonzalez> ok
+[11:37:59] <scott_gonzalez> It's got a lot of custom deployment stuff that I really don't want to upgrade to Grunt 0.4 right now.
+[11:38:35] <scott_gonzalez> If for some reason we need to make a change at some point, we'll just have some work to do to make it work with current jquery-wp-content.
+[11:38:52] <scott_gonzalez> Well, soon-to-be-current jquery-wp-content :-P

@@ -1,0 +1,254 @@
+[05:20:01] <mikesherov> kswedberg: no, I don't :-\
+[05:20:35] <mikesherov> DaveMethvin: https://github.com/jquery/jquery/pull/1115/files#r2563997
+[05:21:07] <DaveMethvin> mikesherov: if you keep the regex you have to keep the string, right?
+[05:21:20] <DaveMethvin> it can't be split into a module
+[05:21:27] <mikesherov> DaveMethvin: event.type, no?
+[05:21:36] <DaveMethvin> OH
+[05:21:37] <DaveMethvin> yeah
+[05:21:48] <mikesherov> :-)
+[05:21:55] <DaveMethvin> i was hoping to use MouseEvent tho because it handles situations that the strings don't
+[05:22:08] <DaveMethvin> we miss some events that don't start mouse or key
+[05:22:33] <mikesherov> DaveMethvin: well, this is something that we should catch in 1.9 with the regex
+[05:22:43] <mikesherov> and use MouseEvent for in 2.0, right?
+[05:23:12] <mikesherov> Seems like ability to exclude a module should be something that we backport if we can, right?
+[05:23:32] <DaveMethvin> if we can
+[05:23:37] <mikesherov> I mean, I don't *really* think it's that important
+[05:23:42] <mikesherov> but it's certainly doable
+[05:23:47] <DaveMethvin> but it doesn't bother me that 2.0 can be more modular
+[05:23:48] <DaveMethvin> yeah
+[05:23:59] <DaveMethvin> i think the key here is that it could be done lazy
+[05:24:03] <DaveMethvin> in both versions
+[05:24:09] <mikesherov> right!
+[05:24:36] <DaveMethvin> there were several other improvements that could be made but they would potentially change semantics
+[05:24:43] <DaveMethvin> of things like fixHooks
+[05:24:55] <DaveMethvin> which i suspect woudl break someone's code
+[05:25:05] <mikesherov> right, and rwaldron's point about cross iframe scares me
+[05:25:19] <DaveMethvin> events work only kinda across iframes
+[05:25:27] <mikesherov> like everything else!
+[05:25:31] <DaveMethvin> right
+[05:25:49] <DaveMethvin> if you attach events across iframes and then navigate inside the iframe ... memory leak
+[05:25:49] <mikesherov> I think continuing to use event.type in BOTH cases though avoiding semantic changes
+[05:26:13] <mikesherov> avoids*
+[05:26:14] <DaveMethvin> yeah, probably safer
+[05:26:37] <DaveMethvin> btw will you be able to get to those tix i mentioned last night?
+[05:26:49] <DaveMethvin> i want to put out 1.9b2 tomorrow
+[05:27:05] <mikesherov> OK, I'll get to them tonight then.
+[05:27:27] <DaveMethvin> also, ui is getting some fails on their unit tests, can't tell if they're from core mikesherov
+[05:27:38] <mikesherov> DaveMethvin: probably
+[05:27:40] <mikesherov> :-P
+[05:27:47] <DaveMethvin> i tried tracking one of them down and just couldn't tell
+[05:28:23] <mikesherov> k, I'll look there also
+[05:28:33] <DaveMethvin> http://swarm.jquery.org/job/2198
+[05:28:36] <mikesherov> lots of moving parts!
+[05:28:47] <DaveMethvin> a scary number
+[05:28:53] <DaveMethvin> that's 1.9 jquery-git
+[05:29:30] <DaveMethvin> I think i know the cause of the effects fail, so if you could look at the others mikesherov that would be great
+[05:30:05] <mikesherov> DaveMethvin: yeah, lots of UI relies on focus
+[05:30:12] <mikesherov> and I know we changes semantics there
+[05:30:15] <DaveMethvin> groan
+[05:30:17] <mikesherov> makes me shudder
+[05:30:33] <mikesherov> I used to think getComputedStyle was the worst
+[05:30:43] <mikesherov> now I'm convinced its the focus API
+[05:31:21] <DaveMethvin> yeah looks like just about all the other fails are focus related
+[05:33:12] <mikesherov> http://swarm.jquery.org/result/887116
+[05:37:35] <DaveMethvin> ugh mikesherov
+[05:37:40] <DaveMethvin> that's the async focus issue
+[05:37:45] <mikesherov> yup
+[05:38:11] <mikesherov> in that focus isn't async, or is?
+[05:38:29] <DaveMethvin> in ie, focus occurs async, which means the handler is called async
+[05:38:39] <DaveMethvin> prior to 1.9 we didn't use the native focus() method
+[05:38:49] <DaveMethvin> but in 1.9 we do to fix various event order issues
+[05:39:06] <DaveMethvin> so we can go back to the old way but we'll need to wontfix those bugs we just fix
+[05:39:58] <mikesherov> sounds like we should talk to scott_gonzalez and see if there is a UI workaround
+[05:40:27] <scott_gonzalez> OH NO, I see my name and focus in the close proximity.
+[05:40:30] <DaveMethvin> mikesherov: there is but some of these tests depend on the base stuff in core
+[05:40:48] <mikesherov> DaveMethvin: yeah, explicitly!
+[05:41:06] <mikesherov> the core test literally checks the original functionality
+[05:41:22] <DaveMethvin> right and expects a sync call
+[05:41:35] <DaveMethvin> which we aren't guaranteeing if we use the native focus method
+[05:41:48] <DaveMethvin> let me find the patch
+[05:42:07] <mikesherov> link please
+[05:42:13] <scott_gonzalez> Let me look at the failing tests.
+[05:42:25] <scott_gonzalez> Oh, well that's easy.
+[05:42:29] <scott_gonzalez> We can change those tests.
+[05:42:39] <scott_gonzalez> What's the effects failure?
+[05:43:04] <DaveMethvin> scott_gonzalez: assuming nobody else will crash and burn out there in the real world
+[05:43:13] <mikesherov> scott_gonzalez: effects failure may be because of color and spurious i think
+[05:44:05] <gibson042> .
+[05:44:07] <DaveMethvin> https://github.com/jquery/jquery/commit/b7ec6ddd45e27b54f3e094172b7eeb6949d4f71b
+[05:44:16] <scott_gonzalez> DaveMethvin: People probably will, but presumably that's already happening today.
+[05:44:31] <DaveMethvin> well here is our choice ...
+[05:44:33] <scott_gonzalez> I mean, people have been running into these problems every day since day one, right?
+[05:44:40] <scott_gonzalez> That's why we're trying to fix this.
+[05:44:45] <scott_gonzalez> I think the current implementation is better.
+[05:44:48] <DaveMethvin> get the focus/blur order correct, or get the focus event handler called synchronously
+[05:44:53] <mikesherov> also, some backCompat failures for addBack not existing… which is an easy patch
+[05:45:05] <scott_gonzalez> I think correct order is more important.
+[05:45:13] <scott_gonzalez> We can't actually patch over the async events.
+[05:45:16] <scott_gonzalez> They still happen.
+[05:45:30] <scott_gonzalez> Which, in my opinion, is more painful.
+[05:45:48] <DaveMethvin> right, but previously it "looked" like focus fired sync because we did it ourself
+[05:45:58] <scott_gonzalez> right
+[05:46:10] <DaveMethvin> i will just make sure that the upgrade guide mentions this
+[05:46:11] <scott_gonzalez> People will just need to update their code to match reality.
+[05:46:41] <scott_gonzalez> People that really care about focus were already having problems anyway.
+[05:46:43] <mikesherov> 1.9 is shaping up to be another 1.4!
+[05:46:55] <mikesherov> ;-)
+[05:46:57] <DaveMethvin> is that, um, good?
+[05:47:01] <mikesherov> yes
+[05:47:09] <mikesherov> break the bad behavior quickly
+[05:47:14] <mikesherov> rip that bandaid off
+[05:47:34] <DaveMethvin> welcome to the jquery 1.9 edition of , "Ow my balls!"
+[05:47:41] <mikesherov> haha
+[05:48:30] <mikesherov> so, tonight i'll focus on core then failuress in ui
+[05:48:46] <DaveMethvin> sweet, thanks
+[07:11:59] <jqcommit> [13jquery] 15orkel opened pull request #1116: Simplification of jQuery#wrapAll (06master...06wrapAll)  02http://git.io/Td2D0Q
+[07:16:38] <jqcommit> [13jquery] 15orkel opened pull request #1117: Refactor jQuery.clean (06master...06jQuery.buildFragment)  02http://git.io/NI-xLQ
+[07:28:21] <DaveMethvin> timmywil: good idea on .finish()
+[07:28:41] <timmywil> DaveMethvin: thanks!
+[07:29:18] <DaveMethvin> i just added a comment, it seems like we can .finish() to complete all animations and then if someone wants the old behavior of finishing only the last step they can .clearQueue().finish()
+[07:29:27] <DaveMethvin> which will be very handy
+[07:29:50] <timmywil> oh good point
+[07:46:07] <jqcommit> 01[13jquery01] 15dmethvin pushed 3 new commits to 06master: 02http://git.io/KGqhdQ
+[07:46:07] <jqcommit> 13jquery/06master 1417049c7 15jaubourg: 2.0: reduced xhr transport
+[07:46:07] <jqcommit> 13jquery/06master 14f6df030 15jaubourg: Fixes comments per @rwldrn. Makes sure failing requests from local protocol yields status 404, not 0.
+[07:46:07] <jqcommit> 13jquery/06master 1462acda8 15jaubourg: Adds the abort on unload trick back in since IE9 still exhibits the bug
+[08:33:43] <jzaefferer> DaveMethvin: did you get anywhere with the ui.effects failure? If not, could you rope in mikesherov in that? He was working on a similar issue, though that didn't end up fixing that failure: https://github.com/jquery/jquery-ui/commit/da01fb6a346e1ece3fd6dde5556a98f099e0c0e0
+[08:35:19] <mikesherov> jzaefferer: no
+[08:36:24] <jzaefferer> no?
+[08:37:00] <DaveMethvin> jzaefferer mikesherov: I think the effects fail may be this: https://github.com/jquery/jquery/commit/643ecf9d63018a7ef907c1e058b778b68ddaf48f
+[08:38:08] <DaveMethvin> imma ask orkel to take a look
+[08:38:28] <jzaefferer> that's something
+[08:54:15] <doesallmagic> Project jQuery Core build #621: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/621/
+[08:54:16] <doesallmagic> * dave.methvin: 2.0: reduced xhr transport
+[08:54:17] <doesallmagic> * dave.methvin: Fixes comments per @rwldrn. Makes sure failing requests from local protocol yields status 404, not 0.
+[08:54:17] <doesallmagic> * dave.methvin: Adds the abort on unload trick back in since IE9 still exhibits the bug
+[09:00:56] <DaveMethvin> starting a minute or two late
+[09:22:21] <doesallmagic> Project QUnit build #241: STILL FAILING in 8.9 sec: http://swarm.jquery.org:8080/job/QUnit/241/
+[10:28:49] <gnarf> DaveMethvin, timmywil, mikesherov: .finish(): https://github.com/gnarf37/jquery/commit/8764bcccd4724989ce0e51f2bad172729ac7af6c -- thoughts?
+[10:41:28] <gnarf> er --- https://github.com/jquery/jquery/commit/1167851 with some comments
+[10:45:17] <DaveMethvin> yeah that makes sense gnarf ... still wondering about type==null tho
+[10:45:34] <gnarf> oh yeah
+[10:45:58] <gnarf> "nullqueue" is okay
+[10:46:04] <gnarf> but the queue === won't work
+[10:46:22] <DaveMethvin> but type is set to "fx" if it was null, isn't it?
+[10:46:54] <gnarf> if i change that
+[10:46:58] <gnarf> to allow null through there
+[10:47:00] <gnarf> it works
+[10:47:03] <gnarf> "nullqueue" is okay
+[10:47:15] <DaveMethvin> imma name all my queues "null" :D
+[10:48:41] <DaveMethvin> so can you put together a few unit tests for that gnarf? there's one in my pull that you can start from if you want
+[10:49:34] <gibson042> DaveMethvin I approve of orkel's https://github.com/jquery/jquery/pull/1117
+[10:50:10] <DaveMethvin> yeah it does make sense to reverse it gibson042, at first i was hesitant
+[10:50:22] <DaveMethvin> but looking at how we use it, seems reasonable
+[10:50:49] <gnarf> https://github.com/gnarf37/jquery/commit/7ad3c34 has the type is null
+[10:51:33] <gnarf> DaveMethvin: +137 gzip
+[10:51:38] <DaveMethvin> ah ok gnarf, so null is a wildcard ... i didn't get that
+[10:52:02] <gnarf> actually
+[10:52:03] <gnarf> wait
+[10:52:05] <gnarf> its false
+[10:52:12] <gnarf> false is the meaningful one
+[10:52:41] <DaveMethvin> good thing they don't charge us by the commit hash, we'd be broke! :D
+[10:52:45] <gnarf> :)
+[10:53:20] <gnarf> DaveMethvin: its pretty big imo
+[10:53:39] <DaveMethvin> what's the final damage?
+[10:53:47] <gnarf> 135
+[10:53:50] <gnarf> gz
+[10:53:50] <DaveMethvin> ouch
+[10:53:59] <DaveMethvin> but it's pretty useful imo
+[10:54:03] <gnarf> unless gibson042 wants to push some magic up on top of it
+[10:54:14] <DaveMethvin> well you know he'll do that eventually
+[10:54:21] <gibson042> :)
+[10:54:22] <DaveMethvin> for now i'll be happy if it's functional and bug free
+[10:54:52] <DaveMethvin> maybe it's just b/c you're scratching one of my itches but i always wanted this
+[10:55:33] <DaveMethvin> plus right now there isn't much in the features dept for 1.9
+[10:55:38] <DaveMethvin> just css array getter
+[10:56:16] <gibson042> it looks pretty tight right now, I doubt it's possible to get this under +100
+[10:56:27] <DaveMethvin> and this isn't really something someone would do as a plugin, needs to know a lot about internals
+[10:56:36] <DaveMethvin> so i guess i'm okay with it
+[10:56:38] <gibson042> that's the clincher for me
+[10:57:24] <DaveMethvin> gnarf just add a few unit tests and we'll call it done
+[10:57:42] <DaveMethvin> we can trim the fat elsewhere
+[10:59:18] <DaveMethvin> actually, instead of type==null that can just be !type since all the other falsy cases are accounted for
+[11:08:35] <gnarf> DaveMethvin: https://github.com/gnarf37/jquery/commit/8ced933dd45ee2a9690694728bc26bf09e0a2ed9#L0R538
+[11:08:41] <gnarf> DaveMethvin: not sure what null would be
+[11:09:01] <gnarf> if its null its "fx" by convention
+[11:09:49] <DaveMethvin> in the latest example, it looks like type will either be false, "fx", or some other non-empty string
+[11:10:02] <DaveMethvin> or am i missing something gnarf
+[11:10:10] <DaveMethvin> it's set up at the top of finish()
+[11:11:53] <gnarf> DaveMethvin: that seems what it should be
+[11:12:00] <gnarf> null/undefined are "fx"
+[11:12:05] <gnarf> what would you pass null for?
+[11:12:36] <gnarf> found another edge
+[11:12:46] <DaveMethvin> on 556 there is a check for type==null but i don't see how it can ever be null
+[11:13:00] <gnarf> fair
+[11:13:03] <gnarf> copy pasta
+[11:13:05] <gnarf> thanks
+[11:13:05] <gnarf> :)
+[11:13:33] <DaveMethvin> so it should be type==false but i think !type works too
+[11:13:38] <DaveMethvin> ===
+[11:14:20] <gnarf> man, that added 7 more bytes
+[11:14:23] <gnarf> removing that code
+[11:14:24] <gnarf> lol
+[11:14:38] <DaveMethvin> damn you gzip!
+[11:14:46] <gnarf> nah, if type == false, you wanna test that false is .queue
+[11:14:53] <gnarf> so the other edge
+[11:14:58] <gnarf> is in custom queue functions
+[11:15:04] <gnarf> if it's already running
+[11:15:13] <gnarf> there's no way to pass the "finish" along right now
+[11:15:36] <DaveMethvin> oh like if the current animation is a custom?
+[11:18:11] <gnarf> yeah
+[11:19:50] <gnarf> fixed it with 20 bytes
+[11:19:59] <gnarf> might be able to actually reduce a little 
+[11:20:32] <gnarf> nope
+[11:20:33] <gnarf> can't
+[11:20:37] <gnarf> boo
+[11:20:55] <DaveMethvin> poor gzip, nobody understands him
+[11:35:37] <jqcommit> [13jquery] 15gnarf37 opened pull request #1118: .finish() - Complete all queued animations (06master...06finish)  02http://git.io/AIef-g
+[11:36:26] <DaveMethvin> yay!
+[11:38:29] <gnarf> let that stew a minute
+[11:38:56] <gnarf> there were some units in there
+[11:39:31] <DaveMethvin> i'll take a look in a sec
+[11:39:37] <DaveMethvin> thanks for turning it around quickly
+[12:43:53] <jqcommit> [13jquery] 15orkel opened pull request #1119: 2.0: Re-fix #8908 (06master...062.0-8908)  02http://git.io/9gBj2g
+[13:40:49] <jqcommit> [13jquery] 15silentroach opened pull request #1121: Faster jQuery.removeAttr call on $.attr(key, null) (06master...06patch-1)  02http://git.io/8Pxwdg
+[14:36:24] <jqcommit> 01[13jquery.com01] 15ajpiano pushed 1 new commit to 06master: 02http://git.io/pCKuWQ
+[14:36:24] <jqcommit> 13jquery.com/06master 14eb7d72c 15adam j. sontag: Upgrade to grunt-jquery-content 0.8.1
+[15:33:42] <scott_gonzalez> rwaldron: https://github.com/jquery/jquery/pull/1121/files seems like it doesn't need tests or a ticket.
+[15:34:08] <scott_gonzalez> It's not a functionality change.
+[17:20:49] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/9lssow
+[17:20:49] <jqcommit> 13jquery/06master 14b6abb31 15Corey Frang: Fix #13103. Add .finish() method. Close gh-1118.
+[17:25:33] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 061.9-stable: 02http://git.io/j8QuFg
+[17:25:33] <jqcommit> 13jquery/061.9-stable 14c27d8e2 15Corey Frang:  Fix #13103. Add .finish() method. Cherry picked from b6abb31df4d5be80dc13844d9988fb0c990ae5ae.
+[17:51:35] <doesallmagic> Project jQuery Core build #622: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/622/
+[17:51:36] <doesallmagic> dave.methvin: Fix #13103. Add .finish() method. Close gh-1118.
+[17:53:40] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 061.9-stable: 02http://git.io/aOCYqw
+[17:53:40] <jqcommit> 13jquery/061.9-stable 14ce67f0c 15Oleg: Ref #8908. Update IE9 css clone fix. Close gh-1120.
+[18:10:54] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/KD_P8Q
+[18:10:54] <jqcommit> 13jquery/06master 14054daa2 15Oleg: Ref #8908. Update IE9 css clone fix. Close gh-1119.
+[18:22:03] <doesallmagic> Project jQuery 1.x Core build #6: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/6/
+[18:22:03] <doesallmagic> dave.methvin:  Fix #13103. Add .finish() method. Cherry picked from b6abb31df4d5be80dc13844d9988fb0c990ae5ae.
+[18:52:28] <doesallmagic> Project jQuery Core build #623: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/623/
+[18:52:29] <doesallmagic> * dave.methvin: Simplify .wrapAll() and fix style. Close gh-1116.
+[18:52:29] <doesallmagic> * dave.methvin: Ref #8908. Update IE9 css clone fix. Close gh-1119.
+[19:22:55] <doesallmagic> Project jQuery 1.x Core build #7: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/7/
+[19:22:55] <doesallmagic> dave.methvin: Ref #8908. Update IE9 css clone fix. Close gh-1120.
+[19:23:33] <DaveMethvin> swaaaaarmy!
+[19:31:12] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 061.9-stable: 02http://git.io/fE5DQQ
+[19:31:12] <jqcommit> 13jquery/061.9-stable 140ed497b 15Dave Methvin: Resurrect buildFragment and sacrifice jQuery.clean. See gh-1117.
+[19:33:24] <jqcommit> 01[13jquery01] 15dmethvin pushed 4 new commits to 06master: 02http://git.io/v4yNHg
+[19:33:24] <jqcommit> 13jquery/06master 14c9bf5c5 15Oleg: Bring back jQuery.buildFragment and remove jQuery.clean
+[19:33:24] <jqcommit> 13jquery/06master 146d2ae92 15Oleg: Change test description
+[19:33:24] <jqcommit> 13jquery/06master 1458b4994 15Oleg: Always use core_push in jQuery.buildFragment
+[20:01:31] <doesallmagic> Project jQuery 1.x Core build #8: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/8/
+[20:01:31] <doesallmagic> dave.methvin: Resurrect buildFragment and sacrifice jQuery.clean. See gh-1117.
+[20:32:00] <doesallmagic> Project jQuery Core build #624: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/624/
+[20:32:01] <doesallmagic> * dave.methvin: Bring back jQuery.buildFragment and remove jQuery.clean
+[20:32:01] <doesallmagic> * dave.methvin: Change test description
+[20:32:02] <doesallmagic> * dave.methvin: Always use core_push in jQuery.buildFragment
+[20:32:02] <doesallmagic> * dave.methvin: Use while loop instead of for
+[20:43:32] <rwaldron> scott_gonzalez, sure man, lets merge all the things
+[20:43:38] <rwaldron> fuck policy!
+[20:43:45] <rwaldron> burn it down!
+[20:43:49] <rwaldron> merge em all
+[20:48:34] <snover> i feel that way too.

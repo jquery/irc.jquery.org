@@ -1,0 +1,231 @@
+[05:17:01] <ben_alman> rwaldron, there?
+[05:17:29] <ben_alman> scanning through compiled jq source, it looks like hasOwn might be getting defined one more time than is necessary
+[07:21:00] <rwaldron> ben_alman yt?
+[07:21:00] <bot-t> (5 hours 6 mins 40 secs ago) <miketaylr> tell rwaldron yay, just saw the update to your article. now just change the title to EventSource is <strike>long polling</strike> awesome. :)))
+[07:58:18] <ben_alman> rwaldron, hi
+[07:58:26] <ben_alman> had to go sell my mbp
+[07:58:29] <rwaldron> no problem
+[07:58:49] <ben_alman> did you see my comment? scanning through compiled jq source, it looks like hasOwn might be getting defined one more time than is necessary
+[07:58:49] <rwaldron> i just wanted to explain the silly multiple occurences of hasOwn
+[07:58:52] <ben_alman> ok
+[07:59:01] <ben_alman> i only mention it since you're in the souce a lot
+[07:59:07] <ben_alman> and i'm not quite so much (wacky)
+[07:59:39] <rwaldron> so, because each source file was changed to be in its own closure for the unit tests, hasOwn and toString and some of the regex's had to be defined inside of those closures
+[07:59:56] <ben_alman> ok
+[08:00:17] <rwaldron> jaubourg and I have discussed the possibility of trying to "trim" those out at build time
+[08:00:55] <ben_alman> https://github.com/jquery/jquery/blob/master/src/event.js#L3
+[08:01:01] <ben_alman> this isn't used anywhere in this file
+[08:01:30] <ben_alman> that's what i was saying
+[08:01:40] <ben_alman> i just didn't want to have to go to github because i am lazy
+[08:02:03] <rwaldron> oh word
+[08:02:12] <rwaldron> ticket? i'll fix that now
+[08:02:16] <ben_alman> sure 1 sec
+[08:03:17] <ben_alman> http://bugs.jquery.com/ticket/9510
+[08:04:01] <ben_alman> it's the kind of thing i could fix myself but i know it'd be faster to just tell you since you're already "in the shit"
+[08:38:07] <rmurphey> hey -- anyone have a sec to talk about passing multiple keys to removeDAta?
+[08:49:32] <ben_alman> ajpiano, danheberden i'm running into a practical issue where i want 2 plugins in a single repo
+[08:49:37] <ben_alman> for my deparam plugin
+[08:49:56] <ben_alman> it's a core deparam plugin (small) and a deparam+ plugin with lots of extras (larger)
+[08:50:06] <ben_alman> deparam+ is deparam with extra stuff
+[08:50:13] <ben_alman> so it really belongs in the same repo
+[08:50:24] <ben_alman> so i need to figure out how to handle multiple plugins in one repo
+[08:50:41] <danheberden> ben_alman i really think multiple declarations in a single plugin.json file is best
+[08:50:49] <danheberden> the file should always be root
+[08:51:00] <ben_alman> so /plugins.json
+[08:51:04] <ben_alman> or plugin.js
+[08:51:06] <ben_alman> er
+[08:51:11] <ben_alman> .json
+[08:51:15] <ben_alman> plural or singular
+[08:51:36] <danheberden> https://github.com/jquery/jquery-plugins/blob/master/data/plugin.json
+[08:51:42] <danheberden> plugin.json
+[08:51:50] <ben_alman> but is it an array at the top level?
+[08:52:24] <ben_alman> or a map?
+[08:52:25] <danheberden> so it'd be [{ name: "deparam", ... }, { name: "deparam+", ... }]
+[08:52:33] <danheberden> it's a map
+[08:52:40] <ben_alman> then
+[08:52:49] <danheberden> i think we could easily support always an array or array or object
+[08:52:54] <ben_alman> { "deparam": {...}, "deparam+": {...} }
+[08:52:57] <ben_alman> why not that
+[08:53:07] <danheberden> we can, just makes the logic harder
+[08:53:09] <ben_alman> that will always be the same structure for 1+
+[08:53:16] <ben_alman> no logic change
+[08:53:19] <danheberden> oh you mean do them all like that
+[08:53:22] <ben_alman> { "deparam": {...} }
+[08:53:23] <ben_alman> or
+[08:53:29] <ben_alman> { "deparam": {...}, "deparam+": {...} }
+[08:53:31] <danheberden> like, if i only have one, it's still { "serializeObject": ... }
+[08:53:32] <danheberden> and that's it
+[08:53:35] <ben_alman> yeppers
+[08:53:38] <danheberden> i like that a lot
+[08:53:42] <ben_alman> then the name field goes away
+[08:53:45] <danheberden> yeah
+[08:54:15] <danheberden> ?eval hi5( ben_alman, danheberden )
+[08:54:26] <ben_alman> i'm actually working on a build process for jquery plugins around plugin.json
+[08:54:29] <danheberden> FFFFFFUUUUUUUUUUUU bot-t
+[08:54:39] <danheberden> like to make said json file?
+[08:54:46] <danheberden> or just in general
+[08:54:53] <ben_alman> http://gyazo.com/d8c318a0c168dc1afde565ae6c3410c4.png
+[08:55:01] <ben_alman> no to use it as metadata to inform my build process
+[08:55:13] <ben_alman> which would be a win/win
+[08:55:26] <danheberden> nifty
+[08:56:31] <danheberden> i <3 good work-flows
+[08:57:32] <ben_alman> part of me wants to store more info in plugin.json tho
+[08:57:36] <ben_alman> about my build process
+[08:57:49] <ben_alman> like input and output filenames
+[08:57:50] <ben_alman> etc
+[09:03:06] <danheberden> i don't think using it to store metadata that plugins.jquery.com may or may not use is a bad thing
+[09:03:23] <danheberden> it almost could be 'package.json' and be a bit more generic
+[09:03:37] <danheberden> probably not 'package' but something generic
+[09:06:11] <rwaldron> danheberden this isNativeObject thing is fucked.
+[09:06:58] <rwaldron> his tests are contradictory to the rest of the world
+[09:07:58] <rwaldron> eg. it asserts that Function, Number, String, Boolean, RegExp, Date are "invalid" -- meaning "not native objects"
+[09:08:06] <rwaldron> they are in fact _all_ native objects
+[09:08:54] <danheberden> rwaldron didn't really look at it; i'm sure we'll get all kinds of "response" about why it's the best thing since sliced bread
+[09:09:01] <danheberden> i was just hoping to delay the inevitable with perf tests, lol
+[09:09:10] <danheberden> oh, and to your latest pull req: var hasOwn = "FFFFFFFUUUUUUUUUUUU"
+[09:09:47] <rwaldron> ben_alman found that
+[09:09:54] <rwaldron> i just fixed it
+[09:10:10] <danheberden> go team! :D
+[09:10:19] <ben_alman> found which
+[09:10:57] <danheberden> the unneeded var hasOwn ...
+[09:11:02] <ben_alman> lol yeah
+[09:11:37] <danheberden> true story, ben_alman reads the jq source every night before going to bed
+[09:11:49] <danheberden> that way, he finds bugs in his dreams
+[09:12:35] <rwaldron> well...
+[09:12:45] <rwaldron> i was actually like... inception... in his dreams
+[09:12:53] <rwaldron> and extracted the information as he discovered it
+[09:13:07] <danheberden> is that where you guys get the time to work on this stuff?
+[09:13:17] <ben_alman> pretty much
+[09:13:30] <rwaldron> danheberden this is fucking absurd.
+[09:13:35] <rwaldron> -> "hasOwnProperty" in obj
+[09:13:52] <rwaldron> that is 9001 kinds of stupid
+[09:14:11] <rwaldron> https://github.com/jquery/jquery/pull/402/files#L0R874
+[09:14:17] <rwaldron> Woooo!@
+[09:15:39] <danheberden> um... does anyone else notice the "hasOwn" var use there?
+[09:15:43] <ben_alman> danheberden, ajpiano i also think we should do dependencies like ruby gems do it http://docs.rubygems.org/read/chapter/16
+[09:16:01] <ben_alman> for plugin.json
+[09:16:10] <danheberden> nvm - hasOwn is already declared up top
+[09:16:19] * danheberden is just rediculous
+[09:16:34] <danheberden> rwaldron why is that a bad approach?
+[09:16:47] <ben_alman> so you could be like {"jquery": [">= 1.4.0"]} for all versions or {"jquery": ["~= 1.4"]} for all versions of 1.4.x
+[09:16:58] <ben_alman> or {"jquery": ["1.4.0"]} for only 1.4.0 specifically
+[09:17:07] <tbranyen> pretty close to the commonjs spec
+[09:17:15] <ajpiano> ben_alman, sounds good
+[09:17:16] <tbranyen> * should get you whatever the latest is
+[09:17:23] <tbranyen> jquery: "*"
+[09:20:15] <danheberden> ben_alman that sounds sensible to other basic formatting/matching specs
+[09:20:22] <ben_alman> ok
+[09:20:32] <ben_alman> i'm just owrking through this in a practical way to see how it feels
+[09:20:43] <ben_alman> by applying it to a plugin that will have a build process
+[09:20:54] <danheberden> ben_alman i thinks that's a terrific idea - you're our best use-case for this
+[09:21:03] <ben_alman> 2 plugins: one is just a single file, and another is 2 files that use the 1st plugin as a dep
+[09:22:00] <ben_alman> http://gyazo.com/2992f01cef68edd8faa75659332de346.png
+[09:22:17] <ben_alman> ok, i need to go to my chiro appt, i'll bbiab
+[09:26:44] <danheberden> rwaldron i'm trying to figure out why hasownproperty in a plain object is a bad thing
+[09:26:46] <danheberden> am i missing something?
+[09:30:47] <danheberden> rwaldron namely, http://danheberden.com/share/621be.png
+[09:31:36] <rwaldron> no, i just thought the way he did that was silly
+[09:58:18] <rwaldron> danheberden served: https://github.com/jquery/jquery/pull/405
+[09:58:21] <rwaldron> lunch time.
+[10:38:43] <ryanneufeld> could you guys hit this a few times? http://jsperf.com/slice-vs-nth-child#run
+[10:42:21] <rwaldron> hittin
+[10:42:42] <rwaldron> this test has too much noise bro
+[10:44:53] <ryanneufeld> oh?
+[10:45:09] <ryanneufeld> I'd love some feed back :)
+[10:47:49] <rwaldron> unless your testing the speed of the $("tr") selection, I'd cache that
+[10:49:10] <ryanneufeld> I see what you're saying
+[10:49:34] <rwaldron> also, the two tests dont select the same elements, but maybe that was intentional?
+[10:49:54] <ryanneufeld> they should do
+[10:49:58] <rwaldron> http://jsfiddle.net/rwaldron/BW9LK/
+[10:50:26] <ryanneufeld> bah
+[10:50:28] <ryanneufeld> off by one
+[10:50:29] <ryanneufeld> fuck
+[10:50:33] <rwaldron> 2,3
+[10:50:48] <rwaldron> updated, to also show the caching
+[10:50:49] <rwaldron> http://jsfiddle.net/rwaldron/BW9LK/
+[10:51:26] <rwaldron> ryanneufeld also, dig this...
+[10:51:27] <rwaldron> http://jsfiddle.net/rwaldron/BW9LK/
+[10:51:35] <rwaldron> a third way to test
+[10:51:42] <rwaldron> will likely be slower though
+[10:52:13] <ryanneufeld> yeah
+[10:52:14] <ryanneufeld> I like
+[10:52:21] <rwaldron> as $(selector, context) is just a convenient way to write $(this).find(selector)
+[10:52:31] <rwaldron> hopefully that helps
+[10:52:32] <ryanneufeld> the results seem to be mostly the same
+[10:52:33] <ryanneufeld> in fact
+[10:52:42] <ryanneufeld> even better for slice by caching
+[10:52:47] <ryanneufeld> yeah, it does
+[10:52:49] <ryanneufeld> thanks a lot
+[10:53:05] <ryanneufeld> I always appreciate a second opinion
+[10:54:21] <ryanneufeld> And the results are pretty much the same :)
+[10:54:25] <ryanneufeld> the last one is the slowest
+[10:54:52] <rwaldron> i figured
+[10:55:09] <rwaldron> its an entire function call added to the stack
+[10:57:15] <ryanneufeld> yeah, thx again. I proved my point either way, talked someone out of using nth-child
+[10:57:24] <rwaldron> nice
+[10:58:13] <rwaldron> slice is actually a direct reference to native array slice
+[10:58:18] <rwaldron> so, mega fast
+[11:01:36] <ryanneufeld> yeah, ajpiano showed me that at jqconf
+[11:03:42] <ajpiano> ;)
+[11:04:23] * ryanneufeld waves enthusiastically
+[11:04:33] * ryanneufeld is a total nerd
+[13:12:01] <rwaldron> danheberden yt?
+[13:12:28] <rwaldron> timmywil yt?
+[14:25:05] <jaubourg> hi there
+[14:25:15] <jonathansampson> Yo.
+[14:30:00] <rwaldron> jaubourg
+[14:30:05] <rwaldron> <3
+[14:30:27] <rwaldron> i never had a chance to show the tweak i made to your jQuery.Topic system
+[14:33:05] <jaubourg> what is it?
+[14:33:08] <rwaldron> https://github.com/rwldrn/jquery/tree/1.7-topic-ctor
+[14:33:09] <jaubourg> and hi rick
+[14:33:21] <rwaldron> https://github.com/rwldrn/jquery/blob/1.7-topic-ctor/src/topic.js
+[14:33:23] <rwaldron> hi :D
+[14:33:36] <rwaldron> I made it into a real constructor
+[14:33:48] <rwaldron> real instances
+[14:33:50] <rwaldron> and such
+[14:34:02] <rwaldron> without changing a single one of the tests :D
+[14:35:04] <jaubourg> well, I purposedly avoid any kind of real instantiation in Callbacks and Deferred already
+[14:35:06] <jaubourg> :P
+[14:35:10] <rwaldron> oh
+[14:38:17] <jaubourg> thing is, I don't see any gain, seeing as we don't use prototype anyway given we wanna keep methods "detachable"
+[14:38:37] <jaubourg> so that we can doSomething( defer.resolve )
+[14:39:09] <jaubourg> of course, the approach is much slower in old IEs :/
+[14:39:29] <jaubourg> I like the use of name instead of id
+[14:39:43] <jaubourg> been meaning to do that myself but was caught up in other stuff
+[14:41:14] <jaubourg> rwaldron: I still love you :P
+[14:42:31] <rwaldron> well, basically i did this so that users arent required to use strings for everything
+[14:42:34] <rwaldron> like
+[14:42:47] <rwaldron> var topic = jQuery.Topic("the topic");
+[14:43:12] <rwaldron> i now have the option to use EITHER the previously existing signatures that you had developed
+[14:43:13] <rwaldron> or...
+[14:43:19] <rwaldron> topic.publish()
+[14:43:25] <rwaldron> topic.unsubscribe()
+[14:43:31] <rwaldron> an it refers _only_ to this instance
+[14:44:25] <jaubourg> wasn't that the case already?
+[14:46:10] <rwaldron> not quite
+[14:46:15] <jaubourg> hmmm, there's an unused variable in my code
+[14:46:16] <rwaldron> i dont remember the thing i got hung up on
+[14:46:20] <rwaldron> i'm too tired
+[14:46:35] <jaubourg> weird, I use a cache so it should work exactly like you want it to
+[14:46:57] <rwaldron> can i get back to you?
+[14:47:01] <rwaldron> i have to go meet rose
+[14:47:07] <jaubourg> np, say hi for me ;)
+[14:47:07] <gnarf> http://blog.jquery.com/2011/05/31/jquery-color-v2-beta-1-released/#comment-526198 seems like a spammy comment
+[14:47:09] <rwaldron> sorry, i wish i had time to explain myself
+[14:47:19] <rwaldron> have a good evening
+[14:47:26] <rwaldron> i'll catch up with you this weekend :D
+[14:47:27] <jaubourg> man, between a geek and a gf, I know what I'd choose :P
+[14:47:39] <jaubourg> go man, see you later
+[14:48:06] <jaubourg> gnarf: it is
+[14:48:10] <rwaldron> later dude :)
+[14:48:10] <gnarf> I'd choose a geeky bf/gf
+[14:48:21] <jaubourg> yeah, that would be perfect
+[14:48:34] <jaubourg> gnarf: can I ask a very very personal question?
+[14:48:55] <gnarf> sure, although i doubt -dev is the right place for it ;)
+[15:15:04] <danheberden> gnarf agree - deleted
+[15:24:49] <gnarf> how long do we normally leave beta releases out there before moving into a pre / release?
+[15:25:15] <jaubourg> 7 years
+[15:25:17] * jaubourg hides
+[15:31:27] <joshontheweb> is there a seperate channel for jquery mobile?
+[16:03:51] <erichynds> joshontheweb: #jquerymobile for support, #jquerymobile-dev for dev

@@ -1,0 +1,186 @@
+[00:09:32] <didiergm> JQM: Can anyone recommend a good rich text editor (html wysiwig) that works nicely with jquerymobile ?
+[00:51:09] <agcolom> arschmitz: Hi Alex, I think we should have minutes for yesterday's meeting. I can copy last week's plus add an item on the PointerEvents discussion which could be similar to what UI has here: http://meetings.jquery.org/2014-08-13-ui/
+[00:53:36] <agcolom> Would be good also to add a line about gseguin's work there. So if you let me know what you want I'll add it this evening or tomorrow.
+[01:42:14] <jqcommit> [13demos.jquerymobile.com] 15mrextreme opened issue #12: Missing info in popup documentation 02http://git.io/SZ-aMA
+[02:14:01] <jqcommit> [13api.jquerymobile.com] 15agcolom opened pull request #327: Popup: Add note for popups with a header and a closing button (06master...06popup-header) 02http://git.io/skPI0g
+[05:11:00] <arschmitz> agcolom: that sounds good thank you
+[05:17:49] <mikesherov_> tj_vantoll: !
+[05:17:59] <mikesherov_> https://github.com/jquery/jquery-ui/pull/1312 this guy
+[05:18:14] <mikesherov_> so is the problem only in ie8 - ie10, and NOT ie11?
+[05:20:11] <jqcommit> [13demos.jquerymobile.com] 15arschmitz closed issue #12: Missing info in popup documentation 02http://git.io/SZ-aMA
+[05:20:29] <tj_vantoll> mikesherov_: Well the original problem is only in IE8.
+[05:20:51] <tj_vantoll> mikesherov_: That fix works for IE8, doesn't create any problems in IE9–10, but breaks all other browsers.
+[05:21:51] <mikesherov_> i see
+[05:21:56] <mikesherov_> I wonder why there isn't a support flag for async events vs. sync
+[05:22:12] <mikesherov_> ie is async
+[05:22:12] <mikesherov_> right, in all other browsers, its synch
+[05:23:04] <mikesherov_> right? or is that backward?
+[05:23:21] <tj_vantoll> That's backwards.
+[05:23:38] <tj_vantoll> IE 8–10 is sync, all others are sync—at least to my knowledge.
+[05:24:01] <tj_vantoll> All others are async I should say.
+[05:25:42] <mikesherov_> http://stackoverflow.com/questions/14410075/jquery-receiving-two-focusin-events-on-focus
+[05:26:00] <mikesherov_> "Unfortunately, all versions of Internet Explorer (6 through 10) fire focus events asynchronously. When you .trigger("focus") in IE, jQuery won't "see" the async focus event which will occur later, so it fires one of its own to ensure that a focus event always occurs as described above."
+[05:27:28] <tj_vantoll> hmmm
+[05:28:07] <mikesherov_> that was the big deal with .focus() and .blur()
+[05:28:15] <mikesherov_> so jQuery created a second synchronous event
+[05:28:20] <mikesherov_> which was eventually removed
+[05:28:32] <mikesherov_> if ie did sync by mistake, it's easy to turn that async
+[05:28:44] <mikesherov_> but the problem is that it was async, which can not be made to be synchronous
+[05:29:23] <mikesherov_> which is why making it async breaks other browsers
+[05:29:35] <mikesherov_> because the other browsers are sync
+[05:29:43] <mikesherov_> so events are now out of order
+[05:29:52] <tj_vantoll> ok
+[05:30:37] <mikesherov_> so I was also thinking about how to fix this... and I'm kind of coming up short
+[05:30:59] <mikesherov_> other than literally detecting async blur with a feature detect
+[05:31:01] <tj_vantoll> Well in the context of this issue, document.activeElement.blur() causes the autocomplete menu to close before the mouse event gets to it.
+[05:31:35] <tj_vantoll> But that only happens in IE8, which is odd. It works in IE9 and IE10.
+[05:32:05] <mikesherov_> so, onblur, does an autocomplete close its menu?
+[05:32:18] <tj_vantoll> I think so, let me check.
+[05:32:41] <arschmitz> Go Go ie8!
+[05:32:48] <tj_vantoll> Yeah, blur on the <input> closes the menu.
+[05:32:59] <tj_vantoll> The activeElement is the <input>.
+[05:33:53] <tj_vantoll> I'd need to verify this again, but I believe that only IE8 gets to the onblur event in autocomplete before the mousedown event in menu.
+[05:36:22] <mikesherov_> so what's happening then is only in IE8 is the activeElement the input on the mousedown
+[05:36:41] <mikesherov_> just restating for myself
+[05:37:46] <tj_vantoll> Actually I might be off. The blur is firing before the click in Chrome.
+[05:38:33] <mikesherov_> before the mousedown?
+[05:38:40] <mikesherov_> def before click
+[05:38:46] <mikesherov_> but not before mousedown
+[05:39:22] <tj_vantoll> Menu actually listens for click, I was mistaken.
+[05:39:30] <mikesherov_> I see
+[05:39:31] <tj_vantoll> This event is not triggered in IE8: https://github.com/jquery/jquery-ui/blob/master/ui/menu.js#L77
+[05:39:39] <tj_vantoll> It is in IE9+ and everywhere else.
+[05:40:20] <mikesherov_> I see
+[05:40:46] <tj_vantoll> But the blur is sync in both so something else might up be here.
+[05:40:48] <mikesherov_> so what's happening then is that the mouseup (which is before click) has to be refocusing the draggable
+[05:41:22] <tj_vantoll> You mean mousedown?
+[05:41:34] <mikesherov_> this.element.focus(); in draggable is a likely culprit
+[05:41:43] <mikesherov_> no, I mean mouseup
+[05:41:48] <mikesherov_> so draggable itself says:
+[05:42:15] <mikesherov_> mousedown -> blur the active element -> mouseup -> focus me -> click
+[05:42:57] <tj_vantoll> AH ok
+[05:43:02] <tj_vantoll> Let me try commenting that line out.
+[05:43:45] <mikesherov_> also of importance: http://msdn.microsoft.com/en-us/library/ie/ms536913(v=vs.85).aspx
+[05:44:14] <tj_vantoll> No luck. If I comment out the entire mouseUp handler the bug still occurs.
+[05:46:43] <mikesherov__> what is possibly happening is that the draggable focus is occuring after the click in IE8 but nowhere else
+[05:46:44] <mikesherov__> so, while that is being tested
+[05:48:39] <tj_vantoll> If I comment most all the code in draggable the bug still occurs.
+[05:48:59] <mikesherov__> so nothing with focus
+[05:49:08] <mikesherov__> it's definitely the blur then :-\
+[05:50:31] <tj_vantoll> Yep. I return;'d out of every method other than a single $( this.document[ 0 ].activeElement ).blur(); call and the bug still occurred.
+[05:51:01] <tj_vantoll> Menu's closing logic is also async.
+[05:51:42] <mikesherov__> so, ie9 fires blur sync
+[05:51:42] <mikesherov__> only ie8 fires it async
+[05:51:54] <mikesherov__> at least that's what the research says
+[05:52:07] <mikesherov__> http://dev.ckeditor.com/ticket/9224
+[05:53:12] <mikesherov__> "we can observe that IE9 works synchronously (correctly) and Opera is the only, truly asynchronous one."
+[05:54:01] <tj_vantoll> Which conflicts earlier information :) All browsers are triggering the blur in autocomplete before the click in menu.
+[05:54:42] <tj_vantoll> The blur triggers an async close, and non-IE8 browsers process the click that selects the menu item first.
+[05:54:43] <mikesherov__> tj_vantoll: have you tried saving off the active Element to a var
+[05:55:06] <tj_vantoll> I think I did but I can try that again quick.
+[05:56:05] <tj_vantoll> Yeah no difference. The activeElement is still the <input> after the timeout.
+[05:59:41] <tj_vantoll> Commenting out this line makes the bug go away, but it also means the menu remains visible https://github.com/jquery/jquery-ui/blob/master/ui/autocomplete.js#L473
+[06:00:55] <mikesherov_> tj_vantoll: bubbling!
+[06:01:50] <mikesherov_> I wonder if we should only blur if the draggable is the actual target!
+[06:02:46] <mikesherov_> i.e IE8 just a symptom of larger problem
+[06:02:48] <tj_vantoll> I don't think that works because the original bug talked about blurring an input when you grabbed the draggable's handle.
+[06:03:01] <tj_vantoll> The bug that caused the blur() call to go in that is.
+[06:03:18] <mikesherov_> well, right
+[06:03:57] <mikesherov_> What I mean is, mouse down on draggable unconditionally blurs the active element
+[06:04:32] <mikesherov_> Which possibly is the menu by that point, but only in ie8
+[06:04:57] <mikesherov_> Like console.log active lenient
+[06:05:07] <mikesherov_> possibly only the menu in ie8
+[06:05:34] <mikesherov_> I'm on mobile btw. Excuse the cryptic grammar
+[06:07:05] <tj_vantoll> I'm pretty sure it's consistently the <input>. Let me check though.
+[06:07:56] <tj_vantoll> Yeah it's the <input>.
+[06:08:52] <mikesherov_> Right. What I meant  was the original bug was that when you mouse down the draggable it should receive focus, and the input should blur. But...
+[06:09:19] <mikesherov_> We don't test that an input inside a draggable doesn't lose focus when clicked on. 
+[06:10:05] <mikesherov_> Meaning, clicking an input inside a draggable should not cause activeelement to blur!
+[06:10:19] <mikesherov_> Should check that. 
+[06:10:54] <tj_vantoll> Ah I think I follow. If activeElement and event.target are both the <input> there's no point calling blur().
+[06:11:32] <mikesherov_> Or more specifically... If the draggable isn't the actual target, don't blur the active. 
+[06:14:18] <mikesherov_> I.e. event.target === this.element[ 0 ]
+[06:16:04] <mikesherov_> tj_vantoll: ^
+[06:16:31] <tj_vantoll> This fixes the IE8 issue and passes the test suite:
+[06:16:32] <tj_vantoll> 				if ( this.element[ 0 ] === event.target ) {
+[06:16:32] <tj_vantoll> 					$( document.activeElement ).blur();
+[06:16:32] <tj_vantoll> 				}
+[06:16:33] <tj_vantoll> :)
+[06:16:45] <tj_vantoll> Well it avoids the IE8 issue.
+[06:16:57] <mikesherov_> So, that's the bug!
+[06:17:15] <tj_vantoll> There is a test for the blur() code doing it's initial purpose. I'll have to verify that test does what it's supposed to do.
+[06:17:29] <mikesherov_> I think then there's an issue with focus order in menu in IE8. But that's a diff issue
+[06:17:37] <tj_vantoll> And clean this up, but I think you got it.
+[06:17:40] <tj_vantoll> Yeah.
+[06:17:54] <tj_vantoll> This should subvert the focus/blur hell.
+[06:18:05] <mikesherov_> Cool. Send me a PR. Got to go underground for a few. 
+[06:18:16] <mikesherov_> Thanks!
+[06:18:37] <tj_vantoll> Will do. It'll probably take me a bit to verify all of this is doing what it shou.d
+[06:18:41] <tj_vantoll> should.
+[06:18:52] <tj_vantoll> Thanks to you as well!
+[06:18:53] <mikesherov_> That test does the right thing. Just add a test for when it's not actually being clicked on. 
+[06:19:31] <mikesherov_> I.e. Test when you click the input, it doesn't lose focus :)
+[06:20:36] <tj_vantoll> Ah right.
+[06:42:40] <jquicommit> [13jquery-ui] 15tjvantoll closed pull request #1312: Draggable: Delay the `document.activeElement.blur()` call for IE8 (06master...06draggable-ie8) 02http://git.io/QlJclg
+[08:13:29] <jquicommit> [13jquery-ui] 15tjvantoll opened pull request #1314: Draggable: Only blur the focused element if the event occurs on a handle (06master...06draggable-ie8-fun) 02http://git.io/4AnotA
+[08:20:31] <mikesherov_> https://github.com/jquery/jquery-ui/pull/1314 tj_vantoll1 no tests?
+[08:33:56] <tj_vantoll1> mikesherov_: I couldn't get one to fail right. When I simulate a click or a mousedown on the input I don't get into the right code.
+[08:34:37] <tj_vantoll1> If that makes any sense.
+[08:34:40] <mikesherov_> it does
+[08:34:55] <mikesherov_> so, try it with two divs
+[08:35:14] <mikesherov_> there is some weirdness with focusing blurring actual inputs
+[08:35:37] <mikesherov_> but I def think we need a test for this.
+[08:36:00] <mikesherov_> especially since dave stein is actually working on the interations rewrite again
+[08:36:13] <mikesherov_> and I need a bulletproof suite for him to pass
+[08:47:41] <tj_vantoll1> mikesherov_: I agree with needing a test, and sorry for being slow to respond; it's been a crazy morning. Could you explain what you mean by two divs?
+[08:50:04] <mikesherov_> I mean, a draggable (div1) with a div inside it (div2)
+[08:50:08] <mikesherov_> focus div2
+[08:50:12] <mikesherov_> then click on it
+[08:50:30] <mikesherov_> then div2 should retain focus
+[08:54:48] <tj_vantoll1> Ah I see. Thanks, I'll give that a go later.
+[09:30:29] <jqcommit> [13api.jquerymobile.com] 15clifforama opened issue #328: Pagecontainer change method: missing data option 02http://git.io/axvnYA
+[11:38:18] <arschmitz> tj_vantoll: Ping!
+[11:55:18] <tj_vantoll> arschmitz: Hey
+[11:55:42] <arschmitz> hey so thought it would be easier to just talk to you for a minute about the stuff in core.css
+[11:55:58] <tj_vantoll> Sure
+[11:56:43] <arschmitz> basicly with most css frameworks the button is kind if a base component used by most of the others 
+[11:57:15] <arschmitz> for example button checkbox selectmenu etc would all use button css because other wise you are essentially duplicating the css for not good reason
+[11:57:38] <arschmitz> so that leads to the question of where button and icon css should be
+[11:57:45] <tj_vantoll> But can't they just depend on button.css?
+[11:57:59] <arschmitz> right now with the new button its really weird because we have both
+[11:58:45] <arschmitz> tj_vantoll: they can and i think should
+[11:58:59] <arschmitz> where those are now is not where im saying they should be
+[11:59:31] <arschmitz> just kinda where they are at the moment i had brought this question up previously with jzaefferer and he had asked jasperdegroot to look at it and wanted his opinion
+[11:59:42] <arschmitz> but i dont think that really got anywhere
+[11:59:56] <arschmitz> i think it was when jasperdegroot was not available much
+[11:59:59] <arschmitz> due to moving
+[12:00:37] <tj_vantoll> Yeah this is tricky, I see now that the only rules you have in core.css are related to icons.
+[12:00:46] <arschmitz> tj_vantoll: exactly
+[12:00:59] <arschmitz> so im not set on where these should go
+[12:01:17] <arschmitz> and i was looking for discussion at the time and really still am
+[12:01:22] <arschmitz> on the best way to handle this
+[12:01:37] <arschmitz> because select menu should also switch to use these classes i would think
+[12:01:59] <tj_vantoll> That's another spot where mixins would be handy.
+[12:02:16] <arschmitz> i started doing that already but reverted it because it got mixed in with other unrelated stuff by accident
+[12:02:20] <arschmitz> tj_vantoll: yup
+[12:02:42] <tj_vantoll> Personally I think the "ui-button" + "ui-icon" rules (in whatever combination) should go in button.css.
+[12:02:53] <tj_vantoll> But just the icon stuff can stay in core.css.
+[12:03:05] <arschmitz> tj_vantoll: makes sense to me
+[12:03:25] <arschmitz> i think there would not be much of that though
+[12:03:40] <arschmitz> once other things were not using icons so much 
+[12:03:43] <tj_vantoll> No not much. If selectmenu needs those rules it can “depend” on button.css.
+[12:03:57] <arschmitz> tj_vantoll: yup that was my thought
+[12:04:30] <arschmitz> tj_vantoll: right now im pretty sure some of those are only scoped to button to avoid conflicts with other un updated things like select
+[12:04:45] <arschmitz> but id have to double check to be sure
+[12:05:04] <tj_vantoll> Sounds good.
+[12:05:18] <arschmitz> kinda like the stuff in theme
+[12:05:58] <tj_vantoll> Yeah, I'm ok with that because mixins will let us take that back out in some distant future.
+[12:06:08] <tj_vantoll> And because I see no other way.
+[12:06:10] <arschmitz> a lot of the nastyness with that got cleared up when switched back to spans for icons and not :pseudo
+[12:06:30] <arschmitz> there was TONS of it to make it work both ways its was super gross
+[12:07:54] <arschmitz> tj_vantoll: so anything that will remain scoped to button goes in button anything that will eventually be unscopped should stay?  sound good?
+[12:08:48] <tj_vantoll> Yep. Want to make a comment on the GitHub issue to that effect so we don't forget this conversation :P
+[12:09:01] <arschmitz> sounds good
+[12:43:40] <jqcommit> [13api.jquerymobile.com] 15agcolom closed issue #241: pagecontainer load method's showLoadMsg option defaults to false, not true 02http://git.io/2V-z_w
+[13:27:57] <jqmobilecommit> [13jquery-mobile] 15clifforama opened issue #7623: Non-fixed, persistent external toolbars: improper transitions 02http://git.io/TiEIIw
+[17:08:32] <jqmobilecommit> [13jquery-mobile] 15styke opened issue #7624: pagecontainerload event 'ui' argument empty. 02http://git.io/LZ4t9g

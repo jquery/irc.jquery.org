@@ -1,0 +1,438 @@
+[02:51:35] <addyosmani> bot-t: tell paul_irish, would you like triage tickets that have been closed/left open as browser/vendor bugs to be opened as issues on the standards repo? wasn't sure how you wanted to approach that.
+[02:51:36] <bot-t> addyosmani, Okay.
+[05:00:41] <davidmurdoch> Anyone awake?
+[06:57:59] <davidmurdoch> I think I've found a bug in 1.7rc1, anyone awake to discuss?
+[06:59:28] <timmywil> davidmurdoch: best to file at http://bugs.jquery.com with a reduced test case from http://jsfiddle.net so we can all see it.
+[07:00:06] <davidmurdoch> http://jsfiddle.net/musicisair/ALCvY/3/
+[07:00:36] <davidmurdoch> i'm not positive its a bug...so I thought i'd come here before filing a ticket.
+[07:00:59] <davidmurdoch> gah, don't use that link
+[07:00:59] <davidmurdoch> wrong one
+[07:01:00] <davidmurdoch> http://jsfiddle.net/musicisair/ALCvY/
+[07:01:18] <DaveMethvin> davidmurdoch: lemme look
+[07:04:08] <timmywil> looks right to me
+[07:04:34] <timmywil> .not(this) excludes both handlers
+[07:04:37] <davidmurdoch> thanks. In the fiddle I'm using `.on` to bind the first change event, note that I haven't tested to see if the regular ol' `.live` or `.bind` methods have the same issue.
+[07:05:21] <timmywil> the output looks correct.  live and bind are simply calls to on
+[07:05:30] <davidmurdoch> Shouldn't the second change event always be triggered though?
+[07:05:37] <timmywil> no
+[07:05:59] <timmywil> it will only be triggered for the other input
+[07:05:59] <davidmurdoch> well, unless canceled (return false, stopProp)
+[07:06:22] <DaveMethvin> yeah the "this" in the handler is the element so you're not triggering it again there
+[07:07:11] <timmywil> to trigger only the other handler, but for both inputs, you wanna do $('input').trigger('change.all-inputs')
+[07:08:38] <DaveMethvin> afaict this is working properly
+[07:09:27] <DaveMethvin> in real code i wouldn't advise mixing on/live because it's confusing
+[07:09:29] <davidmurdoch> ah ok. I just assumed that since removing the $("input").not(this).trigger("change"); line all together DOES trigger the change.all-inputs event on Input 1 that i'd need to exclude it when manually calling the change event
+[07:10:29] <DaveMethvin> also remember that live implicitly bubbles to document and your on is handling the event at #selector, which can also be confusing
+[07:10:29] <davidmurdoch> yah, this in this case need to do some work on the elements that are currently on the page anyway, so I use live.
+[07:11:31] <DaveMethvin> but in the worst case, $(document).on("change.all-inputs", "input", fn) does the same thing as live
+[07:11:55] <DaveMethvin> but it really is the worst case, usually you can attach at a lower point and it clarifies the code in addition to improving performance
+[07:12:06] <DaveMethvin> live is like a global variable
+[07:12:27] <davidmurdoch> So, by calling trigger on a set of elements, but excluding one of the elements you effectively preventPropagation on that element's event, even when it normally would propagate.
+[07:13:42] <DaveMethvin> not sure about that statement...can you make a fiddle to show what you mean?
+[07:13:43] <davidmurdoch> yikes...that last message is a bit confusing to read. let me know if you need me to rephrase.
+[07:13:46] <davidmurdoch> haha
+[07:14:56] <DaveMethvin> as of 1.7, stopPropagation actually works with on/live/delegate for any event at or above the delegation point
+[07:15:27] <DaveMethvin> yet another good reason to avoid live since the delegation point is the tippy top of the document so stopPropagation is not very useful
+[07:16:00] <gnarf> oh btw
+[07:16:23] <gnarf> hoverIntent totally fucked up one of my scripts today because they were doing "return false"
+[07:16:31] <gnarf> assholes
+[07:16:32] <gnarf> :)
+[07:16:42] <DaveMethvin> lol
+[07:16:50] <DaveMethvin> so who do you report that bug to?
+[07:18:10] <davidmurdoch> Ok, in the test case I provided I'm binding 2 "live" change events on one element. If I do NOT call "trigger('change')" from the first event, the second event fires as expected. BUT, if I DO call trigger('change') in the first event, but I exclude the element that initially triggered the event (e.g. `.not(this)`), the second event will be triggered. Test case coming up...
+[07:19:02] <gnarf> DaveMethvin: went to report it and discovered the new version doesn't return false anymore
+[07:19:14] <DaveMethvin> sweet bugfixes!
+[07:19:26] <gnarf> still, took me like 30 minutes to track down wtf was hapening
+[07:19:47] <DaveMethvin> face it gnarf, you screwed up and trusted code you didn't write! :D
+[07:26:37] <davidmurdoch> DaveMethvin: http://jsfiddle.net/musicisair/ALCvY/6/
+[07:28:21] <davidmurdoch> DaveMethvin: fixed typo in one of the console.log messages: http://jsfiddle.net/musicisair/ALCvY/7/
+[07:30:32] <DaveMethvin> so you're asking about the two change.scoped?
+[07:30:51] <davidmurdoch> Well, no, but that is something else I found strange.
+[07:31:26] <davidmurdoch> I'm guessing the problem I'm having is by design which is why you don't see anything strange.
+[07:31:27] <timmywil> again, looks right
+[07:32:46] <DaveMethvin> davidmurdoch: what real-life effect are you trying to accomplish? might be easier to work from there
+[07:33:11] <DaveMethvin> like in the example, #second hasn't changed but you're firing change on it, that seems unintuitive
+[07:33:20] <davidmurdoch> So, excluding an element from a call to `trigger` cancels all other bound events on the element, even if those events would normally be triggered if the call to `trigger` was made in the first place.
+[07:33:44] <DaveMethvin> doesn't cancel anything, no
+[07:34:03] <DaveMethvin> it would fail to trigger on the exluded element but that's expected
+[07:34:14] <davidmurdoch> Well, normally i would $("input").prop("checked", this.checked).trigger("change"); where `this` is the element that triggered the change in the first place
+[07:35:06] <DaveMethvin> ok so you're trying to sync check boxes with that?
+[07:35:24] <DaveMethvin> that shoudl be ok
+[07:35:35] <DaveMethvin> of course you'd want a better selector
+[07:35:35] <davidmurdoch> DaveMethvin: Its pretty much for $.fn.checkAll
+[07:35:51] <davidmurdoch> right, these are just reduced test cases i'm showing you
+[07:38:19] <DaveMethvin> so are we all sorted davidmurdoch?
+[07:47:30] <davidmurdoch> DaveMethvin: not quite. still seems odd to me
+[07:47:30] <davidmurdoch> http://jsfiddle.net/musicisair/ALCvY/8/
+[07:48:04] <davidmurdoch> don't just run that code willy-nilly. read the comments first; you'll need to comment some lines out do run it.
+[07:49:12] <DaveMethvin> yeah i commented out the first change since yes, that would cause infinite recursion
+[07:49:22] <DaveMethvin> but what is wrong again with the second one?
+[07:49:48] <DaveMethvin> it seems to work for me.
+[07:50:37] <davidmurdoch> i'd expect the console to emit 3 messages:
+[07:50:43] <davidmurdoch> first changed via on
+[07:50:53] <davidmurdoch> second changed via on
+[07:51:00] <davidmurdoch> first changed via on
+[07:51:07] <DaveMethvin> but you excluded it
+[07:51:11] <DaveMethvin> in the trigger
+[07:51:45] <davidmurdoch> Right, but i feel like it should still propagate since I didn't return false or stopPropagation
+[07:52:19] <davidmurdoch> If I don't exclude it we run into the infinite recursion issue.
+[07:53:03] <DaveMethvin> but you didn't trigger the "check all" box, and you can't since it would cause infinite recursion
+[07:53:10] <DaveMethvin> so it seems like it is working right
+[07:54:46] <davidmurdoch> I guess I'm never going to understand whats going on here. lol
+[07:55:38] <davidmurdoch> I just feel that the second change event should ALWAYS first unless I tell it not to by returning false or calling event.stopPropagation from the first event.
+[07:56:37] <DaveMethvin> you accidentally a word in that last message i think
+[07:59:36] <DaveMethvin> davidmurdoch: the markup can help, it would be better to do something like this: http://jsfiddle.net/dmethvin/ALCvY/10/
+[08:00:21] <DaveMethvin> or you could select via a class on the individual checkboxes or several other markup techniques
+[08:01:17] <DaveMethvin> it seems fragile to handle it globally using live, and definitely won't lead to reusable code/markup
+[08:02:47] <davidmurdoch> DaveMethvin, Thanks. What if I wanted to log when the "all" checkbox changed as well?
+[08:03:02] <DaveMethvin> add a console.log to the first .on
+[08:03:09] <davidmurdoch> liek this: http://jsfiddle.net/musicisair/ALCvY/8/
+[08:04:42] <DaveMethvin> davidmurdoch: again i don't see anything wrong with that after commenting out the recursion trigger
+[08:05:46] <DaveMethvin> nothing is being cancelled or stopPropped
+[08:05:54] <davidmurdoch> hrm, you are seeing "log:first: true/false" in your console?
+[08:06:16] <DaveMethvin> your last link was http://jsfiddle.net/musicisair/ALCvY/8/
+[08:07:07] <davidmurdoch> woops: http://jsfiddle.net/musicisair/ALCvY/11/
+[08:07:10] <davidmurdoch> so sorry.
+[08:09:19] <DaveMethvin> sorry but the code seems to be getting more convoluted and I don't think it's revealing any bugs
+[08:09:25] <DaveMethvin> i would do it this way:http://jsfiddle.net/dmethvin/ALCvY/12/
+[08:09:35] <DaveMethvin> i need to get some stuff done
+[08:10:19] <davidmurdoch> Sorry for keeping you so long. Great work on 1.7!
+[08:31:40] <davidmurdoch> DaveMethin: I know you probably hate me by now... but I just tested this in 1.6.4 (using delegate instead of on) and it works as expected, so this would be a breaking change.
+[08:31:46] <davidmurdoch> 1.7rc1: http://jsfiddle.net/musicisair/ALCvY/16/
+[08:31:55] <davidmurdoch> 1.6.4: http://jsfiddle.net/musicisair/ALCvY/17/
+[08:32:28] <davidmurdoch> DaveMethvin, please see above.
+[08:42:46] <davidmurdoch> filed ticket: http://bugs.jquery.com/ticket/10575
+[08:47:33] <gnarf> davidmurdoch: um
+[08:47:38] <gnarf> whats the bug exactly?
+[08:47:50] * gnarf reads ticket
+[08:48:04] <davidmurdoch> gnarf: check your console after clicking "check all"
+[08:49:38] <davidmurdoch> just realized I didn't explain how to reproduce. Just updated the ticket.
+[08:49:53] <DaveMethvin> davidmurdoch: i do believe *that* is a bug
+[08:50:00] <gnarf> so the error is that the .change-logger event isn't firing
+[08:50:01] <davidmurdoch> :-)
+[08:50:08] <davidmurdoch> Yup
+[08:50:09] <gnarf> for the "all" input?
+[08:50:13] <davidmurdoch> correct
+[08:50:16] <gnarf> can you just state that?
+[08:50:26] <gnarf> rather than being all cryptic like "the demo shows it"
+[08:50:27] <gnarf> :)
+[08:51:57] <davidmurdoch> Sorry about that. I've just been at it with Dave for so long I was just tired of going over it. lol. Dave, thanks again for sticking with it for so long. Don't hate me. :-p
+[08:53:39] <gnarf> yeah
+[08:53:43] <gnarf> thats not making any sense
+[08:54:57] <gnarf> oops
+[08:55:41] <gnarf> didn't mean to change the title
+[08:55:41] <gnarf> well
+[08:55:42] <gnarf> i did
+[08:55:48] <gnarf> but i never actually wrote a better one
+[08:56:14] <gnarf> DaveMethvin: prio for this bug?
+[08:56:35] <DaveMethvin> gnarf, i'll look at it in a minute, for now id consider it a blocker
+[08:56:39] <gnarf> seems at least "high" to me
+[08:56:40] <gnarf> k
+[08:56:42] <gnarf> blocker it is
+[09:30:57] <DaveMethvin> so gnarf ... why doesn't jslint find global variables?
+[09:31:27] <DaveMethvin> that is the bug here, i missed declaring a var so it made it global
+[09:36:05] <timmywil> DaveMethvin: it's not supressed in the jshint-check
+[09:36:09] <timmywil> so i dunno
+[09:36:22] <DaveMethvin> yeah it's really annoying, and so easy to make that mistake
+[09:36:29] <timmywil> unless you're using a var that's actually declared somewhere else
+[09:36:41] <DaveMethvin> oh like in an outer scope
+[09:36:45] <timmywil> yea
+[09:36:47] <DaveMethvin> but no, not in this case
+[09:36:51] <timmywil> weird
+[09:37:39] <DaveMethvin> scary
+[09:37:58] <timmywil> huh, yea i can declare a global and jshint doesn't complain
+[09:38:06] <timmywil> lemme run jshint locally
+[09:38:43] <timmywil> heh, too many errors
+[09:43:37] <timmywil> DaveMethvin: ah, undef is false
+[09:43:54] <DaveMethvin> wonder why
+[09:44:19] <timmywil> cause it complains about setTimeout, define, DOMParser, and more
+[09:44:27] <timmywil> but we can put those in a predef list
+[09:46:01] <danzik17> isnt there an "assume browser" flag which does all that for you?
+[09:46:41] <timmywil> browser will cover some of them
+[09:47:04] <timmywil> oh, i know why
+[09:47:06] <timmywil> damn
+[09:47:29] <timmywil> the only way for jshint to check if a variable is global is to check if it was var'd in a line above
+[09:47:36] <timmywil> we assume hoisting a LOT of places
+[09:48:05] <timmywil> it would require reorganizing tons of shit
+[09:48:42] <timmywil> DaveMethvin: ^^
+[09:48:47] <DaveMethvin> oh
+[09:49:10] <timmywil> maybe it would be worth it to go through and do that in 1.8
+[09:49:58] <timmywil> "scanned 50%".  it hit max errors
+[09:50:44] <mikesherov> hoisting is crazy
+[09:51:02] <mikesherov> I mean, doing it isn't... the fact that it exists is
+[09:52:36] <rwaldron> i think thats one of the options you have to "opt-in" for
+[09:52:41] <rwaldron> of by default.
+[09:52:42] <rwaldron> off*
+[09:52:52] <timmywil> yup
+[09:52:56] <rwaldron> if someone already said that, sorry
+[09:53:00] <rwaldron> i only scanned
+[09:53:37] <timmywil> it is off by default yea.  we just never turned it on because of hoisting I assume.
+[09:53:46] <timmywil> which isn't a bad reason
+[09:53:47] <DaveMethvin> brb
+[09:56:07] <mikesherov> I wonder what it would take for jsHint to know about hoisting.
+[09:57:11] <timmywil> probably another initial scan
+[09:57:31] <timmywil> remembering vars and their scopes
+[09:57:38] <timmywil> which could be a pain
+[09:57:54] <mikesherov> http://www.adequatelygood.com/2010/2/JavaScript-Scoping-and-Hoisting
+[09:58:40] <mikesherov> that article saying use the jshint onevar option forces the one var declaration per scope rule, and forces you to essentially never assume hoisting
+[09:58:58] <mikesherov> under "How to Code With This Knowledge"
+[09:59:16] <timmywil> sure, which we actually have in our styleguide, but never enforced
+[09:59:53] <mikesherov> so, yeah, might be worthwhile for 1.8
+[09:59:55] <timmywil> for the most part, we still have onevar most places
+[10:00:27] <timmywil> but if the var declaration is below a function and that function uses a var later declared, that is still onevar compliant, but not undef compliant
+[10:00:28] <gnarf> we could actually turn that on prolly
+[10:00:31] <gnarf> and just fix em all
+[10:01:43] <timmywil> gnarf: i think it will be a pretty involved project
+[10:01:50] <gnarf> probably
+[10:01:51] <timmywil> but i'm ok with doing it
+[10:01:55] <timmywil> just not now
+[10:01:58] <gnarf> but we should probably do it
+[10:01:59] <gnarf> :)
+[10:02:08] <gnarf> maybe as like the first step of the 1.8 branch
+[10:02:22] <timmywil> i'll certainly do it in the sizzle rewrite
+[10:02:29] <timmywil> sizzle alone killed my jshint
+[10:02:40] <gnarf> bbiab, lunch
+[10:07:09] <mikesherov> got disconnected
+[10:13:40] <mikesherov> so, maybe you saw this already, but you can assume a list of globals in jshint: /*global */
+[10:14:30] <DaveMethvin> so how does everyone feel about the pattern of declaring all variables at the top of the function?
+[10:15:08] <mikesherov> Dave, not sure if my opnion matters, but I would say that gaurd clauses can go first if necessary...
+[10:16:08] <mikesherov> because otherwise than you get into situations where you declare var, then guard clause, then var initialization
+[10:16:30] <mikesherov> where if you allow a guard clause first, you get gaurd clause, and then declare and initialize in same statement
+[10:16:48] <DaveMethvin> since vars are hoisted anyway, i have always preferred to use var before the name
+[10:17:00] <DaveMethvin> especially for loop variables
+[10:17:12] <DaveMethvin> it just seems most natural to me
+[10:17:44] <mikesherov> I just want avoid: var a; if(!something){ return; } a = value;
+[10:18:05] <mikesherov> instead of: if(!something){ return; } var a = value;
+[10:18:11] <mikesherov> but I could be persuaded
+[10:18:59] <DaveMethvin> if jshint would just warn about globals the way *I* want it to the current style woudln't be a problem :)
+[10:19:13] <mikesherov> haha
+[10:19:18] <DaveMethvin> but I know i'm much less likely to make a mistake when i "var" as I go
+[10:20:09] <DaveMethvin> and with gzip i think the impact of a few extra var keywords is pretty small
+[10:20:46] <DaveMethvin> i definitely have done the guard clauses first, didn't think that was a problem
+[10:20:59] <mikesherov> I'm just concerned about long var names
+[10:21:27] <mikesherov> var someLongName; if(!isomething){return;} someLongName = 1;
+[10:21:29] <mikesherov> vs.
+[10:21:41] <DaveMethvin> remember that uglify reduces that to one or two chars anyway
+[10:21:57] <mikesherov> ok, then, nevermind
+[10:22:04] <DaveMethvin> https://github.com/dmethvin/jquery/blob/master/src/event.js#L240
+[10:22:09] <DaveMethvin> so yeah i do that
+[10:22:56] <mikesherov> I do it too. I tend to forget about uglify and gzip though
+[10:23:35] <mikesherov> I just hate writing the same var name twice if I could write it once, but I understand if var at top no matter what ends up being the policy
+[10:24:17] <DaveMethvin> well what worries me atm is that our fancy-ass computerized automated tools can't be bothered to find undeclared variables
+[10:24:51] <danzik17> yea but that's different settings - onevar vs undefined
+[10:24:51] <mikesherov> jslint doesn't?
+[10:25:35] <DaveMethvin> danzik17: well i missed the discussion upstream but it sounded like we'd  need to reorg the code quite a bit to make that work?
+[10:25:36] <mikesherov> danzik, onevar forces the author to put vars at the top or close to top of the method in the same declaration;
+[10:25:56] <mikesherov> this discourages hoisting, and allows jshint to REALLY know what is or isnt a global
+[10:26:08] <DaveMethvin> i guess we were heading towards that anyway so maybe it's okay
+[10:26:20] <mikesherov> right now, JSHint doesn't know about hoisting, and so it thinks some things are globals that are actually vars
+[10:26:25] <DaveMethvin> although it definitely isn't my personal style
+[10:27:01] <mikesherov> undeclared != undefined
+[10:27:08] <DaveMethvin> yep
+[10:27:23] <mikesherov> undeclared === not confined to the this scope and lower
+[10:27:45] <paul_irish> question.... there isnt a standard for test cases is there. would that be helpful?
+[10:28:07] <mikesherov> paul, there is, it just hasn't been enforced till recently
+[10:28:07] <paul_irish> all browser vendors and w3c seem to have their own test case setup.
+[10:28:14] <paul_irish> orly
+[10:28:15] <DaveMethvin> paul_irish: no there isn't ... in some ways that's good b/c we can have some genetic variation
+[10:28:16] <mikesherov> oh, neverminf
+[10:28:19] <mikesherov> nevermind*
+[10:28:27] <paul_irish> yeah i mean browsers & w3c etc. :p
+[10:28:33] <DaveMethvin> oh
+[10:28:42] <mikesherov> I was only speaking for jQuery
+[10:28:44] <paul_irish> kk
+[10:28:53] <mikesherov> there is a standard, but it doesn't exist
+[10:28:57] <DaveMethvin> lol
+[10:29:07] <mikesherov> or isn't enforced till now
+[10:29:27] <DaveMethvin> there is a standard but its secret i guess
+[10:29:35] <mikesherov> A secret to everyone
+[10:29:55] <mikesherov> rwaldron's been like a hawk recently though
+[10:30:04] <DaveMethvin> on jquery test cases it's kind of good that we have different approaches in different tests, if they all did it the same way i suspect we wouldn't cover as much
+[10:30:17] <mikesherov> paul_irish: it would be great to see some official unit testing standard
+[10:30:31] <mikesherov> right now, not enough people even know or care about testing
+[10:30:39] <DaveMethvin> yes, we need something we can point to and ignore :D
+[10:30:49] <mikesherov> or how to properly test
+[10:31:45] <mikesherov> It would be amazing, absolutely amazing, if I could write a test once, and be able to submit that test to every browser vendor, and it just worked
+[10:31:58] <paul_irish> asking now in #whatwg about it
+[10:34:04] <mikesherov> That's an interesting question really... seems like it's really on the support side of things, akin to saying that every browser vendor should use a certain type of bug tracker...
+[10:34:38] <danzik17> DaveMethvin: fwiw, i just ran 1.6.4 though jshint in visual studio and only got a few undeclared warnings - most could just be fixed by re-ordering a couple vars or in one case, moving a function upward in the code, nothing major
+[10:35:09] <mikesherov> but I understand with the jQuery standards team initiative is to get the browsers to start considering how developer input could help improve the landscape. SO it's a good question
+[10:35:46] <DaveMethvin> danzik17: that's good news, perhaps we could make a sweep through the code early in the 1.8 cycle
+[10:35:47] <mikesherov> If you ask me, it would be great if there was a standard way to write unit tests AND speed tests.
+[10:36:08] <DaveMethvin> jsFiddle and jsperf, done. :)
+[10:36:13] <mikesherov> LOL
+[10:36:18] <mikesherov> I was just thinking that
+[10:36:57] <mikesherov> having mathias in control of performance testing? Maybe not a bad idea
+[10:37:25] <matjas> jsPerf gets >80 new test cases/revisions a day
+[10:37:29] <matjas> no way i can keep up with that
+[10:37:35] <mikesherov> LOL
+[10:38:50] <mikesherov> DaveMethvin: I can imagine that it's really not a huge deal to fix the var stuff. From what I've seen, it's mostly done, as danzik17 has discovered
+[10:39:37] <DaveMethvin> PEDAL HARDER matjas :P
+[10:40:11] <mikesherov> I would even say that 1.8 might be a good candidate for improving code quality. swapping in jshint for lint, making all unit tests do the right thing, style sweeps
+[10:40:59] <mikesherov> there is also the whole "prop" in elem vs. !elem.prop vs. typeof elem.prop === "undefined"
+[10:41:21] <mikesherov> just those 4 things alone would improve the quality and speed of jQuery by leaps and bounds
+[10:42:03] <mikesherov> remove all excuses and examples in code from doing it the "wrong" way
+[10:42:33] <mikesherov> I've been contributing for a bit now, and I'm always bitten by bad examples in the unit tests... it must make rwaldron cry
+[10:43:53] <ryanneufeld> is there a quick patch I can use to kill the event.layerX deprecated messages in chrome?
+[10:44:34] <mikesherov> ryan, it should be available on latest git
+[10:44:47] <mikesherov> I rmember a PR from mathias about that recently
+[10:45:19] <mikesherov> https://github.com/jquery/jquery/commit/a6bec46170980f0559a9d6c2471a40cb2189a5a1
+[10:45:20] <socialhapy> ★ Commit on jquery by timmywil (2d, 21h ago): Landing pull request 554. #10531: Remove `layerX` and `layerY` Fixes #10531.More Details: - https://github.com/jquery/jquery/pull/554 - http://bugs.jquery.com/ticket/10531
+[10:45:31] <DaveMethvin> yes ryanneufeld it's in the git version and also rc1
+[10:45:39] <matjas> ryanneufeld: quick/dirty fix: http://twitter.com/mathias/status/126636355454369794
+[10:45:41] <socialhapy> ★ Tweet from mathias: Quick and dirty workaround:
+[10:45:41] <socialhapy> $.event.props = $.event.props.join('|').replace('layerX|layerY|', '').split('|');
+[10:45:41] <socialhapy> Better: http://t.co/WSEjBpSf ★ http://bit.ly/pdyl1U
+[10:45:58] <ryanneufeld> thanks!
+[10:48:56] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/SPPqTg
+[10:48:56] <jqcommit> [jquery/master] Fix #10575. Undeclared `matched` var hosed recursive delegate calls. - Dave Methvin
+[10:49:19] <mikesherov> well well well
+[10:49:49] <jq-jenkins> Project jQuery build #138: STILL FAILING in 44 sec: http://swarm.jquery.org:8080/job/jQuery/138/
+[10:49:50] <jq-jenkins> dave.methvin: Fix #10575. Undeclared `matched` var hosed recursive delegate calls.
+[10:51:12] <gnarf> DaveMethvin: no unit for that?
+[10:53:34] <DaveMethvin> yeah i can build one from the example davidmurdoch gave, which i used to test it ... just wanted to get it out there asap
+[10:56:36] <gnarf> fair nuff - i figured there was a unit we could write to make sure that behavior works in the future too :)
+[10:58:07] <mikesherov> it's a liar
+[10:58:09] <mikesherov> I hate swarm
+[10:58:55] <rwaldron> DaveMethvin +1 ( <DaveMethvin> jsFiddle and jsperf, done. )
+[10:59:35] <DaveMethvin> ?tell jq-jenkins STOP CRYING WOLF
+[10:59:36] <bot-t> DaveMethvin, Okay.
+[10:59:42] <rwaldron> also, -1 to removing layerX and layerY
+[10:59:58] <gnarf> mikesherov: don't hate swarm, hate the people who are pointing browsers at swarm that aren't in focus
+[11:00:16] <rwaldron> As much as I appreciate matjas BYTES removal, it always causes some kind of headache
+[11:00:42] <mikesherov> rwaldron, it causes a deprecated warning in chrome
+[11:01:57] <mikesherov> gnarf, is there anyway to make swarm not report errors from non-target browsers?
+[11:02:04] <rwaldron> orly? screen shot?
+[11:02:21] <mikesherov> [13:44] <ryanneufeld> is there a quick patch I can use to kill the event.layerX deprecated messages in chrome?
+[11:02:31] <matjas> rwaldron: https://twitter.com/mathias/status/126636334986178561
+[11:02:32] <socialhapy> ★ Tweet from mathias: event.layerX & event.layerY will be removed from WebKit soon. Every jQuery-bound event handler now logs this warning: http://t.co/mmIui8t3 ★ http://bit.ly/tElIKM
+[11:02:39] <matjas> screenshot link ^
+[11:03:41] <mikesherov> so, I have a question, not that we want to, but is there a way for browsers to inform devs of deprecated functionality?
+[11:04:06] <mikesherov> paul_irish: now that would be great to have... a way for browsers to inform developers about deprecated functionality in code
+[11:05:07] <gnarf> although something is definitely up with the swarm right now
+[11:05:07] <gnarf> danheberden: you around?
+[11:06:53] <gnarf> mikesherov: what do you mean?
+[11:07:43] <mikesherov> so, Chrome has deprecated event.layerY
+[11:08:12] <mikesherov> except there is no way to test for that
+[11:08:26] <mikesherov> so chrome has decided to write a message to console
+[11:09:12] <mikesherov> so feature testing allows devs to see if a feature is there or not, but has no way of informing the dev other than through console that it's deprecated
+[11:09:52] <mikesherov> I don't really know if there is a good use case that having a deprecated feature test would provide
+[11:10:22] <mikesherov> I just spout shit out whenever I think of it
+[11:12:28] <gnarf> mikesherov: i meant about the swarm thing
+[11:12:32] <gnarf> not the console.warn
+[11:13:01] <mikesherov> oh
+[11:13:29] <mikesherov> Project jQuery build #138: STILL FAILING in 44 sec: http://swarm.jquery.org:8080/job/jQuery/138/
+[11:13:41] <mikesherov> Not sure why it says it's failing
+[11:13:52] <mikesherov> seems like everyone just ignores it
+[11:13:59] <gnarf> yes
+[11:13:59] <gnarf> its failling because any test failed
+[11:14:33] <mikesherov> right, so then, do we care that those tests failed?
+[11:15:30] <rwaldron> matjas cool thanks
+[11:15:41] <rwaldron> too bad about all the extant code that will suffer
+[11:16:09] <gnarf> hence why i said
+[11:16:09] <gnarf> don't hate the swarm, hate the people pointing browsers at swarm that aren't legit
+[11:16:09] <gnarf> like people with adblock css blocks getting injected and shit
+[11:16:09] <gnarf> and i don't ignore it
+[11:16:09] <gnarf> i click on that link, go to the console output and find the failing swarm run
+[11:16:09] <gnarf> and then look at each failure
+[11:16:10] <gnarf> http://swarm.jquery.org/job/148/
+[11:16:10] <gnarf> that surely doesn't look like its "passing" right now
+[11:16:11] <gnarf> mikesherov: we care that any tests failed, yes
+[11:16:30] <mikesherov> Yeah, I have no visibility into the process
+[11:16:38] <mikesherov> but your response is reasonable
+[11:16:50] <gnarf> right now there are a few tests that we know fail constantly... mostly surrounding :focus
+[11:17:39] <mikesherov> OK, last time I asked about it, it seemed like the answer was that there was something wrong with the swarm environment
+[11:17:47] <mikesherov> but what you said makes sense
+[11:18:23] <mikesherov> I'm just trying to understand all the tools you guys use
+[11:18:41] <mikesherov> and why some of them LOOK like they fail
+[11:21:41] <gnarf> tbh, jenkins will probably see jobs failing a lot
+[11:23:04] <gnarf> because if ANYONE has a bad client pointing at it - they fail....
+[11:23:04] <gnarf> and jenkins only waits like 5 minutes.... soon though we should have a browserstack swarm
+[11:26:32] <mikesherov> ok, so browserstack will perform better and have less false positives?
+[11:27:57] <gnarf> hopefully
+[11:28:11] <gnarf> and will give us a 100% uptime on all target browsers as well
+[11:28:21] <mikesherov> right
+[11:29:01] <mikesherov> cool. I'm trying to contribute and help out whenever I can, so please excuse any question I ask that seems completely off base
+[11:29:05] <DaveMethvin> (2:03:55 PM) mikesherov: so, I have a question, not that we want to, but is there a way for browsers to inform devs of deprecated functionality?
+[11:29:08] <DaveMethvin> sure ....
+[11:29:29] <DaveMethvin> they spout crap to the console, devs bitch to us, we have to fix it or get epic complaint threads
+[11:29:33] <DaveMethvin> problem solved for browser maker
+[11:29:37] <mikesherov> HAHA
+[11:29:59] <mikesherov> although, that actually may be the most effective way
+[11:30:18] <DaveMethvin> yeah most effective for them maybe
+[11:30:23] <mikesherov> right
+[11:30:29] <DaveMethvin> remember that ALL old jqueryies are going to have that "problem"
+[11:30:41] <DaveMethvin> so we will get tons of complaints about versions we no longer support
+[11:30:53] <mikesherov> right
+[11:31:22] <mikesherov> maybe there's room for a microlib that overwrites console.warn
+[11:31:38] <mikesherov> and looks for /deprecate/i
+[11:31:42] * DaveMethvin wears evil grin
+[11:31:44] <DaveMethvin> oh well back to the mines, be back later
+[12:20:10] <rpflo> Anybody using qunit with selenium in a rake task?
+[13:04:04] <bilel> hi, please how can i change the position of the dialog? i would like that appear in the top of my page ?
+[13:07:46] <ajpiano> bilel: you can use the position option http://jqueryui.com/demos/dialog/#option-position
+[13:07:59] <ajpiano> bilel: please only use this room for discussion of jquery development itself
+[13:08:01] <ajpiano> #jquery is for questions
+[13:13:33] <bilel> ok thanks a lot :)
+[14:32:53] <jzaefferer> hey DaveMethvin, sometime soon we should have browserstack providing testswarm clients, then jq-jenkins may actually report something involving "passed"
+[14:33:12] <DaveMethvin> yay!
+[14:33:30] <DaveMethvin> i just like harassing the bot! D
+[14:34:02] <jzaefferer> yeah, saw that - ended up in #jqueryui-dev :-)
+[17:05:04] <gnarf> oh boy
+[17:05:14] <gnarf> the things we do to handle all the edge focus/blur cases
+[17:05:43] <gnarf> https://gist.github.com/f7491a188a70437dce7b
+[17:05:53] <gnarf> so like - that handles most of the cases here
+[17:06:24] <gnarf> FF doesn't trigger event handlers if you don't have the tab focused, hence the bind/triggerHandler
+[17:18:00] <DaveMethvin> gnarf: geez
+[17:18:08] <DaveMethvin> well at least there is a solution
+[17:19:13] <gnarf> DaveMethvin: that handles all sorts of strange cases
+[17:19:40] <gnarf> DaveMethvin: any chance we might be able to bake this into a simulated focus event?
+[17:20:09] <DaveMethvin> so this would only be for the tests the?
+[17:20:10] <DaveMethvin> then?
+[17:20:49] <gnarf> yeah, or anytime you want to programmatically fake a focus / blur event or something...
+[17:21:08] <gnarf> doing $elem.focus() is wrong
+[17:21:19] <gnarf> at least in 1.6
+[17:21:23] <gnarf> i think thats fixed in 1.7
+[17:21:40] <gnarf> but there is still the .blur() not actually removing focus in IE issue
+[17:22:00] <DaveMethvin> well the focus/blur there seem to be making sure the native event fires the handler, and if not it fires one for them, right?
+[17:22:12] <gnarf> right
+[17:22:27] <gnarf> there is a distinction with focus/blur in that the event happens after the action
+[17:22:33] <gnarf> i believe
+[17:22:52] <DaveMethvin> although if it did we should have to wait with stop()/start()
+[17:23:07] <DaveMethvin> if it was async
+[17:23:19] <gnarf> don't think it is
+[17:23:25] <gnarf> just meaning, right now
+[17:23:30] <gnarf> if i do .trigger( 'focus' )
+[17:23:39] <gnarf> document.activeElement !== this
+[17:24:00] <gnarf> (1.6)
+[17:24:02] <DaveMethvin> yeah for .trigger() we call the handlers first
+[17:24:08] <gnarf> right
+[17:24:13] <gnarf> focus/blur are backwards
+[17:24:22] <gnarf> and have this weirdness
+[17:24:36] <DaveMethvin> originally in 1.7 i tried to make the native event call the handlers but i had to bail
+[17:24:56] <DaveMethvin> there is too much code that expects the focus handler to be called even if we can't sucessfully focus
+[17:25:15] <DaveMethvin> i suppose we could do what your gist does, basically try to use the native handler and call only if it failed
+[17:25:20] <DaveMethvin> but that would give us unpredictable order
+[17:25:31] <DaveMethvin> and sucky order may be preferable
+[17:27:19] <gnarf> DaveMethvin: i just wonder if we shouldn't try to bake this behavior into a jQuery simulated focus/blur somehow
+[17:27:27] <gnarf> i mean, its really useful for the test suite
+[17:27:30] <gnarf> for sure
+[17:27:46] <gnarf> but i have to imagine that other people expect input.focus() to actually focus
+[17:27:59] <gnarf> and that .is(":focus") is true in that handler
+[17:28:06] <DaveMethvin> well we can only do what the browsers allow
+[17:28:09] <DaveMethvin> that is the problem
+[17:28:20] <gnarf> it does allow you to set the focus
+[17:28:32] <gnarf> well the :focus part
+[17:28:34] <gnarf> is bs
+[17:28:44] <gnarf> they expect document.activeElement === this in the handler
+[17:28:48] <gnarf> :)
+[17:28:55] <DaveMethvin> well like, if  you set the focus and then set it again, jQuery calls your focus handlers twice
+[17:29:23] <DaveMethvin> when i checked i think the native handler only fires focus on non-focused elements
+[17:29:45] <DaveMethvin> and again it's not clear whether we should just fire the things or try to emulate what the browser does
+[17:30:04] <gnarf> right, just food for thought
+[17:30:06] <gnarf> afk a bit
+[17:30:17] <DaveMethvin> i'm not hungry for thought! P
+[18:20:04] <gnarf> mmm
+[18:20:17] <gnarf> the timepicker demo is now more awesome with clicks
+[18:20:22] <gnarf> http://jquery/jquery-ui/tests/visual/timepicker/timepicker.html
+[18:22:02] <gnarf> oops

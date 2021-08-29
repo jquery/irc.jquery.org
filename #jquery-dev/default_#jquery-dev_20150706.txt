@@ -1,0 +1,92 @@
+[01:13:20] <jqcommit> [13jquery] 15patrickording opened issue #2450: Grunt build fails on Mac 02http://git.io/vqZPS
+[04:04:46] <jqcommit> [13jquery.com] 15amarchino opened issue #105: Wrong site link name on event.which 02http://git.io/vqnwf
+[04:17:58] <jqcommit> [13jquery] 15markelog closed issue #2449: Feature request: .parent(n) 02http://git.io/vqsnh
+[04:23:11] <jqcommit> [13jquery] 15markelog closed issue #2448: Code climate 02http://git.io/vqYWV
+[04:48:49] <doesallmagic2> Project jQuery Migrate Core build #142: SUCCESS in 1 min 50 sec: http://jenkins.jquery.com/job/jQuery%20Migrate%20Core/142/
+[05:31:20] <doesallmagic2> Project jQuery Migrate Core Compat build #341: SUCCESS in 2 min 21 sec: http://jenkins.jquery.com/job/jQuery%20Migrate%20Core%20Compat/341/
+[06:24:13] <timmywil> gibson042: got a sec/
+[06:24:23] <gibson042> I do
+[06:24:47] <timmywil> I've been digging into https://github.com/jquery/jquery/issues/2079 and need an opinion
+[06:25:24] <timmywil> So, the issue is that compat adds a callback to onreadystatechange, which catches the native abort and master only binds to onload and onerror.
+[06:25:37] <timmywil> The fix is easy enough, add a callback to onabort.
+[06:25:51] <timmywil> But, what should the statusText be?
+[06:26:19] <timmywil> In compat, it is currently "error". However, in both branches, if you call our transport's abort, status text is "abort".
+[06:27:09] <timmywil> I could simply bind .onabort to the error callback and be in line with compat. Or, I may have to change both branches to get status text to be "abort" on both branches.
+[06:27:18] <gibson042> seems like we want the latter
+[06:27:37] <timmywil> yea, ok
+[06:28:53] <gibson042> looking at compat, the intent is to have abort statusText switch from "canceled" to "abort" after we pass the `beforeSend` checkpoint
+[06:29:00] <timmywil> Before I look this up, do you know if xhr.abort() is idempotent?
+[06:29:42] <timmywil> makes sense
+[06:30:08] <gibson042> I think so, but you'll have to check for certainty
+[06:30:43] <gibson042> yeah, I see that `done` bails out if it's been called before
+[06:31:13] <timmywil> I mean the native xhr.abort
+[06:31:24] <gibson042> oh
+[06:31:27] <gibson042> that I do not know
+[06:31:42] <timmywil> If it is, I can reuse some code.
+[06:32:00] <timmywil> without adding a conditional or extra callback, that is
+[06:32:08] <timmywil> but I'll check
+[06:33:38] <timmywil> Huh, this is interesting. https://xhr.spec.whatwg.org/#the-abort()-method
+[06:33:48] <timmywil> "No readystatechange" event is dispatched.
+[06:33:56] <timmywil> quote to the end
+[06:34:32] <timmywil> I wonder if modern browsers will stop working on compat at some point
+[06:34:32] <gibson042> hmm
+[06:35:45] <timmywil> well, if it does, our tests will start failing
+[06:36:22] <gibson042> I don't think that will happen; our code is pretty defensive
+[06:37:21] <timmywil> It seems like we're relying on .onreadystatechange in compat to be notified of a native abort. If browsers shift to follow the spec, it won't work anymore. Maybe I'm missing something.
+[06:37:40] <gibson042> native abort should only be called by us
+[06:38:04] <gibson042> we expect to be the source, not the observer
+[06:38:15] <timmywil> Oh, then maybe this isn't a bug.
+[06:39:17] <gibson042> oh, I missed that in the issue description
+[06:40:00] <timmywil> I'll try something
+[06:40:29] <gibson042> we don't exactly hide the native XHR object, but we sure don't encourage interactions with it either
+[06:40:30] <timmywil> Yea, this works fine...http://jsfiddle.net/timmywil/agg3ovxz/9/
+[06:40:33] <timmywil> http://jsfiddle.net/timmywil/agg3ovxz/9/
+[06:41:53] <timmywil> But, then again, it is a simple fix.
+[06:43:18] <timmywil> However, I think we can agree this isn't the blocker I originally thought it was.
+[06:43:31] <gibson042> yes, agreed
+[06:46:55] <timmywil> gibson042: how's it going with https://github.com/jquery/jquery/issues/2102? I can take that over if you need.
+[06:47:56] <gibson042> if you've got the time before the meeting, go for it (it's dead simple)
+[06:48:04] <gibson042> otherwise I can put something up this afternoon
+[06:48:24] <timmywil> ok, yea, I think I can knock it out quick
+[06:48:35] <timmywil> I've got time right now, so
+[07:07:59] <timmywil> you suggested promise.then( null, fn ). I just used deferred.then cause always does. Is that ok?
+[07:09:04] <timmywil> gibson0421 ^
+[07:09:21] <timmywil> extra 1? you've upgraded.
+[07:09:32] <gibson0421> network bouncing ;)
+[07:10:05] <gibson0421> `promise.then` is better because promise is private
+[07:11:25] <timmywil> so, always could be return promise.done( arguments ).fail ( arguments ); right?
+[07:11:35] <timmywil> instead of deferred.done... return this
+[07:12:04] <timmywil> I'm not in this code a lot and I'm tired. :P
+[07:12:53] <gibson0421> yeah, should be
+[07:13:33] <timmywil> ok, thanks
+[07:30:29] <jqcommit> [13jquery] 15timmywil opened pull request #2451: Deferred: add .catch handler (06master...06catch) 02http://git.io/vqcxT
+[07:40:03] <jqcommit> [13jquery] 15markelog closed pull request #2446: Capitalizes the first letter of first word in comment (06master...06patch-1) 02http://git.io/vqJBm
+[07:54:33] <jqcommit> [13jquery] 15mzgol closed issue #2450: Grunt build fails on Mac 02http://git.io/vqZPS
+[09:26:27] <jqcommit> [13jquery-migrate] 15mzgol opened issue #112: Round .css('width'/'height') 02http://git.io/vqCyi
+[09:41:25] <m_gol> DaveMethvin: ping
+[11:20:07] <jqcommit> [13jquery] 15Alexgruissan opened issue #2452: .not() doesn't work 02http://git.io/vqWrj
+[11:30:52] <jqcommit> [13jquery] 15scottgonzalez closed issue #2452: .not() doesn't work 02http://git.io/vqWrj
+[11:31:47] <Krinkle> Oh no, there's an incompat between jQuery 1.x and 2.x with regards to synchronous Sinon.JS mocking
+[11:32:06] <Krinkle> just spent an hour trying to track down why a test is failing, was able to repro on jsfiddle after switching jQuery from 2.x to 1.x
+[11:32:21] <Krinkle> Failing: http://jsfiddle.net/en8pu6br/  Passing: http://jsfiddle.net/zc7drrcb/
+[11:36:41] <jqcommit> [13jquery] 15Krinkle opened issue #2453: jQuery 1.11.3 breaks Sinon.JS synchronous XHR mock 02http://git.io/vqWM6
+[14:13:45] <jqcommit> [13jquery] 15timmywil pushed 2 new commits to 06compat: 02http://git.io/vqlHW
+[14:13:45] <jqcommit> 13jquery/06compat 14ef77f83 15Timmy Willison: Deferred: add .catch handler...
+[14:13:45] <jqcommit> 13jquery/06compat 14203979d 15Timmy Willison: Deferred: pass lint in new catch tests
+[14:17:26] <doesallmagic2> Project jQuery Core build #1380: SUCCESS in 3 min 54 sec: http://jenkins.jquery.com/job/jQuery%20Core/1380/
+[14:17:27] <doesallmagic2> Timmy Willison: Deferred: add .catch handler
+[14:21:10] <doesallmagic2> Project jQuery Core Compat build #636: STILL UNSTABLE in 3 min 43 sec: http://jenkins.jquery.com/job/jQuery%20Core%20Compat/636/
+[14:21:10] <doesallmagic2> * Timmy Willison: Deferred: add .catch handler
+[14:21:11] <doesallmagic2> * Timmy Willison: Deferred: pass lint in new catch tests
+[14:26:20] <doesallmagic2> Project jQuery Core build #1381: SUCCESS in 5 min 9 sec: http://jenkins.jquery.com/job/jQuery%20Core/1381/
+[14:29:04] <jqcommit> [13jquery] 15timmywil closed issue #2435: feature request: jQuery(fn, arg1, .. argN ) 02http://git.io/vt6ma
+[14:40:31] <Krinkle> timmywil: Hm.. so since the previous release Deferred became asynchronous and returning undefined from then(,error) casts to a resolved?
+[14:41:14] <Krinkle> On 2.x $.Deferred().reject().then(null, function () { return; }).state() === 'rejected'
+[14:41:30] <Krinkle> only returning another deferred there could change that 
+[14:41:35] <gibson042> Krinkle: correct. done/fail act as they always have; then now follows Promises/A+
+[15:36:58] <m_gol> timmywil: PRs for both branches are ready
+[15:37:21] <m_gol> timmywil: unless you want more tests there (e.g. for .width()/.innerWidth()/etc.)
+[16:01:31] <jqcommit> [13jquery] 15mzgol opened pull request #2454: CSS: Make .css("width") & .css("height") return fractional values (06compat...06fractional-width-compat) 02http://git.io/vq8GP
+[23:12:44] <doesallmagic2> Project jQuery Core Periodic build #227: STILL UNSTABLE in 15 min: http://jenkins.jquery.com/job/jQuery%20Core%20Periodic/227/
+[23:12:44] <doesallmagic2> Timmy Willison: Deferred: add .catch handler
+[23:52:27] <shin_> Does anyone know how the code was contributed to the project before GitHub Pull-request was used?

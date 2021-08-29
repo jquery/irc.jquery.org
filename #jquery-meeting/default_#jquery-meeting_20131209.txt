@@ -1,0 +1,241 @@
+[09:01:00] <DaveMethvin> timmywil jaubourg rwaldron m_gol markelog gnarf gibson042 mikesherov core meeting time
+[09:01:08] <DaveMethvin> should be a short one i hope!
+[09:01:10] <timmywil> olo
+[09:01:33] * gibson042 DEMANDS COAR MEETING
+[09:01:44] <DaveMethvin> lol
+[09:02:25] <DaveMethvin> so we should look thru the tix for this milestone to see what we really want to land
+[09:02:34] <DaveMethvin> i would think one more beta should be enough
+[09:03:49] <DaveMethvin> all the changes to hidden/visible i think we should defer, we're gonna break something
+[09:04:02] <m_gol> present
+[09:04:08] <DaveMethvin> #10406 and #13132
+[09:04:59] <timmywil> Do you guys think that http://bugs.jquery.com/ticket/14016 is sufficient for addressing concerns from Browserify users about exporting a global?
+[09:05:23] <DaveMethvin> #13862 is a feature, but do we really  need it given how many other ways there are to solve the problem, enumerated by jaubourg there?
+[09:05:43] <DaveMethvin> i'm hesitant to add more ways, esp since we want to get $.xhr and $.json emphasized
+[09:05:58] <DaveMethvin> timmywil looking
+[09:06:43] <DaveMethvin> i'm not a browserify guy but it seems like that would address the complaints i've heard
+[09:06:58] <m_gol> timmywil: I don't think a custom build would help browserify people
+[09:07:02] <m_gol> they want to have stuff on npm
+[09:07:09] <m_gol> a custom build wouldn't be available there
+[09:07:16] <markelog> hey, sorry i'm late
+[09:08:01] <DaveMethvin> just going thru tix
+[09:08:06] <timmywil> yea, was about to make that point. They could include it with NPM, but they could still include it manually.
+[09:08:30] <m_gol> yep
+[09:08:49] <m_gol> var $ = require('jQuery'); $.noConflict(true);
+[09:08:50] <timmywil> does the global actually hurt anything or is it just the principle?
+[09:08:58] <m_gol> it seems the latter
+[09:09:11] <m_gol> I haven't seen anyone pointing out an actual problem with that
+[09:09:24] <DaveMethvin> i don't see the greatness of browserify ... doesn't it cause sync loads? or am i missing something?
+[09:09:44] <m_gol> sync loads get inlined
+[09:09:50] <m_gol> in the compiled code
+[09:09:56] <timmywil> it pre-packages all your modules so async loading is not required
+[09:10:16] <m_gol> I don't like it either as it makes debugging more difficult due to requiring the pre-processing step
+[09:10:22] <m_gol> but if people want it, let it be
+[09:10:41] <DaveMethvin> well if the global is the issue then noConflict is the answer
+[09:10:45] <DaveMethvin> or they can do a custom build?
+[09:10:51] <DaveMethvin> but either way we have it covered
+[09:10:58] <timmywil> that's where I'm leaning as well
+[09:11:00] <m_gol> yeah, I agree
+[09:11:02] <DaveMethvin> unless we intend to not have the global
+[09:11:41] <m_gol> it would be good to talk to a browserify person ;)
+[09:11:53] <DaveMethvin> yeah and find out why this is life or death to them
+[09:12:00] <m_gol> I don't know if not having the global at all in browserify could cause problems
+[09:12:19] <m_gol> if everything is required to be on npm, I guess it can be preprocessed to not look for the global jQuery
+[09:12:21] <DaveMethvin> of course you could add it back with jQuery = require...
+[09:12:26] <m_gol> by the person that publishes it
+[09:12:43] <m_gol> but I'd be afraid to change it without first checking the issue thoroughly
+[09:13:06] <m_gol> maybe we could get Domenic to elaborate on how e.g. jQuery plugins can be used in tantem with browserify
+[09:13:12] <DaveMethvin> whether we leave it in or take it out, there are simple ways to do the opposite for the user
+[09:13:21] <m_gol> sure
+[09:13:21] <DaveMethvin> so i don't get the complaint
+[09:13:29] <DaveMethvin> but yeah maybe Domenic knows
+[09:13:36] <timmywil> right now, the global is added for all environments, making the code simpler and more svelte. We could use the same window-with-a-document check and make the exposure a special case.
+[09:13:44] <m_gol> I guess the complaint is "this is not in a true npm way" ;)
+[09:14:21] <timmywil> but then we're adding a codepath and it still doesn't tend to the same concern from AMD users.
+[09:14:32] <DaveMethvin> it's not a lot of code either way, more a question of whether we're gonna confuse things
+[09:14:35] <m_gol> timmywil: yeah, the question is: can this introduce problems when using browserify?
+[09:15:19] <m_gol> we're too theoretical here without actual users :)
+[09:15:42] <DaveMethvin> where should we find these mythical people?
+[09:15:46] <timmywil> keep in mind we still need to attach the global for Node
+[09:15:49] <DaveMethvin> i guess i can tweet something
+[09:16:34] <m_gol> timmywil: what do you mean?
+[09:17:01] <DaveMethvin> is the global essential for node?
+[09:17:12] <DaveMethvin> i thought it was there to simplify use of other code
+[09:17:16] <timmywil> http://bugs.jquery.com/ticket/13566
+[09:17:17] <DaveMethvin> that expected global jQuery
+[09:17:27] <timmywil> browser emulators expect it
+[09:18:07] <timmywil> It's not necessary in every use case in Node, but we can't tell the difference.
+[09:18:35] <DaveMethvin> oh right
+[09:18:56] <m_gol> I'm lost; what browser emulators?
+[09:19:42] <timmywil> m_gol: such as jsdom
+[09:19:54] <m_gol> OK
+[09:20:06] <m_gol> so we're always screwing one side or the other
+[09:20:16] <m_gol> and this is not screwing a lot as it's trivial to circumvent
+[09:20:30] <DaveMethvin> and honestly how many people are using jQuery with node at this point?
+[09:20:35] <DaveMethvin> it's not like millions
+[09:20:49] <DaveMethvin> we'd be in much more trouble if we changed the way web pages included it
+[09:21:01] <DaveMethvin> it just seemed natural to use the same way for other envs
+[09:21:12] <DaveMethvin> esp if they were including other code that expected a global jQuery
+[09:21:16] <m_gol> yeah, I'd just leave it, it's a one-liner to fix if sb wishes
+[09:21:23] <timmywil> How about we add the build option for beta3 and get feedback from more Browserify users afterwards?
+[09:21:38] <DaveMethvin> that seems fine to me
+[09:21:44] <DaveMethvin> i can also ask for feedback on twitter
+[09:21:47] <m_gol> but how does a build option help us here?
+[09:22:04] <DaveMethvin> someone can always build a copy themselves
+[09:22:12] <DaveMethvin> if they don't want the official npm versoin
+[09:22:22] <m_gol> moar fragmentation
+[09:22:25] <DaveMethvin> the npm published versoin will be everything
+[09:22:30] <timmywil> It applies to both CommonJS and AMD.
+[09:22:53] <timmywil> m_gol: well, it's just removing a line.
+[09:23:18] <m_gol> yeah, I mean if sb publishes a built version we don't have a guarantee it'll be kept up-to-date
+[09:23:21] <m_gol> hence the fragmentation
+[09:23:32] <m_gol> anyway, I won't object to that, I just don't see a lot of point in it but whatever :)
+[09:23:54] <DaveMethvin> alright, i'll ask for comments on twitter and see if anyone has strong opinions
+[09:24:15] <timmywil> there's enough of a demand for it on the AMD side alone. Whether browserify users will actually utilize it, idk.
+[09:24:18] <m_gol> I mean if sb wants to have a custom built, they can always just remove the line themselves, even without the build option
+[09:24:47] <m_gol> ok, if there's demand on AMD side it's fine by me
+[09:25:12] <DaveMethvin> this all seems like a lot of agonizing for what are probably two dozen people
+[09:25:18] <DaveMethvin> compared to all the people using it elsewhere
+[09:25:30] <timmywil> we can move on
+[09:26:09] <DaveMethvin> looking at what is slotted into 1.11/2.1, what DOES need to be there? Most of it seems like it shoudl wait
+[09:26:16] <DaveMethvin> for example, attaching data to elements
+[09:26:39] <DaveMethvin> #14016 yes
+[09:26:57] <DaveMethvin> #14038 if it is easy to fix
+[09:27:08] <timmywil> I'm curious about the difference in behavior for http://bugs.jquery.com/ticket/14484
+[09:27:33] <DaveMethvin> yeah me too
+[09:27:43] <DaveMethvin> wasn't sure why those two would behave differently
+[09:28:11] <DaveMethvin> seems like they should be going through the same path
+[09:28:21] <DaveMethvin> but obviously not :)
+[09:29:14] <DaveMethvin> #13967 is an easy feature add, i think it was only a line or so extra code
+[09:29:22] <gibson042> are we just declaring .animate behavior proper and insisting that .css matches?
+[09:29:44] <DaveMethvin> i just wonder why they're different gibson042
+[09:30:04] <DaveMethvin> i think i may have looked at the code when the ticket was filed but forget
+[09:30:17] <gibson042> because of the attention that we paid to .animate awhile back, would be my guess
+[09:30:49] <gibson042> there was a wave of changes to get initial values right (and in the right units), then relative modification became well-defined and almost trivial
+[09:31:41] <DaveMethvin> i wonder if we could pull some of that back to css or (gasp) share it
+[09:31:53] <gibson042> :)
+[09:32:28] <gibson042> I'll try to look into it
+[09:32:37] <m_gol> if it doesn't add a lot of size for a build excluding effects...
+[09:33:01] <timmywil> it's just adding 50 pixels btw
+[09:33:06] <DaveMethvin> thanks gibson042
+[09:33:41] <DaveMethvin> i'll look at #14541
+[09:33:53] <DaveMethvin> it may not be a prob but i shoudl figure it out
+[09:34:40] <DaveMethvin> i need to back out my patch for http://bugs.jquery.com/ticket/14424
+[09:34:44] <m_gol> yeah
+[09:35:01] <DaveMethvin> so dumb
+[09:35:07] <m_gol> if it was simple that was OK but reverting the whole xhr just so that local AJAX works in IE
+[09:35:12] <m_gol> which is clearly not supported by MS
+[09:35:22] <m_gol> otherwise it'd be possible to do it in a normal way
+[09:35:30] <DaveMethvin> right, and chrome can't do it either
+[09:35:32] <m_gol> besides, it's dead simple to fire up a local server now
+[09:35:51] <timmywil> DaveMethvin: well, it can if the flag is on
+[09:35:52] <m_gol> there's http-server for node, python has a server, even PHP has one now
+[09:35:53] <DaveMethvin> so it's not like ie is the only one that can't get local files
+[09:36:00] <m_gol> Apache/Nginx are not required
+[09:36:17] <DaveMethvin> true but it has to be launched that way
+[09:36:22] <timmywil> but I'm with you
+[09:36:34] <m_gol> I agree it would be nice to have it but not at this cost
+[09:36:35] <DaveMethvin> there is a solution for those cases with 1.x
+[09:36:41] <m_gol> yup
+[09:37:10] <DaveMethvin> what's a good time for beta3 btw?
+[09:37:28] <DaveMethvin> how about we aim for next thursday?
+[09:37:49] <m_gol> 12.12?
+[09:37:58] <DaveMethvin> trying to determine
+[09:38:05] <DaveMethvin> the 19th i meant
+[09:38:14] <m_gol> Christmas beta ;)
+[09:38:17] <m_gol> seems fine
+[09:38:30] <timmywil> +1
+[09:38:36] <DaveMethvin> then we could do final in early january?
+[09:38:43] <DaveMethvin> if we don
+[09:38:55] <DaveMethvin> t make too many last-minute breakages this one should be smooth
+[09:39:07] <DaveMethvin> then we can get to breaking things for 1.12/2.2
+[09:39:09] <DaveMethvin> :)
+[09:39:09] <m_gol> I worry a little about mobile OSs
+[09:39:20] <m_gol> I'd love to at least get iOS on TestSwarm
+[09:39:31] <m_gol> I can look into test failures we have now
+[09:39:35] <m_gol> shouldn't be too many
+[09:39:40] <DaveMethvin> i don't see much else that we MUST have in the bug list here
+[09:39:41] <m_gol> this is not Android 2.3 after all :P
+[09:39:56] <DaveMethvin> but yeah the test env is still kind of shaky
+[09:40:05] <DaveMethvin> swarmy seems broken this morning
+[09:40:24] <m_gol> I would worry about releasing the final version without updating browsers in TestSwarm first
+[09:40:28] <m_gol> esp. IE11 should be tested
+[09:40:37] <DaveMethvin> i run it locally if that's any help
+[09:40:42] <m_gol> :)
+[09:40:45] <DaveMethvin> but yeah
+[09:40:55] <m_gol> unfortunately, Krinkle said it's not that easy to upgrade browsers
+[09:41:28] <m_gol> by Krinkle: "Yes, but it requires a fair amount of testing right now to add one. First to register in our TestSwarm config (without adding to a job yet), then to launch manaully and verify the user agent is parsed correctly to recognize it both-ways, and then to deploy the change again."
+[09:41:48] <DaveMethvin> ugh
+[09:42:09] <DaveMethvin> so have you guys looked much at jquery-release?
+[09:42:34] <DaveMethvin> i figured I would use it for jquery migrate, i should have some time to play over the holidays
+[09:42:35] <timmywil> Interesting. We must have a more complicated setup than my personal swarm. I just add it to a list.
+[09:43:16] <timmywil> DaveMethvin: I'm working on integrating it with core so you can use it to release beta3
+[09:43:46] <DaveMethvin> yeah
+[09:44:28] <timmywil> Ghislain has been pushing updates to work with mobile
+[09:44:41] <m_gol> currently we're missing Chrome 30/31, Firefox 25, IE11, Safari 7, Opera 17 - all available on BrowserStack now
+[09:44:54] <DaveMethvin> it needs to be simpler to upgrade those
+[09:45:12] <m_gol> if steps to update are so complicated, no wonder we lag
+[09:45:28] <DaveMethvin> i see the steps there but am not sure what it actually involves as far as manual operations
+[09:45:44] <timmywil> oh, speaking of Safari...since 7 doesn't run on OSs earlier than Mavericks, we might want to update our browser support to be major version - 1
+[09:45:57] <DaveMethvin> sounds like we may be making things more difficult by having multiple layers of mapping?
+[09:46:15] <m_gol> timmywil: what do you mean? we officially support Safari 5.1+
+[09:46:55] <timmywil> m_gol: oh, I thought we said something like minor version - 1. OK
+[09:47:02] <DaveMethvin> in reality i think we just need to enumerate what we support
+[09:47:06] <DaveMethvin> it's such a mess right now
+[09:47:08] <markelog> we should just stop using swarm and use karma, if in order to complete simple task like upgrade some browsers we need some special skills
+[09:47:08] <m_gol> timmywil: jquery.com/browser-support/
+[09:47:16] <timmywil> yea i see
+[09:47:21] <m_gol> I lobbied to modify this policy a while back ;)
+[09:47:31] <timmywil> good call :0
+[09:47:39] <m_gol> currently we have current + current - 1 only for rapid release browsers
+[09:47:39] <DaveMethvin> markelog especially since i have no special skillz :)
+[09:47:55] <markelog> i think only Krinkle has thoses :-)
+[09:48:02] <m_gol> :)
+[09:48:05] <timmywil> markelog: karma can't do what we need
+[09:48:13] <markelog> like what?
+[09:48:28] <timmywil> like load a test page that doesn't have karma on it
+[09:48:43] <timmywil> the power of testswarm is in its ajax responses
+[09:49:15] <markelog> so you saying it could not be accomplished through karma?
+[09:49:26] <timmywil> well, it's been a while since I've checked
+[09:49:32] <timmywil> but last time I tried, no
+[09:49:50] <markelog> when did you check?
+[09:50:14] <timmywil> I guess that would have been about 6 months ago maybe?
+[09:50:39] <timmywil> when I was trying to scaffold dynamic testing for some of my own projects
+[09:50:53] <markelog>  i remember asking this question at Amsterdam meeting and there was no response from infra team
+[09:51:21] <DaveMethvin> markelog could you look at that and let us know whether it's an option? Krinkle can you weight in?
+[09:51:51] <m_gol> I just want to have a situation where updating browsers is just modifying one file
+[09:51:54] <markelog> yeah, at end of december i would like to investigate it properly
+[09:52:02] <DaveMethvin> perfect
+[09:52:04] <m_gol> we're suffering because of this lags
+[09:52:11] <markelog> since i have a lot of free time
+[09:52:23] * timmywil senses sarcasm
+[09:52:25] <DaveMethvin> yeah i shoudl have some time over the holidays
+[09:52:36] <timmywil> oh ok, I misread
+[09:52:44] <DaveMethvin> well you never know :)
+[09:52:53] <DaveMethvin> I HAVE NO LIFE!
+[09:52:59] <markelog> :)))
+[09:53:03] <m_gol> markelog: that would be great if you found a solution :)
+[09:53:25] <DaveMethvin> okay, i am going to make a run through these tickets and get them cleaned up this week
+[09:53:50] <DaveMethvin> but there shouldn't be too much problem getting beta 3 out late next week
+[09:53:57] <DaveMethvin> if we can test it in swarm
+[09:53:58] <DaveMethvin> :)
+[09:54:13] <m_gol> ;)
+[09:54:27] <DaveMethvin> i do want to discuss 1.12/2.2 issues but let's save that
+[09:54:31] <DaveMethvin> anything else?
+[09:54:33] <m_gol> yup
+[09:54:34] <m_gol> btw
+[09:54:41] <m_gol> I wonder if testing in Opera Blink matters
+[09:54:46] <m_gol> since its engine is just pure Blink
+[09:55:01] <m_gol> but maybe it's better to be safe than sorry ;)
+[09:55:07] <Krinkle> Hi
+[09:55:08] <DaveMethvin> yeah
+[09:55:15] <m_gol> oh, Krinkle's here :)
+[09:55:18] <Krinkle> Opera 15+ should be tested yes.
+[09:55:22] <Krinkle> Already added a while back
+[09:55:49] <DaveMethvin> alrighty, i have to run
+[09:55:49] <m_gol> Krinkle: current Opera is 18 ;) BrowserStack has 17
+[09:55:56] <Krinkle> Also per Paul Irish' "WebKit" blog post, we should definitely test it. There are many build options for Chromium, Blink etc.
+[09:56:02] <m_gol> ok
+[09:56:09] <DaveMethvin> i'll close this, let's move to -dev
+[09:56:26] <Krinkle> ( http://www.paulirish.com/2013/webkit-for-developers/ )
+[09:56:30] <DaveMethvin> Krinkle can you review the notes above and comment in -dev if you have feedback?
+[09:56:46] <DaveMethvin> thanks everyone!

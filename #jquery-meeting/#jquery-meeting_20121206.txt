@@ -1,0 +1,524 @@
+[09:02:46] <jzaefferer> Testing Meeting!
+[09:03:03] <jzaefferer> Ping gnarf Krinkle|detached johnbender
+[09:03:11] <gnarf> hey hey!
+[09:03:14] <jzaefferer> I'm not prepared :/
+[09:03:20] <jzaefferer> And apparently Timo is gone once again
+[09:05:22] <jzaefferer> I'm typing a few things down in the agenda document: http://bit.ly/qunitci
+[09:05:23] <gnarf> so, safari 6 problems are solved
+[09:05:28] <gnarf> there is a new issue thats pretty big
+[09:06:03] <gnarf> I've brought it up with krinkle, but basically - there is a "Error connecting to server" message that happens when the ajax request to submit job/poll for new job is sent and it gets a ajax timeout
+[09:06:22] <gnarf> see it in ie8 a lot right now
+[09:06:47] <jzaefferer> That sounds like its an actual TestSwarm issue?
+[09:07:18] <gnarf> yeah
+[09:07:39] <gnarf> we know there are windows around the 5's that get slow responses
+[09:07:57] <gnarf> but that shouldn't stop a job from being submitted, that timeout probably needs to be extended
+[09:09:04] <jzaefferer> scott_gonzalez: any opinion on the two deprecatation issues? QUnit.reset and the test() expect argument.
+[09:09:47] <scott_gonzalez> I think both are fine to deprecate.
+[09:10:17] <jzaefferer> Does anyone know of an alternative JS diff implementation we could use?
+[09:10:31] <jzaefferer> One that's more useful then what we have and not as heavy as that Google project?
+[09:11:12] <jzaefferer> Timo didn't get a reply here, I'd just close it until we get one: https://github.com/jquery/qunit/issues/357
+[09:11:45] <scott_gonzalez> jzaefferer: I've been thinking about building a new diff that would be: JSONPath, actual, expected for each diff.
+[09:12:06] <scott_gonzalez> Would make output for things like domEqual() much more useful.
+[09:12:25] <jzaefferer> so no text-based diff?
+[09:12:30] <gnarf> https://github.com/kpdecker/jsdiff/blob/master/diff.js doesn't seem terrible jzaefferer - just looking at the npm "diff" module
+[09:12:51] <jzaefferer> scott_gonzalez: would that actual/expected be filtered to that path?
+[09:13:01] <scott_gonzalez> yes
+[09:13:11] <jzaefferer> that sounds good
+[09:13:18] <scott_gonzalez> It'd show the path to the leaf that is different.
+[09:13:28] <scott_gonzalez> And the differing values for the leaf
+[09:14:24] <jzaefferer> And do that for every diff?
+[09:14:32] <jzaefferer> There can be multiple
+[09:14:54] <jzaefferer> That approach makes sense for domEqual and other comparisions where you start with and object
+[09:15:07] <jzaefferer> if you're just comparing (long) strings, an actual diff would still be useful
+[09:15:54] <jzaefferer> That jsdiff Corey mentioned is BSD licensed, should be fine to embed in QUnit, right?
+[09:15:59] <scott_gonzalez> Sure, we could show the diff for the leaf.
+[09:16:15] <jzaefferer> Can give that a try, may be better then what we have now, then also implemented what Scott suggests
+[09:19:47] <jzaefferer> gnarf: can you work with Timo to get that result submission issue resolved?
+[09:20:15] <jzaefferer> Any opinions on https://github.com/jquery/qunit/issues/357 ?
+[09:20:28] <gnarf> jzaefferer: yeah
+[09:21:01] <jzaefferer> Or on the API suggested here? https://github.com/jquery/qunit/issues/332#issuecomment-10119852
+[09:21:06] <jzaefferer> scott_gonzalez: ^
+[09:23:31] <scott_gonzalez> -1 on the API
+[09:24:26] <scott_gonzalez> The two examples in the description seem saner than the one in the proposed API comment.
+[09:24:33] <scott_gonzalez> I'd rather see something like QUnit.abort();
+[09:26:11] <scott_gonzalez> I'd wait for a response about the onerror thing.
+[09:27:00] <jzaefferer> scott_gonzalez: okay, thanks -> I'd rather see something like QUnit.abort();
+[09:27:49] <jzaefferer> eh, bad paste
+[09:28:05] <jzaefferer> here: https://github.com/jquery/qunit/issues/332#issuecomment-11095067
+[09:29:24] <scott_gonzalez> Looks good. Something like QUnit.abort( "Cannot run tets over the file protocol." )
+[09:32:21] <jzaefferer> This is annoying: https://github.com/jquery/qunit/issues/358
+[09:33:03] <jzaefferer> The config handling and initialization is rather crappy. For some reason QUnit.init() is exposed to restart a testsuite, making things brittle and complicated
+[09:33:18] <jzaefferer> Apparently someone once wanted to rerun a testsuite without a reload
+[09:37:07] <scott_gonzalez> jzaefferer: I think I need more time to understand what's going on with init/start.
+[09:37:39] <jzaefferer> Usually QUnit.load runs on window.load, calls QUnit.init and restores config.queue to not loose the queued tests
+[09:38:13] <jzaefferer> When autostart is false, QUnit.load may run before or after the actual QUnit.start.
+[09:38:22] <jzaefferer> So in the issue described, requirejs is done before window.load
+[09:44:53] <jzaefferer> I've emailed Timo about the meeting in general. I'd like to have him join, so maybe we need to move the meeting to make that happen.
+[09:45:02] <jzaefferer> Thanks gnarf and scott_gonzalez, I'll post the notes
+[09:45:12] <scott_gonzalez> So autostart isn't the real issue. The issue is that the user is calling QUnit.start() before QUnit.load() is called.
+[09:45:16] <jzaefferer> And actually work on QUnit again, its been a few weeks
+[09:46:13] <jzaefferer> scott_gonzalez: Yeah, while QUnit.load doesn't run when running without a DOM, so QUnit.start() can't wait for that.
+[09:46:31] <scott_gonzalez> When is there no DOM?
+[09:46:47] <scott_gonzalez> I guess that's outside of anything we do?
+[09:46:52] <jzaefferer> https://github.com/jquery/qunit/blob/master/test/node-test.js
+[09:47:17] <jzaefferer> at least that much works
+[09:47:39] <scott_gonzalez> Why not just check for the lack of a DOM and initialize immediately?
+[09:49:21] <jzaefferer> So have QUnit.start() wait for QUnit.load (if there's a dom), if there's none, init immediately. Wrap the DOM access in QUnit.init() to make that also work without DOM
+[09:49:42] <scott_gonzalez> sounds good
+[09:50:14] <jzaefferer> Okay, commented on the ticket, will look into that
+[09:50:23] <jzaefferer> Or maybe get the OP to send a PR
+[10:12:06] <gnarf> This is technically content meeting - ajpiano has shakey internet atm tho,
+[11:03:37] <agcolom> good evening!
+[11:03:39] <gseguin> Hi
+[11:03:46] <RWhitbeck> Good afternoon
+[11:03:46] <toddmparker> hi all
+[11:04:06] <toddmparker> The jQuery Mobile meeting is starting up. chime in if you're here
+[11:04:09] <RWhitbeck> hi toddmparker
+[11:04:14] <toddmparker> agenda: https://docs.google.com/document/d/1VSG-0FNgQ_vdcjvu1gqdoA1B3c9e4ft7GZGdwGc6DBw/edit#
+[11:04:24] <arschmitz> Hi all
+[11:04:34] <toddmparker> hi RWhitbeck, agcolom, gseguin, arschmitz
+[11:05:15] <toddmparker> last week, we spent 2 hours catching up, this week we'll try to keep it to an hour so maybe summarize the high points or stuff we need to hash out
+[11:05:25] <uGoMobi> hey all
+[11:05:31] <toddmparker> i'll try to zip it
+[11:05:39] <toddmparker> hey uGoMobi
+[11:05:42] <kpepin> Hi all.  :)
+[11:05:59] <toddmparker> kpepin: we should catch up on list view grids today...
+[11:06:08] <toddmparker> is johnbender here?
+[11:06:32] <toddmparker> i'm representing for Wilto, jlembeck and scottjehl - I can pull them in as needed
+[11:06:37] <johnbender> indeed
+[11:06:52] <toddmparker> too many filamenters ruins a party
+[11:06:54] <toddmparker> hi johnbender
+[11:06:59] <toddmparker> ok, let's go
+[11:07:07] <toddmparker> Big push on finishing 1.3 features
+[11:07:08] <toddmparker> Down to 9 open issues! 47 closed - https://github.com/jquery/jquery-mobile/issues?milestone=19&page=1&state=open
+[11:07:14] <johnbender> oh snap
+[11:07:27] <RWhitbeck> OH "too many filamenters ruins a party"  that one's gold
+[11:07:45] <RWhitbeck> 9 issues … great job
+[11:07:46] <toddmparker> i'd like to review the last open issues if time allows to see if we can block and tackle
+[11:07:50] <toddmparker> Responsive panels are feature complete, draft documentation created. Working performance optimization and tests now. Mat, Jeff, Scott, Todd working on this.
+[11:07:50] <toddmparker> Panel demo (in progress) - http://jquerymobile.com/branches/slide-panel/docs/panels/index.html
+[11:08:30] <toddmparker> scott added hardware acceleration as a test today and it's way better blinkiness-wise, not sure if the preview is up to date
+[11:08:30] <gseguin> <3
+[11:08:44] <kpepin> todd:  I'd like that.  I have a half day comign to me on Friday and wanted to modify the demo to be purely CSS driven, and then the markup/code/CSS could be dropped into any demo page for grids.
+[11:08:58] <toddmparker> kpepin: cool
+[11:09:11] <toddmparker> Added new icons for bars (nav) and edit (pencil) in panel branch, hoping to switch over to SVG w/fallbacks for 1.4 to make this easier - http://jquerymobile.com/branches/slide-panel/docs/buttons/buttons-icons.html
+[11:09:38] <toddmparker> Maintenance release work and changelog has been pushed off in order to focus on finishing new features for 1.3, but that work will resume soon
+[11:09:47] <toddmparker> ^^ My bad, I'll get back on that
+[11:09:59] <toddmparker> Alex and Jasper are doing an awesome job on triage - down to 273 issues
+[11:10:10] <RWhitbeck> they rock!
+[11:10:19] <gseguin> hurray for Alex and Jasper!
+[11:11:01] <toddmparker> I don't see Gabriel here
+[11:11:08] <toddmparker> maybe he'll hop on later
+[11:11:11] <uGoMobi> he mentioned he is off today
+[11:11:12] <arschmitz> hes on "vacation"
+[11:11:14] <uGoMobi> and tomorrow
+[11:11:20] <toddmparker> ah
+[11:11:32] <toddmparker> so that checkbox regression is still open then?
+[11:11:37] <uGoMobi> he also said he will work on that
+[11:11:48] <uGoMobi> but yes, still open
+[11:11:49] <johnbender> yah i was hoping he could help me with the sequence tests too
+[11:11:59] <toddmparker> ok. hate having things broken like that.
+[11:12:14] <uGoMobi> we could revert the change that broke it
+[11:12:14] <toddmparker> ok, we'll pester him on monday i guess
+[11:12:17] <uGoMobi> for the time being
+[11:12:28] <uGoMobi> it's two words
+[11:12:28] <johnbender> I like that
+[11:12:36] <toddmparker> might not be a bad idea uGoMobi
+[11:12:42] <uGoMobi> return false;
+[11:12:48] <toddmparker> mind doing that?
+[11:12:55] <uGoMobi> ok I will do that after the meeting
+[11:12:59] <johnbender> uGoMobi: can we also write a test for what's failing
+[11:13:00] <toddmparker> now we know we need that :)
+[11:13:04] <johnbender> the suite isn't broken I noticed
+[11:13:11] <johnbender> :( :(
+[11:13:14] <toddmparker> yeah, wanted to ask about that
+[11:13:33] <uGoMobi> johnbender: ok let's look into that on -dev
+[11:13:50] <johnbender> yar
+[11:14:09] <toddmparker> worth reverting because I remember this is the one where he thought that wash't needed…turns out it was
+[11:14:30] <toddmparker> in general, we need to all comment our code as much as possible to explain stuff like that
+[11:14:45] <toddmparker> (css too)
+[11:14:52] <toddmparker> ok, johnbender - wanna go?
+[11:15:07] <arschmitz> toddmparker: i belive _|Nix|_ said it shouldnt be there we just are not swollowing an event some place we should be, should still revert for time being though
+[11:15:30] <toddmparker> ok
+[11:15:33] <uGoMobi> the commit we are talking about https://github.com/jquery/jquery-mobile/commit/c8dcf58eebb55318dbc5f5bbc71bfed4d906218e
+[11:15:49] <uGoMobi> with link to issue that it should fix
+[11:16:06] <toddmparker> thanks
+[11:16:28] <johnbender> yes
+[11:16:30] <johnbender> so
+[11:16:38] <johnbender> I merged and the whole test suite is green
+[11:16:43] <johnbender> and it works brilliantly in my testing
+[11:16:51] <uGoMobi> awesome
+[11:17:01] <johnbender> though I should point out that said testing has been fairly device constrained
+[11:17:01] <arschmitz> Hurray!
+[11:17:14] <johnbender> and that's something we'll have to deal with in messaging
+[11:17:20] <johnbender> warning people to test navigation
+[11:17:42] <gseguin> nice work Bender!
+[11:17:48] <toddmparker> incredible work johnbender
+[11:17:50] <johnbender> lol
+[11:17:52] <johnbender> slow work
+[11:17:56] <johnbender> I'm just sorry it took so long
+[11:17:58] <johnbender> one note
+[11:18:03] <johnbender> if I could add in one note
+[11:18:06] <johnbender> for everyone
+[11:18:10] <johnbender> for all projects that they work on
+[11:18:13] <johnbender> for all time
+[11:18:35] <johnbender> integration tests are wonderful for feature additions and maintenance, but they are a nightmare for refactoring
+[11:18:48] <johnbender> do not wait to test your code
+[11:19:03] <johnbender> unit tests are easier at the start
+[11:19:18] <RWhitbeck> +1
+[11:19:33] <johnbender> that's my excuse at least for why I started the whole thing as integration tests
+[11:19:46] <johnbender> it was mostly impossible to unit test
+[11:19:53] <johnbender> just remember that in your projects
+[11:20:01] <johnbender> build JS that can be unit tested
+[11:20:03] <johnbender> objects
+[11:20:10] <johnbender> with methods that can be stubbed
+[11:20:21] <johnbender> don't burry your code in closures
+[11:21:15] <toddmparker> or ELSE
+[11:21:19] <kpepin> :)
+[11:21:28] <johnbender> also
+[11:21:29] <johnbender> one note
+[11:21:35] <kpepin> We've actually gone through the same thing at my work recently.  Good advice.
+[11:21:37] <kpepin> :)
+[11:21:40] <johnbender> I need to go back and simplify the work I've done
+[11:21:58] <johnbender> I got to a point where I just said "fuck it i need to merge this asap"
+[11:22:04] <toddmparker> worth adding some thoughts to a wiki page?
+[11:22:06] <johnbender> and there are some easy wins to be had
+[11:22:09] <johnbender> including testing
+[11:22:22] <johnbender> toddmparker: meh, it's not going to matter
+[11:22:27] <toddmparker> ok
+[11:22:30] <toddmparker> so can this issue be closed johnbender - https://github.com/jquery/jquery-mobile/issues/5091
+[11:22:31] <johnbender> and it's hard to explain
+[11:22:42] <johnbender> toddmparker: nope not yet
+[11:22:57] <johnbender> I need _|Nix|_ to agree to take on the sequence test failures
+[11:23:03] <johnbender> then I can push to origin
+[11:23:03] <toddmparker> ah, ok
+[11:23:08] <johnbender> then when we figure them out
+[11:23:10] <johnbender> we'll close it
+[11:23:35] <toddmparker> then we'll be down to 8 issues
+[11:24:05] <uGoMobi> I heard the guys that work on testing that we now can test against more platforms/browsers
+[11:24:30] <uGoMobi> is that useful for nav?
+[11:24:43] <uGoMobi> they asked us about that, right?
+[11:24:43] <johnbender> uGoMobi: no until we get the suite working with browserstack
+[11:24:52] <uGoMobi> ok
+[11:25:04] <johnbender> last I left it the only thing that failed were tests with windows.history.back
+[11:25:08] <johnbender> and they didn't know why
+[11:25:20] <uGoMobi> ah that issue
+[11:25:23] <johnbender> I'll revisit that at some point soon
+[11:26:45] <toddmparker> uGoMobi: want to go next?
+[11:26:54] <uGoMobi> sure
+[11:27:08] <uGoMobi> keep making progress on triage (273 open issues now)
+[11:27:08] <uGoMobi> fixed issues with textinputs, updated unit tests
+[11:27:08] <uGoMobi> reviewed and modified PR option collapsible without icons (landed)
+[11:27:08] <uGoMobi> https://github.com/jquery/jquery-mobile/pull/5327
+[11:27:08] <uGoMobi> added examples of new options to docs (dialog close button & corners, collapsible corners)
+[11:27:18] <uGoMobi> that's just FYI ^^
+[11:27:30] <uGoMobi> useful:
+[11:27:31] <uGoMobi> demos view source code: it’s now possible to select a specific script or style element in the head by giving it an ID and add data-demo-js=”#myID”
+[11:27:50] <uGoMobi> same for data-demo-css
+[11:28:05] <uGoMobi> noticed that persistent toolbars are broken http://jquerymobile.com/test/docs/toolbars/footer-persist-a.html
+[11:28:17] <toddmparker> saw those dialog examples, look godd
+[11:28:33] <toddmparker> those view source changes are awesome
+[11:28:34] <uGoMobi> thanks
+[11:28:55] <uGoMobi> I added to docs, but will copy to demos
+[11:29:02] <toddmparker> you and arschmitz were looking at the persistent toolbars. you figure out where/when they broke?
+[11:29:08] <uGoMobi> still not sure if we should keep updating our "old docs"
+[11:29:33] <arschmitz> toddmparker: im still working on tracking down the exact cause but im narrowing in got called away on something this morning
+[11:29:36] <uGoMobi> well I think we found the commit that broke it, right arschmitz ?
+[11:29:48] <arschmitz> uGoMobi: no not yet
+[11:29:53] <uGoMobi> oh ok
+[11:30:28] <arschmitz> uGoMobi: got called away on stuff this morning so didnt finish with that
+[11:30:36] <uGoMobi> I understand
+[11:30:42] <toddmparker> ah, ok
+[11:30:46] <uGoMobi> so we keep looking into this
+[11:30:50] <toddmparker> if you guys can keep plugging away on that
+[11:31:04] <uGoMobi> it looks really weird what's going on on that page
+[11:31:11] <toddmparker> hey - for the non-prefixed animations - https://github.com/jquery/jquery-mobile/issues/4875
+[11:31:22] <uGoMobi> yeah
+[11:31:25] <toddmparker> @Wilto has a branch up with non-prefixed transitions and updated 3D and transition tests:
+[11:31:26] <uGoMobi> have been testing that
+[11:31:26] <toddmparker> https://github.com/jquery/jquery-mobile/tree/unprefixed-transitions
+[11:31:36] <uGoMobi> seems good to go
+[11:31:43] <toddmparker> I need people to help us test that, then we can land it
+[11:31:53] <toddmparker> uGoMobi: you gave it a run through?
+[11:32:00] <uGoMobi> maybe you guys have some devices there of which we know they shouldn't get transitions
+[11:32:06] <Wilto> Yeah, lookin’ alright for me so far too.
+[11:32:16] <toddmparker> If you did, I might suggest we merge this in to see if it flushes out any issues if broader testing
+[11:32:18] <Wilto> agcolom: You were testing that branch too, yeah?
+[11:32:32] <agcolom> yes
+[11:32:32] <uGoMobi> Wilto: Chromium was fixed after update
+[11:32:40] <Wilto> ?CC
+[11:32:40] <bot-t> CASE CLOASED >: |
+[11:33:05] <agcolom> I tested all my iPads... all was fine
+[11:33:11] <agcolom> with ^
+[11:33:18] <toddmparker> let's do this thing
+[11:33:25] <toddmparker> @Wilto - want the honor?
+[11:33:31] <Wilto> http://wil.to/_/button.gif
+[11:33:38] <uGoMobi> when we merge, more people will test
+[11:33:44] <Wilto> Nah; whoever is in the neighborhood can hit the shiny red button.
+[11:33:44] <toddmparker> exactly
+[11:33:48] <Wilto> I can get to it in a bit.
+[11:34:05] <toddmparker> ok
+[11:34:23] <toddmparker> uGoMobi: you've been doing a bunch of demo stuff too, right?
+[11:34:24] <uGoMobi> ok to fiinish my updates
+[11:34:27] <uGoMobi> worked on slider/range CSS, have to test when range widget is done
+[11:34:27] <uGoMobi> working on demos for 1.3
+[11:34:32] <uGoMobi> yes
+[11:34:53] <toddmparker> great. we should huddle on that either tomorrow or monday
+[11:35:01] <uGoMobi> that's basically what I will be doing from now on for 1.3
+[11:35:04] <toddmparker> keep cranking away, looking good
+[11:35:07] <toddmparker> cool
+[11:35:18] <toddmparker> me too, once panel is finished
+[11:35:33] <toddmparker> oh hey johnbender
+[11:35:37] <uGoMobi> kpepin: I am available for helping out with grid listview CSS
+[11:35:56] <toddmparker> ah, yes. let's talk about that in a sec
+[11:36:00] <uGoMobi> ok
+[11:36:07] <toddmparker> johnbender: there are two open 1.3 issues assigned to you
+[11:36:08] <toddmparker> https://github.com/jquery/jquery-mobile/issues/3978
+[11:36:20] <toddmparker> https://github.com/jquery/jquery-mobile/issues/4456
+[11:36:42] <toddmparker> keep in 1.3 or move out?
+[11:37:22] <toddmparker> johnbender ^^ no need to answer here, but mind reviewing offline?
+[11:37:38] <toddmparker> ok, so kpepin - let's talk grid listviews
+[11:38:13] <uGoMobi> we can talk about it afterwards if we want to do all updates in this hour
+[11:38:35] <kpepin> Sure.  I've been buried with stuff from work, so no real progress to report...  :(
+[11:38:36] <toddmparker> uGoMobi: yeah, good point. big ball of wax.
+[11:38:47] <kpepin> That's why I'm looking forward to this Friday.
+[11:38:51] <toddmparker> kpepin: can you hop onto -dev after this meeting?
+[11:38:59] <toddmparker> so we can coordinate
+[11:39:10] <kpepin> Been thinking a lot about it though.  Which is why I think they wholee thing could become a demo that just overrides the default CSS.
+[11:39:15] <kpepin> Sure thing.
+[11:39:27] <toddmparker> thanks
+[11:39:39] <toddmparker> uGoMobi: this full width slider…still in for 1.3? https://github.com/jquery/jquery-mobile/issues/5045
+[11:39:48] <uGoMobi> yes
+[11:39:52] <toddmparker> you and arschmitz were working on slider stuff
+[11:39:59] <uGoMobi> when arschmitz is done with range
+[11:40:00] <arschmitz> Yes
+[11:40:06] <toddmparker> yeah? great
+[11:40:10] <uGoMobi> I will test if it works good for both
+[11:40:17] <toddmparker> i don't see a range issue for 1.3...
+[11:40:23] <toddmparker> uGoMobi: thanks
+[11:40:28] <toddmparker> do we have an issue?
+[11:40:35] <arschmitz> no :( thats my fault
+[11:40:45] <uGoMobi> we have a branch for range
+[11:40:47] <arschmitz> iv been super busy this week and spaced it on making that after last meeting
+[11:40:54] <toddmparker> np, just nice to have a ticket for tracking updates. and we get to close it.
+[11:41:06] <arschmitz> yes ill make sure i actually add it this time
+[11:41:11] <toddmparker> ah, mind making a ticket and linking up the branch demos?
+[11:41:18] <toddmparker> gotta show off the goodies
+[11:41:42] <arschmitz> toddmparker:no problem
+[11:41:57] <toddmparker> have a link handy for the demo?
+[11:42:03] <toddmparker> want to add it to the update doc
+[11:42:11] <arschmitz> yes
+[11:42:12] <toddmparker> arschmitz: want to go?
+[11:42:16] <arschmitz> sure
+[11:42:26] <toddmparker> (see the trend - pipe in and you go next)
+[11:42:33] <arschmitz> since we are on the subject contiued work on range
+[11:42:53] <arschmitz> its almost done but didnt have a lot of time last week this week will be better
+[11:43:18] <arschmitz> fixed last bug im aware of so just polishing up
+[11:43:23] <RWhitbeck> pipe
+[11:43:51] <arschmitz> merged the re written swipe event working on a demo of extending it
+[11:43:57] <toddmparker> people are gonna love that range slider feature
+[11:44:10] <arschmitz> toddmparker: i hope so :)
+[11:44:26] <toddmparker> ah, right. do you have links for the swipe demo and docs change? want to link those up
+[11:45:12] <arschmitz> no i havent finished yet but ill get them just merged the update yesterday afternoon and havent had a chance to get to docs yet
+[11:45:30] <uGoMobi> I have a swipe demo page
+[11:45:48] <uGoMobi> was just looking for content other than lorem ipsum
+[11:45:53] <uGoMobi> :)
+[11:46:18] <arschmitz> I created a way to do deep linking in the demo docs
+[11:46:30] <arschmitz> need to make a demo of this and merge still
+[11:46:55] <arschmitz> should make the demo docs much easier to navigate
+[11:46:57] <toddmparker> for the dual slider and swipe, be sure to add those to the 1.3 page - https://github.com/jquery/jquery-mobile/wiki/1.3-Release-Notes/
+[11:47:07] <toddmparker> yeah, that plugin is great
+[11:47:15] <toddmparker> did you add that to the docs yet?
+[11:47:36] <arschmitz> no :( im concentrating on docs and demos for the next week
+[11:47:56] <toddmparker> ok, no worries.
+[11:48:10] <toddmparker> we're cranking out so many cool things, just trying to capture 'em all
+[11:48:23] <uGoMobi> arschmitz: I'll take care of adding demo pages for range and slider
+[11:48:26] <arschmitz> tracked down the poor performance on address bar hide on some pages
+[11:48:27] <toddmparker> don't want to forget anything
+[11:48:36] <uGoMobi> already have the code, just need to move it to /demos folder
+[11:48:38] <arschmitz> READER!!!!
+[11:49:26] <arschmitz> we should probably document this some place i know toddmparker tweeted it
+[11:49:29] <toddmparker> reader?
+[11:49:37] <uGoMobi> safari reader
+[11:49:39] <uGoMobi> ?
+[11:49:39] <johnbender> toddmparker: I'll take a look at those two issues
+[11:49:50] <toddmparker> thanks johnbender
+[11:49:52] <arschmitz> uGoMobi: yes
+[11:50:02] <toddmparker> trying to clean up our 1.3 issues and call it done
+[11:50:07] <arschmitz> toddmparker yes rememberyou noticed and i figured it out yesterday?
+[11:50:09] <toddmparker> getting really close
+[11:50:22] <toddmparker> ah, safari reader. ugh.
+[11:50:34] <toddmparker> think we decided to do nothing there
+[11:50:36] <arschmitz> nothing we can do here but i think its worth documenting
+[11:50:55] <arschmitz> that way if someone opens an issue we can point them to it
+[11:50:56] <uGoMobi> tell people not to put anything to read on their page? ;)
+[11:50:59] <toddmparker> yeah. do we document the url bar hiding anywhere? if not, we should and then add that
+[11:51:07] <toddmparker> uGoMobi: good thinking
+[11:51:33] <arschmitz> uGoMobi: replace all text with images!
+[11:51:43] <uGoMobi> cool
+[11:51:43] <toddmparker> even better
+[11:52:04] <toddmparker> alrighty, thanks uGoMobi and arschmitz
+[11:52:19] <arschmitz> also working on tracking down the issue mentioned before with persistant toolbars
+[11:52:21] <arschmitz> thats all
+[11:52:23] <toddmparker> RWhitbeck you piped?
+[11:52:42] <toddmparker> arschmitz: yeah, that's a bad regression.
+[11:52:53] <johnbender> toddmparker: responded, I would love to get that in for 1.3 but if we need to move it we can I think
+[11:52:53] <RWhitbeck> :)
+[11:53:14] <RWhitbeck> Continue work on the jQuery Mobile Cookbook for O’Reilly http://jquerymobilecookbook.com
+[11:53:14] <RWhitbeck> Approved as speaker at this years Fluent Conf to talk about jQuery Mobile http://fluentconf.com/fluent2013/public/schedule/speakers
+[11:53:29] <toddmparker> johnbender: of course we can, this is our baby :)
+[11:53:35] <RWhitbeck> been trying to work on how to get teh word out in 2013 and working on the book obviously.
+[11:53:38] <toddmparker> RWhitbeck: great
+[11:53:58] <toddmparker> good conference
+[11:54:14] <RWhitbeck> yeah it was fun last year
+[11:54:48] <RWhitbeck> Working on a couple of other conferences but nothing to report.
+[11:55:05] <RWhitbeck> working on getting the forum into my daily check to be able to help there as you asked last week.
+[11:55:15] <RWhitbeck> so I am still working on getting that into my flow
+[11:55:17] <toddmparker> great. are you going to try and write some article for the new learn site?
+[11:55:40] <agcolom> on that I have a Themroller article nearly ready
+[11:55:49] <toddmparker> might be a good thing to look to do. agcolom wrote the intro, but there are a zillion topics we could cover
+[11:55:49] <RWhitbeck> yeah but probably after this book is done. Not sure if I have the bandwidth for more writing at this time.
+[11:55:59] <toddmparker> agcolom: great!
+[11:56:07] <RWhitbeck> yeah I imagine
+[11:56:08] <toddmparker> thanks RWhitbeck
+[11:56:13] <toddmparker> agcolom: wanna go?
+[11:56:16] <RWhitbeck> I'll talk with agcolom
+[11:56:18] <agcolom> yes please
+[11:56:21] <agcolom>     api docs:
+[11:56:21] <agcolom>         changed controlgroup for new version of grunt
+[11:56:21] <agcolom>         changed page loading widget (added options/methods/events)
+[11:56:21] <agcolom>         corrected dimissable -> dimissible in popup/options.html
+[11:56:21] <agcolom>         added corners options to collapsibles and collapsible sets
+[11:56:22] <agcolom>     the API docs format issue is resolved and all parties are happy!
+[11:56:22] <agcolom>     changed jQuery core version from 1.7.2 to 1.8.2 in ThemeRoller.
+[11:56:40] <toddmparker> you've been busy
+[11:56:57] <agcolom> busy maily with work. Wish I had more time fo rJQM at the moment@
+[11:57:20] <toddmparker> one thing I'm starting to get concerned about is that docs updates have 2 places right now - old and API
+[11:57:26] <agcolom> Does something need to be redeployed for the change in ThemeRoller to show up?
+[11:57:41] <agcolom> 2 places for docs: yes
+[11:57:52] <toddmparker> wonder if we should start deleting pages in the old docs or just leaving them with a link to the API site
+[11:58:14] <uGoMobi> I was thinking about that too
+[11:58:15] <toddmparker> be a good way to know which pages have moved over and which don't yet have a home
+[11:58:20] <agcolom> I now follow JQM commits on twitter, and anything to do with Docs I track and add in api docs if relevant
+[11:58:28] <toddmparker> agcolom: genius
+[11:58:58] <agcolom> so it's important to keep the 'Docs:' in the comment
+[11:59:13] <uGoMobi> maybe we need a wiki page or docs in which we work out what info and examples should go where
+[11:59:16] <toddmparker> so if you think you're up to date, we could start deleting the guts of page and adding a deep link to the page > section in the API docs.
+[11:59:27] <uGoMobi> docs as in google doc ^^
+[11:59:40] <toddmparker> uGoMobi: i think we do
+[11:59:55] <toddmparker> all the plugin docs are clear > each will migrate to API
+[12:00:05] <uGoMobi> I started writing something for how setting options work in general
+[12:00:10] <toddmparker> but what to do with the phone gap tips page
+[12:00:12] <toddmparker> etc.
+[12:00:15] <uGoMobi> but no idea where we put info like that
+[12:00:18] <toddmparker> uGoMobi: nice
+[12:00:21] <toddmparker> right
+[12:00:23] <agcolom> yes i also think we need an inventory and tick what has moved over, what is incomplete, what needs doing
+[12:00:41] <toddmparker> agreed
+[12:01:00] <uGoMobi> I already made some notes about it
+[12:01:02] <toddmparker> i think the big open Q is where does non-API and non-demo content live?
+[12:01:07] <toddmparker> the learn site?
+[12:01:17] <agcolom> I'm still crazy busy for another 2 weeks, then it's the Xmas break...
+[12:01:18] <uGoMobi> I could put it in a Google doc next week and share with you agcolom and toddmparker
+[12:01:19] <toddmparker> a section in the new demos for guides?
+[12:01:27] <agcolom> the learn site seems the option place to me
+[12:01:31] <toddmparker> good thinking uGoMobi
+[12:01:42] <agcolom> +1
+[12:02:26] <toddmparker> I'm concerned about having content in too many places because it's hard to tell a coherent story
+[12:02:32] <agcolom> I'm writing crazy stuff! I meant the learn site seems the obvious place to me
+[12:02:33] <uGoMobi> I agree
+[12:02:48] <toddmparker> so i think non-API stuff probably needs to be re-factored into a part of the demos
+[12:03:04] <agcolom> yes, it may be confusing for users who were used to having everything in one place
+[12:03:10] <toddmparker> right
+[12:03:29] <toddmparker> i think it's not much trouble to link out to the API stuff, but the rest of the it needs a home
+[12:03:41] <toddmparker> ok, let's talk about that soon
+[12:03:43] <arschmitz> ^^+!
+[12:03:45] <agcolom> I think the learn site should have tutorials (how to do X)
+[12:03:46] <arschmitz> 1
+[12:03:58] <toddmparker> agcolom: the table stuff is ready to pull over when you want to tackle it
+[12:04:07] <agcolom> toddmparker: perfect!
+[12:04:17] <toddmparker> panels will be ready next week
+[12:04:49] <uGoMobi> I will put an index of everything we have in current docs in that Google doc
+[12:04:56] <toddmparker> perfect
+[12:05:05] <toddmparker> anyone still waiting to go?
+[12:05:07] <uGoMobi> then decide what should go where
+[12:05:17] <agcolom> tables: will try this weekend... (to add to my crazy load, I'm doing a PG Cert! assignment 1 due monday!!!! produce a podcast & report)
+[12:05:26] <gseguin> I was but it's a very small update
+[12:05:39] <gseguin> I'm getting my head out of the water here at Jive
+[12:05:53] <gseguin> started looking into building a demo for autocomplete from server
+[12:06:00] <gseguin> https://github.com/jquery/jquery-mobile/issues/5096
+[12:06:30] <gseguin> Not sure what I can achieve by the end of the day but I'm looking at using: http://www.geobytes.com/free-ajax-cities-jsonp-api.htm
+[12:06:41] <toddmparker> gseguin: awesome, good to have you back
+[12:06:43] <gseguin> unless someone has a better idea
+[12:06:55] <toddmparker> cities seems good to me
+[12:07:02] <gseguin> k
+[12:07:12] <gseguin> and the other thing I wanted to bring up
+[12:07:20] <toddmparker> (Or countries)
+[12:07:24] <gseguin> is when can we use mergeatron?
+[12:07:33] <gseguin> johnbender: ^^
+[12:08:00] <gseguin> mikesherov: ^^
+[12:08:00] <toddmparker> is that our all powerful robot
+[12:08:21] <gseguin> it's the bot that executes the test on a PR automatically
+[12:08:30] <gseguin> and reports as a comment to the PR
+[12:09:00] <toddmparker> ah, right
+[12:09:06] <toddmparker> that is good stuff...
+[12:09:18] <gseguin> I think it's a fantastic idea and a major time saver
+[12:09:20] <toddmparker> looks like no answer, let' specter those guys on -dev
+[12:09:21] <uGoMobi> is there also a triageatron?
+[12:09:25] <uGoMobi> :)
+[12:09:30] <gseguin> :)
+[12:09:30] <toddmparker> yeah, you and arschmitz
+[12:09:39] <toddmparker> wearing robot suits
+[12:09:40] <uGoMobi> bleep bleep
+[12:09:43] <gseguin> :)
+[12:09:54] <gseguin> that's it
+[12:10:00] <arschmitz> i didnt think my humor was that dry :(
+[12:10:06] <toddmparker> having a remote auto-complete demo will be huge…one of the most requested features
+[12:10:17] <agcolom> gseguin: does it only work with US cities?
+[12:10:35] <toddmparker> countries of the world might be ideal
+[12:10:43] <gseguin> agcolom: yeah I think so
+[12:10:50] <toddmparker> we have to be inclusive here
+[12:10:57] <gseguin> ok, I'll try to find an API
+[12:11:37] <toddmparker> https://github.com/mledoze/countries
+[12:12:08] <gseguin> I guess I could simulate
+[12:12:34] <toddmparker> actually, looks like that original geobytes might have it
+[12:13:05] <toddmparker> yeah, their demo is cities
+[12:13:35] <uGoMobi> I also have a swipe demo to remove list items with swipe... anyone has content for that?
+[12:13:45] <uGoMobi> list of messages for example
+[12:13:50] <toddmparker> ah, cool
+[12:13:57] <toddmparker> we have a list of fake emails already
+[12:13:57] <uGoMobi> toddmparker: didn't you have a mail app demo?
+[12:14:04] <uGoMobi> right
+[12:14:08] <toddmparker> just pictures
+[12:14:19] <toddmparker> scott had one but it wasn't done
+[12:14:23] <gseguin> gotta run, I'll work on that and report
+[12:14:25] <uGoMobi> I didn't want to use that album list again
+[12:14:30] <uGoMobi> later gseguin
+[12:14:31] <toddmparker> ok, thanks gseguin
+[12:14:33] <gseguin> see you on -dev
+[12:14:48] <toddmparker> if you build it, we can cook up better data
+[12:15:00] <uGoMobi> ok
+[12:15:07] <agcolom> uGoMobi: what sort of content would you like?
+[12:15:17] <agcolom> on -dev?
+[12:15:19] <toddmparker> scott wrote a plugin to drag a row and reveal a button panel beneath. not finished, but we could add that later
+[12:15:22] <uGoMobi> just a list of notifictions
+[12:15:40] <uGoMobi> where it makes sense you would like to remove an item after you have read it
+[12:15:47] <toddmparker> we added swipe to close the panels btw
+[12:15:51] <arschmitz> uGoMobi: do github issues!
+[12:15:57] <uGoMobi> toddmparker: my demo is very simple
+[12:16:02] <uGoMobi> lol arschmitz
+[12:16:12] <toddmparker> simple is good. means it probably works, unlike our demo
+[12:16:27] <toddmparker> alright, let's hop over to -dev
+[12:16:33] <toddmparker> any questions from the community?
+[12:16:33] <uGoMobi> just a transition and then remove()
+[12:16:35] <uGoMobi> ok
+[12:17:05] <toddmparker> be cool to do an alt where you swipe and we repeal a delete button like iOS
+[12:17:13] <toddmparker> reveal
+[12:17:40] <uGoMobi> yeah np
+[12:17:49] <toddmparker> thanks everyone, we're cranking out so much good stuff. incredible work.
+[12:17:51] <agcolom> Andy Matthews did a plugin to do exactly that I think
+[12:17:56] <toddmparker> he did
+[12:18:04] <toddmparker> worth looking at
+[12:18:08] <agcolom> it's in hte resources page
+[12:19:13] <uGoMobi> ok see you all on -dev
+[12:19:23] <agcolom> ok, on -dev

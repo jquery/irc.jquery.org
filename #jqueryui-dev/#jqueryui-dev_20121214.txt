@@ -1,0 +1,167 @@
+[03:08:26] <doesallmagic> Project jQuery UI - git core build #251: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%20git%20core/251/
+[03:53:45] <doesallmagic> Project jQuery UI 1-9-stable - git core build #37: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%201-9-stable%20-%20git%20core/37/
+[04:39:03] <doesallmagic> Project jQuery UI - 1.6.x core build #148: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.6.x%20core/148/
+[05:19:11] <scott_gonzalez> tj_vantoll mikesherov _zoggy_ kborchers gnarf petersendidit: Can anyone think of a reason not to remove the `overflow: hidden` from .ui-dialog?
+[05:19:33] <scott_gonzalez> The dialog contents are constrained and always smaller than the wrapper.
+[05:19:34] <mikesherov> scott_gonzalez: yes, I can think of a theoretical one
+[05:19:40] <mikesherov> oh, in that case, no
+[05:19:59] <mikesherov> scott_gonzalez: including if it's an iframe?
+[05:20:26] <scott_gonzalez> hmm...is there a forced minimim size of iframes?
+[05:20:42] <scott_gonzalez> We have this function, which sets the dimensions of the content and wrapper based on the options: https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.dialog.js#L623
+[05:20:48] <mikesherov> scott_gonzalez: no, just brainstorming edge cases
+[05:21:04] <mikesherov> man, I wish we had a unit tested history
+[05:21:08] <scott_gonzalez> The use case I'm trying to support is autocomplete menu being appended to the dialog instead of the body.
+[05:21:38] <scott_gonzalez> Right now the menu gets cut-off because of the overflow.
+[05:21:52] <scott_gonzalez> But things like autocomplete and tooltip should flow out, even if appended to the dialog.
+[05:22:18] <tj_vantoll> .ui-dialog .ui-dialog-buttonpane .ui-dialog-buttonset {
+[05:22:18] <tj_vantoll> 	float: right;
+[05:22:18] <tj_vantoll> }
+[05:22:18] <tj_vantoll> Just brainstorming but is it possibly needed to clear this float?
+[05:22:52] <scott_gonzalez> tj_vantoll: hmm....let me check.
+[05:24:07] <scott_gonzalez> nope
+[05:24:15] <scott_gonzalez> At least not in Chrome, that wouldn't be browser-specific, right?
+[05:24:21] <doesallmagic> Project jQuery UI - 1.7.x core build #149: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.7.x%20core/149/
+[05:25:05] <mikesherov> i missed what tj_vantoll just wrote
+[05:25:05] <scott_gonzalez> WHOA
+[05:25:12] <scott_gonzalez> New BrowserStack UI.
+[05:25:21] <tj_vantoll> oh wow
+[05:25:26] <scott_gonzalez> He asked if it was to clear the floats from the button pane.
+[05:27:26] <tj_vantoll> scott_gonzalez http://jsfiddle.net/tj_vantoll/LMCDE/
+[05:28:06] <scott_gonzalez> I know about the resize handler, I'm just removing the icon.
+[05:28:28] <tj_vantoll> Ah ok.
+[05:29:12] <tj_vantoll> It looks like the ui-helper-clearfix class is handling the clearing.  I would just confirm that it is indeed clearing the buttons in IE 7 and IE 8.
+[05:29:35] <scott_gonzalez> Just checked IE7.
+[05:29:37] <scott_gonzalez> Checking IE8 now.
+[05:29:55] <tj_vantoll> That's the only reason for overflow: hidden that I can think of.
+[05:30:18] <scott_gonzalez> Looks good in IE8 as well.
+[05:30:50] <scott_gonzalez> Yeah, I'm not sure why it was there.
+[05:31:56] <scott_gonzalez> hmm...for some reason we set a width on .ui-dialog as well.
+[05:32:05] <scott_gonzalez> Seems silly since we always set the size in JS.
+[05:34:57] <tj_vantoll> Even if someone has floated content within the dialog it'll still be cleared without overflow: hidden on .ui-dialog - http://jsfiddle.net/tj_vantoll/hFAyH/.
+[05:35:00] <scott_gonzalez> https://gist.github.com/41f9367f16222af38269
+[05:36:16] <tj_vantoll> Wow, I hadn't seen the new look of gist yet either.  Crazy morning.
+[05:38:17] <tj_vantoll> What about top: 0 and left: 0?  Aren't those just as irrelevant as width?
+[05:38:38] <scott_gonzalez> They're stupidly necessary.
+[05:38:45] <scott_gonzalez> Absolute positioning isn't really absolute without them.
+[05:39:06] <scott_gonzalez> So .position() will fail to position elements properly because it won't know where it currently is.
+[05:39:59] <tj_vantoll> Ah, makes sense.  I think I've ran into that before.
+[05:40:21] <scott_gonzalez> Yeah, where the element stays in its current position but is in a quasi-absolute mode.
+[05:41:22] <tj_vantoll> Then +1 on https://gist.github.com/41f9367f16222af38269.  I can't think of issues with that.
+[05:41:23] <scott_gonzalez> Thouhts on removing the `outline: 0`?
+[05:41:49] <scott_gonzalez> There's no other way to know that the dialog itself has focus.
+[05:43:02] <scott_gonzalez> I guess you could maybe make a case for saying that dialogs are like <body>
+[05:43:06] <scott_gonzalez> and <body> doesn't show focus.
+[05:43:15] <scott_gonzalez> I'll leave it in.
+[05:43:51] <tj_vantoll> How can you explicitly give the dialog focus?  Just curious what it would look like with an outline.
+[05:44:41] <scott_gonzalez> Click in the middle of the dialog.
+[05:44:58] <scott_gonzalez> Or create a dialog with no focusable content and hide the close button with CSS.
+[05:45:24] <scott_gonzalez> They're generally edge cases.
+[05:45:35] <scott_gonzalez> And cases that a keybaord user shouldn't really run into.
+[05:50:40] <tj_vantoll> Interesting.  Like you said it probably doesn't matter because I can't think of any situation where you would want a dialog like that.
+[05:59:32] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 4 new commits to 06master: 02http://git.io/UTKXtw
+[05:59:32] <jquicommit> 13download.jqueryui.com/06master 14812666a 15Rafael Xavier de Souza: Fix DownloadBuilderModel#themerollerUrl and leave folderName and scope out of zComponents
+[05:59:32] <jquicommit> 13download.jqueryui.com/06master 14d1ab7e1 15Rafael Xavier de Souza: Change order: create toggle all elements first, then remember previous component selection. Fixes toggle all initialization
+[05:59:32] <jquicommit> 13download.jqueryui.com/06master 147ed22b3 15Rafael Xavier de Souza: Fast ThemeGallery load using server compressed zThemeParams
+[06:01:00] <doesallmagic> Project download.jqueryui.com build #60: FAILURE in 1 min 30 sec: http://swarm.jquery.org:8080/job/download.jqueryui.com/60/
+[06:01:00] <doesallmagic> * rxaviers: Fix DownloadBuilderModel#themerollerUrl and leave folderName and scope out of zComponents
+[06:01:01] <doesallmagic> * rxaviers: Change order: create toggle all elements first, then remember previous component selection. Fixes toggle all initialization
+[06:01:01] <doesallmagic> * rxaviers: Fast ThemeGallery load using server compressed zThemeParams
+[06:01:02] <doesallmagic> * rxaviers: Prerelease 1.10.0pre.7
+[06:09:36] <doesallmagic> Project jQuery UI - 1.8.x core build #124: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.8.x%20core/124/
+[06:09:52] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 3 new commits to 06master: 02http://git.io/Jp_8IA
+[06:09:52] <jquicommit> 13download.jqueryui.com/06master 143c38093 15Rafael Xavier de Souza: Add missing package lzma
+[06:09:52] <jquicommit> 13download.jqueryui.com/06master 14b8ee4eb 15Rafael Xavier de Souza: No need to delay themeGalleryInit anymore
+[06:09:52] <jquicommit> 13download.jqueryui.com/06master 14d5ac9fe 15Rafael Xavier de Souza: Prerelease 1.10.0pre.7
+[06:10:55] <jquicommit> 01[13jquery-ui01] 15scottgonzalez pushed 2 new commits to 06master: 02http://git.io/VH-tgw
+[06:10:55] <jquicommit> 13jquery-ui/06master 142c16435 15Scott González: Dialog: Removed unnecessary style properties.
+[06:10:55] <jquicommit> 13jquery-ui/06master 1480e46c9 15Scott González: Autocomplete: Append to closest .ui-front if available.
+[06:10:59] <doesallmagic> Yippie, build fixed!
+[06:11:00] <doesallmagic> Project download.jqueryui.com build #61: FIXED in 1 min 11 sec: http://swarm.jquery.org:8080/job/download.jqueryui.com/61/
+[06:11:00] <doesallmagic> * rxaviers: Add missing package lzma
+[06:11:01] <doesallmagic> * rxaviers: No need to delay themeGalleryInit anymore
+[06:11:01] <doesallmagic> * rxaviers: Prerelease 1.10.0pre.7
+[06:12:04] <jquicommit> 01[13jqueryui.com01] 15rxaviers pushed 1 new commit to 06master: 02http://git.io/YhS55A
+[06:12:04] <jquicommit> 13jqueryui.com/06master 143f6b0cc 15Rafael Xavier de Souza: Update download.jqueryui.com to 1.10.0pre.8
+[06:21:38] <rxaviers> jzaefferer, dont know what's going on. But, the deploy of jqueryui doesnt seem to be using the latest download builder. http://stage.jqueryui.com/themeroller/ is different from http://stage.download.jqueryui.com/themeroller
+[06:22:11] <rxaviers> ah
+[06:22:13] <rxaviers> or not
+[06:22:21] <rxaviers> lol sorry I think I know what happened
+[06:22:29] <rxaviers> sync issues
+[06:22:55] <rxaviers> maybe some vars were not ready for wordpress deploy.
+[06:54:44] <doesallmagic> Project jQuery UI 1-9-stable - 1.6.x core build #28: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%201-9-stable%20-%201.6.x%20core/28/
+[07:17:35] <scott_gonzalez> mikesherov: In case you're interested re: .simulate() http://dev-test.nemikor.com/keyboard-events/
+[07:40:01] <doesallmagic> Project jQuery UI 1-9-stable - 1.7.x core build #29: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%201-9-stable%20-%201.7.x%20core/29/
+[08:05:56] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 4 new commits to 06master: 02http://git.io/NrFy_g
+[08:05:56] <jquicommit> 13download.jqueryui.com/06master 14bf9a079 15Rafael Xavier de Souza: Skip folderName on purpose, it will be updated based on theme selection anyway
+[08:05:56] <jquicommit> 13download.jqueryui.com/06master 14dbf4d42 15Rafael Xavier de Souza: Remove unused method
+[08:05:56] <jquicommit> 13download.jqueryui.com/06master 140fa28d6 15Rafael Xavier de Souza: Hard code "cache" themeGallery zThemeParams to fix imediate calls to themeroller#index...
+[08:06:47] <doesallmagic> Project download.jqueryui.com build #62: SUCCESS in 50 sec: http://swarm.jquery.org:8080/job/download.jqueryui.com/62/
+[08:06:48] <doesallmagic> * rxaviers: Skip folderName on purpose, it will be updated based on theme selection anyway
+[08:06:48] <doesallmagic> * rxaviers: Remove unused method
+[08:06:49] <doesallmagic> * rxaviers: Hard code "cache" themeGallery zThemeParams to fix imediate calls to themeroller#index
+[08:06:49] <doesallmagic> * rxaviers: Prerelease 1.10.0pre.9
+[08:08:24] <jquicommit> 01[13jqueryui.com01] 15rxaviers pushed 1 new commit to 06master: 02http://git.io/XC2TYQ
+[08:08:24] <jquicommit> 13jqueryui.com/06master 14a2b2ee3 15Rafael Xavier de Souza: Update download.jqueryui.com to 1.10.0pre.9
+[08:14:22] <jquicommit> 01[13jquery-ui01] 15scottgonzalez pushed 1 new commit to 06master: 02http://git.io/ri8j3w
+[08:14:22] <jquicommit> 13jquery-ui/06master 148ec7a1b 15Scott González: All: Use .addBack() instead of .andSelf().
+[08:26:16] <doesallmagic> Project jQuery UI 1-9-stable - 1.8.x core build #29: STILL FAILING in 46 min: http://swarm.jquery.org:8080/job/jQuery%20UI%201-9-stable%20-%201.8.x%20core/29/
+[08:35:17] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 1 new commit to 06master: 02http://git.io/kar0mA
+[08:35:17] <jquicommit> 13download.jqueryui.com/06master 14ca30ccf 15Rafael Xavier de Souza: On downloadParams model updates, update themeGallery download links...
+[08:35:49] <doesallmagic> Project download.jqueryui.com build #63: SUCCESS in 34 sec: http://swarm.jquery.org:8080/job/download.jqueryui.com/63/
+[08:35:50] <doesallmagic> rxaviers: On downloadParams model updates, update themeGallery download links
+[08:35:55] <jquicommit> 01[13jqueryui.com01] 15rxaviers pushed 1 new commit to 06master: 02http://git.io/PA_dzg
+[08:35:55] <jquicommit> 13jqueryui.com/06master 143787c0b 15Rafael Xavier de Souza: Update download.jqueryui.com to 1.10.0pre.10
+[09:06:58] <jquicommit> 01[13jquery-ui01] 15fnagel pushed 1 new commit to 06selectmenu: 02http://git.io/WTbudA
+[09:06:58] <jquicommit> 13jquery-ui/06selectmenu 14e2b5123 15Felix Nagel: Selectmenu: introduce _setText helper function to improve handling of empty strings
+[09:12:32] <doesallmagic> Project jQuery UI build #890: STILL FAILING in 46 min: http://swarm.jquery.org:8080/job/jQuery%20UI/890/
+[09:12:33] <doesallmagic> * Scott González: Dialog: Removed unnecessary style properties.
+[09:12:33] <doesallmagic> * Scott González: Autocomplete: Append to closest .ui-front if available.
+[09:12:34] <doesallmagic> * Scott González: All: Use .addBack() instead of .andSelf().
+[09:43:04] <doesallmagic> Project jQuery UI Selectmenu build #20: STILL FAILING in 5.6 sec: http://swarm.jquery.org:8080/job/jQuery%20UI%20Selectmenu/20/
+[09:43:05] <doesallmagic> info: Selectmenu: introduce _setText helper function to improve handling of empty strings
+[10:51:51] <scott_gonzalez> kborchers: Got another update on progressbar.
+[10:51:59] <scott_gonzalez> Firefox is exposing state: mixed
+[10:52:59] <scott_gonzalez> Which seems to be the only thing it should be doing.
+[10:53:34] <kborchers> so is it just NVDA not recognizing it?
+[10:54:04] <scott_gonzalez> Seems like it.
+[10:54:12] <scott_gonzalez> But if affects NVDA, JAWS, and Orca.
+[10:54:22] <kborchers> hmmm
+[10:54:40] <scott_gonzalez> Apparently Chromevox announces "progress bar min zero"
+[10:54:59] <scott_gonzalez> So VoiceOver is the only one gettin it right.
+[10:55:01] <scott_gonzalez> Not so great.
+[10:56:08] <kborchers> so should we go the valuetext route until the others get it? if we do, we'll probably get double announcements in voice over, right?
+[10:57:03] <scott_gonzalez> Not sure, I can check that now.
+[11:00:54] <scott_gonzalez> hmm..VoiceOver seems confused.
+[11:01:18] <scott_gonzalez> It looks like in Chorme, it ignores aria-valuetext and in Firefox it alwasys thinks the progressbar is indeterminate.
+[11:01:42] <kborchers> weird
+[11:02:19] <kborchers> rhc
+[11:02:21] <kborchers> lol
+[11:02:33] <kborchers> wrong window
+[11:17:54] <jquicommit> [13jquery-ui] 15Adilson opened pull request #865: Patch 1 (06master...06patch-1)  02http://git.io/GCZywg
+[11:22:33] <kborchers> scott_gonzalez: awww, you closed it before i got to make a smart ass comment 
+[11:25:13] <scott_gonzalez> There are no words.
+[11:57:50] <rxaviers> see ya guys
+[11:57:53] <rxaviers> gd weekend
+[11:58:08] <rxaviers> have a nice weekend
+[17:26:36] <jquicommit> 01[13jquery-ui01] 15fnagel pushed 7 new commits to 06selectmenu: 02http://git.io/pp3amQ
+[17:26:36] <jquicommit> 13jquery-ui/06selectmenu 1425023c3 15Felix Nagel: Selectmenu tests: fixed headlines in disable / empty visual test
+[17:26:36] <jquicommit> 13jquery-ui/06selectmenu 148aa24dd 15Felix Nagel: Merge branch 'master' into selectmenu
+[17:26:36] <jquicommit> 13jquery-ui/06selectmenu 1457ecee8 15Felix Nagel: Selectmenu: rework appendTo functionality
+[17:26:53] <doesallmagic> Project jQuery UI Selectmenu build #21: STILL FAILING in 5.7 sec: http://swarm.jquery.org:8080/job/jQuery%20UI%20Selectmenu/21/
+[17:26:54] <doesallmagic> * Scott González: Progressbar: Moved .ui-progressbar-indeterminate to main element. Added tests for markup structure.
+[17:26:54] <doesallmagic> * Scott González: Core: Moved selectstart support test to deprecated section.
+[17:26:55] <doesallmagic> * Scott González: Added CONTRIBUTING.md.
+[17:26:55] <doesallmagic> * Scott González: Updated AUTHORS.txt.
+[17:26:56] <doesallmagic> * Scott González: Release: Add support for pre-releases.
+[17:26:56] <doesallmagic> * Scott González: Autocomplete: Combobox demo - Collapse menu when clicking button.
+[17:26:57] <doesallmagic> * Scott González: Dialog: Removed unnecessary style properties.
+[17:26:57] <doesallmagic> * Scott González: Autocomplete: Append to closest .ui-front if available.
+[17:26:58] <doesallmagic> * Scott González: All: Use .addBack() instead of .andSelf().
+[17:26:58] <doesallmagic> * info: Selectmenu tests: fixed headlines in disable / empty visual test
+[17:26:59] <doesallmagic> * info: Selectmenu: rework appendTo functionality
+[17:26:59] <doesallmagic> * info: Selectmenu tests: adjust common test to new appendTo mechanism
+[17:27:00] <doesallmagic> * info: Selectmenu tests: improve appendTo option tests
+[17:27:00] <doesallmagic> * info: Selectmenu tests: improve compatibility visual test in order to work with ui-front
+[17:27:01] <doesallmagic> * info: Selectmenu tests: add Position plugin to loaded resources
+[18:26:58] <doesallmagic> Project jQuery UI Selectmenu build #22: STILL FAILING in 46 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20Selectmenu/22/
+[18:26:59] <doesallmagic> info: Selectmenu: CGL and lint fixes

@@ -1,0 +1,213 @@
+[09:01:55] <arschmitz> snover: jdalton: jrossi9billion: meeting time
+[09:02:07] <jdalton> woo
+[09:02:22] <arschmitz> scott_gonzalez: cant make it this week he is recovering
+[09:03:17] <arschmitz> jdalton: your still waiting on scott_gonzalez to review the functional tests right?
+[09:04:54] <jdalton> yap but adding them as I go, didn't work on it this week though (short week, I'm technically oof now :P)
+[09:06:40] <arschmitz> jdalton: cool it might be a while im not sure when scott will be back around hes pretty banged up
+[09:06:54] <arschmitz> hopefully some time next week
+[09:07:22] <arschmitz> Iv looked over them and they seem good to me but he wrote the POC for that
+[09:07:25] <jdalton> banged up?
+[09:07:30] <jdalton> he get into an accident?
+[09:09:49] <arschmitz> Yeah he got hit by somone on the interstate monday
+[09:10:11] <arschmitz> on his way to work
+[09:11:04] <gtjrossi> yikes, that sucks
+[09:11:29] <arschmitz> Yeah hes ok but car is totaled and hes pretty banged up
+[09:12:05] <snover> :(
+[09:14:27] <gtjrossi> good to hear he's alright though
+[09:14:52] <arschmitz> yup just very stiff sore and in some pain still
+[09:16:47] <gtjrossi> I plan to merge steditor's web-platform-test submission: https://github.com/w3c/web-platform-tests/pull/1949
+[09:17:20] <arschmitz> sweet
+[09:17:43] <gtjrossi> that would unblock PEP PR #168 https://github.com/jquery/PEP/pull/168
+[09:17:51] <gtjrossi> though it looks like it's not passing the build at the moment
+[09:19:16] <arschmitz> gtjrossi: the build does not pass on master
+[09:19:27] <arschmitz> gtjrossi: I blame IE
+[09:19:46] <arschmitz> oh this has a lot more failures then master though
+[09:20:12] <gjtrossi> yeah i haven't looked into what's going on with it yet
+[09:20:54] <arschmitz> ok
+[09:21:29] <arschmitz> jdalton: how are you injecting the touch-action attribute into the w3c pages right now?
+[09:21:55] <arschmitz> oh guess he is not here any more
+[09:22:25] <gjtrossi> it says i quit... totally didn't
+[09:22:33] <snover> ghost!
+[09:22:47] <gjtrossi> had connectivity issues, maybe freenode is wacko today
+[09:26:12] <arschmitz> maybe
+[09:26:25] <arschmitz> jdalton: your back how are you injecting the touch-action attribute into the w3c pages right now?
+[09:27:25] <jdalton> I'm not at the moment (I can though) I've skipped touch tests as Chrome driver complains about missing that functionality
+[09:27:32] <jdalton> *to simulate touch
+[09:30:23] <arschmitz> ok yeah we will need that eventually because thats how we determin what elements to listen on / dispatch events for
+[09:30:46] <arschmitz> jdalton: but the reason i asked is because we are switching to using the style attribute with the touch-action property within it
+[09:31:27] <jdalton> making modifications to the w3c test files is easy enough
+[09:31:38] <jdalton> I already do it for injecting scripts
+[09:32:25] <arschmitz> jdalton: it might require parsing css
+[09:32:54] <arschmitz> i need to look how are the tests setting touch-action currently in a style tag style attribute or separate style sheet?
+[09:33:15] <jdalton> I'm not sure
+[09:33:33] <arschmitz> because we need it to be 100% style attribute
+[09:36:02] <arschmitz> so far the only one i found is stye attribute already
+[09:36:05] <arschmitz> might luck out
+[09:36:31] <arschmitz> nope many are style tags
+[09:37:18] <gjtrossi> yeah, definitely lots of style tags
+[09:37:29] <arschmitz> jdalton: so you will have to parse the style tags and apply it to the elements that match the selector
+[09:38:59] <jdalton> that's cool.
+[09:39:12] <gjtrossi> some of the tests also dynamically change the touch-action value from script
+[09:39:22] <gjtrossi> so you'll want to check how they're doing that (I imagine it's style attr)
+[09:39:41] <arschmitz> gjtrossi: yeah thats will be troublesome
+[09:39:58] <arschmitz> because if they do element.style[ touch-action ] = none
+[09:40:04] <arschmitz> there is no way we can make that work
+[09:40:17] <arschmitz> in browsers that dont support touch action
+[09:40:44] <gjtrossi> that doesn't trigger the mutation observer?
+[09:41:08] <arschmitz> not really
+[09:41:17] <arschmitz> because if its invalid
+[09:41:21] <arschmitz> it throws it away
+[09:41:32] <arschmitz> so you have no idea what it ever was to begin with
+[09:41:39] <arschmitz> or what it was trying to be changed to
+[09:41:56] <arschmitz> depending on if it was originally set or not
+[09:42:03] <gjtrossi> but you know the final value, isn't that all that's necessary?
+[09:42:13] <arschmitz> no you dont know the final thats the problem
+[09:42:32] <arschmitz> if style was undefined
+[09:42:58] <arschmitz> and then they do element.style[ "touch-action" ] = "none"
+[09:43:16] <arschmitz> the begining and end style attribute values will both be undefined
+[09:45:34] <arschmitz> gjtrossi: because the browser constructs the string value dynamicly when you set a single prop like that and throws away anything invalid
+[09:45:35] <gjtrossi> ah I gotcha
+[09:45:56] <gjtrossi> clearly showing that I've used mutation observers like twice before :-)
+[09:46:12] <arschmitz> gjtrossi: well this is a special thing to the style property
+[09:46:24] <gjtrossi> can we wrap the style prop's setter?
+[09:46:38] <gjtrossi> at least for the purposes of running web-platform-tests
+[09:46:39] <arschmitz> hmm i had not thought of that
+[09:46:47] <arschmitz> maybe?
+[09:47:17] <arschmitz> it seems doable
+[09:47:30] <jdalton> yess yesssssss I like this
+[09:47:44] <gjtrossi> jdalton: if we do this, do you have a mechanism for synthesizing the touch input?
+[09:48:23] <jdalton> I can create a touch even and trigger it (not sure why the Chrome driver has issues with it) maybe there's some gotcha I don't know about
+[09:48:52] <gjtrossi> yeah, there is :-(
+[09:49:40] <gjtrossi> if you create and fire touch events of down, move, up at a page, it doesn't trigger scrolling/zooming
+[09:49:47] <gjtrossi> so you're not actually testing touch-action
+[09:50:03] <gjtrossi> in fact, you'd probably fail some tests because you wouldn't cause scrolling
+[09:50:26] <arschmitz> we also dont do everything native touch action does
+[09:50:48] <arschmitz> like we dont prevent a lot of the native actions
+[09:51:09] <arschmitz> https://github.com/jquery/PEP/issues/211
+[09:51:46] <jdalton> if it's not testable we can always punt until it can be (do you know if IE/Edge Web Driver support has touch?)
+[09:52:18] <gjtrossi> the Web Driver spec's support for touch is still in flux... nobody supports it AFAIK
+[09:52:37] <arschmitz> there are some tests we just wont be able to run for some of the touch-action stuff i think
+[09:52:37] <gjtrossi> lately, we've been contemplating a separate tool just for this purpose
+[09:53:04] <arschmitz> jdalton: well also pep is a noop on IE / Edge :-)
+[09:53:08] <gjtrossi> it's on our web driver team's backlog, but not sure if/when they'll get to it
+[09:53:23] <gjtrossi> suppose you'd want to TEST it's a noop? :-p
+[09:53:44] <arschmitz> gjtrossi: we actually fail on IE right now because its a noop
+[09:53:59] <arschmitz> the internals dont get spun up and the unit tests test for them
+[09:54:07] <arschmitz> :-/
+[09:54:26] <jdalton> lol maybe we should pull them from the automated tests? Currently PEP attempts IE per commit I believe
+[09:54:51] <arschmitz> jdalton: yes its on the todo to remove / fix those tests
+[09:54:57] <arschmitz> just no one has got to it yet
+[09:55:10] <jdalton> *I donno why but I totally spaced on the fact that it's a noop
+[09:55:18] <jdalton> ah ok cool
+[09:55:21] <arschmitz> they are leftovers from when this was part of polymer
+[09:56:12] <arschmitz> so thats all i had for today
+[09:56:36] <arschmitz> i have not got to switching the touch-action attribute yet
+[09:57:44] <gjtrossi> alrighty, ttfn
+[09:57:54] <jdalton> woot woot
+[09:58:09] <arschmitz> see everyone in #pep or next week
+[11:01:18] <arschmitz> cgack: gabrielschulhof: jasperdegroot: sfrisk: agcolom: apsdehal: Meeting time
+[11:01:40] <sfrisk> I'll be around, but pretty wrapped up with work today
+[11:01:53] <arschmitz> sfrisk: any progress on accordion?
+[11:01:54] <jasperdegroot> hi
+[11:02:03] <sfrisk> Nope, this week has been a bit nuts
+[11:02:09] <arschmitz> ok
+[11:02:17] <gabrielschulhof> Hey!
+[11:02:30] <sfrisk> However, I actually have a free weekend this weekend :-D
+[11:02:38] <arschmitz> sfrisk: cool
+[11:02:43] <gabrielschulhof> I can echo sfrisk's situation :/
+[11:02:57] <cgack> heyo
+[11:04:09] <arschmitz> agenda https://docs.google.com/spreadsheets/d/1xGEVtftLDEHAA37YYlA23J_EZwIRyMUaseBY790byPM/edit#gid=1690822666
+[11:05:15] <arschmitz> ok first up listview
+[11:05:19] <arschmitz> gabrielschulhof:  any update?
+[11:06:35] <gabrielschulhof> Unfortunately none.
+[11:06:44] <arschmitz> gabrielschulhof: same with loader?
+[11:06:54] <gabrielschulhof> Yeah. I had 0 time this week.
+[11:07:01] <arschmitz> gabrielschulhof: ok
+[11:07:02] <gabrielschulhof> ... but IIRC loader was pretty close.
+[11:07:13] <arschmitz> its ready it just needs to be merged and rebased
+[11:07:19] <gabrielschulhof> Wait!
+[11:07:22] <gabrielschulhof> It's landed.
+[11:07:29] <gabrielschulhof> :)
+[11:07:39] <gabrielschulhof> Well, at least it's not among my PRs anymore.
+[11:07:48] <gabrielschulhof> Oh, yeah, now I remember. It's landed.
+[11:07:52] <arschmitz> ok
+[11:08:17] <gabrielschulhof> b92c8c4af63f6541932bdf29d466f3812271a933
+[11:08:29] <arschmitz> cool
+[11:08:29] <gabrielschulhof> ... and I just rebased listview.
+[11:08:32] <arschmitz> ok
+[11:08:53] <arschmitz> i submitted a PR for pagecontainer
+[11:09:07] <arschmitz> needs someone to review https://github.com/jquery/jquery-mobile/pull/8261
+[11:09:30] <gabrielschulhof> I'll take a look.
+[11:10:08] <arschmitz> collapsible is waiting on a review too
+[11:10:10] <arschmitz> https://github.com/jquery/jquery-mobile/pull/8255
+[11:10:43] <arschmitz> as well as the page visibility one
+[11:11:36] <arschmitz> so if anyone has time to do some reviewing
+[11:11:37] <jasperdegroot> I will look into that one
+[11:11:59] <arschmitz> jasperdegroot: thank you
+[11:12:28] <arschmitz> im almost done with the splitting up of navigation and helpers
+[11:12:33] <arschmitz> and folder re-org
+[11:12:45] <arschmitz> the split up is done just re-organizing the folders
+[11:14:08] <arschmitz> jasperdegroot: so when i land this there are also some semi big changes to controlgroup
+[11:14:30] <jasperdegroot> why is that?
+[11:14:32] <arschmitz> jasperdegroot: each item now gets a ui-controlgroup-item class wich is used for the styling in ui
+[11:14:48] <arschmitz> and there is now a label item
+[11:14:57] <arschmitz> which is like a button you cant click lol
+[11:15:21] <arschmitz> jasperdegroot: realized we needed to support spinner which led to this
+[11:16:29] <arschmitz> jasperdegroot: and things like textinputs and spinners will need to be able to have labels to be able to have any idea what they are for usability wise
+[11:16:44] <jasperdegroot> yeah
+[11:17:09] <jasperdegroot> but where to put the label when it's inside a controlgroup?
+[11:17:25] <arschmitz> immeditly before the input
+[11:17:41] <jasperdegroot> should it become like a textinput and label inside a div styled as button
+[11:17:43] <jasperdegroot> ?
+[11:17:56] <jasperdegroot> but it is not actually a clickable button
+[11:18:00] <arschmitz> jasperdegroot: no i just made a special item ui-controlgroup-label
+[11:18:23] <arschmitz> add that class to an element and it treats it as its own thing
+[11:18:32] <arschmitz> and controlgroup includes its own special style for it too
+[11:18:40] <jasperdegroot> yes
+[11:18:48] <jasperdegroot> was just wondering what that style should be
+[11:19:02] <arschmitz> https://github.com/arschmitz/jquery-ui/blob/button-fixup/themes/base/controlgroup.css
+[11:19:18] <arschmitz> jasperdegroot: in ui i went with the same background color as the input
+[11:19:21] <arschmitz> rather then the button
+[11:19:33] <arschmitz> so that they are better visually associated
+[11:19:45] <arschmitz> jasperdegroot: i also change the border between
+[11:19:52] <jasperdegroot> is there a demo for this in the a branch?
+[11:19:59] <arschmitz> yes
+[11:20:03] <jasperdegroot> UI* branch
+[11:20:40] <arschmitz> https://rawgit.com/arschmitz/jquery-ui/button-fixup/demos/controlgroup/default.html
+[11:20:58] <arschmitz> oh i guess i switched back on the backgound
+[11:21:23] <jasperdegroot> ok
+[11:21:41] <arschmitz> so on the horizontal i remove the border completely
+[11:21:49] <arschmitz> and on the vertical i just make it thinner
+[11:22:02] <jasperdegroot> arschmitz: for me to be able to work on this we first need to update that textinput demo on the controlgroup demo page
+[11:22:11] <jasperdegroot> to make it extend the widget like you said
+[11:22:26] <arschmitz> jasperdegroot: yup ill take care of that
+[11:22:33] <jasperdegroot> awesome
+[11:23:11] <arschmitz> jasperdegroot: this is not in 1.5-dev yet
+[11:23:18] <arschmitz> just giving you a heads up
+[11:23:28] <jasperdegroot> yeah, i understand
+[11:23:29] <jasperdegroot> thanks
+[11:23:54] <arschmitz> i like the horizontal style a lot better then the vertical
+[11:24:22] <arschmitz> the spinner buttons are a pain visually
+[11:24:26] <arschmitz> in the vertical
+[11:25:37] <jasperdegroot> arschmitz: I would give the label a bit smaller font size
+[11:25:49] <jasperdegroot> to differentiate it from button text
+[11:26:16] <arschmitz> jasperdegroot: ill try that
+[11:26:51] <jasperdegroot> now the label looks more like another control
+[11:27:42] <jasperdegroot> 80% font-size looks better i think
+[11:27:43] <arschmitz> hmm will have to adjust padding that makes it shorter changing its font size
+[11:27:45] <arschmitz> but anyway
+[11:28:50] <jasperdegroot> ok i will look into it when that branch has been merged and the textinput demo has been updated
+[11:29:22] <arschmitz> jasperdegroot: sounds good thank you
+[11:31:05] <arschmitz> apsdehal: is having internet issues
+[11:31:12] <arschmitz> so no updates on the testing pr's
+[11:31:27] <arschmitz> so i think thats all i have for this week
+[11:31:40] <jasperdegroot> i saw you megred 1.5-css-and-demos
+[11:31:41] <jasperdegroot> thanks
+[11:31:49] <arschmitz> jasperdegroot: oh yup
+[11:32:05] <jasperdegroot> will start working on the various demos issues (https://github.com/jquery/jquery-mobile/issues/8245)
+[11:32:32] <arschmitz> jasperdegroot: execlent
+[11:32:37] <arschmitz> jasperdegroot: feel free to ping me
+[11:33:01] <jasperdegroot> I'll start with markup/css of the buttons in the header and the quick links
+[11:36:03] <arschmitz> jasperdegroot: sounds good
+[11:37:23] <jasperdegroot> ok later all
+[11:37:28] <gabrielschulhof> L8R

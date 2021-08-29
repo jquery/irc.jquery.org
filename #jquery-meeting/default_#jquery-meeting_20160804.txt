@@ -1,0 +1,312 @@
+[12:06:36] <arschmitz> ?pepteam
+[12:06:36] <b-ot> arschmitz bethge jdalton jrossi jrossi1 jrossi2 jrossi3 jrossi9billion M4rius scott_gonzalez snover
+[12:06:39] <arschmitz> meeting time
+[12:09:08] <bethge> sorry, sorry, here now
+[12:09:53] <arschmitz> no problem scott is stuck in a meeting right now too
+[12:10:05] <arschmitz> which is too bad because i know he has a lot from the hackathon last week
+[12:11:28] <arschmitz> bethge: did you have anything to talk about?
+[12:12:13] <bethge> not really. I was wondering if we have any particular issues to tackle? I will have some more time next week
+[12:12:29] <arschmitz> whatever is in the tracker lol
+[12:12:38] <bethge> :D
+[12:13:02] <arschmitz> i know scott opened a couple that might be good to address
+[12:13:26] <arschmitz> https://github.com/jquery/PEP/issues/307
+[12:14:03] <bethge> Ah right, nice. I will get on that!
+[12:14:20] <arschmitz> https://github.com/jquery/PEP/issues/278
+[12:14:27] <arschmitz> would be a good perf improvment
+[12:16:52] <arschmitz> those are where i would start
+[12:17:32] <bethge> Yeah good point
+[12:17:48] <bethge> The first one seems quite graspable
+[12:18:00] <arschmitz> the second one is actually a super minor change
+[12:18:47] <bethge> Is it just an additional parameter to addEventListener?
+[12:19:16] <arschmitz> yes
+[12:19:23] <arschmitz> but you need to feature detect support
+[12:19:33] <arschmitz> because it takes the capture parame which is normally bool
+[12:19:37] <arschmitz> and makes it an object
+[12:20:00] <arschmitz> https://github.com/WICG/EventListenerOptions/pull/30/files
+[12:20:13] <arschmitz> that is a feature detect for it
+[12:20:49] <bethge> uh, sweet
+[12:21:32] <bethge> cool, that seems very much doable
+[12:21:41] <arschmitz> yeah its a pretty small change
+[12:21:55] <arschmitz> detect support and set 3rd param based on it
+[12:22:51] <arschmitz> of course once chrome removes the flag for pointer the only supporting browser will also support pointer lol
+[12:23:03] <bethge> lol
+[12:24:44] <bethge> webkit seems to have it: https://bugs.webkit.org/show_bug.cgi?id=149466
+[12:28:16] <bethge> Though I cannot find it in any of the Safari Technology Preview Release Notes yet
+[12:29:18] <scott_gonzalez> I'm here!
+[12:29:22] <arschmitz> yay
+[12:29:27] <arschmitz> i stalled long enough
+[12:29:29] <arschmitz> lol
+[12:29:39] <scott_gonzalez> just reading through the backlog right now
+[12:29:55] <bethge> :D
+[12:30:01] <arschmitz> well if its in webkit its worth it
+[12:30:03] <arschmitz> for sure
+[12:31:44] <scott_gonzalez> For InputDeviceCapabilities.firesTouchEvents, that would be related to this code: https://github.com/jquery/PEP/blob/master/src/mouse.js#L33-L49
+[12:32:41] <scott_gonzalez> http://wicg.github.io/InputDeviceCapabilities/#dom-inputdevicecapabilities-pointermovementscrolls is another interesting device capability flag.
+[12:33:21] <scott_gonzalez> Let's say you have a carousel that you would swipe with a finger, but could select text with a mouse (and then use buttons to navigate).
+[12:33:49] <scott_gonzalez> Instead of using pointerType to detect that and limiting it to touch and mouse, you could check if the pointer would normally cause scrolling.
+[12:34:00] <scott_gonzalez> Basically detecting direct manipulation pointers.
+[12:34:09] <scott_gonzalez> So you get future proof detection.
+[12:34:18] <arschmitz> nice
+[12:34:48] <scott_gonzalez> We're also adding direction-specific `touch-action` value: up, down, left, right
+[12:34:56] <scott_gonzalez> Edge has agreed to add them, but it will take them about a year.
+[12:35:03] <bethge> uh, nice
+[12:35:06] <scott_gonzalez> Because they need to make some big changes in order to handle that.
+[12:35:23] <bethge> yikes, we might be able to beat them to it :D
+[12:35:47] <scott_gonzalez> Heh, well we probably won't implement our own touch-action handling.
+[12:35:57] <scott_gonzalez> Only pass through to the browser and support whatever the browser supports.
+[12:36:12] <arschmitz> yeah we have never handled touch action in that way
+[12:36:22] <scott_gonzalez> Unless we can actually make that work once everything else has been resolved.
+[12:36:48] <scott_gonzalez> We can probably handle whether or not to send the events, but we'd for sure lose the perf benefits.
+[12:37:05] <arschmitz> Hammer does this for the currently speced values
+[12:37:35] <bethge> ah, got that mixed up. I thought a saw it somewhere
+[12:39:06] <scott_gonzalez> (sorry, the agenda is gonna be all over the place today because I didn't get time to organize notes)
+[12:39:36] <scott_gonzalez> For pointer capture, the Chrome team is creating a branch of the spec that removes all the hit testing for touch.
+[12:39:51] <scott_gonzalez> Right now, pointer capture is treated as a modification of event targeting.
+[12:40:11] <scott_gonzalez> Such that no matter where the pointer is, you always get the same target, but you still have hit testing and boundary events.
+[12:40:25] <scott_gonzalez> The idea is to change pointer capture to be a modification of hit testing instead.
+[12:40:50] <arschmitz> iv been following that issue and the changes make sense to me
+[12:41:05] <scott_gonzalez> So as soon as you capture, hit testing goes away, which means you don't get boundary events and also the event target is still locked because there's no hit testing to detect that the target has chagned.
+[12:41:29] <scott_gonzalez> They also want implicit capture for touch.
+[12:41:37] <scott_gonzalez> I tried to argue for implicit capture for *all* pointers.
+[12:42:04] <scott_gonzalez> But there's concern that applying implicit capture to the mouse events that fall out of the pointer events would be a big breaking change.
+[12:42:07] <scott_gonzalez> I don't think it would.
+[12:42:18] <scott_gonzalez> But that's hard to prove.
+[12:42:31] <arschmitz> i would tend to agree with you
+[12:42:45] <arschmitz> but to determine how breaking seems tough to impossible
+[12:42:48] <scott_gonzalez> I made a Chrome extension to act like implicit pointer capture for testing: https://github.com/scottgonzalez/implicit-pointer-capture
+[12:43:37] <scott_gonzalez> Here's the issue: https://github.com/w3c/pointerevents/issues/125
+[12:43:48] <scott_gonzalez> Also includes instructions for installing the Chrome extension.
+[12:44:14] <scott_gonzalez> Also, see Rick's comment: "Note that Chrome doesn't yet alter hit-testing during capture for mouse - only for touch. So this isn't a complete test."
+[12:46:05] <scott_gonzalez> There's also discussion about adding an event around the :active style.
+[12:46:06] <scott_gonzalez> https://github.com/w3c/pointerevents/issues/124
+[12:46:40] <scott_gonzalez> So you can programmatically detect if a button would still be clicked if you released the pointer, based on how much movement has occurred since pressing down.
+[12:47:24] <scott_gonzalez> gotpointercapture will now always be delayed until the next pointermove.
+[12:47:46] <scott_gonzalez> And got/lostpointercapture will always copy their properties from the event that caused them to be fired.
+[12:48:04] <scott_gonzalez> So in the case of gotpointercapture, it would be the pointer event fired after setPointerCapture() was called.
+[12:48:36] <scott_gonzalez> This is covered by two issues:
+[12:48:37] <scott_gonzalez> https://github.com/w3c/pointerevents/issues/32
+[12:48:41] <scott_gonzalez> https://github.com/w3c/pointerevents/issues/113
+[12:50:12] <scott_gonzalez> And there's a new method hasPointerCapture(): https://github.com/w3c/pointerevents/issues/121
+[12:51:11] <scott_gonzalez> WHEW, I think those are the big things I wanted to mention.
+[12:51:28] <scott_gonzalez> Sorry for the stream of conciousness.
+[12:51:39] <bethge> hehe, no worries
+[12:52:33] <scott_gonzalez> The big reason Chrome wants to eliminate hit testing during capture is because they see an average of 20ms for hit testing at the 99th percentile across all android devices.
+[12:53:07] <scott_gonzalez> This of course includes insane pages that are just doing way too much and probably have thousand upon thousands of elements to traverse.
+[12:53:51] <scott_gonzalez> But considering they want ALL of the browser work for any given frame to be <6ms, so that the user still has ~10ms per frame to do whatever they need and still hit 60fps, 20ms is out of the question.
+[12:54:03] <bethge> and likely super old devices
+[12:54:07] <scott_gonzalez> yeah
+[12:54:13] <scott_gonzalez> Rick had an interesting quote.
+[12:54:28] <scott_gonzalez> We always think of devices getting faster and faster over time.
+[12:54:41] <scott_gonzalez> But he said for Chrome, they just see the average device getting slower and slower.
+[12:54:58] <scott_gonzalez> Because all the big growth happens in countries like India where they mostly use low end devices.
+[12:55:19] <arschmitz> that can only be a temporary trend though
+[12:55:23] <scott_gonzalez> So that brings down the average as the number of low end devices increases.
+[12:55:34] <scott_gonzalez> Sure, probably until everyone has a device.
+[12:55:38] <scott_gonzalez> And then devices will only get faster.
+[12:55:43] <arschmitz> yup
+[12:55:58] <scott_gonzalez> Of course, that probably also requires the world population to stabilize.
+[12:56:04] <arschmitz> so probably 2 years or so that will probably slowly start to reverse i would guess
+[12:56:07] <scott_gonzalez> Which I believe is a few more decades.
+[12:56:23] <arschmitz> well not every one needs to just the majority in what are currently considdered developing countries
+[12:56:41] <bethge> I think just last year 100million people "got online" in india
+[12:56:44] <arschmitz> which is happening pretty fast
+[12:56:45] <scott_gonzalez> Sure, but that's where population slowdowns need to happen.
+[12:57:11] <scott_gonzalez> Though I guess that's less of a concern actually.
+[12:57:21] <scott_gonzalez> Because the people who would be getting their first devices are younger.
+[12:57:26] <arschmitz> yeah population growth i dont see as a factor
+[12:57:29] <scott_gonzalez> And that population is fairly stable.
+[12:57:42] <arschmitz> its more adoption by people that previously had nothing
+[12:57:49] <arschmitz> in places like afirca and india
+[12:58:14] <scott_gonzalez> Jacob did have a good counter argument though.
+[12:58:21] <arschmitz> once that trend starts in a country my feeling is it happend pretty fast
+[12:58:37] <arschmitz> and they will only be the slow devices of the time which does also get faster with time
+[12:58:50] <scott_gonzalez> If Google's intent is to make the web as good as native, then looking at the pathological cases on the web isn't useful.
+[12:59:11] <arschmitz> native can be horrible and slow on a slow device too
+[12:59:19] <scott_gonzalez> Because people have no issue building a web site that has a 10,000 table rows with data bound to a back-end service.
+[12:59:25] <scott_gonzalez> But nobody would ever do that in native.
+[12:59:32] <arschmitz> yup
+[12:59:34] <arschmitz> very true
+[12:59:46] <scott_gonzalez> They'd always find a way to optimize so the table doesn't actually have 10,000 rows.
+[12:59:55] <arschmitz> pageing
+[13:00:26] <arschmitz> pagination is almost always a thing on mobile or a load more button etc
+[13:00:28] <scott_gonzalez> Or even without paging, just having 100 rows or whatever and managing the data load during scroll.
+[13:00:37] <scott_gonzalez> You *can* make the web page behave well.
+[13:00:42] <arschmitz> yup
+[13:00:43] <scott_gonzalez> But a lot of people don't, because it's a lot of work.
+[13:00:48] <arschmitz> but you have to want to lol
+[13:00:51] <arschmitz> exactly
+[13:00:56] <scott_gonzalez> And so to worry about how that compares to native isn't quite fair.
+[13:01:05] <scott_gonzalez> So I think that's a good thing to keep in mind.
+[13:01:19] <scott_gonzalez> When he said that, I pointed out that we'll close jQuery UI tickets for bad UX like that.
+[13:01:30] <scott_gonzalez> There's a good parallel there.
+[13:01:41] <arschmitz> yup
+[13:02:18] <arschmitz> and the fact is if you follow all the perf best practices on mobile its generally never an issue
+[13:02:26] <scott_gonzalez> right
+[13:02:27] <arschmitz> its when you have people do stupid stuff it becomes an issue
+[13:02:38] <scott_gonzalez> Ok, well, now it's 1:00p.
+[13:02:49] <scott_gonzalez> I know I just dumped a ton of information.
+[13:02:55] <arschmitz> yeah i need to catch up on all the new spec issues lol
+[13:02:59] <bethge> same here
+[13:03:01] <scott_gonzalez> Is there anything specific anyone wants to discuss right now?
+[13:03:02] <arschmitz> i normally stay up to date all the time
+[13:03:07] <arschmitz> but last week flooded me lol
+[13:03:17] <bethge> uh, one quick question, any news from FF?
+[13:03:18] <scott_gonzalez> If not, we can just keep the discussions in #pep or GitHub issues.
+[13:03:27] <scott_gonzalez> I'm leaving for vacation tomorrow though, so I won't be around next week.
+[13:03:38] <scott_gonzalez> They're actively working on their implementation.
+[13:04:01] <scott_gonzalez> They had multiple devs at the hackathon.
+[13:04:06] <bethge> ah, ok, nice
+[13:04:07] <arschmitz> awesome
+[13:04:58] <scott_gonzalez> Their biggest concern is interop with other browsers.
+[13:05:12] <scott_gonzalez> And secondly, developer rationality for the APIs.
+[13:05:38] <bethge> I like that mind set
+[13:06:02] <scott_gonzalez> Yeah, Edge is basically the same.
+[13:06:08] <scott_gonzalez> Chrome has perf at the top of their list.
+[13:08:36] <scott_gonzalez> I guess that's all for today.
+[13:08:41] <scott_gonzalez> Thanks everyone.
+[13:08:43] <arschmitz> so one thing interesting for us is once chrome is no longer behind a flag it means safari is basicly our only customer on mobile ( ff mobile is very little usage )
+[13:08:53] <arschmitz> and mobile safari is super fast comparitivly
+[13:09:42] <bethge> i fell like safari would do anything for speed
+[13:09:47] <scott_gonzalez> Are there devices that still run old Opera?
+[13:09:59] <arschmitz> in theory
+[13:10:26] <arschmitz> but their market share is super low
+[13:10:32] <scott_gonzalez> ok
+[13:10:56] <arschmitz> i think most people moved on
+[13:11:12] <bethge> i don't know about uc browser
+[13:11:31] <bethge> they have 10% globally, but i am not sure what engine they use
+[13:12:38] <bethge> Let me double check those 10%, but iirc in China and Africa it is very popular
+[13:12:55] <arschmitz> its a chinese browser
+[13:12:59] <arschmitz> so probably mostly china
+[13:13:07] <arschmitz> i think its their own engine
+[13:15:27] <arschmitz> i guess its webkit based now it used to be their own
+[13:17:01] <arschmitz> http://www.ucweb.com/company/about/ this says its their own called U#
+[13:17:03] <arschmitz> U3
+[13:17:18] <arschmitz> but everything i read is U3 is basicly webkit
+[13:17:43] <bethge> Ah, sorry UC has ~ 1.2% globally, samsung internet was ~9.5%
+[13:18:17] <bethge> should probably mostly focus on the big ones first ;-)
+[13:18:58] <bethge> Though are probably drifting off topic a bit ;)
+[13:23:43] <scott_gonzalez> heh
+[13:23:50] <scott_gonzalez> ok, well, on that note I'll end the meeting :-)
+[14:01:58] <arschmitz> ?mobileteam
+[14:02:02] <arschmitz> bah
+[14:02:05] <jasperdegroot> :(
+[14:02:07] <apsdehal> Hey
+[14:02:10] <jasperdegroot> hi
+[14:02:21] <jasperdegroot> !mobileteam
+[14:02:24] <jasperdegroot> :(
+[14:02:28] <arschmitz> apsdehal: jasperdegroot agcolom sfrisk
+[14:03:24] <arschmitz> ok lets get started have good news this week
+[14:03:41] <jasperdegroot> tell us
+[14:03:50] <arschmitz> i pushed a WIP PR with changelog and upgrade guide they are very WIP still
+[14:04:02] <jasperdegroot> nice!
+[14:04:10] <arschmitz> got my laptop back which made that possible and pushed just incase something else terrible happens
+[14:04:20] <arschmitz> you can view them right through github since they are in MD
+[14:04:32] <jasperdegroot> ok
+[14:05:04] <arschmitz> https://github.com/jquery/jquerymobile.com/pull/133
+[14:05:09] <arschmitz> just click the view button
+[14:05:14] <arschmitz> on either file
+[14:05:43] <arschmitz> so thats not the good news though
+[14:05:57] <arschmitz> the good news is i fixed the download builder
+[14:06:03] <arschmitz> and even got it working with master / 1.5
+[14:06:07] <jasperdegroot> ohh awesome!
+[14:06:12] <arschmitz> so we will have a working DB for alpha
+[14:06:39] <apsdehal> yay
+[14:06:42] <arschmitz> the only hiccup i didnt fix is because of the lack of boundry comments in new wrapper
+[14:06:51] <arschmitz> the non minified file still contains all the comment headers
+[14:07:00] <arschmitz> but the minified one is correct
+[14:07:35] <arschmitz> so unless someone has a big issue with this i just don't care about the extra comments in non-minified it shouldn't be used in production and therefore should not matter
+[14:08:04] <jasperdegroot> yeah, good enough for now
+[14:08:59] <arschmitz> so thats all my news for this week im just trying to finish cleaning up the changelog
+[14:09:11] <jasperdegroot> I am back on the demos again
+[14:09:23] <arschmitz> i plan to review all the open pr's for docs and the main repo now that i have my laptop back again
+[14:09:39] <arschmitz> i saw you open a couple issues earlier
+[14:10:10] <apsdehal> jasperdegroot: If you find the scrollTop PR ok, I can land i
+[14:10:13] <apsdehal> *it
+[14:10:23] <jasperdegroot> arschmitz: do you remember what special thing we did for the panel demo pages so the global demos content panel menu didn't brake?
+[14:10:56] <jasperdegroot> apsdehal: yeah, I think it's good to go but let's have arschmitz review the JS and give it a thumbs up
+[14:11:02] <arschmitz> arnt those all internal panels?
+[14:11:08] <apsdehal> Sure
+[14:11:10] <jasperdegroot> apsdehal: but nice work. happy that you got that fixed
+[14:11:10] <arschmitz> and the other one is external
+[14:11:16] <apsdehal> ::)
+[14:11:32] <jasperdegroot> arschmitz: yes
+[14:11:47] <arschmitz> i thought thats all we did but maybe there was more
+[14:12:14] <jasperdegroot> arschmitz: the problem is that pages become longer than they should
+[14:12:22] <jasperdegroot> for example here: http://view.jquerymobile.com/master/demos/panel-styling/
+[14:12:33] <jasperdegroot> the cause is  the panel
+[14:13:00] <arschmitz> oh that might be a regression from the change in page visibility
+[14:13:01] <jasperdegroot> I remember we did something with the panel demos pages, just don't remember what and where
+[14:13:15] <jasperdegroot> arschmitz: oh that's also very possible
+[14:13:48] <arschmitz> thats what it is
+[14:13:59] <jasperdegroot> so we have to make sure that everything inside a page with visibility hidden gets display none?
+[14:13:59] <arschmitz> #demo page is the extra height
+[14:15:10] <arschmitz> no its the page it self needs to be truncated the height
+[14:15:25] <jasperdegroot> right
+[14:15:33] <jasperdegroot> can't never be longer than the page in view
+[14:15:55] <arschmitz> yup
+[14:16:03] <arschmitz> i had fixed this at one point
+[14:16:09] <arschmitz> i thought
+[14:16:32] <jasperdegroot> now you mention this I also do remember we talked about this before
+[14:16:51] <jasperdegroot> ok, let's open a ticket for this
+[14:17:08] <arschmitz> yup
+[14:17:14] <jasperdegroot> I will see if I can think of a CSS solution or we need to fix it with JS
+[14:17:18] <arschmitz> trying to remember what we had for a fix
+[14:17:24] <arschmitz> it was a css fix before
+[14:17:31] <apsdehal> I can try fixing that
+[14:17:32] <jasperdegroot> ok that would be nice
+[14:18:32] <arschmitz> i think maybe i just added bottom: 0;
+[14:18:33] <arschmitz> when hidden
+[14:18:44] <arschmitz> so it was never longer then screen height
+[14:19:12] <jasperdegroot> I can test that
+[14:19:35] <apsdehal> I was thinking the same
+[14:20:34] <arschmitz> we just need to make sure its reset by the active class
+[14:21:55] <jasperdegroot> https://www.irccloud.com/pastebin/myJ5WLNK/
+[14:22:07] <jasperdegroot> adding it there now
+[14:22:28] <jasperdegroot> but doesn't seem to fix it
+[14:22:35] <jasperdegroot> well, we don't need to solve this here and now
+[14:22:48] <jasperdegroot> I will open a ticket for it
+[14:22:57] <jasperdegroot> and a PR if I have a solution
+[14:23:03] <arschmitz> cool
+[14:23:15] <arschmitz> hmm not sure why that does not fix i tried in console
+[14:23:24] <arschmitz> and it does not change even thoguh page gets shorter
+[14:23:30] <arschmitz> but deleting the page fixes
+[14:23:35] <arschmitz> so its the hidden page for sure
+[14:24:08] <jasperdegroot> yeah, but might also have to do with the panel inside the hidden page
+[14:25:02] <arschmitz> oh that might be
+[14:25:10] <arschmitz> oh i see
+[14:25:38] <arschmitz> overflow:hidden
+[14:25:48] <arschmitz> need that and bottom 0 and it fixes it
+[14:26:27] <jasperdegroot> oh wait
+[14:26:41] <jasperdegroot> the hidden page doesn't get the ui-page class
+[14:26:50] <jasperdegroot> so that rule didn't apply
+[14:27:05] <arschmitz> ohhh i see
+[14:27:06] <arschmitz> ok so
+[14:27:19] <arschmitz> its because this is a multipage document essentially
+[14:27:19] <jasperdegroot> have to use [data-role=page] as selector
+[14:27:24] <arschmitz> that page has not yet been enhanced
+[14:27:26] <arschmitz> yup
+[14:28:04] <arschmitz> but for sure need both bottom:0 and visibility hidden
+[14:28:19] <jasperdegroot> https://www.irccloud.com/pastebin/vy0AUAIS/
+[14:28:23] <jasperdegroot> yup
+[14:28:25] <jasperdegroot> that worked
+[14:28:43] <arschmitz> nice
+[14:28:45] <jasperdegroot> will open a PR for that
+[14:29:48] <jasperdegroot> but will test a bit more first
+[14:30:54] <arschmitz> sounds good
+[14:33:55] <arschmitz> i dont have anything else today
+[14:33:57] <arschmitz> apsdehal: ?
+[14:34:20] <apsdehal> I am working on that blog post for GSoC
+[14:34:30] <apsdehal> Will update you when done
+[14:34:36] <apsdehal> Nothing else from me
+[14:37:03] <arschmitz> ok sounds good
+[14:37:47] <arschmitz> one of the next things ill be working on is since we have a lot of the docs ready
+[14:37:55] <arschmitz> to get the 1.5 branch up to post with the alpha
+[14:38:45] <arschmitz> but that will depend on infra there are on going issues deploying sites im not sure what the status on those is
+[14:42:22] <apsdehal> That would be awesome
+[14:42:33] <apsdehal> I will work on more docs for now
+[14:42:46] <apsdehal> Then move on to demos
+[14:42:59] <arschmitz> sounds great
+[14:43:51] <arschmitz> ok well i think thats all for today
+[14:45:34] <apsdehal> Thanks, have a great weekend. Later.
+[14:46:25] <jasperdegroot> thanks, you too
+[14:46:26] <jasperdegroot> later all

@@ -1,0 +1,491 @@
+[02:54:03] <dragoonis> Is .prop() just for coolean attributes ? in JQ 1.6 ?
+[02:54:06] <dragoonis> boolean **
+[02:56:31] <jzaefferer> looking for documentation on $.ajaxTransport - mostly on how to override an existing transport. Can't find that method documented on api.jquery.com
+[02:59:51] <jzaefferer> would help to add this to the main navigation, not just a section somewhere on $.ajax: http://api.jquery.com/extending-ajax/
+[03:04:28] <jzaefferer> also having julian's reply here actually tested and documented would also make sense: http://forum.jquery.com/topic/mock-ajax-jquery-1-5
+[03:16:42] <jzaefferer> bad idea: hiding the transports object in private scope, allowing no access to override or reuse transports
+[06:41:50] <louisremi> WeakMap ( http://en.wikipedia.org/wiki/Weak_reference ) will land today or tomorrow in Firefox Aurora
+[06:41:52] <louisremi> Can you see any place where that would be useful in jQuery? I'm not really familiar with the concept, I'm looking for examples.
+[06:50:52] <DaveMethvin> louisremi: Seems like they could be useful in our jQuery.fragments cache.  https://github.com/jquery/jquery/blob/master/src/manipulation.js#L440
+[06:52:43] <louisremi> DaveMethvin: Alright, I'll look into that. It could be interesting just to try using it to see what kind of difference, if any, this would make
+[07:32:37] <rwaldron> DaveMethvin louisremi I've been working with the WeakMap since it arrived in Nightly 6.0. The last word on es-discuss about it was that it was going to be revisited and revised
+[07:33:33] <rwaldron> additionally, there is no way to write a complete spec satisfying fallback in ES3.1 or 5
+[07:34:26] <rwaldron> because it relies on internal UA garbage collection routines
+[07:35:33] <scott_gonzalez> can I get some feedback on this? https://github.com/jquery/jquery/commit/edb2286544270dc53550180e06668e61c231fb5d#commitcomment-401273
+[07:35:46] <scott_gonzalez> getting $( window ).outerWidth() to return a meaningful value
+[07:35:56] <rwaldron> looking
+[07:36:44] <timmywil> hehe, you know I'm -1
+[07:36:45] <rwaldron> scott_gonzalez in summary, you'd prefer to return something worthwhile if possible?
+[07:37:03] <scott_gonzalez> yeah
+[07:37:04] <rwaldron> pro: its valuable, con: a few extra bytes in code?
+[07:37:15] <timmywil> and it doesn't make sense
+[07:37:16] <scott_gonzalez> yeah, it's a few extra bytes, which I'm ok with
+[07:37:22] <scott_gonzalez> as long as we don't take a perf hit
+[07:37:31] <louisremi> rwaldron: apparently it is still going to make it in Firefox 6. So, no benefit for us?
+[07:37:33] <scott_gonzalez> since we want dimension-related methods to be as fast as possible
+[07:37:43] <rwaldron> louisremi one sec
+[07:38:18] <rwaldron> scott_gonzalez I'm +1 to providing value as long as the perf is there
+[07:38:21] <scott_gonzalez> the extra bytes are pretty small, something like: if ( !elem.style ) { return $( elem ).width(); }
+[07:38:57] <timmywil> it's not the bytes or performance I'm concerned with
+[07:39:06] <rwaldron> i thin of these things in 3 parts: size, value, performance (no particular order, all are equally important)
+[07:39:20] <scott_gonzalez> timmywil: think of writing generic plugins
+[07:39:21] <timmywil> it has never worked because no meaningful value would be applicable
+[07:39:30] <scott_gonzalez> every plugin dev has to do window/document checks right now
+[07:39:48] <scott_gonzalez> make elem1 exactly the size of elem2
+[07:40:04] <rwaldron> timmywil scott_gonzalez has really good insight into this and I trust his judgement
+[07:40:07] <scott_gonzalez> right now you either have to say that elem2 can't be window or document, or you have to do checks yourself
+[07:40:24] <timmywil> you have to check for null regardless
+[07:40:33] <scott_gonzalez> why?
+[07:40:37] <DaveMethvin> To me the current situation of returning null doesnt help, it's just a case of whether you check for window/document before the call (to avoid an error inside jQuery) or check for null after (to avoid an error in your own code that expects a number) .
+[07:40:49] <rwaldron> scott_gonzalez do you want to write a patch and put together perf info?
+[07:40:59] <scott_gonzalez> sure
+[07:41:13] <rwaldron> seems to be the easiest way to resolution :)
+[07:41:13] <timmywil> because it's one of the possible return values of these functions
+[07:41:24] <timmywil> and has always been
+[07:41:39] <scott_gonzalez> but that's if there are no elements
+[07:41:52] <scott_gonzalez> which is totally different from having the window or document
+[07:42:08] <rwaldron> louisremi part of Mozilla's accelerated release schedule is to put out ES.next prototypes for devs to try out
+[07:42:12] <timmywil> not in my mind
+[07:42:18] <rwaldron> louisremi like, see what works in the wild
+[07:42:26] <louisremi> yep
+[07:42:37] <scott_gonzalez> timmywil: you have to agree that there's some difference between the window and nothing
+[07:42:41] <DaveMethvin> timmywil, scott_gonzalez: I think it's just a perspective thing
+[07:42:48] <rwaldron> I'd say we keep it on the back burner
+[07:42:56] <rwaldron> look for ways to benefit
+[07:43:08] <scott_gonzalez> sure, the perspective of low level details vs. the perspective of the average user
+[07:43:22] <scott_gonzalez> we need to stay away from decisions based on low level implementation details
+[07:43:33] <rwaldron> and wait until it becomes a concrete addition to ES
+[07:43:47] <DaveMethvin> well the perspective of whether it makes sense to have the outerWidth of a window
+[07:43:58] <louisremi> rwaldron: sounds reasonable
+[07:44:10] <rwaldron> louisremi cool :)
+[07:44:19] <scott_gonzalez> sure, but the average user will say "I've got a non-empty jQuery element, why doesn't outerWidth() work?"
+[07:44:20] <DaveMethvin> but from the plugin authors standpoint there are times when you may pass in document or window validly?
+[07:44:26] <scott_gonzalez> and we'll say, you can't do that
+[07:44:32] <scott_gonzalez> and they'll say, I know exactly what value I want back
+[07:44:36] <scott_gonzalez> and we'll say...sure, but not
+[07:44:54] <scott_gonzalez> there are two possible return values, this isn't arbitrary
+[07:45:02] <scott_gonzalez> one provides no value to the user, one provides the exact value they want
+[07:45:16] <DaveMethvin> "I know exactly what value I want back"   right, but only if everyone thinks the same way ... if that's the case here then let's return what everyone wants
+[07:45:55] <timmywil> null is valuable (as was throwing an exception really)
+[07:45:57] <scott_gonzalez> there's no possible value they could want back than width + padding + border, which in the case of window are document are width + 0 + 0 all the time
+[07:46:08] <DaveMethvin> right
+[07:46:23] <timmywil> in the case of window or document it's more like width + wat + wat
+[07:46:39] <scott_gonzalez> so low level
+[07:46:52] <scott_gonzalez> the wat + wat doesn't matter, user's can't make them be anything
+[07:47:28] <DaveMethvin> yeah it's kinda "document has 0 padding/border by definition"
+[07:51:22] <timmywil> well, I see the point, but it makes me irk. Functions shouldn't have to handle every possible invalid input.  This line has been drawn since these functions' introduction.
+[07:52:27] <DaveMethvin> timmywil: i totally agree with that, but i think scott_gonzalez is saying that window/document have reasonable outputs -- that is, we're not forcing some crazy interpretation here
+[07:52:49] <timmywil> but if I'm the only one who thinks this way, I'm not going to push it further
+[07:53:20] <DaveMethvin> timmywil: in the past when i have found myself thinking scott_gonzalez was wrong, i thought about it and decided he was right :)
+[07:53:32] <DaveMethvin> so i have to weight his opinion higher
+[07:53:37] <scott_gonzalez> haha, valHooks comes to mind :-)
+[07:53:47] <DaveMethvin> ok, now you're just gloating!
+[07:53:53] <scott_gonzalez> speaking of arbitrary...
+[07:54:31] <scott_gonzalez> well, I think you changing your mind was the turning point for valHooks
+[07:54:49] <DaveMethvin> plus we got him to do all the work, double bonus!
+[07:55:23] <timmywil> I've been wrong before
+[07:55:33] <DaveMethvin> I am wrong every day
+[07:55:34] <timmywil> once or twice ;)
+[07:56:01] <DaveMethvin> mainly i hang out and say stupid things so you guys will feel smart correcting me
+[07:56:13] <DaveMethvin> it's all just an act, an ACT I tell you
+[07:56:24] <timmywil> DaveMethvin: and I REALLY appreciate it
+[07:56:24] <scott_gonzalez> haha
+[07:56:43] <timmywil> except that doesn't happen :(
+[07:57:29] <DaveMethvin> btw sorry i haven't been around lately, really busy with work, my son's graduation, some dental problems, and i had a drive fail in my notebook ... whew
+[07:57:47] <timmywil> DaveMethvin: we missed you
+[07:57:49] <timmywil> seriously
+[07:57:54] <DaveMethvin> (group hug)
+[07:58:51] <DaveMethvin> well timmywil looks like you've been keeping things moving pretty well tho ... I just need to get moving on my 1.7 stuff
+[07:59:03] <timmywil> DaveMethvin: really excited about .on
+[07:59:28] <scott_gonzalez> ?#9434
+[07:59:39] <scott_gonzalez> did bot-t die?
+[07:59:49] <DaveMethvin> docs#9434
+[07:59:50] <scott_gonzalez> every time I come in here, he's not around
+[08:00:00] <DaveMethvin> lazy ass bot
+[08:00:03] <timmywil> blar, he's not in the room
+[08:00:17] <DaveMethvin> probably out drinking again
+[08:00:20] <scott_gonzalez> heh
+[08:00:21] <timmywil> strange, he seems to come to go with temp01 and he's here
+[08:00:53] <jzaefferer> who to bug to get this added to the main navigation? http://api.jquery.com/extending-ajax/
+[08:01:00] <timmywil> and I was just creating a ticket for it
+[08:01:10] <jzaefferer> and this added to docs as well, after some actual testing: http://forum.jquery.com/topic/mock-ajax-jquery-1-5
+[08:02:39] <timmywil> jaubourg: http://jqbug.com/9434
+[08:02:47] <timmywil> boo
+[08:03:18] <timmywil> boo as in he's not here
+[08:03:54] <DaveMethvin> jzaefferer: looking now to see how to get it linked
+[08:03:59] <timmywil> ajpiano: thoughts? ^
+[08:11:06] <rwaldron> bot-t has been abscent alot lately
+[08:11:12] <rwaldron> its irksome
+[08:11:27] <rwaldron> i want to leave a note for jaubourg, but i can't reliably do so :(
+[08:11:48] <rwaldron> i modified his topic stuff to be a real constructor that stores topic instances
+[08:11:56] <rwaldron> and i want him to review it
+[08:13:22] <DaveMethvin> rwaldron: j at aubourg.net
+[08:14:46] <rwaldron> thanks DaveMethvin
+[08:21:55] <scott_gonzalez> rwaldron DaveMethvin that's wrong
+[08:21:59] <scott_gonzalez> j at ubourg.net
+[08:22:27] <DaveMethvin> yeah sorry, the @ is the a
+[08:22:27] <scott_gonzalez> you had an extra a in there
+[08:22:30] <scott_gonzalez> yeah
+[08:22:46] <DaveMethvin> trips me up every time i type it manually
+[08:23:20] <DaveMethvin> dammit corrected by scott_gonzalez again! :)
+[08:24:06] <scott_gonzalez> that's what I'm here for :-)
+[08:39:38] <gnarf> so um, can anyone around upload stuff to code.jquery ?
+[08:42:29] <scott_gonzalez> danheberden
+[08:42:38] <gnarf> danheberden? JohnResig?
+[08:50:26] <gnarf> oh well, if one of you guys shows up, is there any chance we can get jquery.color.js / jquery.color.min.js upped as a 2.0b1 ?
+[08:51:01] <gnarf> I wanna make some fiddles using it for the blog post
+[08:51:48] <gnarf> gotta run for a bit
+[08:59:28] <danheberden> yo
+[08:59:32] <danheberden> scott_gonzalez gnarf
+[09:00:06] <scott_gonzalez> heh, see above
+[09:00:34] <scott_gonzalez> gnarf: you should tag in GitHub before it goes to code.jquery.com
+[09:00:49] <danheberden> why not just as jquery.color.js
+[09:02:30] <scott_gonzalez> http://code.jquery.com/color/jquery.color-2.0b1.js ?
+[09:02:50] <danheberden> i'm just worried about the clutter with all the different versions
+[09:03:00] <danheberden> but, that's just my ocd
+[09:03:06] <scott_gonzalez> what clutter?
+[09:03:23] <danheberden> a shit load of files; we want to have an index of all the files on code.jquery.com
+[09:03:27] <danheberden> so that just makes it harder
+[09:03:32] <scott_gonzalez> the only other option seems to be http://code.jquery.com/color/2.0b1/jquery.color.js
+[09:03:35] <danheberden> yeah
+[09:03:43] <danheberden> that's how i'm doing ui
+[09:03:53] <scott_gonzalez> yeah, I'm fine with that
+[09:03:57] <danheberden> but ui is different cuz it has themese
+[09:04:02] <danheberden> or themes even
+[09:04:03] <scott_gonzalez> I was just following the core naming convention since it's a single file
+[09:04:07] <danheberden> so it has to have a sub folder
+[09:04:18] <danheberden> ya - i think your first approach might be simplest
+[09:06:32] <danheberden> scott_gonzalez i was thinking of making code.jquery.com/plugins
+[09:06:34] <danheberden> what do you think?
+[09:06:50] <danheberden> for any other plugin we decide to host
+[09:07:40] <scott_gonzalez> I'm not sure that we need the extra level
+[09:07:55] <scott_gonzalez> we should be hosting all projects + core plugins
+[09:08:12] <scott_gonzalez> so right now that's core, ui, mobile, qunit, color
+[09:08:26] <scott_gonzalez> there are more core plugins
+[09:08:31] <scott_gonzalez> but they need official releases
+[09:09:47] <scott_gonzalez> we should probably host the compat plugins too
+[09:11:50] <jzaefferer> isn't there supposed to be a jquery plugins meeting now?
+[09:12:08] <jzaefferer> "jQuery Plugin Site Development Meeting"
+[09:12:21] <danheberden> with who?
+[09:12:30] <danheberden> Sam from bocoup is still out of the office i think
+[09:12:36] <jzaefferer> dunno, the plugins site team?
+[09:12:50] <danheberden> who's that again?
+[09:13:33] <jzaefferer> Ralph is lead, Bocoup working on it
+[09:13:37] <jzaefferer> or not, can't tell
+[09:13:49] <danheberden> oh gotcha
+[09:13:53] <danheberden> ya, it's in limbo a little bit
+[09:14:09] <jzaefferer> last time I checked they were waiting on designs, claimed impl was mostly done
+[09:14:14] <ajpiano> it's very frustrating situation
+[09:14:21] <jzaefferer> dunno if that is true until I can actually try it
+[09:14:34] <ajpiano> i also had no idea ralph had set this meeting up
+[09:14:56] <jzaefferer> can't really do something about, between UI, QUnit, TestSwarm and Validation Plugin, I'm busy enough...
+[09:15:36] <jzaefferer> Ralph is doing a great job with conservancy business (and some podcasting), maybe we should ask someone else to take over plugins site, I'm sure Ralph wouldn't have a problem with that
+[09:15:46] <jzaefferer> like aj?
+[09:15:48] <ajpiano> i talked to mike alsup about doing just that
+[09:15:54] <danheberden> yea, was gonna say mike
+[09:16:26] <jzaefferer> worth a shot
+[09:16:36] <jzaefferer> can't get much worse then it is now, right?
+[09:16:39] <danheberden> aww yeah, symbolic links work on the cdn
+[09:16:50] <danheberden> http://code.jquery.com/color/jquery.color.js
+[09:16:56] <danheberden> http://code.jquery.com/color/jquery.color-2.0b1.js
+[09:17:25] <scott_gonzalez> scary
+[09:22:13] <gnarf> ajpiano: i'd be at the meeting if i knew about it too ;)
+[09:22:18] <gnarf> danheberden: \o/
+[09:22:26] <gnarf> is .min there too?
+[09:22:31] <danheberden> gnarf yuppers
+[09:22:54] <gnarf> danheberden: you forgot to update version.txt to say 2.0b1 before you upped
+[09:23:05] <gnarf> can you edit the version in the comment? :)
+[09:23:05] <danheberden> i was supposed to?
+[09:23:07] <danheberden> haha
+[09:23:35] <gnarf> and wow
+[09:23:40] <gnarf> typoed url in the header?
+[09:23:42] <gnarf> wtf :)
+[09:23:47] <danheberden> huh?
+[09:23:49] <gnarf> how did noone see that yet
+[09:23:57] <gnarf> * Dual licensed under the MIT or GPL Version 2 licenses.
+[09:23:57] <gnarf>  * http://jqery.org/license
+[09:24:07] <danheberden> heh, i'll fix it on the same commit
+[09:24:33] <gnarf> danheberden: you don't need to commit the version.txt
+[09:24:47] <gnarf> cuz its still 2.0pre on master, just 2.0b1 while you make it
+[09:25:05] <scott_gonzalez> gnarf: you should commit it
+[09:25:19] <gnarf> and tag?
+[09:25:23] <scott_gonzalez> yeah
+[09:25:32] <scott_gonzalez> commit version.txt as 2.0b1 in master
+[09:25:32] <gnarf> scott_gonzalez: then move on to 2.0pre again? :)
+[09:25:34] <scott_gonzalez> then tag
+[09:25:41] <scott_gonzalez> yeah
+[09:25:46] <danheberden> k, ima bail on the commit gnarf
+[09:26:02] <scott_gonzalez> https://github.com/jquery/jquery/commit/9fd37b2c8a512f5951c2eb7cd6cad34d9b12c02e
+[09:26:05] <scott_gonzalez> https://github.com/jquery/jquery/commit/b60c8560cedacce6c82504f15e9bb54c2b3af59f
+[09:26:08] <scott_gonzalez> those are both in master
+[09:26:32] <scott_gonzalez> that way in the tag, version.txt is correct
+[09:27:28] <gnarf> danheberden: pull / make / reup?
+[09:27:48] <gnarf> how do you tag?
+[09:30:46] <gnarf> scott_gonzalez: ?
+[09:30:57] <scott_gonzalez> git tag 2.0b1
+[09:31:04] <scott_gonzalez> git push --tags origin
+[09:31:13] <gnarf> thx
+[09:31:32] <danheberden> color is up
+[09:31:36] <danheberden> (again)
+[09:32:37] <gnarf> https://github.com/jquery/jquery-color/tree/2.0b1 nice
+[09:34:38] <scott_gonzalez> woohoo
+[09:37:57] <rwaldron> danheberden did you just get a notification that I updated the Triage doc?
+[09:38:31] <danheberden> rwaldron no?
+[09:38:34] <rwaldron> ok
+[09:38:39] <rwaldron> i updated it
+[09:38:55] <danheberden> well, you just highlighted me about it, so i guess so :p
+[09:43:21] <gnarf> nice... http://jsfiddle.net/gnarf/7VmeF/
+[09:48:58] <clarkbox_> devils advocate: why use a form tag... in a "single page" ajax heavy app?
+[09:49:54] <danheberden> clarkbox_ easy enter to submit capture
+[09:50:03] <danheberden> just bind to submit and you don't have to watch for enter
+[09:50:21] <gnarf> oh hey, danheberden i found this: http://jsfiddle.net/gnarf/mrmyA/
+[09:50:23] <gnarf> oops
+[09:50:25] <gnarf> wait
+[09:50:28] <gnarf> that is right...
+[09:50:34] <gnarf> nope...
+[09:50:35] <gnarf> one sec
+[09:50:37] <danheberden> hahaha
+[09:50:43] <clarkbox_> good points
+[09:51:03] <danheberden> so rwaldron i decided i should stop looking at pull reqs
+[09:51:07] <gnarf> danheberden: http://jsfiddle.net/v6ubF/9/
+[09:52:56] <danheberden> rwaldron i love it!
+[09:53:12] <rwaldron> hahah why is that?
+[09:53:12] <danheberden> oooh gnarf thnx :)
+[09:53:18] <danheberden> rwaldron because i get SO FUCKING ANGRY
+[09:53:36] <rwaldron> do tell... :)
+[09:54:12] <danheberden> the undefined thing - i'm like trying to be all polite, but on the inside ( read: other side of the monitor) i'm saying "WHY THE FUCK WOULD YOU PASS UNDEFINED?! OMFG"
+[09:55:33] <DaveMethvin> lol
+[09:56:40] <DaveMethvin> for 1.8 I'll make a feature request for .text(new RegExp())  I am sure we can come up with something useful to do with it
+[09:58:43] <danheberden> great, then we'd get " $.fn.text( /omfg/ ) should populate the text with "/omfg/" and not run the regex"
+[09:59:01] * danheberden _might_ be being dramatic
+[10:02:58] <rwaldron> danheberden i dont think you're being dramatic
+[10:03:07] <rwaldron> i basically RTFM'ed the guy
+[10:03:11] <rwaldron> posting the api link
+[10:03:34] <rwaldron> "writing unexpected code causes unexpected shit to happen"
+[10:04:46] <DaveMethvin> yeah but it's only unexpected to us ... http://twitter.com/#!/davemethvin/status/65834071787454464
+[10:04:48] <socialhapy> http://bit.ly/iI0fFg @davemethvin: @cowboy summarizes why I drink: You shouldn't be using the word "shouldn't" in regard to what jQuery users will do!
+[10:04:52] <rwaldron> DaveMethvin regarding your Object.create() thing... I did some research
+[10:05:07] <rwaldron> and using your fiddle as a starting point.. I'm now here: http://jsfiddle.net/rwaldron/g5fcU/
+[10:06:25] <gnarf> is there a way to hide the navigation toolbar in chrome?
+[10:07:32] <DaveMethvin> rwaldron: interesting ... for the non-deep extend we should be using slice like you did
+[10:08:40] <rwaldron> so, the second arg to Object.create is "properties" and those all have objects as a value. and _that_ object is where special hidden shit is defined
+[10:08:57] <DaveMethvin> right
+[10:09:02] <rwaldron> so you see that i assign a sub object property that looks like: { value: "foo" }
+[10:09:09] <rwaldron> same as saying : "foo"
+[10:09:16] <rwaldron> anyway, thats the only loop
+[10:09:22] <rwaldron> otherwise its all recursion
+[10:09:40] <DaveMethvin> which is why i guessed it wouldn't save us much vs the current code
+[10:09:52] <rwaldron> there is no way i couldve thought that up if i hadnt challenged myself to write this: https://gist.github.com/993445 earlier today
+[10:10:03] <rwaldron> i think i got a tiny bit better at javascript today
+[10:10:25] <rwaldron> DaveMethvin basically, this clone() thing was for academic purpose
+[10:10:41] <rwaldron> its _WAY_ too much code to be considered an alternate path
+[10:10:51] <DaveMethvin> it's too bad ES5 didn't come up with something to help with cloning objects
+[10:10:58] <rwaldron> no kidding...
+[10:10:59] <DaveMethvin> i know it's a tough thing and that's why they punted
+[10:11:14] <DaveMethvin> but they could have defined a small subset like cloning plain Objects and solved that
+[10:11:23] <rwaldron> they can have my jsfiddle
+[10:11:29] <DaveMethvin> lol
+[10:12:59] <rwaldron> lunchtime
+[10:34:10] <scott_gonzalez> can anyone reproduce this? http://bugs.jqueryui.com/ticket/7418
+[10:35:15] <ajpiano> checking
+[10:35:57] <ajpiano> works fine on ie9 on windows 7 home premium 64 bit
+[10:36:41] <ajpiano> i'm running the exact same rev of IE
+[10:42:15] <scott_gonzalez> yeah, I always feel bad closing tickets like this
+[10:42:26] <scott_gonzalez> but if we can't reproduce, there's just nothing we can do
+[10:42:47] <ajpiano> yep
+[10:43:37] <danheberden> i have a 32bit i can check it on
+[10:44:59] <scott_gonzalez> I tested on Win 7 Enterprise 32 bit
+[10:47:57] <danheberden> win home premium 32bit, all demos, no problems
+[10:48:05] <danheberden> perhaps some weird localization issue?
+[11:01:05] <rwaldron> danheberden your note about `arguments` being a point of performance hits has me thinking about jQuery.extend
+[11:01:25] <rwaldron> which makes a lot of accesses to `arguments`
+[11:01:46] <rwaldron> i'll let you know what i come up with if there is any value.
+[12:54:54] <timmywil> DaveMethvin: docs#8805 maybe we should do a hook?
+[12:54:55] <bot-t> DaveMethvin, [#8805] Internet Explorer changes link text when changing the href ( ""http://www.example.com"");) - http://jqbug.com/8805
+[12:55:34] <DaveMethvin> yeah i was wondering if ie set the attr anyway when the prop is set, was just doing a fiddle to check
+[12:55:50] <DaveMethvin> but of course ie8 is going apeshit on me so i have to author in chrome
+[12:56:11] <timmywil> ha, yea I always edit the fiddle in chrome
+[12:59:24] <timmywil> DaveMethvin: also, what do you think about docs#9381
+[12:59:25] <bot-t> DaveMethvin, [#9381] setTimeout and fadeIn/fadeOut blocking in Chrome (open bug) - http://jqbug.com/9381
+[13:00:20] <DaveMethvin> Looks like IE sets the attr when you set the prop: http://jsfiddle.net/F6s6R/2/
+[13:00:43] <timmywil> including IE8?
+[13:01:09] <timmywil> rather, does the text changing occur in IE8?
+[13:01:09] <DaveMethvin> i tested in ie8
+[13:01:19] <DaveMethvin> it does if you use attr, but not prop
+[13:01:32] <timmywil> well that's unfortunate
+[13:02:04] <DaveMethvin> well if you set the href with .prop it doesn't change text, but when you get href with .attr it gets the updated value
+[13:02:11] <DaveMethvin> so it seems like it could be fixed with a hook
+[13:02:26] <DaveMethvin> or we could just tell ppl to use .prop :)
+[13:02:29] <timmywil> yea, problem is if we need the hook for IE8, we'll need another support test
+[13:02:48] <DaveMethvin> i like prop
+[13:03:40] <DaveMethvin> i mean, we created it and here is a great usage of it!
+[13:03:46] <DaveMethvin> seems to work cross browser
+[13:04:18] <timmywil> yea, still strange the text gets changed
+[13:04:37] <DaveMethvin> timmywil: we are talking IE8 here, come to your senses
+[13:04:43] <timmywil> hehe
+[13:04:55] <timmywil> somebody at microsoft must have thought that was a good idea
+[13:05:08] <DaveMethvin> well those old DOM0 properties are soooo strange
+[13:05:21] <timmywil> true
+[13:05:29] <DaveMethvin> they get reflected back to the attrs mostly, although ones like checked are spotty
+[13:06:10] <DaveMethvin> well my comment on that ticket proposes a fix so maybe that will hold off the masses
+[13:06:22] <DaveMethvin> funny it just started to spring up as dups, it's been around forever
+[13:07:38] <timmywil> DaveMethvin: I suppose if prop works across browsers, we could just defer to prop in all browsers
+[13:08:07] <DaveMethvin> waitaminit...
+[13:08:27] <DaveMethvin> this fiddle doesn't change text in ie8, what is different about it? http://jsfiddle.net/F6s6R/3/
+[13:10:00] <timmywil> hmm, just that text was set with .text() in the other fiddle it seems
+[13:10:18] <gnarf> timmywil: they are still going on about 9381?
+[13:10:54] <timmywil> gnarf: so it seems :P
+[13:11:04] <gnarf> I dont want to mix my transition logic with my "autoplay" (cycle) logic as they are seperate things and dont belong together. The animation logic should also work when not set to automatically cycle between elements, so user can just click the element they want to go to.
+[13:11:28] <DaveMethvin> plus it's a feature that we don't run animations when the window isn't visible, RIGHT?
+[13:11:37] <DaveMethvin> stop using my battery!
+[13:11:56] <gnarf> that is such a broken argument
+[13:12:07] <gnarf> the second example in my earlier post shows a way you could do that
+[13:12:16] <gnarf> without using a callback of the animation
+[13:12:22] <gnarf> you would just queue the next animation
+[13:12:34] <gnarf> brb, gotta move to the other office
+[13:13:00] <DaveMethvin> timmywil: i'm making these changes one step at a time, trying to figure what's different
+[13:13:03] <timmywil> daveMethvin: I think that's what the browsers were thinking
+[13:13:20] <DaveMethvin> yeah it's the setting of the .text()
+[13:14:04] <DaveMethvin> ok well it STILL WORKS!
+[13:14:15] <DaveMethvin> so .prop() is our hero
+[13:14:28] <timmywil> does prop change the attr in all browsers?
+[13:14:46] <DaveMethvin> appears to in chrome, safari, ie, firefox, opera
+[13:14:47] <DaveMethvin> on windows
+[13:16:41] <timmywil> and no need for a get hook right?
+[13:18:43] <DaveMethvin> GAAAAAHH! now it's breaking in IE
+[13:18:45] <DaveMethvin> again
+[13:22:02] <DaveMethvin> oh timmywil this is so bizarre ... in IE8, http://jsfiddle.net/dmethvin/nwXYT/21/ doesn't change text but http://jsfiddle.net/dmethvin/nwXYT/25/ does
+[13:22:17] <DaveMethvin> and if i comment out the ONE LINE i added, it STILL DOES
+[13:23:32] <timmywil> one is 1.5.2
+[13:23:40] <timmywil> does that have anything to do with it?
+[13:23:55] <DaveMethvin> oh damn
+[13:23:58] <DaveMethvin> yeah i didn't notice
+[13:24:02] <DaveMethvin> but it breaks in 1.6
+[13:24:56] <timmywil> http://jsfiddle.net/timmywil/nwXYT/26/
+[13:25:13] <timmywil> So, what did 1.5.2 do differently is the question
+[13:25:25] <DaveMethvin> it didn't have the attr rewrite ...
+[13:26:05] <timmywil> ok, but it either set the property or attribute ya?
+[13:26:13] <DaveMethvin> we used to set the prop anyway, and afaict it still breaks then
+[13:26:49] <DaveMethvin> time for an example with no jQUery
+[13:27:03] <timmywil> yea, mine still breaks in 1.5.2
+[13:27:17] <timmywil> and 1.2.6
+[13:27:36] <timmywil> http://jsfiddle.net/timmywil/nwXYT/31/
+[13:27:57] <timmywil> so it's always been there whether we do prop or attr
+[13:28:13] <timmywil> Ok, I think I remember checking that now
+[13:28:29] <timmywil> I didn't see a possible hook to do besides resetting the text afterwards
+[13:28:44] <timmywil> and then we'd really need another support test
+[13:29:08] <timmywil> so patchwelcome :P
+[13:29:45] <timmywil> DaveMethvin: heh, your prop call wasn't changing text because prop wasn't a function ;)
+[13:29:54] <DaveMethvin> yeah
+[13:32:26] <DaveMethvin> timmywil:  http://jsfiddle.net/dmethvin/Rsv5J/ does not hose the text in IE8, but does change the attribute
+[13:32:34] <DaveMethvin> oh DAMN
+[13:32:38] <DaveMethvin> just a sec
+[13:33:07] <DaveMethvin> yes it does change the text
+[13:33:37] <timmywil> but if you put that same text as the default text and then don't set it with javascript, it's ok right?
+[13:33:56] <DaveMethvin> yep
+[13:37:40] <DaveMethvin> k i updated my comment on the ticket with a bare-DOM example
+[13:38:34] <timmywil> cool
+[13:38:39] <DaveMethvin> so on docs#9381 should we just document that? I know there is a way to see if the window has focus
+[13:38:40] <bot-t> [#9381] setTimeout and fadeIn/fadeOut blocking in Chrome (open bug) - http://jqbug.com/9381
+[13:38:54] <DaveMethvin> but i am not sure we should be the ones messing with that
+[13:39:08] <DaveMethvin> seems like the animator needs to make the decisions based on their circumstances
+[13:39:16] <timmywil> DaveMethvin: it's been documented
+[13:39:37] <DaveMethvin> well i'd say it's done then
+[13:39:54] <timmywil> but binding a focus event probably wouldn't give the desired effect since you might still be able to see the window and want it to continue animating
+[13:40:18] <DaveMethvin> i've seen some pages where they want you to read some message for 30 seconds and the timer stops if you defocus or minimize the page ... sneaky
+[13:46:14] <timmywil> bot-t: how are you?
+[13:46:15] <bot-t> timmywil, Without a doubt.
+[13:46:42] <timmywil> ?time Brussels
+[13:46:44] <bot-t> timmywil, Brussels, Brussels - Time: 22:46 Thursday (CEST), Weather: Overcast, 12°C / 54°F
+[13:52:06] <jqcommit> jquery: master timmywil * 1d202c6 (1 files in 1 dirs): Move the value attrHook to the main attrHooks object to save bytes - http://bit.ly/love1u
+[14:16:09] <gnarf> DaveMethvin: http://bugs.jquery.com/ticket/9381#comment:6
+[14:17:10] <gnarf> I could ammend that reusable to mention that adding .queue(function( next ) { setTimeout( cycleAgain, 2000 ); next(); }); works too
+[14:17:19] <gnarf> but like
+[14:17:21] <gnarf> yeah
+[14:18:14] <DaveMethvin> i totally understand why rAF doesn't run in background, and these guys should too
+[14:18:20] <DaveMethvin> but they're too bugged that they have to change code
+[14:18:28] <DaveMethvin> well i am SOOOO sorry
+[14:18:33] <DaveMethvin> but it isn't our fault
+[14:18:40] <gnarf> like, i don't see the big issue - your code was wrong in the first place
+[14:18:48] <gnarf> if you were queuing with timeouts/intervals
+[14:18:50] <gnarf> :P
+[14:18:53] <DaveMethvin> "Wasnt it one of the ideas behind jQuery in the first place that you  shouldnt have to do "hacks" and write browser specific code to make it  work ?"
+[14:18:55] <DaveMethvin> LOL
+[14:19:17] <DaveMethvin> wasn't one of the ideas behind jQuery that we would somehow salvage your sad ass whenever you did something bad?
+[14:19:24] <gnarf> you should be queueing with - you know - queues?
+[14:24:12] <rwaldron> Ticket# -0001: Can Jake Weary guess my program and make it work like that?
+[14:25:07] <rwaldron> DaveMethvin best part was all of the people that were banging down the doors for jQuery to add rAF
+[14:25:19] <rwaldron> even though its not out of vendor prefix phase
+[14:25:37] <DaveMethvin> clearly our magic wand is not working right
+[14:25:42] <rwaldron> which technically means that those implementations are up to interpretation and can be _anythnng_
+[14:26:13] <rwaldron> OMGZ can jQuery support this??? https://developer.mozilla.org/en/Sharp_variables_in_JavaScript
+[14:31:38] <gnarf> i think the move to rAF regardless of vendor prefixed is a smart move
+[14:31:48] <gnarf> and docs#9381 can go to hell
+[14:31:49] <bot-t> [#9381] setTimeout and fadeIn/fadeOut blocking in Chrome (open bug) - http://jqbug.com/9381
+[14:31:52] <gnarf> :)
+[14:34:34] <DaveMethvin> http://bugs.jquery.com/ticket/9381#comment:15
+[14:41:08] <gnarf> DaveMethvin: http://bugs.jquery.com/ticket/9381#comment:16
+[14:49:35] <gnarf> changed my rAF reusable on api. to include a suggestion for .queue() as well: To avoid this potential problem, use the callback of your last animation in the loop, or append a function to the elements <a href="http://api.jquery.com/queue"><code>.queue()</code></a> to set the timeout to start the next animation.
+[14:50:16] <DaveMethvin> yeah i wonder if we should make a blog post about this?
+[14:50:59] <DaveMethvin> i know there was some discussion about too many posts vs too few, but it would be good to have some way to communicate these issues so ppl could know about them before upgrading
+[16:06:47] <gnarf> DaveMethvin: "Big Changes" post series on API?
+[16:11:27] <gnarf> DaveMethvin: so you could go to a category that has upgrade tips for each version?
+[16:11:55] <gnarf> like who here remembers what you need to look at to make sure your 1.3.2 code works with 1.6 now?
+[17:20:26] <timmywil> what should return false do in a change event? should we ensure it has no effect?  docs#9433
+[17:20:44] <timmywil> http://jqbug.com/9433
+[17:24:31] <eddiemonge> nitpicking but input[name=test] should be input[name="test"]
+[17:24:54] <eddiemonge> and the return false should prevent the change. same as preventDefault
+[17:25:25] <timmywil> don't think that's possible
+[17:25:30] <eddiemonge> or not since the change has already occured
+[17:25:57] <eddiemonge> i guess it would just prevent any other bindings on that change from happening?
+[17:26:13] <timmywil> mm, good point
+[17:26:39] <eddiemonge> so is there a preventDefault for change? and if so, what does that do?
+[17:27:58] <timmywil> doesn't really do anything consistently
+[17:28:24] <eddiemonge> what does it do inconsistently?
+[17:28:44] <timmywil> some browsers will stop the change, some cannot
+[17:29:44] <DaveMethvin> timmywil: i think that's because in ie we are faking the change event sometimes
+[17:29:52] <DaveMethvin> and the event we piggyback on can be cancelable
+[17:30:14] <DaveMethvin> lemme look
+[17:30:40] <DaveMethvin> and gnarf i like the idea of some articles about upgrades and common probs moving from 1.x to 1.y
+[17:34:32] <DaveMethvin> http://bugs.jquery.com/ticket/9433#comment:2
+[18:53:19] <gnarf> DaveMethvin: I think it would be really useful to be able to refer people to http://api.jquery.com/changes
+[18:53:29] <gnarf> or something
+[18:53:43] <gnarf> DaveMethvin: I think it would be really useful to be able to refer people to http://api.jquery.com/upgrading
+[18:53:46] <gnarf> a category
+[18:54:02] <DaveMethvin> i wish we had some more automated way to document the subtle changes
+[18:54:17] <gnarf> well can't we refer to trac?
+[18:54:22] <gnarf> fixed in version query?
+[18:54:44] <DaveMethvin> end users want a better summary of what changed
+[18:54:49] <gnarf> right
+[18:54:58] <gnarf> which nothing short of someone writing it up will solve
+[18:55:04] <gnarf> :)
+[18:55:24] <DaveMethvin> for a real nightmare, trace what happened to $(jqobject).data("a", 43)
+[18:55:36] <DaveMethvin> we changed it like EVERY VERSION for two years
+[18:55:43] <gnarf> :)
+[18:57:45] <gnarf> DaveMethvin: can you see blog.jquery.com drafts?
+[18:58:30] <DaveMethvin> yes
+[18:59:02] <DaveMethvin> oic, the color plugin
+[18:59:06] <DaveMethvin> i'll look
+[18:59:35] <DaveMethvin> gnarf, can I edit?
+[18:59:40] <gnarf> DaveMethvin: feel free
+[18:59:56] <DaveMethvin> looks like you are editing, don't want to step on your changes
+[19:00:02] <DaveMethvin> just saw a few typos
+[19:00:12] <gnarf> last edit was saved
+[19:00:18] <gnarf> closed the editor now
+[19:01:33] <gnarf> lemme know when yer done ;)
+[19:01:42] <DaveMethvin> sure, won't take long
+[19:04:21] <DaveMethvin> gnarf, done
+[19:04:26] <DaveMethvin> just a coupla typos
+[19:04:31] <DaveMethvin> looks really good
+[19:04:42] <DaveMethvin> i'm glad you cleared the cobwebs out of that plugin
+[19:05:50] <gnarf> i'm sure i made some too
+[19:05:53] <gnarf> ;)
+[19:06:13] <gnarf> only time will tell ;)
+[19:06:31] <gnarf> DaveMethvin: did you ever look at the README on the repo?
+[19:06:45] <DaveMethvin> no but the blog entry had me wondering
+[19:07:03] <gnarf> good ;)
+[19:07:05] <DaveMethvin> looking now
+[19:07:28] <gnarf> danheberden wrote that section i think
+[19:07:45] <gnarf> if you see any typos / improvements there feel free to edit the README ;)
+[19:11:14] <DaveMethvin> k i'm headed off for the night ... i think :)
+[19:22:46] <gnarf> JohnResig: there is a draft blog for Color 2.0b1 on blog.jquery.com

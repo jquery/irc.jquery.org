@@ -1,0 +1,409 @@
+[06:03:07] <addyosmani> Hey DaveMethvin, kswedberg
+[06:03:27] <kswedberg> hey addyosmani!
+[06:03:33] <addyosmani> :)
+[06:03:57] <addyosmani> I didn't realize that previewing docs changes actually saved those changes. Apologies for all the notifications.
+[06:04:01] <addyosmani> Working out of a pad instead.
+[06:05:14] <kswedberg> it does??
+[06:05:28] <addyosmani> I haven't hit publish or save draft at all today.. : (
+[06:05:39] <addyosmani> Thus I was surprised when I saw all the notifications
+[06:05:42] <kswedberg> weird.
+[06:06:19] <kswedberg> had you hit save draft at all? probably a good idea to do that.
+[06:06:40] <addyosmani> yeah. I'll do that.
+[06:06:45] <addyosmani> Have everything saved anyway
+[06:06:57] <kswedberg> when there is already a saved draft, it never sends notifications for me when I just hit Preview Changes.
+[06:07:00] <kswedberg> cool.
+[06:13:21] <scott_gonzalez> the race is on http://swarm.jquery.org/job/205/ http://swarm.jquery.org/job/217/
+[06:16:17] <addyosmani> kswedberg: 'Callbacks Object' would be a new category if I'm correct, similar to 'Deferred Object' in structure. Does that sound right?
+[06:16:51] <kswedberg> I was just wondering about that. Your guess is better than mine.
+[06:17:01] <addyosmani> lol
+[06:17:02] <kswedberg> I'll create a new category
+[06:17:09] <addyosmani> doing that at the moment :)
+[06:17:19] <kswedberg> ah, ok. go for it.
+[06:17:51] <addyosmani> http://api.jquery.com/category/callbacks-object/
+[06:17:59] <addyosmani> please feel free to edit if I've buggered something up
+[06:18:07] <addyosmani> Going to start populating the sub-pages
+[06:18:39] <kswedberg> sounds good.
+[06:18:55] <addyosmani> woo
+[06:20:49] <addyosmani> A lot of what's being added is going to be revised this evening. Just want to get the base content in place.
+[06:20:57] <kswedberg> sure
+[06:21:22] <kswedberg> sounds like a plan
+[07:03:45] <paul_irish> these emails im sending to jquery-bugs-team exist, right?
+[07:05:53] <kswedberg> paul_irish: I've received the "features useful for jQuery, annotated" emails
+[07:06:09] <paul_irish> [jquery-bugs-team] Re: requestAnimationFrame and #9381  ?
+[07:06:14] <paul_irish> 6 days ago
+[07:06:54] <kswedberg> paul_irish: got that one too, and a follow up.
+[07:07:28] <paul_irish> kk
+[07:07:29] <paul_irish> good
+[07:12:48] <timmywil> paul_irish: yes, they are much appreciated.  sorry i haven't responded
+[07:13:02] <paul_irish> no worries.
+[07:13:03] <timmywil> brb
+[07:13:15] <paul_irish> about to send  a dupe of that email to jquery-standards
+[07:13:16] <paul_irish> sry
+[07:27:27] <scott_gonzalez> so this is kind of a lot of code to write for an individual support test: https://github.com/jquery/jquery/blob/master/src/support.js#L151-175
+[07:27:49] <scott_gonzalez> thoughts on making a function that does that and returns the generated element?
+[07:28:01] <scott_gonzalez> would greatly reduce the code needed for support tests written outside of core
+[07:34:28] <timmywil> scott_gonzalez: http://bugs.jquery.com/ticket/10629
+[07:43:08] <scott_gonzalez> timmywil: has there been more than one test that didn't work?
+[07:45:26] <scott_gonzalez> I think deferring to doc ready might be too late
+[07:45:48] <scott_gonzalez> shouldn't things like offset that require support tests run them if they're used before doc ready?
+[07:46:37] <scott_gonzalez> at the top of .offset(), something like `if ( !("fixedPosition" in jQuery.support) ) { runSupportTest(); }`
+[07:48:41] <timmywil> .offset shouldn't be called before doc ready
+[07:50:54] <timmywil> this is mainly to fix the issue where no body is available because jQuery was included in the head.  If included at the bottom of the body, the doc is very close to ready, so that is just a matter of the extra function call.
+[07:51:35] <timmywil> if there isn't a body at doc ready, then that means we are in a frameset and there isn't going to be a body, so creating the invisible should not be an issue there
+[07:51:55] <timmywil> IE balks at the invisible body creation if too much is done with it in the head
+[07:51:57] <scott_gonzalez> that sounds like a breaking change
+[07:52:24] <scott_gonzalez> as of 1.7, .offset() won't work properly prior to doc ready, but it worked properly previously, right?
+[07:53:06] <timmywil>  What elements are you trying to get offset for before doc ready?  Will getBoundingClientRect even work then?  I doubt it
+[07:54:12] <scott_gonzalez> I'm thinking something like this should work: https://gist.github.com/1333826
+[07:55:43] <timmywil> true, we could use doc ready conditionally if there is no body present, but then we have multiple codepaths to maintain
+[07:56:33] <timmywil> besides, I'm pretty sure only the fixedPosition tests needs a body so the rest would probably not need to run at doc ready
+[07:56:37] <timmywil> test*
+[07:57:03] <timmywil> the other 4 offset tests I think could be attached to a fragment instead
+[07:58:01] <timmywil> in which case calling offset like in the gist would assume fixedPosition is false and run the fallback if position is set to fixed, but would still work
+[07:59:18] <timmywil> but i'm not opposed to using separate codepaths.  It'll just take some thought
+[08:00:17] <timmywil> also, we've run support tests at doc ready in the past so it's not exactly a new thing
+[08:00:19] <scott_gonzalez> I don't think it needs to be separate, just put the support test in a function, set it up for doc ready, then have offset run it if it hasn't run yet
+[08:00:48] <scott_gonzalez> kind of like how offset.initialize used to work, but also hooking it up to doc ready
+[08:01:08] <timmywil> that would be fine for the gist case, but not https://gist.github.com/1333847
+[08:01:30] <timmywil> or https://gist.github.com/1333847
+[08:02:28] <timmywil> trying to run offset there should fail
+[08:05:12] <timmywil> so I'm not sure running offset tests lazily before doc ready is the solution, but trying to run them here (when there is a body present before doc ready) is feasible. https://gist.github.com/1333847
+[08:06:19] <timmywil> but as I said, the offset call should still work even if the support tests have not run yet.  It will simply assume support is false and account for it if called before doc ready.
+[08:06:43] <scott_gonzalez> well, those gist cases where it wouldn't work don't matter
+[08:06:48] <scott_gonzalez> because the element doesn't exist yet
+[08:07:05] <scott_gonzalez> ok, well if it works properly without it, that's fine
+[08:11:22] <timmywil> scott_gonzalez: http://jsfiddle.net/timmywil/q7J3a/
+[08:31:25] <timmywil> scott_gonzalez: btw, we checked codesearch and I grep'd UI to check for usage of jQuery.offset.supportsFixedPosition, which has been moved to jQuery.support.fixedPosition.  I didn't see anything in UI and dave found 2 cases of it being used, but seeing as offset tests used to run lazily and wasn't available until the first offset call, it seems safe to move.  Do you agree?
+[08:32:08] <scott_gonzalez> yeah, should be fine
+[08:32:22] <scott_gonzalez> if anyone really needs it, they can create a two line shim
+[08:32:23] <timmywil> cool
+[08:32:39] <scott_gonzalez> ...or update their code
+[08:32:48] <timmywil> or that :)
+[08:44:16] <wpbest> I'm new with jquery... I am a C/C++/C# ASP.NET developer learning HTNML5, CCS3 and jquery... What development toold are most common? Do you use Visual Studio?
+[08:45:08] <scott_gonzalez> wpbest: you were told to go to #jquery, not #jquery-dev
+[08:45:33] <wpbest> sorry
+[08:46:57] <wpbest> is this channel for the development of query-ui library?
+[10:38:18] <stevecrozz> anyone have thoughts on this bug and why it is invalid? http://bugs.jquery.com/ticket/4331
+[10:40:46] <gnarf> stevecrozz: because the scroll event doesn't bubble?
+[10:41:30] <guy> likely jQuery bug. https://gist.github.com/a751a1e195d6b5314cfd currency_selector has 'click' event. Once that is triggered, jQuery is supposed to bind $(document) click event. However, the latter event is immediately triggered (without click anything second time).
+[10:42:04] <ajpiano> guy: the test in line 11 is always going to false
+[10:42:22] <ajpiano> guy:  the click bubbles up to the document after you bind it
+[10:42:33] <ajpiano> so it seems expected to me
+[10:42:38] <stevecrozz> gnarf: sounds like a good reason, I did not realize that
+[10:42:38] <guy> eh, "if(!$(e.target).parents('#currency-selector'))" ? this works perfectly fine.
+[10:43:05] <ajpiano> guy: you mean, it has the same result every single time regardless of whether or not $(e.target).parents("#currency-selector") matches anything
+[10:43:09] <ajpiano> cause uh, that's what happens
+[10:43:20] <guy> ajpiano: hum. you mean its missing .length?
+[10:43:36] <ajpiano> guy: i think you should either use http://benalman.com/projects/jquery-outside-events-plugin/
+[10:43:50] <guy> because debug gives either [] or [$(element)], depending on where I click.
+[10:44:03] <ajpiano> or you can use jQuery.contains( container, contained ) with com elements
+[10:44:06] <ajpiano> instead of using parents
+[10:44:08] <guy> div.
+[10:44:24] <ajpiano> guy: an empty jquery object and and a jquery object with things in it
+[10:44:26] <ajpiano> are both truthy
+[10:44:40] <guy> ajpiano: ok. so .length will fix it just fine.
+[10:44:45] <guy> [].length == 0
+[10:44:53] <ajpiano> guy: simply put, you just need to put a event.stopPropagation() in the currency_selector.click( function() { })
+[10:45:03] <ajpiano> that will stop this click from bubbling up to the document
+[10:45:24] <ajpiano> this is not a jQuery bug
+[10:45:34] <guy> ajpiano: thanks about the event.stopPropagation tip.
+[10:48:45] <guy> https://gist.github.com/1d6d98af6b9be742ae85
+[10:48:48] <guy> this seem to work fine.
+[10:49:09] <ajpiano> ok
+[10:49:19] <DaveMethvin> ?10638
+[10:49:21] <bot-t> [#10638] marginTop should be margin-top in support.js inline style string (new bug) - http://jqbug.com/10638
+[10:49:40] <ajpiano> $.contains( currency_selector[0], e.target ) would be a lot faster than that .parents() stuff, guy, FYI
+[10:51:06] <guy> was reading about it.
+[10:58:30] <guy> https://gist.github.com/969de6a312037d7cb8d5 improved logic. thank you, ajpiano.
+[11:06:01] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/ZzTERA
+[11:06:01] <jqcommit> [jquery/master] Correct typo in support.js assigning margin-top with cssText. Fixes #10638. - timmywil
+[11:08:37] <jq-jenkins> Project jQuery build #155: STILL FAILING in 2 min 24 sec: http://swarm.jquery.org:8080/job/jQuery/155/
+[11:08:38] <jq-jenkins> timmywillisn: Correct typo in support.js assigning margin-top with cssText. Fixes #10638.
+[11:53:12] <rwaldron> timmywil yt?
+[11:53:17] <rwaldron> i think this...
+[11:53:18] <rwaldron> https://github.com/jquery/jquery/commit/cec4018d0e5249203aaba203cd67147a1162b435#L0L264
+[11:53:31] <rwaldron> was done for archaic IE performance reasons
+[11:54:00] <timmywil> what was?
+[11:54:17] <rwaldron> if you omit the tbody, IE will take the time to make it
+[11:54:41] <rwaldron> BUT
+[11:54:51] <timmywil> funny, i actually added it in the previous commit
+[11:54:56] <rwaldron> that was also back when offset had to be initialized to use
+[11:55:01] <timmywil> then took it out again
+[11:55:17] <rwaldron> maybe I'm thinking of something else then...
+[11:55:32] <rwaldron> nevermind!
+[11:55:46] <rwaldron> i'm losing my marbles these days.
+[11:55:49] <rwaldron> best to ignore me
+[11:55:53] <timmywil> ha
+[11:56:03] <timmywil> we're gonna refactor all that in 1.7.1
+[11:56:34] <timmywil> I'm gonna go through each test and see which actually require a body
+[11:56:45] <timmywil> and which can be connected to a fragment instead
+[11:57:21] <timmywil> that should reduce the number of tests that need a body at all (invisible or otherwise)
+[11:57:30] <timmywil> my guess is I'll end up with like 3 or 4
+[11:57:50] <timmywil> but that's just a guess
+[11:58:49] <rwaldron> so, what's the deal with this change...
+[11:58:50] <rwaldron> https://github.com/jquery/jquery/commit/83a355a9a06c03eeb4e601dbe204909d273c91b5
+[11:59:13] <rwaldron> i mentioned the other day... those properties have been around for awhile
+[11:59:45] <timmywil> they have, but they need to move.  seems to me that 1.7 is a good time
+[12:00:05] <timmywil> i grep'd UI and it's not used there
+[12:00:18] <timmywil> dave did a codesearch and found 2 arbitrary uses
+[12:01:08] <timmywil> and the fact that they weren't even available until after a call to offset I think makes it justifiable
+[12:05:04] <rwaldron> eh, ok
+[12:07:37] <rwaldron> timmywil I might as well just come out and say it...
+[12:08:06] <rwaldron> That change fucking annoys me because I wanted to do that SO BADLY when I was working on that ticket
+[12:08:14] <timmywil> you're coming out?
+[12:08:15] <timmywil> oh
+[12:08:16] <rwaldron> but I didn't and I worked around moving the code
+[12:08:20] <timmywil> sry
+[12:08:27] <rwaldron> so that I wouldnt break anything
+[12:08:53] <rwaldron> if I had known the change would've had yours and DaveMethvin's support, I would've just made it
+[12:09:09] <rwaldron> and now I feel like I look like a nitwit for NOT changing it
+[12:09:34] <rwaldron> "here's the guy that added more bullshit code to work around this bullshit set of bullshit properties, what a dummy"
+[12:09:37] <timmywil> well I don't think that.  I understand why you felt it was necessary to keep them accessible at jQuery.offset
+[12:10:03] <timmywil> I think we just talked about it more and came to the conclusion that it was worth it
+[12:10:21] <rwaldron> i get that
+[12:10:54] <rwaldron> But I've been locked into the "World's Worst Client Project, Ever" and feel like I'm way outside
+[12:11:27] <rwaldron> I dont expect anything either, I'm just frustrated with my current situation
+[12:11:33] <timmywil> we all get busy at times.  no one said, 'why did rick do this?'
+[12:11:40] <scott_gonzalez> rwaldron: I think timmywil felt safe because I didn't say it was bad :-P
+[12:11:40] <timmywil> just fyi
+[12:12:01] <rwaldron> Frustrated that I couldn't be around for that discussion, frustrated that I missed 98% of the meeting monday
+[12:12:19] <rwaldron> frustrated that standalone IEs made me look like a fucking fool
+[12:12:29] <scott_gonzalez> anyway, we could copy it to two places and mark it deprecated
+[12:12:37] <DaveMethvin> hey rwaldron, we miss you, don't feel bad about doing real work
+[12:12:42] <timmywil> ah dude, that bug was hard to reproduce even on a fresh vm
+[12:13:37] <DaveMethvin> did we ever document the .offset feature detects? If not it seems strange to document that we're deprecating them
+[12:14:43] <timmywil> agreed
+[12:15:07] <Dr4g> Apologies if this is more suited to #jquery; Can someone recommend a jquery-plugin skeleton (link?) consisting of multiple methods (creating a JS class) and having settings that can be exended using $.extend
+[12:15:08] <rwaldron> DaveMethvin no, i looked
+[12:15:28] <Dr4g> Wanting to help convert an existing JS mess into a nice clean JQ plugin and want to start solid and clean.
+[12:15:30] <DaveMethvin> there is an old blog post Dr4g
+[12:15:33] <DaveMethvin> lemme find it
+[12:15:38] <scott_gonzalez> DaveMethvin: good point
+[12:15:44] <timmywil> Dr4g: http://jqueryboilerplate.com/
+[12:15:45] <Dr4g> cheers DaveMethvin
+[12:16:00] <DaveMethvin> whoa he out googled me
+[12:16:01] <Dr4g> timmywil: cheers+1
+[12:16:13] <Dr4g> I've found a few results on google but wasn't satisfied with their code.
+[12:16:50] <Dr4g> It indeed looks slightly different from the structure of existing plugins that i'm hacking away at daily.
+[12:17:22] <DaveMethvin> hey rwaldron got a sec for some questions on the html5 patch we put into 1.7?
+[12:17:41] <DaveMethvin> i'm working on a paragraph or two for the release notes
+[12:18:57] <Dr4g> timmywil: may i ask a question regarding the link you sent; in this constructor here:     function Plugin( element, options ) what is the context of 'this'
+[12:19:15] <Dr4g> I plan to have > 10 methods all able to reference the same class properties (caching $('selector') lookups)
+[12:19:18] <timmywil> Dr4g: the plugin instance
+[12:19:26] <rwaldron> DaveMethvin ya sure
+[12:20:21] <rwaldron> Basically, jQuery does as much optimizing of DOM operations as it possibly can
+[12:20:44] <Dr4g> timmywil: so within this function: Plugin.prototype.init = function () {..}   the 'this' context is the same as the 'this' context in function Plugin( element, options ) {
+[12:20:45] <rwaldron> which, as we know, includes creating cacheable document fragments and re-using them
+[12:20:56] <timmywil> Dr4g: yes
+[12:21:05] <Dr4g> timmywil: to clarify; 'this' is the context of the self-invoked function, correct ?
+[12:21:10] <Dr4g> ;(function ( $, window, document, undefined ) {
+[12:21:16] <Dr4g> })( jQuery, window );
+[12:21:29] <DaveMethvin> rwaldron: right, and all that stuff works with html5 elements in ie now
+[12:21:36] <timmywil> no, this in that context would be the window or undefined in strict mode
+[12:22:11] <rwaldron> Unfortunately, when jQuery created inner-shiv support (allowing unknown elements to: nest without collapsing, clone and accept innerHTML ), it was also caching those fragments when it could
+[12:22:23] <Dr4g> timmywil: you just lost me.. how can 'this' relate to a function parameter called 'window'
+[12:22:31] <rwaldron> but caching them would also break them
+[12:22:51] <rwaldron> why? I have no idea.
+[12:23:22] <DaveMethvin> rwaldron: here's what i need to explain to the ppl reading the release notes. if it's not as simple as "jQuery lets you use HTML5 tags everywhere now" then we need to explain the limits
+[12:23:34] <rwaldron> But the simplest solution was to: infer that we're in an archaic IE and if so, don't bother caching elements if they match the list of allowed "unknowns"
+[12:23:45] <rwaldron> ohhhh
+[12:23:51] <Dr4g> DaveMethvin: i think it's very important to list limits else people will be trying all sorts of crazy stuff and blame it on 'jquery' instead of user fail.
+[12:23:55] <rwaldron> i thought you meant the latest patch i wrote
+[12:23:59] <rwaldron> that's what I was explaining
+[12:24:02] <DaveMethvin> agreed
+[12:24:07] <DaveMethvin> Dr4g:
+[12:24:12] <rwaldron> ok, the simple version
+[12:25:04] <rwaldron> "jQuery now supports programmatic manipulation of HTML5 elements created by HTML5Shim"
+[12:25:11] <rwaldron> DaveMethvin ^^
+[12:25:22] <rwaldron> or whatever the thing is called
+[12:25:28] <DaveMethvin> yeah, http://code.google.com/p/html5shiv/
+[12:25:29] <timmywil> Dr4g: these are common javascript concepts.  It may be best to do some javascript research first.  #jquery can help more with support as you grow.
+[12:25:31] <rwaldron> they will still have to shim the elements in the head
+[12:25:35] <rwaldron> we can't do that for them
+[12:25:41] <DaveMethvin> well we could but we don't
+[12:25:48] <DaveMethvin> that's the part we need to be clear about
+[12:25:49] <rwaldron> don't go down the road
+[12:25:52] <rwaldron> that*
+[12:25:55] <DaveMethvin> lol
+[12:26:02] <rwaldron> it would require jQuery to be in the head
+[12:26:06] <rwaldron> no dice
+[12:26:18] <rwaldron> that's the only "catch"
+[12:26:22] <DaveMethvin> U MOVE HEVEN, Y U NO MOVE EARTH?
+[12:26:25] <rwaldron> shim your own damn elements
+[12:26:29] <rwaldron> we'll do the rest
+[12:26:31] <cobexer> regarding http://jqueryboilerplate.com/ : correct me if I'm wrong, but document would be undefined...: ;(function ( $, window, document, undefined ) {...})( jQuery, window );
+[12:26:37] <rwaldron> DaveMethvin ahahahahahahaha
+[12:26:55] <Dr4g> cobexer: i was thinking the same think, unless it defaults to the global variable of 'document'
+[12:26:58] <timmywil> cobexer: yea I've noticed that.  It's not that way on github tho
+[12:26:59] <rwaldron> cobexer yeah, that code stinks
+[12:27:15] <Dr4g> Should i be going somewhere else for corrected code ?
+[12:27:19] <rwaldron> ajpiano fix that shizzle
+[12:27:21] <rwaldron> <3333
+[12:27:32] <Dr4g> timmywil: github url ?
+[12:27:36] <rwaldron> ohhh i remember this
+[12:27:37] <Dr4g> nvm, it's on the URL
+[12:27:39] <timmywil> "fork on github"
+[12:27:41] <rwaldron> ahahahahaha
+[12:27:45] <DaveMethvin> ok, so the bottom line is that ppl don't need innerShiv anymore
+[12:27:50] <cobexer> ^^
+[12:27:53] <DaveMethvin> but they do need HTMLShiv
+[12:27:56] <rwaldron> that dude had made the WEIRDEST plugin pattern EVER
+[12:27:56] <Dr4g> raw: https://raw.github.com/zenorocha/jquery-boilerplate/master/jquery.boilerplate.js
+[12:28:14] <rwaldron> DaveMethvin correct
+[12:28:30] <rwaldron> jsut the shim + jQuery
+[12:28:36] <timmywil> he asked a bunch of us to help (I think jaubourg did some)
+[12:28:42] <DaveMethvin> "we don't mangle HTML5 elements we're given in IE8, but you still need html5shiv"
+[12:28:54] <timmywil> it's changed a lot since last I saw it
+[12:29:04] <rwaldron> DaveMethvin that works
+[12:29:11] <DaveMethvin> k, thanks
+[12:29:16] <timmywil> ?plugin
+[12:29:17] <bot-t> (function($){ $.pluginName = function() { /* code */ }; $.fn.pluginName = function() { return this.each(function(){ /* code */ }); }; })(jQuery);
+[12:29:18] <rwaldron> shit
+[12:29:23] <rwaldron> i have to go to a meeting
+[12:29:30] <rwaldron> later.
+[12:29:31] <DaveMethvin> sorry, ttly
+[12:32:58] <timmywil> Dr4g: http://benalman.com/talks/jquery-pluginization.html
+[13:17:47] <scott_gonzalez> DaveMethvin: yt?
+[13:17:54] <DaveMethvin> yep
+[13:18:11] <scott_gonzalez> can you explain why this is a problem: https://github.com/jquery/jquery-ui/pull/513/files
+[13:18:40] <DaveMethvin> lol i saw that earlier today and was wondering myself .. let me look a bit more
+[13:19:00] <DaveMethvin> sounded like the submitter was japanese maybe?
+[13:19:07] <scott_gonzalez> maybe
+[13:22:06] <DaveMethvin> scott_gonzalez: that has me stumped. does it fix a leak?
+[13:22:27] <scott_gonzalez> supposedly
+[13:22:30] <DaveMethvin> cause if it does i suspect core has that pattern in event.js somewhere :)
+[13:24:33] <scott_gonzalez> http://gyazo.com/5b8cffb0a99147abfd80e9e78f961525
+[13:25:04] <DaveMethvin> can you really null out  instance in the proxy like that?
+[13:25:13] <DaveMethvin> doesn't the proxy get called multiple times?
+[13:27:33] <scott_gonzalez> yeah, looks like that would break on the second event
+[13:29:05] <DaveMethvin> "to save the patient we had to kill him"
+[13:30:15] <scott_gonzalez> heh
+[13:34:07] <DaveMethvin> scott_gonzalez: seems like he's nulling out instance and element to prevent them from being held in the outer scope as a closure, but you kind of *need* them there ..we wel you definitely need instance at event delivery
+[13:37:15] <scott_gonzalez> I don't understand what's leaking
+[13:39:32] <scott_gonzalez> sIEve says there are no leaks if I load the default progressbar demo page
+[13:40:14] <DaveMethvin> yeah i dunno, maybe he was using some old ie6 or something
+[13:41:44] <scott_gonzalez> I've got a page that's just constantly creating and destroying a progressbar
+[13:41:49] <scott_gonzalez> I can see the memory usage going up
+[13:41:55] <scott_gonzalez> but it says there are no leaks
+[13:46:31] <scott_gonzalez> I'm actually not seeing any change in sIEve with his changes
+[15:03:57] <adolphm> hello
+[15:05:57] <adolphm> I need to consult a table to see if there is a record and insert it so, I do it with jquery, but not how to do
+[15:07:07] <adolphm> I found an example of prototype Ajax.Updater but I need to do it with jquery
+[15:07:45] <gnarf> adolphm: this channel is for the development of jQuery itself, if you want support please go to #jquery - thx
+[15:07:48] <gnarf> ?channels
+[15:07:48] <bot-t> For support please go to #jquery or #jquerymobile. Development Channels: #jquery-dev - #jqueryui-dev - #jquerymobile-dev ; Meetings held in#jquery-meeting
+[15:08:15] <adolphm> ok
+[15:08:25] <adolphm> thanks
+[15:15:51] <Dr4g> gnarf: hey again :-) i'm on #jquery but not getting support; it's quite an advanced questions regarding plugin development with multiple instances. May i ask that here? or can you assist on #jquery ?
+[15:17:07] <gnarf> Dr4g: im busy atm... ask in #jquery
+[15:19:07] <Dr4g> gnarf: alright; thanks.
+[15:28:32] <DaveMethvin> timmywil: here's another thought about our support.js rewrite .. it may not be bad to defer things to ready or make them lazy: docs#10644
+[15:28:33] <bot-t> timmywil, [#10644] jQuery performce issue in support function (pending bug) - http://jqbug.com/10644
+[15:32:12] <gnarf> DaveMethvin: i suck at emails
+[15:32:13] <gnarf> i can't edit
+[15:32:15] <gnarf> anyway
+[15:32:35] <gnarf> we should at least mention what was deprecated, and to expect another post shortly
+[15:32:49] <gnarf> i would think
+[15:33:00] <DaveMethvin> i was concerned that even bringing that up would start a shitstorm unless we discussed it fully
+[15:33:15] <DaveMethvin> the list of deprecated stuff in 1.7 doesn't affect functionality at all
+[15:33:22] <DaveMethvin> so waiting a week doesn't affect anything
+[15:33:37] <DaveMethvin> even if someone upgraded it's not like we're locking them into anything
+[15:33:43] <gnarf> but if we don't mention it, the "deprecation notice" isn't shipping with 1.7
+[15:34:10] <DaveMethvin> i have a bunch of text i can re-paste in there
+[15:34:16] <DaveMethvin> but again i think it will be a distractino
+[15:34:27] <DaveMethvin> i'd almost prefer to discuss deprecation now and wait a week to release
+[15:34:35] <DaveMethvin> if we have to do it at or before
+[15:34:40] <gnarf> i could agree with that
+[15:34:54] <DaveMethvin> but what does deprecation really do here?
+[15:35:01] <DaveMethvin> it is a state of mind
+[15:35:06] <gnarf> right
+[15:35:18] <DaveMethvin> so if we discuss it next week i don't think it hurts
+[15:35:25] <gnarf> its also a notice to the public that something is no longer going to be supported etc
+[15:35:45] <DaveMethvin> ok then i'll paste back in the deprecation stuff, just a sec
+[15:35:59] <DaveMethvin> i;ll make a separate clap for it
+[15:36:27] <DaveMethvin> http://oksoclap.com/1lAny6HPI9
+[15:42:23] <Dr4g> Guys, can you unregister a plugin from jquery $.fn[] core ?
+[15:45:06] <DaveMethvin> if you have a null handy
+[15:45:09] <DaveMethvin> :P
+[15:45:25] <gnarf> looks good so far DaveMethvin
+[15:45:43] <DaveMethvin> and i sent out the link to everyone gnarf
+[15:46:44] <DaveMethvin> Dr4g: to unregister something just  jQuery.fn.whatever=null but of course you'd better know it's not needed by core
+[15:48:42] <gnarf> DaveMethvin: anyway, back to my cross-widow communication library
+[15:48:50] <Dr4g> DaveMethvin: sure, i meant "plugin handler" if there's such a thing.
+[15:48:53] <gnarf> i'll see if i have some time to try to help with that
+[15:50:21] <Dr4g> DaveMethvin: i need two instantiations of the same plugin; when the 2nd one is instantiated (after some ajax stuff) then i want to deactivate the first one so they don't clash
+[15:50:23] <Dr4g> thoughts?
+[15:53:42] <DaveMethvin> i think i don't quite understand ... if the plugin returns a jQuery object then you will have two objects
+[15:54:03] <DaveMethvin> if it's not really a plugin but a javascript object, you can "new Widget" to get two of them
+[16:18:34] <Dr4g> DaveMethvin: plugin #1 has global callbacks set like $(window).scroll() and so does the second guy, so need to deactivate all bind()'s and callbacks from instance #1 so that instance #2 takes over
+[16:19:13] <DaveMethvin> sounds like maybe you could use a .destroy() method like a UI widget?
+[16:19:39] <Dr4g> DaveMethvin: my own destory method to unbind manually ?
+[16:19:45] <DaveMethvin> yeah
+[16:19:58] <DaveMethvin> or if it made sense,  use the UI widget factory
+[16:20:34] <Dr4g> i'm not familiar with it; i'll need to school up. sounds like a plan; How to unregister my $(window).scroll() callback though since there is no .bind() or is there? :-)
+[16:20:38] <ajpiano> Dr4g: or use namespaced handlers
+[16:20:47] <Dr4g> ajpiano: i think i need to have something like that.
+[16:20:59] <ajpiano> so that you attach all your handlers like $(document).bind("scroll.myAwesomeSingletonThing", fn)
+[16:21:14] <ajpiano> and then you can unbind(".myAwesomeSingletonThing")
+[16:21:15] <DaveMethvin> so does the first plugin have to go away completely?
+[16:21:32] <Dr4g> DaveMethvin: preferrably not, since it _could_ come back later once plugin #2 is no longer required.
+[16:22:00] <DaveMethvin> i'd have to see the design to understand
+[16:22:08] <Dr4g> ajpiano: that looks like a nice technique, using custom bind()'s and .trigger('custom.name.here');
+[16:22:38] <Dr4g> DaveMethvin: sure, but i don't want to spam this prestigeous channel anymore :-)
+[16:22:48] <Dr4g> Can we move to a PM? ( dont wanna get in2 trouble) :)
+[16:23:03] <DaveMethvin> well i wasn't planning on a long conversation... :)
+[16:23:09] <Dr4g> :P
+[16:23:24] <DaveMethvin> gotta finish the 1.7 release notes
+[16:23:48] <DaveMethvin> Dr4g: in case yo uwanted to use the widget factory: http://blog.nemikor.com/2010/05/15/building-stateful-jquery-plugins/
+[16:23:51] <Dr4g> How to deactivate an existing window.scroll() ? that's all it boils down to.
+[16:24:14] <Dr4g> if i can figure out how to release global binds, then i can let the second instantiation take over.
+[16:24:39] <ajpiano> .unbind("scroll") ?
+[16:24:57] <Dr4g> ajpiano: really? thanks, i didn't think .scroll() was a bind(), i guess it's just .bind('scroll')
+[16:25:06] * Dr4g will read the source
+[16:34:24] <Dr4g> ajpiano: i do have a core question relating to .bind('scroll') - https://github.com/jquery/jquery/blob/master/src/event.js#L1036
+[16:34:35] <Dr4g> where is the var 'fn' defined here ?
+[16:35:22] <ajpiano> that's the 'fn' the user passes to the bind
+[16:35:43] <ajpiano> $("foo").click( function(e) { } );
+[16:35:45] <Dr4g> ajpiano: yes, indeed; where was 'fn' defined as that user's callback
+[16:35:59] <Dr4g> var fn = users_callback;
+[16:36:11] <ajpiano> huh
+[16:36:48] <ajpiano> when the user calls the shorthand event binding method...
+[16:37:17] <Dr4g> ajpiano: alright, don't sweat it; i'm not fluent enough in core to explain my question to you.
+[16:37:34] <Dr4g> i know what i needed to know now, that scroll isn't a magic callback but a standard .bind()
+[16:38:08] <Dr4g> thanks for pointing that out, i'm using your jquery plugin boilerplate btw :)
+[16:38:29] <ajpiano> Dr4g: all the event shortcuts can optionally take data as a first parameter and *then* takes a function
+[16:39:08] <ajpiano> so this https://github.com/jquery/jquery/blob/master/src/event.js#L1037-1040 just shifts the arguments around if the first arg is a function and the second arg is nothing, instead of the first arg data and second arg fuction
+[16:39:10] <ajpiano> Dr4g: heh
+[16:39:25] <ajpiano> how that ended up being *my* plugin boilerplate is so funny :p
+[16:39:31] <Dr4g> ajpiano: x)
+[16:39:36] <Dr4g> addy's work mostlry ?
+[16:39:39] <Dr4g> mostly *
+[16:39:57] <ajpiano> no bizarrely enough that pattern is there is largely born from code i wrote
+[16:40:02] <ajpiano> i just wrote it cause i was like
+[16:40:13] <ajpiano> what you've curently got is not acceptable  to give out :/
+[16:40:18] <Dr4g> +1
+[16:40:39] <ajpiano> but it seems like people are using it, so that's pretty cool
+[16:40:43] <Dr4g> As i need two DOM elements against my plugin, i need to remove your boilerplate's "anti-multi-instantiation" code, don't I?
+[16:41:15] <Dr4g> https://github.com/zenorocha/jquery-boilerplate/blob/master/jquery.boilerplate.js#L52
+[16:41:20] <ajpiano> not necesarily, that's checking for multi-instantiation on the same element
+[16:41:31] <Dr4g> ajpiano: aha! greatness
+[16:41:45] <Dr4g> yes that _would_ be retarded
+[16:44:42] <DaveMethvin> ut oh the api site is down ... danheberden is there a rebooty thing we can do?
+[16:47:36] <ajpiano> rut roh
+[16:47:48] <ajpiano> someone better get in there and restart the server or whatever
+[16:48:33] <kswedberg> DaveMethvin: crap. the good news, if you can call it that, is that it loads (albeit slowly) if I'm not logged in.
+[16:48:44] <kswedberg> guess that cache plugin is good for something
+[16:49:18] <kswedberg> there we go.
+[16:49:22] <kswedberg> DaveMethvin: try now
+[16:49:28] <DaveMethvin> yep, up again
+[17:26:30] <danheberden> DaveMethvin looks up/good - y'al good?
+[17:26:34] <danheberden> *y'all
+[17:28:33] <DaveMethvin> yeah thanks
+[17:28:38] <DaveMethvin> danheberden:
+[17:28:41] <DaveMethvin> thanks
+[17:28:57] <DaveMethvin> speakers were muted, no wonder it was so quiet
+[18:02:29] <danzik17> DaveMethvin: yt?  think i noticed something on docs is wrong - .one should take an optional selector now with .on/.off right?  ( which is a freakin awesome feature btw )
+[18:02:45] <DaveMethvin> yep, true i didn't edit that one
+[18:02:46] <DaveMethvin> thanks!
+[18:19:41] <DaveMethvin> danzik17: api docs are fixed for .one() now
+[18:20:54] <kswedberg> that's awesome, DaveMethvin!

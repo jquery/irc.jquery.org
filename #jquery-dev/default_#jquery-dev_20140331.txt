@@ -1,0 +1,258 @@
+[05:37:32] <doesallmagic2> Project jQuery Migrate Core 1.x build #179: SUCCESS in 2 min 2 sec: http://jenkins.jquery.com/job/jQuery%20Migrate%20Core%201.x/179/
+[10:01:11] <scott_gonzalez> Still waiting on someone to review https://github.com/jquery/jquery-release/pull/48
+[10:43:55] <gnarf> m_gol: DaveMethvin: https://github.com/jquery/jquery/blob/master/src/ajax/load.js#L24 could we just drop context: this on the ajax options and not use the evil var self?
+[10:45:29] <gnarf> hard to blame where this line of code came from now ;)
+[10:45:36] <gnarf> cc mikesherov ^
+[10:45:40] <gnarf> timmywil
+[10:46:02] <gnarf> just curious, because i seem to remember that jQuery UI basically declared `var self` an anti-pattern and verbotten
+[10:46:07] <gnarf> scott_gonzalez?
+[10:47:39] <scott_gonzalez> Well, we did 2 things.
+[10:47:57] <scott_gonzalez> We said "self" isn't allowed to be used as a variable name because of the automatic global.
+[10:48:17] <scott_gonzalez> And we added lots of helpers to make the need for a var like that unnecessary.
+[10:48:32] <scott_gonzalez> But we still use `var that = this` in places where we don't have helper methods.
+[10:48:50] <gnarf> curiously, why not jQuery.proxy
+[10:49:45] <scott_gonzalez> Because it adds to the file size and execution time.
+[10:50:19] <scott_gonzalez> Though presumably repeating `$.proxy(function() {` several times would help with file size.
+[10:52:08] * gnarf shrugs, this var self seems avoidable
+[10:52:08] <b-ot> gnarf: ¯\_(ツ)_/¯
+[10:52:34] <gnarf> I'll try to run an audit on var self's in core
+[10:52:45] <gnarf> switch them to more descriptive names at least
+[10:53:04] <DaveMethvin> looking at it now, it bothers me more that we don't early-out when self.length === 0
+[10:53:05] <DaveMethvin> :)
+[10:53:12] <gnarf> that too
+[10:54:52] <gnarf> i just don't like seeing the extra binding i think
+[10:54:56] * gnarf shrugs
+[10:54:56] <b-ot> gnarf: ¯\_(ツ)_/¯
+[10:55:28] <gnarf> it'd be better named `var selection = this;` anyway :)
+[10:55:50] <gnarf> also, i need to remember to just ¯\_(ツ)_/¯ when in a channel with b-ot ;)
+[10:55:51] <m_gol> self is used in workers so probably not the best idea
+[10:55:57] <m_gol> ;)
+[10:56:00] <DaveMethvin> i am so over `this`, it's just too much to think about
+[10:57:15] <DaveMethvin> i don't see an easy way to avoid it there, i guess you could use the context but messing with that makes me queasy
+[10:58:17] <gnarf> DaveMethvin: i think we should actually just rename selfs
+[10:58:35] <gnarf> at a minimum
+[10:58:43] <gnarf> DaveMethvin also this is 2.0
+[10:58:51] <gnarf> can we just .bind(this) the method? :)
+[10:58:55] <DaveMethvin> well when I see a `self` i know it's a `this` from an outer context
+[10:59:04] <DaveMethvin> if android 2.3 lets us
+[10:59:12] <DaveMethvin> and the answer is probably "no" :)
+[10:59:20] <gnarf> grrr
+[10:59:21] <m_gol> .bind is slow so be careful ;)
+[10:59:26] <gnarf> ANDROID 2.3!
+[10:59:31] <m_gol> also
+[10:59:36] <DaveMethvin> EVERY ES5 feature is low
+[10:59:38] <DaveMethvin> slow*
+[10:59:38] <gnarf> m_gol: "slow" for an execute once function doesn't scare
+[10:59:39] <m_gol> PhantomJS doesn't have Function#bind
+[10:59:46] <gnarf> wtf
+[10:59:48] <DaveMethvin> well there you go
+[10:59:51] <m_gol> and jQuery Mobile tests on PhantomJS, right?
+[11:00:04] <m_gol> I guess you can mock it before testing
+[11:00:09] <gnarf> I'm pretty sure that's not right
+[11:00:21] <gnarf> or maybe Karma is polyfilling it for me
+[11:00:23] <gnarf> and i don't know
+[11:00:25] <m_gol> but I'm not sure we want to screw all those people testing their jQuery-based sites on PhantomJS ;)
+[11:00:34] <m_gol> * mock -> polyfill
+[11:00:55] <gnarf> because i write code with .bind() quite a bit
+[11:01:17] <gnarf> m_gol: the scale of that "slow" is such that i would avoid a function call entirely if i could before i worried about that slow
+[11:01:19] <m_gol> gnarf: https://github.com/ariya/phantomjs/issues/10522
+[11:01:29] <m_gol> yeah, I know, in this case it doesn't matter
+[11:01:32] <DaveMethvin> i'm so used to programming in a straightjacket, it's wonderful when i can use nodejs and not worry about that
+[11:01:37] <m_gol> just don't do that in a loop or sth ;)
+[11:03:34] <m_gol> gnarf: maybe you wrote a polyfill & forgot? ;)
+[11:03:57] <m_gol> I know I've been hit by this
+[11:04:00] <m_gol> in my app
+[11:04:06] <gnarf> m_gol: pretty sure like karma must be doing it
+[11:04:07] <m_gol> that led me to not use PhantomJS for testing :P
+[11:04:11] <m_gol> I don't think so
+[11:04:17] <m_gol> https://github.com/karma-runner/karma-phantomjs-launcher/issues/24
+[11:04:22] <gnarf> heh
+[11:04:27] <m_gol> and this is all it does: https://github.com/karma-runner/karma-phantomjs-launcher/blob/master/index.js
+[11:04:37] <gnarf> i dunno - most of the test setups i come into have been done by someone else
+[11:04:39] <gnarf> mocha?
+[11:05:01] <gnarf> doesn't matter
+[11:05:11] <DaveMethvin> we just need a headless browser that doesn't have its headless up its assless
+[11:05:39] <gnarf> if the bug ever bites me I'll now think to myself "Curses! m_gol told me so!"
+[11:05:41] <gnarf> :)
+[11:05:49] <gnarf> DaveMethvin: can I OH that? :)
+[11:05:56] <DaveMethvin> sure!
+[11:06:07] <m_gol> yeah, "let's test our sites on a browser with 0.0001% market share that has bugs not existing in any other we support in this project" :P
+[11:06:21] <DaveMethvin> exactly
+[11:06:58] <gnarf> pretty sure we can run firefox headless
+[11:06:59] <gnarf> :)
+[11:07:00] <m_gol> I was doing that for some time
+[11:07:15] <m_gol> polyfilling bind & some other ES5 stuff
+[11:07:29] <m_gol> I gave up when I discovered PhantomJS is unable to iterate over arguments
+[11:07:41] <m_gol> for (var i in arguments) return true; return false;
+[11:07:43] <m_gol> gives false
+[11:08:13] <m_gol> and I really didn't want to patch vendor libraries just for this ;)
+[11:10:43] <snover> there is a reason that i admonish people not to use phantomjs with intern
+[11:11:35] <jqcommit> [13jquery-release] 15jzaefferer opened issue #55: Make CDN publishing optional 02http://git.io/hgGVxQ
+[11:13:01] <gnarf> snover! 
+[11:13:03] * gnarf waves
+[11:13:18] <snover> hi
+[11:13:33] <snover> there is also a reason i admonish jquery to use intern instead of all this other stuff ;)
+[11:23:35] <jqcommit> [13api.jquery.com] 15baamenabar opened pull request #470: .inArray method compares values strictly, adding a line about it (06master...06master) 02http://git.io/UOX2oA
+[11:39:17] <jonkoops> Hey guys, I'm updating the bower config for Marionette and I have some questions about JQuery versioning. Anyone willing to answer my questions?
+[11:39:59] <DaveMethvin> sup jonkoops ?
+[11:40:15] <jonkoops> Hey DaveMethvin
+[11:41:18] <DaveMethvin> what did you need to know?
+[11:41:18] <jonkoops> So my question is, will jQuery ever contain breaking changes in MINOR verions?
+[11:41:31] <DaveMethvin> not intentionally
+[11:41:38] <DaveMethvin> but i wouldn't trust us 
+[11:41:46] <jonkoops> So in the MAJOR.MINOR.PATCH structure
+[11:41:54] <DaveMethvin> oh sorry, patch
+[11:42:05] <DaveMethvin> but here is the thing
+[11:42:12] <DaveMethvin> what do you mean by "breaking change"
+[11:42:17] <jonkoops> So MINOR could contain breaking changes?
+[11:42:27] <DaveMethvin> if we drop support for IE6 in a minor point release, is that a breaking change?
+[11:42:42] <jonkoops> Somthing that might cause Marionette to break.
+[11:42:44] <DaveMethvin> how about dropping blackberry 5.1 support?
+[11:42:53] <DaveMethvin> well you know better than I about that :)
+[11:43:02] <jonkoops> No. I'm talking about breaking API changes.
+[11:43:24] <DaveMethvin> we did make api changes in the 1.8 --> 1.9 version
+[11:43:31] <DaveMethvin> so yes they can happen
+[11:43:44] <DaveMethvin> but they also happen by accident
+[11:43:51] <m_gol> jonkoops: jQuery is not following semver
+[11:43:57] <jonkoops> But did backwards compatibility break also (not including device support_
+[11:44:08] <m_gol> we try not to introduce breaking changes in patch releases
+[11:44:16] <m_gol> but minor for us is like major for semver
+[11:44:38] <DaveMethvin> right, jquery predates the whole semver movement
+[11:44:53] <DaveMethvin> and honestly lots of projects escape semver by never getting to 1.0
+[11:44:54] <m_gol> I'm also not so sure it would be great for us
+[11:45:16] <m_gol> you can't go with semver and keep two parallel lines in sync like jQuery 1.x & 2.x
+[11:45:31] <m_gol> and, honestly, I don't understand what's the point with minor versions
+[11:45:37] <jonkoops> m_gol: That's too bad, so the proper support target should be: >= 1.8.0 <= 2.1.0 (since 2.2 might break things)
+[11:45:52] <m_gol> either it can introduce breaking changes or it can't, what's that weird middle ground?
+[11:46:04] <DaveMethvin> i definitely think nobody should update deps automatically without testing
+[11:46:17] <m_gol> jonkoops: no, we release on branches 1.x & 2.x simultaneously
+[11:46:24] <m_gol> 1.11 together with 2.1, 1.12 with 2.2 etc.
+[11:46:55] <m_gol> so rather ">= 1.8.0 < 1.12"
+[11:46:56] <DaveMethvin> the problem is that semver can't really capture one of the most important things in jQuery which is the browser support
+[11:47:12] <m_gol> I'm not sure if you can add two disjoint ranges in semver
+[11:47:29] <jonkoops> m_gol: That's not a problem. Since the user can override the version in their bower.json file to use the version for older devices.
+[11:48:37] <jonkoops> It's only an indicator for the Marionette project's compatibility with different versions ov jQuery.
+[11:48:42] <jonkoops> *of
+[11:48:47] <DaveMethvin> oh, like in the written docs?
+[11:49:37] <jonkoops> DaveMethvin: Yeah.
+[11:49:47] <DaveMethvin> right now  you're saying 1.8+ which seems okay
+[11:49:59] <jonkoops> But without all the compatibility research ;)
+[11:50:02] <m_gol> if it's in docs you could write: 'either ">= 1.8.0 < 1.12" or ">= 2.0.0 < 2.2"'
+[11:50:02] <DaveMethvin> if we break something then we'd want to know about it
+[11:50:06] <jonkoops> *which I'm doing now
+[11:50:12] <DaveMethvin> haha
+[11:50:43] <m_gol> btw, DaveMethvin, how is our blog post going?
+[11:50:50] <DaveMethvin> the issue is going to be that we're not perfect and the browser vendors aren't perfect, so some versions may have problems with specific browsers
+[11:50:53] <m_gol> it's been ready for some time
+[11:50:58] <m_gol> at least the Core part
+[11:51:08] <jonkoops> But 2.1.0 shouldn't break compatibilty with let's say 2.1.1 for example?
+[11:51:08] <DaveMethvin> like we're having a chunk of ie10/11 bugs lately that people are discovering
+[11:51:16] <jonkoops> In terms of API
+[11:51:18] <DaveMethvin> right
+[11:51:37] <m_gol> jonhoops: 2.1.0 comes before 2.1.1 so it can't break compatibility with 2.1.1 ;)
+[11:51:38] <DaveMethvin> and we tried to get all our api breakage out in 1.9
+[11:51:49] <m_gol> jonkoops: 2.1.1 can break compat with 2.1.0 (accidentally) ;)
+[11:51:59] <jonkoops> m_gol Other way round ;)
+[11:52:11] <m_gol> but not on purpose
+[11:52:26] <DaveMethvin> i knew what you meant, and yeah we try not to break anything on a patch release
+[11:52:37] <jonkoops> Okay, thanks guys. Appreciate the quick response.
+[11:52:45] <DaveMethvin> normally we'd just add stuff on minor releases but 1.9 was a big change
+[11:52:46] <m_gol> of course there is the private API as well, it can change whenever we need it to change and if sb relies on that, they have a problem
+[11:53:13] <DaveMethvin> jonkoops i hope we managed to obscure things enough that we can't be bamed 
+[11:53:17] <DaveMethvin> :)
+[11:53:26] <m_gol> 1.9 was all about "HOW COULD YOU FUCKERS RELEASE A VERSION WITH SUCH A MAJOR FAULT" or sth
+[11:53:38] <DaveMethvin> ah the good old days!
+[11:53:47] <DaveMethvin> let's do that again!
+[11:53:48] <m_gol> I wasn't here back then ;-(
+[11:54:08] <DaveMethvin> wait until angular 2.0, you'll get it then m_gol 
+[11:54:12] <m_gol> hahaha
+[11:54:23] <jonkoops> Yeah, if there is one thing I learned it's people will complain no matter how hard you try.
+[11:54:49] <DaveMethvin> so as homer simpson said, "never try"
+[11:55:27] <DaveMethvin> scott_gonzalez: did you still want to do a joint version blog post announcement? core can go it alone if you want
+[11:55:55] <DaveMethvin> i need to go back and tweak it to pre-address the complaints of people who can't read good
+[11:56:43] <scott_gonzalez> DaveMethvin: Go ahead and do core by itself.
+[11:56:48] <DaveMethvin> ok
+[11:56:58] <scott_gonzalez> I forget why we were even discussing a joint announcement.
+[11:57:14] <DaveMethvin> just b/c people might ask about UI
+[11:59:08] <m_gol> DaveMethvin: mark the diff somehow so that we could re-check
+[11:59:18] <DaveMethvin> ok
+[12:27:26] <jqcommit> [13jquery-release] 15jzaefferer opened pull request #56: CDN: Allow disabling via cdnPublish flag (06master...06cdn-flag) 02http://git.io/KsKkNg
+[12:31:05] <DaveMethvin> m_gol: although google docs has a diff feature it seems to have decided that my edits were a total rewrite :(
+[12:31:12] <DaveMethvin> Here's the blog post: http://blog.jquery.com/?p=3400&preview=true&preview_id=3400&public=1&nonce=43bbfa084a
+[12:31:45] <DaveMethvin> I think i'll mail around a link for input
+[12:32:01] <m_gol> DaveMethvin: did you change some specific parts or just something here, sth there etc.?
+[12:32:39] <DaveMethvin> mostly the first paragraph and the stuff near the bottom, deleting it to make the post shorter
+[12:36:35] <m_gol> DaveMethvin: s/Firefox won't respect/Firefox used to not respect? It seems the bug is fixed in 28: https://bugzilla.mozilla.org/show_bug.cgi?id=261037
+[12:37:26] <DaveMethvin> oh yay! i'll reword that
+[12:38:10] <m_gol> Firefox fixes its bugs, fortunately ;)
+[12:38:14] <m_gol> can't say that about WebKit
+[12:38:29] <DaveMethvin> well they have fixed several
+[12:38:43] <DaveMethvin> it's more of a problem with IE10 if you ask me
+[12:38:50] <m_gol> maybe recently
+[12:38:51] <DaveMethvin> we can be sure they won't ever fix those
+[12:38:56] <m_gol> you got it quite public with your blog post etc. :)
+[12:39:10] <m_gol> but I've reported a couple of WebKit/Blink bugs to both crbug & bugs.webkit
+[12:39:30] <m_gol> and I got reponses in crbug but not a single comment in WebKit reports
+[12:40:00] <m_gol> not even that some rdar ticket was created
+[12:40:01] <DaveMethvin> mkwst___ and friends seem to have been tracking a lot of stuff down for Blink
+[12:40:18] <DaveMethvin> when it comes to Safari, though .... ugh
+[12:40:20] <m_gol> so now I'm mostly reporting bugs to them because I'm doing it for Blink anyway
+[12:40:27] <m_gol> but I fully expect them to ignore it
+[12:40:48] <m_gol> they've been keeping confirming I'm right recently
+[12:41:20] <DaveMethvin> who cares if it's fixed, as long as you know you're right? :P
+[12:43:18] <m_gol> e.g. https://bugs.webkit.org/show_bug.cgi?id=111307 or https://bugs.webkit.org/show_bug.cgi?id=122416
+[12:43:58] <m_gol> ;)
+[12:45:07] <m_gol> Android 2.3 bug on Japanese phones - can't be anything weirder than that :D
+[12:46:15] <m_gol> DaveMethvin: the rest of the post looks fine
+[12:53:04] <jonkoops> Webkit must your worst nightmare scenario. All those crappy phones with crappy webkit builds.
+[12:53:16] <DaveMethvin> that the carriers won't update
+[12:54:12] <jonkoops> Android is using Chromium for the webview in 4.4 and up by the way.
+[12:54:32] <DaveMethvin> which will be nice, maybe that will put some pressure on apple
+[12:54:40] <snover> it won’t
+[12:54:47] * snover rains
+[12:55:14] * DaveMethvin pulls out umbrella
+[12:55:36] <DaveMethvin> even when it rains you can have a parade
+[12:55:49] <DaveMethvin> but it's probably just the part with the shriners in clown cars
+[12:55:53] <snover> if they can’t figure out that it’s Kind Of A Big Deal to release a version of Mobile Safari that calculates the size of the viewport incorrectly for one orientation and just let the bug sit, it’s pretty hopeless
+[12:56:00] <jonkoops> Yeah, but it should get automatic updates seperate from the OS.
+[12:56:06] <jonkoops> One can oly dream
+[12:57:16] <m_gol> Android 4.4 WebView is frozen at Chrome 30
+[12:57:22] <m_gol> it doesn't update with the browser
+[12:57:28] <m_gol> but they're working on making it happen
+[12:57:36] <m_gol> I wonder how to test it...
+[12:57:53] <jonkoops> That'd be nice
+[12:58:01] <m_gol> probably once they make WebView autoupdate we should test specific Chrome versions and not Android versions as we do now
+[12:58:18] <m_gol> but BrowserStack would need to cooperate in that ;)
+[12:59:37] <m_gol> it would be nice to test on Firefox Mobile as well
+[12:59:41] <m_gol> & Windows Phone
+[12:59:42] <m_gol> etc.
+[12:59:48] <m_gol> we have so much untested surface
+[12:59:51] <m_gol> well, partly tested
+[12:59:58] <m_gol> most code is shared with desktop
+[13:00:06] <m_gol> but there will always be mobile-specific bugs
+[13:00:12] <jqcommit> [13jquery-release] 15jzaefferer closed pull request #56: CDN: Allow disabling via cdnPublish flag (06master...06cdn-flag) 02http://git.io/KsKkNg
+[13:00:42] <snover> appium, chrome apk…
+[13:01:16] <m_gol> we need some machines to host it
+[13:05:10] <gnarf> m_gol: the weird is http://jsfiddle.net/wCQvh/
+[13:06:36] <gnarf> m_gol: we can find machines probably
+[13:06:44] <gnarf> m_gol: we have a few options
+[13:07:01] <m_gol> gnarf: no point in getting to it before we ditch TestSwarm
+[13:07:11] <gnarf> could just use the jenkins box for a bit
+[13:08:23] <m_gol> for now it would mostly be Android 4.3/4.4 + two last Chrome for Android versions & two last Fx
+[13:26:42] <jqcommit> [13jquery-release] 15jzaefferer opened issue #57: _updateBranchVersion: Don't touch bower.json 02http://git.io/S4tHEw
+[13:30:09] <jqcommit> [13jquery-release] 15jzaefferer opened pull request #58: Repo: Only update package.json with nextVersion (06master...06updatebranchversion) 02http://git.io/fLP3VA
+[14:06:12] <jqcommit> [13jquery] 15mzgol pushed 1 new commit to 06master: 02http://git.io/A0oIvA
+[14:06:12] <jqcommit> 13jquery/06master 144f490e5 15Michał Gołębiowski: Support: Add Android support tests results
+[14:07:47] <jqcommit> [13jquery] 15mzgol pushed 1 new commit to 061.x-master: 02http://git.io/7knvmw
+[14:07:47] <jqcommit> 13jquery/061.x-master 146b87914 15Michał Gołębiowski: Support: Add Android support tests results
+[14:11:54] <doesallmagic2> Project jQuery Core build #1129: SUCCESS in 5 min 56 sec: http://jenkins.jquery.com/job/jQuery%20Core/1129/
+[14:11:54] <doesallmagic2> m.goleb: Support: Add Android support tests results
+[14:12:37] <m_gol> \o/
+[14:19:47] <doesallmagic2> Project jQuery Core 1.x build #426: STILL FAILING in 7 min 53 sec: http://jenkins.jquery.com/job/jQuery%20Core%201.x/426/
+[14:19:48] <doesallmagic2> m.goleb: Support: Add Android support tests results
+[15:04:56] <jqcommit> [13jquery.com] 15mzgol tagged 06v2.0.24 at 1468edb29: 02http://git.io/B5of1w
+[17:01:29] <gnarf> scott_gonzalez: think i was reading your mind yo
+[17:01:38] <scott_gonzalez> oh yeah?
+[17:02:03] <scott_gonzalez> Do you remember when/where that came up before?
+[22:53:08] <doesallmagic2> Project jQuery Core Weekly build #20: STILL FAILING in 29 min: http://jenkins.jquery.com/job/jQuery%20Core%20Weekly/20/
+[22:53:09] <doesallmagic2> m.goleb: Support: Add Android support tests results

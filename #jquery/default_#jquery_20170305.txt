@@ -1,0 +1,65 @@
+[00:00:20] <someboy> Hi all.
+[01:16:13] <Xomnom> Is it possible for there to be a race condition in the following, where myDiv is a jQuery selection?
+[01:16:14] <Xomnom>     myDiv.css('font-size', '10px');
+[01:16:16] <Xomnom>     return myDiv.innerHeight();
+[01:16:17] <Xomnom> Like maybe the computer is really slow, and there's a lot of text, with some 1MB inline images with height:1em, and it's all flowing around some floating element; will jQuery block until the correct innerHeight is available? (Assume that the images were already fully loaded before our code set the font-size.)
+[01:17:22] <Xomnom> (of course the innerHeight() can be wrong if an image is not done loading)
+[09:09:51] <blitz-_> Is it a bad idea to build a webapplication around "load"? Ie, each page has its own script and html file and is loaded into a container when called on.
+[10:26:40] <Xomnom> According to my friend: « I remember having a similar problem - if you try to access like innerHeight/innerWidth immediately after setting the font size style, you may get the values that don't reflect the font size change. (It doesn't seem to be JQuery specific).
+[10:26:41] <Xomnom> Element innerWidth/innerHeight and Font size don't seem to cause the js to block until the layout reflows (see https://gist.github.com/paulirish/5d52fb081b3570c81e3a for a list of properties that force layout reflows.) Setting the font size will update the layout visually, but since it doesn't force a reflow, if you immediately access innerWidth/innerHeight of something that ought to change...
+[10:26:43] <Xomnom> ...as a result of the font size changing, it may not give you the desired value.
+[10:26:44] <Xomnom> What I did to work around this is call getBoundingClientRect() on the element. getBoundingClientRect() is slow, but it will immediately trigger a reflow if called on an element. Note that you don't actually have to use the rect returned from getBoundingClientRect(), you can still just get the innerHeight/innerWidth using JQuery later and it will have the right values if you do this. »
+[10:41:02] <pavonia> Is it possible to load a whole HTML document from another website in JQuery, then get a single element from it, and insert this element into my website or extract attributes from it?
+[10:47:08] <Xomnom> Only if the other website configures their server to allow CORS on HTML documents: https://en.wikipedia.org/wiki/Cross-origin_resource_sharing
+[10:54:07] <Xomnom> One workaround is to proxy it through your own webservice
+[10:55:46] <Xomnom> for example, pavonia.net/app makes a request to pavonia server, then pavonia server makes a request to arbitrarywebsite.com and sends the result back to the client
+[10:58:24] <pavonia> Xomnom: I'm not running a web server, I'd like to do that from a local .html file on my PC. How can I test if the external website supports this?
+[10:59:13] <Xomnom> I think at least 99.99% of websites do not allow CORS on HTML documents
+[11:00:00] <Xomnom> are you really the *only* user? if so, you have a lot of flexibility
+[11:01:39] <pavonia> Yes, that's for personal usage only
+[11:02:25] <pavonia> I could write an external script that creates the html file, but I'm wondering if it's possible in JQuery directly
+[11:02:59] <Xomnom> I don't think so, you have to do something extra somewhere
+[11:04:47] <pavonia> Hhm, okay
+[11:05:11] <Xomnom> either you control the external website and can set it to allow CORS, or you write a service that runs on localhost, takes requests from your browser, and repeats the request without saying "hey I'm requesting this in javascript from a page not on your website, do you allow CORS?" which is basically what your browser says when it makes the request
+[11:07:04] <Xomnom> CORS is really mostly meant for images
+[11:07:41] <Xomnom> for example, imgur is configured to allow CORS on its image files, meaning that you can retrieve them via javascript
+[11:08:14] <Xomnom> but allowing CORS on HTML isn't really a thing people do
+[11:10:07] <pavonia> Is CORS also relevant for iframes or are these handled differently?
+[11:11:44] <Xomnom> you can make an iframe containing external content, but your javascript is not allowed to access anything in the iframe, unless you set the iframe to use CORS when you made it
+[11:11:52] <Xomnom> does that make sense?
+[11:12:14] <Xomnom> I guess that's starting to sound like a real reason someone might allow CORS on html
+[11:12:30] <Xomnom> if they wanted people to be able to iframe their stuff and mess with it
+[11:13:36] <Xomnom> I learned about CORS because I'm making an offline app in HTML/JS, and Chrome blocks ajax requests to file:/// saying "CORS not allowed for file:///"
+[11:13:37] <pavonia> "unless you set the iframe to use CORS when you made it" <-- Not sure I understand this. You mean CORs has to be set by the external website, not by the HTMl document that uses the iframe somehow?
+[11:14:07] <Xomnom> yes my explanation was not clear, let me elaborate
+[11:16:28] <Xomnom> if you do new XmlHttpRequest() and set the url to an external website, the xhr will automatically be set to CORS, which tells servers "tell me if you allow CORS; if you don't, then I, the browser, will cancel this request, for the safety of the browser user"
+[11:17:26] <Xomnom> so for example, it might be bad if your bank allowed CORS and allowed another page not from the bank to request something
+[11:17:48] <Xomnom> now suppose you are not doing a XmlHttpRequest
+[11:18:07] <Xomnom> say your page just has a <img> with an external source
+[11:18:24] <Xomnom> this doesn't normally require CORS
+[11:19:05] <Xomnom> but if you wanted in your script to get the bytes composing that image
+[11:20:12] <Xomnom> you wouldn't be allowed, unless the <img> had been like <img crossorigin="anonymous" src="http://externalwebsite.com/blah.jpg">
+[11:20:35] <Xomnom> which would've cause the request to blah.jpg to contain a CORS flag
+[11:22:56] <Xomnom> https://stackoverflow.com/questions/18535161/is-it-possible-to-set-origin-header-for-a-iframe
+[11:23:23] <Xomnom> I'm not sure how to set crossorigin when creating an iframe
+[11:23:36] <Xomnom> but I found that by googling
+[11:25:19] <Xomnom> anyway on the subject of my app, Firefox does allow xhr to file:/// as long as it's in the same folder as the html file of the page
+[11:26:13] <Xomnom> so basically I will have to tell my users "You can only use this if you have (a) Firefox; or (b) a localhost webserver"
+[11:27:56] <pavonia> I'm really new to JQuery, so I guess I'll test some of these things and come back later for further questions. Thanks for your explanation so far!
+[12:32:57] <dglambert> yo
+[13:38:25] <docmur> hey guys, I asked this last night but I still can't figure it out
+[13:38:30] <docmur> I have the followin ajax: http://pastebin.com/CPz7gwcn, and it's calling the right script nad getting the right response, BUT, it's always getting it in Error, even when status is 200
+[16:16:21] <dglambert> Hey I am trying to use the bootstrap button stateful api, but I don't want the content to change, I just want to fade it and prevent users from clicking
+[16:17:01] <dglambert> http://getbootstrap.com/javascript/#buttons
+[16:17:07] <dglambert> I guess I just want the disabled class
+[16:33:02] <shoky_> docmur: the error handler has 3 arguments, log all of them. could be a json parse error
+[16:42:13] <docmur> okay
+[16:55:28] <dglambert> If I have multiple event handlers on the same element using the same event, is it possible to order them in specific way
+[16:56:21] <shoky_> only by attaching them in a specific order
+[17:05:02] <dglambert> I am attaching them in the order I want
+[17:12:57] <dglambert> https://jsfiddle.net/9trmkzrq/2/
+[18:24:43] <R13ose> My code: pastebin.com/vFvJXngk and not sure if using window is the right way to do.  Any suggestions?
+[18:53:15] <R13ose> Hi
+[19:43:36] <skypce> hello all
+[19:44:09] <skypce> how can i move a h4 into a div class img_photo: http://codepen.io/anon/pen/JWKgeN
+[19:44:34] <skypce> i have actually the code , but moves all h4 into all div.img_photo

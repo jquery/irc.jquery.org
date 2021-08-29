@@ -1,0 +1,148 @@
+[17:29:54] <errorous> Hello. I've a function foobar() that makes ajax call and returns results from that ajax call. Now, I've let result = foobar(); After that function's returned result, I need to call another function that makes another ajax call
+[17:30:21] <errorous> how can I make sure second function is executed only once result gets some data/.
+[17:54:04] <robertmaxrees> errorous can you show what you currently have in a jsfiddle?
+[17:54:09] <robertmaxrees> or some other paste service.
+[20:09:15] <errorous> robertmaxrees sorry, missed this. Would just code do? Lots of ajax requests that depend on data received
+[20:09:21] <errorous> rewriting it would take time
+[20:10:18] <robertmaxrees> yeah, just want an example of what you're currently trying to do.,
+[20:16:14] <robertmaxrees> errorous
+[20:18:31] <errorous> robertmaxrees: https://dpaste.com/FNYEXZWPD
+[20:19:04] <robertmaxrees> so trying to expose data like that isn't going to work the way you want.
+[20:19:17] <errorous> robertmaxrees: so, line 138 is calling 2 methods
+[20:19:34] <errorous> I just need them to be executed one after the other
+[20:19:45] <errorous> everything else is fine
+[20:19:56] <robertmaxrees> what you're doing is how you do that.
+[20:20:36] <errorous> well, it doesn't work
+[20:20:59] <robertmaxrees> because create_missing_tags isn't returning a promise.
+[20:21:08] <robertmaxrees> you need to return a promise that you resolve.
+[20:21:13] <errorous> robertmaxrees what should I return there?
+[20:21:19] <errorous> p ?
+[20:21:43] <robertmaxrees> what are you trying to do in create_missing_tags?
+[20:22:32] <errorous> create_missing_tags is already doing what I want it to, calling an method with ajax recursively for every item in array, one request after another
+[20:22:58] <robertmaxrees> let me rephrase - p = p.then( function() { what is this trying to accomplish?
+[20:22:59] <errorous> so, I just need to make sure after all the calls to create_ac_tag are done, to return the promise
+[20:23:22] <errorous> robertmaxrees found that code on SO
+[20:23:46] <robertmaxrees> what do you think it's doing though?  that function doesn't really make sense.
+[20:23:52] <errorous> it calls create_ac_tag() for each item in array and makes sure it doesn't call it before the previous one is done
+[20:23:54] <robertmaxrees> you keep reassigning p do different things.
+[20:24:45] <robertmaxrees> the more traditional way would be to create an array of ajax calls that you then use $.when.apply on.
+[20:24:52] <errorous> robertmaxrees: https://stackoverflow.com/a/47214916/1164124
+[20:25:54] <errorous> robertmaxrees noted. but in this current case, what do I need to do to make that function return promise after foreach is done?
+[20:28:04] <robertmaxrees> var foo = $.Deferred();, then call foo.resolve() when the foreach is done.
+[20:28:19] <robertmaxrees> you'd return foo; at the end.
+[20:30:12] <robertmaxrees> is the order of create_ac_tag calls significant in create_missing_tags?
+[20:30:21] <errorous> robertmaxrees thanks. Do i need to do return deffered in the foreach or is after foreach good too?
+[20:30:32] <robertmaxrees> you can't return anything out of the foreach.
+[20:30:54] <errorous> robertmaxrees: nope, order not really important in the foreach
+[20:31:12] <robertmaxrees> hrm.  then why do you need to wait for each call to finish before doing the next?
+[20:31:28] <robertmaxrees> within just that function i mean.
+[20:31:44] <errorous> I don't want 30 ajax requests sent at once
+[20:31:59] <robertmaxrees> why not?
+[20:32:31] <errorous> seems like and awful idea. Aside from that, want to be able to show an error on error, without actually sending all the request
+[20:32:33] <errorous> s
+[20:32:40] <errorous> s/and/an
+[20:32:55] <robertmaxrees> it isn't an awful idea.  the server can (and should!) be configured to handle maximum simultaneous requests.
+[20:33:02] <robertmaxrees> the browsers can then handle queueing for you.
+[20:33:37] <errorous> yeah, don't wanna rely on that :)
+[20:33:43] <robertmaxrees> why not?
+[20:33:51] <robertmaxrees> browsers and servers are great at it.
+[20:34:03] <errorous> well, long story, but trust me, I don't. neither would you
+[20:34:37] <robertmaxrees> we do rely on that find of functionality at my workplace :)
+[20:35:11] <errorous> yeah, if I was using this only on my servers, I wouldn't mind. Since I'm not, then I do mind :)
+[20:35:45] <robertmaxrees> :shrug: sounds like those servers need to be reconfigured since it places an artificial constraint on your code.
+[20:37:39] <robertmaxrees> either way - instead of placing data in a higher scope, you generally want to pass around the deferred objects $.ajax() returns.
+[20:38:31] <robertmaxrees> and then rely on then/when/etc to handle these sorts of things.
+[20:46:14] <errorous> robertmaxrees: https://dpaste.com/HKWAY4V4L
+[20:47:34] <errorous> that's updated code. But add_tags_to_contact still fires before that one is done
+[21:00:28] <errorous> yeah, not working at all
+[21:01:11] <errorous> robertmaxrees https://dpaste.com/6W2VD8H2D
+[21:01:19] <errorous> that's full new code, if you're interested
+[21:01:42] <robertmaxrees> you want to do something more akin to this: https://dpaste.org/yfBK
+[21:02:21] <robertmaxrees> though that doesn't contain your throttling.
+[21:03:19] <robertmaxrees> (not tested but you get the gist)
+[21:03:21] <errorous> robertmaxrees can't just this code be updated to wait for foreach to be done, and then return promise?
+[21:03:37] <robertmaxrees> it's not the foreach you're waiting on though.
+[21:03:41] <robertmaxrees> it's the .then() calls.
+[21:03:45] <robertmaxrees> err, ajax calls.
+[21:04:56] <robertmaxrees> so part of the confusion here is that the forEach is a crude sort of queue - it's not waiting for each ajax call to finish before running the next iteration.
+[21:05:08] <errorous> it's not?
+[21:05:35] <robertmaxrees> nope.  stick a console.log('foo') as the first line in the foreach and watch what it does.
+[21:06:20] <errorous> is there a way to make it wait for the last ajax to finish and then send promise?
+[21:06:40] <robertmaxrees> yeah, that's what my paste does.
+[21:07:10] <errorous> but it also makes all ajax calls at once?
+[21:07:36] <robertmaxrees> $.when.apply($, foo) - foo is an array of promises (in this case, the ajax calls)
+[21:07:59] <robertmaxrees> yeah.  i guess you could modify it to run each ajax call individually but that's not great user experience.
+[21:08:03] <errorous> so, I could basically just add foo =  before foreach, and that part would work, right?
+[21:08:16] <robertmaxrees> nope.
+[21:08:20] <robertmaxrees> because forEach doesn't return anything./
+[21:08:33] <errorous> and map does?
+[21:08:44] <robertmaxrees> yeah - are you familiar with what map is used for?
+[21:09:08] <errorous> well, like iterator method
+[21:09:12] <robertmaxrees> nope.
+[21:09:25] <robertmaxrees> it's for transforming ("mapping") an array from one format to another.
+[21:11:23] <robertmaxrees> using it for iteration is a great way to cause headaches haha
+[21:13:25] <errorous> :)
+[21:14:01] <errorous> can you also help rewriting the code you actually wrote to make that create_ac_tag be executed after the previous create_ac_tag is done?
+[21:14:26] <robertmaxrees> there's not really a good way to do that :/
+[21:14:44] <robertmaxrees> that sequential requirement is a big part of why this is so unusual and difficult.
+[21:15:49] <robertmaxrees> you want to synchronously execute asychronous code but then use async paradigms to manage it all.
+[21:27:14] <errorous> robertmaxrees: https://dpaste.com/8PV4WCT3U
+[21:27:37] <robertmaxrees> ?
+[21:28:23] <errorous> robertmaxrees: console.log('done creating missing tags'); not firing at all
+[21:29:08] <robertmaxrees> any http errors or anything?
+[21:29:16] <errorous> nope, just console.log( 'tag created' ); fired last
+[21:29:34] <errorous> wait, there's one error
+[21:29:48] <errorous> but doesn't seem like it's affecting
+[21:29:53] <errorous> script.js:47 Uncaught TypeError: Cannot read property 'id' of null
+[21:29:54] <robertmaxrees> what's the error?
+[21:30:06] <robertmaxrees> that can definitely have an impact.
+[21:30:18] <errorous> but after that error, still have tag created from console.log showing
+[21:30:33] <robertmaxrees> are you familiar with how promises handle errors?
+[21:30:46] <errorous> nope, not really
+[21:31:25] <robertmaxrees> weird.
+[21:31:27] <robertmaxrees> got booted.
+[21:32:41] <robertmaxrees> anyway errorous yeah, that error will prevent the .then() from getting called.
+[21:49:43] <errorous> robertmaxrees: now everything works except for one thing
+[21:49:43] <errorous> https://dpaste.com/DMWG55S59
+[21:49:55] <robertmaxrees> what's the one thing?
+[21:50:07] <errorous> robertmaxrees line 16 is always false
+[21:50:25] <robertmaxrees> okay?
+[21:50:31] <robertmaxrees> not sure i can help there.
+[21:50:31] <errorous> and judging by console log from line 14, shouldn'
+[21:50:33] <errorous> t be
+[21:50:47] <robertmaxrees> console.log(typeof response);
+[21:51:16] <robertmaxrees> if that's object, then I'd have to see it.
+[21:52:16] <errorous> robertmaxrees objectg
+[21:52:28] <robertmaxrees> then I'd have to see it.
+[21:52:59] <errorous> robertmaxrees https://pasteboard.co/JPjO3Tl.png
+[21:53:23] <robertmaxrees> console.log(JSON.stringify(response));
+[21:53:59] <robertmaxrees> oh.  because tag_obj doesn't exist.
+[21:54:08] <robertmaxrees> ;)
+[21:54:15] <robertmaxrees> double-check your spelling.
+[21:55:06] <errorous> sorry, I'm an idiot
+[21:55:08] <errorous> thanks
+[21:55:30] <robertmaxrees> nah.  we all make those mistakes.  why i lean on autocomplete in my editor so much.
+[21:55:55] <errorous> autocomplete coitused me over this time
+[21:56:04] <errorous> in another function I have tag_obj
+[21:56:24] <robertmaxrees> gotcha.  might be smart to align those var names or come up with different ones :)
+[21:57:16] <errorous> yeah, it is smart, it's just me not being smart. story of my life
+[21:57:24] <errorous> hence the nick
+[21:57:37] <robertmaxrees> also: why are you using success: at all?
+[21:57:49] <errorous> old habit
+[21:58:36] <errorous> a few years ago I used to return 200 for when status is ok, and 500 on something went wrong
+[21:58:37] <robertmaxrees> gotcha.  i'd convert all of this to use promises and then pass around data that way.  pushing data into that array is going to lead to headaches down the road.
+[21:58:55] <errorous> I think if I add one more promise to my code the world will end
+[21:59:23] <robertmaxrees> nah - just needs a refactor.
+[21:59:35] <errorous> for someone who's proficient in js
+[21:59:41] <errorous> I do it just 'cause I have to
+[22:00:05] <errorous> I rather pay people to do stuff for me, when I know they're capable of doing it. I stick to what I know
+[22:00:15] <robertmaxrees> my point is that you're using both a success callback and a .then() - you can just put that logic in whatever you're calling in that .then()
+[22:00:43] <errorous> yeah, makes much more sense than what I'm doing now
+[22:01:50] <errorous> also, code woooorks :)
+[22:01:55] <robertmaxrees> cool
+[22:01:55] <errorous> erm, our code :)
+[22:02:08] <errorous> thanks a ton for helping out
+[22:02:19] <robertmaxrees> totally.  what we're here for :)
+[23:17:03] <errorous> another problem. How do I check whether an string does not exist as a value of an object property in array of such objects?
+[23:17:32] <errorous> I know how to check whether it exists
+[23:20:12] <errorous> disregard that. I'm an idiot

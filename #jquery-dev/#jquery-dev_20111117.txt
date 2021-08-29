@@ -1,0 +1,704 @@
+[01:02:18] <masklinn> does anybody knows who manages the jquery trac instance?
+[05:22:30] <mikesherov> more comments welcome: https://github.com/jquery/jquery/pull/602
+[05:22:30] <socialhapy> ★ Pull request on jquery by mikesherov (2d, 7h ago): enabling the JSHint option undef:true, part 2 of fixes #10692
+[05:22:55] <mikesherov> note that this pull request is experimental and shouldn't be considered for serious inclusion
+[05:35:17] <DaveMethvin> mikesherov: so it looks like you're an early riser?
+[05:40:29] <mikesherov> East Coast
+[05:40:37] <mikesherov> On the train at 7:58 every day
+[05:40:48] <mikesherov> till 8:58
+[05:41:05] <mikesherov> then 6:53PM to 7:45PM if I can get a seat on the train home
+[05:41:17] <mikesherov> so usually 2 hours of jQuery a day
+[05:42:24] <mikesherov> I'm really focused on getting that JSHint pull request evaluated
+[05:42:49] <mikesherov> I'm currently trying to convince timmywil that we should inline comment, but those measures seem to have failed
+[05:43:29] <DaveMethvin> well now that I know your schedule and that you're trapped in a train seat ... :)
+[05:43:42] <DaveMethvin> now it all makes sense
+[05:44:12] <DaveMethvin> so did you catch the discussion on -bugs about Closure?
+[05:47:00] <mikesherov> Yeah, I did
+[05:47:04] <mikesherov> a bit of it was over my head
+[05:47:29] <mikesherov> but in general, I agree with Rick, there are a lot of unanswered questions there, and my input would be mostly practical
+[05:48:03] <mikesherov> 1. switching all internal uses of .each to for loops, as I had in a ticket I opened a bit back there
+[05:48:56] <mikesherov> 2. identify in code and comments exactly which bytes are there for IE6, IE7, and so on, so that when we do eventually decide to deprecate IE6, it's easy enough
+[05:49:55] <mikesherov> and for now, we can use that info to go back to the community and say hey, IE6 and IE7 is 75B worth of space (making that number up), so which do you want? 75B, or dropped support for ~%10 of the market?
+[05:50:34] <DaveMethvin> those are good but the IE situation may be more complicated than that
+[05:50:41] <mikesherov> 3. identify in code exactly when and in which version things are/were deprecated
+[05:50:41] <mikesherov> A lot of the knowledge here is embedded in a few brains, when it should be embedded in the code
+[05:51:06] <DaveMethvin> for example, the reason .data() works the way it does is because IE6/7/8 leaks memory when plain objs are attached to DOM objects
+[05:51:21] <DaveMethvin> so if we dropped ie8 support it would be worth going back to see if we need all that extra stuff
+[05:51:26] <mikesherov> Sure, that's fine... identify that in code
+[05:51:30] <mikesherov> in the comments
+[05:51:34] <mikesherov> in a standard way
+[05:51:44] <DaveMethvin> i'll agree with that
+[05:52:05] <mikesherov> I shouldn't have to be told that by you.
+[05:52:22] <mikesherov> I should be able to plainly see that (as well as is reasonable) in the code
+[05:52:25] <DaveMethvin> if you look at the clone code and the original support code it did a good job of that but that was one of colin snover's pet peeves too
+[05:52:48] <mikesherov> Yeah, and now +1 additional person knows that fact
+[05:53:00] <mikesherov> :-)
+[05:53:02] <DaveMethvin> I don't think the team has totally worked out what belongs in commit comments vs code comments vs ticket comments
+[05:53:09] <DaveMethvin> each has its benefits
+[05:53:25] <DaveMethvin> if we had it all in the code it would make the logic impossible to read
+[05:54:12] <mikesherov> maybe*
+[05:54:20] <DaveMethvin> anyway, on Closure the problem is that there is a very specific set of rules you have to follow
+[05:54:32] <DaveMethvin> so any aliasing will confuse Closure
+[05:54:47] <mikesherov> Yeah, that part I'm aware of
+[05:54:50] <DaveMethvin> so window.abc and window["abc"] aren't equivalent in its eyes
+[05:55:13] <mikesherov> right, because it doesn't turn string literals into a.b
+[05:55:21] <DaveMethvin> then you have to provide an externs file that declares the interfaces so it won't rename them
+[05:55:31] <mikesherov> it says, if you have array notation, you are using a specific named function
+[05:55:44] <DaveMethvin> and to get the best code reduction you have to compile your code with jquery
+[05:55:59] <kswedberg> DaveMethvin: …and Chad Killingsworth has been providing that externs file for quite some time.
+[05:56:01] <DaveMethvin> that way it knows you're not  using, e.g., .wrapAll and will remove that
+[05:56:07] <DaveMethvin> right
+[05:56:31] <DaveMethvin> but if we had formal support for Closure we should take over that work
+[05:56:51] <DaveMethvin> we'd really have to b/c we would need to test before release
+[05:56:59] <DaveMethvin> to make sure we didn't miss anything
+[05:57:01] <kswedberg> right on
+[05:57:18] <mikesherov_> I didn't know about the externs part of that
+[05:57:40] <mikesherov_> but I guess that makes sense, how else is it supposed to know?
+[05:58:13] <DaveMethvin> but whether we use Closure or allow people to remove parts manually, you can't remove them effectively if t here are dependencies
+[05:58:27] <mikesherov_> right, and there are natural dependencies
+[05:58:32] <mikesherov_> effects, dimensions, css
+[05:58:48] <mikesherov_> oh, train just pulled into the station. I'll being doing some more closure research today.
+[05:58:57] <mikesherov_> Thanks for the mini/abbreivated lesson
+[05:59:01] <DaveMethvin> adios!
+[06:53:12] <DaveMethvin> timmywil: you around?
+[06:54:06] <timmywil> yea
+[06:54:19] <DaveMethvin> how is the support stuff going?
+[06:54:45] <timmywil> is that all that's left?
+[06:55:01] <DaveMethvin> i have one ticket i need to discuss with scott_gonzalez, the one for metaKey
+[06:55:13] <DaveMethvin> other than that, just support
+[06:55:26] <DaveMethvin> afaik
+[06:56:03] <timmywil> John gave me an idea
+[06:56:10] <timmywil> in the recent thread
+[06:57:04] <timmywil> to support closure, support tests probably need to be called by the methods that need them.
+[06:57:23] <DaveMethvin> so lazy-eval everything?
+[06:57:26] <timmywil> so my idea is that we make all support test lazy
+[06:57:29] <timmywil> exactly
+[06:57:39] <timmywil> no doc ready required
+[06:57:42] <DaveMethvin> i like it, i think this would be a good time to take .support private
+[06:58:01] <DaveMethvin> b/c all those props right now are documented
+[06:58:26] <DaveMethvin> in general, the closure needs are the same as the other changes that reduce interdependencies
+[06:58:47] <DaveMethvin> so we should deprecate anything that makes it hard for us to remove those
+[06:59:39] <DaveMethvin> but technically, changing them all to lazy for 1.7.1 is a breaking change since .support is public
+[06:59:43] <timmywil> They can still be stored on jQuery.support for cache, but support properties won't be available until a method that needs it is called.
+[07:00:05] <DaveMethvin> right, and that's a breaking change ... i like it b/c it makes page load faster tho
+[07:00:22] <timmywil> Still, I think most of the community will cheer at this.  Especially if it helps us implement closure.
+[07:00:57] <DaveMethvin> i agree, except for the people who are using .support and we don't know how many of them they are
+[07:01:13] <DaveMethvin> i'm up for it, we should ask JohnResig what he thinks
+[07:02:01] <timmywil> it's true, but we've never had qualms about changing support property names.  offset was lazy before 1.6
+[07:02:02] <JohnResig> I think it's ok to kill off support in a major release
+[07:02:05] <timmywil> 1.7
+[07:02:23] <DaveMethvin> we just had a major release so does that mean 1.8?
+[07:02:25] <JohnResig> and yes to lazy (I just proposed the same thing in my email)
+[07:02:29] <JohnResig> DaveMethvin: yeah
+[07:02:42] <DaveMethvin> timmywil maybe you could refactor now to make them separate
+[07:02:44] <timmywil> lazy and cached
+[07:02:57] <DaveMethvin> and we'll call them at ready for 1.7.1?
+[07:03:09] <timmywil> separate how?
+[07:03:28] <DaveMethvin> the same way they'll be in 1.8, so offset tests by themselves etc
+[07:03:55] <DaveMethvin> but it sounds like we need to keep calling them by ready in 1.7.1
+[07:03:56] <timmywil> oh, make the offset tests lazy again?
+[07:04:51] <timmywil> For now, I think 1.7.1 should remove the invisible body and call any support tests that need a body at doc ready
+[07:05:11] <DaveMethvin> that sounds good
+[07:05:33] <DaveMethvin> for offset, i think we could justify moving back to lazy since they were lazy in 1.6.4
+[07:05:42] <DaveMethvin> were'nt they?
+[07:05:47] <timmywil> yes
+[07:05:59] <timmywil> that didn't land until 1.7
+[07:06:03] <DaveMethvin> so nobody can be depending on them yet
+[07:06:13] <timmywil> prolly not
+[07:06:16] <DaveMethvin> and it does seem to be causing some issues
+[07:06:30] <DaveMethvin> or maybe could, we never go to the bottom of that blackberry issue
+[07:06:36] <timmywil> well, not anymore, but we did have issues
+[07:06:45] <timmywil> ah right
+[07:07:13] <DaveMethvin> he said it didn't crash when he called offset later
+[07:07:25] <DaveMethvin> but still, the less done at load the better
+[07:07:59] <timmywil> I would love to have support tests lazy anyway (except the ones in Sizzle)
+[07:08:47] <timmywil> not much point in doing a bunch of tests at the first Sizzle call
+[07:09:18] <timmywil> but those aren't on .support so
+[07:13:00] <timmywil> DaveMethvin: Ok, not all support tests can be lazy
+[07:13:26] <timmywil> but I think we can definitely move all of the ones that run at doc ready to lazy calls
+[07:14:04] <timmywil> some function definitions are dependant on support tests and closure won't have a problem with those
+[07:14:18] <DaveMethvin> so let's separate this into two tasks, one is to just deal with 1.7.1 issues and the other is the 1.8 one which will be to make support as lazy as possible with closure in mind
+[07:14:35] <timmywil> right ok
+[07:14:47] <timmywil> I'll make another ticket then
+[07:16:50] <DaveMethvin> scott_gonzalez: i don't think we closed our discussion on event.metaKey ... is the current 1.7 behavior gonna work for draggable?
+[07:19:30] <timmywil> ?10814
+[07:19:31] <bot-t> [#10814] make support as lazy as possible with closure in mind (assigned bug) - http://jqbug.com/10814
+[07:35:00] <timmywil> DaveMethvin: alright, IE6 support issue fixed and I've checked safari.  I'm going to run through 3.6 then push this out
+[07:35:07] <timmywil> ff3.6
+[07:35:13] <DaveMethvin> sounds great!
+[07:36:33] <timmywil> brb
+[07:57:25] <scott_gonzalez> DaveMethvin: yeah, UI will just continue to be broken in the way that it has been forever
+[07:57:37] <scott_gonzalez> there's really nothing core can do for us (other than OS sniffing)
+[07:57:50] <DaveMethvin> step away from the keyboard :D
+[07:57:56] <DaveMethvin> ok just wanted to be sure
+[07:58:16] <DaveMethvin> oh yeah today's the code sprint right?
+[08:59:41] <ben_alman> feels like the jquerymobile.com site is super slow
+[08:59:47] <ben_alman> result of getting resig-bombed prolly
+[09:00:09] <ryanneufeld> possibly
+[09:00:21] <ryanneufeld> ben_alman: you killed it yesterday dude
+[09:00:28] <ben_alman> thanks
+[09:00:44] <ben_alman> i hope a few more people are considering unit testing their code
+[09:00:48] <ryanneufeld> I am
+[09:00:55] <DaveMethvin> not me
+[09:00:55] <ben_alman> it's so freakin easy
+[09:00:59] <DaveMethvin> :P
+[09:01:02] <ryanneufeld> I was just gonna ask you about nodeunit vs qunit
+[09:01:19] <ben_alman> i use nodeunit on my non-jquery javascript stuff now
+[09:01:31] <ben_alman> since i'm typically wrtiing modules that work in node.js and the browser
+[09:01:41] <ryanneufeld> okay, would it be good for integration unit tests?
+[09:01:46] <ben_alman> nodeunit works in the browser, although i have yet to use it
+[09:01:48] <ben_alman> not sure
+[09:02:09] <ryanneufeld> for testing jquery based stuff then, qunit would be your suggestion?
+[09:02:11] <ben_alman> i've only used it for simple unit tests
+[09:02:20] <ben_alman> ryanneufeld, yes
+[09:02:25] <ben_alman> it's worked for me
+[09:02:31] <ryanneufeld> clearly
+[09:02:44] <ben_alman> i have yet to see how nodunit behaves with jquery plugins, i might switch to it
+[09:02:56] <ryanneufeld> we don't even have a build system per-se at the moment
+[09:03:04] <ben_alman> nodeunit doesn't work in < ie8 afaik because it uses stuff like Object.keys() internally
+[09:03:10] <ryanneufeld> ah
+[09:03:14] <ben_alman> but it should work in modern browsers
+[09:03:19] <ben_alman> i've yet to test this, i've just heard it
+[09:03:24] <ben_alman> qunit works in all browsers
+[09:03:25] <ryanneufeld> I only use chrome/ff
+[09:03:29] <ben_alman> and has a much prettier output
+[09:03:34] <ryanneufeld> on a mac
+[09:05:41] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/z6YNnA
+[09:05:41] <jqcommit> [jquery/master] Fix #10812, let .before() and .after() work on empty collections. - Dave Methvin
+[09:09:02] <ben_alman> DaveMethvin, rwaldron, timmywil have you guys considered leaving master as the current release version and doing all work in a dev branch which is then merged into master at release-time?
+[09:09:13] <ben_alman> i think it would be good
+[09:09:32] <DaveMethvin> how is it better?
+[09:09:53] <ben_alman> master can always be linked to as the latest release
+[09:10:04] <ben_alman> it's never in a state of "not a final release"
+[09:10:28] <DaveMethvin> it's tagged
+[09:10:47] <ben_alman> think of master as a tag that always points to the latest release
+[09:10:54] <ben_alman> anyways, just an idea
+[09:11:19] <ben_alman> i think i'm going to be doing this with all my stuff from now on to keep people from being confused by what master is
+[09:11:30] <ben_alman> and pulling down something that's incomplete
+[09:11:43] <ben_alman> not sure yet
+[09:11:50] <ben_alman> but the argument is compelling
+[09:12:18] <eddiemonge> but then it makes it confusing for people who want to contribute
+[09:12:32] <eddiemonge> and more work as they have to select a different branch when submitting a pr
+[09:12:34] <ben_alman> the first think rwaldron tells people is to branch
+[09:12:50] <ben_alman> it's not hard because that's what they should be doing anyways
+[09:13:08] <rwaldron> ben_alman that's not "git"
+[09:13:09] <ben_alman> if they're not branching, they're making their lives harder.. if they want to have multiple PRs out simultaneously
+[09:13:11] <rwaldron> that's "svn"
+[09:13:52] <ben_alman> rwaldron, it's whatever you want it to be. http://nvie.com/posts/a-successful-git-branching-model/
+[09:14:28] <rwaldron> http://zachholman.com/talk/how-github-uses-github-to-build-github
+[09:14:39] <eddiemonge> i meant they not a branch on their checkout but the branch they are submitting the pr against
+[09:14:50] <ben_alman> github has an internal dev team, jquery has "the masses"
+[09:14:58] <ben_alman> github != git
+[09:15:01] <rwaldron> ben_alman pull tags
+[09:15:06] <rwaldron> yeah no shit
+[09:15:18] * ryanneufeld munches on some popcorn
+[09:15:23] <rwaldron> i'm sick of having this fucking argument with people
+[09:15:38] <ben_alman> lol
+[09:15:38] <rwaldron> want snapshots of stable releases? use tags
+[09:15:54] <rwaldron> 1 branch per feature/ticket/bug
+[09:15:59] <ben_alman> rwaldron, i'll tell you the main motivation
+[09:16:00] <rwaldron> merge back to master
+[09:16:01] <ben_alman> want to hear it?
+[09:16:08] <ben_alman> you may think it's silly.
+[09:16:12] <ben_alman> but i'll tell you.
+[09:16:28] <rwaldron> i have 14 minutes left in this meeting... the floor is yours
+[09:16:44] <rwaldron> (ie. i'm not paying attention to the client anymore)
+[09:17:16] <ben_alman> when master is constantly changing, there's no URL i can ALWAYS send someone to to see "the latest release". unless you always create a new "latest" tag that points to the latest tag. Right now, I have to know what the latest version is and explicitly reference that
+[09:17:38] <ben_alman> if it was a dev branch that was constantly changing, i'd at least know master was always the latest release.
+[09:17:51] <ben_alman> that's the main reason, for me
+[09:18:06] <DaveMethvin> ben_alman: http://code.jquery.com/jquery-latest.js
+[09:18:10] <ben_alman> "master" would always point to the latest tag, automaticall
+[09:18:16] <ben_alman> DaveMethvin, i'm not talking about built files
+[09:18:25] <ben_alman> i'm talking about files in the repo
+[09:18:29] <ryanneufeld> latest stable git?
+[09:18:30] <ben_alman> this goes for any project
+[09:18:47] <ben_alman> it would be nice to have a ref that points to the latest release at any given time
+[09:18:50] <DaveMethvin> but as far as we are concerned for the purposes of advancing the project, master is the latest
+[09:18:59] <DaveMethvin> if someone reports a bug we want it against what it on master
+[09:19:03] <ben_alman> well it's the latest commit, not the latest release
+[09:19:10] <ben_alman> fair enough
+[09:19:13] <ben_alman> just an idea
+[09:19:18] <rwaldron> weird
+[09:19:20] <DaveMethvin> right and that is what we care about, the current state of the art
+[09:19:23] <rwaldron> there used to be a tag url
+[09:19:27] <rwaldron> like branch url
+[09:19:57] <ben_alman> how about a tag called "latest" that is recreated whenever a new tag is made
+[09:20:09] <ben_alman> that always points to the latest release?
+[09:20:16] <ben_alman> that would have the same effect
+[09:20:25] <rwaldron> I can get down with that
+[09:20:26] <ben_alman> and could be useful
+[09:20:31] <rwaldron> also, it's really easy
+[09:20:34] <ben_alman> yeah
+[09:20:37] <rwaldron> so, yeah
+[09:20:42] <rwaldron> +1 to a "latest" tag
+[09:20:42] <ben_alman> not sure if github caches tags
+[09:21:18] <ryanneufeld> As a contributor, I think that's great
+[09:21:30] <ryanneufeld> My question is, how would that effect PR?
+[09:21:38] <ben_alman> it wouldn't
+[09:21:39] <rwaldron> It wouldnt
+[09:21:41] <ryanneufeld> would I need to clone from master and branch off of that?
+[09:21:45] <rwaldron> no
+[09:21:47] <rwaldron> master
+[09:21:50] <rwaldron> always
+[09:21:58] <rwaldron> latest is "outbound"
+[09:22:06] <rwaldron> if that makes it easier to think about
+[09:22:16] <rwaldron> like in breaking bad...
+[09:22:31] <ben_alman> instead of needing to know that jQuery was at 1.7 to get the url https://github.com/jquery/jquery/tree/1.7
+[09:22:35] <ben_alman> it could just be https://github.com/jquery/jquery/tree/latest
+[09:22:36] <ryanneufeld> I haven't see that show yet....
+[09:22:37] <rwaldron> "latest" refers to the fresh batch of meth
+[09:22:46] <rwaldron> master is the batch we're currently working on
+[09:22:49] <rwaldron> ;)
+[09:22:57] <ryanneufeld> right, so all PR should be against master
+[09:23:10] <rwaldron> ben_alman that's a branch, but works just the same
+[09:23:39] <ben_alman> actually it might be good to have a few tags, like "stable" or "unstable" or "final" etc
+[09:23:49] <ryanneufeld> master === unstable
+[09:23:55] <ben_alman> to differentiate between the latest full release vs a beta/rc release
+[09:23:57] <ben_alman> but that's it
+[09:23:59] <ben_alman> well
+[09:24:06] <ben_alman> but master might not be 1.7rc2
+[09:24:18] <ben_alman> it might be in between 1.7rc2 and 1.7rc3 or whatever
+[09:24:44] <ryanneufeld> I see, but then you're kinda going down the debian route of "Which repo do i choose"
+[09:25:04] * ryanneufeld playing devils advocate here
+[09:25:09] <ben_alman> i don't get it
+[09:25:09] <rwaldron> I nominate the "8=====D" tag
+[09:25:18] <ben_alman> people do dev from master
+[09:25:21] <rwaldron> yeah ryanneufeld, totally
+[09:25:25] <ben_alman> these are just convenient links
+[09:25:27] <rwaldron> "fuck, which do i use???"
+[09:25:41] <ben_alman> so like, if i'm giving a presentation and want to link to a specific set of unit test files
+[09:25:47] <ryanneufeld> ben_alman: yeah, the would be, but it requires more explanation as to which one to use
+[09:25:52] <ben_alman> i don't want people to have to go to master which might be broken
+[09:25:54] <rwaldron> Ticket #666: My 8====D Script doesn't work on jQuery Unstable Final rc1 branch
+[09:25:58] <ben_alman> i want them to go to a version.
+[09:26:01] <ben_alman> but which version?
+[09:26:02] <rwaldron> Closed: GTFO
+[09:26:03] <ben_alman> the latest versions.
+[09:26:17] <ben_alman> and i don't want to update my preso every time jquery releases a new version
+[09:26:19] <ben_alman> :)
+[09:26:27] <ryanneufeld> ben_alman: then use the tags ;)
+[09:26:44] <ben_alman> there is no "latest" tag
+[09:26:53] <ryanneufeld> or write a build script to update your preso
+[09:27:21] <rwaldron> ben_alman i'm pretty sure jzaefferer could help you create a link to the "always latest" swarm tests...?
+[09:27:26] <rwaldron> i dont know if that's useful
+[09:27:28] <rwaldron> maybe it's not
+[09:27:51] <ben_alman> swarm tests are linked via sha
+[09:27:59] <ben_alman> there's no link to the latest sha
+[09:28:09] <ben_alman> i'm sure it could be created
+[09:28:12] <ben_alman> but it doesn't exist
+[09:28:21] <ben_alman> but it wasn't that
+[09:29:05] <rwaldron> that's what I mean
+[09:29:37] <rwaldron> http://latest.swarm.ly/for-ben => http://swarm.jquery.org/uahiuaerg07wy4pguqhf7qbryqcobuypbq7y4oyb8b8
+[09:29:42] <rwaldron> or whatever
+[09:29:44] <rwaldron> ;)
+[09:30:19] <ben_alman> haha
+[09:31:13] <timmywil> back, sry was gone so long
+[09:31:38] <ben_alman> it's ok apparently i'm talking crazy again
+[09:31:55] <ben_alman> i'm that guy that tries to make more work for you guys
+[09:37:32] <ryanneufeld> ben_alman: we still love you
+[09:40:12] <ryanneufeld> ben_alman: you still there?
+[09:40:21] <ben_alman> hi
+[09:43:20] <ryanneufeld> I was wondering if you would be interested in hearing about the JS setup I have right now and perhaps offering some direction for improvement and moving towards unit testing?
+[09:44:20] <ben_alman> sure
+[09:45:09] <ryanneufeld> what's the best way to communicate? In here? PM? Gtalk?
+[09:45:40] <ben_alman> well in here might be good until people tell us to get lost, as they might have good suggestions
+[09:45:47] <ben_alman> i'm not an expert, i only know what works for me
+[09:46:02] <ryanneufeld> sure
+[09:46:09] <ben_alman> rwaldron, who isn't in here right now, also knows a lot about testing
+[09:46:26] <ryanneufeld> basically at the moment we have a dir structure like this : /js/{raw,min}
+[09:46:44] <ryanneufeld> we save our js to /js/raw/
+[09:47:03] <ryanneufeld> then we have a script that automagically runs and updates the minified code in /min
+[09:47:44] <ryanneufeld> we also have an htaccess file that determines if you're on our test server or live and will serve the raw if you're on a dev box
+[09:47:49] <ryanneufeld> easier to debug that way
+[09:48:19] <ryanneufeld> we also have /js/g/generate.php which via htaccess get's passed the names of the JS files we want
+[09:48:28] <ryanneufeld> and concats them on the fly
+[09:49:19] <ryanneufeld> for example http://www.metrolyrics.com/js/g/footer-mod_tab_box--artist_fav--artist_overview.js?g=1
+[09:49:40] <ryanneufeld> the footer- tells the script to include some default footer js
+[09:49:58] <ryanneufeld> then each -- separated name after that is a js file in /min or /raw
+[09:50:51] <ryanneufeld> the thing is that each page needs it's own js, so I was tasked with coming up with this system to only load JS that was needed
+[09:50:54] <ben_alman> it would be cool to give each list of files a unique hash
+[09:51:09] <ryanneufeld> yeah, I've thought of that too
+[09:51:17] <ryanneufeld> then we'd need to maintain that somehow
+[09:51:17] <ben_alman> that is used in the generated url instead of all the filenames
+[09:51:24] <ben_alman> of course
+[09:51:41] <ryanneufeld> also, order is preserved
+[09:52:02] <ryanneufeld> so in my example artist_overview is after artist_fav
+[09:52:06] <ben_alman> there are dependency management systems and build processes around this kind of thing
+[09:52:19] <ryanneufeld> right
+[09:52:36] <ryanneufeld> I was thinking about AMD+require.js
+[09:52:48] <ryanneufeld> also we're using yepnope to load the scripts
+[09:52:49] <ben_alman> never used it, but i hear it's cool
+[09:53:00] <ryanneufeld> not that it changes things much
+[09:53:19] <ben_alman> yepnope is cool, but it doesn't optimize http requests if many polyfill scripts are being loaded
+[09:53:47] <ryanneufeld> not sure that's an issue for us right now
+[09:53:54] <ben_alman> k
+[09:53:55] <ryanneufeld> see this http://beta.metrolyrics.com/js/g/footer-mod_tab_box--artist_fav--artist_overview.js?g=1
+[09:54:03] <ryanneufeld> metrolyrics///metrolyrics
+[09:54:29] <ryanneufeld> same code generating both examples, it just changes the include path if it's on our beta site
+[09:54:37] <ryanneufeld> oh shat
+[09:54:42] <ryanneufeld> forgot
+[09:54:51] <ryanneufeld> I set beta to produce min code too
+[09:55:01] <timmywil> DaveMethvin:https://github.com/timmywil/jquery/compare/master...1.7.1%2Fsupport
+[09:55:07] <timmywil> should I leave those tests in?
+[09:55:15] <timmywil> they are browser and version specific so it might be fine
+[09:55:26] <timmywil> but we've never done that before
+[09:56:03] <ryanneufeld> ben_alman: http://chopapp.com/#5zrzqk90
+[09:56:11] <ryanneufeld> our un-minified code
+[09:56:18] <DaveMethvin> for now they seem like the would be helpful for debugging  so what the heck
+[09:56:36] <DaveMethvin> everything passing now timmywil
+[09:56:38] <DaveMethvin> ?
+[09:56:50] <timmywil> yea, but I haven't run the full suites
+[09:57:48] <ben_alman> i dunno ryanneufeld
+[09:58:14] <ryanneufeld> no worries
+[09:58:42] <timmywil> i'll do that
+[10:01:06] <jzaefferer> DaveMethvin: jenkins had crashed, the bot jq-jenkins is back now :-)
+[10:02:01] <johnbender> question for you core guys
+[10:02:04] <DaveMethvin> jzaefferer: he's my new buddy now that our tests usually pass, tell him i'm sorry about all that stuff
+[10:02:10] <DaveMethvin> fire john
+[10:02:21] <johnbender> how does the stable branch work with pull requests
+[10:02:34] <johnbender> to bugfix pr submitters have to target it directly?
+[10:02:48] <DaveMethvin> master is our most current work
+[10:02:50] <johnbender> I'm wondering if it's easier for people to submit bugs if we use master as the stable branch
+[10:02:51] <DaveMethvin> and we ask prs against that
+[10:03:05] <DaveMethvin> lol johnbender did ben_alman send you here?
+[10:03:11] <johnbender> oh no
+[10:03:12] <eddiemonge> rwaldron and ben_alman were literally having this conversation earlier lol
+[10:03:16] <johnbender> hah
+[10:03:20] <DaveMethvin> like half an hour ago
+[10:03:20] <johnbender> great minds I guess?
+[10:03:45] <DaveMethvin> we usually ask for people to test against master since we may have fixed the bug
+[10:04:01] <DaveMethvin> so a bug or patch against stable woudln't help so much
+[10:04:18] <johnbender> DaveMethvin: thats a good point
+[10:04:27] <johnbender> in the process of building features you might indeed fix bugs
+[10:04:47] <DaveMethvin> or just have already patched for the next minor release
+[10:04:56] <DaveMethvin> like, right now master is on the verge of birthing 1.7.1
+[10:05:06] <DaveMethvin> i can see the head crowning now
+[10:05:13] <johnbender> lol gross
+[10:05:27] <DaveMethvin> bout as painful too
+[10:05:39] <johnbender> DaveMethvin: do you guys just do branches for major new features?
+[10:05:44] <DaveMethvin> yeah
+[10:05:54] <DaveMethvin> master tends to be the latest current stuff
+[10:06:23] <DaveMethvin> we've talked about some other arrangements, for example if we had a stable branch, but we've tried to avoid developing in two branches
+[10:06:26] <johnbender> DaveMethvin: so stable is really just a snapsho of how it was at release? like a tag that you can make hotfix releases on?
+[10:06:39] <DaveMethvin> we have a tag but we don't make hotfixes
+[10:06:53] <DaveMethvin> anything broken in 1.7 gets fixed on master and released as 1.7.1
+[10:07:01] <DaveMethvin> then master continues on as 1.7.2pre
+[10:07:14] <johnbender> DaveMethvin: so what does stable do for you guys
+[10:07:40] <DaveMethvin> if it's stable it's in the past, we don't go back and change 1.6.4 for example once we release 1.7
+[10:07:52] <DaveMethvin> there will be no 1.6.5 iow
+[10:08:02] <johnbender> DaveMethvin: so its basically a tag?
+[10:08:08] <DaveMethvin> yep
+[10:08:13] <johnbender> alright good to know
+[10:08:33] <johnbender> I need to noodle on this a bit since we have some _massive_ features we have to build
+[10:08:53] <johnbender> like as not we'll just do what you guys do
+[10:08:54] <DaveMethvin> yeah we've tended to build those on branches and then land them in one massive orgy of destructino
+[10:09:11] <johnbender> DaveMethvin: "orgy of destruction" was the image I had in my mind :D
+[10:09:17] <DaveMethvin> yeah
+[10:09:25] <johnbender> kk
+[10:09:25] <johnbender> thanks very much sir!
+[10:09:34] <DaveMethvin> np, good luck
+[10:25:59] <timmywil> DaveMethvin: I'm about to have to leave again, but the only fail was IE9 related to the before/after change
+[10:26:13] <DaveMethvin> hmmm, i'll look at that
+[10:26:26] <timmywil> i'll go ahead and commit and make any required changes, if any, when I get back
+[10:26:35] <DaveMethvin> sounds good
+[10:26:51] <DaveMethvin> jzaefferer: how would Closure know that you weren't using JSONP?
+[10:26:58] <timmywil> ah, actually, need to leave now, i'll commit as soon as i get back
+[10:27:01] <DaveMethvin> k
+[10:27:03] <timmywil> busy day
+[10:27:22] <rwaldron> hahah
+[10:27:30] <rwaldron> julian used "all magic" in a real sentence
+[10:27:35] <rwaldron> +9001
+[10:28:23] <DaveMethvin> sneaky
+[10:29:10] <jzaefferer> DaveMethvin: good reply, thanks for the PDF
+[10:29:27] <jzaefferer> you're right about having to untangle the mess one way or the other
+[10:29:30] <DaveMethvin> wait until you start reading it and the room begins to spin
+[10:36:24] <jzaefferer> well, that's why I tried to get the CC team to fix their side...
+[10:47:47] <rwaldron> DaveMethvin http://closure-compiler.appspot.com/code/jsce0b7e4a145c3539f5b53aad6295c585c/default.js
+[10:48:21] <DaveMethvin> rwaldron: what is that?
+[10:48:24] <rwaldron> I just created a test "program" that included jQuery full size source and a 3 line "program" at the end, in the same source
+[10:48:37] <rwaldron> $(function() {
+[10:48:37] <rwaldron> console.log( "All I need is core and events" );
+[10:48:37] <rwaldron> });
+[10:48:58] <rwaldron> the result i pasted above is the output from advanced mode
+[10:49:02] <DaveMethvin> i saw that part :)
+[10:49:24] <DaveMethvin> so yeah, step one is to reduce dependencies
+[10:49:25] <rwaldron> Compiled Size:	81.93KB (30.77KB gzipped)
+[10:49:40] <DaveMethvin> oh does it work?
+[10:49:49] <rwaldron> Not sure
+[10:50:03] <rwaldron> that's only 1-2k difference form what we have
+[10:50:20] <rwaldron> i would think that it should've removed jQuery.ajax
+[10:50:23] <rwaldron> at very least
+[10:50:47] <danzik17> also look at the top of that file - are those 3 globals resulting from closure i assume?
+[10:50:55] <rwaldron> oh shit
+[10:51:06] <rwaldron> danzik17 yeah... you're absolutely right.
+[10:51:16] <DaveMethvin> did you have an externals file btw?
+[10:55:29] <rwaldron> No, I pasted in
+[10:55:31] <rwaldron> but i can do that
+[10:55:33] <rwaldron> one sec
+[10:56:25] <rwaldron> DaveMethvin http://dl.dropbox.com/u/3531958/jquery-cc-test.js
+[10:56:54] <DaveMethvin> i'll look at this later, prolly tonight, i have to get 1.7.1 out
+[10:57:08] <rwaldron> ok
+[10:57:14] <rwaldron> need any help on that?
+[10:57:41] <DaveMethvin> just one bug that i introduced this morning
+[11:02:11] <rwaldron> way to go
+[11:02:13] <rwaldron> geez...
+[11:02:17] <rwaldron> ;)
+[11:08:04] <DaveMethvin> hey rwaldron: would you expect the the paragraph element created by $("<p>test</p>") to  have a parent?
+[11:10:52] <rwaldron> weird
+[11:10:57] <rwaldron> my answer was "no"
+[11:11:12] <rwaldron> I would expect that it mght eventually be attached to something
+[11:11:43] <rwaldron> but nothing about that exact snippet would imply a parent element
+[11:11:48] <DaveMethvin> it always has been
+[11:11:54] <rwaldron> however, I'm pretty sure that one is needed
+[11:12:00] <rwaldron> in order to make that
+[11:12:24] <rwaldron> well, not "pretty sure"
+[11:12:31] <DaveMethvin> right, it's the div that parented it inside .clean() and then in later versions the frag that adopted it
+[11:12:31] <rwaldron> totally certain
+[11:12:43] <rwaldron> exactly
+[11:13:01] <DaveMethvin> but i think there are assumptions in the code that are wrong because of it.
+[11:13:05] <rwaldron> my initial response was from a "what most users think" POV
+[11:13:25] <rwaldron> if that makes sense
+[11:13:29] <DaveMethvin> "rwaldron, put youself in the shoes of a loser, what do you think?"
+[11:13:39] <rwaldron> "duuhhhhh"
+[11:13:41] * rwaldron drools
+[11:13:49] <DaveMethvin> yeah it certainly surprised me until i said "oh  yeah"
+[11:14:27] <DaveMethvin> but it seems to make the code in .before() and .after() wrong for the case where the elements aren't attached to anything
+[11:15:11] <DaveMethvin> anyway i have a note to look at it later, gotta finish the release
+[11:16:14] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/PFUHvw
+[11:16:14] <jqcommit> [jquery/master] Use .wrapAll to wrap both text nodes in #10812 so IE9 likey. - Dave Methvin
+[11:19:04] <DaveMethvin> ?swarm
+[11:19:04] <bot-t> Swarm Status: http://swarm.jquery.org/user/jquery/ http://swarm.jquery.org/user/jqueryui/ http://swarm.jquery.org/user/qunit/ http://swarm.jquery.org/user/jquerycolor/ -- Jenkins http://swarm.jquery.org:8080
+[11:19:23] <jaubourg> Hey Dave
+[11:19:37] <jaubourg> I really need to find a new IRC client for windows
+[11:19:56] <jaubourg> I have to rely on the webchat to be able to connect to freenode :/
+[11:22:46] <rwaldron> timmywil yt?
+[11:25:04] <jaubourg> ...
+[11:27:10] <rwaldron> jaubourg i used to use http://code.google.com/p/pchat-irc/
+[11:27:15] <rwaldron> its a fork of xchat
+[11:27:19] <rwaldron> that sucks way less
+[11:30:37] <jaubourg> thanks rick :)
+[11:30:45] <DaveMethvin> jaubourg: i use pidgin
+[11:31:16] <DaveMethvin> just saw your q jaubourg
+[11:31:25] <ajpiano> jaubourg: http://forum.jquery.com/topic/deferred-callback-list-behavior-and-stoponfalse
+[11:32:00] <jq-jenkins> Project jQuery build #206: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery/206/
+[11:32:01] <bot-t> (26 hours 30 mins ago) <DaveMethvin> tell jq-jenkins I take back almost everything i said about you. A.most
+[11:32:01] <jq-jenkins> * dave.methvin: Fix #10812, let .before() and .after() work on empty collections.
+[11:32:01] <jq-jenkins> * dave.methvin: Use .wrapAll to wrap both text nodes in #10812 so IE9 likey.
+[11:32:19] <jaubourg> ajpiano: arf
+[11:32:29] <jaubourg> gotta go right now but I'll answer
+[11:32:46] <jaubourg> seems like I'm condemned to answer Deferred questions these days ;)
+[11:33:05] <ajpiano> heh
+[11:33:46] <ryanneufeld> jaubourg: you *are* the expert it seems :p
+[11:34:12] <DaveMethvin> hey jzaefferer what's up with jq-jenkins? he says this is failing: http://swarm.jquery.org/job/434/
+[11:34:41] <DaveMethvin> poopy poopy liar-bot
+[11:35:35] <DaveMethvin> oh it looks like that's an old job??
+[11:36:08] <DaveMethvin> nope it's the right one
+[11:42:24] <timmywil> back
+[11:42:30] <timmywil> i'll get this out
+[11:42:47] <DaveMethvin> hey timmywil here's the latest job: http://swarm.jquery.org/job/434/
+[11:42:59] <DaveMethvin> jenkins said that is failing but i don't se why
+[11:43:07] <timmywil> looks good, whoever has that safari should disconnect it
+[11:43:38] <DaveMethvin> it's not me
+[11:48:47] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/UlFbiw
+[11:48:47] <jqcommit> [jquery/master] Remove the invisible body in support; Add temporary tests to verify correct support completions for upcoming support changes. - timmywil
+[11:49:14] <timmywil> ?swarm
+[11:49:15] <bot-t> Swarm Status: http://swarm.jquery.org/user/jquery/ http://swarm.jquery.org/user/jqueryui/ http://swarm.jquery.org/user/qunit/ http://swarm.jquery.org/user/jquerycolor/ -- Jenkins http://swarm.jquery.org:8080
+[11:53:37] <jq-jenkins> Project jQuery build #207: STILL FAILING in 4 min 39 sec: http://swarm.jquery.org:8080/job/jQuery/207/
+[11:53:37] <jq-jenkins> timmywillisn: Remove the invisible body in support; Add temporary tests to verify correct support completions for upcoming support changes.
+[11:57:36] <timmywil> DaveMethvin: http://swarm.jquery.org/job/435/
+[11:58:07] <DaveMethvin> yay! i guess that jenkins guy don't know NOTHIN!
+[11:58:08] <timmywil> i'm not sure what that fail was in opera, but I ran it again focused
+[11:59:09] <timmywil> DaveMethvin: anything else before rc?
+[11:59:28] <DaveMethvin> i think that does it
+[11:59:39] <DaveMethvin> we shouldn't push our luck :)
+[12:00:05] <DaveMethvin> i have a meeting i need to get ready for so I guess the release will happen tonight
+[12:00:19] <DaveMethvin> thanks for cleaning this up timmywil!
+[12:00:34] <timmywil> np :)
+[12:01:13] <timmywil> final size difference: -106
+[12:01:52] <DaveMethvin> nice
+[12:02:58] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/w7P9pQ
+[12:02:58] <jqcommit> [jquery/master] Landing pull request 604. Updates bind to on in src/ajax.js. Fixes #10817. - Rick Waldron
+[12:02:59] <timmywil> went ahead and landed that
+[12:04:09] <DaveMethvin> MOAR SHRINKAGE
+[12:07:05] <jq-jenkins> Project jQuery build #208: STILL FAILING in 3 min 59 sec: http://swarm.jquery.org:8080/job/jQuery/208/
+[12:07:05] <jq-jenkins> timmywillisn: Landing pull request 604. Updates bind to on in src/ajax.js. Fixes #10817.
+[12:16:15] <jzaefferer> DaveMethvin: jenkins is a lot harsher then testswarm - once something fails, its considered failed forever, testswarm is a lot more forgiving...
+[14:15:25] <Clooth> sup ajpiano
+[14:18:06] <mikesherov> anybody here who can merge this PR: https://github.com/jquery/sizzle/pull/82
+[14:18:07] <socialhapy> ★ Pull request on sizzle by mikesherov (1m, 48s ago): JSHint comment so jQuery can officially pass JSHint without hacks
+[14:18:37] <mikesherov> it's my last blocker on finishing my proposed JSHint migration from JSLint
+[14:20:17] <timmywil> mikesherov: it will be merged after 1.7.1 with the other jshint changes
+[14:20:24] <timmywil> thanks for submitting it
+[14:21:26] <mikesherov> no problem
+[14:21:31] <mikesherov> my PR is for sizzle though
+[14:21:38] <timmywil> understood
+[14:21:44] <mikesherov> k
+[14:22:13] <mikesherov> I'll obviously redo the PR once 1.7.1 is out, and then I really need help checking the unit tests in all browsers
+[14:22:19] <mikesherov> but my initial findings were that it was OK
+[14:22:36] <timmywil> redo it?
+[14:22:50] <mikesherov> well, I'll have to rebase... hopefully it won't be a nightmare
+[14:23:08] <timmywil> I don't think you'll have to rebase
+[14:23:34] <timmywil> I can squash if necessary
+[14:23:58] <timmywil> but the sizzle one will probably be merged in before the jquery ones
+[14:24:08] <timmywil>  /one
+[14:24:27] <mikesherov> right... I guess I'm getting confused
+[14:24:39] <mikesherov> I was hoping the sizzle one could get merged now
+[14:24:59] <mikesherov> so once I rebase my jquery one, I can get rid of the "var ok" stuff in jshint-check.js
+[14:25:41] <timmywil> don't worry, I'll be around for the switch to jshint.  It's not necessary until that happens
+[14:25:49] <mikesherov> OK
+[14:25:56] <mikesherov> sounds good
+[14:26:13] <mikesherov> so then I'm going to finish off my jquery PR by blasting away the var ok stuff
+[14:26:23] <timmywil> nice work btw.  I'm glad we're getting around to it
+[14:26:31] <mikesherov> no problem
+[14:26:54] <mikesherov> I'm trying to take the side of a "greenhorn" who's trying to contribute to a big project
+[14:27:14] <mikesherov> and anything I can do to protect them, or us, from committing bugs, I'm prepared to help in that vain
+[14:27:21] <mikesherov> vein*
+[14:39:18] <mikesherov> timmywil: I finalized the jquery JSHint PR... here it is: https://github.com/jquery/jquery/pull/602
+[14:39:19] <socialhapy> ★ Pull request on jquery by mikesherov (2d, 16h ago): enabling the JSHint option undef:true, part 2 of fixes #10692
+[14:39:36] <mikesherov> all hacks gone :-)
+[15:30:04] <mikesherov> DaveMethvin: you ever fix that IE drag/drop bug?
+[15:33:06] <mikesherov> timmywil: would it make sense to add JSHint to the sizzle make command
+[15:34:05] <mikesherov> I mean, it's a submodule of jquery that gets copied to selectors.js and theoretically could cause jQuery's make to complain
+[15:34:19] <mikesherov> seems like it should be there as well, as long as jQuery is dependent on it
+[15:34:57] <DaveMethvin> mikesherov: i was hoping to hear from scott_gonzalez, they were doing a code sprint today
+[15:35:22] <timmywil> that's ok, we're only really concerned with running jshint over a built jquery, which covers sizzle anyway.
+[15:35:28] <DaveMethvin> i have several other qs about ui event handling, but i may need to wait until 1.7.2
+[15:35:55] <DaveMethvin> i think what we have right now is 1.7.1
+[15:36:09] <DaveMethvin> just need to write the blog post
+[15:36:19] <DaveMethvin> should be done in an hour or two
+[15:40:38] <mikesherov> cool
+[15:44:55] <mikesherov> timmywil: cool, I guess my point was that it would be annoying if a PR was merged into sizzle that caused jquery's jshint to fail, but I get it, so thanks for the feedback
+[15:48:44] <timmywil> mikesherov: honestly, Sizzle's make is necessary but not used.  It is only there to install/update QUnit for local testing.  That isn't needed if one works on sizzle from within the jQuery repo (which is also helpful to make a Sizzle change didn't break something else in jQuery if so desired).  If Sizzle was used more as an independent project, I might agree that jshint should be added there, but
+[15:48:44] <timmywil>  given that we can simply check sizzle from the jQuery repo, it seems like a waste of space.
+[15:49:55] * Clooth throws pebbles at ben_alman_
+[15:58:13] <mikesherov> ok, fair enough. I like to try to beat a dead horse before I bury it
+[16:19:57] <mikesherov_> so, am I correct in saying that there is still no published EOL date for FF3.6?
+[16:24:17] <DaveMethvin> mikesherov_:  i have the feeling that it will be like IE6
+[16:24:57] <jqcommit> [jquery] dmethvin pushed 3 new commits to master: http://git.io/W-AHsQ
+[16:24:57] <jqcommit> [jquery/master] Tagging the 1.7.1rc1 release. - Dave Methvin
+[16:24:57] <jqcommit> [jquery/master] Updating the source version to 1.7.1pre - Dave Methvin
+[16:24:57] <jqcommit> [jquery/master] Update version. - Dave Methvin
+[16:26:12] <mikesherov_> yeah, I mean, I ask because there was a PR I had submitted and rick mentioned that it might be unnecessary because it was for FF3.6 and we'd drop its support when it's EOL was announced
+[16:26:50] <DaveMethvin> i guess it depends on severity
+[16:27:02] <DaveMethvin> if it was something crucial then we'd prolly fix it
+[16:27:23] <DaveMethvin> if it's a tiny little edge case that takes 50 bytes to fix then forgit it
+[16:28:15] <mikesherov_> right, I get that, just wondering for generic case
+[16:29:03] <DaveMethvin> i think we'd decide on a case by case basis
+[16:29:15] <DaveMethvin> (that's short for hey idunno)
+[16:29:33] <mikesherov_> haha
+[16:35:32] <DaveMethvin> hey mikesherov_ you got a second?
+[16:36:19] <mikesherov_> yeah
+[16:36:23] <DaveMethvin> timmywil rwaldron gnarf: if you have a second for a quick proofread: http://blog.jquery.com/2011/11/17/jquery-1-7-1-rc1-released/
+[16:36:55] <DaveMethvin> mikesherov_: if you could take a look just to be sure i didn't leave any porn links in etc
+[16:37:34] <timmywil> did someone say we _were_ asleep?
+[16:37:49] <DaveMethvin> wrong tense
+[16:37:50] <DaveMethvin> yeah
+[16:37:58] * timmywil snores
+[16:38:28] <DaveMethvin> wait until release next week, i have to work in turkey and stuffing into the blog post
+[16:38:42] <timmywil> ooo! looking forward to it
+[16:38:51] <timmywil> this time, turkey with css
+[16:38:54] <DaveMethvin> how about "timmy took 100 bytes of stuffing out of this turkey"
+[16:39:07] <timmywil> haha
+[16:39:11] <timmywil> nice
+[16:39:24] <mikesherov_> it looks fine
+[16:39:30] <DaveMethvin> thanks guys
+[16:39:42] <DaveMethvin> tweetin' time
+[16:40:04] <DaveMethvin> ajpiano: got time for a tweet? http://blog.jquery.com/2011/11/17/jquery-1-7-1-rc1-released/
+[16:40:26] <jq-jenkins> Project jQuery build #209: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery/209/
+[16:40:26] <jq-jenkins> * dave.methvin: Tagging the 1.7.1rc1 release.
+[16:40:27] <jq-jenkins> * dave.methvin: Updating the source version to 1.7.1pre
+[16:40:27] <jq-jenkins> * dave.methvin: Update version.
+[16:40:40] <timmywil> jq-jenkins: you're failing!
+[16:40:40] <jq-jenkins> timmywil did you mean me? Unknown command 'you're'
+[16:40:40] <jq-jenkins> Use '!jenkins help' to get help!
+[16:41:24] <DaveMethvin> lol now it's talking back!
+[16:41:45] <timmywil> DaveMethvin: shouldn't there be a support ticket in there somewhere?  Did I forget to add fixes...
+[16:42:06] <DaveMethvin> oh prolly that ticket was in the wrong version
+[16:42:18] <DaveMethvin> there was a ticket, right?
+[16:42:18] <DaveMethvin> i
+[16:42:27] <timmywil> woops, i forgot to close it with 'fixes'
+[16:42:32] <DaveMethvin> if so just lemme know the number and i'll patch it in
+[16:43:00] <timmywil> ?10629
+[16:43:01] <bot-t> [#10629] IE is much too sensitive concerning the fake body. Explore cleaning up support.js to avoid any future crashes. (assigned bug) - http://jqbug.com/10629
+[16:43:51] <timmywil> closed
+[16:44:24] <DaveMethvin> got it
+[16:52:55] <DaveMethvin> !jenkins help
+[16:52:55] <jq-jenkins> Available commands:
+[16:52:55] <jq-jenkins> abort <job> - specify which job to abort
+[16:52:56] <jq-jenkins> alias [<alias> [<command>]] - defines a new alias, deletes one or lists all existing aliases
+[16:52:56] <jq-jenkins> botsnack [<snack>] - om nom nom
+[16:52:57] <jq-jenkins> build <job> [now|<delay>[s|m|h]] [<parameterkey>=<value>]* - schedule a job build, with standard, custom or no quiet period
+[16:52:57] <jq-jenkins> cb - list jobs which are currently in progress
+[16:52:58] <jq-jenkins> comment <job> <build-#> <comment> - adds a description to a build
+[16:52:58] <jq-jenkins> currentlyBuilding - list jobs which are currently in progress
+[16:52:59] <jq-jenkins> h [<job>|-v <view>] - show the health of a specific job, jobs in a view or all jobs
+[16:52:59] <jq-jenkins> health [<job>|-v <view>] - show the health of a specific job, jobs in a view or all jobs
+[16:53:00] <jq-jenkins> jobs [<job>|-v <view>] - show the status of a specific job, jobs in a view or all jobs
+[16:53:00] <jq-jenkins> q - show the state of the build queue
+[16:53:01] <jq-jenkins> queue - show the state of the build queue
+[16:53:01] <jq-jenkins> s [<job>|-v <view>] - show the status of a specific job, jobs in a view or all jobs
+[16:53:02] <jq-jenkins> schedule <job> [now|<delay>[s|m|h]] [<parameterkey>=<value>]* - schedule a job build, with standard, custom or no quiet period
+[16:53:02] <jq-jenkins> status [<job>|-v <view>] - show the status of a specific job, jobs in a view or all jobs
+[16:53:03] <jq-jenkins> testresult [<job>|-v <view>] - show the test results of a specific job, jobs in a view or all jobs
+[16:53:38] <DaveMethvin> don't do THAT again
+[19:16:03] <mikesherov> rwaldron: you here?
+[19:17:00] <mikesherov> nvm
+[19:21:29] <tbranyen> sup jrburke
+[19:21:38] <jrburke> hey tbranyen!
+[19:50:55] <rwaldron> mikesherov yeah kinda
+[21:07:09] <matjas> jQuery 1.7.1RC1 saves 106 bytes compared to 1.7.0 after minification + gzip: http://mathiasbynens.be/demo/jquery-size
+[21:07:44] <matjas> (made it so that page displays the delta)
+[22:08:25] <mikesherov> anyone awake?
+[22:10:26] <jaubourg> yep
+[22:10:29] <jaubourg> hi Mike
+[22:11:04] <mikesherov> Hi Jaubourg
+[22:11:22] <mikesherov> so I finished off that JSHint PR, in case you were interested
+[22:11:43] <mikesherov> I see why you would be against it
+[22:12:04] <mikesherov> it makes you have to do a few things that aren't totally necessary
+[22:12:22] <mikesherov> or, aren't necessary at all
+[22:12:43] <mikesherov> but at least I'm not advocating switching to closure compiler, right? ;-)
+[22:35:34] <mikesherov> https://github.com/jquery/jquery/commit/3d6237ef8aff8a31ace3e956e2700aa11e3da752#commitcomment-729556
+[22:35:35] <socialhapy> ★ Commit on jquery by timmywil (10h, 47m ago): Remove the invisible body in support; Add temporary tests to verify correct support completions for upcoming support changes.
+[22:41:40] <jaubourg> yeah, it just saddens me that jshint cannot understand some simple stuff... but I know parsing is a bitch
+[22:42:21] <jaubourg> and I have nothing against Closure, it's a damn fine piece of engineering... it's just not a solution to jQuery's size
+[22:43:04] <mikesherov> I agree with you on that 100%
+[22:43:14] <mikesherov> I just caught a bug thanks to JSHint
+[22:43:29] <mikesherov> https://github.com/jquery/jquery/commit/3d6237ef8aff8a31ace3e956e2700aa11e3da752#commitcomment-729556
+[22:43:29] <socialhapy> ★ Commit on jquery by timmywil (10h, 55m ago): Remove the invisible body in support; Add temporary tests to verify correct support completions for upcoming support changes.
+[22:43:48] <mikesherov> so for me, that's 2 bugs in the past few weeks it caught / would've caught
+[22:44:00] <mikesherov> but I know what you mean
+[22:44:15] <jaubourg> yeah, except the option catches more than we want it to
+[22:44:27] <mikesherov> right
+[22:44:31] <jaubourg> if it just detected undeclared vars being assigned, that would be gold
+[22:45:05] <mikesherov> yeah, I guess the growing pains there are real
+[22:45:06] <jaubourg> maybe we could ask for it on the jshint bug tracker?
+[22:45:14] <mikesherov> but minimal once you get used to it
+[22:45:21] <mikesherov> ask for what?
+[22:45:37] <jaubourg> <jaubourg> if it just detected undeclared vars being assigned, that would be gold
+[22:45:57] <mikesherov> can't hurt to submit an issue
+[22:46:05] <mikesherov> Heck, I may right it myself
+[22:46:12] <mikesherov> write it myself
+[22:46:51] <mikesherov> it's one of a few projects I watch closely
+[22:47:09] <jaubourg> man, if you could do that, it would be awesome
+[22:47:25] <jaubourg> because we just have problems with leaking globals, not with initialization ordering
+[22:48:07] <mikesherov> if we submit an issue, if anything, at least we'll get an explanation why it can't or shouldn't be done
+[22:48:29] <mikesherov> antonkovalyov is a wizard
+[22:48:39] <mikesherov> works around the clock that guy
+[22:48:44] <jaubourg> yeah and a nice guy in person too
+[22:48:50] <mikesherov> never met him
+[22:49:15] <mikesherov> never met an "famous programmers"
+[22:49:35] <jaubourg> where are you located?
+[22:49:36] <mikesherov> this IRC is the closest I get!
+[22:49:40] <mikesherov> I'm in NYC
+[22:49:58] <jaubourg> man, you so should go to at least boston jqcons
+[22:50:12] <mikesherov> Yeah, I'm new
+[22:50:25] <mikesherov> but I definitely plan on hitting the next one
+[22:51:12] <jaubourg> \o/
+[22:53:23] <mikesherov> LOL
+[22:53:38] <jaubourg> ??
+[22:56:33] <mikesherov> \o/, just seemed like a funny thing
+[22:56:39] <jaubourg> oh
+[23:04:52] <mikesherov> pretty confident it can be done, btw
+[23:05:55] <mikesherov> I haven't looked at it long, but seems straightforward to detect an assignment statement and couple it with scope resolution
+[23:07:03] <mikesherov> ok, it's after 2am
+[23:07:07] <mikesherov>  bed...

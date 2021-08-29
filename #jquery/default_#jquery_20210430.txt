@@ -1,0 +1,62 @@
+[01:52:11] <pavonia> Given a reference to a DOM element from an SVG image that was included by <embed src="foo.svg">. How do you find the corresponding <embed> from that element?
+[01:53:52] <robertmaxrees> mind clarifying what you mean by the first half of that?
+[01:56:07] <pavonia> So I include several SVGs which have polygons with click handlers. But I use the same SVG several times with different embeds and I need to know which embed's SVG was clicked
+[01:56:46] <robertmaxrees> .closest('embed') *might* work, though svg and jquery don't mix together terribly well.
+[01:58:24] <pavonia> Tried that and it doesn't work. The problem is that .parents(":root") is the <svg> tag, not the main document's <html>
+[01:58:33] <robertmaxrees> figured.
+[01:59:03] <robertmaxrees> svg and jquery really don't mix - you might need to find a plugin that adds svg support.
+[01:59:12] <robertmaxrees> or just use native js.
+[01:59:39] <pavonia> Oh, okay
+[02:01:09] <pavonia> Querying simple things like .find() or .attr() seems to work for the SVG part too
+[02:01:19] <robertmaxrees> yeah, but things break down pretty quickly from there.
+[02:01:31] <robertmaxrees> because SVG DOM is different enough from HTML DOM.
+[02:01:55] <pavonia> Yeah, noticed that with the click handlers. It's sad :<
+[02:02:05] <robertmaxrees> :shrug:
+[02:51:32] <pavonia> For the record: what works is passing window.frameElement through the SVG's click handlers
+[09:26:51] <pavonia> Using .attr() with SVG works fine, switching to .css() just gives the weirdest effects such that styles in click handlers are only applied after the *following* click O___o
+[10:33:49] <pavonia> Does jQuery do some kind of caching when applying CSS attributes? Applying a CSS attribute on an SVG element via .css("fill") and immediately reading it doesn't give the new result; using plain JS elem.style.fill works fine
+[10:58:08] <shoky_> jquery + svg = pain
+[11:09:12] <pavonia> Indeed. I had been told, I didn't listen. Now I've learned the hard way :D
+[12:17:34] <robertmaxrees> lol like i said last night ;)
+[17:41:46] <pavonia> What is the vanilla JS equivalent of .find()?
+[18:21:37] <robertmaxrees> querySelectorAll
+[18:36:16] <pavonia> Oh, that function is defined for all elements, not just document
+[18:36:55] <robertmaxrees> https://developer.mozilla.org/en-US/docs/Web/API/Element/querySelectorAll :)
+[18:37:45] <robertmaxrees> there are some important notes to be aware of, but it's all there.
+[18:47:16] <pavonia> So I'm trying to use an SVG plugin now, but it's not getting any easier. You would think simple things like changing an element's fill color on a click can't be that hard :S
+[18:54:40] <robertmaxrees> :shrug:
+[19:21:41] <pavonia> The only reliable way to change CSS attributes for an SVG element seems to be inserting a new <style> tag into the SVG element with a specific ID selector. But this feels like the worst of all solutions ...
+[19:24:06] <robertmaxrees> i'd head over to ##javascript at this point.  they'd likely have some resources and guides for you around this.
+[19:29:02] <pavonia> I've asked there earlier, but then came back trying to find some jQuery-related soluton. Doing it in plain JS seems even more a PITA
+[19:29:25] <pavonia> This is the plugin I'm trying now http://keith-wood.name/svgRef.html
+[19:29:27] <robertmaxrees> i mean, you keep trying to find workarounds that involve jquery and having nothing but problems :)
+[19:29:48] <robertmaxrees> if you want help, i might suggest making jsfiddles at this point.
+[19:31:28] <pavonia> Yeah, I'll stop ranting :p
+[19:44:05] <pavonia> Is .css(foo) just a wrapper for elem.style.foo or does jQuery do some other magic here, like caching style changes or so?
+[19:44:18] <robertmaxrees> not sure.  i'd have to look at the source.
+[19:45:03] <robertmaxrees> i'd assume, depending on the version of jquery, it does some work to smooth inconsistencies between browsers/browser versions.
+[19:45:15] <robertmaxrees> not sure what you mean by "caching style changes" though - not sure what there'd be to cache.
+[19:48:47] <pavonia> Collecting several subsequent calls to apply them at once, something like this. I'm too lazy to create a MWE now, but the problem I had was that .css() changes were not applied immediately, while elem.style changes were
+[19:50:04] <robertmaxrees> nope.  wouldn't do that.
+[19:54:50] <robertmaxrees> https://github.com/jquery/jquery/blob/3.6.0/src/css.js for the 3.6.0 implementation.
+[20:07:37] <pavonia> Thanks. Looks more complicated than expected
+[20:15:56] <robertmaxrees> and also: not intended for use with SVG :P
+[20:55:33] <pavonia> Hell, not even selecting the SVG works in the fiddle :/
+[20:56:07] <robertmaxrees> ?
+[20:56:40] <robertmaxrees> you can share it out and get help ;)
+[20:56:53] <pavonia> I can't demonstrate the actual problem because of another problem that works in my real document
+[20:57:45] <robertmaxrees> i mean we can help you get the fiddle up and running to show the other problem.
+[21:00:41] <pavonia> https://jsbin.com/gujehuqisa/edit?html,js,console,output <-- This should print the SVG object in the console
+[21:04:07] <robertmaxrees> why are you using the embed tag here?
+[21:04:38] <pavonia> I need to load an external SVG
+[21:05:04] <robertmaxrees> you can do that with the <object> tag.
+[21:05:14] <robertmaxrees> and should.  <embed> is bugged out and weird.
+[21:06:20] <robertmaxrees> as far as why it's broken - that's a great question for ##javascript - your getSubDOcument function is clearly broken.  that subdoc = embedding_element.getSVGDocument(); isn't getting anything for you.
+[21:08:02] <pavonia> <object> doesn't handle click events. And getSubDocument works in my local version
+[21:10:22] <robertmaxrees> that isn't true.
+[21:10:32] <robertmaxrees> object allows click handlers.
+[21:11:05] <robertmaxrees> have you read the W3C primer on SVGs or any other documentation?  i think part of the reason you're getting tripped up is that you're expecting SVG DOM to behave like HTML DOM.
+[21:26:31] <pavonia> robertmaxrees: https://stackoverflow.com/questions/56082774/onclick-does-not-work-on-an-object-element-with-an-svg-image
+[21:26:54] <pavonia> I'm pretty sure I've tested it and it didn'r work
+[21:27:30] <pavonia> And I've read something about the SVG DOM but it wasn't terribly helpful
+[21:37:02] <pavonia> Anyway, I'm too tired to still produce anything useful. I'll go on debugging this tomorrow. Thanks for the help!

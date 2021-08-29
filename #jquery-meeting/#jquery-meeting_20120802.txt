@@ -1,0 +1,547 @@
+[06:00:46] <jzaefferer> test
+[06:07:45] <rxaviers> worked
+[06:32:52] <jzaefferer> yep
+[06:33:00] <jzaefferer> was just checking if the channel is muted
+[09:01:17] <jzaefferer> Testing/CI meeting starting now! Ping Krinkle scott_gonzalez DaveMethvin
+[09:01:27] <jzaefferer> Apparently no John Bender, Rick Waldron around
+[09:01:33] <jzaefferer> agenda: https://docs.google.com/document/d/13FbWhiFQ9gWQvB1Tm4QM_OC4me-ha2ujDWH5sdF7ueo/edit
+[09:01:37] <scott_gonzalez> heyo
+[09:01:45] <DaveMethvin> sup d00ds
+[09:01:45] <b-ot> DaveMethvin, you have one new message, say “read” to me when you wish to read it.
+[09:01:51] <scott_gonzalez> Rick is house hunting.
+[09:01:54] <DaveMethvin> b-ot: read
+[09:01:54] <b-ot> DaveMethvin, from jzaefferer, 2h 27m ago: Krinkle scott_gonzalez johnbender testing/ci meeting at noon today!
+[09:01:55] <jzaefferer> right
+[09:02:03] <jzaefferer> DaveMethvin: :p
+[09:02:13] <jzaefferer> apparently we got all UI projects green: http://swarm.jquery.org:8080/
+[09:02:16] <jzaefferer> not sure how, but yay!
+[09:02:20] <jzaefferer> ping gnarf
+[09:03:27] <jzaefferer> DaveMethvin: this one mostly likely affects core: https://github.com/jquery/qunit/pull/292
+[09:03:28] <socialhapy> ★ Pull request on qunit by alexjeffburke (4d, 18h ago): Remove conditional codepath based on jQuery presence from reset().
+[09:03:43] <gnarf> hey hey
+[09:04:14] <gnarf> Krinkle lurkin?
+[09:04:22] <scott_gonzalez> jzaefferer: I wonder if they maybe did a rebuild of their VMs or something.
+[09:05:02] <scott_gonzalez> The pending issue seems to be resolved as well.
+[09:05:02] <DaveMethvin> jzaefferer: that might cause issues, since .html() is freeing up data and events, so i suspect we need to hook into reset
+[09:05:11] <jzaefferer> scott_gonzalez: might explain the "outage" was saw a few days ago
+[09:05:15] <gnarf> scott_gonzalez: Dave and I had to call them out on the firefox VMs including tools when spawned via api, supposedly the ones spawned via the API aren't supposed to include any of the debugging tools, which means that an API client and a normal web client aren't the same
+[09:05:29] <scott_gonzalez> jzaefferer: That outage was supposedly an Amazon outage.
+[09:05:42] <gnarf> jzaefferer: the "outage" (if you're talking about all the unfinished jobs) was me forgetting to re-enable the testswarm cleanup cron job
+[09:05:59] <gnarf> maybe its something out
+[09:06:01] <gnarf> eles
+[09:06:02] <gnarf> bah
+[09:06:07] <jzaefferer> DaveMethvin: you're already extending reset, so could just hook into that, too: https://github.com/jquery/jquery/blob/master/test/data/testrunner.js#L138
+[09:06:07] <DaveMethvin> yeah, the fact the api and interactive clients are different is something important to know ... i can see that causing us some heartache
+[09:06:07] * gnarf gives up typing
+[09:06:13] <scott_gonzalez> The other day their VMs were down because of an AWS issue.
+[09:06:38] <jzaefferer> gnarf: oh, okay, didn't know that
+[09:06:53] <jzaefferer> so both AWS issue and gnarf issue, okay
+[09:07:09] <jzaefferer> DaveMethvin: heartache?
+[09:07:16] <DaveMethvin> as in they act differently
+[09:07:32] <DaveMethvin> since the interactive ones have some extra plugins that could affect behavior
+[09:07:42] <jzaefferer> right
+[09:08:11] <gnarf> not could - do ;)
+[09:08:35] <gnarf> specially with the 10 different "Fire____" debuggers
+[09:08:51] <gnarf> i think the one that was causing us the most problem was "FireFlash" or something
+[09:08:59] <gnarf> why they didn't call that flashfire - i dunno
+[09:09:24] <scott_gonzalez> #flashcage
+[09:09:31] <scott_gonzalez> ok, jzaefferer: next issue?
+[09:10:19] <jzaefferer> so without Krinkle around TestSwarm is still kinda stalled
+[09:10:34] <scott_gonzalez> oh, DaveMethvin: My thoughts on .html() for reset was that it might cause memory leaks in oldIE, but I'm not sure if it'll cause any actual problems.
+[09:10:36] <jzaefferer> I've got feedback from Scott on some QUnit PRs, will look into those
+[09:10:45] <scott_gonzalez> I guess it might if in-memory stuff isn't cleared out.
+[09:10:59] <DaveMethvin> it would cause data leaks in all browsers i think
+[09:11:01] <jzaefferer> any opinions on https://github.com/jquery/qunit/issues/291 ?
+[09:11:02] <socialhapy> ★ Issue #291 on qunit (SimpleAsCouldBe; 1w, 2d ago): Repeatedly test Async assertions until they pass or the time runs out
+[09:11:16] <gnarf> .html() calls .remove()
+[09:11:21] <gnarf> why would that leak data?
+[09:11:39] <scott_gonzalez> gnarf: The proposal is to use .innerHTML instead.
+[09:11:42] <gnarf> oh
+[09:11:50] <gnarf> yeah
+[09:11:55] <gnarf> thats gonna cause data leaks :)
+[09:11:58] <DaveMethvin> lol
+[09:12:06] <DaveMethvin> coming around, he is
+[09:12:25] <gnarf> don't we test that there aren't any objects in the data cache at the end of each test too?
+[09:12:30] <scott_gonzalez> The retry seems bad.
+[09:12:42] <scott_gonzalez> The description of his problem makes it sound like his tests are bad.
+[09:12:50] <DaveMethvin> gnarf: yeah but i thought that was after the reset
+[09:12:56] <scott_gonzalez> doX(); waitFiveSeconds(testX); :-(
+[09:13:21] <gnarf> yeah bad tests
+[09:13:32] <gnarf> should be doX().done( testX )
+[09:13:40] <scott_gonzalez> yup
+[09:13:42] <gnarf> and comma first
+[09:13:43] <gnarf> boo
+[09:13:45] <scott_gonzalez> haha
+[09:13:49] <DaveMethvin> any timing related tests are flakey, as we know ...
+[09:15:08] <jzaefferer> https://github.com/jquery/qunit/issues/291#issuecomment-7460089
+[09:15:09] <socialhapy> ★ Issue #291 on qunit (SimpleAsCouldBe; 1w, 2d ago): Repeatedly test Async assertions until they pass or the time runs out
+[09:15:32] <jzaefferer> I'd leave that open a few days to give him a chance to respond
+[09:15:50] <scott_gonzalez> +1
+[09:17:27] <jzaefferer> gnarf: do you know if Timo did any work on the new swarm instance?
+[09:17:34] <jzaefferer> also can you confirm that we still need that?
+[09:17:42] <gnarf> jzaefferer: need what?
+[09:17:52] <gnarf> jzaefferer: swarm.jquery.org is "the new swarm instance"
+[09:17:54] <jzaefferer> rebuilding swarm.jquery.org
+[09:18:03] <jzaefferer> okay, so no need to start over anymore?
+[09:18:07] <gnarf> its running on the new server now
+[09:18:08] <jzaefferer> or did that happen?
+[09:18:35] <gnarf> it got moved, so we should be good - there is still a staging server where we can test whatever config stuff we might want to
+[09:18:52] <jzaefferer> okay
+[09:20:12] <jzaefferer> haven't heard from mobile in a while
+[09:20:26] <jzaefferer> seems like they extended their TestSwarm job to IE9, which produces a bunch of failures: http://swarm.jquery.org/job/406
+[09:20:38] <jzaefferer> still on Chrome 18...
+[09:20:59] <jzaefferer> No Bender around to comment on that though
+[09:21:45] <gnarf> jzaefferer: by the end of the week I'm pretty sure I'll have "auto-pulling" scripts working
+[09:22:08] <jzaefferer> gnarf: okay, what does that mean?
+[09:22:16] <gnarf> so if there are any services (like swarm) that could benefit from an auto pull setup, we need to start thinking about them
+[09:22:43] <gnarf> jzaefferer: as a commit is pushed to master, it sends a post-receive to the server which knows to go to the repo directory and checkout the new commit / restart services
+[09:22:56] <gnarf> so like as you update web-base-template, its automatically on stage
+[09:23:06] <jzaefferer> okay
+[09:23:23] <gnarf> right now, i have it as soon as you push a tag with \d\.\d in it, it would update on "live"
+[09:24:02] <jzaefferer> sounds like something we could use to testswarm and testswarm-browserstack
+[09:24:06] <gnarf> yeah
+[09:24:21] <jzaefferer> the latter we need to move to the jquery orga, need clarkbox to do that
+[09:24:22] <scott_gonzalez> gnarf: Is that \d+?
+[09:24:22] <gnarf> i'll add them to my list of potential targets
+[09:24:44] <gnarf> scott_gonzalez: yes, but really it doesn't matter if its /\d\.\d/ either
+[09:24:51] <gnarf> because its not anchored to start/finish
+[09:25:02] <scott_gonzalez> ah, ok
+[09:25:19] <gnarf> jzaefferer: we could move it...
+[09:25:24] <gnarf> jzaefferer: i was working on a rewrite there
+[09:25:48] <gnarf> jzaefferer: also krinkle's repo i think is the most "up to date" on testswarm-browserstack
+[09:25:51] <jzaefferer> gnarf: I guess we can just create and push
+[09:25:59] <jzaefferer> right, that should be the starting point to use
+[09:26:09] <gnarf> jzaefferer: i really don't care if its in jquery/ or clarkbox/ or krinkle/ at this point
+[09:26:27] <scott_gonzalez> A proper move only matters if you care about preserving watchers/forks, which we probably don't for this.
+[09:26:35] <gnarf> although i suppose in jquery/ we have a little extra control
+[09:26:51] <gnarf> why don't we just fork from clarkbox/ or krinkle/
+[09:26:55] <jzaefferer> gnarf: what's with the rewrite? is that something to keep around?
+[09:27:14] <gnarf> jzaefferer: i think so - I was working on trying to make the queueing a little smarter and solved some of the open issues...
+[09:27:30] <gnarf> although issues, thats a good reason to have clarkbox "move" it i suppose
+[09:27:33] <jzaefferer> gnarf: is that code published anywhere?
+[09:27:34] <scott_gonzalez> jzaefferer: johnbender is here now
+[09:27:56] <jzaefferer> hey johnbender! you missed half the testing meeting, but would like to get your input still anyway!
+[09:28:05] <gnarf> jzaefferer: not currently - it is only available on the server and my local laptop - I haven't abstracted the username/password/config options out of it yet
+[09:28:15] <gnarf> jzaefferer: as soon as I do, I'll put it up somewhere
+[09:28:31] <gnarf> jzaefferer: krinkle might beat me to that one, he seems like he's trying to get some work done in that front
+[09:28:35] <scott_gonzalez> gnarf: Good point about the issues.
+[09:28:49] <jzaefferer> there are seven forks and seven open issues on Clark's repo
+[09:28:53] <gnarf> its in /usr/local/tools/testswarm-browserstack/gnarf-test.js on jq03.jquery.com
+[09:29:24] <jzaefferer> okay
+[09:29:37] <scott_gonzalez> I'd say try to get him to move it, if we don't get any progress on that in about a week, let's just clone + push.
+[09:29:49] <gnarf> i'll talk to clark
+[09:30:21] <gnarf> can he "move" it to jquery/ without being an organization owner tho?
+[09:30:36] <jzaefferer> he should, yeah, he'll just looses all write access
+[09:30:41] <jzaefferer> until someone assigns that again
+[09:30:45] <gnarf> alright
+[09:30:52] <gnarf> i've never tried this
+[09:31:07] <gnarf> clarkbox: ^^^^
+[09:31:28] <jzaefferer> could send him an email :p
+[09:31:42] <jzaefferer> we've talked about this on irc a few times already, or in GitHub issues?
+[09:32:02] <gnarf> i find his gchat to be pretty reliable
+[09:32:05] <gnarf> it goes to his phone
+[09:32:06] <gnarf> :)
+[09:32:44] <gnarf> i'll try to make sure we get that done in the next week or two
+[09:33:46] <gnarf> johnbender: https://gist.github.com/23517ecef0d1e0c07fa8 -- to catch you up on what jzaefferer asked re: mobile testing ;)
+[09:34:35] <johnbender> jzaefferer: gnarf: I got to work on fixing many of those but I can only take so much IE debugging at a stretch
+[09:34:49] <johnbender> some of them don't reproduce either :/
+[09:34:52] <gnarf> johnbender: i hear that - lol
+[09:35:02] <gnarf> welcome to the swarm heisenbugs
+[09:35:15] <johnbender> gnarf: I'd expand that to browser heisenbugs
+[09:35:29] <jzaefferer> johnbender: yeah, the non-reproducibles are the most troublesome, that's mostly what I was pinging about
+[09:35:41] <johnbender> this is one of the things that occiasionally makes me long for the good ol' days of backend dev
+[09:35:53] <johnbender> jzaefferer: I'll get back into next week most likely
+[09:36:01] <johnbender> once IE is sorted I'm going to add mobile browsers
+[09:36:20] <johnbender> I don't forsee there being any issues in updating chrome to latest :)
+[09:36:37] <jzaefferer> heh, okay
+[09:36:42] <gnarf> johnbender: might need a little support from one of us to add those mobile browsers to the "map" of spawning from browserstack
+[09:36:47] <jzaefferer> adding mobile browsers should be interesting
+[09:36:54] <johnbender> gnarf: why is that?
+[09:37:05] <johnbender> ahh, the uA?
+[09:37:08] <johnbender> *UA?
+[09:37:08] <gnarf> johnbender: otherwise they wont spawn? :)
+[09:37:26] <jzaefferer> ah right, I think we still have the problem of TestSwarm not matching mobile UAs properly anyway
+[09:37:27] <gnarf> im not sure how it all maps together yet, krinkle knows more
+[09:37:27] <johnbender> or just the browser identifier
+[09:37:30] <scott_gonzalez> gnarf: We'll need to switch to the v2 API.
+[09:37:33] <jzaefferer> even before BrowserStack gets involved
+[09:37:55] <gnarf> but testswarm has to match it right, and then testswarm-browserstack needs to know what to spawn
+[09:38:06] <johnbender> gnarf: I've updated the config before
+[09:38:11] <johnbender> if that's what you mean
+[09:38:13] <gnarf> scott_gonzalez: v2 browserstack api? i wasn't aware there was one, or i prolly would of done this
+[09:38:30] <DaveMethvin> jzaefferer: FYI https://github.com/jquery/jquery/pull/883  tested locally with the QUnit change on Chrome and seems to work fine ... gotta go to a meeting, later
+[09:38:30] <socialhapy> ★ Pull request on jquery by dmethvin (56.82s ago): Don't expect QUnit to clean up jQuery's internal data.
+[09:38:40] <johnbender> incidentally I have testswarm installed on my local vm
+[09:39:12] <gnarf> johnbender: in order for the testswarm-browserstack to actually spawn a mobile browser on browserstack, it needs to be able to map the "testswarm" identifier into the browserstack api format
+[09:39:18] <scott_gonzalez> gnarf: Yeah. I'm not sure if it's stable/public yet, but I have support for it in node-browserstack already.
+[09:39:23] <gnarf> there is a map.js
+[09:39:31] <johnbender> gnarf: yar, I've seen it
+[09:39:33] <gnarf> scott_gonzalez: i'll look into updating gnarf-test.js with it
+[09:39:37] <scott_gonzalez> When we get there, I can help with the BrowserStack API side of it.
+[09:39:37] <jzaefferer> DaveMethvin: great, thanks
+[09:39:45] <gnarf> johnbender: coo, /usr/local/tools/testswarm-browserstack
+[09:40:01] <gnarf> thats where that bit hides on swarm.jquery.org
+[09:40:06] <scott_gonzalez> gnarf: Sounds good. I don't remember if I've done a npm release with the v2 support, but it's definitely in the repo and I'm pretty sure it's documented in the readme already.
+[09:42:01] <gnarf> cool - i gotta jet super soon - anything else i'm needed for at this meeting? :)
+[09:42:23] <jzaefferer> I think we're about done here
+[09:43:38] <jzaefferer> thanks
+[09:43:40] <gnarf> l8r then!
+[09:44:22] <scott_gonzalez> Ok, I'm gonna head out too.
+[10:27:34] <johnbender> gseguin: the builder wasn't working earlier
+[10:27:37] <johnbender> ugh
+[10:28:01] <gseguin> johnbender: restarted the service
+[11:00:57] <johnbender> gseguin: to be clear my "ugh" was that I posted that message in the wrong channel
+[11:01:05] <johnbender> gseguin: I'm not "ugh"ing about the service
+[11:01:10] <johnbender> it is the bees knees
+[11:01:25] <gseguin> :)
+[11:05:56] <johnbender> here!
+[11:06:20] <uGoMobi> hi
+[11:06:24] <agcolom> here too! hi!
+[11:06:55] <gseguin> hiya
+[11:06:58] <MauriceG> here
+[11:08:19] <toddparker> hi all
+[11:08:23] <toddparker> sorry for the late start
+[11:08:37] <toddparker> the jQuery Mobile team meeting is starting up
+[11:08:50] <toddparker> agenda here: https://docs.google.com/document/d/1GyGY_53xxh8DTqk5iypusj80ZfCL6P1N7_DYIaQJ3yg/edit#
+[11:09:34] <toddparker> I'll go first
+[11:09:36] <toddparker> .2 alpha released: http://jquerymobile.com/blog/2012/08/01/announcing-jquery-mobile-1-2-0-alpha/
+[11:09:41] <toddparker> 1.2 ^
+[11:09:52] <toddparker> Great reaction so far, no major issues reported
+[11:09:53] <toddparker> We will continue to make smaller improvements and fixes next week as we wait for people to test
+[11:09:53] <toddparker> Try to get to final in 3-4 weeks max
+[11:10:19] <toddparker> as a team, we need to refine a roadmap for the next year
+[11:10:24] <johnbender> yar
+[11:10:29] <johnbender> or at least 1.3
+[11:10:32] <toddparker> that is a high priority now that 1.2 is almost done
+[11:10:55] <toddparker> I am also working on getting an official jQM logo
+[11:11:04] <toddparker> no updates since I circulated the last version
+[11:11:36] <toddparker> that is my update
+[11:12:03] <gseguin> I'll go
+[11:12:12] <gseguin> Builder seems to stop working randomly, have to investigate
+[11:12:27] <gseguin> at least 2 issues were filed against it
+[11:12:36] <gseguin> all I had to do was restarting it
+[11:12:51] <gseguin> I have to add some logging and investigate
+[11:12:58] * johnbender grumbles about using a browser runtime on the server
+[11:13:03] * johnbender ducks
+[11:13:06] <gseguin> maybe a cron'ed restart
+[11:13:24] * gseguin throws something at johnbender
+[11:13:45] <gseguin> Should we re-introduce $.support.touch?
+[11:14:24] <gseguin> It really pissed off that user: https://github.com/jquery/jquery-mobile/issues/4786
+[11:14:25] <socialhapy> ★ Issue #4786 on jquery-mobile (jtara; 13h, 41m ago): $.support.touch was dropped from 1.2
+[11:14:40] <gseguin> and I'm guessing he's not going to be the only one
+[11:15:15] <gseguin> anybody wants to chime in on this?
+[11:15:30] <toddparker> when was that removed
+[11:15:32] <toddparker> and why
+[11:15:41] <johnbender> lol
+[11:15:44] <johnbender> "FOR NO REASON"
+[11:15:48] <toddparker> seems like a useful support test
+[11:15:49] <gseguin> it was removed as part of the decoupling
+[11:15:50] <johnbender> we just did it for fun
+[11:15:56] <toddparker> WHEE
+[11:16:02] <toddparker> i'd vote to add it back in
+[11:16:10] <toddparker> and send him a fruit basket
+[11:16:31] <johnbender> lets discuss why it was coupled in dev
+[11:16:33] <toddparker> were there other decoupling changes that might be a surprise
+[11:16:41] <toddparker> ok johnbender
+[11:16:57] <gseguin> I don't believe so
+[11:17:19] <toddparker> ok, good :)
+[11:17:28] <toddparker> so we'll take that offline
+[11:17:32] <toddparker> and gseguin landed the listview filter improvements
+[11:17:34] <gseguin> I landed an improvement for listview filter based on one of the PR
+[11:17:40] <gseguin> we received
+[11:17:41] <uGoMobi> cool
+[11:17:56] <gseguin> and got another one coming, I'm working on the test
+[11:18:08] <gseguin> these were targeted for 1.2
+[11:18:19] <toddparker> great
+[11:18:42] <toddparker> since that was intended to help facilitate building an autocomplete, would it be worth adding a simple demo showing how to works with it?
+[11:19:17] <toddparker> i like the precedent we're doing for popups where we show how to do more advanced things that go beyond markup config
+[11:19:25] <gseguin> agreed
+[11:19:35] <uGoMobi> should we add an option for the filter to hide all list items on init?
+[11:19:37] <gseguin> I can try to get to that after I'm done with my tests
+[11:19:39] <_|Nix|_> toddparker: That stuff looks awesome, BTW!
+[11:19:39] <toddparker> uGoMobi: yep, these will go into the next 1.2 release
+[11:19:49] <johnbender> toddparker: dogfood
+[11:19:55] <toddparker> thanks _|Nix|_ - it was mostly uGoMobi
+[11:20:14] <johnbender> uGoMobi: dogfood
+[11:20:16] <toddparker> yep. we learned a lot about the popup api by trying to build a ton of different things with it
+[11:20:33] * johnbender slams his gavel
+[11:20:36] <johnbender> NEXT!
+[11:20:36] <uGoMobi> true
+[11:20:38] <toddparker> which is why it took a while to complete, but we made a lot of good changes along the way
+[11:20:46] <gseguin> that's it for me
+[11:20:55] * johnbender goes
+[11:20:58] <toddparker> great, so gseguin will try to build a demo
+[11:21:02] <toddparker> next...
+[11:21:11] <johnbender> Still need to work on IE with testswar
+[11:21:19] <johnbender> not reproducible at this point :(
+[11:21:24] <johnbender> but I'll get back to it
+[11:21:28] <johnbender> I fixed some bugs
+[11:21:34] <johnbender> one in slider
+[11:21:39] <johnbender> memory leak
+[11:21:46] <johnbender> and then decided to do a refactor
+[11:21:50] <johnbender> smallish
+[11:21:52] <toddparker> which is great
+[11:22:01] <johnbender> did some perf tweaks
+[11:22:03] <johnbender> 15
+[11:22:05] <_|Nix|_> johnbender: About that: We should implement _destroy() on our widgets ...
+[11:22:12] <johnbender> _|Nix|_: yar, it's in slider now
+[11:22:16] <toddparker> cool
+[11:22:24] <johnbender> 15% increase in range input refresh perf in chrome
+[11:22:27] <toddparker> yes, i agree we should have that across the board
+[11:22:30] <johnbender> haven't tested other platforms
+[11:22:32] <toddparker> great johnbender
+[11:22:38] <johnbender> needs testing
+[11:22:47] <johnbender> http://jquerymobile.com/branches/slider-cleanup/
+[11:23:07] <johnbender> that's it form me, just going to focus on testswarm next
+[11:23:10] <johnbender> ah and PSA
+[11:23:25] <johnbender> new features and large bug fixes should go into a branch until we release 1.2
+[11:23:27] <toddparker> johnbender: it would be great if you focused on making performance really fly - on enhancement, responsiveness, etc.
+[11:23:33] <johnbender> toddparker: yah
+[11:23:46] <johnbender> if we want to target that for 1.3 I can do the perf regression suite work
+[11:23:57] <johnbender> oh
+[11:23:59] <johnbender> another PSA
+[11:24:02] <johnbender> please use deepEqual
+[11:24:05] <johnbender> in our tests
+[11:24:07] <toddparker> re: 1.2, we should definitely review any larger changes
+[11:24:14] <johnbender> same has been deprecated and I have to switch qunit versions soon
+[11:24:31] <toddparker> but since we're at alpha, these smaller things seem ok to add. like the vistview stuff
+[11:24:38] <johnbender> toddparker: so anything larger than a couple lines? that's what I'm htining
+[11:24:47] <toddparker> yeah, sure
+[11:24:49] <johnbender> cool
+[11:24:58] <johnbender> done!
+[11:25:07] <toddparker> i don't think anyone has big changes slated, but i agree
+[11:25:18] <toddparker> and we upgraded to the 1.9 widget factory too, right
+[11:25:45] <johnbender> yah
+[11:25:53] <_|Nix|_> Next ... ?
+[11:25:54] <johnbender> gseguin: and I talked about that
+[11:25:55] <toddparker> that was post-alpha
+[11:25:56] <uGoMobi> I committed a midsize change today
+[11:26:05] <johnbender> uGoMobi: what for?
+[11:26:10] <johnbender> uGoMobi: lets talk in DEV
+[11:26:12] <uGoMobi> controlgroup
+[11:26:14] <johnbender> let _|Nix|_ go
+[11:26:17] <uGoMobi> johnbender: sure
+[11:26:24] <_|Nix|_> OK, here I go.
+[11:26:44] <_|Nix|_> I spent most of the week figuring out how to display gradients using only opacity changes.
+[11:26:56] <_|Nix|_> Demo link in the agenda.
+[11:27:14] <_|Nix|_> Noticed the memleak fixes and realized that they can be made cleaner using the new widget factory.
+[11:27:35] <_|Nix|_> No need to remove handlers in _destroy(). Instead, connect them to signals with this._on()
+[11:27:49] <gseguin> if you
+[11:27:55] <gseguin> sorry
+[11:28:27] <_|Nix|_> I'd like to move the fixedToolbar page event handlers out to widget-prototype level functions and attach them to the page with this._on() so if a toolbar is removed, its handlers do not remain attached to the page.
+[11:28:37] <toddparker> _|Nix|_:  color demo is cool - http://babulina.go-nix.ca/nix/otf-options/rgb.html
+[11:28:49] <gseguin> I was going to say, if you're tired of the semicolons debate, we can debate on whether to write color or colour
+[11:28:59] <toddparker> heh
+[11:29:06] <_|Nix|_> toddparker: Those gradient bars are supposed to be crammed inside the slider.
+[11:29:10] <toddparker> _|Nix|_: that toolbar change seems to make sense
+[11:29:16] <gseguin> nice demo _|Nix|_
+[11:29:18] <johnbender> _|Nix|_: seems an odd place to put a specific handler but we can discuss offline
+[11:29:18] <_|Nix|_> gseguin: I write colour when it's a conversation, but color in the docs and in the code.
+[11:29:21] <toddparker> i figured
+[11:29:23] <_|Nix|_> gseguin: Thanks.
+[11:29:35] <toddparker> let's offline that one
+[11:29:45] <_|Nix|_> toddparker: Which one shall we offline?
+[11:30:11] <toddparker> the fixed bar move
+[11:30:22] <_|Nix|_> toddparker: OK. Let's do that.
+[11:30:46] <toddparker> color picker is really cool. we need to work on priorities post-1.2 very soon so we can discuss then
+[11:31:06] <toddparker> and this item _|Nix|_ ?
+[11:31:07] <toddparker> Write tests for the various funky-initial-URL cases - need a way to test when nav jumps to a page that does not have jQM
+[11:31:19] <_|Nix|_> I'm thinking about starting branches for some of the post-1.2 stuff I've been talking about, like on-the-fly options, pagebeforechange + $.Deferred(), and the colour picker.
+[11:31:38] <toddparker> that would be great _|Nix|_
+[11:31:54] <toddparker> i'm going to create a wiki page for us to start prioritizing
+[11:31:59] <_|Nix|_> Yeah ... not sure where to put that. I'd like to write tests that open popups, dialogs from popups, popups from dialogs, pages from dialogs, pages from popups, etc.
+[11:32:02] <toddparker> you can add those items there
+[11:32:30] <_|Nix|_> Nowhere in the sequence of opening one link from another and going back must the nav drop outside of jQM.
+[11:32:39] <toddparker> i see, makes sense to have as much test coverage as we can there
+[11:33:14] <_|Nix|_> The problem is the permutations escalate very quicklyso such a test suite would run very, very long.
+[11:33:39] <toddparker> i'm sure johnbender will have opinions on what to test and how
+[11:33:41] <_|Nix|_> But anyway, that's it.
+[11:33:47] <toddparker> great, anything else _|Nix|_
+[11:33:56] <_|Nix|_> Nope.
+[11:33:58] <toddparker> uGoMobi?
+[11:34:07] <uGoMobi> ok
+[11:34:18] <uGoMobi> worked on popup examples; horizontal panel turned out not to be good use case for popup - anyone has a good idea for one more advanced popup example?
+[11:34:18] <uGoMobi> fixed controlgroup issue https://github.com/jquery/jquery-mobile/issues/4716
+[11:34:18] <uGoMobi> for 1.2: will create PR for Opera transitions https://github.com/jquery/jquery-mobile/issues/4521
+[11:34:18] <uGoMobi> for 1.2: listview icon option (Maurice?) https://github.com/jquery/jquery-mobile/pull/4582
+[11:34:18] <uGoMobi> things I would like to work on
+[11:34:18] <uGoMobi> widget options (all programmatically, all components should have options corners/shadow/inline, use _setOption for mini and inline in toolbars, etc.)
+[11:34:18] <uGoMobi> docs improvements
+[11:34:19] <socialhapy> ★ Issue #4716 on jquery-mobile (gracezlive; 2w, 1d ago): Calling controlgroup constructor causes fieldset width to shrink
+[11:34:19] <socialhapy> ★ Issue #4521 on jquery-mobile (chrisben; 1m, 2w ago): add support for Opera transitions
+[11:34:19] <socialhapy> ★ Pull request on jquery-mobile by MauriceG (1m, 1w ago): New listview option icon - change or disable icons on listviews
+[11:34:47] <toddparker> wondering if miketaylr is around for that Opera issue
+[11:35:01] <uGoMobi> if anyone has a good idea for one more popup example, that would be nice
+[11:35:20] <toddparker> uGoMobi: i'll try to come up with something
+[11:35:26] <uGoMobi> cool
+[11:35:35] <toddparker> we could add a 3rd party date picker into one?
+[11:35:45] <agcolom> Not gone on holiday yet after all... so:
+[11:35:45] <agcolom>     Added inline examples to api docs: slider, switch collapsibles, collapsible set, and select. Also completed some of those with missing info.
+[11:35:45] <agcolom>     Added inline examples to api docs: select (still have to adjust the iframe sizes for those)
+[11:35:53] <agcolom> sorry pressed the wrong button!
+[11:35:59] <toddparker> hey agcolom
+[11:36:01] <_|Nix|_> uGoMobi: programmatically setting widget options is what I call on-the-fly options. We should really crack down on that post-1.2
+[11:36:18] <uGoMobi> ok lets talk about one more example in dev
+[11:36:23] <toddparker> ok
+[11:36:39] <toddparker> uGoMobi: you ixed controlgroup issue https://github.com/jquery/jquery-mobile/issues/4716
+[11:36:40] <socialhapy> ★ Issue #4716 on jquery-mobile (gracezlive; 2w, 1d ago): Calling controlgroup constructor causes fieldset width to shrink
+[11:36:42] <uGoMobi> fixed controlgroup wrapping issue... johnbender is reviewing it
+[11:37:08] <toddparker> ok, great. that was the bigger change you mentioned earlier
+[11:37:19] <uGoMobi> didn't have time yet for Opera transitions... I can create a PR
+[11:37:21] <toddparker> you said you will create PR for Opera transitions https://github.com/jquery/jquery-mobile/issues/4521
+[11:37:21] <socialhapy> ★ Issue #4521 on jquery-mobile (chrisben; 1m, 2w ago): add support for Opera transitions
+[11:37:29] <uGoMobi> toddparker: yes
+[11:37:54] <uGoMobi> then the listview icon option
+[11:38:07] <uGoMobi> MauriceG were you still working on that
+[11:38:08] <uGoMobi> ?
+[11:38:29] <MauriceG> just made a break with that
+[11:38:35] <toddparker> does that involve adding KF animations prefixed for Opera
+[11:38:52] <uGoMobi> yes toddparker
+[11:39:02] <toddparker> and adjusting our JS to deal with their lower case
+[11:39:04] <toddparker> oanimationend
+[11:39:07] <uGoMobi> and some minor changes in JS
+[11:39:13] <toddparker> right
+[11:39:36] <uGoMobi> yup, what miktaylr commented at that issue
+[11:39:40] <toddparker> in miketaylr's comment he said
+[11:39:41] <toddparker> The better news is we're unprefixing these properties right now internally, so this issue will be a non-issue soon (which means the workaround code could be removed in a release or two).
+[11:40:10] <toddparker> but i guess it's better to add these for 1.2 and maybe remove by 1.3 or 1.4 if they go unprefixed
+[11:40:17] <toddparker> just adds a ton of code
+[11:40:35] <uGoMobi> yeah
+[11:40:48] <toddparker> once you're done with the PR we can see how much kb this adds
+[11:40:56] <_|Nix|_> You gotta ask youself how much code we have only because we've been working around browser issues which are now fixed.
+[11:40:58] <uGoMobi> right
+[11:41:13] <_|Nix|_> Take the FF location.hash thing ...
+[11:41:23] <_|Nix|_> Sure, it's fixed now ...
+[11:41:38] <toddparker> yeah, but that code pales in comparion to the bloat in CSS keyframe syntax
+[11:42:02] <_|Nix|_> No doubt.
+[11:42:33] <toddparker> you also listed this list view icon PR
+[11:42:40] <toddparker> from MauriceG
+[11:42:41] <toddparker> https://github.com/jquery/jquery-mobile/pull/4582
+[11:42:42] <socialhapy> ★ Pull request on jquery-mobile by MauriceG (1m, 1w ago): New listview option icon - change or disable icons on listviews
+[11:42:53] <uGoMobi> yes, we wanted that in 1.2
+[11:43:04] <toddparker> long thread :)
+[11:43:14] <uGoMobi> it makes it possible to programmattically set the icon for a listview
+[11:43:24] <MauriceG> sorry, it was working fine.
+[11:43:34] <toddparker> so the gist is that with this, you can set data-icon="none" on the UL or the LI
+[11:43:42] <MauriceG> but I had to fight with uGoMobi
+[11:44:01] <MauriceG> yeah
+[11:44:26] <uGoMobi> toddparker: yes, or any other icon you want for that list
+[11:44:33] <MauriceG> and change the icon for the listview at all
+[11:44:33] <johnbender> _|Nix|_: is it?
+[11:44:38] <uGoMobi> you dont need to add the data-icon attr on every LI
+[11:44:44] <johnbender> fixed?
+[11:44:45] <toddparker> and you can do this in markup as above or programmatically
+[11:44:50] <johnbender> I had latest firefox when I was testing that
+[11:44:54] <uGoMobi> toddparker: both
+[11:44:59] <MauriceG> yep
+[11:45:18] <toddparker> right. you'd most likely set it on the list and do overrides on the LI
+[11:45:19] <johnbender> and the code bloat for that was nearly non existent
+[11:45:45] <toddparker> this seems like a nice tweak. makes the behavior more consistent
+[11:45:54] <_|Nix|_> johnbender: The FF thing? I think so, in FF13 ... there was a link to a bugzilla thing in one of the issues ...
+[11:45:58] <MauriceG> my words ...
+[11:46:04] <toddparker> i'd like to have johnbender give the PR a review
+[11:46:14] <toddparker> that work?
+[11:46:15] <johnbender> toddparker: link?
+[11:46:23] <toddparker> https://github.com/jquery/jquery-mobile/pull/4582
+[11:46:24] <socialhapy> ★ Pull request on jquery-mobile by MauriceG (1m, 1w ago): New listview option icon - change or disable icons on listviews
+[11:46:33] <MauriceG> which one?  the closed one?  johnbender don't like to
+[11:46:40] <MauriceG> to = too
+[11:46:58] <_|Nix|_> johnbender: Guess not ...
+[11:47:22] <toddparker> so is there an open PR for this?
+[11:47:39] <MauriceG> uGoMobi: and johnbender  don't like the style of coding of the initial PR
+[11:47:43] <toddparker> looks like you closed MauriceG
+[11:47:57] <johnbender> yah I didn't comment on that link I don think
+[11:48:10] <MauriceG> yep.  the second PR don't work...
+[11:48:13] <uGoMobi> johnbender: no, you didn't  I asked you on dev
+[11:48:23] <johnbender> uGoMobi: ah, I thought it was a simple change
+[11:48:29] <johnbender> or at least that's what I recall
+[11:48:30] <uGoMobi> MauriceG: johnbender lets discuss this on dev
+[11:48:32] <johnbender> re-reading
+[11:48:34] <johnbender> yar
+[11:48:46] <MauriceG> uGoMobi: okay, sorry...
+[11:48:55] <toddparker> agreed. think this is a good idea, just might require some more discussion on how to land it
+[11:48:58] <uGoMobi> in short: we want the change, but have to look into how to code it
+[11:49:08] <uGoMobi> :)
+[11:49:17] <MauriceG> yep :-)
+[11:49:17] <toddparker> right
+[11:49:33] <uGoMobi> last two bulletpoints are things I think that need priority
+[11:49:43] <uGoMobi> widget options
+[11:49:48] <uGoMobi> components mostly
+[11:49:55] <toddparker> i agree on both - widget option consistency and better docs
+[11:50:22] <_|Nix|_> Hold on ... widget options? Are you guys talking about what options widgets should have?
+[11:50:30] <uGoMobi> agcolom: toddparker MauriceG lets discuss at another moment how we are going to work on docs improvement
+[11:50:33] <toddparker> on the first, I know scott_gonzalez had a PR for UI that made it easy to configure what classes are added during enhancement
+[11:50:49] <toddparker> i'd like to look at that to see if we should land before UI
+[11:51:15] <toddparker> it would let us move a lot of the class based config stuff like shadows and corners out of the normal options and streamline the API
+[11:51:29] <uGoMobi> great
+[11:51:40] <agcolom> ok
+[11:51:45] <_|Nix|_> toddparker: Oh, cool!
+[11:52:03] <toddparker> i don't like having options for stuff like that
+[11:52:29] <toddparker> sort of a larger, future re-think but let's talk about that
+[11:52:34] <_|Nix|_> toddparker: Yeah, an option that results in a class being added/removed is a bit trivial.
+[11:52:44] <toddparker> i know _|Nix|_ has a lot of ideas to
+[11:52:46] <uGoMobi> _|Nix|_: not really new options... but I think it would be nice if you can set corners true/false for all components that are styled as buttons and not just a few
+[11:52:53] <uGoMobi> for example^
+[11:52:58] <toddparker> it's a consistency thing
+[11:52:58] <uGoMobi> toddparker: that's it for me
+[11:53:17] <_|Nix|_> uGoMobi: OK, I see ...
+[11:53:20] <toddparker> on the docs, let's start sketching ideas
+[11:53:29] <agcolom> ok, me next?
+[11:53:36] <toddparker> with agcolom, uGoMobi etc.
+[11:53:40] <toddparker> yes agcolom
+[11:53:42] <agcolom> Not gone on holiday yet after all... so:
+[11:53:42] <agcolom>     Added inline examples to api docs: slider, switch collapsibles, collapsible set, and select. Also completed some of those with missing info.
+[11:53:42] <agcolom>     Added inline examples to api docs: select (still have to adjust the iframe sizes for those)
+[11:53:55] <agcolom> that's an added 4.5k lines now ;)
+[11:54:10] <_|Nix|_> Hut diggety!
+[11:54:22] <agcolom> and Corrected boolean options that were using double quotes in the docs.
+[11:54:22] <agcolom>     helped release 1.2.0-alpha.1 (docs code changes) and minor changes elsewhere...
+[11:54:42] <agcolom> each time there's a change in the main docs I correct the api docs and vice versa
+[11:55:18] <agcolom> I'll be going at the end of the week it seems so will be offline for a few days....
+[11:55:51] <toddparker> awesome
+[11:55:51] <agcolom> and that's it really...
+[11:56:08] <toddparker> how many total widgets do we have? i don't know offhand
+[11:56:26] <agcolom> still 9 as I have been adding the inline examples...
+[11:56:28] <toddparker> just wondering what % done we are on widgets
+[11:56:42] <toddparker> after that, we need to document all the other plugins
+[11:56:43] <agcolom> I need to do popups, lists
+[11:56:47] <toddparker> that is the big hole right now
+[11:57:35] <agcolom> yes... I am not sure how many there are to be done....
+[11:57:52] <agcolom> (not counted yet) and some are quicker than others
+[11:57:56] <toddparker> we'll have to make a list :)
+[11:58:04] <toddparker> might be too daunting to see 'em all
+[11:58:08] <agcolom> I need to do text inputs and textareas as well
+[11:58:29] <agcolom> yes, I thought I'd do the list after I'd have done a few ;-)
+[11:59:04] <toddparker> right
+[11:59:04] <agcolom> I can prepare a list and state of this project for next time
+[11:59:08] <toddparker> well, nice progress there
+[11:59:17] <toddparker> that is going to be a massive help
+[11:59:35] <toddparker> as we re-do the docs, we can simply pull your docs in and re-format
+[11:59:50] <toddparker> (i mean the docs & demos)
+[11:59:57] <toddparker> ok, think that's it
+[12:00:00] <toddparker> we're on time
+[12:00:14] <toddparker> any questions from the community?
+[12:00:36] <toddparker> <crickets>
+[12:00:44] <_|Nix|_> :)
+[12:01:01] <toddparker> If any lurkers in the community would like to get involved with the project, please reach out
+[12:01:07] <_|Nix|_> I guess we have a lot of community bandwidth via the issues, no?
+[12:01:08] <toddparker> we need the help
+[12:01:15] <toddparker> we do
+[12:01:24] <_|Nix|_> toddparker: rid00z offered to help.
+[12:01:24] <toddparker> there are 40 people in this channel
+[12:01:34] <toddparker> yeah? in -dev?
+[12:01:41] <_|Nix|_> toddparker: In an issue.
+[12:01:42] <johnbender> _|Nix|_: that would be good -
+[12:01:56] <_|Nix|_> toddparker: He was asking johnbender if there was anything else he could do.
+[12:02:02] <toddparker> great, let's encourage him to hop into -dev
+[12:02:10] <toddparker> there is always stuff to so :)
+[12:02:17] <_|Nix|_> toddparker: I suggested the leaks in navbar and fixedToolbar, but I ended up taking those.
+[12:02:35] <_|Nix|_> toddparker: Yeah, definitely.
+[12:02:42] <johnbender> _|Nix|_: when was that? :( :(
+[12:02:43] <uGoMobi> see you on -dev
+[12:02:45] <johnbender> that's bad
+[12:02:50] <toddparker> great, try to give him some issues to look at and we'll take it from there
+[12:03:05] <_|Nix|_> johnbender: When was what?
+[12:04:14] <toddparker> i just commented on his issue in GH
+[12:04:36] <toddparker> alright, let's wrap since we're a bitover
+[12:04:49] <toddparker> thanks everyone. see you on -dev

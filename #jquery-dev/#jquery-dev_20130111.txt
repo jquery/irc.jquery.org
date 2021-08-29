@@ -1,0 +1,181 @@
+[04:44:26] <jqcommit> 01[13qunit01] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/0WkdXA
+[04:44:26] <jqcommit> 13qunit/06master 1449d0831 15Jörn Zaefferer: Upgrade to latest node-testswarm, take out logs test again, since that timed out on TestSwarm so far.
+[05:21:49] <mikesherov> ajpiano: just saw the grunt dependency stuff
+[05:22:08] <ajpiano> yeah
+[05:22:16] <ajpiano> what a pain in the butter
+[05:22:20] <mikesherov> glad we locked in some SHAs
+[05:22:42] <mikesherov> I did that for grunt-update-submodules
+[05:23:25] <mikesherov> so anyway, sorry I didn't respond earlier. If you need something today, lmk
+[05:38:23] <ajpiano> no prob
+[05:38:32] <ajpiano> will do
+[05:38:43] <ajpiano> we'll have to figure out how to update the tasks for 0.4.0rc5 format
+[07:05:41] <DaveMethvin> ajpiano: thanks for fixing the build!
+[07:05:59] <ajpiano> DaveMethvin: :)
+[07:06:05] <ajpiano> DaveMethvin: i also made this page for you http://stage.contribute.jquery.org/commits-and-pull-requests/
+[07:06:20] <ajpiano> so all the pages that talk about how you should go about contributing things back to us that are in repos
+[07:06:21] <ajpiano> can refer to that
+[07:06:34] <ajpiano> feel free to go to town on that, add more, whatever
+[07:06:36] <DaveMethvin> oh nice
+[07:06:41] <ajpiano> i haven't slept
+[07:06:42] <ajpiano> lol
+[07:09:22] <ben_alman> ping ajpiano DaveMethvin 
+[07:09:34] <ajpiano> hey ben_alman
+[07:09:35] <DaveMethvin> present
+[07:09:37] <ben_alman> so i actually want to try to figure out what exactly i screwed up
+[07:09:46] <ben_alman> so maybe i can force-publish over the breaking change i made
+[07:09:56] <ben_alman> because this is horrible
+[07:10:00] <ajpiano> i didn't go too crazy ben_alman
+[07:10:07] <ajpiano> i just set us onto 0.4.0rc4
+[07:10:07] <jqcommit> [13jquery] 15danilsomsikov opened pull request #1127: Rejecting nodes other than element and document in acceptData to avoid memory leak. Fixes #8335 (06master...06bug_8335)  02http://git.io/bGz6Yg
+[07:10:14] <ben_alman> does 0.4.0rc4 work?
+[07:10:20] <ben_alman> with all your plubins?
+[07:10:24] <ben_alman> 0.4.0rc5 is the new one
+[07:10:33] <ajpiano> and then i picked out the last commit on grunt-contrib-jshint and grunt-contrib-uglify
+[07:10:36] <ben_alman> and only works iwth the plugins that have actually been updated for it, which is like 5 of them
+[07:10:39] <ajpiano> from before you made the changes for #606
+[07:10:43] <ben_alman> hmmn
+[07:10:53] <ben_alman> so i published changes for 606 as non-rc5 releases?
+[07:10:56] <ben_alman> shit
+[07:10:58] <ben_alman> that would be tproblem.
+[07:11:07] <ajpiano> https://github.com/gruntjs/grunt-contrib-uglify/commits/master
+[07:11:26] <ben_alman> ok so i need to revert some publishes
+[07:12:27] <ben_alman> were these the only 2 plugins you noticed being screwed up?
+[07:13:57] <ben_alman> ajpiano: were you isng grunt-contrib-uglify@0.1.0 ?
+[07:14:24] <ben_alman> because that version still uses this.file.srcRaw
+[07:15:01] <ajpiano> yes, it was using that before
+[07:15:47] <ben_alman> link me your old pacakge.json again?
+[07:15:55] <ben_alman> i want to try to see wtf is actually getting installed by it
+[07:16:14] <ajpiano> https://github.com/jquery/jquery/blob/c1a59f78c26eed95f4ad5d69d00578e63754713d/package.json
+[07:16:51] <ajpiano> ben_alman: the problem was that it was a catch 22
+[07:17:04] <ben_alman> ok doing an npm install with that
+[07:17:04] <ajpiano> with just "0.4.0", a fresh clone would get rc5
+[07:17:11] <ajpiano> but we have custom multitasks
+[07:17:17] <ajpiano> that aren't compatible with rc5
+[07:17:19] <ben_alman> OH
+[07:17:25] <ben_alman> hmmn
+[07:17:41] <ben_alman> i didn't think npm would fetch a pre-release if you did ~0.4.0
+[07:17:44] <ben_alman> that's INSANE
+[07:18:00] <ajpiano> so i had to roll back to 0.4.0rc4 specifically, where i knew it worked, so i just went and grabbed the last versions of uglify and jshint that looked like they'd work with 0.4.0rc4
+[07:18:03] <ajpiano> yeah i was surprised about that too
+[07:18:07] <ben_alman> let me see what semver says
+[07:18:34] <ben_alman> hmmn semver says pre-release needs a dash
+[07:18:38] <ben_alman> 0.4.0-rc1
+[07:18:47] <ben_alman> derp
+[07:18:52] <DaveMethvin> yeah we break that rule too in core
+[07:18:57] <ben_alman> well
+[07:19:01] <DaveMethvin> i was just following precedent!
+[07:19:06] <ben_alman> it does say  Identifiers MUST be comprised of only ASCII alphanumerics and dash [0-9A-Za-z-].
+[07:19:18] <ben_alman> but also says A pre-release version MAY be denoted by appending a dash and a series of dot separated identifiers immediately following the patch version.
+[07:19:37] <DaveMethvin> the version of semver itself is v2.0.0-rc.1 that tells you something :D
+[07:20:07] <ben_alman> i guess
+[07:20:36] <ben_alman> https://github.com/isaacs/node-semver
+[07:20:53] <ben_alman> it prefers no-tag to tag
+[07:21:01] <ben_alman> but seems to require hyphen
+[07:21:03] <ben_alman> stull
+[07:21:10] <ben_alman> still yeah, noted.
+[07:21:25] <ben_alman> people have to specify the pre-release version of grunt explicitly
+[07:21:28] <ben_alman> and not use a ~
+[07:21:40] <ben_alman> so does 0.4.0rc4 work just fine?
+[07:22:32] <DaveMethvin> seemed to work for me last night
+[07:22:50] <ben_alman> phew. ok.
+[07:23:17] <DaveMethvin> the current package.json with rc4 and the two plugins nailed to sha's work
+[07:24:14] <DaveMethvin> hmm, depending on how long this will be a problem i should update master (2.0) to fix this as well
+[07:25:12] <ben_alman> so here's our schedule
+[07:25:27] <ben_alman> i published rc5 along with like 6 plugins to npm as rc5-designated
+[07:25:39] <ben_alman> tkellen is in charge of contrib and is afk until wednesday
+[07:25:50] <ben_alman> which means the other plugins might not get pushed until then.
+[07:26:05] <ben_alman> shama has put in a lot of effort updating them all, but they have to be reviewed and published
+[07:26:08] <ajpiano> what we should do is figure out how to get our multi tasks to run on rc5
+[07:26:15] <ajpiano> and get that in a branch
+[07:26:27] <ajpiano> and then have it ready to go when all the rc5 and contrib is out
+[07:26:31] <ben_alman> any changes that happen at this point will be very minor
+[07:26:31] <ajpiano> and we should roll with this for a few days
+[07:26:36] <ben_alman> i might not even make them until 0.4.1 tbh
+[07:26:44] <ajpiano> right
+[07:26:48] <ben_alman> nothink like what happened with rc5
+[07:26:51] <ben_alman> nothing
+[07:27:11] <DaveMethvin> i've updated to grunt 0.4 in jquery-migrate too but now i have the decoder ring to fix it
+[07:27:12] <ben_alman> see https://gist.github.com/4506644
+[07:27:49] <DaveMethvin> since 1.9 final, 2.0 beta, and migrate final are all shipping early next week i'd rather just come up with something stable now
+[07:27:55] <DaveMethvin> we can fix this later
+[07:28:47] <ben_alman> in grunt 0.5, plugin authors won't be pulling apis off of grunt, they'll be requiring them
+[07:28:56] <ben_alman> so when grunt changes, they won't have to update
+[07:29:07] <ben_alman> grunt will just be the task runner system
+[07:29:27] <ben_alman> not sure how it's all going tow ork, but we'll figure it out
+[07:38:55] <doesallmagic> Yippie, build fixed!
+[07:38:56] <doesallmagic> Project QUnit build #245: FIXED in 18 sec: http://swarm.jquery.org:8080/job/QUnit/245/
+[07:38:56] <doesallmagic> joern.zaefferer: Upgrade to latest node-testswarm, take out logs test again, since that timed out on TestSwarm so far.
+[08:21:04] <ben_alman> DaveMethvin, ajpiano i just wrote this guide on installing grunt, can you tell me if it would have solved the problem you guys are having? https://github.com/gruntjs/grunt/wiki/Advanced-usage
+[08:22:33] <ajpiano> i've never used --save-dev
+[08:22:37] <ajpiano> and i'm not usre why i'd start
+[08:22:48] <ben_alman> it auto adds it to devDependencies
+[08:22:55] <ben_alman> relatively new feature
+[08:23:01] <ben_alman> few months maybe
+[08:24:20] <DaveMethvin> i'm not up to speed on the install process, basically a PR arrived on my doorstep from mikesherov and I learned enough to feel like i knew what it was doing
+[08:25:00] <ben_alman> well, ultimately, who is responsible for this
+[08:25:08] <ben_alman> it would be great to get their feedback
+[08:25:11] <DaveMethvin> the basic problem is that we're using a dev version of something, which is unstable from release to release even if the version doesn't change
+[08:25:22] <DaveMethvin> in retrospect we shouldn't  have done that
+[08:25:26] <ben_alman> but if you lock in a version it's no problem, right?
+[08:25:43] <DaveMethvin> yeah and that was another problem we had
+[08:25:49] <DaveMethvin> >= in dependencies
+[08:25:55] <ben_alman> ya
+[08:26:02] <ben_alman> for releases, ~ is great
+[08:26:04] <DaveMethvin> i am not even a fan of ~ tbh
+[08:26:10] <ben_alman> sure
+[08:26:18] <DaveMethvin> i want to know that what i build is what you build
+[08:26:26] <ben_alman> sure
+[08:26:55] <DaveMethvin> so yeah if we specified one true version it should prevent this
+[08:26:59] <ben_alman> yep
+[08:27:21] <ben_alman> what i tried to say in that wiki page
+[08:27:37] <ben_alman> is that for dev versions, please don't ever use a tilde
+[08:28:20] <DaveMethvin> i'm afraid this is like telling a kid not to touch the stove
+[08:28:30] <ben_alman> no i don't care
+[08:28:45] <ben_alman> due dilligence is all i'm going for
+[08:28:57] <DaveMethvin> plausible deniability :D
+[08:29:01] <DaveMethvin> i think you got there
+[08:29:13] <DaveMethvin> it's mainly that this dependency crap is incredibly complicated
+[08:29:28] <DaveMethvin> but that's not grunt's fault per se
+[08:40:21] <sizcommit> 01[13sizzle01] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/pYOY7g
+[08:40:21] <sizcommit> 13sizzle/06master 142178521 15Richard Gibson: More comprehensive ignored files list
+[08:41:21] <DaveMethvin> ben_alman: I think the instructions for "Installing a published development version of grunt" should advise people to use a non-~ approach
+[08:41:37] <ben_alman> didn't i do that?
+[08:41:48] <ben_alman> like a whole thing in italics?
+[08:42:07] <DaveMethvin> oh sorry, i meant the section above
+[08:42:15] <DaveMethvin> there's some duplication there
+[08:42:39] <DaveMethvin> Installing a specific version of grunt
+[08:42:48] <DaveMethvin> to me a specific version is, well, a SPECIFIC version
+[08:43:17] <ben_alman> hmmn
+[08:43:41] <ben_alman> well grunt uses ~ versions internally
+[08:43:53] <ben_alman> you can use npm shrinkwrap if you care about exact versions
+[08:43:58] <DaveMethvin> sorry, gotta go ... don't sweat this now it's more of a philosophical thing
+[09:54:17] <sizcommit> 01[13sizzle01] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/v6UnLQ
+[09:54:17] <sizcommit> 13sizzle/06master 143e40b5d 15Richard Gibson: Enforce Unix-style line endings for text files
+[10:01:25] <jqcommit> 01[13jquery01] 15gibson042 pushed 2 new commits to 061.9-stable: 02http://git.io/NLirDw
+[10:01:25] <jqcommit> 13jquery/061.9-stable 148b82af9 15Oleg: Ref 0ed497b. Close gh-1125.
+[10:01:25] <jqcommit> 13jquery/061.9-stable 145290567 15Richard Gibson: Update Sizzle
+[10:02:20] <jqcommit> 01[13jquery01] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/KwHUPA
+[10:02:20] <jqcommit> 13jquery/06master 14bad229c 15Richard Gibson: Update Sizzle
+[10:31:51] <doesallmagic> Project jQuery 1.x Core build #16: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/16/
+[10:31:52] <doesallmagic> * richard.gibson: Ref 0ed497b. Close gh-1125.
+[10:31:52] <doesallmagic> * richard.gibson: Update Sizzle
+[10:35:29] <jqcommit> 01[13docs.jquery.com01] 15Krinkle pushed 1 new commit to 06master: 02http://git.io/1508pg
+[10:35:29] <jqcommit> 13docs.jquery.com/06master 14f1670d6 15Timo Tijhof: Disable memcached config; Clean up $isStage logic.
+[11:02:41] <doesallmagic> Project jQuery Core build #633: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/633/
+[11:02:41] <doesallmagic> richard.gibson: Update Sizzle
+[11:59:04] <jqcommit> 01[13docs.jquery.com01] 15Krinkle pushed 1 new commit to 06master: 02http://git.io/Q_SbPw
+[11:59:04] <jqcommit> 13docs.jquery.com/06master 146b38963 15Timo Tijhof: Make interwiki redirects 301...
+[12:48:59] <therealklanni> Does jQuery 1.8 still only use "success", "error" and "complete" for the _property name_ in the options object of an $.ajax object? I know the fluent interface is being deprecated in favor of "done"/"fail"/"always" but is that naming convention carrying over to the options object as well?
+[12:54:09] <therealklanni> I'm asking because I'm writing a prefilter that needs to modify the callbacks and set up a new deferred. I'm not sure if I should plan on there being a "done" property in the options object (for instance) 
+[13:09:54] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/pCKikA
+[13:09:54] <jqcommit> 13jquery/06master 14c0c1bdd 15Dave Methvin: Update copyrights used in file headers.
+[13:18:15] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 061.9-stable: 02http://git.io/9IDIPA
+[13:18:15] <jqcommit> 13jquery/061.9-stable 147be47fb 15Dave Methvin: Update copyrights used in file headers.
+[13:41:16] <doesallmagic> Project jQuery Core build #634: STILL FAILING in 31 min: http://swarm.jquery.org:8080/job/jQuery%20Core/634/
+[13:41:17] <doesallmagic> dave.methvin: Update copyrights used in file headers.
+[14:01:02] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/n-g6qA
+[14:01:02] <jqcommit> 13jquery/06master 14fa71737 15Dave Methvin: Leave out the web site, you know where to find us.
+[14:11:45] <doesallmagic> Project jQuery 1.x Core build #17: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/17/
+[14:11:46] <doesallmagic> dave.methvin: Update copyrights used in file headers.
+[14:42:09] <doesallmagic> Project jQuery Core build #635: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/635/
+[14:42:10] <doesallmagic> dave.methvin: Leave out the web site, you know where to find us.

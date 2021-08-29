@@ -1,0 +1,106 @@
+[00:56:30] <diverdude> I have made this draggable rectangle on top of a grid: https://jsfiddle.net/3sq0atpc/    So see how it works click somewhere on the grid and drag around while holding mousebutton. For some reason the update of the rectangle is very slow and jerky because move-events are not firing. Why? Am I doing something very stupid here?
+[02:15:35] <Cork> diverdude: yes, kinda
+[02:15:46] <Cork> you want a mousemove on document not on each div
+[02:16:06] <Cork> same for mousedown/up
+[02:16:24] <Cork> then use the coardinate from that to find the affected elements
+[02:16:45] <diverdude> Cork: i actually made it work: https://jsfiddle.net/p9bLgrqw/3/   But i am now struggeling to find out how to also be able to move up/left and not only down/right
+[02:17:26] <Cork> ya, i would recommend to move the event handler
+[02:17:47] <Cork> cause currently your masking the divs, and as the red area isn't a child the event won't bubble
+[02:18:06] <Cork> while if you bind it on a static shared parent you won't have that problem
+[02:18:46] <diverdude> Cork: but if i bind on document it will have effect everywhere?
+[02:18:56] <Cork> yes
+[02:19:11] <Cork> all events bubble to document, unless you stop the propagation
+[02:19:21] <diverdude> Cork: i am not really interested in that since this grid is just a small part of a site with many other elements
+[02:19:22] <Cork> (something that should be avoided)
+[02:19:43] <Cork> diverdude: then put the red area inside a shared parent with the grid
+[02:19:50] <Cork> and bind the event handler there
+[02:20:36] <diverdude> Cork: but i am? Its inside .gridcontainer
+[02:20:51] <Cork> diverdude: ya, but you don't bind the event handlers to it
+[02:20:58] <Cork> you bind them to the inner most divs
+[02:21:20] <diverdude> ah ok i see. so i should bind to .gridcontainer instead and it will work better?
+[02:21:26] <Cork> yes
+[02:21:39] <Cork> cause it will get evets from both the divs AND the selection
+[02:21:55] <Cork> as long as you attach the selection square inside it that is
+[02:22:57] <diverdude> Cork: hmm ok i see. That makes sense, but that made it not work at all : https://jsfiddle.net/p9bLgrqw/4/
+[02:24:03] <Cork> diverdude: ya, cause that means you have to change ex start = $(this).data('id')
+[02:24:42] <Cork> and the offsets will change, but it should work
+[02:27:37] <diverdude> Cork: mmm can you maybe show me? I cannot make it work now it...
+[02:28:10] <Cork> ah, now i found it
+[02:28:27] <Cork> you select for .grid-container, but you don't have any with that class
+[02:28:43] <Cork> (it's .gridcontainer)
+[02:46:38] <diverdude> Cork: ah yes ofc. https://jsfiddle.net/p9bLgrqw/5/   What do you think i am doing wrong regarding movement?
+[02:48:05] <Cork> diverdude: you use mousestart_x for both axis
+[02:48:33] <Cork> and width in both width and height
+[02:49:52] <diverdude> Cork: yeah ok...true: https://jsfiddle.net/p9bLgrqw/8/    That improved it somewhat... but still its not moving left
+[02:50:29] <Cork> we.... your using abs... what do you expect?
+[02:50:58] <thykka> math just be like dat, yo
+[02:51:35] <diverdude> Cork: hmm right... but i cannot give a div a negative width
+[02:53:04] <Cork> diverdude: ya, but when the dimentions are negative you will have to move top, left instead of height/width
+[02:53:46] <diverdude> hmm
+[02:58:34] <diverdude> Cork: could you show me how on the fiddle?
+[02:59:07] <Cork> diverdude: i don't have time to write that code right now, in a few hours i might be able to find time
+[02:59:21] <diverdude> ok i understand
+[03:54:20] <diverdude> fixed
+[08:02:21] <diverdude> Cork: hi, now i remember why i had put mousemove listenener on the divs and not on the container. its because i want to change background colour for all the divs in the grid that are colliding with the dragging div. Is there any way to do that now that i am listening on the container?
+[08:03:44] <Cork> diverdude: you can use getElementFromPoint https://developer.mozilla.org/fr/docs/Web/API/Document/elementFromPoint
+[08:04:01] <Cork> diverdude: you will still have to figure out what points you will need to check though
+[08:04:09] <Cork> cause it won't just be the element under the cursor
+[08:06:01] <diverdude> Cork: ok so i have to sample a set of points within the dragged div and use elementFromPoint on each?
+[08:07:03] <Cork> diverdude: either that or store reference on the divs so you can figure out what element you care about (ex data-x, data-y and then you need to find all from the top left to bottom right)
+[08:07:51] <diverdude> Cork: i already have data-id on each div in the grid which has value "row,col"
+[08:08:16] <Cork> well then you could get the current element and figure out all the element from there
+[08:08:41] <diverdude> Cork: ok i think i got it. Get current element using elementFromPoint?
+[08:08:54] <Cork> for example ya
+[08:09:06] <diverdude> makes sense...ok should be doable. thanks
+[08:12:22] <diverdude> Cork: ugh...document.elementFromPoint gets top element which is not useful because my grid is nested in a set of containers :/
+[08:12:51] <thykka> elementsFromPoint?
+[08:12:54] <diverdude> Cork: seems like i am getting a container div and not a cell div
+[08:13:10] <Cork> it shouldn't
+[08:13:30] <Cork> it should get the bottom most element (the leaf furthers out)
+[08:13:32] <thykka> elementsFromPoint returns an array of elements, if the topmost isn't the one you want
+[08:15:37] <diverdude> hmm ok maybe its because i am using wrong coordinates.should i not use e.pageX - offset.left, e.pageY - offset.top?
+[08:15:52] <diverdude> var offset = $('.grid-container-fov').closest('.grid-wrapper').offset();
+[08:18:26] <diverdude> Given this example: https://jsfiddle.net/e0xpvr8a/ how would you use elementFromPoint to get a reference to the grid div so that i can change backgroundcolor?
+[08:27:16] <diverdude> Cork: ok it seems to work on the fiddle (almost) but not on my actual site
+[08:28:03] <diverdude> Cork: thats so weird since i am doing the same....maybe coordinates are different?
+[10:34:01] <diverdude> I am trying to use elementFromPoint to find which div the mouse is hovering, however i do not understand which coordinate set i should supply to the function. I have a quite complex hierarchy of nested containers. How do i found out how to properly use document.elementFromPoint?
+[12:12:39] <thykka> search for it @ MDN
+[17:05:50] <haroldjfks> Ciao a tutti :P
+[17:06:51] <haroldjfks> hello :-) eg. If I run this $("li.classname a:contains(text)").closest("li").css("display", "none"); by Chrome console into the specific page...it works
+[17:07:09] <haroldjfks> but if I jQuery(document).ready(function($){... the same, it doesn't work
+[17:07:14] <haroldjfks> what could be the issue here?
+[17:07:28] <robertmaxrees> define "doesn't work".  do you get an error?
+[17:07:57] <haroldjfks> no, it doesn't hide the related li
+[17:08:18] <haroldjfks> the only one red message is "Unchecked runtime.lastError: The message port closed before a response was received." what's that?
+[17:08:29] <robertmaxrees> what happens when you do just console.log($("li.classname a:contains(text)").length);
+[17:08:33] <robertmaxrees> before your code
+[17:09:50] <haroldjfks> robertmaxrees: 1
+[17:10:22] <robertmaxrees> and console.log($("li.classname a:contains(text)").closest("li").length)?
+[17:10:30] <robertmaxrees> if that's still "1", then i'd have to see it.
+[17:13:40] <haroldjfks> yes, 1 and 1 both
+[17:13:49] <robertmaxrees> yeah, dunno then.
+[17:23:21] <haroldjfks> the same thing happens with .hide() and no errors on console
+[17:23:30] <robertmaxrees> dunno then.  i'd have to see the issue.
+[17:26:41] <haroldjfks> I got it, it happens on pagination...eg. domain.com/web.html, it works, if this domain.com/web.html#/page-2, instead, it doesn't work
+[17:26:54] <robertmaxrees> :shrug:
+[17:26:55] <robertmaxrees> k
+[18:06:17] <goodblood> any idea why trying to capture a keypress() from an input field might be failing?
+[18:06:26] <robertmaxrees> define "failing" :)
+[18:06:55] <goodblood> doing nothing!
+[18:07:06] <goodblood> on an input field previously inserted into the DOM by jquery
+[18:07:41] <robertmaxrees> are you binding the listener before or after you insert it?
+[18:08:13] <goodblood> please hold
+[18:15:06] * robertmaxrees plays the jeopardy think music
+[18:15:42] <robertmaxrees> either way, that's likely the case.  check out these pages for more on the topic: https://api.jquery.com/on/#direct-and-delegated-events and https://learn.jquery.com/events/event-delegation/
+[18:24:47] <goodbloo1> hmm, this says .on should handly events on objects dynamically
+[18:24:55] <goodbloo1> handle
+[18:24:59] <robertmaxrees> that's not what it says :)
+[18:26:03] <robertmaxrees> https://i.imgur.com/XkAUhW4.png
+[18:27:45] <robertmaxrees> You need to bind to an ancestor that is static.
+[22:31:38] <goodblood>  $(this).parent( ".element" ).before( ".element" ).children( "input" ).focus();
+[22:31:41] <goodblood> is this bad?
+[22:31:47] <goodblood> because it don't work
+[22:32:14] <goodblood> want to switch focus from input in one element to input in the previous element
+[22:45:13] <shoky_> goodblood: try  .prevAll(".element").first()  instead of .before(".element")
+[22:45:39] <shoky_> and will be more robust if you change .parent to .closest   and .children to .find
+[22:47:10] <shoky_> and they're gone ;S

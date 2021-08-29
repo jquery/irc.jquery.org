@@ -1,0 +1,81 @@
+[00:04:14] <jqcommit> [13jquery.com] 15iconjack opened issue #76: docs fail to mention that .resize only works for window element 02http://git.io/pjcS3A
+[01:47:47] <jqcommit> [13qunit] 15leobalter opened pull request #611: Ignore test coverage on jsdiff as an external module (06master...06istanbul) 02http://git.io/gdbGBA
+[02:11:59] <jqcommit> [13jquery] 15wenber opened pull request #1630: please pass this pull request . I am to learn how to use github (06master...06master) 02http://git.io/uuAKUQ
+[02:18:49] <jqcommit> [13jquery] 15wenber closed pull request #1630: please pass this pull request . I am to learn how to use github (06master...06master) 02http://git.io/uuAKUQ
+[05:16:11] <jqcommit> [13jquery.com] 15scottgonzalez closed issue #76: docs fail to mention that .resize only works for window element 02http://git.io/pjcS3A
+[06:03:02] <m_gol> DaveMethvin: ping
+[06:21:48] <DaveMethvin> m_gol: sup?
+[06:50:29] <m_gol> DaveMethvin: so, I was wondering what's the best way to test for data leaks when using jQuery from outside of jQuery
+[06:50:51] <m_gol> patching the jQuery function itself won't help a lot since there are gazillion ways of creating new elements and assigning them data
+[06:51:02] <m_gol> in jQuery 2 there is no jQuery.cache so that's out as well
+[06:51:12] <m_gol> I'm looking at jQuery.buildFragment though that's internal...
+[06:51:22] <DaveMethvin> hmm
+[06:51:32] <DaveMethvin> so data leaks happen when .cleanData isn't called
+[06:51:44] <DaveMethvin> put a hook on it and see when it it isn't called? :)))
+[06:52:21] <DaveMethvin> when we go to having data attached to elements this will be hard to do as ewll
+[06:52:22] <DaveMethvin> well
+[06:52:23] <m_gol> yeah but I have gazillion tests with gazillion elements created and since they're not attached to the DOM I don't have a list of all nodes that this code touched
+[06:53:00] <m_gol> what I'm trying to do is to catch all nodes that jQuery could possibly touch and at the end check if they have any data left
+[06:53:08] <m_gol> (this is for Angular)
+[06:53:19] <DaveMethvin> right, like we did in 1.x by looking thru jQuery.data
+[06:53:34] <DaveMethvin> but the reason we have to do that in 1.x is that it leaks
+[06:53:41] <m_gol> ;)
+[06:53:42] <DaveMethvin> in 2.x right now it can leak as well
+[06:53:54] <DaveMethvin> but when we switch to attachingto elements it shouldn't leak
+[06:54:08] <DaveMethvin> since when the element is released the data goes too
+[06:54:21] <m_gol> except when there are special events hooks
+[06:54:28] <DaveMethvin> right, which we'll need to address
+[06:54:43] <DaveMethvin> but i think the new event interface may help that too
+[06:55:07] <DaveMethvin> but back to that dilemma
+[06:55:21] <DaveMethvin> yeah it seems like it's pretty hard to track the elements on the incoming side
+[06:55:44] <DaveMethvin> they might be created outside jquery
+[06:56:21] <m_gol> I was also thinking about patching the jQuery copy used for tests to expose dataUser & dataPriv
+[06:56:35] <DaveMethvin> any mechanism we put in place would have to keep a reference to the element like jQuery.cache does
+[06:56:37] <m_gol> not sure what's more evil: that or monkey-patching buildFragment for tests ;-D
+[06:57:13] <DaveMethvin> it's easy to create those leaks by accident with always-detached elements
+[06:57:15] <m_gol> I assume that when we switch to storing data on elements we'll be back using $.fn.data etc.
+[06:57:41] <m_gol> so then monkey-patching $.fn.data to cache what's stored (and remove the cache on cleanData) would work
+[06:58:00] <m_gol> but now all those operations are done via methods on the private storages so they're not available
+[06:58:09] <DaveMethvin> well $.data and $._data most likely
+[06:58:38] <DaveMethvin> encapsulation is always great ... until it isn't
+[06:58:41] <m_gol> so that's why I started thinking about monkey-patching data{User,Priv}.set, it should be easy to switch later to patching $.data/$._data
+[06:59:04] <m_gol> though that requires modifying the tested copy which is not so pretty
+[06:59:22] <DaveMethvin> yeah
+[06:59:39] <m_gol> well, it all should pass through buildFragment at some point, shouldn't it?
+[07:00:01] <m_gol> I only need to asume that fact and that the first argument is an array-like of elements to cache the list
+[07:00:29] <m_gol> that's just for tests so more evilness is allowed than in the regular code but still it smells :D
+[07:00:34] <DaveMethvin> $(document.createElement("div")) doesn't pass thru buildFrament, right?
+[07:00:43] <DaveMethvin> i think there are a few shortcut paths
+[07:00:58] <m_gol> hmm, right
+[07:01:08] <m_gol> it's set up manually then
+[07:01:35] <m_gol> yeah, that's what I was worried about :D
+[07:02:05] <m_gol> well, I guess I'll try this patched version, once 2.2 is released I should be able to go back to using the non-patched one
+[07:02:11] <DaveMethvin> so perhaps we should consider this to be a bug in jQuery, assuming we can do a better job of cleaning up
+[07:02:56] <m_gol> ideally external libs shouldn't have to worry about that :)
+[07:02:57] <DaveMethvin> i *think* the only case that might leak something would be special events that needed a teardown hook and were caching resource of some kind outside the element's data
+[07:03:12] <m_gol> yes, that's what I'm thinking as well
+[07:03:23] <DaveMethvin> i mean, if the teardown just needed to remove a listener on the same element it should take care of itself
+[07:03:46] <DaveMethvin> we should *want* to run the teardown but if somehow it got skipped for that case i don't think it would leak
+[07:04:04] <DaveMethvin> so like on a detached element for example
+[07:04:16] <DaveMethvin> that should work, no leak
+[07:05:44] <DaveMethvin> so let's just get the data stuff cleaned up in 2.2 and i think we'll be good
+[07:05:59] <m_gol> ok, seems fine
+[07:06:13] <m_gol> I'll hack around for now but with the view at the brighter future ;)
+[07:06:13] <DaveMethvin> but you'll need to track it still for 1.x if you care, but you already have a way to do that with jQuery.cache
+[07:06:37] <m_gol> yeah, I think they'll just drop jQuery 1, they don't support IE8 anyway so that's not needed
+[07:06:51] <DaveMethvin> oh boy!
+[07:07:02] <DaveMethvin> now we just have to ship 2.2 :)
+[07:07:32] <m_gol> so now my main problem is that Angular 1.3 is propbably going to be shipped before jQuery 2.2 ;)
+[07:07:52] <m_gol> so I need to hack it around 2.1 for now ;)
+[07:07:53] <DaveMethvin> it's all about timing i guess
+[07:08:13] <DaveMethvin> at least we have a good test case to see if we got it right, with Angular
+[07:10:14] <m_gol> ;)
+[07:10:56] <cael_gomes> Hello. I have 5 distinct classes, with same prefix eg. disc-product, disc-notebook, disc-tablet, disc-smartphone, and so on. I want to build a selector which returns all but two classes eg. returns all elements but disc-product and disc-smartphone.
+[07:11:07] <cael_gomes> Is it possible to achieve without 3rd party plugins?
+[07:11:17] <DaveMethvin> cael_gomes: ask in #jquery please
+[07:11:30] <cael_gomes> DaveMethvin: OK.
+[07:18:50] <jqcommit> [13qunit] 15leobalter closed pull request #611: Ignore test coverage on jsdiff as an external module (06master...06istanbul) 02http://git.io/gdbGBA
+[07:48:39] <jqcommit> [13qunit] 15leobalter reopened pull request #611: Ignore test coverage on jsdiff as an external module (06master...06istanbul) 02http://git.io/gdbGBA
+[10:56:39] <m_gol> wow, effects test on Androids didn't time out: http://swarm.jquery.org/project/jqueryweekly
+[10:56:43] <m_gol> I wonder what changed
+[23:17:27] <jqcommit> [13jquery] 15balupton opened pull request #1631: Update getStyles.js to support when ownerDocument is a shadow dom element (06master...06patch-1) 02http://git.io/iVRadw

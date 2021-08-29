@@ -1,0 +1,1082 @@
+[03:51:16] <jomofcw> Hello !
+[03:52:51] <jomofcw> I've got two stuffs bindend on the click of an A element. The second one is just a "stopPropagation" but it seems to cancel the first stuff (which is about opening the link in a colorbox). How can I stop the propagation without canceling the first declared stuff ?
+[04:08:07] <Cork> jomofcw: never use stopPropagation
+[04:08:31] <Cork> it kills the event so no other event handler can handle it
+[04:13:08] <jomofcw> Cork morning !
+[04:13:19] <Cork> o/
+[04:13:26] <jomofcw> Hm OK I understand... so how can I avoid bubbling from a click ?
+[04:13:49] <jomofcw> Or shall I test the target of the event in the other stuff ? And don't fire it if it's the X case ?
+[04:19:18] <jomofcw> OK, it works filtering on the event.target. Cork if you have a better wayt to do it, feel free to tell me ^^.
+[04:19:45] <Cork> jomofcw: oh, sorry missed the answers
+[04:20:12] <Cork> ah, yes instead of killing the bubbling and saying "i know no one will ever need this"
+[04:20:26] <Cork> instead explicitly exclude the source in the event handlers you know you don't want it
+[04:20:43] <Cork> cause you can safely exclude a source you know you don't want
+[04:20:53] <Cork> but not safely exclude a target you don't know about
+[04:21:30] <Cork> it is quite simple to do too if($(event.target).closest('.exclude-me').length > 0) { return; }
+[04:21:47] <Cork> it's even a one liner :)
+[04:23:13] <CausaMortis> guys, can anyone help me understand why $(this) is no longer in the scope of a function wrapped in a callback?
+[04:23:33] <CausaMortis> say, i have an onclick and bind a function to it, what does $(this) turn into when inside that function?
+[04:23:38] <Cork> CausaMortis: cause this is local to every function
+[04:23:57] <Cork> so function outer() { function() { <-- new this }) }
+[04:24:04] <CausaMortis> ahh
+[04:24:09] <Cork> the simple solution is to do var self = $(this);
+[04:24:15] <Cork> and then use self in the callback
+[04:24:34] <CausaMortis> cheers. that makes a lot of sense. yeah i figured id pass it as an argument
+[04:24:47] <Cork> well no not as an argument
+[04:24:51] <Cork> just inherit the scope
+[04:25:17] <Cork> so function outer() { var self = $(this); something(function() { self.find() }); }
+[04:30:23] <CausaMortis> im a bit confused as to what that would look like when something() is extracted for reuse
+[04:30:51] <CausaMortis> you would pass $(this) to something(element) right? :s
+[04:30:59] <Cork> CausaMortis: if you extract it you can't do it
+[04:31:18] <Cork> cause then the this variable is completely out of scope of the function and it has no way to access it
+[04:31:39] <Cork> note that something in my example is the function that calls the callback
+[04:31:41] <Cork> not the callback
+[04:31:49] <CausaMortis> I dont see the point of extracting it to another nested method when you arent going to reuse the code anyway :p
+[04:31:52] <Cork> let me make a jsfiddle with the example
+[04:32:00] <CausaMortis> fork mine
+[04:32:13] <Cork> you didn't give one
+[04:32:28] <CausaMortis> Cork, https://jsfiddle.net/txtshd98/1/
+[04:32:58] <Cork> uh
+[04:33:22] <Cork> you know your overwriting the jQuery function right?
+[04:33:37] <CausaMortis> how is that?
+[04:33:43] <Cork> function jQuery(element) { <--
+[04:34:09] <Cork> sure you still have access to it through $
+[04:34:15] <CausaMortis> jquery already comes with a function named jquery? I thought it was an object
+[04:34:16] <Cork> but i wouldn't pick that name
+[04:34:27] <Cork> jquery is called jQuery
+[04:34:34] <Cork> and window.$ is pointed to it
+[04:34:46] <CausaMortis> yeh sorry, its just for testing sake ^^ wanted to see what the difference would be when I wrote it out in javascript
+[04:34:59] <Cork> also javascript might be an unsafe name to pick too
+[04:36:11] <CausaMortis> ill rename it for clarity sake :p but its besides the point atm
+[04:36:28] <Cork> ya, that was just side notes as i tried to understand the code
+[04:36:44] <Cork> through i don't see any callbacks used here
+[04:36:54] <CausaMortis> on the block element
+[04:36:58] <Cork> "toggleClass" and "javascript" is never used
+[04:37:03] <CausaMortis> bound to the click event handler
+[04:37:14] <CausaMortis> yeah, its bound to jquery now
+[04:37:51] <CausaMortis> the javascript method is not used. its basically the same code but using javascript rather than jquery. not even fully tested
+[04:38:08] <Cork> CausaMortis: is this what you're looking for https://jsfiddle.net/txtshd98/3/ ?
+[04:39:07] <CausaMortis> Cork, it is. I was reading the docs and a bit confused as to the difference between wrapping it in a callback or not. care to elaborate?
+[04:39:40] <Cork> take function myCallback() {}
+[04:39:52] <Cork> and function handler(callback) {}
+[04:40:18] <Cork> handler(myCallback) passes the myCallback function as a reference so the handler can call it
+[04:40:36] <Cork> the handler then calls it as callback.call(element, event)
+[04:41:07] <Cork> you could do it as handler(function(event) { myCallback.call(this, event) })
+[04:41:17] <Cork> but... why the extra boilerplate=
+[04:41:19] <Cork> *?
+[04:41:41] <Cork> CausaMortis: does that answer the questions?
+[04:43:15] <CausaMortis> I thought there was a difference in the way handler deals with the output of your callback
+[04:43:24] <CausaMortis> sec, let me look at the docs
+[04:46:32] <jomofcw> Cork that's how I've done it :D ! Nice ^^. Thanks for your help.
+[04:47:43] <CausaMortis> Cork, yeah, if your callback has arguments the syntax would change
+[04:47:50] <CausaMortis> Cork, https://learn.jquery.com/about-jquery/how-jquery-works/
+[04:48:01] <CausaMortis> Cork, https://learn.jquery.com/about-jquery/how-jquery-works/#callback-with-arguments
+[04:48:11] <Cork> CausaMortis: yes, if you want to add extra arguments to the function you would have to use the wrapper
+[04:48:25] <Cork> if that is what you're getting at
+[04:49:48] <CausaMortis> Cork, yes :) sorry, I never really bothered looking into why things work the way they do. especially with callbacks understanding scopes is hard for me
+[04:50:12] <Cork> CausaMortis: it is quite simple
+[04:50:36] <Cork> scope means the function inherit the variables from the surrounding scope
+[04:50:41] <Cork> and a function creates a new scope
+[04:50:51] <adv_> anyone has an idea on how to fix jumpy social buttons? http://stackoverflow.com/questions/16006173/jumpy-tweet-button-like-button-hide-until-full-load
+[04:52:28] <CausaMortis> Cork, im having a hard time understanding why that function with parameters needs to be wrapped in an anonymous function :s
+[04:52:50] <Cork> CausaMortis: cause myCallback() means it executes
+[04:53:15] <Cork> so handler(myCallback(extra, arguments, here)) will be handler(<return from myCallback>)
+[04:53:44] <Cork> so inorder to translate the functions you need an extra function
+[04:59:16] <matt___> anyone here
+[05:01:08] <guessx> matt__ just ask
+[05:04:05] <matt___> well I could use some help
+[05:04:18] <matt___> asked here yesterday too but no responses
+[05:04:40] <matt___> If anyone has time, can someone help me out with this http://jsfiddle.net/master412160/ajbzx8tg/8/
+[05:12:44] <CausaMortis> Cork, im sorry man :/  it just doesnt click for me. I dont see how that differs from the anonymous function scenario
+[05:13:12] <CausaMortis> Cork, you maybe know of a resource that can help me understand?
+[05:15:02] <robhol> matt___: find is for descendants. the input is not a descendant/child of the span
+[05:18:24] <guessx> matt___ : http://jsfiddle.net/rsung34p/
+[05:18:44] <CausaMortis> Cork, if I understand correctly, the syntax for the callback with parameters is totally correct, its just executed in a different order
+[05:21:19] <matt___> thank you!
+[05:21:23] <matt___> that works
+[05:23:32] <matt___> @guessx I updated it a bit:; http://jsfiddle.net/master412160/rsung34p/1/
+[05:23:52] <matt___> but it needs to hide the x each time you input something like with chrome
+[05:23:57] <matt___> so I tried with hide and show
+[05:24:00] <matt___> but no work
+[05:29:24] <matt___> alright
+[05:29:26] <matt___> I fixed it
+[05:29:47] <matt___> http://jsfiddle.net/master412160/rsung34p/2/
+[05:30:23] <matt___> or wait I didn't, I thought by changing one to on it would be fixed but then it just runs each time
+[05:34:57] <Cork> CausaMortis: no, there is no order change
+[05:35:38] <CausaMortis> Cork, according to the learn.jquery page I linked there is. with parameters the callback is executed and the return value is used
+[05:36:00] <Cork> CausaMortis: not really
+[05:36:21] <CausaMortis> Cork, :) then please make me understand if you can. I am intrigued
+[05:36:32] <Cork> handler(function(event) { return myCallback.call(this, event); }) results in identical execution to
+[05:36:40] <Cork> handler(myCallback)
+[05:37:11] <Cork> CausaMortis: i'm not fully sure what it is your having problem with
+[05:37:57] <Cork> CausaMortis: but ya, the anonymous function won't affect execution order at all
+[05:38:15] <CausaMortis> I guess grasping the basic concept. Ill make a fiddle and play around with it a bit :s
+[05:38:16] <Cork> (unless you use something that causes things to be async that is)
+[05:38:36] <CausaMortis> Cork, "The reason this fails is that the code executes myCallBack( param1, param2 ) immediately and then passes myCallBack()'s return value as the second parameter to $.get()."
+[05:38:42] <Cork> CausaMortis: one point i've felt needs to be cleared up
+[05:38:57] <Cork> there is no difference, what so ever between a callback and a function definition
+[05:39:30] <Cork> the reason it is called callbacks is cause you send a reference to the function to a third party function for execution
+[05:39:42] <Cork> so you can remove callback from the scope of problems
+[05:39:54] <Cork> and focus on functions and how they handle scopes
+[05:40:54] <CausaMortis> I dont think my issue is related to understanding the scope anymore. I get that now. I just dont get why you cannot call a callback with parameters without having to nest it inside an anonymous function. or am I missing something here?
+[05:42:25] <Cork> CausaMortis: function test() { return 1; }; var callback = test(); callback == 1
+[05:42:35] <Cork> CausaMortis: function test() { return 1; }; var callback = test; callback == function test()...
+[05:42:40] <Cork> THAT is the difference
+[05:43:01] <Cork> CausaMortis: function test() { return 1; }; var callback = test(); callback() == error 1 is not a function
+[05:43:09] <Cork> CausaMortis: function test() { return 1; }; var callback = test; callback() ==  1
+[05:43:57] <Cork> CausaMortis: does that clear things up?
+[05:52:33] <CausaMortis> Cork, ok that totally cleared things up for me. thank you very much :D so in essence the callback expects a function to be passed rather than the return value
+[05:52:57] <CausaMortis> or rather, the handler expects a callback (being a function)
+[05:53:01] <Cork> well ya, else it would be hard to have it call you back :)
+[05:56:27] <CausaMortis> Cork, I assume this is universal?
+[05:56:40] <Cork> CausaMortis: not sure what you mean
+[05:56:51] <Cork> that a function executes when you add () after it?
+[05:56:58] <CausaMortis> ye
+[05:57:05] <Cork> ya, it is part of javascript
+[05:57:56] <CausaMortis> so it is language dependent? where can I read more about these subjects? I feel ive reached a point where I would benefit greatly from a better understanding of things like this
+[05:58:22] <CausaMortis> I guess I dont know the right keywords to look for
+[05:59:22] <Cork> CausaMortis: uh, how function (and if function exists at all) depends a lot on the language
+[05:59:36] <Cork> CausaMortis: but jquery isn't a language it is a framework written in javascript
+[05:59:51] <Cork> so it can't change what works in the language
+[06:00:15] <Cork> and you won't be able to find anyplace that talks generically how function works
+[06:00:28] <Cork> cause it differs A LOT from language to language
+[06:00:51] <Cork> (many languages can't use functions as references at all)
+[06:01:22] <CausaMortis> Cork, cheers, I realise asking here is a bit off topic :) its good to know that it is implementation specific and thus language dependent. I guess MDN would be a good start for JavaScript: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions
+[06:01:49] <matt___> Cork can you help me out too with something small?
+[06:02:00] <Cork> CausaMortis: ya, jquery depends on you knowing javascript, and mdn is a good start
+[06:02:30] <Cork> matt___: don't waste ppls time by asking to ask
+[06:02:45] <Cork> just ask the question (not at someone) and if someone has an answer, and the time
+[06:02:48] <Cork> they will answer you
+[06:02:52] <matt___> ok
+[06:04:10] <matt___> well I got it almost to work but only need the x to come back http://jsfiddle.net/master412160/rsung34p/4/
+[06:04:35] <matt___> the issue is
+[06:04:39] <matt___> it doesn't appear again
+[06:04:42] <matt___> because it only runs once
+[06:04:56] <matt___> but if I let it run each time change happens in the input, it repeats itself the x's
+[06:05:30] <Cork> matt___: type="search" isn't supported cross browsers
+[06:06:13] <adv_> need some help with this http://jsfiddle.net/o2qywxw9/ , upon clicking on a link i want to remove it from the textarea and when clicking again add it
+[06:06:26] <CausaMortis> http://caniuse.com/#search=search
+[06:06:36] <CausaMortis> as of IE10, id say go for it if you want bleeding edge
+[06:06:55] <Cork> CausaMortis: you forgot gecko doesn't support it
+[06:08:04] <CausaMortis> so? you want to support Epiphany on the off chance someone isnt using FF? :p
+[06:09:12] <Cork> CausaMortis: the comment wasn't a "don't use it" it was a warning that it isn't supported in all browsers
+[06:09:21] <CausaMortis> im just making trouble where there is none ^^ you are right
+[06:09:38] <Cork> it also was a comment on that i can't answer the question cause i haven't even looked at it for the same reason
+[06:09:40] <matt___> its supported in chrome and firefox right?
+[06:09:45] <Cork> no
+[06:09:54] <Cork> matt___: it is supported in webkit and ie10+
+[06:10:10] <CausaMortis> but babe, FF is on webkit?
+[06:10:17] <Cork> -_-'
+[06:10:25] <Cork> your kidding right?
+[06:10:42] <Xatenev> CausaMortis: gecko..
+[06:10:49] <Cork> gecko supports it to the degree that is saves the type value
+[06:10:53] * CausaMortis gone fishing
+[06:11:00] <Cork> instead of replacing it with type="text"
+[06:11:01] <adv_> anyone?
+[06:11:03] <Cork> but that is everything
+[06:11:08] <Xatenev> adv_: sec
+[06:11:10] <Xatenev> adv_: i take a look
+[06:11:25] <matt___> well I can use it just fine on firefox, also phpbb uses it for search
+[06:11:33] <matt___> and I assume if type search was bad in firefox
+[06:11:37] <matt___> they would have replaced it by now
+[06:11:57] <Cork> matt___: it won't be any difference between that and type="text" though
+[06:12:07] <Cork> and as long as your aware of that it will work just fine
+[06:12:16] <matt___> ah that is good
+[06:12:31] <Cork> but you only care about webkit anyway so ... :)
+[06:12:40] <Cork> ::-webkit-search-cancel-button <--
+[06:12:41] <CausaMortis> https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#Browser_compatibility
+[06:12:44] <matt___> well
+[06:12:45] <matt___> because
+[06:12:48] <CausaMortis> supported as of 4.0
+[06:12:52] <matt___> that only shows up in webkit not in firefox
+[06:12:56] <matt___> so I had to hide that
+[06:13:04] <matt___> I use mainly chrome
+[06:13:07] <matt___> so when testing my own x out
+[06:13:09] <Cork> CausaMortis: stop spamming wrong information and read what has been read here
+[06:13:15] <matt___> I don't want chrome its own x in the way
+[06:13:15] <adv_> Xatenev: thanks
+[06:13:27] <Cork> matt___: it shows up in ie too
+[06:13:32] <matt___> ok
+[06:13:41] <matt___> is there a css rule for that too?
+[06:13:45] <CausaMortis> i was off with the gecko comment.. but search is supported by FF as of version 4.0
+[06:13:46] <CausaMortis> sorry
+[06:13:49] <Cork> matt___: and it uses ::-ms-clear
+[06:14:00] <matt___> ok
+[06:14:39] <Cork> CausaMortis: no, the only thing supported (like i already said) is that it doesn't automatically replace type="search" with type="text" in the dom
+[06:14:50] <Cork> CausaMortis: that is the only thing "supported" in gecko
+[06:15:36] <Cork> it is basically a hack to get around feature detection in webpages
+[06:17:12] <matt___> fixed it http://jsfiddle.net/master412160/rsung34p/5/
+[06:17:25] <Xatenev> adv_: dunno sry, dont have enough time to check
+[06:17:27] <matt___> now only need to get the x to show up again after you used the input field already
+[06:17:35] <Xatenev> adv_: but ur code looks too complicated xd
+[06:17:39] <adv_> Xatenev: ok
+[06:17:57] <Cork> matt___: i would suspect the .one is the source of your problem
+[06:17:59] <adv_> anyone else can take a look?
+[06:18:05] <matt___> it is yeah
+[06:18:10] <Cork> as that means it will only fire once
+[06:18:17] <matt___> but if I turn it to on
+[06:18:26] <matt___> it will add an x to the field each time
+[06:18:38] <Cork> actually i would prob always have the span in the html and just show/hide it with css
+[06:18:43] <matt___> yeah
+[06:18:47] <matt___> that I could do too
+[06:20:06] <Cork> matt___: also you should use a <button> not a span
+[06:20:28] <matt___> ok
+[06:22:24] <printForever> guys, how do I append HTML without excaping it first?
+[06:22:53] <printForever> I have a huge block of HTML and if I start excaping the bugger it will be a real mess
+[06:24:43] <printForever> shoky, you here?
+[06:24:58] <printForever> taplar?
+[06:25:18] <printForever> Cork?
+[06:25:41] <Cork> matt___: http://jsfiddle.net/zou80359/
+[06:26:00] <printForever> Cork, you're alive!
+[06:26:17] <Cork> printForever: stop highlighting ppl out of nowhere
+[06:26:30] <printForever> RKO out of nowhere
+[06:26:42] <printForever> sure thing
+[06:26:47] <Cork> printForever: well you can set it with .text()
+[06:27:08] <printForever> are you sure?
+[06:27:13] <Cork> ...
+[06:27:16] <Cork> yes i'm sure
+[06:27:23] <printForever> .append().text()?
+[06:27:24] <printForever> chain them?
+[06:27:26] <Cork> no
+[06:27:33] <Cork> text works like .html
+[06:27:36] <printForever> oh, there's my confusion
+[06:27:39] <Cork> it replaces all the content
+[06:27:45] <matt___> now it works fully http://jsfiddle.net/master412160/rsung34p/7/
+[06:28:01] <Cork> matt___: use input not change
+[06:28:18] <Cork> also have a look at the example i gave you
+[06:28:24] <Cork> it gives you a much cleaner solution
+[06:28:36] <printForever> .text( "<p>This is a test.</p>" ); will produce the following DOM output:  &lt;p&gt;This is a test.&lt;/p&gt;
+[06:28:39] <printForever> thats not usable
+[06:28:51] <Cork> uh
+[06:28:54] <adv_> need some help with this http://jsfiddle.net/o2qywxw9/ , upon clicking on a link i want to remove it from the textarea and when clicking again add it
+[06:29:02] <Cork> printForever: that is what escaping means...
+[06:29:15] <CausaMortis> he wants to avoid escaping ^^
+[06:29:19] <Mark__> i have a question. what kind of coding was used in order to make the left layer scrollable in this website? http://chemi.kr/Spot
+[06:29:22] <CausaMortis> or prevent..
+[06:29:25] <printForever> Cork: I want to add HTML to the page without going and putting \ \ \  \ everywhere
+[06:29:27] <Cork> then why not just use .append?
+[06:29:46] <Cork> printForever: so you mean you want to line break a string?
+[06:29:50] <Cork> in javascript
+[06:29:57] <Cork> not anything related to html
+[06:29:59] <Germanaz0> printForever: use $('selector').html('<p>text</p>')
+[06:29:59] <printForever> no...
+[06:30:10] <Cork> Germanaz0: that isn't what he is asking for
+[06:30:19] <Cork> printForever: \ isn't needed for html
+[06:30:24] <Cork> it actually have no meaning
+[06:30:48] <printForever> <ul>\r\n  <li>item number 1<\/li>\r\n  <li>item number 2<\/li>\r\n  <li>item number 3<\/li>\r\n<\/ul>
+[06:31:12] <Cork> \r\n is javascript escape for windows line breaks
+[06:31:18] <Cork> html don't care about those
+[06:31:32] <printForever> but <\/li>
+[06:31:44] <printForever> and any time there are " "
+[06:31:46] <Cork> that becomes </li>
+[06:31:50] <printForever> I know
+[06:31:55] <Cork> unless you have a server scrip that breaks things
+[06:32:00] <printForever> I don't want to write all of those backslashes
+[06:32:03] <Cork> printForever: your problem isn't in javascript or html
+[06:32:13] <Cork> it is what ever you're using to preprocess it
+[06:32:20] <printForever> but if I don't, append won't work
+[06:32:33] <Cork> it is what ever you're using to >preprocessing it< <--
+[06:32:55] <printForever> nothing, its static html
+[06:33:09] <Cork> make a jsfiddle showing the problem then
+[06:33:19] <printForever> I'll do it the old way
+[06:33:35] <adv_> Cork: can you help?
+[06:35:11] <printForever> Cork http://bernhardhaeussner.de/odd/json-escape/
+[06:37:21] <Cork> so you put html in a string
+[06:37:36] <Cork> ya, you have to escape " in json strings as json strings can only be "
+[06:38:01] <Cork> also linebreaks in javascripts gets encoded as \n (and windows linefeeds becoems \r)
+[06:46:08] <robhol> no
+[06:46:11] <robhol> windows = \r\n
+[06:46:22] <robhol> just \r was the old Mac line break
+[06:48:16] <adv_> need some help with this http://jsfiddle.net/o2qywxw9/ , upon clicking on a link i want to remove it from the textarea and when clicking again add it, can anyone take a look?
+[06:52:06] <Cork> robhol: \r stands for linefeed in windows
+[06:52:13] <Cork> compared to lineBREAK
+[06:52:29] <hellyeah> is there a function in jquery for draw a circle_?
+[06:52:32] <Cork> \r is read as "move back to the beginning of the line"
+[06:52:37] <Cork> hellyeah: no
+[06:52:58] <hellyeah> okey
+[06:52:58] <Cork> especially as dom don't have a way to draw at all
+[06:53:06] <hellyeah> ic
+[06:53:08] <Cork> svg has, and canvas has
+[06:53:19] <hellyeah> so i need to do that with plain js
+[06:53:31] <Cork> you can't do it with plane js either
+[06:53:44] <Cork> (like i just said)
+[06:54:36] <Cork> if what your asking for is helper functions for drawing on canvas, then there might be a plugin for that
+[06:54:45] <Cork> if your asking for svg i know there are plugins for that
+[06:54:58] <Cork> but there isn't anything like draw a circle in html
+[06:55:11] <hellyeah> ic
+[06:55:18] <hellyeah> i prefer simplest way
+[06:55:25] <hellyeah> i need to draw very small circle
+[06:55:41] <hellyeah> plugin in js seems cool
+[06:56:07] <Cork> well if you just need a round object you could just use a dom element and css border-radius
+[06:56:17] <Cork> though that isn't drawn
+[06:56:27] <robhol> Cork: yes, but you don't typically use either one by itself
+[06:56:55] <Cork> robhol: you actually did back in dos era
+[06:57:07] <robhol> ... but you don't now
+[06:57:19] <Cork> yes you do :)
+[06:57:30] <Cork> you normally only see \r\n in combination in files though
+[06:57:31] <robhol> no. :p
+[06:57:43] <Cork> yes, there are still console outputs ^^
+[06:58:00] * robhol stabs Cork with a backslash
+[06:58:18] <Cork> i prefer normal slash
+[06:58:40] <Cork> robhol: the point is the character in of it self has a meaning
+[06:58:44] <Cork> and that is what i explained
+[06:59:22] <robhol> you said that windows linefeeds become \r, which is clear in retrospect, but still slightly ambiguous
+[07:05:28] <matt___> anyone here good with localStorage? Need to remember the class http://jsfiddle.net/master412160/91kwc2y8/10/
+[07:15:27] <alaing> hey ppl is there a plugin for like a sticky footer but changes back to its original position if the user scroll far enough down the page?
+[07:16:10] <Cork> matt___: you use getItem and setItem to update localstorage
+[07:16:27] <Cork> direct property access might work, but i'm not sure
+[07:17:09] <taplar> would make the getter/setter kinda pointless
+[07:18:15] <Cork> taplar: well there is .index(n) and [n] in plenty of dom apis
+[07:18:28] <Cork> or was it .get(n) (i don't remember)
+[07:18:37] <matt___> well it works too that way, see: http://jsfiddle.net/jakecigar/sk8v0co4/9/
+[07:19:02] <matt___> but I can't get it to work as shown in that fiddle
+[07:19:20] <hellyeah> border-radious
+[07:19:51] <Cork> matt___: except that isn't stored cross page reloads
+[07:20:00] <taplar> ^
+[07:20:05] <Cork> if you load the page, then uncomment the first line
+[07:20:10] <Cork> add an alert under it instead
+[07:20:12] <Cork> you get "undefined"
+[07:20:42] <matt___> hmmmm
+[07:22:08] <matt___> and with setItem and getItem it willl work globally?
+[07:22:17] <Cork> not globally
+[07:22:21] <Cork> cross page loads
+[07:22:26] <matt___> yeah
+[07:22:29] <matt___> that I men
+[07:22:46] <Cork> well depends on if the user clears the value of not
+[07:22:58] <Cork> but ya, that is the diea
+[07:27:28] <hellyeah> okey
+[07:27:35] <hellyeah> color choice is very bad i know
+[07:27:55] <hellyeah> but i want to animate the circle it doesnt work? Anything can you suggesrt? http://jsfiddle.net/2omfq5xj/45/
+[07:28:26] <taplar> animate how?
+[07:28:59] <hellyeah> look at the text
+[07:29:08] <hellyeah> uyari
+[07:29:28] <taplar> yeah i see it doing some little weird thing
+[07:29:33] <taplar> but you said the circle
+[07:29:46] <hellyeah> circle doesnt animate
+[07:29:55] <hellyeah> pff
+[07:30:08] <hellyeah> anyway library is not suitable may be
+[07:30:43] <taplar> website kinda says it's for text animations
+[07:30:55] <taplar> Textillate.js combines some awesome libraries to provide a ease-to-use plugin for applying CSS3 animations to any text.
+[07:31:38] <hellyeah> yeah true
+[07:32:03] <hellyeah> btw what i thjink is to animate the text when a problem happen
+[07:32:21] <hellyeah> is it good way to do like that http://jsfiddle.net/2omfq5xj/47/
+[07:32:39] <taplar> uh, kinda overkill, imho
+[07:32:48] <taplar> you already got the red
+[07:33:08] <taplar> how does the animation add value?
+[07:33:28] <hellyeah> lemme tell
+[07:33:38] <hellyeah> think you have 100 buttons
+[07:33:50] <hellyeah> and you just see 10 of them in first look
+[07:34:00] <hellyeah> you can enlarge the div to see other 90 buttons
+[07:34:32] <hellyeah> what i intend to do, if there is any problem in any button just pop up the mmessage with animation in order to warn user
+[07:34:43] <hellyeah> because user cannot see all buttons in first place
+[07:34:48] <taplar> pop up?
+[07:34:50] <taplar> a modal?
+[07:35:54] <hellyeah> no
+[07:36:00] <hellyeah> i mean sorry for my english
+[07:36:07] <hellyeah> can you wait a sec
+[07:37:18] <taplar> sure, but please tell me it's not an alert()
+[07:37:44] <hellyeah> no alert
+[07:37:47] <hellyeah> alert sux
+[07:37:49] <hellyeah> xD
+[07:38:18] <hellyeah> think about this one http://jsfiddle.net/2omfq5xj/54/ btw div color's will be transparent. I need to stury about opacity
+[07:38:28] <hellyeah> you have 12 buttons now
+[07:38:37] <hellyeah> it could be 100 or 200 or 300
+[07:38:51] <hellyeah> you cannot see all of them
+[07:39:15] <hellyeah> when any of them has an red color for example the message will be shown inside the div
+[07:39:24] <hellyeah> i may have button id there
+[07:39:55] <hellyeah> like warning - button1, button1 is id or warning - button256
+[07:40:05] <matt___> @Cork I tried it on my own getting this set and getitem to work but the issue is I don't know how to puzzle it in
+[07:40:11] <hellyeah> so you will know the problem and exactly where it is
+[07:40:17] <hellyeah> does it look logical?
+[07:40:27] <matt___> I'm bad in general with localstorage, I know its not hard but somehow I always have issues getting it to work in my code
+[07:40:28] <Cork> matt___: read the value from the storage into a variable
+[07:40:29] <matt___> http://jsfiddle.net/master412160/91kwc2y8/13/
+[07:40:39] <Cork> matt___: set the default if the variable is ""
+[07:40:45] <taplar> i understand what your doing.  just for some reason the animation bugs me.  probably just personal preference.  *shrug*
+[07:40:49] <Cork> and set the variable to the storage when your done
+[07:41:15] <matt___> I understand what you mean
+[07:41:24] <Cork> matt___: you seriously should consider removing the html out of your js, it makes the code really ugly
+[07:41:50] <matt___> well I'm working on a theme for phpbb and the goal is to not edit to much the temmplates
+[07:41:52] <Cork> (and hard to ready)
+[07:41:54] <hellyeah> or i will give name to each button like Prod: SearchEngine
+[07:41:58] <matt___> so when an update arrives
+[07:42:01] <matt___> I don't have tons of work
+[07:42:06] <hellyeah> so text will be warning - Prod : SearchEngine
+[07:42:21] <hellyeah> so user will go that button immediately like addressing
+[07:42:55] <matt___> you mean this right
+[07:42:56] <matt___> var collapsefoot = localStorage.collapsefoot || "";
+[07:43:08] <taplar> this goes back to my whole filtering suggestion a few days ago
+[07:43:12] <theRealAlexz> Trying to grab the h3 from here, not sure what I might have thought of it wrong: http://jsfiddle.net/epk66azx/.
+[07:43:17] <taplar> why not give the user the option to only see the errors
+[07:43:51] <hellyeah> well they dont have a time to filter it because few people observer many screen
+[07:43:59] <hellyeah> also my manager kindly reject that idea
+[07:44:07] <hellyeah> so it is like workarounds
+[07:44:18] <taplar> theRealAlexz: the h3 isn't a sibling, it's a parent to the link
+[07:44:37] <hellyeah> taplar: but it is not bad right :D
+[07:44:57] <taplar> your manager is an idiot.  no offense
+[07:45:20] <taplar> walls of text are never a good user experience
+[07:45:35] <taplar> and now your having to make work arounds for a self created problem
+[07:45:47] <hellyeah> i may understand wrong
+[07:45:54] <hellyeah> but i try to do something
+[07:46:24] <hellyeah> he know something i think i am not that experienced yet
+[07:46:31] <hellyeah> thats just my idea for visuality
+[07:46:37] <hellyeah> walls of text
+[07:46:39] <matt___> I'm stuck @Cork http://jsfiddle.net/master412160/91kwc2y8/14/
+[07:47:01] <taplar> "walls of text" refers to a situation where you give more information to the user than is useful
+[07:47:12] <hellyeah> ic
+[07:47:17] <hellyeah> well
+[07:47:24] <taplar> if the user is only concerned with a subset of information, you give them only that information, or the option to see only that information
+[07:47:27] <Cork> matt___: https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API
+[07:47:31] <hellyeah> i try ideas but some of them is eliminated for sure
+[07:47:43] <hellyeah> i am kinda newbie and kinda try to prove myself
+[07:47:54] <hellyeah> ic
+[07:48:16] <taplar> i'll show you a quick example
+[07:49:05] <hellyeah> sure
+[07:49:13] <hellyeah> thank you
+[07:49:55] <matt___> been too that page few times @Cork over the months but it never settled in
+[07:50:06] <alaing> hey ppl is there a plugin for like a sticky footer but changes back to its original position if the user scroll far enough down the page?
+[07:50:24] <Cork> matt___: the problem is that your thinking of localstorage as a variable
+[07:50:40] <Cork> you should think of it as a file write/read or similar
+[07:53:22] <taplar> hellyeah: http://jsfiddle.net/5dy04d9L/
+[07:53:56] <taplar> 'all' isn't working, but the others show the idea
+[07:54:10] <hellyeah> yep
+[07:54:14] <hellyeah> filtering
+[07:54:38] <hellyeah> that actually give me good idea
+[07:54:43] <taplar> yep
+[07:54:46] <hellyeah> in fact it is brilliant
+[07:54:51] <taplar> you return all the information
+[07:55:00] <taplar> but if they only want to see certain ones, let them see just that
+[07:55:10] <hellyeah> ye
+[07:55:27] <taplar> then you don't have to worry about listing out the element in the warning at the top
+[07:55:29] <hellyeah> user wants to see only red buttons or orange buttons or gray buttons
+[07:55:35] <taplar> exactly
+[07:55:39] <taplar> or a combination
+[07:55:46] <taplar> you could use checkboxes instead of a radio
+[07:55:49] <km4> hi
+[07:56:04] <hellyeah> for example
+[07:56:13] <hellyeah> when button become red
+[07:56:23] <hellyeah> i can addClass as red
+[07:56:30] <hellyeah> and filter with checkboxes
+[07:56:42] <hellyeah> let me work on it thanks taplar
+[07:56:48] <taplar> cool
+[07:57:54] <hellyeah> taplar:
+[07:58:08] <hellyeah> would you use AJAX for this?
+[07:58:18] <taplar> for what?
+[07:58:50] <hellyeah> you know when you check radio it is filtering
+[07:58:54] <taplar> no
+[07:59:06] <hellyeah> hmm you dont do AJAX
+[07:59:19] <taplar> ajax is for asynchronous requests to the server
+[07:59:29] <taplar> nothing about filtering involves a server request
+[07:59:45] <taplar> atleast in this case
+[08:00:31] <hellyeah> cases everywhere
+[08:01:01] <taplar> if you change the information that is being filtered upon, you'll have to refilter, but filtering doesn't inheriently require ajax
+[08:02:32] <hellyeah> ic
+[08:04:04] <hellyeah> brb
+[08:14:26] <taplar> ugh, reading SO, so many people mixing php with javascript.  hurts my head, -_-
+[08:17:59] <tatanka_> Hello
+[08:18:50] <tatanka_> I'm receiving this object via ajax I wonder how can i access each property? {"content":[{"id":25,"name":"Some Name","group":{"name":"Some OtherName"}}],"error":""} ?
+[08:19:40] <tatanka_> I'm passing data via anonymous function and then with each method processing it
+[08:19:50] <taplar> is it a string or an object already?
+[08:20:10] <tatanka_> is it a serialized object
+[08:20:18] <taplar> uh
+[08:20:36] <taplar> console.log(typeof variable)
+[08:20:36] <tatanka_> response from server ...
+[08:22:04] <tatanka_> taplar object
+[08:22:12] <taplar> ok, so dot notation will work already
+[08:24:04] <tatanka_> checking
+[08:25:44] <alaing> is there anyway I can check if element is visible in the viewpoint when a user is scrolling?
+[08:26:01] <tatanka_> taplar so content.name would give me the name as well content.id or content.group.name ?
+[08:26:27] <taplar> content is an array so you'd have to use normal array format there
+[08:26:54] <taplar> variable.content[0].id
+[08:30:08] <tatanka_> I was using this sintax https://gist.github.com/anonymous/69b9ce1fee451d030159
+[08:30:47] <tatanka_> earlier, is there a way i can simplify the new sintaxe?
+[08:33:03] <taplar> not really
+[08:33:28] <taplar> well, hmm
+[08:34:29] <taplar> http://jsfiddle.net/xpkw8kpu/
+[08:34:38] <taplar> if you like that better
+[08:34:59] <taplar> i would suggest using $.map() though
+[08:35:17] <taplar> to be able to do a single append
+[08:37:03] <tatanka_> it's done :D
+[08:38:37] <tatanka_> I was able to access data by passing (key, value) to anonymous function and by access value properties... it works i suspect method each takes advantage of the key automatically!
+[08:39:45] <taplar> if it's a normal each() or forEach() one of the parameters will be the index
+[08:44:02] <printForever> So I've added a HTML <div> and I want to move an element from the existing structure to that <div>. So, existing <div> inside a new <div>. However, when the page loads, jQuery inserts the new html <div> but it wont append the old one inside.
+[08:45:02] <printForever> $('body').append('<div id=\"new\"><\/div>');
+[08:45:24] <printForever> $('#old').appendTo('#new');
+[08:45:29] <printForever> it does not work :(
+[08:46:05] <printForever> when I tested .appendTo moving #old to some other old (existing) div, it worked just fine
+[08:46:13] <printForever> what am I doing wrong?
+[08:49:18] <taplar> not sure if it is the issue, but you got a \/ in your closing div
+[08:49:36] <printForever> div's are created fine
+[08:49:52] <robhol> yeah, the / shouldn't be escaped
+[08:50:03] <printForever> correct, I made a typo
+[08:50:08] <printForever> but the problem is there
+[08:50:27] <taplar> got a fiddle?  it looks syntatically valid
+[08:50:43] <printForever> nah, its just thos two lines
+[08:50:59] <printForever> there isn't anything else
+[08:51:33] <hellyeah> hey can you help me i want to animaty territory when you hit the arrow it will slowly enlarge and when you click again slowly narrow. http://jsfiddle.net/2omfq5xj/79/
+[08:51:34] <printForever> can I, somehow, force jQuery to go through the page structure
+[08:52:24] <taplar> hellyeah: look at the animate() function
+[08:52:42] <printForever> before the appendTo
+[08:53:15] <printForever> because if I run the funcition in the browser Console it works fine
+[08:53:22] <printForever> just not when the page is loading
+[08:53:30] <taplar> it's in a document ready?
+[08:53:37] <taplar> or at the bottom of the page?
+[08:53:51] <printForever> I've added it to the jQuery(document).ready(function () {
+[08:53:54] <printForever> same thing
+[08:55:46] <taplar> http://jsfiddle.net/w15ns7zh/  works fine
+[08:55:50] <taplar> you got something else going on
+[08:58:09] <printForever> http://jsfiddle.net/w15ns7zh/1/
+[08:58:12] <printForever> yup
+[08:58:31] <printForever> http://jsfiddle.net/w15ns7zh/2/
+[08:58:53] <printForever> ok, it works
+[08:59:09] <printForever> but is there some way I can force jQuery to recheck the page?
+[08:59:15] <taplar> btw, i did take out the escape characters you may have noticed
+[08:59:23] <taplar> since your surrounded with '' you don't have to use them
+[08:59:30] <taplar> unless there is an inner '
+[08:59:56] <printForever> right
+[09:00:16] <printForever> so is there a way for jQuery to update itself on the page structure?
+[09:00:33] <taplar> jquery doesn't really keep up a state on the dom
+[09:00:38] <taplar> iirc
+[09:01:09] <printForever> hmmm
+[09:01:25] <printForever> so what the hell is breaking the appendTo()
+[09:01:32] <taplar> out of curiosity, what do you get in your code if you do this first: console.log($('#old').length); ?
+[09:02:11] <printForever> 1
+[09:02:24] <taplar> werid
+[09:02:37] <printForever> welcome to my world
+[09:03:15] <printForever> both #old and #new register as 1
+[09:03:37] <printForever> I even tried if(.lenght)
+[09:03:48] <taplar> what about this version? http://jsfiddle.net/w15ns7zh/3/
+[09:05:48] <printForever> is this switched?
+[09:06:14] <taplar> it's adding the old to the new before it's attached to the dom
+[09:08:38] <printForever> same thing
+[09:08:41] <printForever> #new is added
+[09:08:47] <printForever> but #old is not moving anywhere
+[09:08:52] <taplar> :/
+[09:09:10] <printForever> how to check jQuery version?
+[09:09:22] <taplar> $.version maybe?
+[09:09:23] <printForever> console.log(jQuery version)
+[09:09:39] <printForever> undefined
+[09:09:56] <taplar> you can check the network tab and look at the file too
+[09:10:00] <printForever> $().jquery;
+[09:10:00] <taplar> usually commented out at the top
+[09:10:14] <printForever> 1.11.1
+[09:14:53] <daslicht> why does width() anytime returns to less ?
+[09:15:28] <taplar> no comprende
+[09:22:23] <BillCriswell> daslicht: Maybe you want outerWidth() ? You might also not be waiting for the element to be ready... Hard to tell based on the question.
+[09:23:11] <daslicht> I will create an example when I have time , but I noticed that ("css","width") is never the same a width
+[09:23:18] <daslicht> even if you select the same item
+[09:23:37] <daslicht> even $(window).width() is not correct
+[09:26:32] <daslicht> hm or my chome debug plugin returns something weird
+[09:27:01] <daslicht> anyways ("css","width")  seams to me != width()
+[09:27:04] <daslicht> be
+[09:27:13] <zelol> can  someone help me with client side pagination and datatable plugin ?
+[09:27:23] <BillCriswell> Do you mean .css("width") ?
+[09:48:19] <Duikb00t> Hello I am using BX slider, but I want 3 slides which fit in my container with a with of 33.3% is that possible in a way?
+[09:50:11] <hellyeah> i need to get back animatrion when i click the button second time how can i do that? Any tips? http://jsfiddle.net/2omfq5xj/90/
+[10:03:15] <acetakwas> hello
+[10:03:17] <acetakwas> I would like to edit minified javascript (jquery) code in sublime text editor, but it is all on one line. How can I reformat the code for easy editing?
+[10:06:55] <Meir`> acetakwas: http://jsbeautifier.org/
+[10:07:19] <Meir`> acetakwas: but you better edit the source and then fetch a custom minified version
+[10:07:37] <BillCriswell> acetakwas: Yeah, you should hopefully never have to do that acetakwas.
+[10:08:13] <zelol> error: {type: "ErrorException",…}
+[10:08:13] <zelol> file: "C:\wamp\www\slfweb\vendor\laravel\framework\src\Illuminate\Support\helpers.php"
+[10:08:13] <zelol> line: 900
+[10:08:13] <zelol> message: "preg_replace(): Parameter mismatch, pattern is a string while replacement is an array"
+[10:08:13] <zelol> type: "ErrorException"
+[10:08:28] <acetakwas> okay thanks
+[10:08:33] <zelol> why it doesnt say when the erro comes from ?
+[10:08:38] <Meir`> zelol, try on ##php channel
+[10:08:38] <zelol> where*
+[10:08:58] <Meir`> zelol, or better on #laravel
+[10:09:07] <zelol> oups sorry
+[10:21:25] <hellyeah> i want to take my buttons into div but div seems narrow when you enlarge it you will see buttons. Buttons must be there
+[10:21:31] <hellyeah> is it possible to do that https://jsfiddle.net/2omfq5xj/138/
+[10:24:29] <hellyeah> hope my question is clear
+[10:25:14] <hellyeah> i want to do smt like that
+[10:25:16] <hellyeah> http://jsfiddle.net/ThinkingStiff/NXB2g/
+[10:29:35] <nox_42> I'm trying to use this plugin to watch for attribute changes http://meetselva.github.io/attrchange/. Could someone help me figure out how to watch for changes to only the style attribute?
+[11:06:18] <arc_> this isn't really a jquery question, but somebody here might know
+[11:06:44] <arc_> if i sort by color hex value in alphabetical order, will it come out as looking like it's in the right order by color
+[11:11:17] <Stummi> hey, quick question: I want to set up a change listener for all input fields matching a given class, inclusive those which will be created later. Is there a simple way to do it?
+[11:12:50] <taplar_afc> use a delegate binding
+[11:22:40] <EugenA> hi, is it possible to make https request from http site?
+[11:22:48] <EugenA> ajax
+[11:29:32] <xenaxon> Hi. How can I found out what functions are executed ONCHANGE of an INPUT
+[11:30:01] <xenaxon> I want to see timeline of functions executed/routines processed upon an onchange event in an input
+[11:30:42] <xenaxon> So i have an input, and want to find out what functions/procedures are executed when I type something in the field
+[11:31:06] <jop008> Hi I have this oel.val("0").slider('refresh'); it triggers my change event how can I disable this?
+[11:31:35] <jop008> I tried to detect it with addclass before slider change
+[11:32:40] <xenaxon> Hi. How can I found out what functions are executed ONCHANGE of an INPUT
+[11:33:56] <kevireilly_> xenaxon: when you inspect the element in chrome at least, there is a tab on the right labeled Event Listeners
+[11:35:19] <xenaxon> kevireilly_ and how do I see what is fired
+[11:36:18] <xenaxon> kevireilly_: I have an input and I have to detect what happens when I type in something
+[11:36:24] <kevireilly_> xenaxon: expand the event and click on the name.js:123
+[11:38:35] <xenaxon> kevireilly_: but which one is triggered on keypress
+[11:38:42] <xenaxon> kevireilly_: keydown? keyup?
+[11:39:01] <kevireilly_> iirc, keypress is when keydown and keyup has occurred
+[11:39:04] <xenaxon> kevireilly_: or change
+[11:41:52] <xenaxon> kevireilly_: I  can see what events are triggered: keyup and change (immediately after keyup)
+[11:42:07] <xenaxon> kevireilly_: But how do I see what functions/procedures are executed
+[11:42:20] <xenaxon> kevireilly_: all I see is some data in drop-down-like format
+[11:42:37] <kevireilly_> there is no blue link to the right of each?
+[11:42:51] <kevireilly_> otherwise i think it is the handler property
+[11:44:19] <xenaxon> blue link?
+[11:44:38] <xenaxon> keyup KeyboardEvent {isTrusted: true}
+[11:44:41] <xenaxon> this is it
+[11:44:56] <xenaxon> and if I click, it expands in a dropdown-like structure
+[11:45:02] <xenaxon> and all sort of mumbo-jumbo
+[11:45:36] <xenaxon> but I want to know the procedures that are executed onchange not the native ones, but the ones in javascript
+[11:46:08] <kevireilly_> I’m only looking at chrome right now (and it may be different on other developer tools), but when I expand an event such as `change`, there is a blue link to the right of each child that shows me the listener
+[11:46:21] <kevireilly_> when clicked
+[11:47:16] <xenaxon> keyup KeyboardEvent {isTrusted: true}
+[11:47:25] <xenaxon> this is what I see, when I click, it expands bellow
+[11:47:38] <xenaxon> it "uncollapses" to see some more data and stuff
+[11:47:50] <xenaxon> I'm in chrome!
+[11:48:14] <xenaxon> oh, you mean the one with the line?
+[11:49:03] <kevireilly_> yes, the blue underlined link to a specific line a file
+[11:49:28] <xenaxon> yes, they have that link, but there are multiple lines
+[11:49:30] <xenaxon> identically
+[11:52:06] <xenaxon> kevireilly_: I can see some things there, but I don't understand what that is
+[11:52:25] <xenaxon> kevireilly_: I am hoping to find out what functions are executed by the website's script
+[11:52:43] <kevireilly_> should be the `handler` property
+[11:52:53] <xenaxon> so, I know for sure the site is executing a function on each keypress, I want to find out what function that is.
+[11:52:55] <kevireilly_> may want to use unminified code for this evaluation
+[11:53:41] <xenaxon> yeah, but handler of which one?
+[11:53:51] <xenaxon> there are 4 "document" dropdowns in the keyup event
+[11:54:57] <xenaxon> :)) it has a million dropdowns
+[11:55:02] <xenaxon> each of them dropdown indefinitely
+[11:55:06] <robertmaxrees> what's going on?
+[11:55:55] <theRealAlexz> I'm trying to fetch the string here: http://jsfiddle.net/epk66azx/1/. ping taplar (you said it's a parent so I tried with .parent).
+[11:56:26] <robertmaxrees> .closest()
+[11:56:57] <robertmaxrees> wait the text in the anchor?>
+[11:57:07] <robertmaxrees> or the <p> tag?
+[11:58:20] <xenaxon> I'm trying to find out what functions are executing upon typing in an input
+[11:58:35] <robertmaxrees> xenaxon that's a tall order.  whyfor?
+[11:58:49] <xenaxon> whyfor?
+[11:58:52] <xenaxon> don't understand
+[11:59:01] <robertmaxrees> why do you need to know that?
+[11:59:20] <theRealAlexz> robertmaxrees: closest doesn't work for me either.
+[11:59:32] <xenaxon> because I have a test, and one of the questions need to debug
+[11:59:41] <robertmaxrees> theRealAlexz what do you actually need?  all text in an element?
+[12:00:00] <xenaxon> have to find out what functions are being triggered upon input event
+[12:00:12] <robertmaxrees> xenaxon so normally you wouldn't need to do that, but your dev tools can show you what handlers are bound to an element.
+[12:00:13] <robertmaxrees> brb
+[12:00:29] <theRealAlexz> robertmaxrees: the h3 text.
+[12:01:34] <xenaxon> robertmaxrees: I can't figure out how to do this, I've looked into the event handler, but don't know how to find out what functions are triggered
+[12:02:29] <kevireilly_> theRealAlexz: you expect Hello or the link text?
+[12:02:49] <theRealAlexz> kevireilly_: the h3-text
+[12:02:57] <theRealAlexz> The link-text :)
+[12:03:23] <xenaxon> robertmaxrees: If there was a way of seeing what code blocks are being run in real time
+[12:03:23] <kevireilly_> which is blank excluding the link text, but jquery(this).text(); since the link is clicked wouldbe the link text
+[12:04:31] <robertmaxrees> back.
+[12:04:44] <robertmaxrees> theRealAlexz .text() of the thing you clicked.
+[12:04:49] <kevireilly_> theRealAlexz: http://jsfiddle.net/epk66azx/3/
+[12:05:51] <robertmaxrees> theRealAlexz also, jQuery('.pafa-block').on('click', '*' is a no-no.
+[12:06:08] <theRealAlexz> robertmaxrees: :O
+[12:06:09] <theRealAlexz> why?
+[12:06:15] <theRealAlexz> and how could I optimize?
+[12:06:32] <robertmaxrees> give it a specific element or don't pass that second arg.  as it stands, that handler will first twice.
+[12:06:45] <robertmaxrees> http://jsfiddle.net/robertmaxrees/epk66azx/5/ see?
+[12:06:50] <kevireilly_> my link does this and works as desired
+[12:07:22] <robertmaxrees> you could pass 'a' as that second arg to get your particular behavior, or do what kevireilly did.
+[12:07:37] <robertmaxrees> xenaxon you need to look at your developert tools in your browser.
+[12:07:44] <xenaxon> i am
+[12:08:01] <theRealAlexz> kevireilly_ robertmaxrees: the thing is that the original code hasn't any class or ID which I could select.
+[12:08:02] <xenaxon> but cant find anything
+[12:08:10] <robertmaxrees> which browser are you in?  ff or chrome?
+[12:08:12] <robertmaxrees> or IE?\
+[12:08:27] <kevireilly_> theRealAlexz: you’ll notice that I find any ‘a’ element within the clicked parent
+[12:08:39] <theRealAlexz> kevireilly_: ok thanks =)
+[12:08:47] <kevireilly_> sure something more specific would be better and more than one link might cause unexpected behavior
+[12:08:53] <robertmaxrees> kevireilly fwiw your version is directly binding to them all - a single delegated listener would be a little nicer in this case :)
+[12:09:08] <kevireilly_> true true
+[12:09:27] <robertmaxrees> http://jsfiddle.net/robertmaxrees/epk66azx/8/ i'd just do this and call it a day.
+[12:09:31] <xenaxon> robertmaxrees: I see a million dropdown arrows, and can't find anything that resembles a simple function
+[12:09:46] <robertmaxrees> xenaxon that's how you debug listeners in that fashion.
+[12:09:59] <robertmaxrees> otherwise you look for code that does what you're looking for in your codebase and go from there.
+[12:10:31] <xenaxon> yeah, but idea is that I need to find out what functions are ran without knowing the code
+[12:10:42] <robertmaxrees> xenaxon right, so welcome to your dev tools :_)
+[12:10:45] <robertmaxrees> * :)
+[12:11:20] <xenaxon> I dont understand a thing out of these dropdowns
+[12:11:32] <xenaxon> it says: prototype, handler...etc
+[12:11:41] <xenaxon> caller, arguments
+[12:11:46] <xenaxon> wtf is all that :))
+[12:11:59] <xenaxon> I dropdown prototype and another set, comes up
+[12:12:00] <robertmaxrees> so it sounds like you need to understand how to use your developer tools ;)
+[12:13:07] <xenaxon> robertmaxrees: how do I understand, how do I learn how to use them
+[12:13:25] <robertmaxrees> http://stackoverflow.com/questions/23472334/how-to-find-what-code-is-run-by-a-button-element-in-chrome-using-developer-tools
+[12:13:29] <robertmaxrees> a google search
+[12:28:07] <matt___> hi
+[12:28:42] <robertmaxrees> hello
+[12:29:24] <matt___> Robert you good at jquery?
+[12:29:30] <robertmaxrees> lol
+[12:29:43] <robertmaxrees> if you have a question, just ask then channel.  if somebody can help, they will.
+[12:35:49] <robertmaxrees> welp
+[12:47:35] <arc_> sorry, i asked a question and then had to walk away and now my buffer is gone. did anyone answer me about the hex color sorting?
+[12:48:25] <bango2> i didnt get it
+[12:48:53] <bango2> sounds reasonable depending on how youre wanting to sort them
+[12:49:18] <bango2> arc_ ^
+[13:03:02] <arc_> hm, ok. i guess i'll give it a shot
+[13:03:06] <arc_> thanks
+[13:03:30] <arc_> like it doesn't matter what order the colors come in, just that similarly colored things are near each other
+[13:39:09] <stiv2k_> hmmm
+[13:39:11] <stiv2k_> i have jquery and jquery-ui loaded on my page, but i still keep getting this $(...).tooltip is not a function. what else am i missing?
+[13:39:26] <robertmaxrees> are they loaded in the right ordeR?
+[13:39:30] <robertmaxrees> are you loading jquery twice?
+[13:40:33] <stiv2k_> robertmaxrees: http://pastebin.com/bdVEJG1f
+[13:40:47] <robertmaxrees> cool?
+[13:40:47] <robertmaxrees> lol
+[13:40:51] <robertmaxrees> need to check your full page.
+[13:40:58] <stiv2k_> i cant show you the full page
+[13:41:04] <robertmaxrees> i'm not asking to see it.
+[13:41:06] <robertmaxrees> you need to look.
+[13:41:19] <stiv2k_> i was just showing that they are loading in presumably the right order
+[13:41:24] <robertmaxrees> that snippet is, sure.
+[13:41:30] <robertmaxrees> view source and look to see if there's more than one copy of jquery loaded.
+[13:42:14] <stiv2k_> no thats the only one
+[13:42:29] <robertmaxrees> and neither is loading with a 404?
+[13:42:38] <stiv2k_> correct
+[13:42:43] <robertmaxrees> dunno then.
+[13:42:44] <stiv2k_> my console only shows that one error
+[13:42:47] <stiv2k_> D:
+[13:43:15] <robertmaxrees> that often means you're loading jquery twice.
+[13:46:53] <robertmaxrees> lol
+[13:48:26] <stiv2k_> robertmaxrees: i searched the jquery-ui file and there is no instance of tooltip(). wtf
+[13:48:33] <stiv2k_> rather. 'tooltip'
+[13:49:17] <robertmaxrees> sounds like you had a custom build that omitted it then.
+[14:01:31] <MarcGuay_> Hi folks.  Looking for a way to determine when an element comes into the viewport, is there a standard method?  Googling turns up a lot of SO discussions.
+[14:01:51] <robertmaxrees> you need to hook into the window scroll and resize events.
+[14:02:00] <robertmaxrees> and then determine if the top of the element is in the current viewport.
+[14:04:00] <MarcGuay_> robertmaxrees: Thanks.  I'm not looking to reinvent the wheel, though, trying to find an existing vetted solution.
+[14:04:23] <robertmaxrees> then you'll need to read those SO discussions.
+[14:04:41] <robertmaxrees> that's one of those things that's easy enough to write on your own that you shouldn't need to use a plugin for it.
+[14:21:14] <jason^> i am trying to show rows of data while a process is happening using an ajax call, i get the call to work but what's a good way to be constantly updating rows of data?  even better if i can just send an array of data to something and it update/create/destroy rows for me
+[14:22:42] <taplar> got a fiddle?
+[14:23:59] <jason^> no fiddles here
+[14:24:15] <taplar> hard to see what your after without one
+[14:24:55] <robertmaxrees> jason^ so you're getting data back from an AJAX call and you want to show the result?
+[14:24:56] <robertmaxrees> ooor...?
+[14:25:35] <jason^> robertmaxrees: yes
+[14:25:40] <robertmaxrees> use a templating engine.
+[14:25:47] <robertmaxrees> how much data are we talking?
+[14:26:14] <jason^> small amounts, a few objects with not too many attributes
+[14:26:26] <robertmaxrees> and you just want to append things, right?
+[14:27:00] <jason^> well update and append
+[14:27:03] <jason^> appending is easy
+[14:27:18] <jason^> i can do that one already :)
+[14:27:54] <jason^> worse case i could iterate over the objects and update each thing i want in a list or something, just hoping to not have to reinvent the wheel
+[14:27:58] <robertmaxrees> more specifics are always nice.  so you're updating - would you be able to do a full replace of what's currently on the screen?
+[14:28:17] <robertmaxrees> like, are you getting back all data, or just a subset of data?
+[14:29:02] <DjinnASD> i have input box. i want to search for a activity, when that activity is in the search field i get the club that is hosting that activity (football, badminton etc). is about making an array with said clubs activities and then search that. is this the right way to go
+[14:29:20] <robertmaxrees> DjinnASD wut
+[14:29:34] <DjinnASD> hm i try again
+[14:29:42] <robertmaxrees> DjinnASD so you want to match a search term with a "club"?
+[14:30:01] <DjinnASD> im making search index for clubs that host activities
+[14:30:05] <jason^> robertmaxrees: getting all of the data each time, probably updating percent completed of a task.  the percent completed is an attribute of the objects i'm retrieving
+[14:30:34] <DjinnASD> when you type in football you see football clubA, footballclubB
+[14:30:39] <robertmaxrees> jason^ you can just do a full replace then  Use a templating engine to make the table and replace the original one.
+[14:30:49] <robertmaxrees> DjinnASD yeah, so what i just said ;)
+[14:30:58] <jason^> as a task completes, remove it from the screen, when it creates new ones, show an additional row, etc
+[14:31:12] <jason^> do you have a recommended templating engine?
+[14:31:40] <robertmaxrees> underscore has a nice minimal one, otherwise search around on google and see what fits best for your case.
+[14:37:23] <alaing> how do i animate between toggling between two classes?
+[14:37:31] <robertmaxrees> css transitions
+[14:37:45] <alaing> .animate?
+[14:37:52] <robertmaxrees> use css transitions instead.
+[14:38:40] <alaing> normal css transitions?
+[14:39:00] <robertmaxrees> that's what i'd opt for.
+[14:39:11] <robertmaxrees> unless you need to target browsers that cannot support css transitions.
+[14:39:27] <alaing> at the moment i have a condition which depending on its outcome adds/removes a class
+[14:39:47] <robertmaxrees> right, css transitions are traditionally how you handle that.
+[14:44:53] <alaing> robertmaxrees: i've got some content that is set to position fixed when its not visible and this class gets removed when it is visible. so i ' trying to ease the transition between the two states
+[14:46:06] <robertmaxrees> afaik you can't animate positioning changes.
+[14:46:50] <alaing> robertmaxrees: actually that makes sense but theres other properties the class uses
+[14:47:03] <robertmaxrees> css3 transitions in that case.
+[14:47:10] <robertmaxrees> unless you have a compelling reason to not use the,.
+[14:47:11] <robertmaxrees> *them
+[14:47:43] <alaing> do you know of any plugins that have a smooth scrolling effect between sticky header and content.
+[14:47:48] <robertmaxrees> huh?
+[14:48:09] <alaing> Basically what I'm doing now now but smoother
+[14:48:19] <robertmaxrees> i don't know what you're doing now.
+[14:48:29] <alaing> I remember seeing an example somewhere might have been a css tricks demo or something
+[14:48:32] <robertmaxrees> the description didn't make sense.  are you trying to setup a fixed header of some kind?
+[14:48:51] <robertmaxrees> something like http://stickyjs.com/ ?
+[14:48:56] <alaing> yes, but its more like a footer instead of header
+[14:49:01] <robertmaxrees> huh?
+[14:50:08] <robertmaxrees> are you trying to have something slide up when the user scrolls down or something?
+[14:50:30] <alaing> so I have this form thats really long anda the bottom there is a save button and some other buttons for various tasks I would like those to stay at the bottom of the users screen while they fill in the form but when they get down to where those buttons naturally position then poisition fixed etc should be rmeoved
+[14:51:02] <robertmaxrees> so have them as sticky and then "un-stick" them?
+[14:51:07] <alaing> yes thats it
+[14:51:25] <alaing> just checking out sticky.js
+[14:51:31] <robertmaxrees> that might not help in your case.
+[14:53:31] <alaing> i think apple had something similiar on their website a while ago
+[15:06:30] <glowdemon1> http://www.hastebin.com/ugajiwiqil.xml why does it say 'missing ) after arg list'?
+[15:06:40] <robertmaxrees> woah
+[15:07:40] <bango2> maybe un-uglify the code before you ask someone to smell it
+[15:07:58] <robertmaxrees> that's a striung.
+[15:08:00] <robertmaxrees> *string.
+[15:08:04] <robertmaxrees> funky way to do that.
+[15:08:08] <glowdemon1> Alright, just a moment
+[15:08:44] <bango2> glowdemon1
+[15:08:55] <bango2> i already see a problem with your single quotes
+[15:09:11] <robertmaxrees> ^
+[15:09:14] <bango2> youre using a single quote to open the first argument, then using single quotes later in the html element strings
+[15:09:17] <robertmaxrees> your image width stuyff.
+[15:09:30] <glowdemon1> http://www.hastebin.com/iwiqicelat.xml did my best
+[15:09:39] <glowdemon1> oj
+[15:09:45] <glowdemon1> Didn't think about that one
+[15:09:47] <robertmaxrees> you can't "prettify" string building like that btw
+[15:10:21] <robertmaxrees> and you don't need to \$ for price fwiw.
+[15:10:29] <glowdemon1> That solved it
+[15:10:36] <glowdemon1> Yeah, it's because I transformed this from an old PHP function
+[15:10:37] <bango2> rgr glad to help
+[15:10:40] <glowdemon1> I prolly forgot, thanks
+[15:10:42] <robertmaxrees> oh and store infoArray[i] in a var and access through that instead.
+[15:11:06] <glowdemon1> Ah
+[15:11:21] <robertmaxrees> and maybe look at using a templating engine ;)
+[15:11:36] <Uhkis> also some bad html there
+[15:12:22] <Uhkis> width: part
+[15:13:02] <robertmaxrees> should be =
+[15:13:10] <robertmaxrees> use use css and don't specify width innline.
+[15:13:26] <glowdemon1> I know I should but I was too lazy because it kept giving me bad results
+[15:13:32] <glowdemon1> :( But I will, in the future
+[15:13:48] <bango2> href="url", style="width:100px;height:100px"
+[15:13:59] <robertmaxrees> in your css.
+[15:14:02] <robertmaxrees> not inline with your markup.
+[15:14:10] <glowdemon1> and I should quote array keys
+[15:14:22] <glowdemon1> Ah
+[15:20:06] <andi__> Hi, does somebody of you know the extension lightning for thunderbird? I'd like to use a possibility to create a timerange like in the week view of this calendar with the possibility to make the timeranger langer or smaller at the top and bottom of the timerange. The content of this timerange is easy, this will just be a test field. Could somebody give me a hint what part to use for that?
+[15:21:00] <scrnddy> Hey there. I am subscribing to the window resize event (jquery) and changing the width/height of an element upon resize. I am not seeing the element change its size until the next resize event is fired. Is this an expected behavior? Am I missing something?
+[15:23:49] <robertmaxrees> show us your code.
+[15:31:46] <scrnddy> robertmaxrees: http://pastebin.com/mhMeBVds
+[15:34:49] <robertmaxrees> $() is a bad thing to do inside a resize handler.
+[15:35:04] <robertmaxrees> also, this looks like something you should be doing with css instead.
+[15:36:48] <robertmaxrees> https://bpaste.net/show/1e7e69afae61 you want something like this, but I'd throttle that, if not fully debounce it too.
+[15:43:26] <taplar> is there a jquery wrapper for String.prototype.repeat() ?
+[15:43:58] <scrnddy> robertmaxrees: that was just a last resort to see if it would work
+[15:44:08] <scrnddy> if i move it to outside the handler i still get the same problem
+[15:44:31] <robertmaxrees> taplar nope.
+[15:44:38] <robertmaxrees> scrnddy still a good idea.
+[15:44:49] <taplar> crud
+[15:44:51] <robertmaxrees> scrnddy i'd need more context then.
+[15:47:18] <compact> $('timeslot_hour').closest('select').find(':selected').val(); <-- any idea why it turns up undefined all the time? the select name is "timeslot_hour"
+[15:47:48] <robertmaxrees> $('timeslot_hour') isn't anything.
+[15:47:54] <robertmaxrees> there's no <timeslot_hour> tag
+[15:50:02] <compact> ok thanks, got it
+[15:50:03] <compact> $('select[name^="timeslot_hour"]').closest('select').find(':selected').val()
+[15:50:27] <robertmaxrees> give it an id or class to select on instead.
+[15:50:32] <robertmaxrees> name attribute selectors are sloooowwww
+[15:50:40] <robertmaxrees> and you don't need that .closest() code in there.
+[15:51:35] <robertmaxrees> and actually, you just need the .val() on the initial selection
+[15:51:49] <compact> i have multiple selects with the same name though?
+[15:55:14] <scrnddy> robertmaxrees: fair enough, let me see what i can do. thanks for the help
+[16:16:42] <ReDdiE> Does somebody know how i can print a jquery ui slider with background colors en custom icon?
+[16:24:41] <xet7> How do I store jquery plugin result to variable?
+[16:25:52] <xet7> Because I need to modify it before adding to div
+[16:39:03] <robertmaxrees> xet7 huh?
+[16:41:10] <xet7> robertmaxtrees: jquery usually stores jquery plugin content to div or other html part. how do I store it to javascript variable?
+[16:41:25] <robertmaxrees> what plugin are you working with?
+[16:41:36] <compact> robertmaxrees, got one more
+[16:41:36] <compact> var element_id = $(this).closest('tr').find('meta:index').val();
+[16:41:41] <xet7> http://www.jongma.org/webtools/jquery/xslt/
+[16:42:08] <robertmaxrees> compact uh... fiddle?
+[16:42:44] <robertmaxrees> xet7 so you'll run something like $.xslt.textToXML() ?
+[16:43:23] <xet7> $('#output').xslt({xmlUrl: 'doc.xml', xslUrl: 'doc.xslt'});
+[16:43:49] <xet7> but that goes to div
+[16:44:23] <robertmaxrees> xet7 you can create an element and presumably append to that element depending on how the plugin works.
+[16:44:32] <robertmaxrees> but i'm not sure why you'd do that?
+[16:45:21] <xet7> but I need to remove meta tag before adding to div, something like temp = $.find('META').remove().end();
+[16:45:36] <robertmaxrees> xet7 i have no idea what you're trying to do.  i'd need to see your code.
+[16:46:20] <robertmaxrees> unless you're trying to remove something that the plguin adds.
+[16:46:40] <compact> http://jsfiddle.net/s2a8jxsL/
+[16:47:04] <xet7> document contains in xml/xslt result a meta tag, that I need to remove, because it redirects to wrong page
+[16:47:06] <robertmaxrees> compact you can't just invent property names fwiw.
+[16:47:42] <xet7> there's not much other code
+[16:48:15] <robertmaxrees> xet7 you can do var $resultDiv = $('<div'); then work against $resultDiv from there.
+[16:49:09] <robertmaxrees> compact you need to use data attributes instead here.
+[16:49:31] <xet7> jquery plugin => html output => remove meta tag => add to div. Otherwise it redirects page.
+[16:49:44] <robertmaxrees> xet7 right, so use the thing i just show you.
+[16:49:47] <robertmaxrees> *showed
+[16:49:49] <compact> ok
+[16:49:51] <robertmaxrees> compast also, .find() takes a selector - are you familiar with the mechanics of those?
+[16:54:14] <compact> not really robertmaxrees. bit a of a noob at jquery
+[16:54:42] <robertmaxrees> compact so you either have tag selectors, class selectors, or ID selectors.
+[16:54:56] <robertmaxrees> 'tagname' '.className' '#someId'
+[16:55:12] <robertmaxrees> there are others available, but those are the three common ones.
+[16:55:14] <robertmaxrees> see how tagname doesn't have anything prepending it?
+[17:02:14] <xet7> robertmaxtrees: But is is only possible to have plugin result to div $('#output') , and not process it before adding it? Because otherwise I need to change programming language, if that's not possible.
+[17:02:25] <robertmaxrees> huh?
+[17:02:32] <robertmaxrees> i just told you how to do it.
+[17:03:03] <xet7> I tried "var $temp = $('#output').(find('meta').remove().end()).xslt({xmlUrl: ... and it does not replace meta tag.
+[17:03:04] <robertmaxrees> var $resultDiv = $('<div'); $resultDiv.whateverPlugin()
+[17:03:08] <robertmaxrees> uh.
+[17:03:11] <robertmaxrees> that's not how you do ythat.
+[17:03:21] <robertmaxrees> $('#output').(find('meta').remove().end()) isn't anything.,
+[17:04:06] <badcss> Can someone tell me why
+[17:04:06] <badcss> http://pastebin.com/rAJZcBSA
+[17:04:12] <robertmaxrees>  $resultDiv = $('<div'); $resultDiv.xslt({}); $resultDiv.find('meta').remove(); $('.someElement').append($resultDiv); xet7
+[17:04:33] <robertmaxrees> badcss li elements don't have values.
+[17:04:35] <robertmaxrees> they have text
+[17:04:42] <robertmaxrees> oh nvm read that wrong.
+[17:05:00] <badcss> http://162.144.109.74/~stoneinc/products/stone-slabs/#prettyPhoto
+[17:05:13] <badcss> for some reason it is returning the product url of the 1st item regardless of which one is clicked
+[17:05:25] <badcss> I think it has to do with prettyphoto but im not sure
+[17:05:32] <robertmaxrees> badcss how do i get the alrt?
+[17:05:45] <badcss> click on an image on the site that i posted above ^
+[17:05:54] <robertmaxrees> i'm not seeing an alert.
+[17:06:00] <robertmaxrees> also: make it a console log instead.
+[17:06:05] <badcss> oh sorry i had it disabled
+[17:06:07] <badcss> try it again
+[17:06:15] <robertmaxrees> did you swap with a console.log?
+[17:06:19] <compact> thanks robertmaxrees
+[17:06:21] <compact> makes sense
+[17:06:24] <badcss> nope let me do that now
+[17:06:40] <badcss> k done
+[17:07:05] <robertmaxrees> 1 sec
+[17:07:22] <badcss> shoot now its showing undefined, that's odd
+[17:08:16] <badcss> if i remove the .closest it pulls the first url
+[17:08:22] <badcss> (absolute green)
+[17:10:04] <robertmaxrees> i get the feeling you're confused about what you're trying to do.
+[17:10:08] <robertmaxrees> what ARE you trying to do?
+[17:11:10] <badcss> if you click on a product and then hit request a quote
+[17:11:18] <badcss> there is a hidden field that has the product title
+[17:11:27] <badcss> i want to add the product url to another hidden field
+[17:11:46] <bango2> append vs innerHtml. is one objectively faster than the other?
+[17:11:49] <badcss> the product title part was easy because it's a default field in gravityforms (the plugin used) with mergetags
+[17:12:02] <robertmaxrees> bango2 terrible comparison - they do different things.
+[17:12:02] <badcss> so it automatically pulls the title
+[17:12:12] <badcss> but the url is proving to be difficult
+[17:12:20] <bango2> ik, but they both can be used to do the same thing, depending on your scope
+[17:12:30] <robertmaxrees> errr.
+[17:12:38] <robertmaxrees> bango2 use the one that is contextually correct.
+[17:12:48] <robertmaxrees> don't prematurely optimize.
+[17:15:08] <robertmaxrees> badcss bind like this instead - $('#products').on('click', 'a', function() {});
+[17:15:21] <robertmaxrees> oh actually you wnat the li.
+[17:15:26] <robertmaxrees> and then use .find() to get what you want.
+[17:19:18] <robertmaxrees> badcss make a fiddle if you need more help :)
+[17:22:53] <badcss> thx robertmaxrees
+[18:04:30] <mrtAkdeniz> guys hey there
+[18:04:42] <robertmaxrees> over 640 people are, yeah
+[18:04:53] <mrtAkdeniz> how can I check if the return data from ajax is empty or not?
+[18:05:00] <robertmaxrees> depends.
+[18:05:05] <mrtAkdeniz> if (data.length) not working
+[18:05:14] <robertmaxrees> what is the data?
+[18:05:18] <mrtAkdeniz> json
+[18:05:23] <mrtAkdeniz> want fiddle?
+[18:05:26] <robertmaxrees> lol
+[18:05:30] <robertmaxrees> show us what it'd normally look like.
+[18:08:23] <mrtAkdeniz> robertmaxrees, here is the normal json http://pastie.org/private/ifllomz3fl8gezyyrjpoww
+[18:08:28] <mrtAkdeniz> but sometimes, it came empty
+[18:08:34] <mrtAkdeniz> i mean i'm making chained select
+[18:08:37] <robertmaxrees> then .length should work fine.
+[18:08:59] <mrtAkdeniz> and some level 2 elements does not have level 3, so db return empty
+[18:09:06] <mrtAkdeniz> really not working robertmaxrees
+[18:09:12] <robertmaxrees> without context i have no idea what you're talking about.
+[18:09:15] <robertmaxrees> make a basic fiddle.
+[18:09:17] <mrtAkdeniz> ok
+[18:14:22] <mrtAkdeniz> meh
+[18:14:30] <mrtAkdeniz> it is impossible to create fiddle on jsfiddle
+[18:14:38] <robertmaxrees> just show me your code.
+[18:14:41] <robertmaxrees> doesn't need to function.
+[18:14:49] <mrtAkdeniz> may i show you code and site?
+[18:14:50] <mrtAkdeniz> ok
+[18:15:00] <robertmaxrees> i just want the isoloated code, not the full site.
+[18:16:13] <mrtAkdeniz> robertmaxrees, yeah i got it
+[18:16:17] <mrtAkdeniz> i'm preparing it
+[18:20:17] <mrtAkdeniz> robertmaxrees, https://jsfiddle.net/nLg3pxom/4/
+[18:20:39] <mrtAkdeniz> it is not hiding divs when there is ajax, but 2nd and 3rd select divs are hidden on load
+[18:21:31] <robertmaxrees> in both of those success handlers?
+[18:21:38] <robertmaxrees> oh just the first one.
+[18:21:56] <robertmaxrees> try console.log(data instanceof Array); in your side
+[18:22:06] <robertmaxrees> before the if statemenet - what do you get?
+[18:22:27] <robertmaxrees> also: i don't see a .hide() cann in that first success
+[18:23:03] <mrtAkdeniz> i must be a moron
+[18:23:11] <mrtAkdeniz> ofc it won't work, ofc there will be always data...
+[18:23:17] <robertmaxrees> errr.
+[18:23:24] <mrtAkdeniz> every 1nd level has 2nd level
+[18:23:28] <robertmaxrees> 1nd?
+[18:23:31] <mrtAkdeniz> Şehir part
+[18:23:37] <mrtAkdeniz> first select .
+[18:23:42] <robertmaxrees> i'm lost, but okay :)
+[18:23:51] <mrtAkdeniz> thank you ^^
+[18:24:00] <robertmaxrees> fsho.
+[18:30:36] <compact> robertmaxrees, I've changed it a little now: http://jsfiddle.net/s2a8jxsL/1/
+[18:32:09] <robertmaxrees> .data('user')
+[18:32:24] <robertmaxrees> and .closest() is not what you want here.
+[18:33:02] <robertmaxrees> so you want the data-user value for the input?
+[18:33:56] <robertmaxrees> because that would be http://jsfiddle.net/robertmaxrees/s2a8jxsL/2/
+[18:36:40] <robertmaxrees> compact
+[18:37:18] <compact> yes robertmaxrees
+[18:37:21] <compact> checking jsfiddle
+[18:39:47] <compact> whats the difference between a $ in the variable
+[18:40:10] <robertmaxrees> just signifies it's a jquery object - doesn't make any functional difference.
+[18:40:13] <robertmaxrees> simply makes it easier to read.
+[18:55:19] <ashgotti> Good evening everyone. I need a bit of help with dates and calculations. I have a date field and the user can add months or years to it.  I'm trying 'secMaturity.setMonth(calcMaturity.getMonth() + mm);' but it doesn't seem to work. For example, I put in today's date, add 7 months, and it returns June 2015 (added 9 months but didn't add another automatically.
+[18:55:25] <ashgotti> *add another year
+[18:55:55] <robertmaxrees> what is secMaturity.setMonth()?
+[18:56:35] <ashgotti> Sorry, secMaturity is already a date object
+[18:56:40] <ashgotti> setMonth() is to set the month no?
+[18:56:41] <robertmaxrees> make a fiddle then :)
+[18:56:52] <ashgotti> http://www.w3schools.com/jsref/jsref_obj_date.asp
+[18:56:59] <robertmaxrees> don't use w3schools
+[18:57:01] <robertmaxrees> mdn instead.
+[18:57:14] <ashgotti> On it
+[18:57:24] <ashgotti> ok I'll take a look there
+[19:11:10] <lemarc> I have 100s of elements like this, <circle r="2" transform="translate(597.5239244011423,143.3530347774458)"></circle> , how do I change the “r” attribute of all the circle tags?
+[19:12:03] <robertmaxrees> is that in SVG?
+[19:12:54] <lemarc> robertmaxrees: yes, I want to provide a slider to change the value of dots in a SVG
+[19:13:15] <robertmaxrees> you'll need a plugin to help you with that.
+[19:13:20] <robertmaxrees> or use native js.
+[19:13:34] <lemarc> I can refer to “r“ using $(“circle[r]”)
+[19:13:50] <ashgotti> Ok, I figured out my date issue. I have a date field called 'closing', I have a year and a month field where the user can add to date. The issue is that the user can add '1' year, which changes today's date to 11/09/2016 and then they add months, which overrides the year and turns the date into 06/09/2015. I'm not sure how to make months and years play together: http://pastebin.com/1VJbcFbs
+[19:14:09] <ashgotti> I think it's because of the way I'm setting the new date, but I don't know how to make them work together.
+[19:14:16] <robertmaxrees> the issue is SVG is not DOM.  jquery really only works in DOM.  lemarc you can try editing the .prop('r', 'somenewvalue'), but there's no gaurantee itl'' work.
+[19:14:42] <robertmaxrees> ashgotti make a fiddle instead.
+[19:14:53] <robertmaxrees> give us something we can modify and play with.
+[19:15:20] <ashgotti> I'll try. It's integrating into Drupal so it's very markup heavy
+[19:15:31] <robertmaxrees> a simplified example would be best.
+[19:16:39] <lemarc> robertmaxrees: The effect takes place if I edit individual circle tags and change r value but .prop('r', 'somenewvalue') does nothing
+[19:17:00] <robertmaxrees> lemarc yeah, like i said - jquery speaks dom, not svg
+[19:17:07] <robertmaxrees> so you won't really be able to use it.
+[19:18:20] <ashgotti> Ok, here is what I have http://jsfiddle.net/s9ngs5fj/. I'm not sure why it's saying 'invalid date' in 'closing date' for some reason but if I console log the date it's setting, it's working
+[19:18:27] <ashgotti> Oops, sorry here http://jsfiddle.net/s9ngs5fj/1/
+[19:18:59] <lemarc> robertmaxrees: this works though $('circle[r]')[0].outerHTML = $('circle[r]')[0].outerHTML.replace("2", "10")
+[19:19:08] <robertmaxrees> lemarc because now you're not using jquery.
+[19:19:15] <robertmaxrees> you're accessing the raw DOM node using [0]
+[19:19:34] <lemarc> robertmaxrees: ok, anyway to use raw node so that I dont have to iterate over all the elements?
+[19:19:40] <lemarc> raw DOM
+[19:19:43] <robertmaxrees> you have to manually enumerate.
+[19:19:52] <robertmaxrees> .each() might be able to help here, but really - don't use jquiery.
+[19:20:08] <robertmaxrees> it's not meant to work with SVG - just because you see something work right now doesn't mean it's a sustainable solution.
+[19:22:11] <robertmaxrees> ashgotti if ($('.field-name-field-interest-adj-date input').val()) { - use this instead of the != ''.  it's breaking in the fiddle because that input doesn't probably doesn't exist.
+[19:22:11] <robertmaxrees> anyway.
+[19:22:30] <robertmaxrees> it's working fine here.
+[19:22:43] <ashgotti> really? If you add 1 year and 7 months, it shows 2017?
+[19:23:38] <ashgotti> and sorry, I don't understand what I should use instead of my "" to check if it's empty
+[19:23:45] <robertmaxrees> you dont.
+[19:23:52] <robertmaxrees> literally just  if ($('.field-name-field-interest-adj-date input').val()) {
+[19:23:54] <ashgotti> oh just use if(var)
+[19:24:26] <ashgotti> ok, changed that. the code doesn't produce invalid for you?
+[19:24:35] <robertmaxrees> http://jsfiddle.net/robertmaxrees/s9ngs5fj/3/ nope.
+[19:25:07] <ashgotti> Try entering today's date and just '7' for months, leave years empty
+[19:25:40] <robertmaxrees> and your confusion has to do with javascript's weird date stuff.
+[19:25:43] <robertmaxrees> http://stackoverflow.com/questions/5645058/how-to-add-months-to-a-date-in-javascript
+[19:25:52] <robertmaxrees> read this or use momet.js
+[19:25:54] <robertmaxrees> *moment.js
+[19:27:24] <ashgotti> Ok, great. It looks like if I split up the year, month, day it'll work
+[19:27:37] <robertmaxrees> but really, try using moment.js instead
+[19:27:44] <robertmaxrees> it's well worth it, even if it's for just this part of the page.
+[19:27:47] <robertmaxrees> dates are really hard to get right.
+[19:28:01] <ashgotti> I was hoping to use what I have but I'll take a look. I'm sure I'll run into issues with the 31st of the month or leap years
+[19:28:05] <ashgotti> robertmaxrees++
+[19:28:12] <robertmaxrees> that's why i linked you to that SO page.
+[19:28:21] <robertmaxrees> there's a blog post linked in there that covers all of that.
+[19:28:28] <ashgotti> ya, I read more and saw other people commenting that each suggestion had fine print
+[19:28:38] <robertmaxrees> which is why you use moment.js
+[19:28:44] <ashgotti> yup, loading hte page now
+[20:14:37] <ashgotti> robertmaxrees: implemented moment.js and it works perfect, thanks again for saving the day for me
+[20:16:38] <robertmaxrees> yep
+[20:28:35] <ravenzz> is it normal that a mouseenter/leave event is fired when the active "window" is the devtools one ?
+[21:04:54] <Mark__> can anybody take a look at this website and tell me why the jsscroll js ins’t working? http://lifeto.cafe24.com/xe/request
+[21:05:04] <Mark__> and here’s the original js. http://jscroll.com/
+[22:21:58] <bfig> hello, I'm having some issues with jqueryUI draggables/droppables and knockout. The droppables seem to be on a different side than where the 'hitbox' where I need to actually drop the draggable

@@ -1,0 +1,126 @@
+[00:33:30] <jqcommit> [13api.jquery.com] 15Alphmega opened issue #552: About $.event 02http://git.io/PUr73Q
+[02:07:24] <jqcommit> [13jquery] 15mzgol closed pull request #1644: jQuery.fn.offset: add a verification of arguments 'options' (06master...061.x-master) 02http://git.io/6X3vSw
+[02:35:46] <jqcommit> [13qunit] 15xiemaisi opened issue #631: Bad typeof test in src/dump.js 02http://git.io/_hXVqA
+[04:38:00] <jqcommit> [13api.jquery.com] 15scottgonzalez closed issue #552: About $.event 02http://git.io/PUr73Q
+[05:04:22] <scott_gonzalez> DaveMethvin rwaldron: Why are we concerned about creating objects when reading data on elements that don't have any data?
+[05:05:11] <scott_gonzalez> I'm referring to https://github.com/jquery/jquery/pull/1428/files#r16071560
+[05:05:12] <DaveMethvin> well if you did it a LOT you'd create a ton of stuff that needed to be garbage collected
+[05:06:30] <scott_gonzalez> Or just eat a few bytes to not create objects all the time.
+[05:08:14] <scott_gonzalez> I haven't looked at the current code, but I'm assuming it's something like: `data = getData() || {}`;
+[05:08:46] <scott_gonzalez> And it could just be changed to `data = getData(); if ( data === undefined ) { ... }`
+[05:11:12] <scott_gonzalez> My concern is that code like this shouldn't be necessary: https://github.com/dcherman/jquery-ui/commit/73052f1c2f4cc031f39f4a0ce4ef4dcdeb2e9418
+[05:11:31] <scott_gonzalez> The $.data() getter shouldn't have a side effect of creating data.
+[05:11:52] <DaveMethvin> i agree, as soon as you get the time machine to unscrew the public api let me know :)
+[05:12:10] <scott_gonzalez> Why is the creation of an empty object on read part of the public API?
+[05:12:21] <scott_gonzalez> How would users rely on that behavior?
+[05:12:22] <DaveMethvin> it's been that way since at least 1.4
+[05:12:53] <DaveMethvin> they'd blindly get a data object whether there was one or not, and it would be created for them
+[05:13:06] <DaveMethvin> that's why .hasData() was introduced, i think around 1.5
+[05:16:48] <scott_gonzalez> hmm...I'm actually not seeing the behavior that he's describing.
+[05:16:53] <scott_gonzalez> At least not with current jQuery.
+[05:17:18] <DaveMethvin> you mean the empty object being created in .hasData() ?
+[05:18:11] <DaveMethvin> i didn't think that something like "|| {}" was that much of a problem
+[05:19:23] <scott_gonzalez> No, he's claiming that an object is actually being stored with .data( "foo" )
+[05:20:12] <scott_gonzalez> https://github.com/dcherman/jquery-ui/commit/73052f1c2f4cc031f39f4a0ce4ef4dcdeb2e9418
+[05:20:52] <DaveMethvin> so when that's done every item in the set should have a data object ... it doesn't?
+[05:21:34] <DaveMethvin> oh he's not getting the data object there
+[05:21:41] <DaveMethvin> he's just testing for one named item
+[05:21:49] <DaveMethvin> and that doesn't create a data object
+[05:22:05] <DaveMethvin> that's different
+[05:22:40] <DaveMethvin> lemme find the exact spot, pretty sure there's a comment
+[05:22:40] <scott_gonzalez> Oh, hasData does an empty object test, doesn't it?
+[05:23:54] <scott_gonzalez> Ok, so it is happening.
+[05:24:44] <scott_gonzalez> But it only happens with selectors.
+[05:25:24] <DaveMethvin> it should only create a jquery internal data object if you ask for the whole data object, not if you ask for a name
+[05:26:13] <scott_gonzalez> d = $( "<div>" )
+[05:26:14] <scott_gonzalez> [
+[05:26:14] <scott_gonzalez> <div>​</div>​
+[05:26:14] <scott_gonzalez> ]
+[05:26:14] <scott_gonzalez> $.data( d[ 0 ], "foo" )
+[05:26:15] <scott_gonzalez> undefined
+[05:26:16] <scott_gonzalez> d.prop( $.expando )
+[05:26:17] <scott_gonzalez> undefined
+[05:26:18] <scott_gonzalez> d.filter( ":data" )
+[05:26:19] <scott_gonzalez> [
+[05:26:20] <scott_gonzalez> <div>​</div>​
+[05:26:21] <scott_gonzalez> ]
+[05:26:22] <scott_gonzalez> d.prop( $.expando )
+[05:26:23] <scott_gonzalez> 17
+[05:26:52] <scott_gonzalez> ah, ok, let me test that.
+[05:27:22] <scott_gonzalez> Yeah, so one of his patches isn't necessary.
+[05:28:11] <DaveMethvin> so the patch you linked to doesn't seem to be needed since it's getting by name, where is the other one?
+[05:28:34] <scott_gonzalez> https://github.com/dcherman/jquery-ui/commit/b169ee65f3567db24003b19b1340e4e3afce672b
+[05:28:50] <scott_gonzalez> This is designed to be used as :data(foo) not just :data, but both work.
+[05:28:52] <DaveMethvin> given the position of the comment i thought it was about the || {} in hasData
+[05:28:57] <scott_gonzalez> Though just :data will leak
+[05:29:18] <scott_gonzalez> Yeah, probably because he realized that .data() returning an empty object wasn't going to change.
+[05:29:22] <DaveMethvin> well it won't leak, just create data objects
+[05:29:29] <scott_gonzalez> So he wanted to avoid the garbage collection in hasData
+[05:29:39] <scott_gonzalez> It'll leak because the elements are detached.
+[05:29:43] <scott_gonzalez> So they'll never be cleaned up.
+[05:30:47] <DaveMethvin> oh true
+[05:31:30] <scott_gonzalez> Ok, well, I just closed the PR and the associated ticket.
+[05:31:36] <scott_gonzalez> Since our documented uses will never leak.
+[05:31:53] <DaveMethvin> yeah the only time that would leak would be if you passed undefined and that would be a usage error afaict
+[05:31:57] <scott_gonzalez> I think the actual leak is small enough to safely ignore.
+[05:32:07] <scott_gonzalez> We're talking about a single empty object per detached node.
+[05:32:16] <scott_gonzalez> And only detached nodes that never get added to the DOM.
+[05:32:49] <scott_gonzalez> If that's adding up enough to be a problem, you've probably got some other issues to deal with.
+[05:33:06] <DaveMethvin> so why aren't you cleaning them up before letting go of them? are they handed off to the user?
+[05:33:33] <scott_gonzalez> This would all be inside user code.
+[05:33:44] <scott_gonzalez> There's nothing in UI that would detach nodes then run filters on them.
+[05:33:55] <scott_gonzalez> At least nothing I can think of.
+[05:34:08] <DaveMethvin> just wondering about the use case
+[05:34:35] <scott_gonzalez> The only thing I can think of would be something like:
+[05:34:52] <scott_gonzalez> products.detach().filter( ... ).appendTo( ... )
+[05:34:59] <scott_gonzalez> Which would throw some elements away.
+[05:35:09] <scott_gonzalez> But that seems like a bad implementation.
+[05:35:13] <DaveMethvin> right
+[05:35:17] <DaveMethvin> it's always been true that events, data, etc on detached nodes aren't cleaned up ... the user can call .remove() on them though
+[05:35:33] <DaveMethvin> would be hard in a filter chain
+[05:37:36] <arschmitz> couldent you use map and remove them inside the callback?
+[05:38:09] <arschmitz> instead of filter then you avoid a leak in that particular case 
+[05:39:11] <DaveMethvin>  products.detach().filter( ... ).appendTo( ... ).end().filter(function(){ return !this.parentNode }).remove()
+[05:39:17] <DaveMethvin> or something liek that
+[07:16:30] <jqcommit> [13api.jquery.com] 15AurelioDeRosa opened pull request #553: Update jQuery.ajax.xml (06master...06patch-1) 02http://git.io/18H6WA
+[07:23:44] <m_gol> a periodic reminder that CSS still doesn't have multiline ellipsis *sigh*
+[07:38:46] <scott_gonzalez> DaveMethvin: Looks like there's definitely something to improve for jQuery 2.x regarding the data: https://github.com/jquery/jquery-ui/pull/1309#issuecomment-52785473
+[07:40:12] <dcherman> scott_gonzalez: in 2.2 when the data is directly attached to the element, it'll actually be a non-issue since it'd have been GCed anyway
+[07:40:22] <dcherman> so it really only affects 2.0 - 2.1.x
+[07:40:36] <scott_gonzalez> If that's the case, I'd prefer not to land the workaround in UI.
+[07:40:53] <scott_gonzalez> It seems like an edge case and the leak has to be fairly small.
+[07:42:32] <dcherman> it is pretty edgy, i'll give you that - i only noticed it because in some cleanup code that i had, it had a detached node that needed to *possibly* be  cleaned up on widget destroy
+[07:43:06] <dcherman> so i was doing something like `if ( div.is(":some-widget") ) { //cleanup }` on a detached node
+[07:48:00] <jqcommit> [13api.jquery.com] 15kswedberg pushed 1 new commit to 06master: 02http://git.io/do1geg
+[07:48:01] <jqcommit> 13api.jquery.com/06master 14821f019 15Aurelio De Rosa: jQuery.ajax(): Uppercase 'JSONP'
+[07:48:36] <jqcommit> [13api.jquery.com] 15kswedberg closed pull request #553: Update jQuery.ajax.xml (06master...06patch-1) 02http://git.io/18H6WA
+[09:24:59] <jqcommit> [13jquery-migrate] 15dmethvin closed issue #71: jquery migrate fails on FreeBSD - ReferenceError: u is not defined 02http://git.io/3LbUuw
+[13:28:29] <robertmaxrees> any idea why the arguments for http://api.jquery.com/map/ are in a different order than the native array.map?
+[13:29:02] <DaveMethvin> robertmaxrees: blame 2006
+[13:29:47] <robertmaxrees> fair enough :)
+[13:33:15] <scott_gonzalez> robertmaxrees: The real reason is because jQuery methods are element-based, so you already have access to the element as `this`.
+[13:33:26] <scott_gonzalez> That makes the index more useful as the first parameter.
+[13:33:48] <scott_gonzalez> That was the logic back then, when there was no native .map().
+[13:42:33] <robertmaxrees> that was a good "aaaaaah" moment.  thank you, scott_gonzalez and DaveMethvin :)
+[13:43:17] <DaveMethvin> what gets confusing is that $.map() and $(selector).map() don't have the same args ... i NEVER remember them
+[13:43:45] <DaveMethvin> for array i always get the index and value reversed
+[13:44:31] <DaveMethvin> sorry, that's each i get reversed
+[13:44:44] <robertmaxrees> there any desire to get them all more consistent?
+[13:47:41] <scott_gonzalez> It'd break way too much code.
+[13:48:08] <robertmaxrees> fair enough.
+[13:48:31] <robertmaxrees> i hate myrself enough to take on projects like that, which is why I asked.
+[13:48:54] <robertmaxrees> doesn't sound like it'd be worth it at this point.
+[13:49:58] <DaveMethvin> the only way to make them consistent now would be a time machine
+[13:50:26] <DaveMethvin> if you do that, just go back in time and kill IE6
+[13:52:24] <scott_gonzalez> Don't kill IE6. Just convince Microsoft that the web is the future so they don't kill off the IE team.
+[13:53:01] <DaveMethvin> oh and don't let them cancel Star Trek
+[13:54:42] <robertmaxrees> star trek can go.  we'll just make sure george lucas doesn't screw up ep 1, 2, and 3. ;)
+[13:55:10] <DaveMethvin> see this is why time travel isn't possible
+[13:55:23] <DaveMethvin> the todo list gets too big
+[13:55:29] <arschmitz> because we would ruin EVERYTHING
+[13:55:55] <DaveMethvin> no doubt
+[13:57:00] <robertmaxrees> like the band, or...? ;)
+[13:57:54] <DaveMethvin> we'd probably ruin them too
+[16:42:53] <snover> DaveMethvin: thought you would appreciate this line I just found in the DOM 3 Events spec: “The KeyboardEvent was briefly (from 2003-2010) …”
+[16:42:57] <snover> BRIEFLY
+[17:18:02] <scott_gonzalez> Brief: adjective; a duration shorter than the life of IE6.

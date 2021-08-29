@@ -1,0 +1,358 @@
+[12:04:38] <timmywil> m_gol, markelog, gibson042, DaveMethvin meetings
+[12:04:46] <m_gol> timmywil: multiple?
+[12:04:51] <DaveMethvin> :)
+[12:04:53] <timmywil> in one!
+[12:05:02] <gibson042> all the meetings
+[12:05:06] <DaveMethvin> the meetings will continue until the tickets are resolved!!!!!
+[12:05:17] <markelog> hey-hey
+[12:05:27] <timmywil> cool, all here
+[12:05:34] <timmywil> https://github.com/jquery/jquery/issues/2676
+[12:05:58] <timmywil> Well, before that, I linked the show/hide table. Please review and comment if there are any disagreements.
+[12:06:23] <timmywil> The issue is about defineProperty being slow
+[12:06:24] <m_gol> (I think 2676 should be closed as wontfix at this point)
+[12:07:14] <timmywil> Oh, right, we no longer use defineProperty on nodes
+[12:07:18] <m_gol> yup
+[12:07:19] <timmywil> So we can close?
+[12:07:24] <DaveMethvin> yeah
+[12:07:27] <timmywil> ok
+[12:07:30] <m_gol> it would be better to have it a private property
+[12:07:36] <m_gol> but we'd have to fork the code base
+[12:07:38] <m_gol> not worth it
+[12:07:51] <DaveMethvin> yeah, and it would be even more inconsistent by browser and object type
+[12:07:53] <m_gol> perf on nodes has been fixed, there's also no try-catch
+[12:07:57] <m_gol> anymore
+[12:08:08] <timmywil> Next, https://github.com/jquery/jquery/issues/2633
+[12:08:14] <timmywil> $.param(undefined)
+[12:08:16] <timmywil> I'm +1
+[12:08:32] <timmywil> But like m_gol pointed out, we can wait until 3.1.0
+[12:08:37] <m_gol> yup
+[12:08:43] <DaveMethvin> this won't be the end of it tho, i suspect a lot of ppl will find other apis that need to be silenced
+[12:08:44] <timmywil> anyone -1?
+[12:08:53] <timmywil> DaveMethvin: heh, one at a time
+[12:09:00] <m_gol> anything new non-breaking at this point can be pushed to 3.1.0
+[12:09:07] <gibson042> call me a -0 ;)
+[12:09:11] <DaveMethvin> yeah this is new behavior and can be pushed
+[12:09:17] <timmywil> ha, as opposed to +0?
+[12:09:34] <timmywil> ok
+[12:09:40] <m_gol> when you add anything positive to -0 it stops being different from +0 ;)
+[12:09:41] <markelog> better then -Infinity :-)
+[12:09:46] <DaveMethvin> so is $.ajax(undefined) silent too?
+[12:10:03] <timmywil> it might be if we get a ticket for it
+[12:10:21] <DaveMethvin> if we're saying that anything passed undefined shoudl do nothing we're gonna get there
+[12:10:25] <timmywil> at least, that's how I'm approaching this
+[12:11:02] <timmywil> I mean, we can either go through the api and check what undefined/null does, or we can wait until people complain to make changes
+[12:11:12] <DaveMethvin> mainly concerned about masking errors and making debugging harder
+[12:11:29] <m_gol> $.ajax(undefined) currently resolves to the current URL, doesn't it?
+[12:11:42] <timmywil> The blanket sweeps across the whole api often have unintended consequences
+[12:11:45] <DaveMethvin> i dunno, but if someone did it I'd think it's an error
+[12:11:47] <timmywil> even in the name of consistency
+[12:11:55] <DaveMethvin> yeah
+[12:12:17] <DaveMethvin> but in any case we can push this past 3.0.0
+[12:12:21] <timmywil> right
+[12:12:27] <m_gol> yup, confirmed, $.ajax() gets the current URL and succeeds
+[12:12:43] <DaveMethvin> ha
+[12:12:54] <timmywil> DaveMethvin has some nice PRs for Ajax https://github.com/jquery/jquery/pull/2682 https://github.com/jquery/jquery/pull/2671
+[12:13:00] <timmywil> They LGTM
+[12:13:03] <m_gol> it's even documented!
+[12:13:15] <m_gol> the second signature is jQuery.ajax( [settings ] )
+[12:13:20] <m_gol> which means settings is optional
+[12:13:20] <timmywil> DaveMethvin: would you call them done?
+[12:13:24] <m_gol> and url defaults to the current one
+[12:13:26] <DaveMethvin> yeah i think they're both ready
+[12:13:28] <gibson042> I'm still not clear on https://github.com/jquery/jquery/pull/2682/files#r43573091
+[12:13:33] <m_gol> so if we want to change it it'll be a breaking change
+[12:13:48] <DaveMethvin> gibson042: yeah it's a mess
+[12:14:02] <DaveMethvin> we have to return the text so we can explicitly convert it
+[12:14:06] <DaveMethvin> rather than letting xhr do it
+[12:14:28] <gibson042> the spec says that xhr will error if the response is e.g. JSON and we try to retrieve text
+[12:14:39] <DaveMethvin> only if you set responseType
+[12:14:44] <DaveMethvin> which we don't
+[12:14:59] <DaveMethvin> the test case i added does it, but to get a binary result
+[12:15:19] <gibson042> where do you set responseType?
+[12:15:36] <gibson042> ah, I see it
+[12:15:42] <timmywil> xhrFields
+[12:15:43] <timmywil> ya
+[12:15:49] <gibson042> then I still think the simple block works
+[12:16:29] <timmywil> which one is the simple block?
+[12:16:35] <DaveMethvin> hmmm, yeah maybe it does!
+[12:16:44] <DaveMethvin> the suggested code in the comment from gibson042
+[12:16:48] <timmywil> ok
+[12:16:49] <gibson042> how would `(xhr.responseType || "text") !== "text" || typeof xhr.responseText !== "string" ? /*binary*/ : /*text*/` force json/document down the wrong path, given that its first check is against responseType?
+[12:17:48] <DaveMethvin> yeah i do think that would work
+[12:18:02] <DaveMethvin> i'll play with it to be sure
+[12:18:06] <gibson042> cool
+[12:18:59] <timmywil> we can merge the other, tho?
+[12:19:28] <timmywil> the form-encode one?
+[12:19:31] <gibson042> LGTM
+[12:19:31] <DaveMethvin> yeah i think so
+[12:20:10] <timmywil> I just opened https://github.com/jquery/jquery/pull/2684
+[12:20:48] <DaveMethvin> so do all our supported browsers provide onabort?
+[12:21:17] <timmywil> I think so, considering compat uses it
+[12:22:10] <timmywil> actually, it doesn't
+[12:22:20] <timmywil> onreadystatechange, ya
+[12:22:28] <timmywil> but mdn says onabort is supported
+[12:22:36] <timmywil> my test will catch it if a browser doesn't have it
+[12:23:04] <markelog> could you give a link?
+[12:23:09] <markelog> to the mdn page?
+[12:23:10] <timmywil> see above
+[12:23:12] <timmywil> oh
+[12:24:36] <timmywil> https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest
+[12:24:49] <timmywil> actually, might have an issue in IE9
+[12:25:03] <timmywil> I'll check that
+[12:25:04] <markelog> easy to test :-)
+[12:25:19] <m_gol> what IE9 issue?
+[12:25:30] <timmywil> might not have xhr.onabort
+[12:25:36] <timmywil> seems to be xhr2
+[12:25:47] <markelog> or might have it, but doesn't work
+[12:25:59] <markelog> wouldn't the first case like that for ie
+[12:26:25] <timmywil> hmm?
+[12:26:40] <timmywil> oh, wouldn't *be"
+[12:27:06] <timmywil> yea, I'll do some fiddling
+[12:27:06] <markelog> yeah )
+[12:27:26] <timmywil> m_gol added https://github.com/jquery/jquery.com/pull/111
+[12:27:38] <markelog> i'm pretty sure i will not have a career as a public speaker :-)
+[12:27:53] <timmywil> me neither
+[12:27:55] <m_gol> the table doesn't make sense when we have one version so I converted it to a list
+[12:28:31] <markelog> how does it look like?
+[12:28:39] <markelog> do you have a screenshot?
+[12:28:55] <markelog> will you mind attaching it to the pull?
+[12:29:09] <m_gol> markelog: are you asking me?
+[12:29:18] <markelog> yep
+[12:29:24] <markelog> since you author of the pull )
+[12:29:25] <timmywil> I commented
+[12:29:28] <m_gol> there are screenshots there
+[12:29:34] <m_gol> so I'm not sure what else you want
+[12:29:45] <markelog> full page i mean
+[12:30:22] <m_gol> similar to https://jqueryui.com/browser-support/
+[12:31:23] <markelog> okay, lgtm
+[12:32:16] <markelog> when did we drop support for oldIE?
+[12:32:42] <DaveMethvin> jquery 3
+[12:32:43] <DaveMethvin> :)
+[12:32:47] <m_gol> markelog: https://github.com/jquery/jquery.com/pull/111#issuecomment-153094102
+[12:33:05] <m_gol> this is for the jquery-3 branch
+[12:33:06] <markelog> thank you m_gol :-)
+[12:33:32] <markelog> so we need to wait for these changes until january
+[12:33:41] <m_gol> yup
+[12:33:51] <m_gol> but we merge them to the jquery-3 branch for now
+[12:33:58] <m_gol> the branch will be then rebased & merged to master
+[12:34:02] <markelog> yeah, i know, just wanted a remainder
+[12:34:04] <m_gol> sure
+[12:34:23] <m_gol> 2.2/1.12: markelog, did you have time to start preparing the list?
+[12:34:32] <markelog> yeah, today :-)
+[12:34:38] <timmywil> nice, thanks markelog
+[12:34:44] <markelog> will send a link to everybody tomorrow
+[12:34:46] <DaveMethvin> is there any way we can break up that work once it's time to merge?
+[12:34:49] <markelog> there is 344 commits!
+[12:34:52] <DaveMethvin> maybe by component or something
+[12:35:05] <timmywil> not sure, order is important
+[12:35:06] <markelog> it will interesting :-)
+[12:35:16] <DaveMethvin> that way it's not all one person sweating on it
+[12:35:25] <m_gol> once we have the list
+[12:35:26] <markelog> yeah, will do something like that
+[12:35:28] <m_gol> sorry, 2 lists
+[12:35:32] <DaveMethvin> we need to get merging soon
+[12:35:36] <m_gol> we can always cherry-pick them one-by-one
+[12:35:46] <m_gol> by various people
+[12:35:52] <markelog> need a list first
+[12:35:54] <m_gol> sure
+[12:35:56] <DaveMethvin> yep
+[12:36:01] <timmywil> ok
+[12:36:06] <timmywil> anything else?
+[12:36:19] <gibson042> I put up a supporting issue on commitplease
+[12:36:19] <markelog> what's up with show/hide?
+[12:36:29] <gibson042> for including semver level
+[12:36:36] <gibson042> will send an email to jquery-dev next
+[12:36:39] <timmywil> oh cool, link?
+[12:36:42] <markelog> we want to create a list how it should be
+[12:36:45] <timmywil> oh, that's fine
+[12:36:46] <m_gol> timmywil: is https://github.com/jquery/jquery.com/pull/111 good to go then?
+[12:36:51] <markelog> or how it will be after the revert?
+[12:36:54] <gibson042> https://github.com/jzaefferer/commitplease/issues/44
+[12:37:01] <timmywil> m_gol: LGTM, we can update the latest 1.x version later.
+[12:37:05] <m_gol> k
+[12:37:32] <timmywil> markelog: yea, it lays out expected behaviors
+[12:37:43] <gibson042> animation table is totally blank
+[12:37:47] <markelog> and would be will do about it if it will not?
+[12:38:06] <gibson042> I haven't reviewed the non-animated portion thoroughly enough to give a solid opinion
+[12:38:13] <markelog> what we will do about it, if it will not
+[12:38:15] <timmywil> gibson042: I like it! wouldn't have to update commitplease as much
+[12:38:17] <markelog> ?
+[12:38:53] <timmywil> markelog: The idea is to get show/hide to match the table first.
+[12:39:11] <DaveMethvin> since show/hide is 3.x it's lower priority anyway
+[12:39:22] <markelog> well, we have two months
+[12:39:28] <timmywil> ya, 1.12 comes first
+[12:39:31] <markelog> and holidays and all that
+[12:39:40] <markelog> besides there is work on 1.x/2.x
+[12:39:53] <timmywil> gibson042: how's your workload? maybe with markelog focusing on 1.x/2.x, you should take show/hide
+[12:40:23] <markelog> if we find inconsistencies and we will probably will
+[12:40:36] <markelog> it might take us a while to agree on the behaviour
+[12:40:43] <gibson042> I think it's in a collaborative phase now; ownership won't mean anything for a while
+[12:41:01] <markelog> just like it happened not to while ago
+[12:41:28] <timmywil> I think we're closer to agreement than we were before
+[12:41:31] <markelog> after that, we probably would need to rush this
+[12:41:45] <markelog> well, right now it is not clear
+[12:41:54] <markelog> if there would be some "bugs"
+[12:42:07] <markelog> then fixes for those bugs might introduce new behaviours
+[12:42:14] <DaveMethvin> the level of agreement will depend on the amount of breakage the new table causes vs current usage :)
+[12:42:23] <markelog> that's right!
+[12:42:33] <m_gol> I definitely agree 1.12/2.2 should be top priority now
+[12:42:58] <m_gol> so that we can stop cherry-picking from master to compat, from master to 2.2 and from compat to 1.12
+[12:43:09] <markelog> so it might probably would need to take rush decisions for the dead line
+[12:43:13] <DaveMethvin> even though there are 300+ commits I suspect a lot of them are not functionally important
+[12:43:25] <timmywil> yes, but I don't think the proposed behavior is that far off from previous behavior. Some adjustments in the way we cache display seems to be the main difference.
+[12:43:26] <DaveMethvin> they still have to be looked at no doubt and that will take time
+[12:43:26] <m_gol> no cherry-picking vs. 3 branches to which we cherry-pick is a huge difference :D
+[12:43:58] <DaveMethvin> that's why i'd like to be conservative and only pick over the stuff that makes a difference
+[12:44:05] <markelog> i think it is good to define current behaviour and expected one
+[12:44:16] <timmywil> sure
+[12:44:20] <markelog> but first priority should (aside for patch release)
+[12:44:24] <markelog> be the revert
+[12:44:26] <markelog> i think
+[12:44:31] <DaveMethvin> why revert tho?
+[12:44:52] <markelog> mmm, revert of the new show/hide logic
+[12:44:55] <timmywil> I agree, but reverting manually might be easier than reverting patches
+[12:45:06] <DaveMethvin> esp after all the other changes we've done
+[12:45:08] <timmywil> given that there are several
+[12:45:16] <gibson042> I'm not willing to put my time into a show/hide revert that we know will be overridden before 3.0.0
+[12:45:50] <markelog> no-no
+[12:46:01] <timmywil> gibson042: if the new behavior is closer to the old one than it is to what's in master, it might be a better starting point.
+[12:46:04] <markelog> i'm proposing to just revert show/hide to the previous state
+[12:46:16] <markelog> then define current and expected behaviours
+[12:46:26] <DaveMethvin> if you could revert the commit that would be easy, but i don't think you can
+[12:46:37] <DaveMethvin> try it :)
+[12:46:41] <markelog> sure :-)
+[12:47:10] <timmywil> but all of this is really up to the owner, whatever is easier for that person
+[12:47:19] <gibson042> the tests don't match
+[12:47:29] <DaveMethvin> etc
+[12:47:43] <markelog> if we would not make to dead line, to integrate new expected behaviour, then i think we should release anyway
+[12:48:02] <timmywil> I don't think it's as complicated as we're making it sound
+[12:48:03] <DaveMethvin> well 3.0 is a good time to break stuff
+[12:48:08] <DaveMethvin> who knows
+[12:48:09] <gibson042> this ^
+[12:48:22] <DaveMethvin> let's get all the 1.12/2.2 commits identified and we can break up that work
+[12:48:31] <gibson042> if we were to release tomorrow, I'd rather have the new code than the 1.x/2.x code
+[12:48:32] <DaveMethvin> then work on 3.0
+[12:48:48] <markelog> @timmywil: probably not, i'm establishing the path though
+[12:48:49] <timmywil> gibson042: I don't think we can release what's in master
+[12:48:53] <markelog> if we can make it, then good
+[12:48:54] <gibson042> why?
+[12:48:56] <markelog> if not, then not
+[12:49:04] <gibson042> there have been ZERO user complaints AFAIK
+[12:49:12] <gibson042> we're _guessing_
+[12:49:23] <gibson042> and the major version bump is explicit about breaking changes
+[12:49:28] <markelog> zero complaints about what?
+[12:49:33] <timmywil> gibson042: because it breaks showing cascade-hidden elements, which we predict will be a big deal
+[12:49:41] <timmywil> we talked about that
+[12:49:43] <DaveMethvin> i don't think anyone uses our alphas or master
+[12:49:52] <markelog> there was a lot of complaints about show/hide as i recall
+[12:50:18] <gibson042> what I'm saying is, it's perfectly acceptable to release 3.0.0 as-is and restore cascade-hidden .show() in 3.0.1
+[12:50:30] <timmywil> ah, I see
+[12:50:31] <markelog> in facebook, in our blog post, in github
+[12:50:37] <markelog> how so?
+[12:50:43] <timmywil> I suppose, but ideally like to address it before 3.0
+[12:50:45] <markelog> revert would be a breaking change
+[12:51:02] <gibson042> breaking change depends on documentation
+[12:51:12] <gibson042> of the public API
+[12:51:21] <markelog> partly yeah, what is your point?
+[12:51:30] <gibson042> not partly, exclusively
+[12:52:03] <markelog> well, i don't remember semver saying anything about the documentation
+[12:52:13] <markelog> if your api changed, then this is a breaking change
+[12:52:27] <gibson042> "Once you identify your public API, you communicate changes to it with specific increments to your version number."
+[12:52:58] <markelog> yeah, i don't see anything about the docs though
+[12:53:03] <timmywil> what we have in master is not released. reverting to old behavior is not breaking, even with an alpha release out there. But still, I'd like to get the proposed behavior into a PR.
+[12:53:13] <gibson042> "This may consist of documentation or be enforced by the code itself"
+[12:53:25] <gibson042> yeah, agreed
+[12:53:35] <markelog> timmywil: yeah
+[12:53:49] <markelog> @gibson042: "or be enforced by the code itself"
+[12:53:56] <timmywil> cool
+[12:54:01] <DaveMethvin> i'd definitely prefer to see us figure that out before changing the code again
+[12:54:03] <markelog> i don't really sure what we arguing about though
+[12:54:08] <DaveMethvin> haha
+[12:54:19] <DaveMethvin> then maybe we agree and don't know it yet
+[12:54:24] <markelog> :-)
+[12:54:31] <gibson042> violently
+[12:54:32] <timmywil> gibson042: perhaps you and I could pair up on show/hide
+[12:54:50] <gibson042> I'm game
+[12:54:54] <markelog> timmywil: i think we do it althougther
+[12:55:06] <markelog> *we can
+[12:55:08] <gibson042> like I said, it's super-collaborative right now
+[12:55:13] <markelog> right
+[12:55:15] <timmywil> no, I mean, code something together to propose to the rest of the team and go from there
+[12:55:45] <markelog> depends on what is your path would be
+[12:55:53] <markelog> i'm suggesting revert, then improving
+[12:56:12] <DaveMethvin> but why revert if that isn't what we ultimately want?
+[12:56:16] <DaveMethvin> it's just a lot of work
+[12:56:19] <timmywil> that's a process detail
+[12:56:28] <gibson042> most of the work with the initial PR was dealing with tests
+[12:56:46] <gibson042> so reverting means redoing all of that reconciliation
+[12:56:55] <gibson042> the old tests were... not good
+[12:56:58] <markelog> i can try to do this, i don't think there is a lot of work comparing to digging through all those 344*2 commits :-)
+[12:57:22] <DaveMethvin> can we get the commit list done first tho?
+[12:57:26] <timmywil> if, ultimately, we want to revert + improve = desired behavior, it's no different than doing PR = desired behavior
+[12:57:33] <m_gol> if tests improved, no matter what the assertions currently are it won't do much good to revert to the old, worse tests
+[12:57:33] <DaveMethvin> if we have that list we can split it up across the team
+[12:57:37] <markelog> DaveMethvin: yeah, will do that tomorrow
+[12:58:01] <m_gol> once we have the list, we can put in in a GitHub issue as a checklist
+[12:58:04] <markelog> timmywil: i'm saying, revert, merge, propose the impovement
+[12:58:06] <m_gol> and check every commit that has been landed
+[12:58:08] <markelog> step by step
+[12:58:23] <markelog> m_gol: there is couple different ways we can do it
+[12:58:26] <DaveMethvin> for show/hide, let's 1) complete the table, 2) write tests reflecting that, 3) make the tests pass :)
+[12:58:35] <markelog> first of all, we need to identify breaking changes
+[12:58:35] <gibson042> +9001 DaveMethvin
+[12:58:39] <markelog> or not important ones
+[12:58:47] <timmywil> DaveMethvin: yes, but it sounds like markelog disagrees
+[12:58:48] <markelog> like docs or tests improvement
+[12:59:12] <m_gol> the thing is we either cherry-pick only a few commits, like, max 30 of them
+[12:59:18] <markelog> well, if you guys sure about in such approach
+[12:59:21] <m_gol> or we do almost every one, except breaking ones
+[12:59:24] <markelog> then i'm all for it )
+[12:59:30] <timmywil> markelog: there's not much point in reverting if we're just going to change it. Why not go straight to the desired behavior?
+[12:59:32] <m_gol> there's no point in skipping just some commits with improvements
+[12:59:38] <m_gol> because it will just add to merge conflicts
+[12:59:44] <markelog> because, you might not change it :-)
+[12:59:55] <timmywil> but we will, at least a little bit
+[12:59:56] <gibson042> I like "every one except breaking changes" better
+[13:00:08] <markelog> we have a deadline, and we might need to make sacrifices
+[13:00:31] <markelog> improving is good
+[13:00:43] <m_gol> yes, I'm just saying the "let's backport a lot but not small improvements" strategy would be the biggest amount of work
+[13:00:51] <timmywil> markelog: I think we can get it done
+[13:01:05] <m_gol> so it's either not a lot of commits or as many commits as possible IMO
+[13:01:07] <markelog> okay, as i said, if you 100% sure, then i'm all for it )
+[13:01:21] <DaveMethvin> since this is chronological, if the list is too hard to create at once maybe we can just get started and begin cherry picking before the whole list is created?
+[13:01:27] <timmywil> ok, either way, we need to agree on the behavior
+[13:01:39] <markelog> that might a tough part :/
+[13:01:43] <m_gol> the conversations are mixing ]:->
+[13:01:45] <timmywil> so take a look at the table for show/hide
+[13:01:51] <markelog> like coding isn't that hard
+[13:01:54] <timmywil> m_gol: heh, yea
+[13:01:56] <markelog> hard to make a good api
+[13:02:05] <markelog> we had an acceptable api
+[13:02:19] <markelog> we shouldn't create a bad one, trying to make it better
+[13:02:25] <markelog> you know?
+[13:02:46] <markelog> m_gol: yeah, i bit tough
+[13:02:55] <markelog> how about i will send a list
+[13:03:02] <markelog> then we will figure out the rest?
+[13:03:07] <timmywil> markelog: I really don't think what's proposed is that far off from the old behavior. It restores the cascade-hidden case and has a minor improvement for the responsiveness case.
+[13:03:20] <timmywil> but our tests will be more thorough
+[13:03:27] <gibson042> I see that I missed a couple of columns, which will play into that
+[13:03:28] <markelog> timmywil: if you sure, then good!
+[13:03:33] <m_gol> markelog: the list won't change much wrt the decision we have to make about what strategy we take
+[13:03:36] <timmywil> markelog: regarding the list, sounds good
+[13:03:56] <timmywil> m_gol: it might, depends on the importance of the commits in the list
+[13:03:57] <gibson042> if .show() _creates_ the inline value, what does .hide() do with it?
+[13:04:04] <markelog> m_gol: we can make that decision in the google doc
+[13:04:06] <m_gol> we need to decide if we cherry-pick almost everything or only the most important changes or we cherry-pick as we go to new branches as DaveMethvin proposed
+[13:04:07] <gibson042> I will amend later today
+[13:04:25] <markelog> important ones i would say,
+[13:04:26] <timmywil> right, the strategy discussion can be taken offline
+[13:04:32] <markelog> but we need a list first :-)
+[13:04:35] <DaveMethvin> yep
+[13:04:37] <m_gol> k
+[13:05:15] <markelog> okay, so i think, we all good on planing :-)
+[13:05:22] <markelog> right?
+[13:05:24] <timmywil> yup, cutting it off here
+[13:05:53] <timmywil> refer to the list when we have it and the show/hide doc for agreeing on 3.0 behavior
+[13:06:02] <markelog> cool, cool
+[13:06:08] <timmywil> thanks all
+[13:06:12] <markelog> see ya!

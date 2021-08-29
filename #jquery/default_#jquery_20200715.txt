@@ -1,0 +1,119 @@
+[03:35:32] <Beam> yo
+[03:38:47] <Beam> are events bound on dom elements? if i add a new element <div id="chatbox"> and bind $('#chatbox').on('click', '#send', ...); then $('#chatbox').remove(); is all trace of the event gone from memory?
+[03:39:26] <Cork> eventhanderls are
+[03:39:31] <Cork> events fire on dom elements
+[03:39:54] <Beam> yea i was just wondering if jquery did something behind the scenes that add up memory if i do this
+[03:40:45] <Cork> yes, jquery adds references for the event handers it binds
+[03:41:09] <Cork> it is cleaned up when the element is removed though (as long as you don't keep a reference to the element around)
+[03:41:28] <Beam> so if i readd my <div id="chatbox"> is the event suddenly alive again without rebinding it?
+[03:41:36] <Cork> yes
+[03:42:01] <Cork> that isn't something specific to jqeury though
+[03:42:05] <Cork> that is how dom elements work
+[03:42:31] <Beam> how so? isn't the event stored on the dom element itself? not like a path to it?
+[03:42:51] <Cork> you keep calling it events
+[03:43:02] <Cork> event HANDLERS are stored on the dom element
+[03:43:18] <Cork> meaning the callback functionsy you add
+[03:43:29] <Cork> the events is just calls the browser does to those functions
+[03:43:35] <Cork> it isn't ever stored
+[03:44:28] <Cork> what jquery does that normal js doesn't is keep a list of those functions
+[03:44:47] <Cork> so you can do things like $(elm).off() and remove all added handlers
+[03:45:01] <Cork> in normal js, if you don't have the function reference you can't remove the handler, at all
+[03:45:18] <Cork> only option is to remove the dom element and all the references to it
+[03:45:40] <Beam> right, question 2, know of any basic framework that can handle adding and removing of dom elements with elements, so i can easily load content through ajax with local selectors that won't affect anything outside the loaded content, without actually having to know where and what in the dom is loaded and the id/class of it?
+[03:45:41] <Cork> and that is why jquery does this to make handlers easier to handle
+[03:45:57] <Beam> with events* i meant
+[03:46:21] <Cork> sigh
+[03:46:32] <Cork> you mean event handlers again...
+[03:46:53] <Cork> stop calling them events it isn't even remotely correct...
+[03:46:58] <Beam> ye sorry
+[03:47:30] <Cork> what you want is event delegation
+[03:47:35] <Cork> https://learn.jquery.com/events/event-delegation/
+[03:48:18] <Cork> bind the handlers to the closest static parent and you can get events as the bubble up from child elements
+[03:48:18] <Beam> yea but something that can detect the root element as it's added through an ajax call
+[03:48:37] <Cork> you don't need to
+[03:48:47] <Cork> read the link
+[03:48:56] <Beam> well i want the ajax pages to be self contained without knowing the document structure?
+[03:49:27] <Cork> you need to have a container you know will be there
+[03:49:36] <Cork> else you have nowhere to append the sub document
+[03:50:36] <Beam> well i'm sure it's possible for a framework to create a reference to the root element once it's loaded, and bind to that before running some script that loads all the event handlers?
+[03:51:09] <Cork> sure you can do $(document.body).html(newHTML), but that will blow away everything else
+[03:51:34] <Cork> you have to have somewhere to inject the new content, and you always have to have an insertion point
+[03:51:58] <Cork> only other option is a full page load
+[03:52:27] <Beam> it's more like $('#widgetcontainer').load('/new/widget'); and inside widget i can have a script that does $(currentwidget).on('click', '#somebutton')...)
+[03:52:48] <Cork> ya, but then you have an insertion point => #widgetcontainer
+[03:53:00] <Beam> so basically a framework that injects some "global" variables i can use to bind to the correct element from within the ajax code
+[03:53:23] <Beam> so the ajax code is self contained and doesn't need to know about container
+[03:53:52] <Cork> you can't have code contained to a set of dom elements
+[03:53:57] <Cork> it doesn't exist
+[03:54:20] <Beam> well some kind of callback then
+[03:54:38] <Cork> you can create an isolated namespace where variables and function you define isn't accessable from outside
+[03:54:51] <Cork> but in no way are they constrained to a dom element tree
+[03:55:12] <Cork> if that is what you need you have only one option => iframe
+[03:55:45] <Beam> yea no i didn't mean the code is constrained, only some magic that easily lets me bind event handlers to the correct elements
+[03:56:02] <Beam> like $.ajaxFragmentLoaded() with a this that refers to the root element
+[03:56:07] <Beam> "this"
+[03:56:27] <Cork> Beam: it is wasy, you just have to give the function the selector or element you use for the content insertion
+[03:56:29] <Beam> I think i'm not explaining this well, i'll keep googling
+[03:56:33] <Cork> wasy==easy
+[03:56:54] <Cork> Beam: you explain it well enough, you just don't accept the answer
+[03:57:13] <Beam> that's right, i can't believe noone made a framework for this
+[03:57:22] <Cork> cause there is no need
+[03:58:01] <Cork> a framework for doing function(container) { $(container).load().on('', '')... } is kinda silly
+[04:01:49] <Beam> *shrug* i'm thinking of something vue-like where i can load a page/template through ajax
+[04:02:20] <Cork> well if you mean embed the js in the html, that is doable, but quite unsafe
+[04:02:52] <Cork> also it makes debugging a lot buggier later
+[04:09:03] <Beam> how about something that lets me type something like $$events.add('/uri/to/ajax/view', 'click', '#button', function() {} ... in a global script file and some code to add it to the dom once it's loaded through ajax ?
+[04:09:08] <Beam> am i just circling here?
+[04:09:57] <Beam> i suppose i am
+[04:11:06] <Cork> that is just a wrapper around adding the event on document or something
+[04:11:21] <Cork> you should just be a few lines of code if you want it (< 10)
+[04:14:58] <Beam> something like pseudo code $('#widgetcontaner').load('/widgets/clock', function() { for each event, element, callback in $$events[uri] : this.on(event, element, callback)
+[04:15:22] <Beam> and well extend jquery with a .myLoad that does this behind the scenes
+[04:15:54] <Cork> Beam: that just move the .on call into the .load call
+[04:16:41] <Cork> and you can't bind events on urls, but sure you can keep a set of code and run it based on the url you load
+[04:17:09] <Cork> this really shouldn't be hard
+[04:17:39] <Beam> and if i remove an element, i don't really need to run .off() on it do i?
+[04:17:57] <Cork> no
+[04:18:05] <Cork> only if you delegate the handler to a static parent
+[04:18:23] <Cork> but then it isn't per element, its per selector
+[04:19:36] <Beam> suppose i can't just use load() either as the callback doesn't really give me a reference to the root dom element of the request
+[04:19:57] <Cork> Beam: are you loading full pages with load?
+[04:20:07] <Cork> instead of just partials?
+[04:20:34] <Cork> cause it more and more sounds like you expect .load() to load a fully isolated working page
+[04:20:41] <Beam> no no no
+[04:21:47] <Beam> but each snippet loaded will always have a single root element that can be bound to
+[04:23:30] <Cork> well you can do $.ajax().done(function(html) { var newFragment = $($.parseHTML(html)); newFragment.on()... $('#target').append(newFragment); });
+[04:23:52] <Cork> if you want to do things with the new dom tree before adding it to the dom tree
+[04:24:15] <Cork> *element tree before adding it to the dom tree
+[04:25:46] <Beam> ye this is starting to look right
+[04:26:10] <Cork> both work, and do close to the same thing
+[04:26:13] <Beam> if i bind a .loaded or .ready, will it execute right away?
+[04:26:23] <Cork> depends
+[04:26:28] <Beam> err wrongly phrased
+[04:26:45] <Cork> if you run it before the browser has parsed the initial body section of the html then no
+[04:26:46] <Cork> else yes
+[04:27:06] <Beam> can i bind an event handler to the fragment that is executed when the fragment is added to the dom?
+[04:27:09] <Cork> for ajax related queries it is always yes
+[04:27:16] <Cork> no
+[04:27:28] <Cork> events is for user actions not code modifications
+[04:27:55] <Cork> you can have a look at https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
+[04:28:10] <Cork> but i would use that as a last option, it does get very chatty very fast
+[04:30:22] <Beam> i guess i can just add it to dom then $(root).trigger('loaded') or something
+[04:30:44] <Cork> sure you can fire your own events if you want to
+[04:30:56] <Beam> is 'ready' an actual event i can trigger?
+[04:30:57] <Cork> though note those are jquery only events (it is faked inside jquery)
+[04:31:08] <Cork> you can trigger anything you want
+[04:31:18] <Cork> it won't fire the ready callbacks
+[04:31:23] <Cork> but you can bind handlers for it
+[04:31:39] <Cork> (it has to be jquery handlers though, as it doens't go though the normal event system)
+[04:31:49] <Beam> right
+[10:58:46] <weijunli> anyone who used https://www.jqueryscript.net/text/language-switcher-translate.html ?
+[10:59:06] <weijunli> I  have this little snippet (https://dpaste.org/nAjc) - I am trying to render Bas as header1 but when I pass to `source` it displays the <h1> in plain text tho
+[10:59:15] <weijunli> how can i chage the struct of my txt dict to make it happen
+[11:09:03] <weijunli> anyone around
+[12:41:31] <robertmaxrees> fwiw JS doesn't have "dicts" ;)
+[12:41:42] <robertmaxrees> weijunli could you set up a fiddle for this?
+[12:42:55] <robertmaxrees> aaaah wait - weijunli you're trying to swap out the entire elements, not just the text?  don't think that'd work - looks like this is purely designed for swapping textr out.
+[15:40:08] <dlam> jquery #1 technology when internet exploder still top browser :D
+[15:40:24] <robertmaxrees> ?
+[15:46:10] <robertmaxrees> welp

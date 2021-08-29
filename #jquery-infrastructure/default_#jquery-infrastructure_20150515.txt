@@ -1,0 +1,86 @@
+[02:12:24] <jzaefferer> s5fs: I'll be available in the next 8 hours or so
+[02:14:44] <m_gol> s5fs: I'm at work now and there are no empty conference rooms so I can be available but in text mode only
+[02:15:27] <m_gol> s5fs: I have family visitation so if not today Monday evening would be the first possible time
+[02:16:01] <m_gol> s5fs: I guess it'd be easiest to restart one offending job & look at the server logs at the same time?
+[02:26:14] <m_gol> s5fs: by Monday evening I mean your noon, I guess ;)
+[02:27:14] <m_gol> s5fs: tests are not running successfully, see http://jenkins.jquery.com/job/jQuery%20Core/1348/console
+[02:27:46] <m_gol> s5fs: we have unstable failures pretty often, unfortunately so jobs are set up this way that if a test in TestSwarm fails, the job is marked as UNSTABLE, not as failing
+[08:25:29] <s5fs> m_gol: ping me on google hangouts whenever you are free, i'll pm you my email in case you don't have it for some reason
+[08:26:09] <s5fs> jzaefferer: same story, let me know when you are free. i'm tied up for the next 1.5 hours, I got a flat tire this morning and am at a diner waiting for my new tire to be installed. wifi is terrible!
+[08:27:58] <jzaefferer> s5fs m_gol: I won't be of much help until someone tells me what the issue is. The backlog of this channel isn't helping
+[08:30:19] <s5fs> jzaefferer: ah!
+[08:31:15] <s5fs> jzaefferer: m_gol and I were working on https://github.com/aulvi/vagrant-virtualbox-debian-base.git
+[08:31:19] <s5fs> crap! wrong link
+[08:31:40] <s5fs> https://github.com/jquery/infrastructure/issues/323
+[08:32:17] <s5fs> I don't know much about jenkins/testswarm so we poked at stuff, patched the host to current and rebooted.
+[08:32:26] <s5fs> upon reboot, we needed to upgrade the java version, so we did.
+[08:32:36] <s5fs> now m_gol states that jQuery Core tests are failing
+[08:32:39] <s5fs> that is the state of play
+[08:32:45] <jzaefferer> gotcha
+[08:33:19] <jzaefferer> "patched the host to current", that is current jenkins?
+[08:34:41] <jzaefferer> so iOS 8.3 isn't getting spawned, but in addition now other tests fail?
+[08:35:25] <s5fs> jzaefferer: yes, whatever 'apt-get update' gave us, including jenkins
+[08:35:49] <s5fs> I don't know if iOS 8.3 works, or if the system has regressed further.
+[08:36:12] <jzaefferer> does builds.jenkins.jquery.com run on the same machine?
+[08:36:34] <jzaefferer> that's what serves the unit test files TestSwarm loads
+[08:37:10] <jzaefferer> updating Jenkins itself is very unlikely to cause a subset of tests to fail - I'd expect that to break everything or nothing at all
+[08:37:23] <s5fs> the host in question is jenkins.jquery.com. i don't see the 'build' hostname you mentioned.
+[08:38:09] <s5fs> right, i'd expect jenkins to be all-or-nothing as well
+[08:38:31] <s5fs> in fact, after patching, jenkins was down due to a java version mismatch. that was an 'all' failure.
+[08:39:07] <s5fs> after updating to the required java version (java 6 -> java 7) the system appears up, and jenkins logs look pretty normal. at least when I compare old logs to current logs.
+[08:39:24] <s5fs> jzaefferer: could you maybe just run a test and see if it works as you expect?
+[08:40:48] <jzaefferer> I can log into Jenkins and start a build for jQuery Core, sure
+[08:41:38] <jzaefferer> I just ran a build for QUnit, which also isn't getting iOS 8.3: http://swarm.jquery.org/job/568
+[08:42:18] <s5fs> okay so the iOS 8.3 issue persists
+[08:42:46] <s5fs> oh snap, i just found my jenkins credentials. I didn't think I had them anymore lol
+[08:49:22] <jzaefferer> so yeah, looks like its mostly the missing iOS 8.3. I've got no clue how to even start debugging that
+[08:52:12] <s5fs> jzaefferer: okay cool, glad to hear that we didn't break things further!
+[08:52:32] <s5fs> so ios 8.3 is part of browserstack, yes?
+[08:52:49] <s5fs> jenkins is just responsible for shoving the job to them?
+[08:56:39] <jzaefferer> its a bit more complicated than that
+[08:56:46] <s5fs> LOL i'm sure
+[08:57:02] <jzaefferer> Krinkle documented the architecture, I'm looking up the link
+[08:58:48] <jzaefferer> well, not exactly documenting the architecture, but covers all the components: https://github.com/jquery/infrastructure/wiki/TestSwarm
+[09:12:46] <jzaefferer> m_gol s5fs: there might be a general problem with iOS 8 - I get an error from browserstack-runner when trying to run tests against iOS 8.0: Error: Validation Failed - `os_version` invalid
+[09:21:00] <jzaefferer> m_gol: it works when I replace "8.0" with "8.3". Seems weird, since they usually support .0 versions for the various mobile safaris
+[09:31:18] <jzaefferer> I guess this is a separate problem though
+[09:51:36] <s5fs> jzaefferer: awesome
+[10:36:20] <Krinkle> jzaefferer: The architecture is more or less documented at https://github.com/jquery/testswarm/wiki/Automated-Distributed-Continuous-Integration-for-JavaScript
+[10:37:21] <Krinkle> Thanks to gnarf and m_gol, it's also mostly puppetised now.
+[10:37:26] <Krinkle> https://github.com/jquery/infrastructure/blob/puppet-master/manifests/nodes/swarm.pp
+[10:37:39] <Krinkle> Let me know if there's anything you need to know.
+[10:37:42] <jzaefferer> s5fs: ^ there! What Krinkle says
+[10:38:40] <Krinkle> https://github.com/clarkbox/testswarm-browserstack/blob/master/src/mapHelper.js may be relevant
+[10:38:49] <Krinkle> Since BrowserStack does not expose OS versions directly, only via proxy of device
+[10:39:36] <Krinkle> So it could  be that there are no available devices matching that OS version, thus needing additional mapping to allow  iOS 8.3 to match
+[10:40:04] <Krinkle> http://api.browserstack.com/3/browsers
+[10:40:23] <Krinkle> 8.3: Array[1]
+[10:40:23] <Krinkle> 0: Object
+[10:40:24] <Krinkle> browser: "Mobile Safari"
+[10:40:25] <Krinkle> browser_version: null
+[10:40:27] <Krinkle> devices: Array[4]
+[10:40:29] <Krinkle> 0: "iPhone 6"
+[10:40:31] <Krinkle> 1: "iPhone 6 Plus"
+[10:40:33] <Krinkle> 2: "iPad Mini 2"
+[10:40:35] <Krinkle> 3: "iPad Air"
+[10:40:37] <Krinkle> length: 4
+[10:41:03] <Krinkle> s5fs: jzaefferer: I'll write a patch to include new devices
+[10:54:30] <jzaefferer> Krinkle: great, thank you; m_gol will appreciate that
+[11:01:13] <git-commit> [13testswarm-browserstack] 15Krinkle pushed 2 new commits to 06master: 02https://github.com/clarkbox/testswarm-browserstack/compare/3dd388369780...1036e3f7481d
+[11:01:13] <git-commit> 13testswarm-browserstack/06master 144c3de71 15Timo Tijhof: build: Enable jscs and jshint
+[11:01:13] <git-commit> 13testswarm-browserstack/06master 141036e3f 15Timo Tijhof: map: Update device list with upstream BrowserStack...
+[11:01:44] <Krinkle> that should do it. I dont have time right now to deploy and verify it works. Let me know if it works. If not deployed, I'll try deploying it sometime in the weekend.
+[11:05:43] <travis-ci> clarkbox/testswarm-browserstack#17 (master - 1036e3f : Timo Tijhof): The build passed.
+[11:05:43] <travis-ci> Change view : https://github.com/clarkbox/testswarm-browserstack/compare/3dd388369780...1036e3f7481d
+[11:05:43] <travis-ci> Build details : http://travis-ci.org/clarkbox/testswarm-browserstack/builds/62740143
+[11:13:15] <s5fs> Krinkle|detached: thanks a bunch!
+[11:38:55] <git-commit> [13testswarm-browserstack] 15Krinkle pushed 1 new commit to 06master: 02https://github.com/clarkbox/testswarm-browserstack/commit/cb2a15ab5bb9b71e494d3f0461bb3dbe73de662d
+[11:38:55] <git-commit> 13testswarm-browserstack/06master 14cb2a15a 15Timo Tijhof: readme: Update build status badge
+[11:41:50] <git-commit> [13testswarm-browserstack] 15Krinkle pushed 1 new commit to 06master: 02https://github.com/clarkbox/testswarm-browserstack/commit/3993d4d903ad33603464e3c841a637cbf8affa96
+[11:41:50] <git-commit> 13testswarm-browserstack/06master 143993d4d 15Timo Tijhof: build: Run jscs from npm-test
+[11:43:53] <travis-ci> clarkbox/testswarm-browserstack#19 (master - 3993d4d : Timo Tijhof): The build passed.
+[11:43:53] <travis-ci> Change view : https://github.com/clarkbox/testswarm-browserstack/compare/cb2a15ab5bb9...3993d4d903ad
+[11:43:53] <travis-ci> Build details : http://travis-ci.org/clarkbox/testswarm-browserstack/builds/62745202
+[11:46:32] <travis-ci> clarkbox/testswarm-browserstack#18 (master - cb2a15a : Timo Tijhof): The build passed.
+[11:46:33] <travis-ci> Change view : https://github.com/clarkbox/testswarm-browserstack/compare/1036e3f7481d...cb2a15ab5bb9
+[11:46:33] <travis-ci> Build details : http://travis-ci.org/clarkbox/testswarm-browserstack/builds/62744753

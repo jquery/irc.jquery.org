@@ -1,0 +1,92 @@
+[00:34:35] <jqcommit> [jquery] jzaefferer pushed 1 new commit to 1.8pre: http://git.io/hboN2Q
+[00:34:35] <jqcommit> [jquery/1.8pre] Grunt: Add qunit target. Currently finishes with 33/5510 assertions failing. If that can be made to pass, it should be added to the default task - Jörn Zaefferer
+[00:41:06] <suhail_ssw> hi room
+[01:11:31] <jq-jenkins> Project jQuery 1.8 build #53: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery%201.8/53/
+[01:11:31] <jq-jenkins> joern.zaefferer: Grunt: Add qunit target. Currently finishes with 33/5510 assertions failing. If that can be made to pass, it should be added to the default task
+[05:45:17] <Krinkle> jzaefferer: I created testswarm.json on swarm01 with browserSets popular
+[05:45:26] <Krinkle> pulling new testswarm master now
+[05:46:03] <Krinkle> (I waited until all pending runs where gone, since some IDs are changed)
+[05:46:32] <Krinkle> oh, shit
+[05:47:10] <Krinkle> right, "Chrome" no longer exists
+[05:47:33] <Krinkle> we had a policy where user agents may never be deleted, if no longer used set active=0 because otherwise existing jobs can't be rendered
+[05:47:35] <Krinkle> http://swarm.jquery.org/user/jquery
+[05:47:37] <Krinkle> internal error
+[05:47:52] <Krinkle> but this change is within 1.0.0 so no back compat fix
+[05:47:57] <Krinkle> Hm..
+[05:48:07] <Krinkle> I'll fix it in our swarm db
+[05:49:30] <Krinkle> mysql> UPDATE clients SET useragent_id='Chrome|18' WHERE useragent_id='Chrome';
+[05:49:47] <Krinkle> mysql> UPDATE run_useragent SET useragent_id='Chrome|18' WHERE useragent_id='Chrome';
+[05:52:57] <Krinkle> UPDATE run_useragent SET useragent_id='Safari|5|1' WHERE useragent_id='Safari|5';
+[05:53:05] <Krinkle> UPDATE clients SET useragent_id='Safari|5|1' WHERE useragent_id='Safari|5';
+[05:53:20] <Krinkle> alrighty, swarm is back up :)
+[05:54:23] <Krinkle> Testing http://swarm.jquery.org:8080/job/QUnit/120/console
+[05:55:12] <KylesKeeper> anyone able to give me a few pointers with TestSwarm?
+[05:55:58] <Krinkle> KylesKeeper: Yes, in a moment. I'm currently upgrading swarm.jquery.org
+[05:56:02] <Krinkle> (someone else go ahead though)
+[05:56:11] <KylesKeeper> For all browsers except Firefox I get the Aborted by error message
+[05:58:06] <Krinkle> KylesKeeper: got a public link? otherwise, screenshot would help
+[05:58:50] <Krinkle> jzaefferer: as you said earlier, I've set testswarm-browserstack remote to my repository since the latest change was needed on swarm.jquery.org (Chrome -> Chrome18 browser map)
+[05:59:43] <KylesKeeper> Krinkle: Sorry, its running on my localhost at the moment while I get my head around how it all works, here is a screenshot: http://awesomescreenshot.com/0cd58jqcc
+[06:01:12] <KylesKeeper> Krinkle: more info, if I run the test page in each of the browsers directly the tests will pass
+[06:02:23] <jq-jenkins> Project QUnit build #120: SUCCESS in 8 min 20 sec: http://swarm.jquery.org:8080/job/QUnit/120/
+[06:05:20] <Krinkle> KylesKeeper: have you checked the console ?
+[06:05:58] <Krinkle> when running testswarm/run/<name> in Chrome for instance, are there any errors in the console ?
+[06:06:51] <KylesKeeper> Krinkle: not that I can see, that was the last thing I checked before coming here
+[06:09:39] <KylesKeeper> Krinkle: form data is set to: fail:0    error:0     total:0    run_id:3    client_id:13    run_token:null   action:saverun   results: <<html from page>>
+[06:10:00] <Krinkle> So it isn't submitting any tests
+[06:10:10] <Krinkle> that is considered an error
+[06:10:47] <Krinkle> KylesKeeper: Do you use any time-delay related tests ?
+[06:11:13] <Krinkle> KylesKeeper: What test suite framework are you using?
+[06:12:08] <KylesKeeper> Krinkle: I'm trying out QUnit, I'm fairly new to this, but I have a couple of simple tests that just check if UI items are appearing on screen
+[06:19:06] <Krinkle> KylesKeeper: Can you paste the test on jsfiddle.net ?
+[06:19:35] <Krinkle> I can't tell whats wrong, I know it is working fine in general (both locally and on swarm.jquery.org)
+[06:22:40] <KylesKeeper> Krinkle: here is the test code, at the bottom in comments is also the request I made to add the job: http://jsfiddle.net/wLeem/
+[06:33:38] <Krinkle> KylesKeeper: You need to define the tests from the start
+[06:34:10] <Krinkle> After the document is ready, QUnit will check if there are any pending tests, and if not it fires the "Test done" hook, which TestSwarm listens to
+[06:34:21] <Krinkle> the TestSwarm client the summarizes the results and kills the test
+[06:34:32] <Krinkle> In your case there is new tests being added far after the document is ready
+[06:34:46] <Krinkle> So in most cases the test will be aborted before any test is done
+[06:34:59] <KylesKeeper> Krinkle
+[06:35:04] <Krinkle> KylesKeeper: You should instead create the iframe inside your test
+[06:35:10] <KylesKeeper> Krinkle: ah my bad!
+[06:35:18] <Krinkle> And don't re-use it for other tests
+[06:36:27] <KylesKeeper> Krinkle: thanks for this, I'll go back to the drawing board on my tests then, looks like I've got a few more bridges to cross for full understanding of what I'm doing. Cheers!
+[06:36:40] <Krinkle> KylesKeeper: You're welcome :)
+[06:37:07] <Krinkle> KylesKeeper: I assume you have #testframe inside qunit-fixture ?
+[06:38:06] <Krinkle> KylesKeeper: And from looking at the tests, you'll probably need to use more callbacks because most things will be asynchronous (such as animations)
+[06:38:13] <KylesKeeper> Krinkle: yes, I was hoping I could do it like that to go through log in processes etc
+[06:38:36] <Krinkle> KylesKeeper: I don't know exactly where this test is for, but beware that you don't test to test.
+[06:38:39] <KylesKeeper> Krinkle: sorry, #testframe appears below qunit-fixture
+[06:39:09] <Krinkle> var a = 2; equal(a, 2) is not useful (I know you're not doing that, but in general using .click() and is(':visible') are imho signs of bad tests
+[06:40:02] <Krinkle> QUnit is intended for unit testing of application logic, not for visual testing. For that you better use a framework designed for smoke testing.
+[06:40:30] <Krinkle> In that, if your code has on('click', function() { $dialog.show(); }, then testing click() and is visible will obviously pass.
+[06:40:48] <Krinkle> If not, then it would be a jQuery bug
+[06:41:10] <KylesKeeper> Krinkle: thanks, I've not looked into writing a decent unit test yet, I was writing a few short rubbish tests that I would hope resulted in true
+[06:41:18] <Krinkle> no problem :)
+[06:41:42] <Krinkle> KylesKeeper: btw, as a quick start
+[06:41:57] <Krinkle> with what you already  have, all you need is to add QUnit.stop() before the iframe stuff beings
+[06:42:07] <Krinkle> and call QUnit.start() directly after inside  $q('#testframe').load(function() {
+[06:42:22] <Krinkle> so before DOM Ready: QUnit.stop()
+[06:42:57] <Krinkle> Let me know if that turns it green when submitted to testswarm
+[06:49:46] <KylesKeeper> Krinkle: hmm, no luck with that so far, but its likely this is something to do with my test coding now, I'll go have a play around and hopefully get a full row of green :)
+[06:49:54] <Krinkle> ok
+[09:16:31] <jqcommit> [testswarm] Krinkle pushed 1 new commit to master: http://git.io/SUGu0w
+[09:16:31] <jqcommit> [testswarm/master] update job.js: setTimeout within the load callback not outside - Timo Tijhof
+[09:17:03] <Krinkle> ^ deployed
+[09:52:14] <jqcommit> [testswarm] Krinkle pushed 1 new commit to master: http://git.io/MYNmZA
+[09:52:14] <jqcommit> [testswarm/master] set Browscap cache to 1 hour instead of 5 days - Timo Tijhof
+[09:52:44] <Krinkle> ^ deployed
+[12:21:34] <Krinkle> bot-t not here?
+[12:25:55] <ajpiano> no botty :(
+[12:51:32] <Krinkle> jzaefferer: But either way, node-browserstack "sanitizes" that v2 flaw for now
+[12:51:37] <Krinkle> by flattening it
+[12:51:48] <Krinkle> scott already worked on v2 for node-browserstack
+[12:51:53] <Krinkle> pushed too, iirc
+[20:46:51] <Lakario> paul_irish you here?
+[20:47:19] <Lakario> i like your quote on http://letteringjs.com/ :D
+[20:47:36] <Lakario> "Oh great. Just what the world needs- another freaking jQuery plugin." -Paul Irish
+[20:56:17] <joobie> hi guys.. how can i get this to work? http://pastebin.com/PsPWkZHR .. item is basically given in this sorta format .. onclick="removeDanceItem(this);" from an input button
+[21:01:47] <Krinkle> paul_irish: you were right btw, shoptalkshow is doing great. nice timely episodes packed with our business and the required sugar layer of comedy. And I noticed you are regularlyy participating through the chat as well
+[21:01:55] <Krinkle> I happened to miss the chat every time
+[22:04:32] <joobie> $(item).closest('li').remove().fadeOut(800); .. the fadeout doesnt work on this, it removes fine though.. any idea why?
+[22:05:35] <joobie> nevermind got it

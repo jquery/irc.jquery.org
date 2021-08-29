@@ -1,0 +1,500 @@
+[04:30:48] <kannix> hi is there anybody who can help me with a testswarm installation? I've triede to edit the useragents.ini but nothing changes.. i've tried an apache restart and deleted the cache dir but nothing happend :(
+[05:41:47] <DaveMethvin> .
+[05:44:58] <mikesherov> https://github.com/jquery/jquery/pull/747
+[05:44:59] <socialhapy> ★ Pull request on jquery by mikesherov (2.181s ago): define curCSS without temp vars to save 10 bytes
+[05:45:39] <mikesherov> gnarf: I was able to sneak out 10 more bytes: https://github.com/mikesherov/jquery/commit/948cd78528d490b6c17e30fa98e2948666e33952
+[05:45:40] <socialhapy> ★ Commit on jquery by mikesherov (28m, 43s ago): remove fxAttrs for a savings of 10 bytes!
+[05:46:03] <mikesherov> But I had to move cssExpand to jQuery.cssExpand so effects could take advantage of it
+[05:48:41] <mikesherov> gnarf: I think with gibson and my changes added, the total impact of effects rewrite is now hovering at about +150
+[06:42:11] <scott_gonzalez> ?tell rwaldron https://github.com/jquery/jquery-ui/compare/jshintrc
+[06:42:12] <bot-t> scott_gonzalez, Okay.
+[06:42:18] <scott_gonzalez> DaveMethvin: ^
+[06:42:53] <DaveMethvin> scott_gonzalez: our goal is to get in sync by 1.8
+[06:43:14] <DaveMethvin> our 1.8, not yours :D
+[06:43:29] <scott_gonzalez> Yeah, I know. This is a change to using .jshintrc files.
+[06:43:50] <scott_gonzalez> This will give us command line and IDE support :-)
+[06:43:57] <DaveMethvin> ah, ok
+[06:44:02] <DaveMethvin> sounds good to me
+[06:44:26] <scott_gonzalez> It's annoying that .jshintrc and the node module take settings in different formats.
+[06:44:38] <scott_gonzalez> Specifically the globals are treated differently.
+[06:44:42] <scott_gonzalez> But it was easy to convert.
+[06:44:50] <scott_gonzalez> https://github.com/jquery/jquery-ui/compare/jshintrc#L1R297
+[06:46:26] <scott_gonzalez> Now I just need a plugin that will show me errors in Sublime Text...
+[07:14:32] <Krinkle> rwaldron: image not working on https://github.com/jquery/jquery/pull/746/files#r713215
+[07:14:33] <socialhapy> ★ Pull request on jquery by Krinkle (7h, 45m ago): Fix QUnit configuration
+[07:14:33] <Krinkle> akamai 404 not found
+[07:15:27] <rwaldron> Krinkle weird, sorry one sec
+[07:15:28] <bot-t> (17 hours 10 mins ago) <danheberden> tell rwaldron omg that mel gibson audio *IS* just like that guy at the museum
+[07:15:28] <bot-t> (14 hours 20 mins ago) <jaubourg> tell rwaldron so, 1.8 grunt build system complains about grunt-compare-size not being installed... I install it using npm globally... then it still complains. I'm under windows.
+[07:15:28] <bot-t> (33 mins 10 secs ago) <scott_gonzalez> tell rwaldron https://github.com/jquery/jquery-ui/compare/jshintrc
+[07:15:55] <rwaldron> Krinkle http://gyazo.com/b0d62d3ed41f4b17542effa349112d47.png
+[07:16:12] <Krinkle> rwaldron: Hm.. strange
+[07:16:17] <Krinkle> is QUnit up to date>?
+[07:16:21] <Krinkle> works here
+[07:16:23] * Krinkle tries again
+[07:16:26] <rwaldron> So, the issue is that jQuery's testinit.js is manually calling QUnit.reset() and then checking if anything is left over
+[07:16:34] <Krinkle> Ah
+[07:16:35] <rwaldron> yes, it is up to date
+[07:16:46] <rwaldron> and that behaviour is exactly what I would expect to happen
+[07:17:06] <rwaldron> So, I'm going to land the rest of your patch
+[07:17:15] <rwaldron> minus that part
+[07:17:25] <Krinkle> okay
+[07:17:27] <rwaldron> Just to keep the train rolling
+[07:17:48] <Krinkle> yeah, effects is failing for me now locally
+[07:21:44] <Krinkle> hm.. no, effects is passing now. deferred/ajax have failures
+[07:21:46] <rwaldron> Krinkle this isn't looking good :(
+[07:21:56] <Krinkle> whats up?
+[07:22:19] <rwaldron> I'm getting weird failures  like this
+[07:22:20] <rwaldron> http://gyazo.com/4b7a18c558ad4ec6b51c577d791f5351.png
+[07:22:47] <rwaldron> when i remove this: QUnit.config.testTimeout = 5 * 1000; // 5 seconds
+[07:22:50] <rwaldron> they go away
+[07:23:02] <rwaldron> let's try something...
+[07:23:12] <rwaldron> where do you mostly need this timeout?
+[07:23:25] <Krinkle> okay, now without the line, is the test passing or is it not there?
+[07:23:34] <rwaldron> It passes
+[07:23:35] <Krinkle> It is needed because async tests that failed, need to recover
+[07:24:02] <rwaldron> right right
+[07:24:05] <rwaldron> I read all that
+[07:24:08] <Krinkle> if there are 5 independent tests, and one uses stop(), but fails to start again, then the rest won't run and QUnit will just do nothing undefinitely
+[07:24:11] <Krinkle> okay okay
+[07:24:15] <rwaldron> but, were there specific ones?
+[07:24:21] <rwaldron> I'm trying to help you narrow this down
+[07:24:23] <Krinkle> Yes, Opera in this case
+[07:24:29] <rwaldron> which tests?
+[07:24:32] <Krinkle> its been timing out on a simple async failure for weeks
+[07:24:38] <Krinkle> checkbox click trigger
+[07:24:38] <rwaldron> hrm
+[07:24:46] <rwaldron> we fixed that one
+[07:24:55] <Krinkle> No, you made an attempt
+[07:24:59] <rwaldron> shit
+[07:24:59] <Krinkle> there is a difference :P
+[07:25:00] <rwaldron> no dice?
+[07:25:05] <rwaldron> it was passing for me locally
+[07:25:06] <Krinkle> Its not your fault though
+[07:25:08] <rwaldron> blah
+[07:25:14] <Krinkle> Opera 11.1
+[07:25:17] <Krinkle> other versions pass
+[07:25:24] <Krinkle> in 11.1 click does not trigger change
+[07:25:25] <gnarf> ?tell mikesherov I'm holding off on merging that last commit due to the strange note
+[07:25:25] <bot-t> gnarf, Okay.
+[07:25:28] <Krinkle> so the start() never happens
+[07:25:34] <scott_gonzalez> We support Opera 11.1?
+[07:25:36] <rwaldron> Oh shit, really?
+[07:26:03] <scott_gonzalez> Krinkle: I'm pretty sure we only suppoer 11.5x and 11.6x
+[07:26:09] <rwaldron> yeah
+[07:26:10] <scott_gonzalez> s/suppoer/support/
+[07:26:13] <rwaldron> truth
+[07:26:14] <Krinkle> scott_gonzalez: I suppose so? but that's not directly related here, the point is that test failures must not crash the entire test suite
+[07:26:16] <scott_gonzalez> One of these days, I'll learn to type.
+[07:26:21] <rwaldron> latest - 1
+[07:26:31] <rwaldron> and Opera Mobile is actually _ahead_ of desktop
+[07:26:37] <scott_gonzalez> The problem is that a test that times out can kill other tests if it continues to run.
+[07:26:43] <rwaldron> scott_gonzalez right
+[07:26:52] <rwaldron> I see this problem often
+[07:27:00] <Krinkle> exactly
+[07:27:07] <scott_gonzalez> Imagine a test with lots of side effects and the test times out, QUnit moves on to the next test, and the old test starts doing stuff again.
+[07:27:15] <Krinkle> we used to pass a ms-time to stop() but that functionality was removed in QUnit
+[07:27:23] <Krinkle> in favor of a central timeout setting
+[07:27:25] <rwaldron> Krinkle, so, looking at Opera release history, 11.1 is no longer on the menu
+[07:27:27] <Krinkle> but jQuery never set that
+[07:27:42] <rwaldron> 12, 11.6 (and 11.5 until 12 gets to desktop)
+[07:27:58] <Krinkle> rwaldron: okay, I'll set popular=0 in TestSwarm for Opera 11.1
+[07:28:15] <Krinkle> (in master that is, not gonna touch the live instance now)
+[07:28:19] <rwaldron> Krinkle cool
+[07:28:25] <rwaldron> fair enough
+[07:28:43] <rwaldron> Krinkle, are we dropping this PR?
+[07:28:46] <Krinkle> rwaldron: Can you confirm that that one test you snapshot just now really is passing without the patch?
+[07:28:53] <rwaldron> sure
+[07:28:56] <Krinkle> I suspect maybe the test is silently failing without it
+[07:29:08] <rwaldron> which browser?
+[07:29:11] <rwaldron> or any?
+[07:29:20] <Krinkle> I'm asking you
+[07:29:27] <Krinkle> which browser :)
+[07:29:27] <rwaldron> ok, lemme test
+[07:29:48] <Krinkle> oh crap, it is part of your screenshot (the qunit ua string)
+[07:29:49] <rwaldron> http://gyazo.com/0e4814b5c1487f23c8d1cbb026731139.png
+[07:29:52] <Krinkle> okay, chrome it is
+[07:30:03] <Krinkle> oh it is passing now?
+[07:30:08] <rwaldron> yessir
+[07:30:13] <gnarf> ?tell mikesherov hey man - getting some merge conflicts, can you rebase on top of my 1.8-effects ?
+[07:30:14] <bot-t> gnarf, Okay.
+[07:30:16] <Krinkle> the shot was from before you fixed reset?
+[07:30:29] <rwaldron> there are three in all
+[07:30:42] <rwaldron> the first shot is with your patch as-is
+[07:31:12] <rwaldron> the second was after i fixed QUnit.reset()
+[07:31:36] <rwaldron> the third (just now), is with "QUnit.config.testTimeout = 5 * 1000; // 5 seconds" removed
+[07:31:51] <rwaldron> Your swarm inject stuff is still in play
+[07:32:34] <Krinkle> well that's pointless
+[07:32:44] <Krinkle> that was just a style change
+[07:32:48] <rwaldron> oh, I dunno. I saw some changes
+[07:32:51] <Krinkle> the QUnit.config.testTimeout needs to go in
+[07:32:52] <rwaldron> figured they were important
+[07:33:01] <Krinkle> lemme try something
+[07:33:22] <rwaldron> looked like you changed the behaviour with a length property, instead of hardcoded value
+[07:33:23] <Krinkle> got a hunch
+[07:33:28] <rwaldron> hunch it up
+[07:33:32] <rwaldron> lemme know
+[07:33:33] <rwaldron> :)
+[07:33:59] <rwaldron> gibson042 yt?
+[07:34:13] <gibson042> yeah, what's up?
+[07:34:17] <rwaldron> heyo
+[07:34:29] <rwaldron> did you see jaubourg's message on github?
+[07:35:02] <gibson042> I saw his comments from last night, has there been anything more since then?
+[07:35:08] <rwaldron> yes, sorry
+[07:35:13] <rwaldron> that's what I meant
+[07:35:22] <rwaldron> re: crunching some ajax
+[07:35:46] <gibson042> on ajax?
+[07:35:49] <gibson042> I don't think so
+[07:36:35] <gibson042> hmm, there it is
+[07:36:41] <gibson042> https://github.com/jquery/jquery/pull/744
+[07:36:42] <socialhapy> ★ Pull request on jquery by jbt (1d, 16h ago): Delete automatically-generated jsonp callbacks on cleanup.
+[07:37:06] <rwaldron> that's the one
+[07:37:12] <rwaldron> are you up to it?
+[07:37:13] <gnarf> Lemme just say - fuck yeah github: https://github.com/jquery/jquery/pull/731/commits
+[07:37:14] <socialhapy> ★ Pull request on jquery by gnarf37 (1w, 4d ago): 1.8 effects
+[07:37:19] <gnarf> pulls rule
+[07:38:48] <gibson042> I don't have a lot of knowledge about our JSONP logic, but this is a good way to acquire it
+[07:39:11] <gibson042> yeah, I'll see what I can do
+[07:39:25] <Krinkle> rwaldron: Try this one instead:
+[07:39:26] <Krinkle> QUnit.config.testTimeout = 20 * 1000; // 20 seconds
+[07:39:40] <Krinkle> some ajax or animations might take more than 5 seconds, which is totally valid
+[07:39:52] <Krinkle> 20 is probably better
+[07:39:56] <Krinkle> passing now in Chrome locally
+[07:40:56] * rwaldron running it with 20
+[07:49:58] <rwaldron> Krinkle, good news this works
+[07:50:04] <Krinkle> alrighy
+[07:55:34] <rwaldron> and....
+[07:55:40] <jqcommit> [jquery] rwldrn pushed 1 new commit to 1.8pre: http://git.io/wiyk1A
+[07:55:40] <jqcommit> [jquery/1.8pre] Enforce 20s timeout for all unit tests. - Timo Tijhof
+[07:55:45] <rwaldron> Krinkle ^
+[07:55:45] <gnarf> rwaldron: do you have that video chat demo up somewhere?
+[07:55:51] <gnarf> rwaldron: or the imgur one? :)
+[07:55:53] <rwaldron> gnarf naw
+[07:55:57] <rwaldron> oh yes
+[07:56:03] <rwaldron> http://dmv.jit.su
+[07:56:08] <rwaldron> but the other is not up
+[07:56:17] <rwaldron> it requires a peerconnection server
+[07:56:33] <rwaldron> one day I'll sort it out
+[07:56:43] <jq-jenkins> Project jQuery 1.8 build #32: STILL FAILING in 46 sec: http://swarm.jquery.org:8080/job/jQuery%201.8/32/
+[07:56:44] <jq-jenkins> waldron.rick: Enforce 20s timeout for all unit tests.
+[07:56:56] <rwaldron> Shocking!
+[07:59:03] <Krinkle> Anyone here experience with pulley? I'm trying to get it working to use for a testswarm pull (as example)
+[07:59:12] <Krinkle> The automated token retrieval seems to fail
+[07:59:31] <Krinkle> I tried running the latest master version from github but no luck
+[07:59:42] <Krinkle> TypeError: Cannot read property 'token' of undefined
+[07:59:43] <Krinkle>     at Request._callback (/usr/local/lib/node_modules/pulley/pulley.js:70:17)
+[07:59:58] <Krinkle> Can I somehow get that token via the normal GUI and set it in git config ?
+[08:08:29] <Krinkle> problem solved, pulley doesn't escape @ in the https:// + auth + @api.github
+[08:31:28] <jqcommit> [testswarm] Krinkle pushed 1 new commit to master: http://git.io/ksilkg
+[08:31:28] <jqcommit> [testswarm/master] Close GH-160: Firefox 11 added to support.. - Drew
+[11:19:37] <mikesherov> gnarf: this line baffles me: https://github.com/mikesherov/jquery/blob/58b8d7cb3701f52feab9d211a580ac0110ee0f09/src/effects.js#L624
+[11:19:37] <bot-t> (3 hours 54 mins ago) <gnarf> tell mikesherov I'm holding off on merging that last commit due to the strange note
+[11:19:38] <bot-t> (3 hours 49 mins ago) <gnarf> tell mikesherov hey man - getting some merge conflicts, can you rebase on top of my 1.8-effects ?
+[11:20:04] <mikesherov> gnarf: I redid all my commits, they should all be good to go.
+[11:20:22] <gnarf> mikesherov: if the timer returns falsy, its done - also make sure that the timer hasn't been removed by someone else .stop()'ing or something similar
+[11:21:08] <mikesherov> wait, so you're checking that timer === timers[i], but timer IS timer[i]
+[11:21:30] <mikesherov> you're saying, within the time it takes to run timer()?
+[11:21:37] <gnarf> yup
+[11:21:48] <mikesherov> I see
+[11:21:50] <gnarf> if timer() ran - and the callback removed some other timers
+[11:21:55] <gnarf> timer[i] !== timer
+[11:22:00] <mikesherov> that's fun
+[11:22:02] <gnarf> yup
+[11:22:10] <gnarf> theres a unit that covers that case too
+[11:22:15] <gnarf> mikesherov:
+[11:22:28] <mikesherov> I was about to attempt inlining timer, but then I saw that, and figured it was purposeful
+[11:22:30] <gnarf> did you branch it to a new branch? :)
+[11:22:48] <mikesherov> Yeah, I checked out your branch
+[11:22:53] <mikesherov> and have that updating
+[11:23:01] <mikesherov> then I branched from yours, and just rebased
+[11:23:39] <mikesherov> the fxAttrs commit seems to not go over well.
+[11:23:54] <mikesherov> there are concerns about exposing jQuery.cssExpand to the world
+[11:24:19] <mikesherov> but it's only there because we pretend these aren't going to be concatenated
+[11:24:32] <gnarf> k - it fastforwarded
+[11:25:39] <gnarf> or rather
+[11:25:40] <gnarf> it didn't
+[11:25:51] <mikesherov> interesting
+[11:25:52] <gnarf> you didn't have dd4b3822 from gibson
+[11:25:56] <gnarf> oh well
+[11:26:01] <gnarf> merge commit isn't too terrible
+[11:26:14] <mikesherov> yeah, nbd, it'll get all smashed together into one at the end anyway
+[11:26:24] <mikesherov> are you rebased against 1.8pre yet, though?
+[11:26:39] <gnarf> most current? no
+[11:28:01] <gnarf> here - im pushing rebased
+[11:28:26] <jqcommit> [jquery] rwldrn pushed 1 new commit to 1.8pre: http://git.io/UUnWdw
+[11:28:26] <jqcommit> [jquery/1.8pre] define curCSS without temp vars to save 10 bytes - Mike Sherov
+[11:28:43] <gnarf> oh and there goes another... lol
+[11:29:01] <gnarf> anyway --- all the 1.8-effects commits just got rewritten
+[11:29:04] <gnarf> rebased
+[11:29:06] <jq-jenkins> Project jQuery 1.8 build #33: STILL FAILING in 26 sec: http://swarm.jquery.org:8080/job/jQuery%201.8/33/
+[11:29:06] <jq-jenkins> waldron.rick: define curCSS without temp vars to save 10 bytes
+[11:30:21] <rwaldron> You could commit whitespace and jenkins would accuse you of being a failure
+[11:30:26] <rwaldron> jerk.
+[11:30:29] <gnarf> mikesherov: http://cl.ly/1a2v1w2G3f3D3k453k1s
+[11:30:35] <gnarf> mikesherov: i assume i want to keep my HEAD
+[11:30:36] <gnarf> ?
+[11:30:37] <rwaldron> mikesherov you curCSS is in
+[11:31:02] <rwaldron> I'm feeling very bold with these low impact patches
+[11:31:20] <rwaldron> safe stuff ftw.
+[11:31:51] <mikesherov> yeah, I mean, I was telling jaubourg
+[11:31:58] <mikesherov> there is so much cruft in every module
+[11:32:13] <mikesherov> just there since the days of like IE5.5 and shit
+[11:32:46] <rwaldron> mikesherov the problem is that the project is always in need of fresh eyes
+[11:32:47] <mikesherov> part of head
+[11:33:05] <mikesherov> rwaldron: not faulting anyone, it's always about fresh eyes
+[11:33:12] <rwaldron> i see things that DaveMethvin may not think twice about
+[11:33:23] <rwaldron> corey sees things that DaveMethvin and I miss
+[11:33:28] <rwaldron> you see things that all three of us miss
+[11:33:29] <mikesherov> gnarf: you want to keep setPositiveNumber but get rid of those other vars
+[11:33:37] <rwaldron> and it circles back...
+[11:33:49] <rwaldron> DaveMethvin knows what is there and more importantly, _why_
+[11:33:58] <mikesherov> yeah, I always lean on him
+[11:34:14] <rwaldron> but without fresh eyes, shit will collect dust
+[11:34:32] <rwaldron> you dont get developer mindshare like jQuery has by sitting on your thumbs
+[11:34:37] <rwaldron> its important to keep it fresh
+[11:35:01] <mikesherov> yeah, for sure
+[11:35:16] <rwaldron> In the mean time, I'm probably gonna let DaveMethvin handle that effects patch
+[11:35:19] <rwaldron> ;)
+[11:35:29] <gibson042> gnarf: if you take https://github.com/jquery/jquery/commit/a2d4fe777d17ccb3ba69e4e5e57f200982df9bc3, we should be down to +151, give or take a byte
+[11:35:29] <socialhapy> ★ Commit on jquery by gibson042 (2h, 31m ago): slightly unconventional -5 min+gzip
+[11:35:30] <mikesherov> LOL
+[11:36:12] <mikesherov> plus, I'll donate the 16 bytes I saved elsewhere in css.js to the cause :-)
+[11:36:18] <rwaldron> mikesherov incidentally...
+[11:36:23] <gibson042> nice :)
+[11:36:41] <rwaldron> the new grunt system will only be linting the built source (or, thats all for now)
+[11:37:09] <rwaldron> so that might give us a better perspective on cross-module definitions
+[11:37:21] <rwaldron> eg. var slice = [].slice
+[11:37:22] <rwaldron> etc.
+[11:37:39] <mikesherov> right, but then we gotta commit to the single file in the unit tests idea
+[11:37:53] <mikesherov> no more testing from file with that BS document.write hack
+[11:37:58] <gnarf> gibson042 / mikesherov: if you do any more digging in effects, be sure to pull -f gnarf 1.8-effects
+[11:38:04] <rwaldron> mikesherov which is not unreasonable
+[11:38:11] <gnarf> or even reset hard on that headref
+[11:38:13] <rwaldron> because we can pseudo-build it
+[11:38:23] <mikesherov> I know, but I've just gotten such pushback on that idea
+[11:38:27] <rwaldron> sort of like combining that approach you tried once
+[11:38:31] <rwaldron> but more bullet proof
+[11:38:37] <mikesherov> My approach is still in there :-)
+[11:38:49] <rwaldron> the more I think about it, the better it appeals to me
+[11:38:52] <rwaldron> its the right way
+[11:38:54] <rwaldron> no doubt
+[11:39:05] <rwaldron> its hard to let go of weird shit like that
+[11:39:23] <mikesherov> Yeah, for sure. But really, the process should be, code, build, test
+[11:39:28] <rwaldron> fun fact: this is the very same subject that got me involved with jQuery "core"
+[11:39:38] <mikesherov> not, code, test, code, test, code, test, build...
+[11:40:01] <mikesherov> and if we can automate the build part, it's FTW
+[11:40:01] <rwaldron> after months of miling list "contribution" to jquery-core or whatever it was called
+[11:40:08] <rwaldron> i pulled the repo and ran the tests
+[11:40:36] <rwaldron> which all failed b/c john had switched to the test-all-module-files system
+[11:40:42] <rwaldron> and added the IIFE wrappers
+[11:40:49] <gnarf> gibson042: damn, i missed https://github.com/jquery/jquery/commit/a2d4fe777d17ccb3ba69e4e5e57f200982df9bc3 before i did my rebase
+[11:40:50] <socialhapy> ★ Commit on jquery by gibson042 (2h, 36m ago): slightly unconventional -5 min+gzip
+[11:40:50] <rwaldron> so now shit that was shared was no longer shareable
+[11:40:58] <rwaldron> i want to go back to that
+[11:41:10] <rwaldron> "Yeah, for sure. But really, the process should be, code, build, test" +9001
+[11:41:14] <rwaldron> this is how it was
+[11:41:17] <rwaldron> thankfullyyyyy
+[11:41:18] <gibson042> gnarf: can you cherry-pick it?
+[11:41:25] <gnarf> yup
+[11:41:26] <gnarf> just did
+[11:41:28] <rwaldron> "grunt watch" will make that easy for us
+[11:41:30] <gnarf> landed it in my branch
+[11:41:40] <rwaldron> once we get into the routine
+[11:41:40] <mikesherov> great, rwaldron
+[11:41:46] <rwaldron> it will always be building
+[11:41:54] <rwaldron> without you doing anything
+[11:41:55] <gnarf> that makes it 151 now
+[11:42:11] <gnarf> mikesherov gibson042 ++ -- you've reduced it 50% of its bulge :)
+[11:42:21] <mikesherov> it was all gibson
+[11:42:26] <rwaldron> mikesherov let's keep this relevant
+[11:42:34] <rwaldron> dont hesitate to remind me
+[11:42:41] <mikesherov> I will not
+[11:42:54] <mikesherov> what do you think of jQuery.protected = {}
+[11:43:06] <mikesherov> or is that just a hack?
+[11:43:10] <rwaldron> also, now that grunt is in 1.8pre I encourage you to experiment with a test runner that tests the whole build
+[11:43:21] <rwaldron> and we can finally banish the include_js stuff
+[11:43:38] <rwaldron> <script src="dist/jquery.js"></script> makes its triumphant return
+[11:43:41] <gibson042> not at all; the first 84 were relatively low-hanging fruit and mikesherov has a huge chunk of the remainder
+[11:44:13] <mikesherov> yeah, include_js was just to consolidate down to one file again
+[11:44:19] <mikesherov> I need that for the quickReady tests
+[11:44:33] <mikesherov> async document.write doesn't gaurantee execution order
+[11:44:35] <mikesherov> so single file ftw
+[11:44:54] <rwaldron> +9001
+[11:44:58] <paul_irish> what's async doc.write ?
+[11:45:13] <mikesherov> paul_irish, you know, appending a script element to the src
+[11:45:18] <paul_irish> ok
+[11:45:37] <mikesherov> and if that script has script tags in it
+[11:45:46] <mikesherov> they won't execute in the correct order
+[11:45:57] <paul_irish> ++
+[11:46:38] <mikesherov> jquery attempts to simulate a single file load if you use file:// by having the file document.write some script tags... super ghetto
+[11:47:14] <rwaldron> file:// is dumb
+[11:47:19] <rwaldron> !the web
+[11:47:31] <rwaldron> I want to kill it with fire.
+[11:51:03] <mikesherov> .
+[11:51:07] <paul_irish> .
+[11:52:04] <mikesherov> so, rwaldron: how do we "remember" that the vars inside the fake closures are shared everywhere?
+[11:52:34] <rwaldron> Smoke signals?
+[11:52:37] <rwaldron> Talking drums?
+[11:52:44] <rwaldron> Mountaintop Fires?
+[11:53:07] <gibson042> what, nobody likes "/* REMOVED BY BUILD */"?
+[11:53:10] <gibson042> ;)
+[11:53:17] <rwaldron> fuck. that.
+[11:53:21] <rwaldron> ;)
+[11:53:51] <mikesherov> I was thinking that there should be a var called protected in core
+[11:55:16] <mikesherov> and that can be an object that isn't exposed publicly, that contains things that aren't for public consumption, but are for consumption by >1 module
+[11:56:44] <rwaldron> orly?
+[11:56:45] <rwaldron> http://es5.github.com/#x7.6.1.2
+[11:58:42] <gibson042> I'm cool with anything as long as a build step converts it to local vars
+[11:59:46] <rwaldron> gibson042 0_o
+[11:59:50] <rwaldron> it wnt need to
+[12:00:09] <rwaldron> the test suite will be running built code
+[12:00:13] <rwaldron> not modules
+[12:00:33] <rwaldron> the library will always be wrapped with intro/outro
+[12:01:26] <gibson042> will we also be removing the IIFE wrappers from each module then?
+[12:01:36] <mikesherov> right, I mean, the thing is, as long as we have the IIFEs there, and as long as we use var inside those IIFE's, it's hard for me to think about the vars as shared between modules
+[12:01:42] <mikesherov> it's just my own brain
+[12:01:50] <gibson042> me too
+[12:01:56] <mikesherov> but I think new contributors would find that odd
+[12:02:07] <rwaldron> the per-module wrappers will have to go then
+[12:02:12] <mikesherov> sure
+[12:02:22] <mikesherov> but still then, I cna't just look in the file for the var I want
+[12:02:27] <rwaldron> and top-of-scope declarations will have to move to core.js
+[12:02:39] <mikesherov> if there was a "protected" object, that would be a signal that the var inside defined here
+[12:02:46] <rwaldron> "I cna't just look in the file for the var I want" yeah, good call
+[12:03:01] <mikesherov> var isn't* defined here
+[12:03:12] <rwaldron> I think I like the idea of a scope-wide object
+[12:03:26] <rwaldron> that allows new additions at the top of any module
+[12:03:50] <gibson042> I like that, but we should convert it to local vars in build or we lose both compressibility and performance
+[12:03:55] <mikesherov> right, which is what "jQuery" is right now
+[12:04:05] <mikesherov> and we use jQuery.fn for public stuff
+[12:04:25] <mikesherov> but as long as we're putting protected vars in a public object, people will abuse it
+[12:04:36] <mikesherov> so we need a truly protected var
+[12:04:45] <rwaldron> what?
+[12:05:16] <rwaldron> (function(window) { var inner = {};  window.jQuery = ...//the stuff; })(window);
+[12:05:21] <rwaldron> inner; //undefined
+[12:08:49] <gibson042> devs see `shared={ ..., rspace: /\s+/, ... }` and `.split( shared.rspace )`; world sees `var rspace = /\s+/;` and `.split( rspace )`
+[12:12:00] <rwaldron> I'm not sure I understand why that has to happen
+[12:12:14] <rwaldron> built jQuery 1.8 will be required to pass onevar
+[12:12:20] <rwaldron> so... that's basically off the table.
+[12:12:35] <gibson042> how so?
+[12:13:23] <gibson042> it has to happen because a built version containing `shared.whatever` will be bigger and slower than is necessary
+[12:13:23] <rwaldron> if there are more then one var declaration lists in the jQuery-wide IIFE, it will not pass "onevar"
+[12:13:52] <gibson042> right, we agree that each variable gets one declaration
+[12:14:22] <rwaldron> no... there can only be "one use of 'var'"
+[12:14:45] <gibson042> ah, I understand
+[12:14:50] <gibson042> I just mistyped above
+[12:14:51] <rwaldron> top of scope
+[12:14:55] <rwaldron> gotcha
+[12:16:23] <gibson042> the translation is `var shared = { ..., rspace: /\s+/, ... };` to `var ..., rspace = /\s+/, ...;`
+[12:17:09] <gibson042> with `shared` being defined in core.js
+[12:52:03] * ben_alman waits patiently
+[12:59:12] <ben_alman> http://twitter.com/cowboy/status/193428474806013952
+[12:59:13] <socialhapy> ★ Tweet from cowboy: Came across a pretty serious mobile issue in @jQuery today http://t.co/qNPN2nvG #javascript #jquery #ipad ★ http://bit.ly/Jc0j5l
+[13:06:56] <gnarf> ben_alman: i have a ton of stickers
+[13:07:03] <ben_alman> jquery stickers?!
+[13:07:05] <gnarf> ben_alman: yeah
+[13:07:07] <ben_alman> GIMMMEEEE
+[13:07:08] <gnarf> from the last conf
+[13:07:13] <gnarf> i have like ROLLS of stickers
+[13:07:15] <ben_alman> i have no idea why i don't have any
+[13:07:19] <ben_alman> oh snap
+[13:07:27] <ben_alman> i wonder if richard left any stickers here
+[13:07:27] <gnarf> danheberden / rworth might have some too
+[13:07:30] <ben_alman> he left so much stuff
+[13:07:50] <gnarf> ben_alman: email me your mailing address, ill break off about 10 of each and mail em to ya
+[13:07:57] <ben_alman> what's your email
+[13:07:58] <gnarf> or i guess i could just c/o Bocoup it
+[13:08:06] <ben_alman> yeah bocoup it
+[13:08:07] <gnarf> ill just c/o bocoup it
+[13:08:21] <ben_alman> bocoup llc, 355 congress st 2nd floor, boston ma 02210
+[13:08:39] <ben_alman> jquery needs a damn store already
+[13:14:02] <paul_irish> STORE
+[13:28:43] <gnarf> ben_alman: i'll drop em in the mail this weekend
+[13:28:47] <ben_alman> you rocks
+[13:28:49] <ben_alman> rock too
+[13:28:55] <ben_alman> i guess i'll just wait on the stickers for now
+[14:39:38] <socialhapy> ★ Tweet from jquerymobile: Great news all - we think we've fixed the flash/blink with transitions in PhoneGap. Please test mast, report back: https://t.co/7aC66nEP ★ http://bit.ly/Jf4c4w
+[15:04:11] <DaveMethvin> rwaldron gnarf: You're officially board members now! https://groups.google.com/forum/?fromgroups#!topic/jquery-board-public/oq57aBej3Ps https://groups.google.com/forum/?fromgroups#!topic/jquery-board-public/FftzxYRk5Fs
+[15:06:32] <rwaldron> WOWO
+[15:06:35] <rwaldron> neat :)
+[15:09:40] <gnarf> ?hi5 @rwaldron
+[15:09:41] <bot-t> rwaldron, ⋰⁵⋱
+[16:49:31] <mikesherov> Krinkle: you here?
+[16:49:37] <Krinkle> Yes
+[16:50:03] <Krinkle> I just joined a minute before you
+[16:50:14] <Krinkle> Forking pulley now to fix that issue
+[17:28:30] <Krinkle> So to utilize TestSwarm for that QUnit test suite, there's a few steps
+[17:28:43] <Krinkle> I've documented them fairly good lately, so I'll give some pointers and let me know if you need more
+[17:29:00] <Krinkle> https://github.com/jquery/testswarm README.md
+[17:29:07] <sindresorhus> Yes, I'm reading that now
+[17:29:08] <Krinkle> and https://github.com/jquery/testswarm/tree/master/scripts/addjob README
+[17:29:22] <Krinkle> (after it is installed and you can see the home page, start with addjob)
+[17:29:39] <sindresorhus> Oh, so I need to host it myself?
+[17:29:43] <Krinkle> Yes
+[17:30:07] <Krinkle> It needs a basic apache/mysql/php stack
+[17:30:32] <sindresorhus> Then I would also need to get people to visit with a multitude of different browsers too I guess? Which isn't easy.
+[17:30:41] <Krinkle> Yes and no
+[17:30:54] <sindresorhus> I was hoping for some free/pay service where I could just publish to an API
+[17:30:54] <Krinkle> the jQuery swarm is likely going to be closed for public joins in the near future
+[17:31:11] <Krinkle> the crowd sourcing is nice but comes at a cost
+[17:31:28] <Krinkle> namely, abuse and mistakes and large margin of error
+[17:31:52] <Krinkle> For example the Linux browser Epihany is very little known, but it identifies itself as Safari
+[17:31:59] <Krinkle> and it actually has bugs that Safari doesn't have
+[17:32:16] <sindresorhus> Can't we just check and prevent that?
+[17:32:28] <Krinkle> and some windows installs have damaged DLL files or stupid toolbars that inject stuff into the page causing clashing IDs
+[17:32:45] <Krinkle> The thing it, it isn't really a compromise anymore because we found a solution
+[17:32:56] <Krinkle> it started as a gap-filler, but it can also server as the sole joiner
+[17:32:59] <Krinkle> BrowserStack.com
+[17:33:11] <Krinkle> It isn't free though
+[17:33:12] <sindresorhus> You could have a standard test that should pass, before a browser is allowed to joing testswarm.
+[17:33:26] <Krinkle> sindresorhus: Not maintainable and like I said, not needed.
+[17:33:38] <sindresorhus> Ah, right, browserstack
+[17:33:43] <Krinkle> the non-public option will be configurable though, you can configure your swarm to be open
+[17:33:50] <Krinkle> totally fine
+[17:33:59] <sindresorhus> Does testswarm currently support browserstack?
+[17:34:26] <Krinkle> so with BrowserStack you can select an OS/browser and a URL and browserstack will instantly create a new VM from a base image, start that browser and point it to that url and show the screen in a <canvas> in the browser
+[17:34:28] <Krinkle> pretty neat for testing
+[17:34:46] <Krinkle> but doesn't scale very well if you have to do it by hand, and it closes after 5 minutes of inactivity
+[17:34:58] <Krinkle> so since a few months (with  help of jQuery team) BrowserStack now has an API
+[17:35:19] <Krinkle> so when logging in, one can start/stop screen-less VMs through pure JSON commands
+[17:35:28] <Krinkle> the jquery swarm is currently using this
+[17:35:53] <Krinkle> it uses the TestSwam API to see which  browsers have pending tests but no active clients, and starts those browsers pointing to swarm.jquery.org/run/<some name here>
+[17:36:04] <Krinkle> and that is ran every minute from cron
+[17:36:25] <sindresorhus> ok, that's awesome!
+[17:37:01] <sindresorhus> Need to test out the Browserstack API sometime
+[17:37:13] <Krinkle> but the browserstack api is only for corporate browserstack accounts right now, and considering the power it costs, I don't think they will lower it soon
+[17:37:38] <Krinkle> on the other hand, it is pretty low already because the API, contrary to the online interface for browserstack, has no session limit
+[17:37:42] <sindresorhus> that's too bad, but understandable
+[17:38:06] <Krinkle> so for example the jquery account at browserstack, through the API, can spawn 12 browsers that are needed in the swarm at once
+[17:38:34] <Krinkle> sindresorhus: Except for IE, most of the swarm population can actually run from your own computer
+[17:38:56] <sindresorhus> That makes it a lot more effeicient than having to wait for uncommon browser to joing the swarm
+[17:39:01] <Krinkle> on my MacBook I have Chrome, Safari, Opera 11.1,11.5,11.6, Firefox 3.6, Firefox 11 and those fill the entire swarm, except IE
+[17:39:22] <sindresorhus> I have those too
+[17:39:29] <Krinkle> and because TestSwarm is very strong in recovering from failures, you can basically let it run carelessly
+[17:39:44] <Krinkle> no need to create any scripts that restart the browser if it crashes or something, that should rarely happen if at all
+[17:40:03] <sindresorhus> Thats probbly what I'll do. Run it locally.
+[17:40:08] <Krinkle> yeah
+[17:40:25] <sindresorhus> Can test IE once in a while manually
+[17:40:43] <Krinkle> yeah, except that a job isn't "complete" until all required browsers are ran
+[17:41:05] <sindresorhus> Can you change that requirement list?
+[17:41:53] <Krinkle> but you could with a cheap browserstack.com account log in once a week and join the local swarm (browserstack supports tunneling of http://localhost to the browserstack) with an IE and let it run to finish, and so on
+[17:41:54] <Krinkle> sindresorhus: Yes, you can select from one or more groups of browsers
+[17:42:02] <Krinkle> e.g. "popular", "beta", "latest versions", "mobile" etc.
+[17:42:21] <sindresorhus> No blacklist?
+[17:42:29] <Krinkle> what do you mean?
+[17:42:38] <sindresorhus> If I want to exclude IE eg
+[17:42:49] <Krinkle> that doesn't make sense
+[17:43:00] <Krinkle> if you don't care about 50% of the visitors, don't test :P
+[17:43:05] <sindresorhus> If I don't care about IE support, it does
+[17:43:16] <sindresorhus> I might be in a different enviroment
+[17:43:18] <Krinkle> but seriously though, sure, you can create new groups
+[17:43:33] <sindresorhus> k
+[17:43:37] <Krinkle> the groups are defined here https://github.com/jquery/testswarm/blob/master/config/useragents.ini
+[17:44:05] <sindresorhus> And NO I don't really care about those visitors, but I still try to make them happy, even though they don't deserve it :P
+[17:44:20] <Krinkle> couldn't say it better myself
+[17:44:59] <sindresorhus> Anyway g2g, but thanks for the Testswarm intro. Will definitely try it out :D
+[17:45:05] <Krinkle> alrighty
+[18:57:49] <jqcommit> [testswarm] Krinkle pushed 1 new commit to master: http://git.io/ATeS_w
+[18:57:49] <jqcommit> [testswarm/master] Minor fix testswarm-sample.ini - Timo Tijhof
+[19:43:47] <jqcommit> [testswarm] Krinkle pushed 1 new commit to master: http://git.io/juWX4w
+[19:43:47] <jqcommit> [testswarm/master] Fixed #161: Validate maxlength for fields that have a limit in the database - Timo Tijhof

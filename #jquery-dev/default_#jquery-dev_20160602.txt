@@ -1,0 +1,73 @@
+[02:11:32] <doesallmagic2> Project jQuery Core Periodic build #377: STILL UNSTABLE in 15 min: http://jenkins.jquery.com/job/jQuery%20Core%20Periodic/377/
+[09:43:00] <jqcommit> [13api.jquery.com] 15AurelioDeRosa closed pull request #933: Explicit that .progress can take more than 2 arguments (06master...06patch-1) 02https://git.io/vrHaE
+[12:28:55] <WebDragon> I dunno if anyone else has noticed this, but http://jquery.com/download/ has not been updated to reflect the current jquery-migrate version as https://github.com/jquery/jquery-migrate/releases is up to 1.4.1 -- the downloads page still shows 1.3.0 
+[12:29:05] <WebDragon> I was lucky to have just worked with the https://cdnjs.com/libraries/jquery-migrate which shows its version as 1.4.1, which is why I remembered it
+[12:29:44] <DaveMethvin> WebDragon: thanks for the note! it should have been updated, I'll do it now
+[12:30:16] <DaveMethvin> feel free to file an issue on https://github.com/jquery/jquery.com/issues if you see something like that in the future
+[12:30:21] <WebDragon> glad to have helped :)
+[12:30:51] <WebDragon> yeah it is technically an issue but it's such an easy fix (tweaking the website) that I thought I'd pop over here first :)
+[12:32:17] <WebDragon> I just wish https://cdnjs.com/libraries/jquery showed the latest release of EACH tier -- 1.12.4, 2.2.4, and 3.0.0-rc1
+[12:32:52] <DaveMethvin> that's up to them, if they have a contact just let them know
+[12:33:34] <WebDragon> it's doubtful that will change due to how it works, but I will consider it -- that was just an idle wish :)
+[12:34:03] <DaveMethvin> kind of surprised they don't do all versions tbh
+[12:34:03] <WebDragon> anyway, keep up da great work folks. couldn't do what I do as easily without ya
+[12:34:22] * WebDragon tips proverbial hat, and leaves a carafe of DragonCoffee™ on the counter
+[12:34:54] <WebDragon> you can find 'em by typing in the version num at the end of the url, for each one, but it's tedious
+[12:35:17] <WebDragon> anyways, I'm off . cheers! 
+[12:35:51] <jqcommit> [13jquery.com] 15dmethvin tagged 06v2.1.26 at 149cf5e22: 02https://git.io/vrpSn
+[12:56:19] <jqcommit> [13jquery-migrate] 15dmethvin pushed 1 new commit to 06master: 02https://git.io/vrpQo
+[12:56:19] <jqcommit> 13jquery-migrate/06master 14381237f 15Dave Methvin: Build: Recognize and update beta versions in the README file...
+[12:57:35] <doesallmagic2> Project jQuery Migrate 3.x build #91: SUCCESS in 1 min 28 sec: http://jenkins.jquery.com/job/jQuery%20Migrate%203.x/91/
+[12:57:36] <doesallmagic2> Dave Methvin: Build: Recognize and update beta versions in the README file
+[13:32:42] <arschmitz> timmywil: DaveMethvin: we recently got a lot of breakage against git in mobile
+[13:32:51] <arschmitz> seems event related a lot fo things being undefined
+[13:32:58] <arschmitz> $.event.props.concat
+[13:33:26] <arschmitz> .target.nodeType
+[13:33:26] <timmywil> ah, $.event.props was removed
+[13:33:31] <DaveMethvin> does it go away if you use Migrate?
+[13:33:40] <timmywil> migrate puts it bak
+[13:34:02] <timmywil> made those properties lazy
+[13:34:17] <DaveMethvin> arschmitz: can you link to your code? most likely it should just be completely removed for 3.0 compat 
+[13:35:24] <arschmitz> DaveMethvin: i have not found the exact offending code yet it breaks about 3/4 of our tests though
+[13:35:46] <DaveMethvin> if you include Migrate it will give you file and line
+[13:43:09] <DaveMethvin> arschmitz: looks like Mobile is borrowing the $.event.props list so it can create its own events,  https://github.com/jquery/jquery-mobile/blob/d04308f591d4d0e58443d6a645d0cc1f599888d2/js/vmouse.js#L68
+[13:43:43] <arschmitz> yes
+[13:43:55] <DaveMethvin> You could copy the list of events you want to copy from the 2.x source, like was done for touch above that: https://github.com/jquery/jquery-mobile/blob/d04308f591d4d0e58443d6a645d0cc1f599888d2/js/vmouse.js#L28
+[13:44:38] <DaveMethvin> Migrate won't help there, the use case we support is people adding new names to the props list but not looking at the existing list
+[13:45:09] <arschmitz> so then this is going to break all existing version of mobile and migrate wont help
+[13:45:22] <arschmitz> so if you release as is it will not be possible to use any version of mobile with 3.0
+[13:45:25] <DaveMethvin> the current migrate won't fix it, no
+[13:45:33] <DaveMethvin> we'd need to change that
+[13:45:33] <arschmitz> regardless of migrate
+[13:46:21] <DaveMethvin> so it looks like Mobile needs that list to be there unchanged throughout the code execution
+[13:46:57] <DaveMethvin> we'd need to figure out a way to diff the list each time an event executed to see if anything was added
+[13:47:04] <DaveMethvin> since it's not a static list
+[13:47:18] <DaveMethvin> or we'd need to only support a static list 
+[13:47:27] <DaveMethvin> and give up on letting people add stuff
+[13:48:46] <DaveMethvin> is that the only place where it's breaking?
+[13:49:05] <DaveMethvin> or are there other breaks too?
+[13:49:36] <arschmitz> there are other breakages 
+[13:50:08] <arschmitz> a lot of places we are just getting all the tests timing out so i need to find the cause of that
+[13:50:33] <DaveMethvin> let's fix this one first and see what's left
+[13:50:51] <arschmitz> i suspect this is the cause of a lot of it
+[13:50:56] <arschmitz> https://travis-ci.org/jquery/jquery-mobile/jobs/128619301
+[13:51:10] <arschmitz> vmouse is a core component of mobile where that is breaking
+[13:52:05] <DaveMethvin> this line shouldn't be needed at all in 3.0 https://github.com/jquery/jquery-mobile/blob/d04308f591d4d0e58443d6a645d0cc1f599888d2/js/vmouse.js#L30
+[13:52:23] <DaveMethvin> so just check if $.event.props exists before executing it
+[13:52:39] <arschmitz> ok
+[13:54:29] <DaveMethvin> https://github.com/jquery/jquery-mobile/blob/d04308f591d4d0e58443d6a645d0cc1f599888d2/js/vmouse.js#L68
+[13:54:53] <DaveMethvin> replace with the 2.2 code: props = ( "altKey bubbles cancelable ctrlKey currentTarget detail eventPhase " +
+[13:54:53] <DaveMethvin> 		"metaKey relatedTarget shiftKey target timeStamp view which" ).split( " " ),
+[14:00:34] <DaveMethvin> I think all this code is not needed in 3.0, the $.Event constructor copies things as needed: https://github.com/jquery/jquery-mobile/blob/d04308f591d4d0e58443d6a645d0cc1f599888d2/js/vmouse.js#L68-90
+[14:01:06] <DaveMethvin> so the only part that would stay is the part that copies changedTouches[0] properties directly to the event
+[14:04:03] <arschmitz> ok
+[14:05:22] <DaveMethvin> i have to run off but i can help you with it later ... do the Mobile unit tests run pretty well locally if I give it a try here?
+[14:07:38] <arschmitz> yes just make sure your on the branch 1.5-dev
+[14:11:35] <jqcommit> [13jquery] 15gustavopinto opened issue #3138: Studying the evolution of JQuery's project 02https://git.io/vrhvo
+[15:17:26] <jqcommit> [13jquery] 15timmywil closed issue #3138: Studying the evolution of JQuery's project 02https://git.io/vrhvo
+[18:32:47] <jqcommit> [13jquery] 15dmethvin opened issue #3139: `jQuery.Event( src )` cannot require `src.target` 02https://git.io/vrhM6
+[18:36:10] <jqcommit> [13jquery] 15dmethvin opened pull request #3140: Event: Allow constructing a jQuery.Event without a target (06master...063139-event-target) 02https://git.io/vrhDl
+[20:58:23] <jqcommit> [13jquery] 15dmethvin pushed 1 new commit to 06master: 02https://git.io/vrhh1
+[20:58:23] <jqcommit> 13jquery/06master 142df590e 15Dave Methvin: Event: Allow constructing a jQuery.Event without a target...
+[21:05:41] <doesallmagic2> Project jQuery Core build #1616: SUCCESS in 7 min 34 sec: http://jenkins.jquery.com/job/jQuery%20Core/1616/
+[21:05:41] <doesallmagic2> Dave Methvin: Event: Allow constructing a jQuery.Event without a target

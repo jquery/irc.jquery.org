@@ -1,0 +1,158 @@
+[06:04:45] <jqcommit> [13bugs.jquery.com] 15scottgonzalez closed issue #21: The stop method of jQuery 1.10 will interrupt custom queue which with delay element, bug? 02http://git.io/OoDZMw
+[08:54:45] <s5fs> gnarf: thoughts on splitting some services off of jq01?
+[08:54:53] <gnarf> s5fs: like?
+[08:55:10] <gnarf> s5fs: where to?
+[08:55:11] <s5fs> stand up another wp instance and roll smaller properties onto it
+[08:55:22] <s5fs> yeah, the "where" is a legit question
+[08:55:52] <s5fs> the perpetual high utilization is leading to zabbix false positives, kinda
+[08:56:02] <gnarf> s5fs: also "part of the plan"
+[08:56:03] <s5fs> but it did take forever for me to ssh in this morning
+[08:56:19] <gnarf> is the load running hot again?
+[08:56:35] <s5fs> its okay now, around 45% cpu fairly peppy
+[08:56:48] <s5fs> but its consistently loaded for sure
+[08:57:10] <s5fs> anyways just thinking out loud :)
+[08:57:24] <gnarf> so
+[08:57:35] <gnarf> out loud thinking, got time to hangouts a minute?
+[08:57:53] <s5fs> nope, gotta run to puppet camp, registration opens in 3min
+[08:58:16] <s5fs> full day event
+[08:58:29] <gnarf> k
+[08:58:36] <gnarf> i have a possible load solver
+[08:58:43] <s5fs> oh nice
+[08:59:43] <s5fs> i closed out my last sprint and am in the process of reorging my schedule to accomodate my new responsibilities
+[09:00:11] <s5fs> i'm thinking i'll work friday and half of saturday on jq stuff (since we do hangouts saturdays already)
+[09:01:38] <s5fs> ok gtg, later!
+[09:01:44] <gnarf> s5fs: my solution involves reducing this: https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20sourcetype%3D%22access_combined%22%20%22cache%3A0%2C0%22%20status%3E300&earliest=-4h%40m&latest=now
+[09:02:12] <gnarf> those are requests going through php that result in errors
+[09:07:38] <jqcommit> [13infrastructure] 15markelog opened issue #230: Looks like commits to only 1.x-master do not trigger testswarm job? 02https://github.com/jquery/infrastructure/issues/230
+[10:20:35] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/62d6069adea05ca29157edf692397cf30b348a6a
+[10:20:35] <jqcommit> 13infrastructure/06puppet-stage 1462d6069 15Corey Frang: tweak to fastcgi params for caching
+[10:22:12] <gnarf> so um
+[10:22:46] <gnarf> cc markelog jzaefferer s5fs -- out: venet0	 14 Jan 2014 09:28:47 10.12 MBps
+[10:22:59] <gnarf> I wonder if we aren't hitting 100mbit/sec
+[10:30:39] <gnarf> i think thats the problem
+[10:30:43] <gnarf> well shit
+[10:34:39] <jqcommit> [13infrastructure] 15markelog closed issue #230: Commits to only 1.x-master do not trigger testswarm job 02https://github.com/jquery/infrastructure/issues/230
+[10:54:12] <s5fs> gnarf: say what
+[10:54:24] <s5fs> gnarf: we're burying the network interface? seriously?
+[10:54:27] <gnarf> yup
+[10:54:39] <gnarf> ping PING google.com (74.125.224.133) 56(84) bytes of data.
+[10:54:40] <gnarf> ping: sendmsg: Operation not permitted
+[10:54:40] <gnarf> ping: sendmsg: Operation not permitted
+[10:54:40] <gnarf> ping: sendmsg: Operation not permitted
+[10:54:40] <s5fs> good grief
+[10:54:40] <gnarf> 64 bytes from lax02s20-in-f5.1e100.net (74.125.224.133): icmp_req=4 ttl=53 time=0.887 ms
+[10:54:55] <gnarf> dns lookups failing
+[10:54:56] <gnarf> etc
+[10:55:02] <gnarf> i killed nginx for like 10 seconds
+[10:55:04] <s5fs> that's double plus ungood
+[10:55:07] <gnarf> and everything ran perfect
+[10:55:11] <gnarf> yeah
+[10:55:46] <s5fs> which site is most of this traffic heading for?
+[10:56:47] <s5fs> puppet camp is cool btw
+[10:57:21] <gnarf> s5fs: hard to say
+[10:57:31] <gnarf> most likely api 
+[10:57:49] <s5fs> i'm just wondering what we could bump to another host real quick, shed some load
+[10:58:02] <gnarf> yeah
+[10:58:12] <gnarf> i'm going to evaluate that
+[10:58:45] <s5fs> okay i'm interested to hear what you find. i wish i was free to wonk on this today.
+[10:59:16] <s5fs> back to the conf, i'll check in after a while. thanks for being on top of this, i really apprecaite it.
+[11:15:23] <gnarf> well
+[11:15:32] <gnarf> we hit network limit before we melted the cpu
+[11:15:35] <gnarf> this has to be a first for me
+[11:23:08] <jqcommit> [13infrastructure] 15gnarf reopened issue #230: Commits to only 1.x-master do not trigger testswarm job 02https://github.com/jquery/infrastructure/issues/230
+[11:23:48] <jqcommit> [13infrastructure] 15gnarf opened issue #231: Move some services off of jq01 02https://github.com/jquery/infrastructure/issues/231
+[11:24:21] <jqcommit> [13infrastructure] 15gnarf closed issue #230: Commits to only 1.x-master do not trigger testswarm job 02https://github.com/jquery/infrastructure/issues/230
+[11:31:06] <gnarf> s5fs: https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20sourcetype%3D%22access_combined%22%20%7C%20stats%20sum(bytes)%20as%20totalbyes%20by%20host&earliest=-4h%40m&latest=now
+[12:28:01] <gnarf> kborchers: ping
+[12:28:04] <gnarf> think i found the leak
+[12:28:15] <gnarf> http://code.jquery.com/jquery -> http://codeorigin.jquery.com/jquery/
+[12:28:35] <kborchers> ah
+[12:29:25] <kborchers> gnarf: you think you can put in a redirect like you were talking about?
+[12:29:32] <gnarf> kborchers: i dunno
+[12:29:38] <gnarf> kborchers: playing with nginx right now
+[12:29:45] <kborchers> ok
+[12:29:49] <gnarf> trying to figure out if i can match based on ips 
+[12:46:30] <scott_gonzalez> gnarf: If we have ?view can't we just use that instead of whitelisting?
+[12:46:48] <gnarf> because we can't force maxcdn to add that to every request?
+[12:47:03] <scott_gonzalez> ok
+[12:47:20] <scott_gonzalez> I have a feeling ?view won't work as well as you want.
+[12:47:33] <scott_gonzalez> Because it won't get passed to any of the resources, like CSS files.
+[12:47:50] <scott_gonzalez> But it'll work for testing individual files that would be served by the CDN.
+[12:48:15] <scott_gonzalez> I'm not sure when we'd need to test that though.
+[12:51:12] <gnarf> so 
+[12:51:26] <gnarf>  /jquery-wp-content and /xmlrpc.php are going to be whitelisted
+[12:51:31] <gnarf> so anyone can hit those
+[13:10:41] <scott_gonzalez> ok
+[13:24:52] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/63fae732cf2e27c57bab1f65549c0d14a33711fb
+[13:24:52] <jqcommit> 13infrastructure/06puppet-stage 1463fae73 15Corey Frang: codeorigin: redirect requests to code.jquery.com
+[13:27:36] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/e0206b128a58ff20d7b0960fbab8c2057ad058b3
+[13:27:36] <jqcommit> 13infrastructure/06puppet-stage 14e0206b1 15Corey Frang: added full range of maxcdn ips
+[13:32:33] <gnarf> s5fs: ^
+[13:32:47] <gnarf> s5fs: if you hit a break point in your puppet camp, can you ring me on hangouts?
+[13:36:58] <s5fs> gnarf: wifi sucks here, but i can call on the telephone
+[13:37:07] <s5fs> 50% packet loss haha!
+[13:58:42] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/578e181d9cf1580845fe10b8ba3c6118b96225db
+[13:58:42] <jqcommit> 13infrastructure/06puppet-stage 14578e181 15Corey Frang: allow anyone to hit jquery-wp-content, xmlrpc.php and wp-includes
+[14:00:45] <gnarf> okay
+[14:00:50] <gnarf> i think that covers it
+[14:06:01] <gnarf> shit
+[14:06:11] <gnarf> it doesnt :/
+[14:30:04] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/36ba3e651b3d395a1aacd02b550ec6d35e8a137f
+[14:30:04] <jqcommit> 13infrastructure/06puppet-stage 1436ba3e6 15Corey Frang: Properly allow wp-includes, jquery-wp-content and xmlrpc.php
+[14:32:02] <gnarf> okay so
+[14:32:08] <gnarf> just so everyone knows
+[14:32:15] <gnarf> i hate doing these "i might break the internet" things
+[14:33:16] <jqcommit> 01[13infrastructure01] 15gnarf merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/62d6069adea0...36ba3e651b3d
+[14:40:16] <jqcommit> [13infrastructure] 15gnarf closed issue #231: Move some services off of jq01 02https://github.com/jquery/infrastructure/issues/231
+[14:41:21] <gnarf> DaveMethvin: can't fix the past, but we can pave over it in the future
+[14:42:02] <gnarf> DaveMethvin gseguin arschmitz scott_gonzalez jzaefferer Krinkle|detached : FYI - to view a file on codeorigin.jquery.com you now need to attach ?view 
+[14:42:14] <DaveMethvin> so disappointed you have no time machine gnarf
+[14:42:16] <gnarf> but this cut the network traffic in half easily
+[14:42:31] <gseguin> thanks for the heads DaveMethvin
+[14:42:38] <gseguin> *heads up
+[14:43:19] <scott_gonzalez> DaveMethvin is giving out heads?
+[14:43:31] <scott_gonzalez> 2 heads are better than 1...unless it's 2 DaveMethvin heads :-P
+[14:43:38] <gnarf> https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20sourcetype%3D%22access_combined%22%20%7C%20timechart%20sum(bytes)%20as%20totalbytes%20by%20host&earliest=-60m%40m&latest=now&c.chart=line&c.title=&c.stack=none&c.split=false&c.nulls=gaps&c.legend=top&c.y.min=&c.y.max=&c.y.scale=
+[14:43:43] <gnarf> for those of you that can see it
+[14:44:15] <gseguin> I knew that wouldn't go unnoticed :D
+[14:44:51] <ryanneufeld> nice, finally not having php parse things that aren't php?
+[14:45:15] <scott_gonzalez> ryanneufeld: That was fixed a while ago.
+[14:45:21] <ryanneufeld> oh
+[14:45:29] <scott_gonzalez> This is preventing people from using codeorigin.jquery.com as a CDN.
+[14:45:44] <scott_gonzalez> The PHP change also had a similar graph though :-)
+[14:45:54] <ryanneufeld> ah
+[14:45:55] <scott_gonzalez> I think it was even more of a drop though for PHP.
+[14:46:07] <gnarf> https://github.com/jquery/infrastructure/issues/231
+[14:46:14] <gnarf> scott_gonzalez: that was a load drop
+[14:46:33] <scott_gonzalez> Yeah, that's a pretty graph :-)
+[14:48:03] <gnarf> scott_gonzalez: php was load drop - this was traffic drop
+[14:48:11] <gnarf> probably also load drop
+[14:49:54] <gnarf> http://cl.ly/image/3t0o121D1917 -- traffic drop per minute
+[14:53:07] <gnarf> codeorigin is a frickin puzzle of an nginx config now though
+[14:53:39] <gnarf> actually almost no load drop from this change, since it was just "push a file" requests
+[14:54:42] <jzaefferer> gnarf: so CDN git builds from jenkins should be working fine now?
+[14:54:59] <gnarf> jzaefferer: yes
+[15:22:23] <gnarf> part of me wants to change ?view
+[15:22:25] <gnarf> to be
+[15:22:29] <gnarf> ?not-for-production
+[15:22:32] <gnarf> :)
+[15:52:39] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/77bf6632d8134e9e22e5f19edbfc3e379c41fbe3
+[15:52:39] <jqcommit> 13infrastructure/06puppet-stage 1477bf663 15Corey Frang: less complex - same result
+[15:55:18] <jqcommit> 01[13infrastructure01] 15gnarf merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/36ba3e651b3d...77bf6632d813
+[15:55:46] <gnarf> so codeorigin.jquery.com is now one of the smaller bandwidth sites ;)
+[15:56:57] <s5fs> whew!
+[15:57:10] <s5fs> so when did this start?
+[15:57:22] <s5fs> felt like a firehose was turned on us
+[15:58:15] <s5fs> omg wifi is so slow here, i'm dying inside
+[16:10:47] <gnarf> s5fs: it's been building
+[16:10:54] <gnarf> but over the last week much more
+[16:11:05] <gnarf> i'm pulling a longer term chart out of splunk
+[16:11:55] <gnarf> its been >500gig per day since saturday though :)
+[16:12:43] <gnarf> we should probably set a zabbix alert for out > 7meg/sec
+[20:49:10] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/9d70df8990e2b386a1ee0b876bc43af8e3f8939d
+[20:49:10] <jqcommit> 13infrastructure/06puppet-stage 149d70df8 15Corey Frang: newrelic: add server monitoring agent
+[20:57:23] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/6f5dde352eeb0938c8437301162c8ace328ea8ea
+[20:57:23] <jqcommit> 13infrastructure/06puppet-stage 146f5dde3 15Corey Frang: ignore newrelic on vagrant machines
+[20:59:45] <jqcommit> 01[13infrastructure01] 15gnarf merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/77bf6632d813...6f5dde352eeb
+[21:14:25] <gnarf> Hey guys.... remember that time I let "codeorigin.jquery.com" become a CDN: http://cl.ly/image/2R1A1K401g1q -- (bytes per day) 
+[21:14:35] <gnarf> ^ DaveMethvin|away scott_gonzalez kborchers s5fs ryanneufeld 

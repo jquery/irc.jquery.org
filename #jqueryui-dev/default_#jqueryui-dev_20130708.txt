@@ -1,0 +1,443 @@
+[06:13:06] <_|Nix|_> arschmitz: Ping!
+[06:13:12] <arschmitz> _|Nix|_: hey
+[06:13:25] <_|Nix|_> arschmitz: Hey!
+[06:13:40] <_|Nix|_> So, we have a bit of an issue with the collapsible's icon (and several other properties).
+[06:13:51] <_|Nix|_> The collapsed icon's default is "plus".
+[06:14:01] <_|Nix|_> However, when it's part of a set, it inherits from the set.
+[06:14:12] <arschmitz> ok
+[06:14:13] <_|Nix|_> Currently this was done by considering the set's icon before its own.
+[06:14:28] <_|Nix|_> That's bad, because how do you know its own icon was not explicitly set to be plus?
+[06:14:49] <arschmitz> good point
+[06:14:58] <_|Nix|_> THe solution is that we need a .defaults for collapsible, and set the the per-instance defaults to null.
+[06:15:15] <_|Nix|_> Then we can inherit from the set if nothing is set on the instance.
+[06:15:36] <_|Nix|_> ... and if it's not in a set, and no value is explicitly set, we use the value from .defaults.
+[06:15:49] <arschmitz> _|Nix|_: why not just use the option?
+[06:16:01] <arschmitz> default value to null
+[06:16:22] <arschmitz> then if its null check set
+[06:16:27] <_|Nix|_> arschmitz: Yeah, but if it's not in the set and the option is not overridden then it will not use "plus". It will not have an icon at all.
+[06:16:33] <arschmitz> if set does not exist use plus
+[06:17:04] <_|Nix|_> arschmitz: Instead of hardcoding "use plus", we should hardcode "use .defaults".
+[06:17:21] <arschmitz> yeah then it can be overwritten
+[06:17:26] <_|Nix|_> arschmitz: Yeah.
+[06:17:29] <arschmitz> ok yeah im good with that
+[06:17:50] <_|Nix|_> Cool!
+[06:24:09] <_|Nix|_> Argh ... we cannot copy inherited options into the instance, because the next time they change on the set, they must be propagated to the instance.
+[06:24:53] <_|Nix|_> *sigh* ... we should really do this with CSS ...
+[06:25:09] <_|Nix|_> uGoMobi: ^?
+[06:25:50] <_|Nix|_> Yeah ... I think we can do that ...
+[06:25:52] <arschmitz> _|Nix|_: yeah true seems like this could be done with css
+[06:27:42] <_|Nix|_> .ui-collapsible-set.ui-arrow-r .ui-collapsible a { /* same settings as ui-arrow-r */ }
+[06:28:23] <scott_gonzalez> arschmitz _|Nix|_: Can you explain the icons issue?
+[06:28:43] <arschmitz> scott_gonzalez: its essentially a theme inheritance issue
+[06:28:52] <_|Nix|_> scott_gonzalez: If a collapsibleset has an icon set, all its children are supposed to display it, unless they have icons set on them explicitly.
+[06:29:35] <_|Nix|_> scott_gonzalez: so, [ data-icon="plus" [+] [+] [+] [* data-icon="star"] [+
+[06:29:38] <_|Nix|_> ] ]
+[06:29:55] <scott_gonzalez> Ugh, this is another "data- attributes are shitty" problem.
+[06:30:27] <scott_gonzalez> Oh, it's not data-icon
+[06:30:38] <scott_gonzalez> There are separate options for collapsed and expanded.
+[06:30:54] <_|Nix|_> scott_gonzalez: OK, equivalently: [ class="ui-icon-plus" [+] [+] [* class="ui-icon-star" ] [+] ]
+[06:31:09] <_|Nix|_> scott_gonzalez: That's the same thing only involving multiple options.
+[06:31:23] <scott_gonzalez> I'm not sure what those [ ... ] represent.
+[06:32:12] <_|Nix|_> scott_gonzalez: <div class="ui-icon-plus"><div></div><div></div><div class="ui-icon-star"></div><div></div></div>
+[06:32:42] <_|Nix|_> All inner divs should display + symbols except the one that explicitly has the class ui-icon-star.
+[06:33:03] <_|Nix|_> Clearly something that should be done in CSS.
+[06:33:17] <scott_gonzalez> Not really.
+[06:33:46] <scott_gonzalez> Customizing icons should be done via a class, which is controlled via JS, which is what you're doing currently, right?
+[06:34:29] <_|Nix|_> scott_gonzalez: Yes, but we're applying the class via a loop to all inner divs, so we can't tell afterwards whether the class was applied by us, or whether the user has chosen to override using that class.
+[06:35:20] <scott_gonzalez> The example markup you're showing here and what I'm seeing on the API site seem different.
+[06:35:30] <arschmitz> scott_gonzalez: part of the issue is there are 2 different widgets being discussed here collapsible and collapsibleset (accordian) 
+[06:35:31] <_|Nix|_> scott_gonzalez: We can only tell the difference between inherited and explicitly applied once: during initial construction. However, if the option value on the outer div (the container widget) is changed later, we can no longer make that distinction.
+[06:35:32] <scott_gonzalez> You don't need to explicitly mark the inner collapsibles as collapsibles?
+[06:35:48] <scott_gonzalez> Oh, so collapsibleset isn't documented?
+[06:35:59] <_|Nix|_> scott_gonzalez: It is documented.
+[06:36:13] <_|Nix|_> scott_gonzalez: However, we wish to achieve true inheritance of options.
+[06:36:20] <arschmitz> http://api.jquerymobile.com/collapsible-set/
+[06:36:34] <scott_gonzalez> That URL is wrong, the dash needs to be removed.
+[06:36:41] <_|Nix|_> scott_gonzalez: Both the accordion and the collapsible share certain options.
+[06:37:01] <arschmitz> scott_gonzalez: huh i copied that looking at the page?
+[06:37:03] <_|Nix|_> scott_gonzalez: The idea is that if the option is unset on the collapsible, the value from the accordion is in effect.
+[06:37:21] <scott_gonzalez> arschmitz: The reason I couldn't find it is because the URL is wrong.
+[06:37:27] <scott_gonzalez> It needs to be renamed.
+[06:37:34] <arschmitz> oh ok i got you
+[06:38:09] <scott_gonzalez> So the accordion creates actual collapsible instances?
+[06:38:27] <arschmitz> scott_gonzalez: worse it relys on autoinit to do it
+[06:38:37] <arschmitz> which is something i wanted to talk to you about when you have time
+[06:38:40] <_|Nix|_> Right, and we don't actually have a dependency on it.
+[06:38:48] <_|Nix|_> s/on it/in place/.
+[06:39:16] <_|Nix|_> arschmitz: We can do for collapsible/collapsibleSet what we did for controlgroup/button,checkboxradio,select.
+[06:39:38] <arschmitz> _|Nix|_: remind me what that was ?
+[06:39:48] <_|Nix|_> arschmitz: ... but unlike controlgroup/button,etc. there don't seem to be any problems with the fact that the enhancement order is not established.
+[06:39:59] <_|Nix|_> arschmitz: Does ^ ring the bell?
+[06:40:07] <arschmitz> yea
+[06:40:39] <_|Nix|_> arschmitz: OK. So, it doesn't seem necessary to enforce the enhancement order by specifying deps to _enhancer().
+[06:42:21] <arschmitz> scott_gonzalez: can you ping me when you have some time to talk?
+[06:42:24] <_|Nix|_> arschmitz: Anyway. I'll try to do inheritance via CSS. Pray for my soul!
+[06:42:36] <arschmitz> lol goodluck _|Nix|_
+[06:43:02] * _|Nix|_ takes out his old, wrinkled CSS hat. It has a propeller on it.
+[06:43:06] <scott_gonzalez> arschmitz: I'm available all day.
+[06:43:25] <arschmitz> scott_gonzalez: ok is right now good then?
+[06:43:31] <scott_gonzalez> yeah
+[06:44:13] <arschmitz> ok right now when its required that one widget be initalized before another for the second to work properly
+[06:44:40] <arschmitz> we use something called an enhancer to make sure this happens in right order
+[06:44:50] <arschmitz> because it all depends on the autoinit
+[06:44:54] <arschmitz> this seems bad to me
+[06:45:13] <arschmitz> i looked at how you guys do this and you just call the widgets internally
+[06:45:23] <arschmitz> which seems like the proper way to do this
+[06:45:24] <_|Nix|_> arschmitz: I may have found a smoking gun. There are two icons in play at the same time - expanded and collapsed. So, you'd have to have differently named classes to get CSS inheritance for both at the same time.
+[06:46:10] <_|Nix|_> arschmitz: Not necessarily: What if the other widget is not part of the library because of a custom build.
+[06:46:22] <_|Nix|_> arschmitz: The whole reason for enhancer is that parts of the library may be missing.
+[06:46:31] <scott_gonzalez> arschmitz: Just walk the DOM from top down.
+[06:46:41] <_|Nix|_> arschmitz: So, if the prerequisite widget is present, then enhance it first. Otherwise, go ahead.
+[06:46:44] <arschmitz> _|Nix|_: if it needs it to function properly it should be a dependency
+[06:46:57] <_|Nix|_> arschmitz: But in some casses it doesn't.
+[06:47:14] <arschmitz> then order should not matter
+[06:47:25] <_|Nix|_> arschmitz: But it does. It's a nice-to-have dependency.
+[06:47:52] <_|Nix|_> arschmitz: Or, rather, an if-it's-present-it-can-break-me dependency.
+[06:48:35] <arschmitz> _|Nix|_: that gets complicated for people to use when not using autoinit
+[06:48:50] <arschmitz> they then need to know every widget they need to call even if its not obvious
+[06:49:20] <_|Nix|_> arschmitz: That's why its easiest to just trigger create on the whole chunk.
+[06:49:38] <_|Nix|_> arschmitz: If they want to instantiate widgets by hand, they need to know the relationships.
+[06:49:47] <arschmitz> _|Nix|_: yes but we are suposed to be making widgets more like ui meaning just call the widget if outside the page
+[06:50:02] <arschmitz> and triggering create is still essentially autoinit
+[06:50:17] <arschmitz> people should just be able to call the widget on an element and it should work as expected
+[06:50:20] <_|Nix|_> arschmitz: Yes, but it's autoinit of an arbitrary chunk of DOM - not just a page.
+[06:50:42] <arschmitz> like they should just be able to call .slider(); 
+[06:50:46] <arschmitz> and it should work
+[06:50:59] <arschmitz> they should not have to call textinput too
+[06:51:08] <arschmitz> and they should not even need autoinit at all
+[06:51:09] <_|Nix|_> arschmitz: So, what you're saying is that they should just be able to call .controlgroup() and all the widgets inside will be automagically instantiated.
+[06:51:31] <_|Nix|_> arschmitz: Oh, well, that's easy. controlgroup's _create() triggers .create() on its innards.
+[06:52:00] <arschmitz> _|Nix|_: for example in ui the dialog is both resizable and dragable
+[06:52:16] <arschmitz> but people dont need to call .dialog().resizable().draggable();
+[06:52:24] <arschmitz> they just call .dialog();
+[06:53:25] <_|Nix|_> arschmitz: Understood. That's because the dialog calls resizable and draggable during _create, no?
+[06:53:38] <arschmitz> yes
+[06:53:52] <_|Nix|_> arschmitz: So, we can actually do the same. We can trigger create on the innards of the controlgroup.
+[06:54:05] <arschmitz> _|Nix|_: triggering create is still autoinit
+[06:54:06] <_|Nix|_> arschmitz: That'll instantiate whatever widgets are inside.
+[06:55:24] <_|Nix|_> arschmitz: Well, the alternative is to assume that each child of the controlgroup is one of button/checkboxradio/select and ... wait ... how do we know which one to call?
+[06:55:44] <arschmitz> _|Nix|_: controlgroup is a weird one
+[06:55:48] <arschmitz> im speaking more generally
+[06:56:06] <_|Nix|_> arschmitz: Well, autoinit is nothing more than widget-agnostic _create()
+[06:56:43] <_|Nix|_> arschmitz: ... and it should work outside pages just fine.
+[06:56:51] <arschmitz> _|Nix|_: in general i think if a widget depends on another widget for proper display it should call it and not rely on autoinit
+[06:56:55] <arschmitz> just like they do in ui
+[06:57:02] <_|Nix|_> arschmitz: There's even an API for it now: $.mobile.enhancer.enhance( $thisPieceOfDOM );
+[06:59:00] <_|Nix|_> arschmitz: We can make it so it calls it, but since it can be one of four different widgets, it doesn't know which one to call. That's why you need the enhancer. It checks the signature of each piece of element and decides what widget to instantiate on it.
+[06:59:35] <_|Nix|_> arschmitz: I guess the contents of controlgroup is degenerate.
+[06:59:59] <arschmitz> _|Nix|_: not sure if its possible but controlgroup should not care the contents 
+[07:01:12] <_|Nix|_> arschmitz: That's right, but somebody has to. Calling enhancer.enhance() is its way of not caring. It's like, "Man, if there's a widget in there, it better be instantiated after I'm through with enhance()."
+[07:01:13] <arschmitz> control group i think is more of the execption to the rule and might need special handling 
+[07:02:16] <_|Nix|_> arschmitz: I duno. I thinl there is value in having a fire-and-forget way of instantiating widgets.
+[07:02:56] <arschmitz> there is when using autoinit im not so sure outside that
+[07:03:06] <_|Nix|_> arschmitz: Otherwise you're basically asking the user to .checkboxradio(); .textinput(); .button(); .popup(); all by themselves.
+[07:03:06] <arschmitz> something to lookinto later perhaps though
+[07:03:23] <arschmitz> yup thats how it is in ui
+[07:04:09] <_|Nix|_> arschmitz: Then you end up with a lot of instantiation code.
+[07:04:13] <arschmitz> yup
+[07:04:37] <scott_gonzalez> Mobile should work 100% without auto-init (and be sane).
+[07:04:41] <_|Nix|_> arschmitz: The tradeoff is very little instantiation code, but slower because it has to figure out what to instantiate based on cues from the DOM.
+[07:04:47] <scott_gonzalez> Auto-init should just be sugar.
+[07:04:54] <arschmitz> scott_gonzalez: exactly
+[07:04:59] <_|Nix|_> scott_gonzalez: It does work without autoinit.
+[07:05:12] <_|Nix|_> scott_gonzalez: You can go ahead and instantiate all the widgets by yourself.
+[07:05:25] <_|Nix|_> scott_gonzalez: In fact, nobody is forcing you to say data-role="listview" or whatever.
+[07:05:44] <_|Nix|_> scott_gonzalez: You can just $( "<ul></ul>" ).appendTo( someplace ).listview();
+[07:05:53] <_|Nix|_> scott_gonzalez: Or $( "#myListview" ).listview();
+[07:06:24] <_|Nix|_> scott_gonzalez: However, if you do that, you must be aware that some combinations of widgets are not orthogonal. We have such combinations of widgets. Sorry!
+[07:06:39] <arschmitz> _|Nix|_: right the problem comes with like slider where it depends on textinput to run first but really they should not have to do .textinput(); just .slider()
+[07:06:56] <scott_gonzalez> Right, that's where the "and be sane" part comes in.
+[07:07:40] <_|Nix|_> scott_gonzalez: One can only be sane if there is exactly one widget class you need in order to function properly yourself.
+[07:07:50] <scott_gonzalez> Not true.
+[07:07:57] <uGoMobi> hey guys
+[07:07:58] <scott_gonzalez> arschmitz already gave the example of dialog.
+[07:08:01] <_|Nix|_> scott_gonzalez: As soon as you are designed to play nice with more than one, you need to know which one to call on which dependent element.
+[07:08:12] <_|Nix|_> scott_gonzalez: No, because dialog is draggable /and/ resizable.
+[07:08:35] <arschmitz> _|Nix|_: those are controlled through options
+[07:08:35] <_|Nix|_> scott_gonzalez: Not draggable or resizable or both depending on which one is part of the custom build.
+[07:08:45] <scott_gonzalez> Actually, it is.
+[07:08:56] <scott_gonzalez> If you don't have the draggable plugin, dialogs aren't draggable.
+[07:09:04] <scott_gonzalez> If you set the draggable option to false, the dialog isn't draggable.
+[07:09:30] <_|Nix|_> scott_gonzalez: Yeah, so you have a way of telling the dialog which options it should try.
+[07:09:46] <scott_gonzalez> Yes, they're options.
+[07:09:51] <scott_gonzalez> Regular options.
+[07:10:03] <scott_gonzalez> And the options are designed for sanity.
+[07:10:14] <scott_gonzalez> You don't get customization of how dragging works for a dialog.
+[07:10:18] <_|Nix|_> scott_gonzalez: How do you handle the case where draggable is set to true, but the draggable plugin is not part of the custom build?
+[07:10:26] <scott_gonzalez> It's either draggable or it's not.
+[07:10:33] <scott_gonzalez> if ( $.fn.draggable )
+[07:11:02] <scott_gonzalez> We have optional dependencies.
+[07:11:09] <scott_gonzalez> We also have hard dependencies.
+[07:11:22] <scott_gonzalez> For example, you cannot use dialog if you don't have the button widget.
+[07:12:20] <_|Nix|_> scott_gonzalez: There's another problem here. draggable and resizable are not widgets in themselves, right?
+[07:12:30] <arschmitz> _|Nix|_: yes they are
+[07:13:01] <_|Nix|_> arschmitz: Yes, but they're this.element is the same as the dialog's right?
+[07:13:06] <scott_gonzalez> no
+[07:13:37] <scott_gonzalez> They're actually both instantiated on a different element than the dialog.
+[07:13:53] <scott_gonzalez> It's a generated wrapper.
+[07:14:01] <scott_gonzalez> But I don't see how that's relevant anyway.
+[07:14:06] <_|Nix|_> scott_gonzalez: OK. So they're containers.
+[07:14:22] <_|Nix|_> scott_gonzalez: It's relevant because they are not present in the original DOM.
+[07:14:38] <_|Nix|_> scott_gonzalez: So, you control what you put around this.element during _create().
+[07:14:48] <scott_gonzalez> Dialog is just one widget.
+[07:15:01] <scott_gonzalez> Menu deals with instantiating nested menus that do exist in the DOM.
+[07:15:31] <_|Nix|_> scott_gonzalez: Yes, but you know for sure that the things inside can only be of one type: menu.
+[07:15:49] <scott_gonzalez> In what situation do you not know?
+[07:16:07] <_|Nix|_> scott_gonzalez: Well, if you have a generic container for more than one type of widget.
+[07:16:38] <scott_gonzalez> Which collapsible set is not. Unless I'm missing something.
+[07:16:48] <_|Nix|_> scott_gonzalez: But controlgroup is.
+[07:16:56] <_|Nix|_> The bottom line is that it's like arschmitz said: The controlgroup is a special case.
+[07:17:44] <_|Nix|_> However, if we can efficiently and elegantly solve the case of a generic container for multiple different types of widgets, the case where the containment hierarchy is a straight line like a can contain only b can contain only c is a special case of that.
+[07:18:04] <arschmitz> _|Nix|_: and i dont think library wide decisions should be based on one special case widget
+[07:18:17] <arschmitz> maybe we should rethink how that widget works 
+[07:19:06] <scott_gonzalez> Control group looks like it's designed only for button-looking widgets.
+[07:19:30] <scott_gonzalez> Actually, the description even says "Groups buttons together."
+[07:19:42] <arschmitz> scott_gonzalez: yeah they are all button looking
+[07:19:53] <scott_gonzalez> So we solved this in UI already.
+[07:19:59] <scott_gonzalez> With button and buttonset.
+[07:20:06] <scott_gonzalez> button = any button looking widget.
+[07:20:35] <scott_gonzalez> That can be anchors, buttons, checkboxes, radios.
+[07:20:47] <scott_gonzalez> But they're all rendered as buttons.
+[07:20:58] <_|Nix|_> arschmitz: I think we can move the enhancer inside controlgroup if it only applies to controlgroup and greatly simplify it.
+[07:20:59] <scott_gonzalez> So if you want a checkbox that looks like a checkbox, that's not a .button().
+[07:21:04] <scott_gonzalez> And it wouldn't go inside a .buttonset()
+[07:21:20] <_|Nix|_> arschmitz: After all, we have eliminated most of the dependencies which made it necessary.
+[07:21:48] <scott_gonzalez> So what widgets can you use inside control group beside button?
+[07:22:00] <_|Nix|_> scott_gonzalez: button/checkboxradio/select
+[07:22:21] <scott_gonzalez> Seems like there's no ambiguity here.
+[07:22:32] <scott_gonzalez> Children which are anchors or buttons => .button()
+[07:22:48] <scott_gonzalez> Children which are input[type=checkbox|radio] => .checkboxradio()
+[07:22:52] <scott_gonzalez> Children which are select => .select()
+[07:23:18] <_|Nix|_> scott_gonzalez: Yes, and identifying which children are what is the job of the enhancer.
+[07:23:31] <scott_gonzalez> Umm...it's the job of controlgroup.
+[07:23:45] <scott_gonzalez> I don't know what enhancer is, but it's certainly nothing special based on this conversation.
+[07:23:53] <_|Nix|_> scott_gonzalez: The ability to identify which child is what has wider use beyond just controlgroup.
+[07:24:00] <_|Nix|_> scott_gonzalez: That's why we put it in the enhancer.
+[07:24:06] <_|Nix|_> scott_gonzalez: So, that's what autoinit is.
+[07:24:13] <scott_gonzalez> Control group knows everything it needs for a manual invocation of .controlgroup() to do everything including instantiating the actual controls.
+[07:24:16] <_|Nix|_> scott_gonzalez: If we get rid of it, then we move it inside controlgroup.
+[07:24:34] <_|Nix|_> scott_gonzalez: What about a page then?
+[07:25:01] <_|Nix|_> scott_gonzalez: We will still have a page widget, which needs to do the same. Or shall we slash that? I'm not against it, just asking ...
+[07:25:23] <arschmitz> _|Nix|_: page widget does not care at all whats inside it?
+[07:25:45] <_|Nix|_> arschmitz: Nope, it can have anything from popups to buttons to checkboxradios to collapsibles to sliders to ...
+[07:25:55] <arschmitz> exactly
+[07:26:08] <arschmitz> so im not sure the issue
+[07:26:36] <_|Nix|_> arschmitz: Ummm ... are we going to write custom logic for controlgroup which is a subset of the custom logic for page, or are they both just gonna call enhancer?
+[07:26:41] <scott_gonzalez> _|Nix|_: The point is that a developer who manually instantiates a page doesn't expect everything in the DOM to magically be instantiated.
+[07:26:56] <arschmitz> it would be the same as a ui dialog if you want to put a slider in it you call .slider() on the slider it does not do it for you?
+[07:27:12] <_|Nix|_> OK, so we /are/ slashing autoinit entirely.
+[07:27:19] <arschmitz> no
+[07:27:20] <scott_gonzalez> No.
+[07:27:39] <_|Nix|_> Well, if you have to init everything by hand how is that in any way autoinit?
+[07:27:46] <scott_gonzalez> You don't.
+[07:27:55] <scott_gonzalez> You need to be able to, and the widgets needs to be designed for it.
+[07:28:11] <scott_gonzalez> But the framework (which is a layer on top of the widgets) will still handle auto-init.
+[07:28:18] <_|Nix|_> scott_gonzalez: Oh, OK.
+[07:28:45] <arschmitz> things should primarily work sanely with out autoinit
+[07:28:58] <arschmitz> then autoinit should layer ontop for a "little extra sugar"
+[07:29:16] <_|Nix|_> scott_gonzalez: But then we need a central point where we are informed that a new type of widget class has (re)appeared on the horizon so that it can be folded into the autoinit code.
+[07:29:30] <scott_gonzalez> That's framework stuff.
+[07:29:54] <scott_gonzalez> Individual widgets like controlgroup don't get involved in framework stuff.
+[07:29:59] <_|Nix|_> arschmitz: OK, so you wanna get rid of the call where the widget registers itself with enhancer because that's the only autoinit-related call in any of our widgets.
+[07:30:27] <arschmitz> _|Nix|_: yes basicly the widgets should be able to run correctly in any order 
+[07:30:33] <_|Nix|_> scott_gonzalez: But they should be able to take advantage of the framework stuff if it's present.
+[07:30:51] <arschmitz> because they should not depend on autoinit they should internally cal the widgets they need
+[07:30:53] <scott_gonzalez> So far the only widget you've shown that would even care is page.
+[07:30:59] <scott_gonzalez> Which is a framework level widget.
+[07:31:16] <_|Nix|_> scott_gonzalez: Why? Because it contains other arbitrary widgets?
+[07:31:25] <_|Nix|_> scott_gonzalez: Why is it a framework-level widget, I mean.
+[07:31:38] <arschmitz> _|Nix|_: because its useless without the framework
+[07:31:43] <scott_gonzalez> Because that's basically all the framework is.
+[07:31:59] <scott_gonzalez> It's ajax nav of virtual pages.
+[07:32:18] <scott_gonzalez> And lots of auto-init.
+[07:33:11] <_|Nix|_> scott_gonzalez: OK. Fair, but it's not black and white. In that sense, controlgroup is also a framework-level widget albeit a slightly simpler one, because it cannot contain /anything/ but merely buttons/checkboxradios/selectmenus.
+[07:33:26] <scott_gonzalez> It's very black and white.
+[07:33:28] <_|Nix|_> scott_gonzalez: ... and any other third-party widgets that may be declared to depend on it.
+[07:33:35] <scott_gonzalez> Control group is in no way tied to the framework.
+[07:33:41] <scott_gonzalez> It's a standalone widget.
+[07:34:05] <scott_gonzalez> The "container" part is not at all what makes something framework level.
+[07:34:10] <_|Nix|_> scott_gonzalez: Page can instantiate 15 different types of widgets. Controlgroup can instantiate 3 different types of widgets. I see this as a continuum.
+[07:34:32] <_|Nix|_> scott_gonzalez: I mean, we can establish a boundary, obviously.
+[07:34:49] <scott_gonzalez> It's been established.
+[07:35:25] <scott_gonzalez> We're where we are today because the boundary was ignored for a very long time.
+[07:35:36] <arschmitz> _|Nix|_: the "framework" is autoinit ajax nav and pages thats it basicly
+[07:37:11] <_|Nix|_> scott_gonzalez: OK, but the same code that can be used to instantiate 15 different possible types of widgets can also be used to instantiate 3 different types of possible widgets. If we mark that code as framework code, then controlgroup needs to do some of the same logic.
+[07:38:20] <scott_gonzalez> Ok, well, we're clearly not getting anywhere.
+[07:38:37] <scott_gonzalez> Control group will not share code with page.
+[07:38:41] <scott_gonzalez> That's just how it's going to be.
+[07:39:00] <_|Nix|_> scott_gonzalez: OK, that's fine, but there will be code duplication.
+[07:39:09] <scott_gonzalez> I'm not concerned.
+[07:40:14] <uGoMobi> _|Nix|_: I haven't read back everything yet but you want to make collapsibles in a set inherit the icon with CSS?
+[07:41:36] <_|Nix|_> uGoMobi: Yeah, but I don't think we can, because there are two icons at the same time.
+[07:42:27] <uGoMobi> _|Nix|_: yeah, and we would have to add collapsible specific classes to each icon
+[07:42:36] <uGoMobi> x 3
+[07:42:39] <_|Nix|_> uGoMobi: Yeah.
+[07:42:47] <_|Nix|_> :( So, it needs to be done in JS.
+[07:42:49] <uGoMobi> because wit Grunticon there are 3 icon files
+[07:42:56] <uGoMobi> yup
+[07:44:05] <_|Nix|_> arschmitz: OK, so what does this mean for our widgets? Do we get rid of enhancer?
+[07:44:17] <_|Nix|_> arschmitz: ... or, do we move enhancer inside page?
+[07:44:27] <arschmitz> eventually right now its fine
+[07:45:24] <_|Nix|_> arschmitz: OK, but how will page know where to get the different initSelector values for the various widgets?
+[07:46:04] <_|Nix|_> arschmitz: ... so that it can run those over itself and call the right plugins on the right elements?
+[07:47:25] <_|Nix|_> arschmitz: I mean we could do for ( key in $.ui ) { if ( $.ui[ key ].prototype && $.ui[ key ].prototype.options && $.ui[ key ].prototype.options.initSelector ) { /* enhance with that widget */ }
+[07:49:08] <gseguin> Happy birthday johnbender!
+[07:49:23] <_|Nix|_> Oh, cool!
+[07:49:27] <_|Nix|_> johnbender: Happy birthday!
+[07:57:54] <jquicommit> [13jquery-ui] 15ronmichael opened pull request #1025: Autocomplete: modified response event to return search term. (06master...06autocomplete-response-search-term)  02http://git.io/EXKCOw
+[08:00:30] <uGoMobi> johnbender: happy birthday John!
+[08:01:36] <jqmobilecommit> [13jquery-mobile] 15acazes opened issue #6140: White page after "back" from iOS PDF Viewer  02http://git.io/bcglTw
+[10:02:38] <uGoMobi> test test
+[10:03:12] <_|Nix|_> uGoMobi: !gniP
+[10:03:24] <uGoMobi> _|Nix|_: I am here now
+[10:03:30] <_|Nix|_> uGoMobi: Awesome!
+[10:03:32] <uGoMobi> turned out I was disconnected
+[10:03:35] <uGoMobi> :(
+[10:03:42] <uGoMobi> need to switch to ZNC
+[10:03:45] <_|Nix|_> uGoMobi: I hate talking in a vacuum. I know the feeling.
+[10:03:54] <uGoMobi> lol
+[10:06:54] <guest______> hi can i have some help regarding jquery mobile?
+[10:07:07] <guest______> or is this not the right place?
+[10:07:20] <uGoMobi> guest______: the ##jquery channel is for support
+[10:07:28] <uGoMobi> also for jQuery Mobile
+[10:07:40] <guest______> ok thank you
+[10:07:44] <uGoMobi> no
+[10:07:46] <uGoMobi> np*
+[10:08:17] <uGoMobi> _|Nix|_: so... you were looking for me?
+[10:21:25] <_|Nix|_> uGoMobi: The only thing was that CSS inheritance thing which is impossible after all.
+[10:22:04] <uGoMobi> _|Nix|_: ah ok... it was an old "ping" :)
+[10:22:21] <_|Nix|_> uGoMobi: ... at least for icons. However, we could do it for theme/contentTheme/iconpos/inset/mini
+[10:22:52] <uGoMobi> _|Nix|_: if you add class ui-mini to the collapsible set you're done
+[10:23:20] <_|Nix|_> uGoMobi: What if you want one of the collapsibles to not be mini?
+[10:23:25] <uGoMobi> _|Nix|_: I mean the div with data-role="collapsible-set"
+[10:23:55] <uGoMobi> _|Nix|_: hmm
+[10:24:23] <uGoMobi> _|Nix|_: I could add an ui-fullsize class to override
+[10:24:36] <_|Nix|_> uGoMobi: Is that clean?
+[10:25:11] <_|Nix|_> uGoMobi: The fact is that we cannot create exceptions for the case where the presence or absence of a class determines the style.
+[10:25:26] <_|Nix|_> uGoMobi: Exceptions only work both ways if there's a pair of classes.
+[10:25:33] <_|Nix|_> uGoMobi: With opposite meanings.
+[10:25:47] <uGoMobi> _|Nix|_: yeah
+[10:26:01] <uGoMobi> _|Nix|_: that's why I was thinking about ui-fullsize
+[10:26:21] <_|Nix|_> uGoMobi: I know, but do we want to add another class?
+[10:26:47] <_|Nix|_> uGoMobi: ... and the absence of both ui-fullsize and ui-mini means that it's fullsize - at least currently.
+[10:27:23] <_|Nix|_> uGoMobi: I can probably handle these things via JS for now.
+[10:27:25] <uGoMobi> _|Nix|_: rather not add another class, but I do like the idea of making the whole set mini by just adding one class to the container
+[10:27:35] <_|Nix|_> uGoMobi: Oh, for sure.
+[10:27:47] <uGoMobi> yeah, by default everything is fullsize that's why we don't have that class
+[10:29:32] <uGoMobi> _|Nix|_: okay let's not introduce that class
+[10:29:49] <uGoMobi> _|Nix|_: we want to move towards having people adding style classes themselves
+[10:30:24] <uGoMobi> _|Nix|_: so we can tell people that instead of data-role="mini" they should just add class ui-mini
+[10:30:54] <uGoMobi> to improve performance
+[10:31:36] <uGoMobi> for the people that want mini set with one exception we will have the JS solution
+[10:32:00] <uGoMobi> they would have to use data-role="mini"
+[10:32:55] <_|Nix|_> uGoMobi: Not bad.
+[10:33:01] <uGoMobi> grrr... data-mini="true"
+[10:33:12] <uGoMobi> not data-role="mini" :(
+[10:33:12] <_|Nix|_> uGoMobi: Cool!
+[10:33:39] <uGoMobi> _|Nix|_: we should deprecate the data- attributes for styling some time soon
+[10:34:06] <uGoMobi> and have people add classes for corners, shadow, mini
+[10:34:50] <_|Nix|_> uGoMobi: +1, however, the same is true for all these classes.
+[10:35:20] <_|Nix|_> OK, not really, because in most cases ui-corner-all is applied to the first/last visible child.
+[10:35:58] <_|Nix|_> ... and shadow is not an issue with groups.
+[10:36:06] <uGoMobi> _|Nix|_: if you want one collapsible in a set not to be mini you can add the class to all others instead of the container
+[10:44:09] <_|Nix|_> uGoMobi: Well, yeah, but that breaks the add defaults to the accordion and overrides to the collapsibles scheme.
+[10:45:04] <uGoMobi> _|Nix|_: yes, I was talking about when we deprecate option mini though
+[10:45:12] <_|Nix|_> Right.
+[10:45:14] <_|Nix|_> True.
+[10:47:00] <uGoMobi> _|Nix|_: let me know if you think we need a ui-fullsize class anyway
+[10:47:24] <uGoMobi> _|Nix|_: it's not much CSS... only ui-fullsize { font-size: 16px; }
+[10:47:46] <uGoMobi> and a few overrides for the icon position
+[11:00:03] <_|Nix|_> uGoMobi: Neah. I'm concentrating on making it work with JS first. Then we can look into CSS.
+[11:00:19] <uGoMobi> _|Nix|_: ok great
+[13:31:23] <uGoMobi> arschmitz: I ran into a fixed toolbar theme inheritance issue
+[13:31:29] <uGoMobi> arschmitz: http://jsbin.com/edeluh/13/edit
+[13:32:13] <uGoMobi> arschmitz: you see a FOUC in the header when navigating between pages
+[13:32:56] <uGoMobi> arschmitz: it only happens with fixed toolbars and if you don't set a theme for the toolbar
+[13:33:07] <uGoMobi> arschmitz: tested on both Chrome and FF
+[13:33:09] <arschmitz> hm
+[13:33:29] <uGoMobi> arschmitz: do you have any idea what might cause this?
+[13:33:30] <arschmitz> does it happen with non persistant toolbars?
+[13:34:00] <uGoMobi> arschmitz: nope
+[13:34:07] <uGoMobi> arschmitz: that's it
+[13:34:30] <arschmitz> didnt we decide to deprecate those anyway?
+[13:34:48] <uGoMobi> arschmitz: no, I don't think so
+[13:35:03] <arschmitz> i thought we decided to infavor of doing them outside the page
+[13:35:03] <uGoMobi> arschmitz: you created true persistent toolbars, didn't you? :)
+[13:35:07] <arschmitz> yes
+[13:35:31] <arschmitz> i thought we decided to deprecate the faked ones that are part of the fixed toolbar widget
+[13:35:45] <arschmitz> they cause all sorts of transition issues
+[13:35:52] <uGoMobi> right
+[13:35:57] <arschmitz> and are super complicated and bad for perfromance
+[13:36:00] <uGoMobi> but that means we still need to support those in 1.4
+[13:36:51] <uGoMobi> I think this issue will also be there with true persistent toolbars
+[13:37:07] <arschmitz> uGoMobi: no because you init them yourself
+[13:37:15] <arschmitz> and have to specifiy a theme explicitly
+[13:37:15] <uGoMobi> actually, I think it won't be a FOUC but theme inheritance would probably not work
+[13:37:21] <uGoMobi> right
+[13:37:28] <arschmitz> theme inheritance wont work for anything outside page
+[13:38:01] <arschmitz> it would actually be bad if it did work outside pages
+[13:38:24] <uGoMobi> yeah, then you probably run into bigger problems
+[13:38:28] <arschmitz> because your widgets would change theme with your page instead of just staying the same as you would generally expect
+[13:38:46] <uGoMobi> ok, then we only need to think if we can come up with a temp fix for 1.4
+[13:38:50] <arschmitz> yeah
+[13:38:57] <uGoMobi> yes, you're right
+[13:39:13] <frequent> arschmitz: uGoMobi: evening
+[13:39:14] <arschmitz> ill look at it seems like a timing issue of some sort
+[13:39:22] <arschmitz> hey frequent
+[13:39:27] <uGoMobi> hey frequent 
+[13:39:33] <frequent> I'm sort of done with writing tests
+[13:39:40] <frequent> for the filter widget
+[13:39:50] <frequent> a few left, but everything passing so far
+[13:39:56] <uGoMobi> great!
+[13:39:56] <arschmitz> frequent: awesome
+[13:40:03] <frequent> question 1:
+[13:40:31] <frequent> if JQM wraps a filterable element (like a <input>) is there any way to retrieve the data-filtertext the dev sets on the input?
+[13:40:44] <frequent> I have no idea
+[13:42:02] <frequent> like if I have a controlgroup with <input>, JQM will wrap in <div.ui-btn>, whose text I can extract, so filtering works, but the filtertext set on the input, I can't reach
+[13:42:04] <arschmitz> frequent: im not quite sure what your describing but im sure there is lol
+[13:42:26] <frequent> ok. I just commit it along with a note and let someone else have a look ;-)
+[13:42:44] <frequent> question 2: PR on master now? or next?
+[13:42:51] <uGoMobi> master
+[13:42:54] <frequent> ok
+[13:43:19] <arschmitz> frequent: once you have a pr ill look and comment
+[13:43:26] <frequent> good.
+[13:43:46] <arschmitz> frequent: where did you land on the table refresh methods for 1.4?
+[13:43:53] <frequent> hm...
+[13:44:03] <frequent> still flying I would say :-)
+[13:44:33] <frequent> I will try to finish filter today and have a look at refresh then. I should somewhere have a more or less usable version
+[13:44:38] <arschmitz> frequent: ok just so you know next week is alpha for 1.4 so thats also the cut off for new features
+[13:44:51] <frequent> ok. but refresh is still in?
+[13:45:02] <arschmitz> frequent: right now its not in 1.4 at all
+[13:45:07] <frequent> ah.
+[13:45:23] <frequent> ok, then... I will try to land somewhere until next week
+[13:45:35] <uGoMobi> frequent: thanks!
+[13:45:50] <frequent> will the table widget(s) stay as they are currently, or is anyone re-shuffling into a single widget?
+[13:46:07] <arschmitz> they will stay as they are in master right now
+[13:46:20] <frequent> ok. good.
+[13:46:23] <arschmitz> we are not doing any further refactoring on those until 1.5
+[13:46:30] <frequent> ok
+[13:46:33] <frequent> so, I be testing...
+[13:46:41] <frequent> talk to you tomorrow
+[13:46:48] <arschmitz> time has caught up with us so we are going to have to wait on some things
+[13:46:54] <arschmitz> sounds good
+[13:46:55] <frequent> np
+[13:48:08] <arschmitz> uGoMobi: i was thinking i should try and bust out namespace change this week if i can that way we can try and deprecate as much of the convergance related stuff at once as possible
+[13:48:43] <arschmitz> ex mobile base widget / current autoinit / mobile core / namespace
+[13:49:33] <uGoMobi> arschmitz: yeah that would be great
+[13:49:44] <arschmitz> it should not be a big deal in code
+[13:49:49] <arschmitz> will be a lot of work in docs!
+[13:50:18] <uGoMobi> omg so much docs update to do :(
+[13:50:43] <arschmitz> oh yeah its just insane i almost think its worse then the api switch
+[13:58:33] <arschmitz> uGoMobi: hmm so there are sone problems in the docs
+[13:58:46] <arschmitz> http://view.jquerymobile.com/master/demos/widgets/fixed-toolbars/footer-persist-c.php
+[13:59:15] <arschmitz> hmmm weird
+[13:59:21] <arschmitz> does not happen if i go straight there
+[13:59:32] <uGoMobi> arschmitz: which problem do you mean?
+[13:59:48] <arschmitz> uGoMobi: i cant make it happen again evey image was broken on that page
+[14:00:14] <arschmitz> uGoMobi: but am i crazy or is the flash of unstyled content not happening there?
+[14:00:57] <uGoMobi> arschmitz: i think we set a theme for the footer in the demos
+[14:01:06] <arschmitz> ah ok
+[14:01:25] <arschmitz> uGoMobi: ill look at that more tonight gota run right now though have a good night
+[14:01:27] <uGoMobi> hmm
+[14:01:36] <uGoMobi> seems like we don't
+[14:01:48] <uGoMobi> arschmitz: ok thanks, good night!

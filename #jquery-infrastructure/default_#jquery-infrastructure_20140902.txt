@@ -1,0 +1,70 @@
+[03:27:30] <jqcommit> [13bugs.jquery.com] 15teo1978 opened issue #25: "forgot your password" requires email AND username 02http://git.io/zIhotw
+[06:14:55] <jzaefferer> s5fs: I'm hoping my infra issue streak ends with that :-)
+[09:19:46] <s5fs> jzaefferer: haha! assuming it worked, your change was totally benign. it was gnarf who introduced the puppet error and I apparently broke jq01
+[09:34:48] <s5fs> ping ping is anyone around?
+[10:25:13] <gnarf> Krinkle: what paths?
+[10:25:39] <gnarf> jzaefferer: sorry i created that puppet error
+[10:25:54] <gnarf> s5fs: btw, re https://github.com/jquery/infrastructure/commit/6728b6d4648e154ae98bae49592c8839109f66c3
+[10:26:11] <gnarf> s5fs: should have probably done it the other way around, need all webhosts to remove apache, not only wordpress
+[10:30:03] <s5fs> gnarf: agreed, I saw the commit and felt the same way. however, I was freaking out since jq01 was down and wasn't feeling like auditing all places where webhost was being used ;)
+[10:30:18] <gnarf> s5fs: i had to add it to get jq03 to provision correctly
+[10:30:26] <s5fs> gnarf: good grief
+[10:30:37] <s5fs> how was it working previously?
+[10:30:44] <gnarf> it used to be there in webhost
+[10:30:48] <s5fs> ah
+[10:30:55] <gnarf> but i think someone added it to wordpress (maybe ryanneufeld when he was doing vagrant wp machine)
+[10:31:03] <gnarf> so now it clashes 
+[10:31:07] <s5fs> sounds like something he would do ;)
+[10:31:15] <s5fs> okay lemme fix up webhost then, hang tite
+[10:31:39] <Krinkle> gnarf: testswarm-browserstack was in tools and now in bin from puppet
+[10:32:03] <gnarf> Krinkle: moved it to /usr/local
+[10:32:11] <gnarf> and put a symlink to /tools
+[10:32:50] <gnarf> which actually reflects what is on jq03 currently
+[10:32:59] <gnarf> because i moved it
+[10:33:19] <gnarf> is checkout-sha.sh used by anything?
+[10:33:26] <gnarf> or fixupRaceConditionDeletedRunClients.php
+[10:33:58] <Krinkle> gnarf: fixupRaceConditionDeletedRunClients.php was written for testswarm to do what it says on the tin.
+[10:34:01] <Krinkle> Database corruption
+[10:34:12] <Krinkle> Used to happen quite often, then I lost track.
+[10:34:28] <Krinkle> gnarf: Where is it located? I'll take a lot
+[10:34:30] <Krinkle> look
+[10:45:10] <jqcommit> [13infrastructure] 15Krinkle opened issue #285: Jenkins: Build log rendering corrupted (regression) 02https://github.com/jquery/infrastructure/issues/285
+[11:17:20] <gnarf> Krinkle: it's in /tools
+[11:22:54] <Krinkle> gnarf: ok, script is redundant
+[11:23:08] <Krinkle> is from before run_client table was dropped and rewritten to a runresults table
+[11:34:30] <gnarf> Krinkle: so we can just delete/forget about it?
+[11:34:37] <gnarf> do you know about the checkout sha one?
+[11:34:49] <gnarf> Krinkle: we are going to have to move the services on jq03 very soon
+[11:34:55] <gnarf> Krinkle: are you going to be in chicago?
+[11:35:01] <Krinkle> Yes
+[11:35:16] <gnarf> Krinkle s5fs - we should move jq03 together so krinkle can run some tests on swarm
+[11:37:00] <Krinkle> It's quite fragile. I can figure all of it out, but I will need to live state to reconstruct it. E.g. don't break stuff without backups, I won't know how it was. But what's there, I'll understand. I tend to leave comments, usually clear enough for others, too :)
+[11:38:22] <s5fs> gnarf: i'm game for that, let me know when
+[11:38:57] <gnarf> Krinkle: yeah - we will have to kill the dns, but going to keep the old server alive
+[11:39:02] <gnarf> for a little bit at least
+[11:39:10] <gnarf> Krinkle: also jq03.stage is setup on a new machine now
+[11:39:24] <Krinkle> where should the services go?
+[11:39:41] <gnarf> what services?
+[11:39:45] <Krinkle> testswarm
+[11:39:46] <gnarf> everything should be up and running
+[11:39:49] <Krinkle> or is the server not deprecated?
+[11:39:50] <gnarf> everything should go in puppet
+[11:39:53] <Krinkle> right
+[11:39:58] <Krinkle> that
+[11:40:01] <Krinkle> OK :)
+[11:40:08] <jqcommit> [13infrastructure] 15aulvi pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/765a35a44d4688822409d560522b8b0eff2492f2
+[11:40:08] <jqcommit> 13infrastructure/06puppet-stage 14765a35a 15Adam Ulvi: Moved the 'no apache' logic out of Wordpress and into Webhost, where it belongs.
+[11:40:26] <Krinkle> gnarf: "we should move jq03"
+[11:40:38] <jqcommit> [13infrastructure] 15aulvi merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/6728b6d4648e...765a35a44d46
+[11:41:10] <s5fs> gnarf: I reorganized the pp files as you suggested, review the commits if you're interested
+[12:37:44] <gnarf> Krinkle|detached: we will be taking jq03 offline - (mt) is killing the server it is on 
+[12:37:50] <gnarf> we need to move it to a new host
+[12:37:54] <gnarf> so, transfer data, etc
+[13:01:15] <Krinkle> gnarf: OK.. So it is deprecated after all
+[13:01:19] <Krinkle> I thought so
+[14:20:40] <s5fs> Krinkle: yup. the physical host is being retired so we are like hermit crabs without a shell.
+[14:24:00] <Krinkle> gnarf: removed fixupRaceConditionDeletedRunClients.php
+[14:24:44] <Krinkle> gnarf: checkout-sha.sh looks like the script we use to set up the 30-day rotated build directories with snapshots for public url testing
+[14:25:04] <Krinkle> possible obsolete with someone else now that we do this from jenkins.jquery.com instead to builds.
+[14:25:10] <Krinkle> builds.jenkins
+[14:25:14] <Krinkle> something(

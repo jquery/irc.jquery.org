@@ -1,0 +1,104 @@
+[02:09:10] <doesallmagic> Project jQuery UI - git core build #263: STILL FAILING in 4 min 32 sec: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%20git%20core/263/
+[02:10:49] <doesallmagic> Project jQuery UI 1-9-stable - git core build #49: STILL FAILING in 1 min 38 sec: http://swarm.jquery.org:8080/job/jQuery%20UI%201-9-stable%20-%20git%20core/49/
+[03:16:30] <doesallmagic> Project jQuery UI - 1.6.x core build #160: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.6.x%20core/160/
+[04:01:47] <doesallmagic> Project jQuery UI - 1.7.x core build #161: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.7.x%20core/161/
+[04:47:03] <doesallmagic> Project jQuery UI - 1.8.x core build #136: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.8.x%20core/136/
+[05:08:13] <jquicommit> 01[13jquery-ui01] 15mikesherov pushed 1 new commit to 06master: 02http://git.io/8RcQaw
+[05:08:13] <jquicommit> 13jquery-ui/06master 140d4022b 15Mike Sherov: Tests: Convert single quotes to double quotes.
+[05:18:29] <petro> mikesherov, you on?
+[05:18:46] <mikesherov> petro: yo
+[05:19:39] <petro> i finished most of the clip rewrite :), just edge cases and tests to go
+[05:20:29] <mikesherov> really? link to branch?
+[05:20:34] <petro> although there is one painful wrinkle…. webkit getcomputedstyle returns the wrong value for clip "auto" values
+[05:20:38] <petro> https://bugs.webkit.org/show_bug.cgi?id=20454
+[05:20:51] <petro> no activity since 2011 :-\
+[05:22:15] <mikesherov> Yeah, but you should post on that bug mentioning your use case and advocating for it
+[05:22:50] <mikesherov> long standing bugs get traction when a valid use case in a large library is advocated for.
+[05:23:14] <petro> yep, will do
+[05:24:21] <mikesherov> jarred Nicholls is usually pretty responsive to bugs in gCS
+[05:24:23] <mikesherov> https://bugs.webkit.org/buglist.cgi?query_format=advanced&short_desc_type=allwordssubstr&short_desc=&long_desc_type=substring&long_desc=&bug_file_loc_type=allwordssubstr&bug_file_loc=&keywords_type=allwords&keywords=&bug_status=UNCONFIRMED&bug_status=NEW&bug_status=ASSIGNED&bug_status=REOPENED&bug_status=RESOLVED&bug_status=VERIFIED&bug_status=CLOSED&emailassigned_to1=1&emailreporter1=1&emailcc1=1&emaillongdesc1=1&em
+[05:24:24] <mikesherov> type1=substring&email1=mike.sherov%40gmail.com&emailtype2=substring&email2=&bugidtype=include&bug_id=&chfieldfrom=&chfieldto=Now&chfieldvalue=&cmdtype=doit&order=Reuse+same+sort+as+last+time&field0-0-0=noop&type0-0-0=noop&value0-0-0=
+[05:25:53] <petro> are they using trac too? painfully slow haha
+[05:26:13] <mikesherov> Trac and bugzilla
+[05:26:57] <mikesherov> petro: why is that Webkit bug blocking you though?
+[05:28:19] <petro> there's no way to distinguish between "auto" and 0px values when i'm animating from the original author-specified clip value to the animation end value
+[05:28:31] <petro> i'm pushing my branch now, so you can see
+[05:29:27] <mikesherov> a workaround you may want to consider is falling back to <Node>.style.clip instead of getComputedStyle(<Node>, null).clip when you hit that edge case… .style.clip will give you the inline style value, which may resolve the issue
+[05:32:17] <doesallmagic> Project jQuery UI 1-9-stable - 1.6.x core build #40: FAILURE in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%201-9-stable%20-%201.6.x%20core/40/
+[05:34:07] <petro> only the inline style value?
+[05:35:29] <mikesherov> petro, yes
+[05:35:41] <mikesherov> this is the problem with getComputedStyle… it's a jerk
+[05:35:58] <mikesherov> querying CSS info is painfully gimped
+[05:36:50] <mikesherov> you only have the choice of "validated specified inline value" with .style, or "validated resolved value" with getComputedStyle
+[05:36:51] <petro> https://github.com/mpetrovich/jquery-ui/compare/clip
+[05:37:17] <petro> yeah that's pretty limiting, especially when the "computed" style isn't consistent
+[05:37:38] <petro> ^ that branch is a work in progress, still working out some bugs when margins are present
+[05:38:12] <petro> for non-image elements, animating clip isn't very fluid
+[05:40:25] <petro> nvm that last comment, that webkit bugtracker was hogging my cpu
+[05:40:38] <mikesherov> so, a couple of notes… that webkit bug isn't in your way
+[05:41:01] <mikesherov> here's why… before the animation, just store <Node>.style.clip in a var
+[05:41:11] <mikesherov> and then set it back to that at the end of the animatin
+[05:41:23] <mikesherov> in 99% of cases, it's empty string anyway
+[05:41:38] <petro> restoring the original clip value isn't the issue
+[05:41:49] <petro> $.effects.save() takes care of that
+[05:42:08] <mikesherov> ok...
+[05:42:22] <mikesherov> it's detecting what the real initial values are for the object...
+[05:42:23] <mikesherov> got it
+[05:42:24] <petro> it's line 35, start = { … }
+[05:42:57] <petro> for bottom & right, "auto" actually means height() & width()
+[05:43:08] <mikesherov> right
+[05:43:40] <petro> in terms of general approach, what do you think?
+[05:44:26] <mikesherov> Pretty good!
+[05:45:06] <mikesherov> I would say instead of animating {a:0} to {a:1}, you can just directly animate `start` to `end`
+[05:45:15] <mikesherov> so you don't need to compute delta
+[05:45:27] <mikesherov> that's what animate does for you!
+[05:45:33] <petro> oh lol
+[05:45:36] <petro> great point
+[05:45:45] <mikesherov> your step function can then just do the .css line
+[05:45:55] <petro> \/facepalm
+[05:46:29] <mikesherov> :-P
+[05:47:17] <petro> beautiful, that works perfectly
+[05:47:47] <mikesherov> also, it's easier to reverse the conditional for display detection
+[05:47:48] <petro> i could also save some bytes by converting start & end to arrays instead of objects
+[05:48:03] <mikesherov> where you check for specific block displays instead of the reverse
+[05:48:40] <petro> you sure? http://dev.w3.org/csswg/css3-box/#block-level-boxes-containing-blocks-flow
+[05:52:09] <petro> after reading more into the docs, "compact" is usually block
+[05:52:35] <mikesherov> good point, but compact and run-in should be removed
+[05:53:32] <mikesherov> and on top of that, you can do a regex for /inline|ruby/
+[05:53:33] <mikesherov> smaller and faster
+[05:54:08] <petro> regex faster than 3 comparisons?
+[06:01:49] <petro> http://jsperf.com/regexp-test-search-vs-indexof/12
+[06:01:59] <petro> i was curious :D
+[06:10:39] <rxaviers> team, 1.10 has different files than previous versions. I am changing builder unit test to handle that differences since we'll be serving 1.9 and 1.10. When we begin to serve stable and legacy with the same file structure we can simplify unit test back. If you think we should not add this complexity right now, please advise.
+[06:17:28] <doesallmagic> Project jQuery UI 1-9-stable - 1.7.x core build #41: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%201-9-stable%20-%201.7.x%20core/41/
+[07:02:36] <doesallmagic> Project jQuery UI 1-9-stable - 1.8.x core build #41: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%201-9-stable%20-%201.8.x%20core/41/
+[07:48:52] <doesallmagic> Project jQuery UI build #901: STILL FAILING in 46 min: http://swarm.jquery.org:8080/job/jQuery%20UI/901/
+[07:48:53] <doesallmagic> mike.sherov: Tests: Convert single quotes to double quotes.
+[10:03:23] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 1 new commit to 06master: 02http://git.io/3JHZTQ
+[10:03:23] <jquicommit> 13download.jqueryui.com/06master 14a89634c 15Rafael Xavier de Souza: Update builder unit test according to 1.10.0. Fixes #59...
+[10:03:57] <doesallmagic> Project download.jqueryui.com build #75: FAILURE in 34 sec: http://swarm.jquery.org:8080/job/download.jqueryui.com/75/
+[10:03:57] <doesallmagic> rxaviers: Update builder unit test according to 1.10.0. Fixes #59
+[11:28:17] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 2 new commits to 06master: 02http://git.io/BeeNvw
+[11:28:17] <jquicommit> 13download.jqueryui.com/06master 145124b6c 15Rafael Xavier de Souza: Fix indentation s/<space>/<tab>
+[11:28:17] <jquicommit> 13download.jqueryui.com/06master 149b4a34b 15Rafael Xavier de Souza: Use zThemeParams on link of generated CSS when appropriate
+[11:28:43] <doesallmagic> Project download.jqueryui.com build #76: STILL FAILING in 29 sec: http://swarm.jquery.org:8080/job/download.jqueryui.com/76/
+[11:28:43] <doesallmagic> * rxaviers: Fix indentation s/<space>/<tab>
+[11:28:44] <doesallmagic> * rxaviers: Use zThemeParams on link of generated CSS when appropriate
+[11:43:03] <jquicommit> [13download.jqueryui.com] 15rxaviers opened issue #70: Opacity 100  02http://git.io/J1yi5A
+[12:04:20] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 1 new commit to 06master: 02http://git.io/9CMLlQ
+[12:04:20] <jquicommit> 13download.jqueryui.com/06master 146452813 15Rafael Xavier de Souza: Fixes opacity variables for value == 100. Fixes #70...
+[12:04:42] <doesallmagic> Project download.jqueryui.com build #77: STILL FAILING in 26 sec: http://swarm.jquery.org:8080/job/download.jqueryui.com/77/
+[12:04:43] <doesallmagic> rxaviers: Fixes opacity variables for value == 100. Fixes #70
+[12:26:08] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 1 new commit to 06master: 02http://git.io/cAoVoQ
+[12:26:08] <jquicommit> 13download.jqueryui.com/06master 1499b37a6 15Rafael Xavier de Souza: Amend previous commit by keep stripping beginning zero from decimal opacity.  Fixes #70...
+[12:26:29] <doesallmagic> Project download.jqueryui.com build #78: STILL FAILING in 25 sec: http://swarm.jquery.org:8080/job/download.jqueryui.com/78/
+[12:26:30] <doesallmagic> rxaviers: Amend previous commit by keep stripping beginning zero from decimal opacity.  Fixes #70
+[12:37:10] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 1 new commit to 06master: 02http://git.io/3eE_og
+[12:37:10] <jquicommit> 13download.jqueryui.com/06master 143467de5 15Rafael Xavier de Souza: Ops. Fix a89634c (minor fix)
+[12:37:37] <doesallmagic> Yippie, build fixed!
+[12:37:38] <doesallmagic> Project download.jqueryui.com build #79: FIXED in 31 sec: http://swarm.jquery.org:8080/job/download.jqueryui.com/79/
+[12:37:38] <doesallmagic> rxaviers: Ops. Fix a89634c (minor fix)
+[12:57:38] <jquicommit> 01[13download.jqueryui.com01] 15rxaviers pushed 1 new commit to 06master: 02http://git.io/gmbIlQ
+[12:57:38] <jquicommit> 13download.jqueryui.com/06master 140b56712 15Rafael Xavier de Souza: Ops2. We are not able to use 9b4a34b for custom themes unless asynchronously
+[12:58:05] <doesallmagic> Project download.jqueryui.com build #80: SUCCESS in 31 sec: http://swarm.jquery.org:8080/job/download.jqueryui.com/80/
+[12:58:06] <doesallmagic> rxaviers: Ops2. We are not able to use 9b4a34b for custom themes unless asynchronously

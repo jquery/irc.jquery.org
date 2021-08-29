@@ -1,0 +1,325 @@
+[09:01:14] <DaveMethvin> meeting time! markelog m_gol timmywil gibson042 mikesherov rwaldron  and other interested parties
+[09:01:23] <DaveMethvin> man, August is a slow slow month
+[09:01:57] <DaveMethvin> https://docs.google.com/document/d/1su2ZTFZbnp_DD-LGZleuEudTFRJT_g4zf7UfGOMQvco/edit
+[09:02:22] <markelog> hey
+[09:03:01] <DaveMethvin> hey markelog looks like it may just be you and me
+[09:03:14] <markelog> lonenly day today )
+[09:03:31] <DaveMethvin> oh there is gibson042
+[09:03:36] <gibson042> hi
+[09:04:00] <DaveMethvin> so i think both of you liked the initialization via chaining
+[09:04:14] <DaveMethvin> scott's looks like markelog's in that way
+[09:04:47] <m_gol> I'm on the road
+[09:04:49] <markelog> there some differences
+[09:04:54] <DaveMethvin> one thing i'm not sure about is whether it is considered "okay" to munge promises with extra properties like that
+[09:04:54] <markelog> but they look alike
+[09:05:14] <markelog> extra props?
+[09:05:22] <markelog> what do you mean?
+[09:05:29] <DaveMethvin> let me look
+[09:05:45] <markelog> o, like abort?
+[09:06:05] <DaveMethvin> https://gist.github.com/scottgonzalez/cc85abedbca0ae4e9f47#file-xhr-js-L36
+[09:06:24] <DaveMethvin> yeah
+[09:07:13] <DaveMethvin> we had a ticket come in where someone was confused about jqXHR for a case like that
+[09:07:22] <markelog> mmm, why would you do "setRequestHeader" after you send()?
+[09:07:23] <DaveMethvin> since any .then() loses the extra properties
+[09:07:48] <DaveMethvin> that may have been to avoid needing two lists but i agree you don't
+[09:08:04] <DaveMethvin> actually i don't think you can abort before send can you?
+[09:08:20] <markelog> that would be weird, what would you abort?
+[09:08:22] <markelog> )
+[09:08:24] <DaveMethvin> so the two lists may be mutually exclusive
+[09:08:55] <gibson042> $.ajax has code to cover abort before send
+[09:08:57] <DaveMethvin> well again, someone complained about a similar situation with the jqXHR a while back
+[09:09:00] <DaveMethvin> yeah
+[09:09:07] <markelog> why?
+[09:09:18] <markelog> why would anyone would do this?
+[09:09:21] <DaveMethvin> probably abort is being treated like somr sort of reset
+[09:09:27] <DaveMethvin> i can't recall the ticket
+[09:09:37] <markelog> isn't easier to create new xhr?
+[09:09:42] <DaveMethvin> let's see if we can find it
+[09:09:53] <DaveMethvin> haha trac
+[09:09:55] <DaveMethvin> :(
+[09:09:58] <markelog> )
+[09:10:00] <gibson042> I think it was to cover hooks (e.g., transport)
+[09:10:13] <DaveMethvin> yeah and whatever it was would not apply here
+[09:10:29] <DaveMethvin> so there are probably two different method lists for pre/post send enhancement
+[09:10:58] <markelog> i wouldn't extend promise with new methods
+[09:11:22] <DaveMethvin> how do you abort a request then?
+[09:11:31] <DaveMethvin> you don't get the xhr until it completes
+[09:11:58] <markelog> well, i would do exactly how i did in my proposal )
+[09:12:45] <DaveMethvin> i don't see an abort case there
+[09:12:53] <markelog> i wouldn't provide promise right away, only if user would request it
+[09:13:19] <markelog> so in my case, it would return an object with xhr prop inside
+[09:13:41] <markelog> and if promise() method was called it would return a promise
+[09:13:48] <DaveMethvin> ah ok
+[09:14:16] <markelog> btw that method doesn't require promise impl
+[09:14:21] <markelog> just saying )
+[09:14:31] <DaveMethvin> yes, understood
+[09:14:50] <DaveMethvin> and this one does, plus it kind of depends on Promise
+[09:15:10] <DaveMethvin> since it jumps on the object to do its magic
+[09:15:13] <markelog> so we would need to add some promise shim in the default build?
+[09:15:18] <m_gol> That makes it more difficult to use the underlying promise
+[09:15:19] <DaveMethvin> yep
+[09:15:28] <DaveMethvin> right it's a tradeoff
+[09:15:50] <DaveMethvin> but markelog since abort can't be used until after the promise was gotten, how would you abort the request for your case?
+[09:16:00] <DaveMethvin> call a .native() and save the xhr away i guess?
+[09:16:20] <DaveMethvin> so you could call xhr.abort()
+[09:16:30] <DaveMethvin> which i suppose would fail the promise
+[09:17:06] <markelog> well it can
+[09:17:15] <markelog> if i understood you correctly
+[09:17:22] <markelog> you would do send()
+[09:17:27] <markelog> which would return an object
+[09:17:37] <markelog> in there you would find an xhr prop
+[09:17:41] <markelog> and promise() method
+[09:17:47] <markelog> that would return a promise
+[09:18:13] <markelog> do i answering to the right question? )
+[09:18:14] <gibson042> why do that over just exposing a .then, though?
+[09:18:40] <markelog> one way to go
+[09:18:56] <DaveMethvin> well, .then() would need to make a Promise, so we're back to the question of where Promise comes from
+[09:19:03] <DaveMethvin> shim, or native?
+[09:19:11] <DaveMethvin> bring your own, or we provide one?
+[09:19:16] <DaveMethvin> paper or pastic?
+[09:19:20] <markelog> but with that approach you wouldn't need a shim
+[09:19:29] <DaveMethvin> right, unless you wanted a promise
+[09:19:44] <gibson042> ugh
+[09:19:45] <DaveMethvin> which is also what i wanted to avoid
+[09:19:49] <markelog> yeah and you would decide what kind of promise lib you would use
+[09:19:57] <markelog> it can be bluebird, q
+[09:20:00] <markelog> whatever
+[09:20:24] <DaveMethvin> and the people most hot about promises seem to like various libs, not sure there is a common one
+[09:20:45] <markelog> common is deferred )
+[09:20:49] <markelog> since it in jQuery
+[09:20:50] <markelog> )
+[09:20:53] <DaveMethvin> yep
+[09:21:04] <markelog> it could by default
+[09:21:16] <DaveMethvin> no i wouldn't want it to change type
+[09:21:24] <gibson042> Promise.resolve( myJQXHR )
+[09:21:32] <gibson042> that's your cast
+[09:21:32] <DaveMethvin> which, to some extent, it DOES when you use native Promise, q, bluebird
+[09:21:36] <markelog> i'm sounding like a vacuum cleaner salesman )
+[09:22:04] <markelog> change type?
+[09:22:10] <markelog> mm?
+[09:22:15] <DaveMethvin> not all promises are alike
+[09:22:25] <DaveMethvin> Bluebird puts in a bunch of stuff not in native Deferred
+[09:22:48] <markelog> we would support only those that support ES6 approach
+[09:22:55] <markelog> and deferred
+[09:23:04] <DaveMethvin> you mean, support a strict subset then?
+[09:23:16] <markelog> aam, not exactly
+[09:23:21] <DaveMethvin> at some point we end up with the strictest subset, a thenable
+[09:23:29] <DaveMethvin> and the gibson042 approach makes sense
+[09:23:39] <markelog> that thing is, that all create promise the same way
+[09:23:45] <DaveMethvin> but having to do that after every call will get tedious
+[09:24:00] <markelog> and resolve/reject them the same way
+[09:24:13] <markelog> so we would create it return it
+[09:24:19] <markelog> and resolve/reject it
+[09:24:30] <markelog> as long as it uses es6
+[09:24:48] <DaveMethvin> i think that was the goal of using the really minimal promise shim
+[09:24:54] <DaveMethvin> no extras
+[09:25:08] <DaveMethvin> and we only use the minimal standard functionality
+[09:25:15] <markelog> extras, by they thought should be provided by the promise lib
+[09:25:29] <markelog> but nyway
+[09:25:36] <markelog> so if you would do
+[09:25:59] <markelog> promise( Q ) you would have all methods that the promise lib provides
+[09:26:05] <markelog> including then
+[09:26:19] <DaveMethvin> yeah i saw that
+[09:26:25] <markelog> it would not be our resposobility of waht they return
+[09:26:25] <DaveMethvin> oh now i understand
+[09:26:42] <DaveMethvin> since the caller said which library they wanted, they get the methods they want
+[09:26:47] <markelog> right!
+[09:27:02] <markelog> so we wouldn't need a shim
+[09:27:09] <markelog> with that idea
+[09:27:24] <DaveMethvin> although, the person would need to specify it on every call, which is tedious
+[09:27:52] <markelog> yeah, that is a downside
+[09:28:21] <markelog> our they could use our deferred, which could be by default
+[09:28:37] <markelog> i.e. promise() without the arguments
+[09:28:43] <DaveMethvin> then we create a dependency on Deferred tho
+[09:28:56] <DaveMethvin> which I'd like people to be able to leave out if they wanted
+[09:28:58] <markelog> it would be a noop if deferred aren't included
+[09:29:01] <DaveMethvin> maybe if nothing were provided we could default to standard Promise (or a shim at window.Promise)
+[09:29:11] <gibson042> the more we talk about this, the more it seems like we're jumping the gun
+[09:29:12] <markelog> yeah
+[09:29:21] <markelog> just talking
+[09:29:22] <gibson042> Deferred really needs to be beat into shape
+[09:29:22] <markelog> )
+[09:29:29] <gibson042> or dropped, or whatever
+[09:29:30] <DaveMethvin> i agree, it seems like Promise is still up in the air
+[09:29:42] <DaveMethvin> and Deferred is too much different from Promise to be changed to conform
+[09:29:56] <markelog> right
+[09:29:57] <m_gol> DaveMethvin: What do you mean by "up in the air"?
+[09:30:19] <DaveMethvin> the way people are using it and all its current implementations
+[09:30:25] <DaveMethvin> q, Bluebird, etc
+[09:30:27] <gibson042> is it? how far off are we really on the lowest common denominator of .then?
+[09:30:43] <gibson042> I really should dig in on that point
+[09:30:55] <markelog> i already did
+[09:30:58] <m_gol> The ES6 Promise is not up in the air ;)
+[09:31:03] <markelog> there is four diffs
+[09:31:18] <markelog> i would give you the link by trac, well
+[09:31:20] <DaveMethvin> no ES6 Promise is not up in the air, but it's not widely impelmented
+[09:31:28] <DaveMethvin> hah
+[09:31:32] <gibson042> the extra args/forced async/etc. summary, right?
+[09:31:39] <DaveMethvin> gibson042: right
+[09:31:39] <markelog> right!
+[09:31:52] <markelog> only errors in xhr case
+[09:31:55] <markelog> is the problem
+[09:32:13] <markelog> so for it we could create special deferred wich wouldn't not propogate
+[09:32:18] <markelog> since
+[09:32:26] <markelog> xhr promises
+[09:32:31] <markelog> are always be async
+[09:32:38] <markelog> and always have a one arg
+[09:33:18] <DaveMethvin> seems reasonable
+[09:33:18] <markelog> i meant errors wouldn't propogate
+[09:33:28] <markelog> if that wasn't clear
+[09:33:29] <DaveMethvin> but we are then having it return a Deferred
+[09:33:43] <DaveMethvin> which isn't an ES6 Promise or shim of one
+[09:33:53] <DaveMethvin> it can be converted to one
+[09:33:54] <DaveMethvin> but
+[09:34:04] <markelog> by they would act like es6
+[09:34:06] <DaveMethvin> users will start using the Deferred behavior
+[09:34:10] <DaveMethvin> like .done etc
+[09:34:24] <markelog> is that bad?
+[09:34:33] <DaveMethvin> i think so
+[09:34:45] <markelog> you concern that done could have different purpose in new spec?
+[09:34:45] <DaveMethvin> unless that's the way we expose the api, documenting it as Deferred
+[09:34:50] <DaveMethvin> which isn't Promise
+[09:34:53] <m_gol> I wouldn't put Deferred into picture here
+[09:35:06] <m_gol> It was supposed to be small => no Deferred
+[09:35:28] <markelog> since it a special deferred we could remove all methods except for then
+[09:35:28] <DaveMethvin> i don't want to create a dependency on Deferred since the world is going to Promise
+[09:35:56] <DaveMethvin> markelog: that might work ... anyone else have thoughts?
+[09:35:59] <m_gol> DaveMethvin: +1
+[09:36:21] <gibson042> I like that too
+[09:36:23] <DaveMethvin> don't know what it would take to create such a think
+[09:36:26] <DaveMethvin> thing
+[09:36:38] <markelog> well we could try and found out )
+[09:37:01] <DaveMethvin> it might be useful to have a super-basic thenable
+[09:37:10] <markelog> probably not much i think
+[09:37:13] <DaveMethvin> markelog could you take a look?
+[09:37:19] <markelog> sure can
+[09:37:21] <gibson042> with Deferred derived from the new thenable
+[09:37:36] <DaveMethvin> yeah
+[09:38:04] <markelog> but this stuff should be inside xhr
+[09:38:20] <markelog> so we would decide on it interface first?
+[09:38:25] <gibson042> markelog: +1
+[09:38:53] <DaveMethvin> yeah
+[09:40:03] <DaveMethvin> looking at scott's and markelog's code
+[09:41:10] <DaveMethvin> scott's augments the promise even before send()
+[09:41:23] <DaveMethvin> which means the chained methods are returning the promise they gog
+[09:41:25] <DaveMethvin> got
+[09:41:26] <gibson042> I've also been wondering if we could slightly Promise-ify Deferred w.r.t. errors
+[09:41:49] <DaveMethvin> i like markelog suggestion better since it's not a promise in the chain
+[09:41:52] <gibson042> since we lost that battle anyway, maybe we just join ES6
+[09:42:11] <DaveMethvin> gibson042: however, people need to know to expect and handle errors explicitly
+[09:42:18] <DaveMethvin> otherwise they're silently swallowed
+[09:42:23] <gibson042> yeah
+[09:42:28] <DaveMethvin> also we don't really treat resolve/reject right
+[09:42:33] <DaveMethvin> we treat it more like an if/then
+[09:42:37] <DaveMethvin> in our usage
+[09:43:01] <DaveMethvin> really it's "here is a value" / "i couldn't give you a value"
+[09:43:03] <gibson042> but I don't think we ever documented what happens to errors in handlers
+[09:43:12] <DaveMethvin> wat!
+[09:43:12] <b-ot> DaveMethvin: life is hard...  be alive is funny... sufferin for other happyness is a non sense
+[09:43:14] <DaveMethvin> jaubourg: !!!!
+[09:43:19] <jaubourg> did I miss the fun or something?
+[09:43:30] <DaveMethvin> oh nothin going on here ...
+[09:43:32] <DaveMethvin> :)
+[09:43:38] <jaubourg> oh fine, I'll deco then...
+[09:43:40] <DaveMethvin> you should catch up
+[09:43:41] <jaubourg>  /me hides
+[09:43:49] <jaubourg> sup?
+[09:43:55] <markelog> hey jaubourg!
+[09:43:58] <DaveMethvin> we're just talking about $.xhr
+[09:44:02] <m_gol> Hi :)
+[09:44:02] <jaubourg> hey oleg, guys
+[09:44:02] <DaveMethvin> and Promises
+[09:44:04] <gibson042> I *HATE* that they get swallowed, but we'd at least be consistent with native behavior
+[09:44:05] <DaveMethvin> and Deferred
+[09:44:15] <jaubourg> oh that
+[09:44:18] <DaveMethvin> but you really need to change your code to deal with that
+[09:44:31] <gibson042> DaveMethvin: I don't think so
+[09:44:34] <DaveMethvin> and there's too much deployed code out there for Deferred that expects errors to be thrown
+[09:45:07] <jaubourg> we can have .then swallow exceptions and .pipe behave as before
+[09:45:27] <gibson042> the errors are thrown globally anyway
+[09:45:27] <jaubourg> wasn't that the plan if this deadful design flaw made it into the language?
+[09:45:40] <jaubourg> dreadful even
+[09:45:48] <DaveMethvin> but devs have to know that, and we've been shipping a .then for years that didn't swallow errors
+[09:46:04] <jaubourg> .then changed every other versions of jquery anyway
+[09:46:07] <DaveMethvin> gibson042: only on native Promise
+[09:46:07] <gibson042> so now: error in callback throws a (console-visible) error only catchable with window.onerror
+[09:46:10] <m_gol> Gotta go, getting off the bus
+[09:46:21] <gibson042> after change: error in callback gets swallowed until something .catch()es it
+[09:46:38] <DaveMethvin> what if there isn't a catch()?
+[09:47:01] <jaubourg> m_gol; bye
+[09:47:04] <gibson042> then the error hides forever
+[09:47:08] <DaveMethvin> right
+[09:47:09] <jaubourg> \o/
+[09:47:10] <gibson042> like I said, I *HATE* it, but that's what native Promise does
+[09:47:14] <markelog> bluebird does this thing, it worns you in the console if there wasn't catch in there
+[09:47:15] <DaveMethvin> which is a behavior change over Deferred
+[09:47:35] <DaveMethvin> markelog: yeah bluebird has thought about error handling well
+[09:47:53] <gibson042> jQuery official plugin to implicitly insert a console.log catch?
+[09:47:56] <DaveMethvin> native Promise is expecting the browser to deal with unhandled exceptions in a chain
+[09:48:26] <DaveMethvin> i just think it would be impossible to debug a lot of code out there if we swallowed exceptions in Deferred
+[09:48:44] <jaubourg> problem is it's impossible... just store a promise in a variable, use it with two code pieces and ask yourself: who is supposed to call catch?
+[09:48:45] <DaveMethvin> too much code that assumes bad things throw exceptions
+[09:48:45] <markelog> gibson042: mm?
+[09:49:21] <gibson042> we can release a plugin that auto-inserts a .catch
+[09:49:37] <gibson042> by duckpunching the relevant .then
+[09:49:41] <jaubourg> the design flow is evident but this ship has sailed. I'd say, make then catch exceptions and keep pipe as a safeguard
+[09:49:59] <markelog> gibson042: got it )
+[09:50:00] <jaubourg> that WAS the plan afaik
+[09:50:03] <DaveMethvin> it's really hard to know when something is "handled"
+[09:50:16] <DaveMethvin> when you have an hour, read through this ticket: https://code.google.com/p/v8/issues/detail?id=3093
+[09:50:41] <gibson042> DaveMethvin: in the general case, it's impossible to know
+[09:50:43] <markelog> we have this discussion every other couple of months as i recall )
+[09:50:58] <DaveMethvin> you could create a promise, an exception coudl be thrown immediately and the promise rejected, but you attach a handler a second later to look at it
+[09:51:04] <gibson042> we just need to expose enough for humans to figure it out
+[09:51:15] <gibson042> like the browsers do and Bluebird does
+[09:51:23] <DaveMethvin> but that means we need to keep the Promise around
+[09:51:27] <jaubourg> trying to figure out if a "rexception" is caught is impossible in anything but the most trivial of examples... have said that for years... to deaf ears
+[09:51:41] <gibson042> and we can keep it out of the core files
+[09:51:43] <DaveMethvin> really, look at that ticket
+[09:51:49] <DaveMethvin> it's haaaaard
+[09:52:11] <DaveMethvin> for Promise i have no problem playing by those rules, even if they're dumb rules
+[09:52:14] <DaveMethvin> since it's all new code
+[09:52:26] <DaveMethvin> but we can't change semantics for 4 years worth of Deferred code
+[09:52:44] <jaubourg> DaveMethvin; there's no harm in making then "standard" if we keep pipe around, really
+[09:53:00] <jaubourg> again, then behaviour changed a lot in those 4 years
+[09:53:06] <DaveMethvin> haha yeah
+[09:53:38] <DaveMethvin> so is the proposal to just change "then" to be ES6 behavior?
+[09:53:43] <jaubourg> yep
+[09:53:45] <DaveMethvin> how ES6-y?
+[09:53:49] <DaveMethvin> exxceptions
+[09:53:52] <DaveMethvin> async?
+[09:53:57] <jaubourg> if you remember, that's why we didn't remove pipe
+[09:54:03] <DaveMethvin> yeah
+[09:54:24] <DaveMethvin> right now it's built on callbacks, is there a ripple effect that's gonna bite us?
+[09:54:34] <jaubourg> async or not, it doesn't matter as long as the rest of Deferred stays the same
+[09:54:41] <jaubourg> none
+[09:54:45] <jaubourg> it's just more code
+[09:54:54] <DaveMethvin> MOAR CODE!?
+[09:55:01] <DaveMethvin> i am so disappointed in you jaubourg :)
+[09:55:03] <jaubourg> I'm back... happy now?
+[09:55:14] <DaveMethvin> sure if you can do it in LESS code
+[09:55:17] <DaveMethvin> :)
+[09:55:21] <jaubourg> haha
+[09:55:41] <DaveMethvin> jaubourg: can you put together a proposal for .then changes?
+[09:55:47] <jaubourg> sure
+[09:55:49] <jaubourg> what format?
+[09:55:50] <DaveMethvin> awesome
+[09:56:02] <DaveMethvin> just an email to jquery-devs-team would be fine
+[09:56:06] <jaubourg> k
+[09:56:13] <DaveMethvin> a gist with some code
+[09:56:20] <jaubourg> I'll have to defer (pun pun) that to tomorrow though
+[09:56:27] <DaveMethvin> that's fine
+[09:57:01] <DaveMethvin> that V8 ticket really drove home to me how hard this problem is
+[09:57:37] <jaubourg> well, it's about time some people start realizing the mess automatically catching exceptions is
+[09:57:38] <DaveMethvin> but also it's scary how poorly handled it is right now for a feature that is supposed to be widely used
+[09:58:10] <jaubourg> we tried to avoid this... interested parties didn't listen
+[09:58:15] <jaubourg> so be it
+[09:58:34] <jaubourg> waiting for when promises are relagated in the same category as with
+[09:58:40] <jaubourg> sadly
+[09:58:57] <DaveMethvin> jaubourg: markelog was going to put together a proposal for a simple thenable, maybe the two of you can talk tomorrow and see whether you are on the same page for that?
+[09:59:10] <jaubourg> k
+[09:59:13] <markelog> ok
+[09:59:51] <DaveMethvin> ok i have to take off ... let's see if we can get something resolved this week
+[10:00:02] <DaveMethvin> i'll be on vacation later in the week but checking mail and stuff
+[10:00:18] <DaveMethvin> thanks guys!
+[10:00:22] <jaubourg> k, I have to go too but I'll be sure to send this mail

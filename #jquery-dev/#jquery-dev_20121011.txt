@@ -1,0 +1,500 @@
+[06:16:46] <scott_gonzalez> DaveMethvin: What's the concern with reading the file character by character?
+[06:16:57] <DaveMethvin> it's slow
+[06:17:22] <DaveMethvin> grep seems to do it faster
+[06:17:31] <scott_gonzalez> Maybe we can just read in the whole file and check if the character count and the byte length are the same?
+[06:17:50] <DaveMethvin> that's the same exercise though?
+[06:18:08] <DaveMethvin> you'd have to go through the file to find the "characters"
+[06:18:33] <DaveMethvin> all that really matters is whether there are any bytes >127
+[06:18:59] <scott_gonzalez> Buffer.byteLength() might be faster, not sure.
+[06:19:35] <scott_gonzalez> UI actually requires UTF-8 for our i18n files anyway.
+[06:19:47] <scott_gonzalez> But we don't want that restriction on the non-i18n files.
+[06:20:04] <scott_gonzalez> I can't count the number of times I've accidentally inserted non-breaking spaces into UI.
+[06:20:35] <DaveMethvin> yeah, i think this has been broken for us since 1.8.0
+[06:20:47] <DaveMethvin> definitely need some sort of regression check
+[06:23:13] <scott_gonzalez> Checking char length and byte length seems pretty fast for me.
+[06:23:20] <scott_gonzalez> Try this:
+[06:23:35] <scott_gonzalez> content = fs.readFileSync( filePath );
+[06:23:38] <scott_gonzalez> content.length
+[06:23:47] <scott_gonzalez> Buffer.byteLength( content, "utf8" )
+[06:23:57] <scott_gonzalez> Oh, fs.readFileSync( filePath, "utf8" )
+[06:40:53] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/6tqigA
+[06:40:53] <jqcommit> [jquery/master] Use Uglify's ascii_only to avoid converting UTF-8 escapes. - Dave Methvin
+[06:52:46] <doesallmagic> Project jQuery Core build #401: SUCCESS in 11 min: http://swarm.jquery.org:8080/job/jQuery%20Core/401/
+[06:52:47] <doesallmagic> dave.methvin: Use Uglify's ascii_only to avoid converting UTF-8 escapes.
+[06:53:41] <scott_gonzalez> This looks pretty interesting: http://www.perfectomobile.com/
+[06:54:13] <DaveMethvin> wow
+[06:54:49] <DaveMethvin> so scott_gonzalez it looks like your technique from above works, about as fast as grep
+[06:54:58] <scott_gonzalez> :-)
+[06:54:59] <DaveMethvin> which is to say, 3/4 of a second
+[06:55:09] <DaveMethvin> i just get tired of waiting for builds
+[06:55:13] <scott_gonzalez> It's probably a pure C implementation.
+[06:55:19] <DaveMethvin> it takes about 22 seconds to do a build
+[06:55:35] <scott_gonzalez> 22 seconds for core?
+[06:55:37] <scott_gonzalez> That seems long.
+[06:55:38] <DaveMethvin> i keep looking at the steps and thinking "you shouldn't need to run this time"
+[06:56:01] <scott_gonzalez> It's just lint + concat + min, right?
+[06:56:13] <DaveMethvin> it does a submodule update, linting the code plus grunt plus unit tests, and a few others
+[06:56:24] <scott_gonzalez> oh
+[06:56:25] <DaveMethvin> need to clean that u
+[06:56:26] <DaveMethvin> up
+[06:56:40] <scott_gonzalez> Yeah, you should have a quick build that doesn't do submodules or tests.
+[06:57:03] <DaveMethvin> the hard part is remembering to do the long build before pushing :D
+[06:57:09] <scott_gonzalez> heh
+[06:57:24] <scott_gonzalez> pre-commit hook?
+[06:57:31] <DaveMethvin> hmmm
+[06:57:33] <DaveMethvin> yeah maybe
+[06:58:57] <scott_gonzalez> HAH, I like Fagner's thought on that UTF-8 commit :-)
+[06:59:08] <scott_gonzalez> Force our users to switch.
+[06:59:18] <DaveMethvin> passive agressive ftw
+[07:29:59] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/jMPh0Q
+[07:29:59] <jqcommit> [jquery/master] Use the correct escape for BOM; add build code to detect non-ASCII. - Dave Methvin
+[07:42:40] <doesallmagic> Project jQuery Core build #402: SUCCESS in 12 min: http://swarm.jquery.org:8080/job/jQuery%20Core/402/
+[07:42:40] <doesallmagic> dave.methvin: Use the correct escape for BOM; add build code to detect non-ASCII.
+[08:45:22] <scott_gonzalez> DaveMethvin: Good job getting out of that conversation :-)
+[08:46:06] <DaveMethvin> does it seem i'm being unfair? why does there need to be a jQuery method built in for every possible situation?
+[08:46:13] <DaveMethvin> WHY?
+[08:57:24] <snover> DaveMethvin: hear hear
+[08:57:36] <snover> DaveMethvin: corollary, why does every library need to try to be the best at all things
+[08:58:38] <DaveMethvin> but snover, SVG has <tags> and HTML has <tags>, shouldn't jQuery handle SVG too?
+[08:58:43] <DaveMethvin> they're all <tags>
+[08:58:47] <DaveMethvin> they look the same to me
+[08:58:51] <DaveMethvin> :)
+[08:59:27] <DaveMethvin> and why can't I add/remove stylesheet rules?
+[09:05:50] <scott_gonzalez> $( "link[rel=stylesheet]" ).rules().find( ".foo" ).remove() should remove all styles from the stylesheet!
+[09:05:59] <scott_gonzalez> Oh wait, let's use .contents() for that :-P
+[09:06:14] <DaveMethvin> GAAAAAH!
+[09:07:16] <DaveMethvin> scott_gonzalez: and of course if i have a rule ".foo, .bar {display: none} it only removes the rule for .foo and leaves it for .bar, right :D
+[09:07:31] <scott_gonzalez> Of course.
+[09:07:51] <DaveMethvin> make it so
+[09:08:08] <scott_gonzalez> While we're at it, let's add a method to find all unused rules.
+[09:08:27] <scott_gonzalez> You know, to help people find the stuff they're not using.
+[09:08:39] <DaveMethvin> i like the cut of your jib, sir
+[09:09:28] <ajpiano> guys you don't have to make up new crazy things
+[09:09:36] <ajpiano> someone already suggested a ".cloneTo" method within the last 15 minutes
+[09:10:37] <DaveMethvin> hey i don
+[09:10:45] <DaveMethvin> t have a problem with any of these ideas
+[09:10:49] <DaveMethvin> but they don't belong in core
+[09:11:33] <ajpiano> the problem is kinda that a lot of the stuff that is in core doesn't belong in core :p
+[09:11:44] <DaveMethvin> amen bro!
+[09:12:28] <ajpiano> something that recursed through form.elements for all forms is probably more germane for core than like, slideDown
+[09:12:41] <ajpiano> otoh, one could make a pretty strong argument that the reason jquery got to where it is is because slideDown exists
+[09:13:46] <ajpiano> i, for one, think that browser vendors should add fading behaviour to any element with the class "ohmy" by default
+[09:13:51] <DaveMethvin> i just can't help thinking that people won't put 2+2 together and they want us to do it because that will somehow make it "more efficient"
+[09:13:56] <DaveMethvin> lol
+[09:14:30] <DaveMethvin> $(form.elements).not("select").whatever()
+[09:15:21] <snover> more efficient for them since they do not need to learn how to add methods to jquery
+[09:15:31] <DaveMethvin> and then when they do ask for something really hard it will be misused and we'll be blamed
+[09:21:53] <ajpiano> timmywil: what's wrong with form.elements in ie6/7
+[09:22:51] <ajpiano> i really don't understand the comparison between form.elements and jqueryobj.context
+[09:23:24] <DaveMethvin> oh, right, form.elements is squirrely in oldIE
+[09:23:40] <DaveMethvin> form.length is form.elements.length
+[09:23:55] <DaveMethvin> damn now i have to get another drink, to forget
+[09:24:18] <DaveMethvin> still, that stuff belongs in a plugin
+[09:24:28] <DaveMethvin> and, um, jQuery 2.0!
+[09:24:36] <ajpiano> i'm kinda with timmywil, i can't see how we can actually remove these selectors soonish even if they are inefficient
+[09:24:47] <ajpiano> and yeah, plugin for sure just because of all the edgecases etc
+[09:25:10] <DaveMethvin> the point of deprecating is to tell people they're not best practice
+[09:25:19] <DaveMethvin> just like we aren't removing .live()
+[09:25:21] * johnbender appreciates ajpiano's use of "germane"
+[09:25:24] <DaveMethvin> and don't have plans to remove .live()
+[09:25:37] <DaveMethvin> but .live() is deprecated
+[09:25:51] <DaveMethvin> to tell people it isn't best practice
+[09:25:58] <DaveMethvin> and that it may make your code suckier
+[09:26:06] <ajpiano> DaveMethvin: aye
+[09:26:12] <DaveMethvin> and if you find bugs it's probably because the method sucks anyway :D
+[09:26:22] <DaveMethvin> and we're not gonna "fix" it somehow
+[09:27:07] <scott_gonzalez> DaveMethvin wishes he could do what UI is doing.
+[09:27:15] <scott_gonzalez> "All of this code is going away. Deal with it."
+[09:27:19] <DaveMethvin> scott_gonzalez: yes i do
+[09:27:26] <DaveMethvin> although i don't think you've felt the wrath of that
+[09:27:28] <ajpiano> oh i thought you were going to say "making people throw up in their mouths a little bit"
+[09:27:31] <DaveMethvin> lol
+[09:27:36] <scott_gonzalez> DaveMethvin: Nope, we won't until 1.10.
+[09:27:50] <scott_gonzalez> BUT...I already wrote back-compat plugins for everything :-P
+[09:28:03] <scott_gonzalez> ajpiano: Yeah, we've got that down pat with the new site.
+[09:28:17] <DaveMethvin> and then people will wake up and be burning scott_gonzalez at the stake because they don't want to use back-compat plugins
+[09:28:26] <scott_gonzalez> Oh, you're upset about all these APIs going away? Here, let this new site take your mind off of it...
+[09:28:27] <DaveMethvin> because that implies their code is "old"
+[09:28:37] <scott_gonzalez> Damn right it's old.
+[09:28:40] <scott_gonzalez> You know what I love?
+[09:28:48] <DaveMethvin> YOU CALLED MY BABY UGLY!
+[09:28:50] <scott_gonzalez> When someone files a bug against UI and they're 20 versions behind.
+[09:29:08] <DaveMethvin> that's, what, 5 weeks :P
+[09:29:19] <scott_gonzalez> :-)
+[09:30:08] <DaveMethvin> we've got such an incredibly complex ecosystem, i have some sympathy with devs here but if we don't want to break anything we basically can't *do* anything
+[09:30:10] <scott_gonzalez> We've had 36 stable releases o_O
+[10:05:57] <scott_gonzalez> DaveMethvin: I've got a fun bug on its way to the core tracker :-P
+[10:06:12] <scott_gonzalez> This might be a cantfix, not sure.
+[10:06:21] <DaveMethvin> oh boy!
+[10:07:56] <ryanneufeld> Should we be preparing for more dramatic bug readings?
+[10:08:05] <scott_gonzalez> Do we support html, body { height: 100%; } ?
+[10:08:33] <DaveMethvin> hmmm
+[10:08:41] <DaveMethvin> i know that's been asked before
+[10:08:57] <scott_gonzalez> I wish I could hear the emphasis in that question... more (dramatic bug) readings or (more dramatic) bug readings :-P
+[10:09:02] <DaveMethvin> mikesherov probably has a better handle on it
+[10:09:06] <scott_gonzalez> ok
+[10:09:14] <scott_gonzalez> I'll file the ticket and see what happens
+[10:09:26] <scott_gonzalez> Creating a fiddle right now.
+[10:10:36] <scott_gonzalez> http://jsfiddle.net/bAE53/
+[10:10:47] <scott_gonzalez> In IE9, the offset is off by 8px on the first call.
+[10:16:46] <scott_gonzalez> Hmm...so I'm not sure what resolution to use for the associated UI ticket.
+[10:16:51] <scott_gonzalez> invalid, wontfix, cantfix.
+[10:16:58] <scott_gonzalez> The bug is not in UI.
+[10:17:18] <DaveMethvin> we need a "notOURbug"
+[10:17:47] <DaveMethvin> i guess you could say cantfix
+[10:17:59] <DaveMethvin> even though in some parallel universe everything is fixable
+[10:18:09] <DaveMethvin> cantreasonablyfix
+[10:18:15] <scott_gonzalez> :-P
+[10:18:58] <scott_gonzalez> By the way, you still have 1.8.0 as the default version.
+[10:19:56] <DaveMethvin> fixed, wonder how that slipped through my checklist
+[10:20:12] <scott_gonzalez> twice!
+[10:20:29] <scott_gonzalez> Well, I guess it just slipped through the checklist once.
+[10:21:04] <DaveMethvin> well it's on the list, but not to make it the default ... but that shoudl be obvious ... i guess not to ME
+[10:22:16] <scott_gonzalez> :-P
+[15:50:15] <scott_gonzalez> DaveMethvin: I have no idea why the offset is wrong the first time.
+[15:50:21] <DaveMethvin> it
+[15:50:27] <DaveMethvin> s consistently different for me
+[15:50:37] <scott_gonzalez> Chrome 21 gives me consistent results.
+[15:50:58] <scott_gonzalez> Same for Canary.
+[15:50:59] <DaveMethvin> i'm on chrome 22 so i have no opinion ont hat
+[15:51:08] <scott_gonzalez> hmm...
+[15:51:17] <DaveMethvin> is your browser maximized?
+[15:51:21] <scott_gonzalez> yeah
+[15:51:30] <DaveMethvin> hmm, none of my tests were, lemme recheck
+[15:51:32] <scott_gonzalez> Well, "maximized"
+[15:51:48] <DaveMethvin> nope, no change
+[15:51:55] <scott_gonzalez> I just fullscreened and it's still consistent for me.
+[15:52:09] <scott_gonzalez> Apps don't really maximize in OS X.
+[15:55:37] <scott_gonzalez> I assume something's going on with the ul.
+[15:55:57] <scott_gonzalez> oh crap, I left something out of the fiddle
+[15:56:08] <ajpiano> KWhat_Work: _.super("destroy")
+[15:56:10] <ajpiano> oops
+[15:56:32] <DaveMethvin> scott_gonzalez: this works consistently for me: http://jsfiddle.net/bAE53/2/
+[15:56:46] <DaveMethvin> e.g., just logging it and not changing the doc
+[15:57:33] <scott_gonzalez> DaveMethvin: Well, let me fix this.
+[15:57:50] <scott_gonzalez> The ul is supposed to be absolutely positioned so that it doesn't factor in.
+[15:57:55] <scott_gonzalez> The bug is that it does factor in.
+[15:58:07] <DaveMethvin> but it's happening everywhere for me
+[15:59:28] <DaveMethvin> even happens in Opera, 8 pixel diff
+[15:59:48] <DaveMethvin> OPERA
+[16:00:31] <scott_gonzalez> hmm...position: absolute doesn't take the element out of the normal flow unless you explicitly set top?
+[16:01:06] <DaveMethvin> well whaddya know?
+[16:01:27] <scott_gonzalez> I tested this before and it didn't make a difference.
+[16:01:29] <scott_gonzalez> Now it does.
+[16:01:37] <scott_gonzalez> Let me try again with the autocomplete example.
+[16:02:39] <scott_gonzalez> Yup, this fixes it in Firefox. Let me test IE.
+[16:03:19] <scott_gonzalez> yup
+[16:03:20] <DaveMethvin> dayum
+[16:03:34] <DaveMethvin> i'm looking for a ref explaining this
+[16:03:44] <DaveMethvin> strange that it works for you on everything but not at all on windows
+[16:04:06] <scott_gonzalez> Well it was only working in Chrome for me.
+[16:04:28] <DaveMethvin> seems like it SHOULD work everywhere
+[16:04:40] <DaveMethvin> the top should just be the inline location i'd think
+[16:04:43] <DaveMethvin> by default
+[16:04:55] <scott_gonzalez> Apparently not.
+[16:04:57] <scott_gonzalez> Strange.
+[16:05:31] <DaveMethvin> closed: cantfix
+[16:05:55] <DaveMethvin> it does seem like a bug of some kind you'd tink
+[16:05:56] <DaveMethvin> think
+[16:07:13] <scott_gonzalez> Well, now there's a `top: 0;` in jquery.ui.autocomplete.css :-P
+[16:08:40] <scott_gonzalez> Kinda strange that you need to set height: 100% on body and html to get that to happen.
+[16:09:13] <DaveMethvin> also strange how consistent it is for me vs you
+[16:09:41] <scott_gonzalez> yeah
+[16:10:39] <scott_gonzalez> This reminds me of the old bug in core where .offset() returned the wrong value for elements that were position: absolute; top: auto;
+[16:11:05] <DaveMethvin> can you add a note to the ticket just in case someone comes across it again?
+[16:11:41] <DaveMethvin> nowadays when i search for something it's almost certain  a jquery ticket comes up on the first page
+[16:11:49] <DaveMethvin> so it's no wonder we get so many drive-by commenters
+[16:21:11] <scott_gonzalez> Is it time to release 1.10 yet?
+[16:21:11] <scott_gonzalez> I'm tired of 1.9 already...
+[16:21:50] <DaveMethvin> those first few days after a major release...what a pain
+[16:22:31] <scott_gonzalez> Well, our ticket count is still going down.
+[16:22:35] <scott_gonzalez> Got it down to 800 today.
+[16:22:46] <scott_gonzalez> I'm hoping the summit can knock it down to 700.
+[16:22:48] <scott_gonzalez> We'll see...
+[16:22:49] <DaveMethvin> yay!
+[16:23:01] <DaveMethvin> that's why i miss snover
+[16:23:12] <snover> the ONLY reason amirite
+[16:23:26] <DaveMethvin> i think we were at 1500 when he started banging on it
+[16:23:38] <scott_gonzalez> Only 610 are bugs.
+[16:23:52] <scott_gonzalez> So that means we have 190 open feature tickets.
+[16:23:55] <scott_gonzalez> That's crazy.
+[16:24:11] <DaveMethvin> closed: bikeshed
+[16:24:15] <scott_gonzalez> haha
+[16:36:19] <Trindaz> Afternoon all. I just built a customized text search feature for use with jQuery - am I in the right place to describe it and get input on whether it's valid and should be contributed to code?
+[16:36:21] <Trindaz> *core?
+[16:36:56] <ajpiano> whether it's "valid" and whether it's going to go into core are separate questions :)
+[16:37:18] <ajpiano> Trindaz: by and large, most new features like that that the community comes up with are distributed as plugins
+[16:37:20] <Trindaz> ha ok - yeah I thought maybe it should just be a "plugin" if that's the right word
+[16:37:28] <Trindaz> ok cool
+[16:37:28] <ajpiano> unless you think that 25 million people need the feature
+[16:37:28] <ajpiano> :p
+[16:37:34] <Trindaz> well they might
+[16:37:44] <ajpiano> even then, it's still better to do a plugin
+[16:38:01] <Trindaz> ok - plugin first, then only if widely used, required etc. is it considered for core
+[16:38:10] <ajpiano> you got it
+[16:39:30] <Trindaz> The basic problem is for when you want to search for "John Smith" in a DOM with structure <span id="name">John <strong>Smith</strong></span>, ignoring case. Is there an easy way to do that in jquery?
+[16:39:51] <Trindaz> I'd want it to return the node with address span#name
+[16:40:50] <ajpiano> Trindaz: http://bugs.jquery.com/ticket/6561
+[16:41:02] <Trindaz> my first solution was to start with $('html')[0] and recursivley call .text() on all descendants until I found a match, comparing on lower case versions of each .text() result
+[16:41:24] <ajpiano> we have :contains but we aren't going to add a case insensitive contains
+[16:41:33] <ajpiano> and i don't think functionality to do it will be added to core
+[16:41:54] <ajpiano> searching the DOM by text content is probably not something we want to encourage in core :p
+[16:43:29] <Trindaz> ok cool. well my solution was pretty straight forward, but handy IMO, and 10x faster than recursively starting at root through descendants. I'll see if any plugins do that already and create one if not. Is there a marketplace kind of section of the site where you can show off your plugins?
+[16:43:44] <ajpiano> the new plugins site is launching in the near term
+[16:43:46] <ajpiano> stage.plugins.jquery.com
+[16:43:48] <Trindaz> cool
+[16:43:51] <ajpiano> is the staging site
+[16:43:52] <Trindaz> thanks ajpiano
+[16:45:32] <ajpiano> welcome!
+[18:08:35] <scott_gonzalez> Well this is crap: http://bugs.jqueryui.com/ticket/8642
+[18:08:59] <scott_gonzalez> Anyone have ideas about what's special with this image that's causing this bug?
+[18:11:42] <DaveMethvin> scott_gonzalez: i am not sure how we deal with this, but it seems that since jquery is now the way just about all web devs talk to a browser they automatically blame jquery if there are any discrepancies and expect us to fix whatever is broken
+[18:11:59] <DaveMethvin> all the browser makers have bigger teams than us
+[18:12:24] <scott_gonzalez> Well, I'll file a bug with Mozilla.
+[18:12:29] <scott_gonzalez> But it's not all images that cause this bug.
+[18:12:37] <DaveMethvin> and most of them have the capability to turn a bug in 6 weeks
+[18:12:44] <DaveMethvin> well except maybe ie
+[18:12:47] <scott_gonzalez> I'm not sure what property of this image is causing it.
+[18:13:01] <scott_gonzalez> heh, well IE can do it in 6 years :-P
+[18:13:22] <scott_gonzalez> I mean, they *might* think about synchronous focus events for IE11.
+[18:13:24] <scott_gonzalez> maybe
+[18:13:39] <snover> DaveMethvin: https://bugzilla.mozilla.org/show_bug.cgi?id=674373 etc.
+[18:15:37] <DaveMethvin> well i can't repro it since i'm on Windows, so if you want i can close it worksforME
+[18:15:42] <DaveMethvin> :D
+[18:15:47] <scott_gonzalez> haha
+[18:16:06] <scott_gonzalez> I'm shocked that nobody reported this earlier.
+[18:16:35] <scott_gonzalez> 16 - 7 = 9 * 6 = 54 weeks.
+[18:16:38] <DaveMethvin> who uses firefox on osx anyway??
+[18:16:41] <scott_gonzalez> So it's been broken for a year.
+[18:17:05] <DaveMethvin> that's like the joke that all the ie7 usage is really web devs testing their web sites
+[18:17:15] <scott_gonzalez> yeah
+[18:18:08] <scott_gonzalez> Oh well, I'll just file this with the info I hvae.
+[18:22:46] <snover> firefox 16 seems to have changed the way it handles height calculation on table cells
+[18:22:51] <snover> which is neato
+[18:22:56] <snover> and probably something you will get to enjoy soon
+[18:24:31] <miketaylr> i'm excited for all the unprefixing breakage
+[18:24:35] <scott_gonzalez> DaveMethvin: Do we have someone specific that we can bug at Mozilla?
+[18:24:53] <DaveMethvin> hmmm, used to be that resig guy
+[18:25:19] <DaveMethvin> we should get a formal liason
+[18:25:29] <DaveMethvin> snover,  do you talk to someone in particular?
+[18:25:31] <scott_gonzalez> Yeah, that's what I was thinking.
+[18:25:50] <DaveMethvin> for chome we can go to paul, and for ie we have tony
+[18:25:51] <snover> anton kovalyov might be a reasonable person to talk to
+[18:26:03] <DaveMethvin> and of course miketaylr <3
+[18:26:07] <snover> or you can just get to know boris zbarsky who actually just seems to spend all his time writing letters to mailing lists
+[18:26:25] <DaveMethvin> damn right snover, how does that guy get anythign else done?
+[18:26:31] <miketaylr> he's a robot
+[18:26:39] <miketaylr> except i've had dinner with him
+[18:26:40] <scott_gonzalez> <3 Boris
+[18:26:45] <miketaylr> must be really great at hiding it
+[18:26:46] <DaveMethvin> every damn bug ticket, w3c mailing list, etc, he's on it
+[18:27:06] <DaveMethvin> he's probably watching us now ...
+[18:27:11] <snover> he’s always there, always ready to tell you you’re wrong and here’s why
+[18:27:16] <DaveMethvin> lol
+[18:27:19] <scott_gonzalez> He's a no-nonsense kind of guy
+[18:28:46] <scott_gonzalez> DaveMethvin: Should we email him and ask if he'd like to be a liason for us?
+[18:28:56] <DaveMethvin> is he the best guy?
+[18:29:16] <scott_gonzalez> probably
+[18:29:20] <scott_gonzalez> He seems to know everything about everything.
+[18:29:29] <DaveMethvin> he's a "connector" i guess
+[18:29:36] <DaveMethvin> so maybe he can hook us up
+[18:31:10] <DaveMethvin> maybe he can get this bug fixed before its tenth anniversary: https://bugzilla.mozilla.org/show_bug.cgi?id=238041
+[18:38:04] <scott_gonzalez> I just asked him...awaiting a response...
+[18:41:07] <scott_gonzalez> Ok, he's our guy :-)
+[18:58:56] <snover> i wonder how long it will be before he has a mental breakdown
+[19:07:08] <paul_irish> scott_gonzalez: he responded within those 3 minutes?
+[19:07:11] <paul_irish> jesus shit
+[19:07:35] <DaveMethvin> the man is just a whirling dervish of communication
+[20:28:41] <scott_gonzalez> paul_irish: Yeah, he responded in that time and then we had a conversation about a bug :-)
+[20:29:16] <scott_gonzalez> I asked him on IRC, not via email.
+[21:07:45] <ajpiano> scott_gonzalez: yt
+[21:08:03] <scott_gonzalez> yeah
+[21:08:17] <ajpiano> gonna try to burn some midnight oil and ditch wintersmith
+[21:08:39] <ajpiano> does grunt-jquery-content's markdown handle yaml front matter, or does it have to be in <script></script
+[21:08:56] <scott_gonzalez> It has to be <script>
+[21:09:23] <ajpiano> that's a bummer
+[21:10:01] <scott_gonzalez> You can add support for yaml.
+[21:10:07] <ajpiano> yeah, that's what i think i'm gonna do
+[21:10:16] <ajpiano> was just pulling up g-j-q
+[21:10:18] <ajpiano> g-j-c
+[21:10:41] <scott_gonzalez> If you want, I can add that and tag/publish while you work on other tasks.
+[21:10:47] <ajpiano> i can add the order.yml stuff to it instead of trying to cram it into wintersmith or ugly type
+[21:11:05] <ajpiano> that would be awesome, you gonna be up for a bit?
+[21:11:20] <ajpiano> i can just get the rest of the markdown stuff going through grunt-jquery-content and rip out wintersmith
+[21:11:24] <scott_gonzalez> I was about to head bed, but I can stay up and do this :-)
+[21:11:37] <ajpiano> hehe, if you're willing :)
+[21:11:46] <ajpiano> are any of the existing sites actually using the markdown yet
+[21:11:54] <scott_gonzalez> Yup, jqueryui.com.
+[21:11:59] <ajpiano> ah
+[21:12:07] <scott_gonzalez> I even wrote code to generate a TOC at the top.
+[21:12:28] <scott_gonzalez> The TOC for http://jqueryui.com/upgrade-guide/1.9/ is auto-generated.
+[21:13:04] <ajpiano> oh nice
+[21:13:19] <ajpiano> yeah, i figure getting this order stuff into our thing instead of spread across amillion plugins is optimal
+[21:15:35] <ajpiano> i suppose i wasn't alone in not wanting to have to put <script> around the beginning of the md metadata though ;)
+[21:16:28] <scott_gonzalez> Nobody else has complained :-)
+[21:16:52] <scott_gonzalez> It's an elegant solution because it requires no preprocessing.
+[21:16:56] <scott_gonzalez> markdown leaves HTML alone.
+[21:17:11] <ajpiano> i suppose
+[21:17:13] <scott_gonzalez> And <script>{ "some": "json" }</script> is valid HTML.
+[21:17:28] <ajpiano> otoh, the whole "leading script as metadata" came from having yaml front matter that i had to be able to later parse as JSON :p
+[21:17:33] <scott_gonzalez> So you can run it through a listing tool and get clean results.
+[21:17:42] <scott_gonzalez> Viewing the raw .html file shows no junk at the top.
+[21:18:01] <ajpiano> hm, that is kind of appealing
+[21:18:26] <scott_gonzalez> And JSON is much more natural to work with in node.
+[21:19:57] <ajpiano> indeed
+[21:20:06] <scott_gonzalez> Anway, it shouldn't be too hard to add yaml support.
+[21:21:04] <ajpiano> yeah, it's pretty straightforward, - i have everything with front matter now
+[21:21:46] <ajpiano> gonna dig in here and try to just yank out wintersmith and see what happens, catch up w/ you in a bit
+[21:37:36] <scott_gonzalez> So, amazingly, the code didn't work on my first try :-P
+[21:39:22] <ajpiano> shocking!
+[21:42:02] <scott_gonzalez> Oh man, it was just a typo!
+[21:42:06] <scott_gonzalez> conent instead of content.
+[21:42:17] <ajpiano> autocoplete instead of autocomplete
+[21:42:26] <ajpiano> NUMBERIC
+[21:42:28] <ajpiano> CMON MAN
+[21:42:35] <scott_gonzalez> I suck at typing.
+[21:42:46] <ajpiano> didn't mr. turkel teach you anything
+[21:43:31] <scott_gonzalez> How to peak under the cardboard box?
+[21:43:36] <ajpiano> lol
+[21:43:50] <ajpiano> i cried when touch typing during recess ended in 3rd grade
+[21:43:50] <scott_gonzalez> I still don't know the number row...
+[21:44:05] <ajpiano> luckily i had him again in 5th grade for the-birds-and-the-bees
+[21:44:29] <scott_gonzalez> WITH LASER DISCS!
+[21:44:35] <ajpiano> I NEVER SAW THE VIDEO
+[21:45:04] <ajpiano> they showed it on a jewish holiday in 4th and 5th grade
+[21:46:20] <scott_gonzalez> heh
+[21:46:36] <ajpiano> oh man i deleted so much ugliness from the config.json
+[21:49:29] <ajpiano> scott_gonzalez: https://github.com/jquery/learn.jquery.com/tree/de-wintersmith
+[21:49:44] <ajpiano> ostensibly that will work once the yaml stuff is working properly
+[21:49:53] <scott_gonzalez> :-)
+[21:50:06] <scott_gonzalez> Just published grunt-jquery-content 0.5.3
+[21:50:16] <ajpiano> wahey
+[21:50:20] <ajpiano> will pull and experiement
+[21:50:58] <scott_gonzalez> I followed the format you had, a line of 3 dashes then the YAML then another line of 3 dashes.
+[21:51:06] <ajpiano> yep
+[21:51:27] <ajpiano> it's basically a convention from jekyll
+[21:51:29] <scott_gonzalez> And I used js-yaml, so there shouldn't be any surprise bugs in the parsing.
+[21:51:45] <ajpiano> if we knew about them now, they wouldn't be surprises
+[21:53:50] <scott_gonzalez> Oh, if you want a TOC in any of the pages, you just need to put `"toc": true` in the metadata.
+[21:54:04] <scott_gonzalez> Or whatever the equivalent YAML is for getting a boolean in there.
+[21:54:14] <ajpiano> that would do the trick
+[21:54:22] <ajpiano> just pushed the ref to 0.5.3
+[21:54:29] <ajpiano> getting empty metadata in the outputted html
+[21:54:46] <scott_gonzalez> Let me pull.
+[21:54:49] <ajpiano> aye
+[21:56:52] <scott_gonzalez> ah
+[21:57:03] <scott_gonzalez> Some of the metadata has trailing whitespace
+[21:57:19] <ajpiano> yeah, i was noticing some <hr> in the rendered html
+[21:57:21] <scott_gonzalez> ---{space}{newline}
+[21:58:18] <scott_gonzalez> Most of the pages don't have trailing whitespace, so you have proper metadata in most.
+[21:59:03] <ajpiano> would probably be good to remove all trailing whitespace from the repo
+[21:59:30] <scott_gonzalez> Heh, looks like it's just one file.
+[21:59:35] <ajpiano> but probably also to be a bit forgiving and just take whatever's inbetween the leading --- and the next ---
+[21:59:39] <ajpiano> about-jquery.md ?
+[21:59:52] <scott_gonzalez> 2
+[21:59:55] <scott_gonzalez> also index.md
+[22:00:01] <ajpiano> let me try cleaning those off
+[22:00:12] <scott_gonzalez> I Just check all of them. A bunch of trailing whitespace, but only those two have it on a line that matters.
+[22:02:42] <scott_gonzalez> ajpiano: Everything working for you now?
+[22:02:51] <scott_gonzalez> If so, I'm going to go to sleep.
+[22:02:52] <ajpiano> working through
+[22:05:59] <ajpiano> almost, seems to be breaking on plugins/advanced-plugin-concepts.md and not sure why
+[22:06:01] <ajpiano> just pushed again
+[22:06:21] <scott_gonzalez> ok
+[22:07:14] <ajpiano> coming out as http://cl.ly/image/310p1x093h30
+[22:07:44] <scott_gonzalez> Yup, I'm getting that too.
+[22:07:58] <ajpiano> can't help the feeling we should be calling .trim on https://github.com/jquery/grunt-jquery-content/blob/master/tasks/build.js#L27 and line 40
+[22:08:40] <scott_gonzalez> Why? Are you afraid of leading whitespace or trailing whitespace?
+[22:10:04] <ajpiano> i thought that's where those <hr>s was coming from, the line between the last --- and the first bit of markdown
+[22:11:15] <scott_gonzalez> No, it's coming from the --- when the YAML isn't recognized.
+[22:11:21] <ajpiano> ah
+[22:11:37] <scott_gonzalez> Since it's not recognized, it doesn't get parsed, so it doesn't get stripped, so --- passed through to markdown.
+[22:11:44] <ajpiano> i dig
+[22:12:10] <scott_gonzalez> got it
+[22:12:12] <ajpiano> i can't figure out what's wrong with that y... ok
+[22:12:16] <scott_gonzalez> Windows line endings.
+[22:12:23] <ajpiano> i put it in yamllint.com
+[22:12:26] <ajpiano> sheesh
+[22:12:31] <scott_gonzalez> \n isn't matching :-P
+[22:13:07] <scott_gonzalez> Hooray hex viewer.
+[22:13:47] <ajpiano> that's why i'm sayin, shouldn't we just look for the yaml between --- and --- rather that caring about the last newline after the second --- ?
+[22:14:03] <ajpiano> and or not have a windows line ending on that file
+[22:14:08] <ajpiano> :p
+[22:14:36] <scott_gonzalez> The newline check is to make sure we're finding the actual terminator and not some content that happens to have three dashes.
+[22:15:13] <scott_gonzalez> It's the safeguard for not using a real parser :-P
+[22:15:19] <ajpiano> heh
+[22:15:42] <scott_gonzalez> We get away with not doing that for JSON because </script> isn't a valid value.
+[22:16:14] <scott_gonzalez> Hooray for not being able to define script parsing in HTML.
+[22:17:44] <ajpiano> zomg it did it
+[22:17:47] <scott_gonzalez> We could remove the newline checks and have the HTML comment style parsing.
+[22:18:05] <scott_gonzalez> But I don't think we'll really run into issues once we have this working tonight.
+[22:18:10] <ajpiano> yeah, this was the only thing
+[22:18:50] <ajpiano> just populated wordpress!
+[22:19:03] <scott_gonzalez> awesome
+[22:19:43] <ajpiano> welp, that wasn't too bad then
+[22:20:02] <scott_gonzalez> :-)
+[22:20:07] <ajpiano> any wise words on where in grunt-jquery-content i should try to handle the order.yml file
+[22:20:13] <ajpiano> before you shuffle off?
+[22:20:30] <scott_gonzalez> hmm...
+[22:21:35] <scott_gonzalez> The easiest thing to do might be to create a task that runs after build-pages.
+[22:22:10] <scott_gonzalez> Read in order.yml, then generate the path based on the values in the file.
+[22:22:38] <scott_gonzalez> grunt.config( "wordpress.dir" ) + "/posts/page/" + {value form yaml}
+[22:23:06] <scott_gonzalez> Call grunt.helper( "wordpress-parse-post", path ) to get the data back.
+[22:23:54] <scott_gonzalez> That will give you back an object with all the metadata + the content.
+[22:23:58] <scott_gonzalez> So you can do
+[22:24:00] <scott_gonzalez> content = post.content;
+[22:24:05] <scott_gonzalez> delete post.content;
+[22:24:16] <scott_gonzalez> grunt.file.write( path, "<script>" + JSON.stringify( post ) + "</script>\n" + content );
+[22:24:44] <scott_gonzalez> It makes it a two pass process, but that's probably the quickest to implement.
+[22:24:52] <ajpiano> where post has been updated with the menuOrder?
+[22:24:53] <scott_gonzalez> Did that make sense?
+[22:24:57] <scott_gonzalez> yeah
+[22:25:47] <ajpiano> for the most part - not sure why i need to generate a path, really, but i probably will once i dig in
+[22:25:53] <scott_gonzalez> If that turns out be slow (reading and writing all the files twice), we can inline it later.
+[22:26:05] <ajpiano> the other thing i want to do based on order.yml is set to unpublished posts that aren't listed in order.yml
+[22:26:15] <scott_gonzalez> I was thinking you'd just read in order.yml and walk the posts that are listed in there.
+[22:26:18] <scott_gonzalez> In order.
+[22:26:37] <ajpiano> oh interesting
+[22:27:24] <ajpiano> what i've done the like 2 or 3 times i've implemented this so far was process order.yml once up front, flatten it, then as i'm processing the metadata, figure out the index of the one that's being processed
+[22:27:59] <ajpiano> but that doesn't work as well now that the metadata can be in either yaml or json
+[22:28:37] <scott_gonzalez> Yeah, you can still do that.
+[22:28:44] <scott_gonzalez> It just requires digging into grunt-jquery-content.
+[22:28:52] <ajpiano> oh, i thought that was a given :p
+[22:29:07] <scott_gonzalez> https://github.com/jquery/grunt-jquery-content/blob/master/tasks/build.js#L58
+[22:29:25] <ajpiano> yep, that's exactly where i was looking
+[22:29:27] <scott_gonzalez> At that point, you've got the metadata parsed, regardless of whether it's YAML or JSON.
+[22:29:56] <ajpiano> i like that approach
+[22:30:36] <scott_gonzalez> You can read in order.yml at the top of build-pages.
+[22:30:41] <ajpiano> do you reckon i should just unconditionally try to read order.yml, and if it exists, do the index stuff right there
+[22:30:50] <ajpiano> or should i add a config property or whatnot
+[22:30:58] <ajpiano> yep
+[22:31:13] <ajpiano> i'll stick with just looking for it, and using it if it exists for now
+[22:31:16] <scott_gonzalez> Unconditional shoudl be fine.
+[22:31:38] <ajpiano> great
+[22:31:53] <ajpiano> i'll take a crack at it now then, will report back in the morning
+[22:31:56] <ajpiano> thanks for the help
+[22:32:00] <scott_gonzalez> I'm not sure if we should unconditionally tie publish vs. draft to the order though.
+[22:32:22] <ajpiano> well, if there's no order, i'll assume publish
+[22:32:31] <scott_gonzalez> But since the learn site is the only site using it for now, that seems fine.
+[22:32:38] <ajpiano> i just want things that aren't listed in order to be suppressed
+[22:32:45] <ajpiano> yep, we can refine later
+[22:32:55] <ajpiano> glad to finally not have learn be the odd duck in the build
+[22:33:07] <scott_gonzalez> You know about `npm link`?
+[22:33:10] <ajpiano> yep
+[22:33:12] <scott_gonzalez> ok
+[22:33:29] <ajpiano> don't forget i was the one who got node-syntaxhighlighter working :D
+[22:33:31] <scott_gonzalez> I don't think jzaefferer will be around tomorrow (flying).
+[22:33:42] <scott_gonzalez> :-)
+[22:33:50] <ajpiano> but yeah, that's when i learned about npm link :p
+[22:34:06] <scott_gonzalez> But I'll be around to publish grunt-jquery-content when you've got this updated.
+[22:34:17] <ajpiano> sounds gouda to me
+[22:34:24] <ajpiano> you should have a pr in the morn
+[22:34:55] <scott_gonzalez> Cool, heading to bed.
+[22:35:04] <ajpiano> gr8, tty in the am
+[22:46:57] <paul_irish> scott_gonzalez: 1.8.24 should be on the CDN tomorrow
+[22:47:19] <paul_irish> i submitted my commit 6 days ago (on my way to the airport) but didnt get a review till today :(
+[23:19:14] <jqcommit> [testswarm] Krinkle pushed 2 new commits to master: http://git.io/s7yACA
+[23:19:14] <jqcommit> [testswarm/master] Config: Update NGINX sample conf - Timo Tijhof
+[23:19:14] <jqcommit> [testswarm/master] Pages: HTML5 form validation and usability fixes. - Timo Tijhof
+[23:35:03] <jqcommit> [testswarm] Krinkle pushed 1 new commit to master: http://git.io/TNMktA
+[23:35:03] <jqcommit> [testswarm/master] ScoresAction: Improve query performance. - Timo Tijhof

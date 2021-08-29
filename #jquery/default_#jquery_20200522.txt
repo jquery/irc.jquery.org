@@ -1,0 +1,369 @@
+[00:18:44] <robertparkerx> how do you remove dynamically added classes
+[00:20:49] <shoky> same way you remove any other class
+[00:22:42] <robertparkerx> removeClass doesn't seem to work
+[00:22:55] <robertparkerx> works for every other cclass
+[00:40:28] <shoky> it works fine, donno what else i can say ;p
+[00:42:51] <robertparkerx> I see why now
+[00:42:59] <robertparkerx> my event is not happening
+[00:46:10] <robertparkerx> $('#select2-billing_country-container').bind('DOMSubtreeModified', function(){}) only triggers one cchange
+[00:56:08] <robertparkerx> I'm trying to detect changes of text in a span
+[00:59:41] <Cork> robertparkerx: you shouldn't use those events they are very slow and depricated
+[00:59:47] <Cork> user the mutation observers instead
+[01:00:10] <Cork> https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
+[01:08:35] <_savage> Is there a performance difference between one $("#bla").each(…) and two $("#bla").filter().each()? I mean, should I iterate once over all elements and check inside of my code, or filter twice?
+[01:09:30] <robertparkerx> Cork it only triggers once
+[01:09:36] <robertparkerx> If I change it again nothing happens
+[01:10:02] <Cork> robertparkerx: make sure you don't replace the element you monitor
+[01:10:03] <robertparkerx> https://url.hashdev.org/u
+[01:10:07] <Cork> it shouldn't only trigger once
+[01:10:59] <Cork> _savage: filter is basically the same as .each except it takes a return value and includes or not the current element depending on the return value
+[01:13:19] <_savage> Cork: thought so, ok. So one iteration with test is twice faster than two filters… makes sense
+[01:14:58] <Cork> twice faster sounds very unlikely
+[01:15:10] <Cork> the speed difference should be close to none
+[01:15:29] <Cork> the code btw https://github.com/jquery/jquery/blob/master/src/traversing/findFilter.js#L33
+[01:16:05] <Cork> opps wrong filter
+[01:16:34] <Cork> https://github.com/jquery/jquery/blob/master/src/traversing/findFilter.js#L10
+[01:20:56] <_savage> Cork: well it's one iteration vs. two, isn't it?
+[01:21:18] <Cork> itterations take VERY little time in js
+[01:21:36] <Cork> it is not the major source of code execution time
+[01:22:09] <Cork> sounds like you're doing prematur micro optimization
+[01:22:18] <Cork> and that normally just makes the code harder to read
+[01:24:59] <_savage> Here's what I'm doing. I have a collection of elements and that can potentially be huge (dynamic DOM loaded from user data). I need to iterate over that selection and pick two types of elements. I thought I do that in one single .each() or using two .filter(). But since the filter() is applied to the whole selection I thought that two filter iterations are (much/half) as slow as one single
+[01:25:01] <_savage> iteration.
+[01:26:15] <Cork> _savage: best way to make that efficient is using selectors
+[01:26:27] <Cork> add a class to the elements for the different groups
+[01:26:32] <robertparkerx> Cork I'm trying to think of what might be happening. It's a comboxbox. I think it is dynamic too. Is that a issue?
+[01:26:42] <Cork> then you can just filter on the class and reduce the number of elements you need to handle
+[01:26:51] <_savage> Cork: some are :selected and some aren't. It's not the class, but state of elements.
+[01:27:56] <Cork> _savage: so have an empty array and push the selected elements into that on the selection change event
+[01:28:06] <Cork> and then remove it on unselect
+[01:28:12] <Cork> then you don't have to loop at all
+[01:28:30] <_savage> Heh ;) Yeah I thought about shadow state and dismissed it because it felt redundant…
+[01:28:48] <Cork> _savage: that is what optimization is
+[01:28:52] <_savage> But maybe it's the way to go.
+[01:28:56] <Cork> you sacrifice memory for speed
+[01:29:33] <Cork> trying to loop as fast as possible isn't going to make a significant difference
+[01:29:41] <Cork> only way to make a dent is to reduce the amount of work
+[01:30:22] <_savage> Cork: more work for me so the browser can slack off? Nice.
+[01:30:43] <Cork> _savage: well not really
+[01:31:13] <Cork> you just get a chunk of work cause you choose to wait with the work until as late as possible
+[01:31:19] * _savage is just trying to be funny. I guess it's not working :)
+[01:31:25] <Cork> the amount of code needed is about the same
+[01:32:28] <Cork> robertparkerx: you need to find a parent element that isn't replaced
+[01:32:40] <Cork> robertparkerx: that is the important part
+[01:33:11] <Cork> cause if the element you observ is replaced your observing a detached dom element that doesn't change
+[01:34:47] <robertparkerx> Okay
+[01:35:07] <robertparkerx> Thanks a lot Cork
+[01:35:14] <Cork> np
+[01:46:08] <_savage> Cork: a $(<someselector>) returns an array, yes? So I can just .concat() to the shadow array?
+[01:46:45] <Cork> in the event just do selected.append(this)
+[01:46:59] <Cork> then you just do $(selected) and you have a jquery object with those elements
+[01:47:08] <Cork> and no $() doesn't return an array
+[01:47:17] <Cork> it returns a jquery object
+[01:48:53] <_savage> Oh right
+[01:49:14] <_savage> And that single object may wrap 1…n elements
+[01:49:14] <Cork> opps donno what i thought there
+[01:49:18] <Cork> i meant .push()
+[01:49:32] <Cork> _savage: ya
+[01:51:53] <_savage> Cork: oh I see, and I can use $( selector ).toArray() to stuff selected elements into the shadow array.
+[01:52:18] <Cork> _savage: but then your back to looping all the elements again
+[01:54:15] <Cork> _savage: in case you didn't know :selected is a filter function https://github.com/jquery/jquery/blob/master/src/selector.js#L925
+[01:54:50] <Cork> so $(':selected') is basically $('*').filter(selected)
+[01:55:11] <_savage> So, given a (large) DOM tree with a number of checkboxes. I need to check some selectively, so I filter the ones I want to check and set their property. Then I stash them. When I then add some more how do I do that?
+[01:55:38] <Cork> _savage: no you don't need to filter at all
+[01:55:48] <Cork> and a delegated event handler to a static parent
+[01:55:55] <Cork> catch all change events
+[01:56:04] <Cork> and from there add and remove the element from an array
+[01:56:17] <Cork> then you just have to wrap that array in jquery $(arr) and your done
+[02:00:07] <_savage> Cork: I should give you more background :)
+[02:02:47] <_savage> Cork: Assume a list of checkboxes with labels. Each checkbox has a click(). Single clicks are simple for the handler. But, if the user holds the Ctrl key with the click, then I want to select other checkboxes with a certain label. When the user clicks and unchecked one, deselect all checked. So a handler needs to iterate over the other checkboxes and filter their labels. But I can also Command +
+[02:02:49] <_savage> Ctrl + Click which means add all FOO labeled checkboxes to the already selected BAR checkboxes.
+[02:04:04] <_savage> So any one handler needs to work with a potential existing selection, and may create its own selection that extends or replaces an existing selection of checkboxes.
+[02:05:51] <Cork> well you have prevAllUntil to your help for the range selection
+[02:06:07] <Cork> and that should handle most of the cases
+[02:06:16] <Cork> the all foo again needs a class
+[02:09:23] <_savage> prevAllUntil?
+[02:10:28] <Cork> sorry https://api.jquery.com/prevUntil/
+[02:11:02] <Cork> add a class to the first selection and from the second search the first and you have a limited loop area
+[04:05:11] <_savage> Can I clear a selection/jQuery object?
+[04:08:00] <_savage> I guess not() with an impossible selector…
+[04:42:08] <Feldmaus> You can just do $(), IIRC
+[04:56:31] <Cork> ya, and it is better then clearing an old object as jquery keeps a chain of old objects for .end() to work
+[10:36:38] <JuJUBee> Can I use jqueryui-1.12.1 datepicker with jquery-3.5.1 ?
+[14:01:33] <ark12> I have this content security policy working jquery code that only runs once on page load. All it does is when the user clicks on a form element, make the nav bar and cookie bar disappear when the mobile keyboard is used. Is there a way to run this code immediately on page load and then load whenever the page resizes but have a delay to prevent
+[14:01:33] <ark12> stuff from breaking? https://dpaste.org/yPpF
+[14:16:11] <bjarne333> ark12: sounds like you want to listen on resize event with a 500ms bounce
+[16:02:55] <dw1> 😑
+[16:03:24] <kittonian> hey bud
+[16:03:31] <dw1> just when you think youre out they pull you back in
+[16:03:32] <kittonian> check this one out https://stackoverflow.com/questions/61962879/parsley-js-not-equal-to-multiple-ids
+[16:03:35] <kittonian> lol
+[16:03:40] <dw1> ( ಠ ͜ʖ ಠ)
+[16:03:44] <kittonian> i'm hoping this will be an incredibly quick and simple fix
+[16:07:33] <dw1> how about something like this
+[16:07:35] <dw1> https://stackoverflow.com/a/7376645
+[16:07:52] <dw1> make an array with the values
+[16:08:02] <dw1> check for duplicates
+[16:08:34] <dw1> if(new Set(array)).size !== array.length) /* has dupe */
+[16:08:49] <dw1> if((new Set(array)).size !== array.length) /* has dupe */
+[16:08:53] <dw1> erm
+[16:09:06] <dw1> with the right brackets yea
+[16:09:38] <kittonian> hmmm, can you post something for me to try out?
+[16:10:01] <kittonian> i thought I was being so smart using your code from the requiredIf validation regarding using multiple IDs
+[16:11:08] <dw1> ar=[]; for(let i=0;i<els.length;i++) ar.push(jQuery(els[i]).val()); if((new Set(ar)).size !== ar.length) return false;
+[16:11:48] <dw1> or somethin
+[16:12:34] <kittonian> ok, lol you lost me
+[16:12:45] <kittonian> how about a bpaste or something with the complete validator?
+[16:12:57] <dw1> replace your loop after the var els=element.split(',');
+[16:12:59] <dw1> with that
+[16:14:11] <kittonian> like this https://bpa.st/TECA
+[16:14:39] <dw1> 😑
+[16:14:51] <dw1> the whole for loop
+[16:15:15] <dw1> you left 2 brackets from it
+[16:15:42] <kittonian> https://bpa.st/JZAQ
+[16:15:56] <dw1> https://bpa.st/Y3NA
+[16:16:53] <kittonian> haha. you're totally going to laugh
+[16:17:17] <kittonian> so, while it did actually provide an error, it showed the error on the two that weren't a problem, and left the two that were the same validated
+[16:17:32] <dw1> well yea
+[16:17:40] <dw1> thats the harder part
+[16:18:13] <dw1> but i guess you could just reverse it for a possible quick fix
+[16:18:31] <dw1> change !== to === and return true to return false and return false to return true
+[16:18:34] <dw1> ¯\_(ツ)_/¯
+[16:18:52] <dw1> wait
+[16:18:56] <dw1> no
+[16:19:07] <dw1> leave the !==
+[16:19:12] <dw1> just change the returns
+[16:19:36] <kittonian> yes, that shows the error in the correct spots
+[16:19:43] <kittonian> now, I have to be able to validate it on change
+[16:19:50] <kittonian> right now, changing the select box does nothing
+[16:20:08] <kittonian> well, it validates it incorrectly because it's not looking through the entire array of selects
+[16:21:45] <kittonian> i used your .change code from the series select situation but it doesn't seem to work
+[16:26:34] <dw1> hard to debug without a pen showing the problem
+[16:27:13] <kittonian> ok, you want me to create a pen for you? no prob
+[16:27:15] <dw1> idk parsely
+[16:27:19] <dw1> and i hate it
+[16:27:22] <dw1> :)
+[16:27:27] <kittonian> lol, but you're great at solving the issues
+[16:28:16] <dw1> i dont see validating being set so
+[16:28:19] <dw1> on change it will just return
+[16:28:21] <dw1> ¯\_(ツ)_/¯
+[16:29:32] <dw1> maybe put validating=1 or true under     validateString: function(value, element) {
+[16:29:39] <dw1> so it doesnt activate until first submission or whatever
+[16:29:54] <dw1> remember
+[16:30:34] <dw1> kittonian ^
+[16:33:33] <kittonian> got it - https://codepen.io/kittonian/pen/jObmEBN
+[16:33:42] <kittonian> sorry that took a minute. wanted to ensure it was correct for you
+[16:37:53] <dw1> kill me
+[16:38:01] <dw1> this shit takes hours
+[16:39:11] * kittonian goes to stand in the corner
+[16:49:31] <taplar> kittonian: you need to get all the other values and check if they match
+[16:50:14] <taplar> https://jsfiddle.net/73v68ym5/
+[16:50:52] <kittonian> taplar, dw1 already got it working. the issue now is that once the form has been submitted, and there is an error, I need it to respond without form submission on every select to ensure nothing matches another, and validate when they no longer match
+[16:52:11] <taplar> i'm confused then.  the last codpen link i see in the logs had the issue that it was saying there were duplicate values when there were none
+[16:53:54] <kittonian> taplar, this is the codepen that validates correctly but does not respond dynamically without form submission to change events on each select https://codepen.io/kittonian/pen/jObmEBN
+[16:54:32] <kittonian> taplar, I tested your solution as well and it's a very similar scenario. plus, I do not wish to log to console constantly
+[16:54:34] <taplar> how does that validate correctly?  if i hit submit and the values are 1, 2, 3, 4.  it says they are duplicates
+[16:54:49] <taplar> the console log can of course be taken out.  that was me debugging
+[16:55:09] <kittonian> taplar, you're absolutely correct
+[16:55:13] <kittonian> I didn't test it that way
+[16:55:49] <kittonian> so, your solution is the better one at the moment, but I still need it to listen to change events across all the selects and display and take away the error messages depending on if those fields would validate
+[16:55:57] <kittonian> after the initial submit of course
+[16:56:31] <kittonian> i have resaved the codepen with your solution https://codepen.io/kittonian/pen/jObmEBN
+[16:57:22] <taplar> ok, so you're wanting the errors to show when the selects change
+[16:58:12] <kittonian> after the initial submit, if there were errors, they should be shown, but the entire form should listen for change events to each select so that error messages are shown when there are errors and fields should turn green as validated when they are no longer on error
+[16:58:14] <taplar> you just need to get rid of your if statements
+[16:58:44] <taplar> if(!validating) return; <= as far as I can tell, this is always going to be true
+[16:59:08] <kittonian> with or without the if statements, your solution behaves identically
+[16:59:17] <kittonian> set selects 2 and 3 both to 2
+[16:59:20] <kittonian> submit the form
+[16:59:32] <taplar> I just edited the codepen you gave, took out those if statements.  Changing the selects made the errors show up immediately
+[16:59:36] <kittonian> you see errors and if you change select 3 to 3 it turns green but select 2 remains red with the error
+[17:00:36] <taplar> Also changing the back to be distinct made the errors go away immediately
+[17:00:45] <kittonian> and if you then change select 4 to 2 it does not show an error
+[17:01:04] <taplar> what do you mean?  i see an error if i change 4 to 2
+[17:01:28] <kittonian> you have 4 select boxes in this example
+[17:01:40] <kittonian> we are going to call them select 1, select 2, select 3, and select 4
+[17:01:47] <taplar> i understand what you are saying
+[17:01:56] <kittonian> ok, cool. follow these exact steps
+[17:01:58] <taplar> i'm saying, i changed the forth select to a value of 2.  I see errors
+[17:02:02] <kittonian> set select 3 to 2
+[17:02:13] <kittonian> that way both select 2 and 3 will have the value 2
+[17:02:14] <taplar> so make them 1, 2, 2, 4 ?
+[17:02:26] <kittonian> yes, submit the form (but hold on, there's more)
+[17:02:30] <taplar> yep, i see errors before the sumit
+[17:02:38] <taplar> *submit
+[17:02:46] <kittonian> I don't see errors before the submit and I do not want error shown before the submit
+[17:02:53] <taplar> did you take out the if statements?
+[17:03:06] <taplar> i thought you said you -did- want the errors to show up before submit
+[17:03:25] <kittonian> yes https://codepen.io/kittonian/pen/jObmEBN
+[17:03:34] <kittonian> no, i do not want anything shown prior to the first submit
+[17:03:41] <kittonian> after that I want it to react on change
+[17:04:04] <taplar> so, no validation until after submit.  and after submit, changing the values does what?
+[17:04:48] <kittonian> after submit and if an error is thrown, then I want all the selects to respond dynamically, even the ones that are currently valid. If the currently valid ones are change to be a duplicate of another select then it should show an error
+[17:05:09] <taplar> ok, so after submit, the good to bad or bad to good should happen on change
+[17:05:34] <kittonian> yes, exactly
+[17:05:43] <taplar> ic
+[17:08:00] <taplar> ok, so what I believe will get you there is you should put your change event listeners back in there as you had them.
+[17:08:20] <taplar> And then add "validating = true;" inside your validatingString method
+[17:12:33] <kittonian> I tried validating=1 and it went nuts
+[17:12:57] <taplar> nuts how?
+[17:14:28] <kittonian> i tried it on dw1's solution. your solution works perfectly with validating=true;
+[17:14:35] <kittonian> that's exactly what I needed. thank you so much
+[17:14:38] <taplar> (y)
+[17:14:58] <kittonian> if you want to write up the solution on my StackOverflow post I'll be glad to upvote so you get the points
+[17:15:09] <kittonian> https://stackoverflow.com/questions/61962879/parsley-js-not-equal-to-multiple-ids
+[17:15:11] <taplar> nah, i'm good.  i got plenty of points, :)
+[17:15:21] <kittonian> lol, ok. just wanted to be nice :)
+[17:15:40] <taplar> you can self answer your own question though
+[17:15:42] <kittonian> I'll post the answer for everyone else. Thank you again for your time. So happy to have this working
+[17:15:57] <kittonian> dw1, thank you as well for your time as usual :)
+[17:17:29] <taplar> kittonian i would recommend reducing those change event handlers though
+[17:17:45] <taplar> Since they all have a common class of `select`, you could make just one change event handler with that class selector
+[17:18:50] <kittonian> how do I do that?
+[17:19:22] <taplar> Insead of having a `$('#series_post_order1').change(()=>{` for each id, just use the '.select' selector and have one
+[17:20:24] <taplar> '#idselector', '.classselector', 'tagNameSelector', '[attribute=valueselector]'
+[17:20:56] <kittonian> $('.select').change(()->{
+[17:21:16] <taplar> Yep, though you dorked up your arrow there
+[17:21:18] <kittonian> $('.select').change(()=>{
+[17:21:27] <taplar> yep yep
+[17:22:21] <dw1> https://codepen.io/dw1/pen/xxwBGMG
+[17:22:24] <dw1> a billion dollars please
+[17:23:31] <kittonian> lol, i'll send it over via carrier pigeon :)
+[17:23:40] <dw1> ( ಠ ͜ʖ ಠ)
+[17:23:44] <taplar> Not bad, but a general warning about attribute selectors.  Since attributes can be on any element, you typically want to avoid them, or if you have to use them, you should scope them down so they have to evaluate against a reduced number of elements.  In this case you have the tag in there so that helps scope it down.  But just a warning
+[17:23:47] <kittonian> got it all implemented and everything works perfectly
+[17:24:39] <dw1> can probably not use current and just get the current value somewhere
+[17:24:40] <dw1> but im lazy
+[17:24:50] <dw1> well i guess its in value
+[17:25:22] <kittonian> dw1, your solution also works perfectly
+[17:25:36] <dw1> i updated it
+[17:25:36] <kittonian> what's the benefit to using your solution over using taplar's?
+[17:25:38] <dw1> to use value
+[17:25:44] <dw1> idk
+[17:26:19] <kittonian> I do like being able to explicitly define the individual fields to validate against
+[17:26:47] <dw1> could also select by post group
+[17:26:49] <taplar> If that makes you happier, then combine them into a single selector
+[17:26:52] <dw1> instead of the way i did it
+[17:27:02] <taplar> '#id1, #id2, #id3, #id4'
+[17:27:02] <dw1> similar thing
+[17:27:23] <kittonian> setting a group was my initial thinking of how to accomplish this
+[17:27:33] <dw1> no need to explicitly define anything
+[17:27:35] <dw1> theyre a group, act like it
+[17:27:38] <kittonian> and it would be a lot easier
+[17:27:55] <dw1> its the same
+[17:28:00] <dw1> i was talking about just using a differnet selector
+[17:28:39] <dw1> like instead of $('select[id^="series_post_order"]') $('select[data-parsley-group="postorder"')
+[17:28:45] <dw1> ¯\_(ツ)_/¯
+[17:29:03] <dw1> slightly more readable but otherwise the same
+[17:29:11] <dw1> ]')
+[17:29:39] <taplar> a class would be more efficient
+[17:30:22] <dw1> they made class more efficient than other attributes ?
+[17:30:47] <taplar> classes and ids have some sort of underlying hashing that the engine does.
+[17:30:56] <taplar> they are faster than attribute selectors
+[17:30:57] <dw1> cool
+[17:32:52] <kittonian> ok, got that all implemented and working
+[17:33:07] <kittonian> now you're saying I should change it back to the id?
+[17:33:24] <taplar> what part?
+[17:33:39] <kittonian> $('select[id^="series_post_order"]')
+[17:33:51] <kittonian> right now I have it on the group
+[17:33:54] <dw1> no, he said its more efficient to use a class
+[17:33:59] <dw1> select.postnumbers
+[17:34:01] <dw1> and put class=postnumbers
+[17:34:06] <taplar> ^^^
+[17:34:10] <dw1> on all of em
+[17:34:45] <dw1> instead of anything with select[...]
+[17:34:49] <taplar> or if it makes you happer, you could use all the ids in a single selector
+[17:35:19] <kittonian> $('.select.postnumbers').change(()=>{
+[17:35:24] <taplar> which, really, if your DOM is small, all this is probably negligible in efficiency.  But it is good stuff to know
+[17:35:30] <dw1> $('#series_post_order1,#series_post_order2...')
+[17:36:02] <kittonian> i'm sure it is because a blog series probably will have 20 posts max ever
+[17:36:18] <kittonian> and no front end user will ever see this. this is only for backend admin usage
+[17:36:22] <dw1> prob just use a class then
+[17:36:25] <dw1> not the series of ids
+[17:36:28] <dw1> cuz thats a lot
+[17:36:39] <kittonian> I have added the class="select postnumbers" to each select
+[17:36:46] <dw1> $('select.postnumbers').change(()=>{
+[17:36:50] <dw1> no period at beginning
+[17:36:53] <taplar> i would personally lean towards the class, because if you decide to add a 5th entry later, all you have to do is put the class on it, and you don't have to change your javascript
+[17:37:14] <taplar> less work = win
+[17:37:18] <kittonian> taplar, right, this is just an example. every blog series will have a different number of posts
+[17:37:38] <taplar> mmm, so there ya go
+[17:39:04] <kittonian> hmmm, that seems to break it
+[17:39:24] <kittonian> i took out the data-parsley-group= for the selects
+[17:39:43] <kittonian> and changed the change event to $('select.postnumbers').change(()=>{
+[17:39:53] <kittonian> now it doesn't respond the same
+[17:39:55] <taplar> did you add the postnumbers class to all the selects?
+[17:40:00] <kittonian> yes
+[17:40:07] <taplar> can you put that in your codepen?
+[17:40:13] <kittonian> sure
+[17:40:18] <dw1> you still need data-parsley-group=
+[17:40:23] <dw1> for teh parseley validation
+[17:40:31] <taplar> ^ i was curious if you meant you removed that from the html
+[17:41:23] <dw1> just not in the selector
+[17:41:28] <dw1> in js
+[17:42:35] <kittonian> https://codepen.io/kittonian/pen/jObmEBN
+[17:42:55] <kittonian> yes, i removed that from the html as I thought we weren't using groups anymore
+[17:43:23] <dw1> you still need it for the onchange
+[17:43:27] <taplar> the talk about using a class isn't to replace any of that logic
+[17:43:33] <kittonian> ahh
+[17:43:46] <taplar> it's just to allow you to reduce the number of change event handlers, and to make it easy to have a dynamic number of them
+[17:44:01] <taplar> *with a more efficient version of a selector
+[17:44:09] <kittonian> yup, that works
+[17:44:38] <taplar> so, no matter if you have 4 or 40 selects, all you need is that class on them for the change event listener to be bound to them
+[17:44:57] <kittonian> the best part is that this significantly reduced not only my code but 3 different database calls to populate all the different times I was specifying each id
+[17:45:03] <kittonian> so this is much more efficient
+[17:45:39] <dw1> technically the value in data-parsley-postnumbers="2" isnt needed
+[17:45:40] <dw1> it can be anything
+[17:45:45] <dw1> its not used
+[17:45:51] <dw1> think it should prob be non blank tho
+[17:46:06] <dw1> just fyi
+[17:46:26] <dw1> change this too:      var els=$('select[id^="series_post_order"]');
+[17:46:30] <dw1> to 'select.postnumbers'
+[17:47:15] <dw1> and $('#series_post_order'+current).val() to just value
+[17:47:29] <dw1> and function(value, current) can just be function(value)
+[17:47:36] <taplar> i still think my validateStrings implementation was shorter, :P
+[17:48:39] <kittonian> taplar, it was. we've just made so many other modifications that I didn't want to start modifying your solution after modifying dw1's
+[17:48:39] <dw1> yeah
+[17:48:57] <dw1> well it has an issue
+[17:49:04] <dw1> it requires the 'requirement' field to be populated with alll the other ids
+[17:49:07] <dw1> which can be up to 20 ?
+[17:49:15] <dw1> makes html much bigger
+[17:49:21] <kittonian> could be more than 20
+[17:49:37] <kittonian> you never know how many posts are going to be in a series today or 5 years down the road
+[17:49:53] <dw1> but you could use a selector there instead
+[17:49:56] <kittonian> my point was that it will never be 500 posts
+[17:50:05] <taplar> yeah, to make it better it would need to just select all of the `select.postnumbers` and ignore the one that was currently being evaluated.  which, without the code in front of me, i'm not sure how you would know which one was currently being evaluated to ignore it
+[17:50:09] <dw1> to generate the other elements
+[17:50:10] <dw1> yeah
+[17:50:15] <dw1> then your logic is way shorter after that
+[17:51:04] <kittonian> happy to use shorter and more efficient code if you want to post an entire solution with all the modifications we made along the way
+[17:51:21] <taplar> i'll tinker a bit
+[17:51:29] <kittonian> :)
+[17:52:20] <dw1> parsely does provide the current element id in i think the 3rd paramater
+[17:53:06] <taplar> ooooh, snazzy
+[17:54:46] <kittonian> can I just say, you both are super cool. i love that you have both already solved the problem but are now figuring out how to make it even better and more efficient. you're awesome.
+[17:57:19] <taplar> try this: https://jsfiddle.net/pcz5vqmd/
+[18:00:37] <kittonian> ok, did I do this correctly? https://bpa.st/CUBQ
+[18:01:24] <taplar> i believe that looks right
+[18:01:46] <dw1> https://codepen.io/dw1/pen/xxwBGMG
+[18:01:48] <dw1> final answer
+[18:01:49] <dw1> ( ಠ ͜ʖ ಠ)
+[18:01:55] <kittonian> yup, that totally works
+[18:02:03] <kittonian> a whole lot less code too. nicely done.
+[18:02:06] <dw1> yeah
+[18:02:28] <dw1> idk all that
+[18:02:34] <dw1> good job
+[18:02:36] <kittonian> amazing. both of you
+[18:03:00] <kittonian> thank you again. now it's Friday evening. stop coding and go watch a movie and eat pasta or something :) lol
+[18:03:07] <taplar> i got another hour....
+[18:03:08] <dw1> thats the plan
+[18:03:15] <kittonian> truly though. i really appreciate you both
+[18:03:25] <dw1> well im watching Upload it's cheezy tv
+[18:03:48] <kittonian> Ozark is amazing, Mrs. America is great. and Defending Jacob is also really good
+[18:04:36] <kittonian> oh, and the new Invisible Man movie was a really good
+[18:04:46] <kittonian> *was not was a
+[18:04:57] <kittonian> apparently I'm typing in an Italian accent now
+[18:05:38] <kittonian> both of you be well. talk soon.
+[18:05:41] <dw1> seen ozark and the movie
+[18:05:43] <dw1> seeya
+[22:07:33] <audiobirb> for some reason, my #challengeModal is shown for a challenged player every time a player is challenged. it is not supposed to do this. can anyone help? relevant portions are highlighted: https://dpaste.org/Xi0s#L191,752,759

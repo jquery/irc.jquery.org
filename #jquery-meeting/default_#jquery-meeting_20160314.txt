@@ -1,0 +1,344 @@
+[12:02:46] <timmywil> DaveMethvin, markelog, m_gol, gibson042 https://docs.google.com/document/d/1uhcW9_TlSwD8JnO1_HNnSYJAriTK9WYZ8uQNDvtAAhA/edit
+[12:02:54] <markelog> hey-hey
+[12:03:53] <DaveMethvin> Hay
+[12:03:57] <timmywil> sup
+[12:04:21] <timmywil> 1.12.2/2.2.2 was delayed due to a couple issues.
+[12:04:27] <m_gol> present
+[12:04:35] <timmywil> I landed gibson042's PR, but there's one more I need to get to
+[12:04:36] <all3fox> present too
+[12:05:18] <timmywil> The big one for today is this https://github.com/jquery/jquery/pull/2996
+[12:05:34] <gibson042> I am, unsurprisingly, strongly opposed
+[12:05:41] <timmywil> I figured :P
+[12:05:51] <markelog> i think we can figure it out quickly
+[12:06:01] <markelog> would wait for m_gol though
+[12:06:06] <markelog> oh, you here
+[12:06:07] <markelog> ok
+[12:06:08] <timmywil> he's here
+[12:06:15] <markelog> I think we can do a quick poll on examples and move on
+[12:06:24] <markelog> By "move on" i mean monitor issues on the matter, if there will be some of them, then behaviour should be considered to be reverted in 3.0.1
+[12:06:35] <timmywil> I suspect gibson042 is opposed due to the responsive example
+[12:06:47] <timmywil> markelog: agreed
+[12:06:48] <markelog> or perhaps updated, not reverted
+[12:07:11] <gibson042> yes, essentially
+[12:07:16] <markelog> you mean responsive styles?
+[12:07:21] <gibson042> the overzealous setting of nonempty inline styles
+[12:07:43] <markelog> funny thing, that i didn't even need to change some tests name
+[12:07:44] <markelog> s
+[12:07:58] <markelog> because it looks their implied same behaviour proposed in pull
+[12:08:12] <DaveMethvin> For now i'd rather not set inline styles, then we can add them back if/when we find situations where a lot of code depends on it and it is hard for the plugins/code to be updated
+[12:08:12] <markelog> okay, so i would like to make a poll here
+[12:08:32] <DaveMethvin> it would not surprise me if we DO have to set some back
+[12:08:33] <markelog> DaveMethvin: this pull preserve previous behaviour
+[12:08:43] <markelog> current logic does not
+[12:08:49] <DaveMethvin> i know but it also sort of breaks the cases we wanted to make work
+[12:08:58] <markelog> nuh, it doesn't
+[12:09:08] <markelog> okay, so poll
+[12:09:15] <markelog> gibson042: please, don't answer those, i will not too
+[12:09:20] <gibson042> agreed
+[12:09:20] <markelog> Okay, so in following what is expected behaviour -
+[12:09:25] <markelog> jQuery("<div/>").hide().css("display") // ?
+[12:09:38] <timmywil> I see merit to both sides. On the one hand, we've had tickets complaining about show/hide behavior on responsive stylesheets. On other hand, it could be seen as odd that $detached.show().appendTo("body") does not guarantee the element to be shown.
+[12:09:53] <DaveMethvin> right
+[12:10:13] <DaveMethvin> there is no winning thing here b/c it will always break someone's expectations
+[12:10:19] <timmywil> markelog: that case is the same either way, right?
+[12:10:25] <timmywil> but I'd answer display: none
+[12:10:38] <markelog> m_gol:DaveMethvin:?
+[12:11:13] <DaveMethvin> it's one of those tree-falls-in-a-forest questions, what does it mean to hide something not in a doc?
+[12:11:19] <m_gol> I'd answer 'none' as well but detached elements don't seem so important to me overall
+[12:11:33] <m_gol> because of what DaveMethvin said
+[12:11:34] <markelog> that pull all about detached elements
+[12:11:43] <DaveMethvin> yes
+[12:11:54] <DaveMethvin> i agree it restores the old behavior
+[12:11:55] <markelog> that matters when you append it to Dom
+[12:12:10] <markelog> okay, so DaveMethvin: ?
+[12:12:11] <DaveMethvin> but i don't know if we want to restore the old behavior
+[12:12:23] <timmywil> it does, but we can guarantee hide without interfering with responsiveness, so it's a bit different.
+[12:12:29] <timmywil> show is the problem area
+[12:13:32] <markelog> if 'jQuery("<div/>").hide().css("display")' set defaultDisplay, it also an issue for responsiveness
+[12:13:51] <DaveMethvin> yes since the stylesheet may change
+[12:14:01] <timmywil> not if we don't lock in a display on show
+[12:14:15] <markelog> we lock it on hide()
+[12:14:30] <markelog> as i recall, gibson042 correct?
+[12:14:43] <gibson042> are you asking about 2.x or master?
+[12:14:52] <timmywil> master
+[12:15:03] <markelog> yeah
+[12:15:24] <markelog> DaveMethvin: so i assume your answer is the same as of m_gol?
+[12:15:36] <markelog> we do, just checked
+[12:15:41] <gibson042> on master, private data is only set when hiding an element with non-empty inline display
+[12:15:53] <markelog> so, yes :)
+[12:16:16] <timmywil> markelog well, no. in your example $("<div />") doesn't have inline
+[12:16:21] <gibson042> and only retrieved when showing an element with inline display: none
+[12:16:41] <markelog> 'display !== "none"' this is the condtion
+[12:16:50] <markelog> which means if display is empty
+[12:16:58] <markelog> it sets display
+[12:17:08] <timmywil> but at that point display was retrieved with elem.style, so it would be ""
+[12:17:22] <markelog> yes, so it does sets it
+[12:17:27] <timmywil> not the same as locking in a display
+[12:17:34] <timmywil> as "" respects cascade
+[12:17:42] <markelog> display will be locked on "none"
+[12:17:50] <markelog> because it is not "none"
+[12:18:07] <timmywil> you lost me there. we don't save "none" in private data.
+[12:18:14] <markelog> we do )
+[12:18:23] <gibson042> timmywil: what will get saved is empty string
+[12:18:32] <timmywil> gibson042: that's what I said
+[12:18:34] <timmywil> :P
+[12:18:58] <timmywil> how does "none" get saved. it's if (display !== "none") { // save
+[12:19:08] <gibson042> "none" never gets saved
+[12:19:24] <markelog> okay, so
+[12:19:26] <markelog> jQuery("<div/>").show().css("display") // ?
+[12:19:40] <timmywil> yea, that's the question
+[12:19:44] <timmywil> we're with you
+[12:19:52] <m_gol> ''
+[12:20:10] <timmywil> Right now, it's ""
+[12:20:21] <markelog> is that expected behaviour?
+[12:20:21] <timmywil> and there are upsides/downsides
+[12:20:39] <DaveMethvin> expected by ... ? :)
+[12:20:51] <timmywil> depends on the use case, yea
+[12:20:54] <markelog> by users who set display on detached elements :)
+[12:21:15] <markelog> we have 5 ticket in the old bug-tracker about it
+[12:21:17] <m_gol> the default display after attaching the div to the document is non-none so I'd expect the display to not be set
+[12:21:19] <markelog> 5 or so
+[12:21:21] <timmywil> markelog: if someone asked me how to do that, I'd tell them to use .css
+[12:21:35] <markelog> can't write plugin that way
+[12:21:54] <DaveMethvin> right, i understand your point about the old tickets, we rolled over really quickly on that and it may mean that there is so much code out there that we can't fix this
+[12:22:24] <DaveMethvin> we can try it this way though and change it back later if we need to
+[12:22:34] <markelog> / In other words
+[12:22:34] <markelog> jQuery("<div/>").hide().css("display") // none?
+[12:22:34] <markelog> jQuery("<div/>").show().css("display") // ""?
+[12:22:42] <markelog> this is expected behaviour
+[12:22:42] <m_gol> yes
+[12:22:47] <markelog> correct?
+[12:22:47] <timmywil> markelog: that's what we're talking about trying, yea
+[12:23:04] <markelog> timmywil: that is why i wanted to make a quick pull
+[12:23:11] <markelog> if that is expected, we move on
+[12:23:23] <markelog> otherwise it would took to long :)
+[12:24:08] <timmywil> markelog: But I think we all realize that you could be right and we'll have to change this back in a future release. I'd like to try this tho.
+[12:24:26] <markelog> okay, closing the pull, we can move on now
+[12:24:33] <m_gol> I'd like to get back to 1.12.2/2.2.2 for a moment
+[12:24:42] <timmywil> m_gol: ok
+[12:24:57] <m_gol> 1.12.1/2.2.1 were released almost a month ago
+[12:25:08] <m_gol> with very broken AMD modules
+[12:25:25] <m_gol> and so far we've received a little ticket here & there and we've been fixing it
+[12:25:29] <markelog> https://github.com/jquery/jquery/issues/2863 is still open though
+[12:25:32] <m_gol> but we can do it for a looong time
+[12:25:41] <m_gol> so I think we shouldn't drag it further
+[12:25:57] <m_gol> even if shortly after releasing 2.2.2 we have a reason to release 2.2.3, that's fine IMO
+[12:26:06] <DaveMethvin> the 2.2.1+1 fixes it on npm tho right?
+[12:26:17] <m_gol> there's no 2.2.1+1, is it?
+[12:26:20] <timmywil> m_gol: there's only one more ticket. I think we can get it done.
+[12:26:28] <timmywil> DaveMethvin: no, npm prohibits that now apparently
+[12:26:30] <m_gol> sure, unless we get another one in 5 days :-)
+[12:26:33] <DaveMethvin> oh
+[12:26:40] <timmywil> I tried
+[12:26:50] <m_gol> so I'd like us to not add new tickets to 1.12.2/2.2.2
+[12:26:53] <timmywil> m_gol: no, I agree. we won't add more tickets.
+[12:27:00] <m_gol> even if someone reports sth, we can always do 2.2.3
+[12:27:02] <m_gol> ok, thx
+[12:27:04] <timmywil> any more go in another patch
+[12:27:12] <timmywil> yea
+[12:27:45] <timmywil> that said, there's a workaround for the AMD problem, just not a pretty one.
+[12:28:39] <timmywil> change "sizzle": "path/to/sizzle" to "external/sizzle/dist/sizzle": "path/to/sizzle"
+[12:28:56] <timmywil> but I still want to fix it.
+[12:29:17] <m_gol> k
+[12:29:24] <DaveMethvin> if everyone consumed versions via npm i wouldn't worry about spinning new patches every week
+[12:29:46] <DaveMethvin> but most ppl get it manually i suspect so frequent releases fragment the installed base more
+[12:30:14] <timmywil> or from the cdn, which wouldn't be affected by this
+[12:30:41] <m_gol> yeah, I was mostly saying that since there's been almost a month since 2.2.1, if we release 2.2.2 and shortly afterwards we get a critical ticket that will require us to release 2.2.3 really quickly, that's not a huge problem
+[12:30:51] <DaveMethvin> agreed
+[12:31:00] <timmywil> right
+[12:31:01] <m_gol> that's not a release every week, that's a release every month + an occasional hotfix release
+[12:31:19] <DaveMethvin> and we *should* be releasing more often than we have in the past i think
+[12:31:30] <timmywil> DaveMethvin: thanks for starting the migrate guide
+[12:31:36] <m_gol> Yeah, 2 years was a little too much. But we know it now.
+[12:31:39] <DaveMethvin> i think thats why timmywil wants to get 3.0 out :)
+[12:31:46] <timmywil> ^
+[12:31:51] <timmywil> oh, speaking of
+[12:32:05] <markelog> DaveMethvin: harder for us, we would need upgrade documentation and migrate for each release, if not patch
+[12:32:12] <timmywil> I'm not going to make https://github.com/jquery/jquery/issues/2863 a blocker
+[12:32:34] <DaveMethvin> yeah, it's started and i should have it ready this week, just need to to go through the tickets and clarify some things
+[12:32:38] <timmywil> we can add more tests in 3.0.1+ if we don't get to it
+[12:32:50] <timmywil> and if behavior needs to change, that will affect our decisions there
+[12:32:54] <markelog> timmywil: it would be inconsistent behaviour
+[12:33:02] <timmywil> what would
+[12:33:12] <markelog> if  https://github.com/jquery/jquery/issues/2863 is not fixed
+[12:33:31] <markelog> new logic and old logic collide there
+[12:33:38] <DaveMethvin> depends on whether you consider it a fixed regression or not :)
+[12:33:41] <markelog> but not a lot of people would be affected
+[12:33:50] <markelog> it wouldn't be a regression though
+[12:34:09] <gibson042> meh, now that we have a decision on show/hide I'll just put up a PR by Thursday
+[12:34:13] <markelog> just inconsistent new api
+[12:34:20] <markelog> that would be good
+[12:34:25] <DaveMethvin> i could definitely use some help describing the real-world cases for show/hide that change in 3.0
+[12:34:39] <timmywil> gibson042: that works, thanks
+[12:34:46] <markelog> i think we discuss this previously
+[12:34:53] <markelog> not much you can do in migrate
+[12:35:10] <markelog> but we should point it out in release notes, i think
+[12:35:18] <timmywil> and the upgrade guide
+[12:35:19] <DaveMethvin> the upgrade guide text yeah
+[12:35:33] <m_gol> I also think we shouldn't be adding new issues to the 3.0.0 milestone unless we have a PR and it's LGTM'd to land (because then we'll keep moving it further by a few days over & over again). markelog disagreed with me about that at https://github.com/jquery/jquery/issues/2986 so I wanted to hear others here.
+[12:35:34] <markelog> oh, there is that
+[12:36:00] <markelog> i don't disagree with that
+[12:36:16] <timmywil> m_gol: it would have to be very high priority at this point
+[12:36:22] <gibson042> I put 3.0.1 because I don't consider it necessary for 3.0.0
+[12:36:40] <DaveMethvin> i think we should ship 3.0.0 and not delay it for little things that we can fix in a patch or minor
+[12:36:41] <gibson042> but if it's ready, it could go in
+[12:36:47] <gibson042> that ^
+[12:36:50] <timmywil> I don't mind getting things done sooner and fitting it in
+[12:36:50] <markelog> code seems ready to me, but it might have some consideration i didn't notice
+[12:36:58] <timmywil> but I don't want to delay
+[12:36:59] <DaveMethvin> if it's ready i'm good with it landing too
+[12:37:00] <gibson042> I haven't tested it against our suite
+[12:37:09] <markelog> i don't think we should delay
+[12:37:22] <timmywil> brb 1min
+[12:38:10] <markelog> So if its ready land, if not, wait a until the next release, which i guess will be a hot one :)
+[12:38:54] <gibson042> +1
+[12:39:15] <m_gol> I agree with that. ;-) My remark was mostly technical.
+[12:39:34] <timmywil> back
+[12:39:57] <timmywil> what's this about ie6?
+[12:40:01] <m_gol> BrowserStack has been pinging me when they can turn off the IE 6 machines
+[12:40:09] <timmywil> ah right
+[12:40:10] <m_gol> we have the pool of 30 machines available
+[12:40:21] <m_gol> but they also keep 2 IE 6 ones just for us, constantly running
+[12:40:32] <m_gol> see http://swarm.jquery.org/clients
+[12:40:36] <markelog> that sounds like burden for them
+[12:40:39] <m_gol> and they'd love to turn them off :-)
+[12:40:45] <markelog> only for us, that's friendly
+[12:40:54] <m_gol> I just asked them for some more time so that we finish with 1.12
+[12:40:57] <timmywil> that is nice of them, but we need them for 1.12.x
+[12:41:11] <m_gol> they wouldn't be gone completely
+[12:41:20] <m_gol> they'd just start normally like any other machine
+[12:41:24] <m_gol> now they're constantly online
+[12:41:28] <timmywil> oh
+[12:41:30] <m_gol> because they're that slow
+[12:41:35] <timmywil> well, we don't use them that much do we?
+[12:41:37] <markelog> heh
+[12:41:37] <m_gol> and that speeds it up a little
+[12:41:49] <m_gol> they are used after every commit to 1.12-stable
+[12:41:50] <markelog> it seems it also easier to support
+[12:41:54] <m_gol> and the same for Migrate
+[12:42:01] <timmywil> maybe after 1.12.2 release, we can tell them, we can deal with slower runs
+[12:42:08] <DaveMethvin> yeah
+[12:42:13] <DaveMethvin> we should try to be nice to them
+[12:42:16] <m_gol> that was my thinking, just wanted to run it by you
+[12:42:25] <DaveMethvin> i sure hope we can avoid a lot of updates
+[12:42:27] <m_gol> I'll talk to Leo as well as QUnit still uses them
+[12:42:37] <m_gol> for 1.x
+[12:42:39] <markelog> i think, they do that because it easier to maintain, not because they are slow
+[12:42:58] <markelog> i mean, because they are slow it easier to maintain if they always online
+[12:43:02] <m_gol> easier to maintain?
+[12:43:23] <markelog> yeah, a lot of networks heartbeats you need for slower machines
+[12:43:33] <m_gol> not necessarily, they've explicitly asked about not having to keep them online
+[12:43:46] <m_gol> especially that they're extra, they don't count in the 30 machines limit that we have
+[12:44:10] <timmywil> whatever is easier for them
+[12:44:12] <markelog> oh, then totally, i think we can deal with slowness
+[12:44:18] <markelog> timmywil:+1
+[12:44:21] <m_gol> we can always restart on TestSwarm
+[12:44:24] <DaveMethvin> the unit tests run really fast for migrate so having to spin up an ie6 box for the 1.x-stable there wouldn't be bad
+[12:44:34] <m_gol> I'll wait for 1.12.2 & write to them
+[12:44:35] <m_gol> right
+[12:44:37] <m_gol> k
+[12:44:44] <markelog> so we the last fence, who still supports ie6
+[12:44:51] <markelog> that's crazy :)
+[12:45:05] <markelog> i would thought lodash would be last
+[12:45:38] <timmywil> heh, lodash already dropped
+[12:46:00] <markelog> so when do we want to release?
+[12:46:09] <timmywil> I'll do it as soon as I can
+[12:46:30] <timmywil> but this week for sure
+[12:46:35] <DaveMethvin> yeah, fire when ready
+[12:46:39] <m_gol> just after fixing https://github.com/jquery/jquery/issues/2978 I guess :)
+[12:46:43] <timmywil> right
+[12:46:51] <markelog> timmywil: i mean 3.0
+[12:47:04] <m_gol> ah
+[12:47:06] <markelog> you mean the same, right?
+[12:47:15] <timmywil> if gibson042 gets out a PR on Thursday, I'd say as early as next week.
+[12:47:20] <markelog> since we are locking issues and staff
+[12:47:25] <DaveMethvin> i think we need the upgrade guide ready, and it should be by then
+[12:47:38] <m_gol> do we not wait for Migrate 3.0?
+[12:47:46] <timmywil> rc first
+[12:47:51] <m_gol> ah, right
+[12:48:00] <markelog> rc for 3.0?
+[12:48:06] <timmywil> yea
+[12:48:09] <markelog> i thought you wanted final
+[12:48:15] <timmywil> I did, but DaveMethvin talked me into rc
+[12:48:17] <markelog> you didn't want to do a beta
+[12:48:21] <markelog> oh, okay
+[12:48:36] <m_gol> we still need Migrate to be done so we can do the Core RC even if it's identical to the final one :)
+[12:48:36] <markelog> what convince you?
+[12:49:01] <DaveMethvin> several of the 3.0 things should be easy, the others i need help on or perhaps we don't do them for the first release
+[12:49:10] <markelog> yeah, that is rc, so it expected to be pretty much the same
+[12:49:31] <DaveMethvin> show/hide i think we decided we can't detect, i wonder if we really want to patch back in all the old code
+[12:49:54] <gibson042> let me see what I can do on that this week as well
+[12:50:20] <markelog> timmywil: what is the reason of not releasing the final?
+[12:50:22] <m_gol> I'll try to find some time for Migrate
+[12:50:32] <markelog> DaveMethvin: i'd say yeah
+[12:50:40] <markelog> it one of the most important changes
+[12:51:09] <markelog> i can take this one, fyi
+[12:51:14] <DaveMethvin> ok great!
+[12:51:31] <markelog> do you have a ticket?
+[12:51:48] <DaveMethvin> https://github.com/jquery/jquery-migrate/issues/102
+[12:51:50] <markelog> cool
+[12:51:56] <timmywil> markelog: an rc gives more of a heads-up than a beta, and we have some changes since the beta that I'd like to give a heads-up on.
+[12:52:18] <markelog> ok, so more info in the blog-post
+[12:52:18] <markelog> ?
+[12:52:35] <timmywil> yea, for instance, we added jQuery.escapeSelector
+[12:52:52] <markelog> timmywil: do not forget about https://github.com/jquery/jquery-migrate/issues/111
+[12:52:57] <markelog> that is important one!
+[12:53:19] <DaveMethvin> we can point ppl to the upgrade guide in the rc blog post
+[12:53:30] <DaveMethvin> do you think a lot of ppl use the old easing params?
+[12:53:36] <markelog> yeah, i do
+[12:53:46] <markelog> all plugins that i have checked use them
+[12:53:47] <timmywil> maybe indirectly with the easing plugin
+[12:54:02] <markelog> and i checked about 3-4
+[12:54:05] <m_gol> it's very easy to upgrade, though
+[12:54:16] <markelog> not really, actually
+[12:54:28] <markelog> it is easy, but not easy to get what's happening
+[12:54:29] <m_gol> find+replace
+[12:54:32] <m_gol> sure
+[12:54:36] <markelog> since those properties weren't documented
+[12:54:41] <m_gol> maybe we should put up an explanation somewhere
+[12:54:42] <m_gol> sth like https://github.com/jquery/jquery/issues/2964#issuecomment-191229690
+[12:55:12] <timmywil> We'll include in the upgrade guide
+[12:55:26] <markelog> i would pointed it out in the blog post too
+[12:55:41] <markelog> but that's me
+[12:55:54] <DaveMethvin> i made a note to be sure and put it in, there's a ticket in the jquery tracker marked behavior-change so i would have found it eventually :)
+[12:56:08] <markelog> coolsies
+[12:56:09] <timmywil> It's low-level. I think the blog post can link to the upgrade guide on this one.
+[12:56:10] <m_gol> most IDEs allow to refactor the variable/param names so sth like my comment might help them to know what to change to what
+[12:56:19] <markelog> timmywil: if you say so
+[12:56:32] <DaveMethvin> i think the blog post should mostly point to the upgrade guide because we want people to refer to that, it will be updated as we make changes
+[12:56:32] <m_gol> but yeah, it may be linked
+[12:56:36] <DaveMethvin> blog posts are more static
+[12:56:49] <m_gol> yeah, and we've seen what happens to static changelogs :)
+[12:57:10] <timmywil> oh, speaking of, I'm updating the 1.12.0/2.2.0 blog post today
+[12:57:11] <markelog> it can link to the guide, i'm saying this should be noted
+[12:57:24] <markelog> since that is pretty big one
+[12:57:25] <timmywil> with those issues m_gol updated
+[12:57:44] <timmywil> markelog: I think the ones interested are plugin authors, not regular users
+[12:58:00] <m_gol> one more thing: can we disable automatic running of the Periodic Jenkins jobs for 1.x/2.x after 1.12.2/2.2.2 are released?
+[12:58:00] <markelog> regular users use plugins
+[12:58:05] <DaveMethvin> ok gotta run... i will keep working on the upgrade guide and try to knock off a few migrate tix
+[12:58:09] <markelog> we can say, that most plugins would not work with it
+[12:58:14] <markelog> and give couple examples
+[12:58:14] <timmywil> but they don't need to know how plugins work. they just use the easings
+[12:58:17] <m_gol> they actually fail a lot, I just come to the page every few days & restart what failed :P
+[12:58:31] <markelog> yes, that is why we can just say, what plugins would not work
+[12:58:44] <timmywil> oh, yea, I can say that
+[12:58:45] <m_gol> often I join the swarm with my local Android 2.3 so that restarts don't fail as well
+[12:58:50] <markelog> cool, thanks
+[12:59:27] <markelog> m_gol: emulator?
+[12:59:33] <markelog> or do you have a real one?
+[12:59:34] <m_gol> yes, but the x86 one
+[12:59:36] <timmywil> m_gol: yes, but we'll need manual runs if we do 1.12.3/2.2.3
+[12:59:41] <markelog> burn it!
+[12:59:42] <m_gol> those disabled jobs can always be fired manually when needed
+[12:59:51] <timmywil> ok cool
+[13:00:03] <timmywil> time's up
+[13:00:04] <m_gol> BrowserStack claims they tried the x86 emulators and they didn't notice speed difference
+[13:00:06] <markelog> burn it straight to hell!
+[13:00:08] <m_gol> but that's not my experience
+[13:00:24] <all3fox> still here: would like to spam about GSoC
+[13:00:40] <m_gol> markelog: I mean the x86 emulator, not a real one. It's still fast
+[13:00:50] <timmywil> all3fox: let's discuss in -dev
+[13:01:00] <markelog> hah :), burn the macbook on which you have that emulator
+[13:01:01] <markelog> :)
+[13:01:21] <timmywil> thanks everybody

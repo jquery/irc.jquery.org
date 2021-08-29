@@ -1,0 +1,438 @@
+[03:01:08] <tys> somebody alive?
+[03:01:36] <tys> ever heard of problems with on() that isn't triggered when using .live() previously?
+[05:09:51] <mikesherov> jaubourg: you here?
+[05:17:05] <jaubourg> yep but not available (working right now)
+[05:18:39] <jaubourg> I still don't get why we needed to change comments indentation or why functions have to be moved (jslint already complained about vars declared out of order, but NOT like jshint does and jshint clearly has some issues, especially if it doesn't support use of vars declared prior to another var as part of the init of said var
+[05:18:48] <jaubourg> )
+[05:19:04] <jaubourg> seems to me like jshint has some issues with its static analysis
+[05:19:39] <mikesherov> well, the thing with the code indentation is that jshint doesn't allow tabs and spaces on the same line for identation
+[05:20:18] <mikesherov> you can see in my commit log that I initially was ignoring the mixed tabs and spaces warning
+[05:20:26] <mikesherov> we can choose to take or leave it
+[05:20:53] <mikesherov> with regards to the vars declared out of order, JSLint was not running with undef:true
+[05:20:55] <jaubourg> be back in 15 minutes, I'm in the middle of a meeting
+[05:21:04] <mikesherov> k
+[05:25:20] <mikesherov> jaubourg, when you get back, jslint is NOT complaining about undeclared vars currently: the commit that spawned this discussion https://github.com/jquery/jquery/commit/fc13f5b6cebc25e7cdb7bc72c4a7d3298e2c696a
+[05:25:21] <socialhapy> ★ Commit on jquery by dmethvin (2w, 6d ago): Fix #10575. Undeclared `matched` var hosed recursive delegate calls.Thanks davidmurdoch for staying with this bug!
+[05:26:07] <mikesherov> and to be clear, it's only when I turned on undef:true did JSHint start complaining. It's kind of the point.
+[05:30:48] <mikesherov> also, with regards to mixed tabs and spaces, there is active thread for making it a configurable option in JSHint: https://github.com/jshint/jshint/issues/314
+[05:30:49] <socialhapy> ★ Issue #314 on jshint, reported by arcanin (3w, 3d ago): Mixed tabs / spaces
+[05:40:05] <mikesherov> DaveMethvin: https://github.com/jquery/jquery/pull/602 No pressure :-)
+[05:40:05] <socialhapy> ★ Pull request on jquery by mikesherov (7h, 54m ago): enabling the JSHint option undef:true, part 2 of fixes #10692
+[05:40:16] <mikesherov> that pull request is really a discussion starting point
+[05:40:37] <mikesherov> it works... but I don't want to have it be seen as something I think should be integrated before 1.7.1
+[05:40:41] <DaveMethvin> when you enabled it did you find any bugs mikesherov?
+[05:40:48] <mikesherov> I did not
+[05:41:07] <mikesherov> I found 63 times that we declared out of order
+[05:41:12] <mikesherov> but no real errors
+[05:41:17] <mikesherov> it's a good question though!
+[05:41:17] <DaveMethvin> ok
+[05:41:35] <mikesherov> I should revert your change in my code https://github.com/jquery/jquery/commit/fc13f5b6cebc25e7cdb7bc72c4a7d3298e2c696a
+[05:41:35] <socialhapy> ★ Commit on jquery by dmethvin (2w, 6d ago): Fix #10575. Undeclared `matched` var hosed recursive delegate calls.Thanks davidmurdoch for staying with this bug!
+[05:41:42] <mikesherov> and see if it catches it!
+[05:41:49] <DaveMethvin> yeah that would be an interesting test
+[05:41:57] <mikesherov> I'll let you know in a minute
+[05:41:57] <DaveMethvin> but switching to jshint is a good idea in general
+[05:42:09] <mikesherov> jaubourg isn't so thrilled :-)
+[05:42:39] <jaubourg> I'm not thrilled about var a = 1, b = a * 2; needing change
+[05:42:55] <jaubourg> because that's just stupid
+[05:43:33] <DaveMethvin> oh i agree with that, does jshint require it?
+[05:43:58] <DaveMethvin> i use results of previous vars all over the place
+[05:44:19] <jaubourg> seems jshint fucks it up hard in the department
+[05:49:10] <mikesherov_> to be clear, jshint has no problem with: var a = 1, b = a * 2;
+[05:49:41] <mikesherov_> it has a problem with: var b = a *2, a;
+[05:49:52] <mikesherov_> and it has a problem with: var b = a *2, a = 1;
+[05:50:18] <jaubourg> well, there is not out of order decl in deferred I'm aware of and it's still complaining
+[05:51:37] <mikesherov_> there is, look closely at my commit
+[05:51:58] <jaubourg> there is not or else it wouldn't work in the first place
+[05:51:59] <mikesherov_> inside promise, it uses deferred
+[05:52:08] <jaubourg> inside a method, not inside promise
+[05:52:14] <mikesherov_> but deferred = promise.promise({});
+[05:52:44] <mikesherov_> so promise is declared first and uses deferred, which uses promise
+[05:53:14] <jaubourg> not quite, but I understand why jshint doesn't understand
+[05:53:21] <jaubourg> still, it sucks in that department
+[05:53:24] <mikesherov_> so all i changed was that i declared deferred as a var FIRST, then declared and defined promise, then defined deferred
+[05:53:36] <mikesherov_> jslint doesn't understand either!
+[05:53:44] <mikesherov_> this is a new option
+[05:53:55] <jaubourg> this is a half baked option
+[05:53:58] <mikesherov_> and btw, DaveMethvin, it catches your bug
+[05:54:06] <DaveMethvin> yay!
+[05:54:41] <mikesherov_>                                 matches = [];     Problem at line 3275 character 17: 'matches' is not defined.                                                 matches.push( handleObj );     Problem at line 3287 character 25: 'matches' is not defined.                                 if ( matches.length ) {     Problem at line 3290 character 22: 'matches' is not defined.                                         handlerQueue.pus
+[05:55:07] <jaubourg> great, we caught a bug and had to rewrite half the lib for it \o/
+[05:55:13] <jaubourg> sorry, it doesn't really cut it for lme
+[05:56:18] <mikesherov_> rewrite half the lib? look at the commit, it amounts to pulling up a few named functions, and requires thinking about order of var declaration... again, i'll leave it up to you guys. i put it there for discussion
+[05:56:28] <jaubourg> god I hate to have 2 "meetings" at the same time
+[05:56:34] <mikesherov_> haha
+[05:57:02] <DaveMethvin> hey what happened to the support.js work? The ticket disappeared from the 1.7.1 list
+[05:57:13] <DaveMethvin> i don't see any commits tho
+[05:57:40] <jaubourg> 1.next
+[05:57:45] <jaubourg> that's what I saw
+[05:58:10] <mikesherov_> for me, this is just the pain of implementing an additional style constraint, i would argue that if it catches even 1 bug, it's a useful option.
+[05:58:12] <jaubourg> mikesherov: order of decl is fine, that's the problem I have
+[05:58:39] <mikesherov_> well, it's a problem for static analyzer's in general
+[05:58:42] <jaubourg> this option is "half-baked" in the sense the static analysis goes overboard
+[05:59:24] <jaubourg> which makes for cumbersome re-arranging of decls for nothing which is the kind of problem that triggered the creation of jshint vs jslint in the first place
+[05:59:29] <jaubourg> history repeats itself
+[06:00:14] <mikesherov_> jslint has same problem. but really, all it takes going forward is ocassionaly having to decl a var and define later when you could otherwise do both at the same time
+[06:00:32] <mikesherov_> that's the tradeoff
+[06:00:46] <mikesherov_> i'm glad you're on the other side of this discussion
+[06:01:02] <mikesherov_> it provides a good point counter-point
+[06:01:49] <DaveMethvin> just goin thru the diffs
+[06:02:25] <DaveMethvin> jaubourg: did we discuss moving the support stuff out of 1.7.1 at some point yesterday?
+[06:05:04] <jaubourg> Dave: I don't think so, I thought you made it 1.next? you didn't?
+[06:08:39] <mikesherov_> g2g thanks
+[06:14:07] <DaveMethvin> jaubourg: rwaldron marked them as 1.next?
+[06:14:34] <DaveMethvin> took me forever to find the tix
+[06:15:12] <DaveMethvin> timmywil: i thought we were going to work on support.js for 1.7.1 ... rwaldron move it to 1.next but kept the blocker?
+[06:15:46] <DaveMethvin> and blocking 1.next don't do much :D
+[06:25:37] <jaubourg> love it when I close the window I didn't want to close
+[06:27:23] <DaveMethvin> d'oh!
+[06:42:13] <kswedberg> jaubourg: at some point would you mind running through the Callbacks object entries in api.jquery.com with me? I think there's a bunch of stuff that's wrong and/or missing with types/return types.
+[06:49:06] <timmywil> DaveMethvin: I'm still planning on it for 1.7.1
+[06:49:11] <timmywil> we could change it back
+[06:49:38] <DaveMethvin> yeah i just started looking at the list and thinking, "where did those go?"
+[06:49:55] <DaveMethvin> so i am not sure we can get the rc out today unless we have good luck
+[06:50:33] <DaveMethvin> i'm working on the event bug now, should have it done in half an hour
+[06:50:56] <DaveMethvin> i created and deleted two tix btw, got myself all confused about the bug ... :)
+[06:51:06] <timmywil> I won't be able to finish the support stuff during the day today, but I can try to get to it tonight
+[06:51:58] <DaveMethvin> k, i have the same problem my afternoon is kind of busy and i didn't realize we had more to do
+[06:52:31] <DaveMethvin> i mean, I SHOULD have wondered where that ticket went but i guess i was so happy to see a short list
+[06:52:51] <DaveMethvin> not sure why rwaldron reassigned them to 1.next
+[06:56:40] <timmywil> DaveMethvin: yea, we should probably get them all done for 1.7.1
+[06:57:19] <DaveMethvin> we also had a few come in overnight that we may need to handle, i'd rather nail them in 1.7.1 than wait
+[06:57:25] <DaveMethvin> even if it means we take a few more days
+[06:58:48] <timmywil> better to have a solid release
+[06:59:27] <timmywil> DaveMethvin: have you seen this one? docs#10791
+[06:59:29] <bot-t> DaveMethvin, [#10791] Delegated Events fail on SVG elements (new bug) - http://jqbug.com/10791
+[06:59:42] <DaveMethvin> yeah i suspect that is quickIs
+[06:59:56] <DaveMethvin> touching SVG elements inappropriately
+[07:00:10] <DaveMethvin> but i was gonna look at it
+[07:00:19] <DaveMethvin> oh and I HATE SVG
+[07:01:20] <timmywil> DaveMethvin: seems like quickIs should still work
+[07:01:46] <DaveMethvin> well that was my guess, i know svg is very picky about how you touch it
+[07:01:53] <timmywil> ok, maybe not for className
+[07:01:53] <DaveMethvin> if you try to get props that don't exist
+[07:01:59] <timmywil> http://cl.ly/3g0L3y2U3b0L2r2o3L0x
+[07:02:06] <timmywil> id should be fine
+[07:02:16] <timmywil> ah, which it is
+[07:02:25] <timmywil> so this is just for class
+[07:02:29] <timmywil> that makes sense
+[07:02:58] <timmywil> but in that case no svg element could be selected by class
+[07:03:05] <timmywil> i bet qsa doesn't even work
+[07:03:12] <DaveMethvin> does getAttribute work?
+[07:03:18] <DaveMethvin> it might implement that interface right
+[07:03:42] <timmywil> getAttribute works, but i bet not in IE
+[07:03:49] <timmywil> and qsa does not select it btw
+[07:04:10] <DaveMethvin> you are in a maze of twisty little passages, all alike
+[07:04:16] <timmywil> http://cl.ly/433u042A010z2w440417
+[07:04:32] <DaveMethvin> yeah, i suspected so
+[07:04:34] <DaveMethvin> fuuuuuu
+[07:04:52] <timmywil> i don't think that's something we should support
+[07:05:05] <DaveMethvin> well, i don't either but we did support it earlier
+[07:05:08] <timmywil> $('.by-class') will not select the element, nor should it if qsa doesn't select it either
+[07:05:36] <DaveMethvin> why the heck do they have to make svg so screwed up?
+[07:06:06] <timmywil> hmm, so maybe matchesSelector returns true?
+[07:07:03] <DaveMethvin> either that or it throws an error and Sizzle returns true
+[07:07:14] <timmywil> http://cl.ly/3K1r3e3P3v1V1W0o0X0M
+[07:07:15] <timmywil> shit
+[07:07:30] <timmywil> wtf
+[07:07:56] <timmywil> qsa fails but matchesSelector returns true
+[07:07:59] <timmywil> that doesn't make sense
+[07:08:47] <DaveMethvin> "yes it matches but no it's not there"
+[07:08:54] <timmywil> srsly
+[07:09:15] <DaveMethvin> if we can harness this technology we can invent a cloaking device
+[07:10:00] <timmywil> alright, well if we wanted, we could do this: jQuery.attr( elem, 'class' ) === m[3]
+[07:10:34] <timmywil> or maybe elem.attributes.class === m[3]
+[07:10:39] <timmywil> that could work
+[07:11:11] <timmywil> oh, you're doing a regex test, so m[3].test( elem.attributes.class )
+[07:11:28] <timmywil> that would cover getting the attribute correctly in IE (I hope)
+[07:21:21] <jaubourg> kswedberg: sometime tomorrow?
+[07:21:32] <kswedberg> sounds good!
+[07:21:39] <kswedberg> thanks, jaubourg
+[07:21:53] <jaubourg> and again, thank YOU for all the docs work
+[07:22:12] <kswedberg> no prob! DaveMethvin and Addy did most of it.
+[07:22:45] <jaubourg> gotta fly, we catch one another tomorrow at one point and we'll go through all this, k?
+[07:22:56] <kswedberg> awesome! ttyl
+[07:24:20] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/i9Vd6g
+[07:24:20] <jqcommit> [jquery/master] Fix #10794. .triggerHandler() should not .preventDefault(). - Dave Methvin
+[07:26:13] <kswedberg> DaveMethvin: I thought triggerHandler() always prevented default. Is this new behavior?
+[07:26:28] <DaveMethvin> only by side effect
+[07:26:43] <DaveMethvin> ugh, unless there is a specific reason why
+[07:27:00] <DaveMethvin> lemme run the ui tests, they'll find it if anyone does
+[07:28:01] <kswedberg> ok. My impression early on was that triggerHandler is used specifically when we don't want the default action to occur.
+[07:28:09] <DaveMethvin> so kswedberg, triggerHandler doesn't run the default action or bubble, but it doesn't have to preventDefault or stopPropagation to do that
+[07:28:18] <kswedberg> ah!
+[07:28:25] <DaveMethvin> trigger knows it's a handlers-only situation
+[07:28:56] <DaveMethvin> right now it doesn't call stopProp but it does call preventDefault
+[07:29:00] <kswedberg> cool deal. so it should prevent default but not .preventDefault() ;)
+[07:29:09] <kswedberg> ?
+[07:29:14] <DaveMethvin> yeah, so capitalization and spaces are important!
+[07:29:46] <kswedberg> you're beginning to sound like an English teacher. I like it! :D
+[07:30:15] <DaveMethvin> lol
+[07:33:18] <DaveMethvin> well i am pretty sure that's safe, cuz UI unit tests like it
+[07:33:33] <DaveMethvin> so we need to try harder!  "Core ain't done till UI won't run"
+[07:33:34] <kswedberg> cool deal. :)
+[07:33:41] <kswedberg> hahahaha
+[08:39:51] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/arVRQg
+[08:39:51] <jqcommit> [jquery/master] Allow mapped types to be removed by a namespace-only type name. - Dave Methvin
+[08:40:09] <DaveMethvin> that is like the fourth bug i've found while writing up the docs for special events
+[08:40:21] <DaveMethvin> i should write docs more often
+[08:40:32] <kswedberg> :)
+[08:54:01] <kswedberg> btw, DaveMethvin: this seemed unexpected to me
+[08:54:02] <kswedberg> $('#foo').on('focus', 'input', function(e) { console.log(e.type); }); // logs "focusin"
+[08:54:38] <DaveMethvin> well that's the real event ... focus/blur bubble as focusin/focusout
+[08:54:42] <kswedberg> I mean, I know why it does that. and it makes sense. but I kinda thought jQuery was accounting for that
+[08:54:45] <kswedberg> I know
+[08:54:59] <DaveMethvin> we do, which is why you can attach to focus/blur as delegated events
+[08:55:04] <DaveMethvin> but we don't munge the name
+[08:56:04] <DaveMethvin> i think we used to before 1.7, but it was extra bytes to do that mapping
+[08:56:08] <kswedberg> yeah. just seems like it would trip people up.
+[08:56:20] <DaveMethvin> well tell them to use the bubbling event! :P
+[08:56:35] <DaveMethvin> then the names will match
+[08:56:40] <kswedberg> nah. delegate() pre 1.7 does the same (returns focusin)
+[08:56:51] <DaveMethvin> oh good, not a regresssion!
+[08:57:08] <DaveMethvin> but really, ppl should understand that those events don't bubble
+[08:57:17] <DaveMethvin> we get into so much trouble trying to hide things
+[08:57:27] <DaveMethvin> that's the basis of the whole attr/prop thing
+[08:57:32] <kswedberg> sure. but then why pretend that they do — but only halfway?
+[08:57:44] <DaveMethvin> becuase we'd break a lot of old code if we didn't
+[08:57:47] <DaveMethvin> :P
+[08:58:02] <kswedberg> seems like we should have faked it all the way or not at all.
+[08:58:15] <DaveMethvin> well we didn't
+[08:58:20] <kswedberg> lol
+[08:58:34] <kswedberg> I know!!!!!11 just sayin'
+[08:58:37] <DaveMethvin> i am ok with halfway
+[08:58:55] <DaveMethvin> this is another one like "why don't all the signatures take a function"
+[08:59:00] <kswedberg> well, as long as you're ok with it.
+[08:59:19] <DaveMethvin> yeah it's fine with me,
+[08:59:32] <DaveMethvin> the reason i would prefer not to totally fake it is that it takes more work
+[08:59:33] <kswedberg> do we ever get tickets filed for that?
+[08:59:46] <DaveMethvin> most of the time ppl don't look at event.type i think
+[08:59:54] <kswedberg> so, "fake it til you break it" :p
+[09:01:02] <DaveMethvin> if we wanted to fake it all the way, the event for focus/blur would need something to set event.type to focus/blur, call the handler, set it back to focusin/focusout so that subsequent code wouldn't see the wrong event name
+[09:01:30] <kswedberg> yeah, you're probably right. was thinking that this would be a common pattern:
+[09:01:30] <kswedberg> $('#foo').on('focus blur', 'input', function(event) { if (event.type == 'focus' ) {} else {} })
+[09:01:32] <kswedberg> but maybe not
+[09:01:48] <DaveMethvin> it might be, although it would definitely be better to use focusin/out there
+[09:01:54] <DaveMethvin> which also works for direct binding
+[09:02:19] <kswedberg> totally. I'm 100% with you on what best practice is.
+[09:02:41] <kswedberg> and, I can see how changing event.type would make things even more messy.
+[09:02:50] <kswedberg> so whatevs.
+[09:03:30] <kswedberg> was just more of a curiosity than anything else.
+[09:04:26] <DaveMethvin> lemme add a note to the .on() page
+[09:05:48] <DaveMethvin> yeah i mention focus/blur there but not that they're mapped to focusin/focusout
+[09:06:57] <kswedberg> k. we doing something similar with mouseenter/mouseleave?
+[09:13:01] <DaveMethvin> well kinda
+[09:13:47] <DaveMethvin> kswedberg: the mouseenter/leave has a special handler so it should have a correct event.type name
+[09:14:28] <DaveMethvin> that was for consistency with ie since we don't fake it there
+[09:15:10] <DaveMethvin> and really, the focus/blur is for consistency with ie now that i think about it, since ie just fires it for us
+[09:15:33] <DaveMethvin> that ie, what a swell browser
+[09:17:08] <kswedberg> exactly. so from a casual user's perspective, wouldn't it seem odd that one set of events changes event.type while the other doesn't?
+[09:17:34] <kswedberg> feel free to slap me upside the head with a trout. :)
+[09:18:20] <DaveMethvin> mouseenter/leave bubble in ie so we don't have to do any work for that to happen, no hook at all
+[09:18:30] <DaveMethvin> but focus/blur doesn't bubble in any browser
+[09:18:55] <DaveMethvin> so we defined focusin/focusout that do, and those are the events people should use
+[09:19:17] <kswedberg> cool cool
+[09:27:42] <timmywil> kswedberg: abed?
+[09:27:58] <kswedberg> timmywil: ?
+[09:27:59] <timmywil> if you don't know what that means, that's ok
+[09:28:07] <kswedberg> oh. community?
+[09:28:12] <timmywil> yup
+[09:28:14] <kswedberg> :)
+[09:28:17] <timmywil> :D
+[09:28:49] <timmywil> all my friends here have been saying that all the time now
+[09:29:02] <kswedberg> lol
+[09:35:19] <kswedberg> DaveMethvin: nice change on the .on() entry. thx for that.
+[10:04:17] <danzik171> rwaldron: good presentation fyi - a side bonus is you really showed off that deferreds aren't just "another way to use ajax" which i've been trying to tell people =P
+[10:05:19] <kswedberg> danzik171: is rwaldron's preso online? link?
+[10:06:27] <danzik171> kswedberg: didn't write it down since i knew it was gonna be available afterward
+[10:06:30] <danzik171> srry
+[10:06:40] <kswedberg> ah. np
+[10:27:06] <rwaldron> danzik171 oh thanks!
+[10:27:13] <rwaldron> yeah, i love the shit out of deferreds
+[10:27:27] <rwaldron> using them to reconcile disparate tasks
+[10:27:31] <rwaldron> WIN!
+[10:28:08] <rwaldron> Anything that requires >1 thing to happen before commencing should use deferred resolution
+[10:28:10] <rwaldron> :)
+[10:28:26] <danzik171> rwaldron: yep - my favorite use for them ( so far ) is true cross-domain POST ( you need to control both domains )
+[10:28:42] <danzik171> same API as $.ajax, but no cors restrictions using .postMessage
+[10:28:47] <rwaldron> kswedberg http://code.bocoup.com/popcorn.js/jqsummit
+[10:29:02] <kswedberg> rock on. thx, rwaldron!
+[10:29:10] <rwaldron> and the code for the "Adventure" game... http://github.com/rwldrn/adventure
+[10:29:23] <kswedberg> nice. thx
+[10:45:24] <kswedberg> rwaldron: btw, I stole your line for a preso I did last week ("you are not a minifier").
+[10:45:38] <rwaldron> nice!!
+[10:45:41] <kswedberg> http://pres.learningjquery.com/1devday2/#!/don_t_go_crazy_with_terse_code
+[10:45:52] <kswedberg> updated the slide to make sure you got proper credit. ;)
+[10:46:15] <ajpiano> guys it would be bad if i described the fix for highly throttled animations in 1.7 as "Animations jerk off"
+[10:46:22] <ajpiano> right?
+[10:46:33] <ajpiano> xD
+[10:46:35] <kswedberg> lol
+[10:48:41] <rwaldron> hahaha <3 kswedberg nice one
+[10:48:46] <rwaldron> (c) ahahaha
+[10:48:58] <rwaldron> I like the following line
+[10:49:02] <rwaldron> Advanced minifiers — Google Closure Compiler, Uglify.js, and so on — are better than you are.
+[10:49:02] <kswedberg> :D
+[10:49:13] <rwaldron> I was looking at Raphael last night
+[10:49:29] <kswedberg> staring longingly into his eyes?
+[10:49:36] <rwaldron> https://github.com/DmitryBaranovskiy/raphael
+[10:49:52] <rwaldron> I think you meant...
+[10:49:53] <rwaldron> staring blankly*
+[10:50:07] <rwaldron> Dmitry should be ashamed of himself
+[10:50:18] <rwaldron> you know he wrote it like that intentionally
+[10:50:22] <kswedberg> hah
+[10:50:28] <rwaldron> it's nearly impossible to patch
+[10:50:37] <rwaldron> and only he truly understands it
+[10:50:45] <rwaldron> ...this is all known to be intentional
+[10:50:48] <rwaldron> and he doesnt deny it
+[10:50:53] <kswedberg> job security! err. wait
+[10:50:56] <rwaldron> i think he actually made the claim himself
+[10:50:59] <rwaldron> yeah basicallu
+[10:51:01] <rwaldron> basically
+[10:51:02] <kswedberg> weird.
+[10:51:30] <kswedberg> awesome:
+[10:51:30] <kswedberg> while (e.n) {
+[10:51:30] <kswedberg>                 if (f) {
+[10:51:30] <kswedberg>                     if (e.f) {
+[10:51:30] <kswedberg>                         for (j = 0, jj = e.f.length; j < jj; j++) if (e.f[j] == f) {
+[10:51:30] <kswedberg>                             e.f.splice(j, 1);
+[10:51:30] <kswedberg>                             break;
+[10:51:31] <kswedberg>                         }
+[10:51:31] <kswedberg>                         !e.f.length && delete e.f;
+[10:51:32] <kswedberg>                     }
+[10:51:48] <kswedberg> :-S
+[10:51:52] <ryanneufeld> ?p @ kswedberg
+[10:51:52] <bot-t> kswedberg, Please paste your code at http://jsfiddle.net/ [preferred], http://paste.pocoo.org/+js, http://jsbin.com/ or http://fixee.org/
+[10:51:53] <rwaldron> ...right...
+[10:52:06] <rwaldron> ryanneufeld zip it!
+[10:52:08] <ryanneufeld> rwaldron: loved your talk on popcorn
+[10:52:09] <kswedberg> heh. thx, ryanneufeld!
+[10:52:09] <rwaldron> ;)
+[10:52:13] <rwaldron> ahahah thanks dude
+[10:52:26] <ryanneufeld> light sabers FTW! (I was Metro Lyrics)
+[10:52:32] <rwaldron> ohhh gotcha
+[10:52:35] <rwaldron> cool
+[10:52:44] <rwaldron> yeah light sabers are def awesome
+[10:53:01] <ryanneufeld> you shouting TEST ALL THE THINGS, had me LMAO
+[10:56:26] <rwaldron> My favorite part was the high five mini tutorial
+[10:56:30] <rwaldron> totally unplanned.
+[10:57:02] <ryanneufeld> haha, yeah
+[10:57:20] <ryanneufeld> watching this made me really sorry I missed your preso in SF
+[10:57:31] <ryanneufeld> We actually hung out a bit
+[10:57:44] <rwaldron> kswedberg what is the parable for untested code slide
+[10:58:54] <rwaldron> I like hanging out
+[10:59:04] <rwaldron> btw, in SF... i showed a monkey riding a dog
+[10:59:08] <rwaldron> you missed the best one
+[10:59:11] <tbranyen> lol
+[10:59:12] * rwaldron shrugs
+[10:59:12] <ryanneufeld> yes, I did
+[10:59:16] <ryanneufeld> you showed me later
+[10:59:22] <rwaldron> oh, go me
+[10:59:42] <ryanneufeld> I met you over breakfast, w/ danheberden and ben_alman_
+[10:59:50] <kswedberg> rwaldron:  talked about a contact-lens calculator I had to write. and how the formulas kept changing on the wizard's whim.
+[10:59:52] <kswedberg> https://www.artoptical.com/lenses/fitting-tools/calculators/intelliwave-calculator/
+[10:59:56] <rwaldron> ohhh ok, yes, now i remember
+[11:00:01] <rwaldron> sorry, i flaked for a sec
+[11:00:04] <rwaldron> forgive me!
+[11:00:29] <rwaldron> jesus kswedberg
+[11:00:31] <kswedberg> … and how absolutely screwed I would have been if I hadn't done unit tests
+[11:00:41] <rwaldron> there are poor people with serious headaches out there
+[11:00:50] <rwaldron> thanks to your untested code
+[11:00:55] <rwaldron> i think you did on purpose
+[11:00:58] <rwaldron> it*
+[11:01:02] <rwaldron> (just kidding)
+[11:01:07] <rwaldron> (obviously)
+[11:01:15] <kswedberg> https://www.artoptical.com/assets/scripts/test/
+[11:01:30] <rwaldron> kswedberg <33333333333
+[11:01:42] <rwaldron> so good
+[11:01:53] <kswedberg> :) those heartz mean a lot coming from you.
+[11:18:51] <timmywil> ?tell blahed something
+[11:18:51] <bot-t> timmywil, Okay.
+[11:19:33] <timmywil> hi blahed
+[11:19:35] <blahed> timmywil: why
+[11:19:36] <bot-t> (44 secs ago) <timmywil> tell blahed something
+[11:19:43] <timmywil> i want that ^^
+[11:20:10] <timmywil>  ?tell blahed something
+[12:13:58] <ajpiano> DaveMethvin: how do i actually write an event property hook, if i want to
+[12:14:29] <DaveMethvin> first you proofread my draft of the event extensions, ajpiano
+[12:14:46] <DaveMethvin> https://docs.google.com/document/d/11rRFvC51lDU8SBqgcsR5XwVKUeW__RO643iXSEVOdQ4/edit?hl=en_US
+[12:14:52] <DaveMethvin> sucka!
+[12:15:18] <DaveMethvin> kswedberg had some feedback i need to incorporate...er i mean ignore
+[12:15:33] <ajpiano> i feel like i haven't seen this
+[12:15:43] <DaveMethvin> thats because i just finished it last night
+[12:15:48] <ajpiano> OH
+[12:15:59] <ajpiano> stupid "proofread" spelled the same in past and present tense
+[12:16:08] <DaveMethvin> damn english
+[12:16:18] <kswedberg> DaveMethvin: hahahah
+[12:16:18] <ajpiano> DaveMethvin: can't proof right now, banging away on slides
+[12:16:35] <DaveMethvin> ok well eventually that stuff will have a home and ppl can read about it
+[12:16:41] <ajpiano> DaveMethvin: when are you gonna publish this
+[12:16:58] <DaveMethvin> some time soon, i dunno when
+[12:17:07] <ajpiano> ok
+[12:17:13] <DaveMethvin> if someone  needs it urgently have them ask about it
+[12:17:19] <ajpiano> well i am gonna commandeer it into the learning site too
+[12:17:30] <ajpiano> naw it would just be sweet to have an <a href> for my slidez0rz
+[12:17:31] <ajpiano> but its ok
+[12:17:54] <DaveMethvin> i think it needs some clarifications but basically it's there
+[12:18:03] <ajpiano> yeah i got the example i was looking for :D
+[12:18:10] <DaveMethvin> at the bottom?
+[12:18:22] <ajpiano>    jQuery.event.fixHooks.drop = { props: [ "dataTransfer" ] };
+[12:18:29] <DaveMethvin> oh yeah
+[12:18:47] <DaveMethvin> damn shoulda hid that better
+[12:18:58] <DaveMethvin> brb
+[12:19:00] <ajpiano> hahaha
+[13:35:34] <ryanneufeld> ajpiano: do you have that bug handy regarding the receive handler on sortables. It's like two years old with a patch submitted?
+[13:36:22] <ajpiano> http://bugs.jqueryui.com/ticket/4303
+[13:37:04] <ryanneufeld> thanks
+[13:44:39] <rwaldron> DaveMethvin neat!
+[13:44:44] <rwaldron> I'll read that in a few
+[18:08:33] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/yl2OUg
+[18:08:33] <jqcommit> [jquery/master] Fix #10798. Don't re-bubble trigger()ed events in IE. - Dave Methvin
+[18:35:23] <mikesherov> anyone know how long this has been around for: http://www.whatwg.org/specs/web-apps/current-work/multipage/editing.html#the-hidden-attribute
+[18:40:51] <DaveMethvin> mikesherov: yeah i noticed that a while back, i think it may have been in response to some stuff JohnResig pushed the browser guys on
+[18:41:08] <mikesherov> yeah
+[18:41:16] <mikesherov> http://bugs.jquery.com/ticket/10485#comment:2
+[18:41:17] <mikesherov> we need this
+[18:41:29] <mikesherov> it'll kill the bullshit we do in defaultDisplay()
+[18:41:47] <mikesherov> working on a POC as we speak
+[18:41:48] <DaveMethvin> does anybody implement it yet?
+[18:41:54] <mikesherov> YES
+[18:42:03] <DaveMethvin> who who
+[18:42:03] <mikesherov> webkit, latest FF, latest opera, safari
+[18:42:14] <mikesherov> http://en.wikipedia.org/wiki/Comparison_of_layout_engines_(HTML5)#Global
+[18:42:17] <DaveMethvin> holy moley, then that table is wrong in the docs
+[18:42:37] <mikesherov> what docs?
+[18:42:44] <DaveMethvin> the one you linked at whatwg
+[18:42:53] <mikesherov> I'm working on it right now
+[18:43:06] <mikesherov> yeah, it's wrong in WHATWG
+[18:43:12] <mikesherov> I don't have an account to correct it
+[18:43:20] <mikesherov> <------- lazy
+[18:43:29] <DaveMethvin> just do like everyone else and tweet it
+[18:44:27] <mikesherov> I edited it
+[18:53:32] <mikesherov> DaveMethvin: any thoughts on the JSHint PRs? either the one with undef or the one without...
+[18:54:09] <DaveMethvin> i started going thru the diffs, it's a lot of changes altho i realize it's mostly moving stuff up so it's defined before used
+[18:54:18] <DaveMethvin> i like that it finds my mistakes
+[18:54:49] <DaveMethvin> but i would like to wait until we get thru 1.7.1 at least before landing it
+[18:55:02] <DaveMethvin> so .... many .... bugs
+[18:55:03] <mikesherov> Oh, for sure
+[18:55:24] <DaveMethvin> but of course big diffs like this get stale quickly, so it's a pain i know
+[18:55:38] <mikesherov> The PR is mainly a starting point for discussion on whether or not we want to use undef or not
+[18:55:52] <mikesherov> the JSHint in 601 is much more timid
+[18:55:57] <DaveMethvin> i want to take a deeper look a it
+[18:56:09] <DaveMethvin> but i want to get 1.7.1 out first
+[18:56:25] <mikesherov> yeah, on that note, are there any bugs I could specifically look at for that?
+[18:56:45] <DaveMethvin> well since you're here ... :D
+[18:57:13] <DaveMethvin> some thoughts on http://bugs.jquery.com/ticket/10729 ?
+[18:57:32] <DaveMethvin> dunno if you're familiar with what rwaldron and I did there
+[18:58:53] <mikesherov> not really, but fresh eyes sometimes provide a clear look
+[18:59:01] <mikesherov> lemme take a good look at it
+[19:00:04] <mikesherov> this is my first good look at the event system
+[19:00:16] <mikesherov> I'll ping you later if I have any bright ideas
+[19:01:18] <DaveMethvin> sounds good
+[19:01:32] <DaveMethvin> i think timmywil is working on the support.js stuff
+[19:08:46] <DaveMethvin> ok, three little bugs
+[20:32:54] <danzik171> DaveMethvin: so i looked at the bug you linked to mikesherov a bit ago - the only way i can think of to not maintain the "blob" of events at the bottom is to check if the event is natively supported so it doesn't match a custom event like you pointed out.  just seems like a lot of code for what it does ( testing it locally atm )
+[20:33:46] <DaveMethvin> danzik171: yeah, i am thinking we may just not want to copy the events
+[20:33:49] <DaveMethvin> properties
+[20:34:03] <DaveMethvin> i don't want to maintain a big long list of events
+[20:34:17] <DaveMethvin> if ie wasn't there we could use the type, so maybe in 10 years..
+[20:34:37] <danzik171> yea that's fair enough - and 33 bytes to do it was just  :<

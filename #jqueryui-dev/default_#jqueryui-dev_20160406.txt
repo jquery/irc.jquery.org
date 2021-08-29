@@ -1,0 +1,74 @@
+[02:09:04] <doesallmagic2> Project jQuery UI - git core build #1141: STILL UNSTABLE in 8 min 4 sec: http://jenkins.jquery.com/job/jQuery%20UI%20-%20git%20core/1141/
+[02:21:14] <doesallmagic2> Project jQuery UI - 1.10.x core build #168: STILL UNSTABLE in 12 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.10.x%20core/168/
+[02:21:26] <doesallmagic2> Project jQuery UI - 1.7.x core build #872: STILL FAILING in 11 sec: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.7.x%20core/872/
+[02:41:20] <doesallmagic2> Project jQuery UI - 1.9.x core build #168: STILL UNSTABLE in 18 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.9.x%20core/168/
+[03:03:47] <doesallmagic2> Project jQuery UI - 1.11.x core build #168: STILL UNSTABLE in 22 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.11.x%20core/168/
+[03:03:59] <doesallmagic2> Project jQuery UI - 1.8.x core build #849: STILL FAILING in 11 sec: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.8.x%20core/849/
+[10:38:24] <apsdehal> jzaefferer: ping
+[10:48:35] <jzaefferer> apsdehal: pong
+[10:48:48] <apsdehal> Hi
+[10:49:03] <apsdehal> I was working on no-globals branch and only one test if failing
+[10:49:24] <apsdehal> https://github.com/jquery/jquery-ui/pull/1577/commits/190cb14b170b2716368e9529e84007cf4d2ba9f3#diff-25b35bf96a20595ae73623234164287dL112
+[10:49:48] <apsdehal> If I change the test back to asyncTest, everything works fine. But not with assert.async
+[10:50:07] <apsdehal> Can you help me with this one?
+[10:51:24] <gabrielschulhof> arschmitz: Ping!
+[10:51:40] <arschmitz> gabrielschulhof Pong!
+[10:51:54] <gabrielschulhof> arschmitz: Hey! How are you supposed to set the classes option from a data attribute?
+[10:52:09] <gabrielschulhof> arschmitz: I'm trying to test https://github.com/jquery/jquery-mobile/issues/5073 via the classes option.
+[10:52:41] <arschmitz> data-classes='{stuff:thing}'
+[10:53:02] <arschmitz> very important you use single quotes
+[10:53:20] <gabrielschulhof> Oh, right, because the inside has to be valid JSON, which means double quotes, right?
+[10:53:35] <arschmitz> yes
+[10:57:31] <gabrielschulhof> OK, I've got <select data-ui-role="selectmenu" data-ui-classes='{"ui-selectmenu": "ui-toolbar-header-button-right ui-mini"}'>
+[10:58:03] <gabrielschulhof> ... and it's getting applied to the wrapper, and still not showing up flush-right.
+[10:58:25] <arschmitz> sounds like a css issue
+[10:58:35] <gabrielschulhof> Yeah, looks like ...
+[10:59:59] <gabrielschulhof> ui-selectmenu sets position relative, overriding ui-toolbar-header-button-right, which sets position absolute, which is how it should be,.
+[11:00:54] <gabrielschulhof> Might need a rule for .ui-selectmenu.ui-toolbar-header-button-left, .ui-selectmenu.ui-toolbar-header-button-right
+[11:01:39] <gabrielschulhof> I'll pass the PR to Jasper.
+[11:02:17] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof created 067731-selectmenu-classes-option (+6 new commits): 02https://git.io/vVw70
+[11:02:17] <jqmobilecommit> 13jquery-mobile/067731-selectmenu-classes-option 144e4b536 15Gabriel Schulhof: qunit-assert-classes: Set result as empty array if match returns null
+[11:02:17] <jqmobilecommit> 13jquery-mobile/067731-selectmenu-classes-option 14cfe5ae5 15Gabriel Schulhof: Page: Use _.on() for pagehide
+[11:02:17] <jqmobilecommit> 13jquery-mobile/067731-selectmenu-classes-option 14b53a58a 15Gabriel Schulhof: Dependencies: add jquery-ui/form-reset-mixin.js
+[11:02:28] <gabrielschulhof> I pushed that so I can use the code off view
+[11:29:25] <travis-ci> jquery/jquery-mobile#3150 (7731-selectmenu-classes-option - 405489c : Gabriel Schulhof): The build is still failing.
+[11:29:25] <travis-ci> Change view : https://github.com/jquery/jquery-mobile/compare/4e4b5366398a^...405489c9ab56
+[11:29:25] <travis-ci> Build details : https://travis-ci.org/jquery/jquery-mobile/builds/121175931
+[11:41:06] <jzaefferer> apsdehal: the test passes with assert.async() when running by itself, so it looks like there's a bug in another test
+[11:41:35] <jzaefferer> apsdehal: the test runs assert.expect( 2 ); but actually has 3 assertions, so there's definitely something off
+[11:43:19] <jzaefferer> apsdehal: the "animating font size on child" assertion is leaked from the "animateClass works with children" test
+[11:43:59] <apsdehal> jzaefferer: Yes I also noticed that
+[11:44:55] <jzaefferer> also some tests still use the expect argument when calling test, that should be assert.expect calls
+[11:45:02] <jzaefferer> not sure yet what exactly is going on...
+[11:47:23] <jzaefferer> seems like each rerun has different results, too
+[11:49:42] <jzaefferer> when running only the effects.core module, I get "Uncaught Error: Called start() outside of a test context while already started" for "effect.scale: Scale: global failure"
+[11:50:21] <jzaefferer> apsdehal: look, the ".hide() with step" test is passing `start` as the complete callback, that's wrong
+[11:51:13] <jzaefferer> apsdehal: replacing that with assert.async/passing the callback fixes the other issue
+[11:52:50] <jzaefferer> at least in QUnit 2.0 that will fail immediately...
+[12:01:23] <apsdehal> Fixed
+[12:01:35] <apsdehal> Pushing the new changes
+[12:01:57] <apsdehal> Actually there are some edge cases like this which can't be handled by migrator
+[12:02:38] <apsdehal> Still, I have tried to make QUnit-migrate very robust in case of asyncTest
+[12:04:00] <apsdehal> jzaefferer: Thanks a lot for help
+[12:04:50] <jzaefferer> apsdehal: thank you for all your work on the migration tool and contributions to our projects!
+[12:05:23] <apsdehal> my pleasure :)
+[12:11:10] <apsdehal> jzaefferer: Is expect argument in QUnit.test depracted also? Wasn't mentioned in upgrade guide
+[12:11:58] <jzaefferer> I think so, might be an oversight in the upgrade guide
+[12:12:25] <jzaefferer> http://api.qunitjs.com/QUnit.test/ "This method used to have an optional second argument called expected. This argument is deprecated and its usage will start throwing errors in 2.0.0. If you're using it, use assert.expect() instead."
+[12:12:45] <jzaefferer> Yeah, that's missing in the upgrade guide
+[12:13:26] <apsdehal> I will add the change in migrator also
+[12:14:18] <jzaefferer> -> https://github.com/jquery/qunitjs.com/issues/118
+[12:15:31] <jzaefferer> can you also detect global references to start, even when not a method call? would be useful to at least show an error for those
+[12:17:25] <apsdehal> I was detecting start function call
+[12:17:58] <apsdehal> And handling it accordingly with assert.async
+[12:18:15] <apsdehal> But in ui start is also passed as callback function
+[12:18:45] <apsdehal> I should probably log a warning about start as a global
+[12:21:25] <jzaefferer> yeah, better to warn then to ignore something that can't be migrated
+[12:28:47] <jzaefferer> apsdehal: for the record: https://github.com/jquery/qunitjs.com/pull/119
+[12:29:14] <apsdehal> great!
+[13:06:51] <doesallmagic2> Project jQuery UI build #1713: STILL FAILING in 4.4 sec: http://jenkins.jquery.com/job/jQuery%20UI/1713/
+[13:06:51] <doesallmagic2> Scott González: Build: Adjust author info for Dan Strohl
+[13:07:02] <jquicommit> [13jquery-ui] 15scottgonzalez pushed 1 new commit to 06master: 02https://git.io/vVrcV
+[13:07:02] <jquicommit> 13jquery-ui/06master 1448257cd 15Scott González: Build: Adjust author info for Dan Strohl
+[20:09:10] <jqmobilecommit> [13jquery-mobile] 15likeitneverwentaway opened issue #8421: Popups don't open on wanted position if user scrolls down 02https://git.io/vVo1M
+[20:38:04] <jqmobilecommit> [13jquery-mobile] 15likeitneverwentaway closed issue #8421: Popups don't open on wanted position if user scrolls down 02https://git.io/vVo1M

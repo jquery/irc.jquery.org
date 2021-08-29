@@ -1,0 +1,370 @@
+[09:00:05] <scott_gonzalez> `pepteam
+[09:01:01] <scott_gonzalez> arschmitz M4rius stuartpb
+[09:01:12] <arschmitz> hi
+[09:01:53] <arthurvr> hey
+[09:01:56] <scott_gonzalez> I wonder where Jaboc and Colin are.
+[09:02:00] <scott_gonzalez> Jacob, even.
+[09:02:38] <scott_gonzalez> I asked stuartpb to join today because he's been quite active on GitHub.
+[09:03:20] <scott_gonzalez> He has two PRs for updating our pointer map.
+[09:03:21] <scott_gonzalez> Map: https://github.com/jquery/PEP/pull/189
+[09:03:28] <scott_gonzalez> SparseArrayMap: https://github.com/jquery/PEP/pull/190
+[09:03:33] <scott_gonzalez> The sparse array approach seems good to me.
+[09:04:16] <scott_gonzalez> Though I have to wonder if there's a reson to use a sparse array instead of just using an object.
+[09:05:38] <M4rius> If someone (just for fun) uses a huge pointerId, it would create a huge array, right? Since pointerids are not limited
+[09:06:16] <scott_gonzalez> Yes, it could be farily high, the values are limited to longs.
+[09:06:59] <scott_gonzalez> If we used an object, we wouldn't have that problem.
+[09:07:09] <scott_gonzalez> And clearing could just be done with the creation of a new object.
+[09:08:20] <M4rius> imho an object would be more intuitive, but maybe there are some nifty performance optimizations like with tail call optimization
+[09:10:08] <scott_gonzalez> I'm guessing stuartpb isn't actually here right now.
+[09:10:25] <scott_gonzalez> I'll add a comment on the PR asking about that.
+[09:11:56] <scott_gonzalez> I was going to ask stuartpb to go over some of his other work too, but I guess we'll just continue doing that in GitHub.
+[09:12:05] <scott_gonzalez> The PEWG didn't meet this week either :-/
+[09:12:13] <M4rius> :(
+[09:12:44] <scott_gonzalez> I'll try to get the discussion to continue on the mailing list.
+[09:12:49] <scott_gonzalez> But it's been pretty quiet there.
+[09:12:55] <stuartpb> Hello
+[09:12:56] <scott_gonzalez> And we usually come to decisions pretty quickly on calls.
+[09:13:00] <scott_gonzalez> Oh, hey stuartpb.
+[09:14:07] <scott_gonzalez> stuartpb: We're wondering why not use an object instead of a sparse array for the map?
+[09:18:02] <stuartpb> Mostly just keyspace concerns along the lines of http://www.devthought.com/2012/01/18/an-object-is-not-a-hash/
+[09:18:43] <scott_gonzalez> But we know the keyspace is limited to numeric values.
+[09:18:50] <scott_gonzalez> So there are no collisions.
+[09:18:53] <stuartpb> Sparse arrays can do forEach - objects, you'd have to do hasOwnProperty-type trickery while iterating over Object.keys
+[09:20:11] <scott_gonzalez> Why? Isn't Object.keys() always own properties?
+[09:24:21] <stuartpb> That's true, I guess I was thinking of other cases where you can't trust objects
+[09:25:03] <scott_gonzalez> So what do you think about switching to an object?
+[09:25:22] <scott_gonzalez> Could even use `Object.create(null)` if you wanted.
+[09:26:38] <stuartpb> A quick benchmark just now shows Arrays to be 100x faster than objects: https://jsperf.com/performance-of-array-vs-object/17
+[09:28:37] <scott_gonzalez> Interesting.
+[09:28:44] <scott_gonzalez> Ok, let's stick with an array then.
+[09:28:55] <arschmitz> wow object.keys is SLOW!!!
+[09:29:40] <arschmitz> well objects in general of an unknown length i guess
+[09:30:12] <scott_gonzalez> I'll look over that PR again after this meeting.
+[09:30:20] <stuartpb> OK
+[09:30:31] <scott_gonzalez> But it sounds like the other PR that more closly follows Map can be closed and we'll go with the sparse array implementation.
+[09:30:54] <stuartpb> Yeah, this does pretty much everything that one did
+[09:33:05] <scott_gonzalez> Did you want to discuss any of the other issues/PRs right now?
+[09:33:10] <scott_gonzalez> Or just continue discussion in GitHub?
+[09:33:58] <scott_gonzalez> I was hoping Jacob Rossi would be here to discuss HAS_TOUCH_ACTION_DELAY
+[09:35:36] <stuartpb> Yeah, https://github.com/jquery/PEP/issues/191 is just what I've been able to glean from public issues
+[09:36:27] <scott_gonzalez> Ok, well, we can get Rick Byers involved in the discussion.
+[09:37:23] <stuartpb> That's probably a good idea, especially considering the way Chromium is moving toward native pointer events
+[09:38:01] <arschmitz> Yeah what i saw at least on mailing list
+[09:38:06] <arschmitz> didnt indicate that was dead at all
+[09:40:20] <stuartpb> As I mentioned in https://github.com/jquery/PEP/issues/188, I'm re-working the way dispatcher.js does pointer capture to more closely follow the spec: https://ide.c9.io/stuartpb/pep
+[09:43:16] <stuartpb> Where there are pending and current "pointer capture target overrides" that get evaluated before firing each event
+[09:43:22] <scott_gonzalez> Feel free to delete any related tests that just seem wonky.
+[09:44:07] <scott_gonzalez> I had started looking through the unit tests that we inherited, but haven't had time to go through everything.
+[09:44:18] <stuartpb> You mean ones that are currently causing the test suite to fail?
+[09:44:39] <scott_gonzalez> Yeah, if the tests themselves seem bad, you can delete them or replace them.
+[09:44:49] <stuartpb> Or just ones related to the dispatcher/capture?
+[09:45:17] <scott_gonzalez> Well, either really :-)
+[09:45:33] <scott_gonzalez> I meant ones related to dispatcher/capture.
+[09:45:54] <scott_gonzalez> Since you're working in that code, if there are strange tests around it, don't worry about them staying around.
+[09:46:04] <scott_gonzalez> But if you're intersted in going through the failing tests, that'd be great too.
+[09:46:17] <scott_gonzalez> I know a bunch of the IE failures are just bad tests.
+[09:46:35] <stuartpb> I'll file an issue tracking the current failures, plus probably a PR to remove the tests that are currently failing (to be re-introduced if a solution to the way they're broken can be found)
+[09:46:37] <scott_gonzalez> Because they're incorrectly detecting MSPointerEvents.
+[09:47:23] <stuartpb> Ah, okay
+[09:48:23] <scott_gonzalez> Did you have anything else you wanted to discuss today?
+[09:48:34] <scott_gonzalez> Or anyone else?
+[09:50:04] <stuartpb> https://github.com/jquery/PEP/issues/192
+[09:50:28] <stuartpb> For elements that disappear from the document tree
+[09:50:38] <stuartpb> (https://github.com/jquery/PEP/issues/149)
+[09:51:11] <stuartpb> Are there already mutation observers / listeners I can / should hook into for that?
+[09:52:11] <scott_gonzalez> There's a MutationObserver in installer.js
+[09:52:53] <scott_gonzalez> It has a removed callback you can use.
+[09:54:13] <stuartpb> Yeah, I'll probably add some kind of implicitCaptureRelease for elements in removeElement
+[09:55:03] <scott_gonzalez> Sounds good.
+[09:56:12] <stuartpb> It'll have to do something like while (captures.indexOf(removedElement) > -1) which is kind of heavy
+[09:57:35] <stuartpb> I'm thinking I'm probably going to do a PR with the basic dispatcher redesign that'll have a bunch of TODO lines for the esoteric behaviors like element-is-member-of-tree stuff
+[09:57:56] <stuartpb> And then further PRs for integrating into the MutationObserver and things like that
+[09:58:54] <scott_gonzalez> ok
+[09:59:14] <scott_gonzalez> You can only have one capture at a time.
+[09:59:36] <scott_gonzalez> So I'm not sure what `captures` would be an array of.
+[09:59:39] <stuartpb> Is there somewhere that tracks whether a pointer is active (touched), or is dispatcher.pointermap.has(pointerId) basically equivalent?
+[09:59:56] <scott_gonzalez> The has call should be what you want.
+[09:59:57] <stuartpb> You can have a capture for each pointer
+[10:00:14] <scott_gonzalez> Oh, right.
+[10:00:15] <stuartpb> captures is a PointerMap
+[10:00:27] <scott_gonzalez> Yeah, so it still shouldn't be that bad.
+[10:00:34] <stuartpb> Yeah that's part of the problem with the current dispatcher
+[10:00:35] <scott_gonzalez> It's probably never >10.
+[10:01:18] <scott_gonzalez> If captures is a PointerMap, you can just use .has() instead of .indexOf() on an array.
+[10:01:33] <scott_gonzalez> Oh, nevermind.
+[10:01:38] <scott_gonzalez> I see what you're saying.
+[10:01:39] <stuartpb> Yeah, I'm not sweating it too hard - I just try to be wary of anything that has N complexity that's going to get added onto DOM manipulations
+[10:01:46] <scott_gonzalez> Because we only have the value (element)
+[10:03:12] <stuartpb> I guess we could also extend elements with a property like _capturedPointers
+[10:04:04] <scott_gonzalez> Let's see the perf before adding properties to elements.
+[10:04:19] <scott_gonzalez> Though I suppose if we defineProperty() it wouldn't be so bad.
+[10:04:32] <stuartpb> Sure, in any case this isn't material to the core of the dispatcher rework
+[10:05:42] <scott_gonzalez> Ok, well we're five minutes over our scheduled time.
+[10:05:52] <scott_gonzalez> So let's continue any discussion either in GitHub or in #pep.
+[10:06:16] <stuartpb> So vis. active pointers
+[10:06:22] <stuartpb> oh okay
+[10:06:53] <scott_gonzalez> Thanks everyone.
+[11:00:52] <arschmitz> `mobileteam
+[11:01:01] <arthurvr> hey
+[11:01:04] <arschmitz> bah bots back but no more useful
+[11:01:08] <gabriel_schulhof> Yo-ho-ho and a barrel of grog!
+[11:01:19] <arschmitz> b-ot why you hate me?
+[11:01:19] <b-ot> arschmitz: most likely.
+[11:01:21] <jasperdegroot> hi
+[11:01:24] <arschmitz> ha ha
+[11:01:56] <arschmitz> b-ot well fine be like that i hate you too then!
+[11:02:19] <arschmitz> cgack: sfrisk_: gabriel_schulhof: agcolom: apsdehal Meeting time!
+[11:02:25] <sfrisk_> yo
+[11:02:32] <cgack> howdy
+[11:04:51] <arschmitz> ok lets get started
+[11:04:56] <arschmitz> https://docs.google.com/spreadsheets/d/1xGEVtftLDEHAA37YYlA23J_EZwIRyMUaseBY790byPM/edit#gid=1861497137
+[11:04:59] <arschmitz> agenda ^^
+[11:05:08] <arschmitz> lets go a little out of order
+[11:05:13] <arschmitz> since we have run so long lately
+[11:05:21] <arschmitz> sfrisk_: how are things with accordion?
+[11:07:09] <arschmitz> ok i guess we lost sfrisk :-)
+[11:07:37] <arschmitz> jasperdegroot: is there anything css wise you still need to do or is it just demo and widget updates?
+[11:08:00] <jasperdegroot> arschmitz: I think I have to look at textinput
+[11:08:06] <jasperdegroot> did that land in 1.5-dev?
+[11:08:12] <arschmitz> oh right i noticed some issues after that landed
+[11:08:15] <arschmitz> jasperdegroot: yes
+[11:08:23] <jasperdegroot> the search icon for example
+[11:08:26] <arschmitz> yup
+[11:08:33] <jasperdegroot> ok, I will look into that
+[11:08:39] <arschmitz> execlent thank you
+[11:08:47] <jasperdegroot> other than that it should be mostly demos updates
+[11:08:54] <jasperdegroot> but that is going to be a lot of work
+[11:09:01] <arschmitz> would be great if you could start looking at the demos for things that are landed and see if we find any other issues
+[11:09:13] <jasperdegroot> sure
+[11:09:20] <arschmitz> just worry about button / checkboxradio/ controlgroup / and textinput
+[11:09:37] <arschmitz> the others that are not landed we will make sure we update in their prs
+[11:09:45] <jasperdegroot> ok
+[11:10:40] <arschmitz> Flipswitch is really close
+[11:10:49] <arschmitz> cgack: i just finished reviewing the updates you pushed this morning
+[11:10:57] <arschmitz> a few things but all fairly minor
+[11:11:58] <cgack> awesome. I'm looking at toolbar right now.
+[11:11:58] <cgack> we still need to decide about tapToggle in fixed toolbar RE: changing the default and making it an extension
+[11:12:14] <arschmitz> ok lets talk about that right now
+[11:12:47] <arschmitz> i hate that functionality i have never kept the default when using toolbars
+[11:13:00] <arschmitz> so im a huge +1 for making it an extension and false by default
+[11:13:30] <arschmitz> gabriel_schulhof: jasperdegroot: what are your thoughts?
+[11:13:34] <gabriel_schulhof> +1
+[11:13:39] <gabriel_schulhof> to making it an extension.
+[11:13:52] <jasperdegroot> yeah, I am in favor too
+[11:13:57] <gabriel_schulhof> I dunno about turning it off by default though, because it's been on so far ...
+[11:14:10] <arschmitz> well it would be on in backcompat
+[11:14:20] <jasperdegroot> does it matter that it is only meant for fixed toolbars, which is an extension on itself?
+[11:14:20] <gabriel_schulhof> Yeah, right.
+[11:14:29] <arschmitz> jasperdegroot: no
+[11:14:30] <gabriel_schulhof> In fact, the option is provided by the backcompat entirely.
+[11:14:50] <gabriel_schulhof> So, it's undefined unless you include the extension.
+[11:14:53] <arschmitz> jasperdegroot: fixed toolbar already has an extension the workarounds
+[11:15:10] <gabriel_schulhof> Man, I was gonna land that when the core breakage struck.
+[11:15:24] <arschmitz> gabriel_schulhof: land what?
+[11:15:37] <arschmitz> gabriel_schulhof: yeah that has been a HUGE time suck for me lately
+[11:15:43] <gabriel_schulhof> arschmitz: The PR introducing the extension.
+[11:15:45] <arschmitz> debugging that mess
+[11:15:47] <arschmitz> oh ok
+[11:16:03] <arschmitz> i thought that was for hide on focus
+[11:16:08] <arschmitz> not tap togggle?
+[11:16:13] <gabriel_schulhof> arschmitz: You had already :+1:-ed https://github.com/jquery/jquery-mobile/pull/7902 when I thought I'd run one last CI on it, and Boom!
+[11:16:30] <gabriel_schulhof> Oh, right.
+[11:16:31] <gabriel_schulhof> NM.
+[11:16:41] <arschmitz> 2 different magic show hide behivors
+[11:17:01] <gabriel_schulhof> Yeah ...
+[11:17:16] <arschmitz> i need to look at fixed toolbar after both of these changes happen
+[11:17:25] <arschmitz> i have a feeling it wont need to be an extension any more
+[11:17:33] <arschmitz> and could just become a regular option on toolbar
+[11:17:34] <gabriel_schulhof> arschmitz: Should I land that despite the test failures?
+[11:17:46] <arschmitz> gabriel_schulhof: your sure it was passing right?
+[11:18:18] <arschmitz> because the fixed blacklist can already be removed we dont support any of those browsers any more
+[11:18:19] <gabriel_schulhof> Yeah, absolutely. I was gonna push it, but then, for some crazy reason I decided to do a final rebase and push to the PR to really test the CI - and Boom!
+[11:18:26] <arschmitz> gabriel_schulhof: thats fine then
+[11:18:32] <gabriel_schulhof> OK.
+[11:18:41] <gabriel_schulhof> Landing on a master branch near you ...
+[11:18:44] <arschmitz> i reviewed your pr for the core stuff
+[11:18:58] <arschmitz> but i dont want to land any changes for offset
+[11:19:11] <arschmitz> im pretty sure thats going to get reverted
+[11:19:16] <gabriel_schulhof> OK.
+[11:19:30] <arschmitz> unless we call on window somewhere
+[11:19:32] <gabriel_schulhof> When it does, I'll reduce the scope of the PR to the event stuff.
+[11:19:34] <arschmitz> but i dont think we do
+[11:19:43] <arschmitz> gabriel_schulhof: they are seperate breakages
+[11:19:47] <arschmitz> just remove the core stuff
+[11:19:53] <arschmitz> *offset
+[11:19:59] <gabriel_schulhof> OK.
+[11:20:14] <cgack> so to confirm for tapToggle we want to move it backcompat but keep the default as is or make it false by default?
+[11:20:17] <arschmitz> the events are the much bigger deal for us
+[11:20:29] <arschmitz> so lol
+[11:20:36] <arschmitz> in the extension it will be false
+[11:20:45] <arschmitz> in backcompat ( which will require the extension )
+[11:20:48] <arschmitz> it will be true
+[11:21:06] <cgack> right on, I can follow that
+[11:21:18] <arschmitz> so when you get a full jquery.mobile.js its true ( this includes backcompat )
+[11:21:33] <arschmitz> but if you set backcompat to false it will still include the taptoggle
+[11:21:37] <arschmitz> but will be false
+[11:22:49] <gabriel_schulhof> Hmmm ... here's a tweak to our workflow we can make: After you get the :+1: do one last rebase and push to the PR. Afterwards, when you merge the PR, it will be marked as "Merged".
+[11:23:03] <arschmitz> we should not do that
+[11:23:09] <gabriel_schulhof> No?
+[11:23:19] <arschmitz> its potentially destructive to comments and pr history
+[11:23:57] <gabriel_schulhof> By then all review comments should be addressed and thus on out-of-date diffs.
+[11:24:04] <arschmitz> line comments are habdled fine but commit comments get destroyed
+[11:24:13] <arschmitz> there can be discussion
+[11:24:18] <arschmitz> that never changes anything
+[11:24:32] <arschmitz> and discussion on things that do change but gives context to the change
+[11:24:32] <gabriel_schulhof> Oh, commit comments, eh?
+[11:24:54] <gabriel_schulhof> OK. I withdraw my proposal.
+[11:25:35] <arschmitz> rebases are ok in a pr but should be "up to the reviewer" if that makes sense depnding on the way the person is reviewing it can be good or a huge pain
+[11:26:33] <arschmitz> like on prs that have changes to a lot of components and there for a lot of legit commits
+[11:26:38] <arschmitz> its easier to review each commit
+[11:26:49] <arschmitz> and makes sure that everythign is in order and in the proper commit
+[11:27:01] <arschmitz> but if your just reviewing the diff its different
+[11:27:04] <arschmitz> anyway
+[11:27:14] <gabriel_schulhof> Right. Gotcha.
+[11:27:50] <arschmitz> ok so on the broken tests thing
+[11:28:01] <arschmitz> something went wonky with out spider tests
+[11:28:11] <arschmitz> they just kinda randomly completely croaked
+[11:28:23] <arschmitz> need to see whats going on
+[11:29:16] <arschmitz> so the mixin and reset stuff has landed in ui
+[11:29:28] <arschmitz> so as soon as we update dependencies again we will have that
+[11:29:57] <arschmitz> so flipswitch will need this
+[11:30:13] <arschmitz> so will textinput for the search button
+[11:30:18] <arschmitz> clear*
+[11:30:44] <arschmitz> rangeslider slider selectmenu all will too i believe
+[11:31:09] <gabriel_schulhof> Wait a sec ... the clear button is currently an extension.
+[11:31:17] <gabriel_schulhof> Why would we change that to a mixin?
+[11:31:18] <arschmitz> yes
+[11:31:20] <arschmitz> no
+[11:31:23] <arschmitz> the reset
+[11:31:28] <gabriel_schulhof> Oh, definitely.
+[11:31:41] <arschmitz> i was talking about widgets that need to handle form reset
+[11:31:42] <gabriel_schulhof> All form widgets need the reset.
+[11:31:48] <arschmitz> not true
+[11:31:58] <arschmitz> button does not
+[11:31:58] <gabriel_schulhof> ... and we need to gt rid of reset.js
+[11:32:04] <arschmitz> spinner in ui does not
+[11:32:08] <arschmitz> datepicker does not
+[11:32:24] <gabriel_schulhof> Really? datepicker?
+[11:32:34] <gabriel_schulhof> Doesn't datepicker also have a non-popup version?
+[11:32:34] <arschmitz> yeah because its hidden
+[11:32:44] <arschmitz> they are not tied to inputs if they are inline
+[11:32:53] <arschmitz> they are basicly just a calendar
+[11:33:02] <gabriel_schulhof> Well, OK, I guess that leaves it up to the dev to reset.
+[11:33:21] <arschmitz> infact in rewrite there is a calendar widget that gets extended with the input stuff to make the datepicker widget
+[11:33:36] <arschmitz> ui slider is the same
+[11:33:44] <gabriel_schulhof> Aaah, good! That's the right way to do it!
+[11:33:45] <arschmitz> its not tied to an input and so does not handle reset
+[11:33:59] <gabriel_schulhof> One widget to handle the drawing, and another to handle the input integration.
+[11:34:07] <arschmitz> yes
+[11:34:38] <gabriel_schulhof> Of course, you can also make the input integration an extension on an existing widget, but that's beside the point.
+[11:35:17] <gabriel_schulhof> Actually, in the latter case it would be better to apply the extension to a single instance - which I think the factory /can/ do.
+[11:35:32] <arschmitz> your talking about inheritance
+[11:35:34] <arschmitz> vs extension
+[11:35:39] <arschmitz> they are different mechanisims
+[11:35:52] <arschmitz> vs mixin
+[11:36:09] <arschmitz> all 3 are different ways to build widgets that depend on different parts
+[11:36:11] <gabriel_schulhof> The only difference in my mind is that extension is overwriting the same namespace, whereas inheritance is creating a new namespace.
+[11:36:44] <arschmitz> the implementation is very different
+[11:36:59] <gabriel_schulhof> But anyway, that's a philosophical discussion. Good to have these things.
+[11:37:07] <arschmitz> extensions overwrite methods
+[11:37:12] <arschmitz> and have things like _super
+[11:38:03] <gabriel_schulhof> So does inheritance. $.widget( "a.c", $.a.b, { _create: function() { this._super(); } } ); will work, won't it?
+[11:38:26] <arschmitz> with inheritance you would never overwirte a method
+[11:38:33] <arschmitz> your inheriting all the parent methods
+[11:39:24] <gabriel_schulhof> Let's not get into this. We have much to discuss.
+[11:39:25] <arschmitz> inheritance is closer to a mixin
+[11:39:31] <arschmitz> https://github.com/jquery/jquery-ui/blob/master/ui/mouse.js
+[11:39:41] <arschmitz> thats the base widget that all the interactions widgets inherit from
+[11:40:05] <arschmitz> but in the opisite order
+[11:41:19] <arschmitz> anyway moving on
+[11:41:45] <arschmitz> rxaviers: is working on getting updates to download builder finalized
+[11:41:58] <arschmitz> gabriel_schulhof: so you will be able to get back to that soon hopefully
+[11:42:37] <gabriel_schulhof> Cool!
+[11:43:41] <arschmitz> does anyone have anything they want to talk about?
+[11:44:22] <gabriel_schulhof> Just hoping core will get sorted out, so we can get back on track ... that's all ...
+[11:44:26] <arschmitz> oh i actually just want to go into a small bit of detail about the change to offset we were talking about
+[11:44:45] <arschmitz> so everyone knows the implications of the change if it remains
+[11:44:58] <arschmitz> so right now you can call .offset() on any valid element
+[11:45:16] <arschmitz> and you will get an object back { top: something, left: something }
+[11:45:31] <arschmitz> and if the element is hidden or dissconnected it will just be 00
+[11:45:42] <arschmitz> since it obviously cant have an offset in those cases
+[11:46:00] <arschmitz> they changed to return undefined from the getter
+[11:46:11] <arschmitz> which is a huge pain but workable
+[11:46:50] <arschmitz> it means if you are EVER checking offset and its not in direct response to something that can only happen on a visible element ( dragging for example ) that you MUST guard against undefined
+[11:47:01] <arschmitz> so no more $( elem ).offset().left
+[11:47:38] <arschmitz> it would have to me ( $( element.offset() || { top: 0, left: 0 } ).left
+[11:47:50] <arschmitz> the bigger issue is with the setter
+[11:47:57] <arschmitz> which will throw an error
+[11:48:17] <gabriel_schulhof> I was actually surprised that the setter thrashes the DOM.
+[11:48:23] <gabriel_schulhof> That's terrible!
+[11:48:24] <arschmitz> it has to
+[11:48:34] <arschmitz> there is no way around it
+[11:48:52] <gabriel_schulhof> Yeah, I guess if you want to optimize for animation or whatever, you can't use jQuery.
+[11:49:09] <arschmitz> thats not true
+[11:49:16] <arschmitz> but thats a differnet discussion
+[11:49:47] <gabriel_schulhof> You're right. Different discussion. Anyway, yeah, bad that it throws.
+[11:49:54] <arschmitz> so in the setter if its a collection you need to do each element on its own using .each
+[11:50:00] <gabriel_schulhof> ... because when you're setting unconditionally, you now need to check whether the getter returns undefined or not.
+[11:50:23] <arschmitz> because if you just do a try catch it will never continue the collection past the first hidden / disconnected element
+[11:51:10] <arschmitz> i talked to richard the one person who seemed to be against reverting and he admitted these changes will make offset to much of a PITA to use in any plugin / widget type context
+[11:51:23] <arschmitz> so im fairly sure they will decide to revert this in the monday meeting
+[11:52:01] <arschmitz> its completely broken both ui and mobile
+[11:52:08] <gabriel_schulhof> *nod*
+[11:52:27] <arschmitz> ok thats all i have
+[11:52:42] <arschmitz> just wanted everyone to be clear about that change because it has very big implications
+[11:52:44] <arschmitz> ohhhh
+[11:52:48] <jasperdegroot> ok
+[11:52:49] <arschmitz> jasperdegroot: are you still here
+[11:52:53] <jasperdegroot> yes
+[11:53:08] <arschmitz> why do we do display:none to hide content rather then use visibility?
+[11:53:25] <arschmitz> then we could actually calculate sizes and get offsets
+[11:53:27] <jasperdegroot> arschmitz: can you give me a specific example?
+[11:53:34] <gabriel_schulhof> I think the tab order is affected by visibility ...
+[11:53:38] <gabriel_schulhof> Or focus, or something.
+[11:53:44] <gabriel_schulhof> I remember it had such implications.
+[11:53:48] <arschmitz> specificly durring library init
+[11:53:55] <arschmitz> when we hide the whole page
+[11:54:03] <arschmitz> and durring tranitions
+[11:54:21] <arschmitz> well at start when widgets are initing before the transition
+[11:54:43] <arschmitz> then we would not have issues with things like autogrow
+[11:54:55] <arschmitz> and having to recheck visible on pageshow
+[11:54:59] <arschmitz> etc
+[11:55:18] <jasperdegroot> I see
+[11:55:24] <arschmitz> these seem like situations where focus traps would not really be an issue
+[11:55:29] <gabriel_schulhof> We'd have to uniformly apply this to all widgets, including the contents of collapsibles, etc.
+[11:55:57] <arschmitz> gabriel_schulhof: not true
+[11:55:59] <jasperdegroot> I guess using visibility hidden for the page during library init shouldn't be a problem
+[11:56:18] <arschmitz> gabriel_schulhof: im only talking about page level stuff
+[11:56:23] <arschmitz> or bigger
+[11:56:41] <jasperdegroot> I have to look into it to see if it could cause problems when used during transitions
+[11:57:02] <arschmitz> jasperdegroot: well we would restore it before the transition started
+[11:57:06] <gabriel_schulhof> arschmitz: If you want to achieve that dimensions can be calculated during _create(), we need this for all containers.
+[11:57:12] <arschmitz> because we dont transition the invisible page
+[11:57:34] <arschmitz> gabriel_schulhof: im not concenred about that
+[11:58:07] <arschmitz> thats just the nature of if you put something inside a hidden container
+[11:58:13] <arschmitz> the dev actively and knowing has to do that
+[11:58:21] <arschmitz> thats not true really for pages
+[11:59:30] <arschmitz> gabriel_schulhof: there are also easy work arounds for examples like that
+[11:59:41] <arschmitz> for example textarea in a panel
+[11:59:45] <jasperdegroot> arschmitz: I guess the best thing we can do is simply test it
+[11:59:51] <arschmitz> just init the textarea before the panel manually
+[11:59:52] <jasperdegroot> it's a small change
+[11:59:54] <arschmitz> jasperdegroot: yup
+[12:02:10] <jasperdegroot> might also be good to do a seach in old closed tickets or look at the initial commits to see if it has been considered
+[12:02:52] <jasperdegroot> it has been like this from the beginning, before I joined the team
+[12:03:01] <arschmitz> yeah
+[12:03:12] <arschmitz> only 8 tickets contain the word visibility
+[12:03:15] <arschmitz> so this is a short listl ol
+[12:03:20] <jasperdegroot> nice :)
+[12:03:37] <arschmitz> oops
+[12:03:39] <arschmitz> that was ui repo
+[12:03:43] <arschmitz> more like 69
+[12:03:46] <jasperdegroot> aii
+[12:04:48] <arschmitz> ok jasperdegroot why dont you look into this when you have time
+[12:04:52] <arschmitz> and see what you can fine
+[12:04:54] <arschmitz> find
+[12:05:03] <jasperdegroot> ok
+[12:05:38] <arschmitz> anyone have anything else?
+[12:07:01] <gabriel_schulhof> I'm good ...
+[12:07:26] <jasperdegroot> me too
+[12:08:37] <arschmitz> ok thanks everyone

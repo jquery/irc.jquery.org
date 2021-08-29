@@ -1,0 +1,79 @@
+[11:59:41] <rxaviers> dwachss, Hi Daniel
+[11:59:54] <dwachss> Today is 2 Tammuz 5775 or 2 Ramadan 1436. Want to talk about non-Gregorian calendars?
+[12:00:01] <rxaviers> :D
+[12:00:17] <rxaviers> Absolutely
+[12:01:01] <rxaviers> So, I was finally able to give your PR a new round of review
+[12:01:06] <rxaviers> https://github.com/jquery/globalize/pull/447
+[12:01:32] <rxaviers> But, I wanted to chat with you about a couple of things first.
+[12:01:55] <dwachss> OK
+[12:02:11] <rxaviers> First of all, it's great that your PR is working. Because, it gives us a good understanding on what needs to change.
+[12:02:53] <rxaviers> A significant number of changes are due to GDate, i.e., manipulating calendars.
+[12:03:03] <dwachss> Right. I look at it as a work in progress; not ready for prime time but it's possible
+[12:03:17] <rxaviers> > I'm still not happy with the way Gdate is defined. It ends up internal to dist/globalize/date.js, so it can't be used outside (say with a datepicker widget)
+[12:03:21] <rxaviers> I agree with you here as well.
+[12:04:23] <rxaviers> I want to hear what you think about this, but I was thinking if we could do the following now
+[12:06:52] <dwachss> I'm listening
+[12:06:55] <rxaviers> arg. rewording...
+[12:07:26] <rxaviers> I'm wondering if we could make the relationship between Globalize and GData more clear.
+[12:07:38] <rxaviers> End goal is to move GDate away.
+[12:07:48] <rxaviers> and allow developers to pass GDate as an option.
+[12:08:23] <rxaviers> Globalize will bring a very basic GDate implementation for gregorian only (which I hope is going to be really lightweight)
+[12:09:32] <rxaviers> For now, the files could stay where they are (at stc/gdate). The idea is to eventually move them away to a separate module (like dwachss/gdate or jquery/gdate)
+[12:09:40] <rxaviers> at src/gdate*
+[12:10:47] <rxaviers> I'd like to see some clarification about GDate API
+[12:11:06] <rxaviers> What the GDate methods are, what arguments they take in, what output they give.
+[12:11:06] <dwachss> I definitely want to do that. I keep trying to figure out a way to leverage the plain javascript Date to be that lightweight GDate implementation but I think that there will still be a lot of code in there
+[12:13:10] <dwachss> The API as I see it is GDate.prototype; there are 10 methods. I want to keep it as simple as possible
+[12:13:28] <rxaviers> sounds good to me
+[12:13:51] <rxaviers> If you are ok to give this a try, could you create a gist documenting the API?
+[12:13:57] <dwachss> With the constructors for GDate instances stored in GDate.calendars (though I'm not wedded to that)
+[12:14:14] <rxaviers> a gist / google doc / anything that you are comfortable with
+[12:15:29] <rxaviers> I think of GDate as a calendar set of methods necessary for Globalize to format/parse any calendar.
+[12:15:57] <rxaviers>  /as a calendar set/as a set/
+[12:16:54] <rxaviers> Considering your PR (and the calendars you have implemented there: hebrew and islamic), we know what's the GDate requirements we need for Globalize.
+[12:17:32] <rxaviers> like you said, they are the ~10 methods currently in GDate.prototype
+[12:18:46] <rxaviers> Let's get that API straightened up. We need to make sure Globalize could use GDate abstraction to format/parse dates for the other calendars as well (japanese, etc)
+[12:19:57] <rxaviers> once that's defined, we can work on how to bind GDate (or any other name) and Globalize
+[12:20:01] <rxaviers> What do you think overall?
+[12:22:53] <dwachss> So rather than having GDate.calendars as a namespace for the calendar algorithms, you would have the individual algorithms passed into Globalize as needed?
+[12:24:10] <rxaviers> We could require users to pass a GDate for each calendar individually or a master GDate that supports all calendars. We'll figure it out later.
+[12:24:14] <dwachss> I will write out the API as a formal description (I'll create a gist for it).
+[12:25:05] <rxaviers> awesome. As a step #1, I'm concerned with the minimum set of methods sufficient for Globalize to format/parse dates in any calendars.
+[12:26:12] <dwachss> Of the methods, I think getEra/Year/Month/Date and startOfYear/Month are needed for Globalize; nextYear/Month/Date are for the datepicker. I will have to look over my code.
+[12:26:42] <rxaviers> perfect, ok
+[12:27:59] <rxaviers> A 2nd thing that I'd like to see in your PR is tests for the added calendars.
+[12:30:38] <dwachss> One question is in date/parse. You do a lot of error checking for valid dates, which involves more of the GDate methods. Can it be more liberal in accepting dates (in other words, don't throw an error on "30 February 2015", just return 2015-02-28)
+[12:32:03] <rxaviers> being liberal this way is hard, because some set of users will prefer 2015-02-28, another set will prefer 2015-03-02, another set will prefer Globalize to be strict about it.
+[12:32:36] <rxaviers> I think throwing the error is the safer thing to do for now
+[12:33:40] <rxaviers> Let's consider throwing the error and that we need some more methods in GDate?
+[12:35:11] <rxaviers> Back to the tests, yesterday I gave it a try and got
+[12:35:12] <rxaviers> Globalize("en-u-ca-islamic").formatDate(new Date(), {datetime: "full"})
+[12:35:12] <rxaviers> / > 'Thursday, Ramadan 1, 1436 AH at 12:41:24 PM GMT-03:00'
+[12:35:18] <rxaviers> // > 'Thursday, Ramadan 1, 1436 AH at 12:41:24 PM GMT-03:00'
+[12:35:33] <rxaviers> For sanity check, I ran this locally in my Firefox:
+[12:35:45] <rxaviers> var fmt = Intl.DateTimeFormat('en-u-ca-islamic', {month: "long", year: "numeric", day: "numeric", hour: "numeric", minute: "numeric", weekday: "long", second: "numeric", timeZoneName: "short"});
+[12:35:50] <rxaviers> fmt.format(new Date());
+[12:35:54] <rxaviers> // > "Thursday, Ramadan 2, 1436 AH, 12:47:20 PM GM
+[12:36:18] <rxaviers> So, it was almost identical, except for the day (ignoring the minutes and seconds obviously)
+[12:36:38] <rxaviers> I dont know too much about the calendar to know which was correct.
+[12:37:01] <rxaviers> So, if we have tests now will help
+[12:39:14] <dwachss> You've come up against a problem with the Islamic calendar: there is no fixed standard. The religious law determines the start of the new month by local observation. There are a couple of algorithmic methods (Saudi and Iranian are the big ones, with Microsoft Excel using something they call "Kuwaiti" but isn't really a standard). Being 1 to 2 days off is par for the course. That's why the CLDR list has so many variants.
+[12:39:14] <dwachss> The algorithm I used is the tabular one, https://en.wikipedia.org/wiki/Tabular_Islamic_calendar,
+[12:40:09] <rxaviers> wow ok
+[12:40:54] <rxaviers> that's something we'll probably want documented in our repo as well.
+[12:41:53] <rxaviers> By the way, I will reply to some other questions you made me on the PR
+[12:42:26] <rxaviers> or if you have any that you want to know now, just let me know.
+[12:43:10] <rxaviers> Do you ping me (or email me, or add comments on the PR) when you have the GDate API to share?
+[12:48:04] <dwachss> I will let you know. Calendar geek-ness can get pretty complicated. A lot of the ancient calendars are based on the new moon, with adjustments to keep them aligned with the solar calendar. The Jewish calendar (what CLDR calls Hebrew) and the various Hindu calendars are strictly algorithmic nowadays, not relying on observation of the moon, but the Islamic calendar is still based on observation. I don't know anything about
+[12:48:04] <dwachss> the Chinese or Japanese calendars, but based on what I read (http://cldr.unicode.org/development/development-process/design-proposals/chinese-calendar-support) CLDR still does not have adequate support for those
+[12:49:19] <rxaviers> I agree this whole story is pretty complicated.
+[12:49:22] <dwachss> I will try to put some unit tests in for the Hebrew and Islamic calendars
+[12:49:31] <rxaviers> awesome
+[12:50:00] <rxaviers> Do you have any question for me at the moment?
+[12:50:18] <dwachss> No. I appreciate the time. Talk to you later.
+[12:51:31] <rxaviers> Thanks for your time and nice work so far!
+[12:51:42] <rxaviers> looking forward to it
+[12:51:50] <rxaviers> and just let me know if you hit anything
+[12:51:55] <rxaviers> that needs help
+[12:52:22] <rxaviers> talk to you soon
+[12:57:19] <dwachss> Wait: one more question: where do you think calendarForLocale should be? right now it's in GDate, but it seems like more of a cldr thing. It uses cldr directly.

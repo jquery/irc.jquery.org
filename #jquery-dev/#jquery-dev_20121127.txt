@@ -1,0 +1,238 @@
+[05:51:32] <_|Nix|_> Hey! When removing all the classes from an element with removeClass, is it intentional that the attribute is left in place, but set to ""?
+[05:52:04] <DaveMethvin> _|Nix|_: that's the way the class attribute rolls, it is always an empty string
+[05:52:13] <DaveMethvin> if there arent' any classes defined
+[05:52:43] <_|Nix|_> DaveMethvin: I'm just asking because our unit tests failed again because of an empty but present class attribute.
+[05:53:04] <DaveMethvin> hmm
+[05:53:08] <_|Nix|_> Like, $( "<div></div>" ).addClass( "something" ).removeClass( "something" ) ...
+[05:53:18] <DaveMethvin> class is one of those that has a corresponding property
+[05:53:20] <DaveMethvin> className
+[05:53:21] <_|Nix|_> That results in "<div class></div>
+[05:53:29] <DaveMethvin> and className is always a string
+[05:54:09] <_|Nix|_> DaveMethvin: Doesn't the browser maintain .className though?
+[05:54:16] <DaveMethvin> yes
+[05:54:35] <DaveMethvin> so did this change recently?
+[05:54:53] <_|Nix|_> Yes. It broke last night with b9dfcfd7362825ccda0ca4ea96d385b0c6ae522d from core.
+[05:55:05] <DaveMethvin> oh, let me look
+[05:55:51] <scott_gonzalez> Wow, that is a horrible comment.
+[05:56:05] <scott_gonzalez> I have no idea why that sandboxing exists.
+[05:56:39] <DaveMethvin> yeah, but also i don't know why that would break classes
+[05:58:19] <gibson042> _|Nix|_: are you sure it wasn't with 07662406e1125cc7b5dc084fdd63b29644417d33 or 0877d424e08d57e6f0d1da9a86289fb10d0ee136?
+[05:58:46] <_|Nix|_> gibson042: I'm about to do a bisect
+[05:58:49] <DaveMethvin> _|Nix|_: did you bisect it down to that one?
+[05:58:59] <_|Nix|_> DaveMethvin: No. That's from jenkins.
+[05:59:05] <_|Nix|_> DaveMethvin: Bisecting now.
+[05:59:25] <DaveMethvin> actually, i'm not sure why he needed to sandbox start() anyway
+[05:59:45] <_|Nix|_> DaveMethvin: There's been a sizzle update between the last known good (53a06660d82d03dfff52a03a91f7d4408b6e6e47) and b9dfcfd7362825ccda0ca4ea96d385b0c6ae522d.
+[06:00:02] <DaveMethvin> intentional, or unintentional? :D
+[06:00:05] <gibson042> I can see now that it was me
+[06:00:36] <_|Nix|_> gibson042: Got a commitid?
+[06:00:59] <gibson042> the two that I pasted above (jaubourg mistakenly re-committed)
+[06:01:36] <gibson042> I removed a guard that required className to start non-empty
+[06:02:11] <gibson042> https://github.com/jquery/jquery/commit/0877d424e08d57e6f0d1da9a86289fb10d0ee136#L2L86
+[06:05:21] <_|Nix|_> gibson042: That is indeed the commit that breaks it.
+[06:05:29] <gibson042> since we're looking at it, *should* there be a removeAttribute?
+[06:05:42] <gibson042> or is the old behavior fine?
+[06:06:27] <DaveMethvin> good question ... i just thought the browser made it happen automagically
+[06:06:40] <DaveMethvin> time for a test case
+[06:07:00] <DaveMethvin> jsfiddle is down!
+[06:07:10] <DaveMethvin> jsbin is up
+[06:07:12] <_|Nix|_> Well, when you set a class with .addClass() it instantiates a new attribute, so it makes sense that .removeClass() invert that.
+[06:07:46] <_|Nix|_> Naïvely speaking ...
+[06:08:27] <_|Nix|_> ... and it /was/ doing it so far.
+[06:08:31] <gibson042>  _|Nix|_: can you link to the test that broke?
+[06:09:19] <_|Nix|_> gibson042: It's a rather complicated test, but sure ... http://babulina.go-nix.ca:8080/nix/jqm/jquery-mobile/tests/unit/select/?testNumber=34
+[06:10:12] <_|Nix|_> gibson042: But it suffices if you type $( "<div></div>" ).addClass( "some-class" ).removeClass( "some-class" ) into Chrome Developer Tools JS console.
+[06:10:54] <gibson042> *that* shouldn't be different....
+[06:11:18] <_|Nix|_> gibson042: Well, the result as of that commit is "<div class></div>"
+[06:12:53] <gibson042> I get same results for that line before and after my commit
+[06:12:58] <DaveMethvin> Seems we've been leaving the class in place in the past, with a value of an empty string
+[06:12:58] <DaveMethvin> http://jsbin.com/ulidoj/1/edit
+[06:13:06] <DaveMethvin> that's 1.7.2
+[06:13:16] <gibson042> it's only different on .removeClass when there *wasn't* previously a class
+[06:13:38] <_|Nix|_> OK ... weird ... lemme check the test ...
+[06:14:29] <gibson042> DaveMethvin: the change is for something like $("<div>").removeClass("foo")
+[06:14:39] <gibson042> previously, it was noop
+[06:14:49] <gibson042> now it sets elem.className = ""
+[06:15:21] <gibson042> but since I'm here anyway, I'm wondering if we want to removeAttribute("class") instead of setting to empty string
+[06:15:41] <DaveMethvin> i fear changing anything about adding or removing classes
+[06:15:48] <_|Nix|_> I ran our unit test against HEAD~1 from that commit, and the left and right side are equal. Then, I ran the unit test against that commit, and the right side has an extra empty class attribute.
+[06:16:29] <DaveMethvin> someone is depending on this behavior
+[06:16:45] <DaveMethvin> so i'd go back to 1.8 behavior and be done
+[06:16:49] <gibson042> back to 1.8 it is, then
+[06:17:26] <_|Nix|_> Look, it's only our unit tests, so I can update the test. NP.
+[06:17:31] <_|Nix|_> It's not in production.
+[06:17:46] <gibson042> no,  you've identified a change that we don't want
+[06:17:53] <gibson042> your tests can stay ;)
+[06:17:53] <_|Nix|_> gibson042: OK.
+[06:18:37] <DaveMethvin> yeah, you just know someone may be depending on the way used to work
+[06:19:14] <DaveMethvin> _|Nix|_: thanks for letting us know on this, we have made a bunch of changes in the past week and will be making a bunch more in the next so just yell if we break anything
+[06:19:31] <_|Nix|_> DaveMethvin: NP. I can file a bug if you'd like.
+[06:19:44] <DaveMethvin> i think gibson042 has it
+[06:20:22] <gibson042> is this worth a ticket?
+[06:20:32] <DaveMethvin> i'd just do it :D
+[06:20:48] <gibson042> sensitive subject ;)
+[06:21:02] <DaveMethvin> since it's fixing something that just broke, we don't need a record for the release changelog
+[06:21:09] <gibson042> my thoughts too
+[06:37:05] <_|Nix|_> gibson042: It's weird ... if I do this: var before = "<div></div>", after = $( before ).addClass( "something" ).removeClass( "something" ).appendTo( "<div></div>" ).parent().html(); I get the empty class attribute both before and after your commit. Yet the google chrome js console outputs things differently before and after your commit, and the presence/absence of the attribute is also different.
+[06:37:45] <_|Nix|_> gibson042: Maybe it's the fact that I'm wrapping it in a parent and outputting its html() ...
+[06:38:18] <gibson042> I don't know; there should be no behavior change from that case
+[06:44:40] <_|Nix|_> gibson042: Well, I've just been trying to come up with a simplified version of that unit test that might be helpful for core. I guess I'm too much of a n00b when it comes to core issues.
+[06:45:11] * _|Nix|_ dives back into jQuery Mobile
+[06:46:33] <jqcommit> [13jquery] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/ZY4S4A
+[06:46:33] <jqcommit> 13jquery/06master 14243d4cc 15Richard Gibson: Don't let removeClass create attributes
+[06:47:07] <_|Nix|_> Nice! ^
+[06:47:13] <gibson042> _|Nix|_: https://github.com/jquery/jquery/commit/243d4cc83cf15f30db1e09d9374c265a1513b18d#L1R1082
+[06:47:42] <gibson042> create an element, call removeClass, verify the absence of attribute "class" :D
+[06:53:50] <jqcommit> [13jquery] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/Yc_nTw
+[06:53:50] <jqcommit> 13jquery/06master 141052f9c 15Richard Gibson: save a byte
+[08:19:06] <doesallmagic> Project jQuery Core build #519: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/519/
+[08:19:06] <doesallmagic> * richard.gibson: Don't let removeClass create attributes
+[08:19:07] <doesallmagic> * richard.gibson: save a byte
+[09:44:58] <scott_gonzalez> DaveMethvin: What are you doing?
+[09:45:23] <DaveMethvin> scott_gonzalez: resetting milestones for tickets that were marked 1.9 and shoudlnt' ahve been
+[09:45:31] <DaveMethvin> i would do it in bulk but i have to review them
+[09:46:19] <scott_gonzalez> Oh, you don't default to a milestone?
+[09:46:29] <scott_gonzalez> I guess not.
+[09:46:40] <DaveMethvin> the default is usualy None
+[09:46:50] <scott_gonzalez> Ok, that makes sense.
+[09:46:53] <DaveMethvin> but these were manually set to 1.9
+[09:46:57] <scott_gonzalez> For UI, we default to the next major release.
+[09:46:59] <DaveMethvin> almost done, just one or two more
+[09:47:15] <scott_gonzalez> Heh, well this is nothing compared to what happens when I do this in UI :-P
+[09:47:50] <scott_gonzalez> Although, we're under 400 tickets now!
+[09:48:13] <DaveMethvin> done
+[11:04:41] <_|Nix|_> gibson042: Right ... I should've looked at my own unit test in more detail ... :) Main thing is it's fixed.
+[12:15:55] <mikesherov> paul_irish: https://github.com/paulirish/jquery-idletimer/issues/10
+[12:15:56] <socialhapy> ★ Issue #10 on jquery-idletimer (mikesherov; 12.418s ago): Need a new maintainer?
+[12:16:31] <paul_irish> mikesherov: yes
+[12:16:57] <paul_irish> mikesherov: want to move into yr acct?
+[12:17:05] <paul_irish> we'll have to proxy it through the h5bp org
+[12:17:14] <mikesherov> sure! that works
+[12:18:20] <mikesherov> paul_irish: just tell me what to do good sir
+[12:22:30] <paul_irish> okay lets do this
+[12:24:11] <paul_irish> mikesherov: 
+[12:24:11] <paul_irish> mikesherov/jquery-idletimer already exists
+[12:24:30] <paul_irish> otherwise i can move it to your directly it seems
+[12:24:39] <mikesherov> Oh duh. I'll delete mine
+[12:24:42] <paul_irish> k
+[12:25:23] <mikesherov> OK, done, paul_irish 
+[12:25:48] <mikesherov> scott_gonzalez: we should default to no milestone for tickets
+[12:27:56] <paul_irish> mikesherov: 
+[12:27:56] <paul_irish> Repo transfer to mikesherov requested
+[12:28:07] <paul_irish> what does it look like on your side?
+[12:28:21] <paul_irish> "This repository is awaiting GitHub staff approval to transfer ownership to mikesherov."
+[12:28:32] <mikesherov> it looks like nothing
+[12:28:36] <paul_irish> OK
+[12:28:37] <paul_irish> well.
+[12:28:38] <paul_irish> we'll see.
+[12:28:45] <mikesherov> seems like we have to wait on github staff apparently
+[12:29:22] <DaveMethvin> I don't recall the "Rubber stamp transfer approver guy is a Githubber" post on their blog
+[12:29:45] <DaveMethvin> dammit nexus 4 site!
+[12:29:50] <mikesherov> DaveMethvin: lols all around. Probably because it's got 250+ stars or something like that
+[12:30:18] <DaveMethvin> yeah i can imagine some human intervention is in order
+[12:31:47] <mikesherov> otherwise there'd be a blog post "Oh noes, github allows no verification transfer of popular repos".
+[12:32:43] <DaveMethvin> yeah like one of us would get drunk and transfer the jquery repos to david mark
+[12:33:17] <scott_gonzalez> haha
+[12:33:45] <scott_gonzalez> David Mark would probably reject the transfer :-P
+[14:36:17] <paul_irish> mikesherov: https://github.com/paulirish/jquery-idletimer
+[14:36:25] <paul_irish> :D   you should remove the readme top part now
+[14:36:25] <paul_irish> woo
+[14:36:27] <paul_irish> and thx!
+[14:36:55] <mikesherov> Thanks paul_irish!
+[14:37:02] <mikesherov> Super excited to inherit it
+[14:37:06] <mikesherov> it's served us well
+[17:37:19] <jqcommit> [13jquery] 15PaulBRamos opened pull request #1047: #4087 - insertAfter, insertBefore, etc do not work when destination is original element (06master...06bug_4087_3)  02http://git.io/tjPRpw
+[17:44:34] <ajpiano> DaveMethvin: around?
+[17:44:41] <DaveMethvin> yep
+[17:45:08] <DaveMethvin> at your service ajpiano
+[17:45:15] <ajpiano> dju see the e-mail i just fwded
+[17:45:30] <DaveMethvin> yeah, i hate when he's right, wonder if he can help
+[17:45:34] <ajpiano> yea
+[17:45:39] <ajpiano> i think i'm gonna redo the box on bugs.jquery.com
+[17:45:43] <ajpiano> some of the things he's not right about
+[17:45:54] <ajpiano> anonymous submissions are really not a useful thing imo
+[17:45:59] <DaveMethvin> ageed
+[17:46:09] <DaveMethvin> it SEEMS like it should be good but it's not really
+[17:46:20] <DaveMethvin> none of the browser guys allow anon
+[17:46:25] <ajpiano> and we already do cross post things if they are *notabug*
+[17:46:46] <DaveMethvin> definitely good to redo that box
+[17:47:12] <snover> oh, you guys are getting rid of anon posts?
+[17:47:36] <DaveMethvin> yeah, and block that snover guy too ajpiano
+[17:47:41] <snover> :(
+[17:47:52] <DaveMethvin> aw don't take it personally!
+[17:47:56] <snover> so unfurrrr
+[17:47:58] <DaveMethvin> take it anonymously! :D
+[17:48:02] <snover> ermahgerd
+[17:48:13] <ajpiano> snover: no, someone's saying that if we use gh issues for site/docs bugs
+[17:48:16] <DaveMethvin> where are my unicode faces when i need them
+[17:48:19] <ajpiano> then that should *also* allow registration
+[17:48:40] <DaveMethvin> gh issues are so weeak tho
+[17:48:43] <snover> i don’t get it
+[17:48:46] <snover> yeah they are
+[17:48:53] <DaveMethvin> good in many ways but not very useful as a bug db
+[17:49:11] <snover> the issue tracker on github is really the pinnacle of incremental enhancement
+[17:49:22] <snover> snail slow enhanacement
+[17:49:28] <ajpiano> well it's not like we're gonna set up trac for 18 websites
+[17:49:29] <ajpiano> :p
+[17:49:35] <DaveMethvin> amen bro
+[17:49:42] <ajpiano> yeesh
+[17:52:30] <ajpiano> also, how do we make people understand that setting up a local apache is not so scary
+[17:52:39] <ajpiano> otoh i think we probably need an even simpler install
+[17:53:12] <DaveMethvin> we've talked about doing some simple node server
+[17:53:37] <DaveMethvin> but then we also would need to redo testwwarm i fear
+[17:56:37] <ajpiano> it's an attitude thing
+[17:56:49] <ajpiano> people either are or aren't willing to set up local environments out of their comfort zone
+[17:57:10] <ajpiano> i'm not a ruby or php or python expert but i've gotten projects in all three running locally so i can work on the front end
+[17:57:58] <DaveMethvin> agreed on the attitude ... if there's some way to make it easier i'm all for it though
+[17:58:04] <ajpiano> but i also get it, because sometimes trying to get a new environment up and running is just a never ending circle of failure
+[17:58:24] <DaveMethvin> hey  you're talking to a guy who runs WINDOWS
+[18:04:20] <ajpiano> right
+[18:04:36] <ajpiano> but he could have gotten xampp or wamp up and running in the time it took to write this email
+[18:04:58] <DaveMethvin> yeah, installing some web server is easy
+[18:05:02] <DaveMethvin> even on windows
+[18:05:06] <ajpiano> that's what i'm saying about attitude
+[18:05:25] <DaveMethvin> i think it's more about someone who is more end-user than developer
+[18:05:41] <ajpiano> i suppose
+[18:05:52] <DaveMethvin> they're more comfortable running an installer and reading the docs
+[18:05:52] <ajpiano> but clearly there are end users who want to contribute
+[18:05:57] <DaveMethvin> yeah
+[18:06:07] <DaveMethvin> which is both the good and bad of our new docs for example
+[18:06:11] <ajpiano> saying "you guys should do a better job" is... not quite that
+[18:06:16] <ajpiano> yeah
+[18:06:31] <DaveMethvin> well us guys are all pedaling as fast as we can
+[18:06:52] <ajpiano> DaveMethvin: http://learn.jquery.com/contributing/ donno if you've seen that yet
+[18:07:06] <DaveMethvin> oh that's nice
+[18:08:27] <ajpiano> i hope we can just hold people's hands and get them to buy in
+[18:09:51] <ajpiano> in the long run, all of open source requires you to buy in to a certain set of tools
+[18:10:04] <ajpiano> and if you don't want to that's fun but you're not really going to be able to help anywhere
+[18:10:20] <ajpiano> anyway
+[18:10:41] <DaveMethvin> i agree, we often know that things need fixing but it takes time for each item
+[18:10:47] <DaveMethvin> we need people who will spend time doing it
+[18:11:21] <ajpiano> not express their disbelief that it has not yet be completed
+[18:11:22] <ajpiano> alas
+[18:11:31] <ajpiano> what's that damn page for the trac box again
+[18:11:32] <ajpiano> :p
+[18:11:42] <DaveMethvin> just a sec
+[18:12:17] <DaveMethvin> http://bugs.jquery.com/wiki/TicketGuidelines/NewTicketSummary
+[18:12:53] <ajpiano> thanks
+[18:37:20] <jqcommit> [13jquery] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/Hit6MA
+[18:37:20] <jqcommit> 13jquery/06master 149ae6b1a 15Oleg: Fix #12957. Simplify wrapMap, it doesn't need end tags. Close gh-1044.
+[19:02:07] <doesallmagic> Project jQuery Core build #520: STILL FAILING in 24 min: http://swarm.jquery.org:8080/job/jQuery%20Core/520/
+[19:02:08] <doesallmagic> dave.methvin: Fix #12957. Simplify wrapMap, it doesn't need end tags. Close gh-1044.
+[19:03:49] <DaveMethvin> wow that's my focus/blur test from a while back .. did it just start failing?
+[19:05:13] <DaveMethvin> nope
+[19:05:29] <DaveMethvin> damn random failures, and a focus failure at at that
+[19:12:35] <pbramos> DaveMethvin: I'm here if you want to discuss #4087 in real time :)
+[19:44:44] <DaveMethvin> hey pbramos, missed your ping
+[19:45:04] <pbramos> Hey DaveMethvin  - just letting you know I'm around if you wanted to discuss the issue
+[19:45:16] <DaveMethvin> yeah, what a tricky one
+[19:45:37] <DaveMethvin> i keep staring at it and thinking there must be a way
+[19:45:46] <DaveMethvin> but that bug didn't get such a low number for nothing
+[19:56:40] <pbramos> I spent a good deal of time considering alternatives over the past couple weeks
+[19:56:52] <pbramos> IT's definitely tricky :)
+[20:00:09] <pbramos> This problem in its simplest form is "Does the destination include the origin element"
+[20:00:32] <pbramos> Which means those comparisons need to be made at some point
+[20:00:48] <DaveMethvin> right, and it infects so many apis so some central location for the fix makes sense
+[22:19:45] <JBlitzen> What's the difference between this channel and #jquery
+[22:28:28] <JBlitzen> Got it, ty
+[23:43:45] <doesallmagic> Project jQuery Core build #521: STILL FAILING in 17 min: http://swarm.jquery.org:8080/job/jQuery%20Core/521/

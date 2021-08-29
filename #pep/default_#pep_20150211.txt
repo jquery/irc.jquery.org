@@ -1,0 +1,39 @@
+[11:03:27] <jperrault> hey all.  PEP.js starts (in part) with this:   typeof define === 'function' && define.amd ? define(factory) :   global.PointerEventsPolyfill = factory()
+[11:03:44] <jperrault> when you run the samples, typeof define === 'function' resolves to true
+[11:04:13] <jperrault> inside of the intern tests, it is resolving to false, so that is why PointerEventsPolyfill isn't defined.
+[11:04:39] <jperrault> is that the result of a conflict with intern?
+[11:12:56] <scott_gonzalez> It should be the other way around.
+[11:13:08] <scott_gonzalez> In the samples, define should not exist.
+[11:13:36] <scott_gonzalez> jperrault: ^
+[11:18:14] <scott_gonzalez> In the tests, you're using AMD, so window.PointerEventsPolyfill won't exist. It will instead be the module the you imported via PEP.js.
+[11:21:51] <jperrault> sorry, webchat doesn't play nice with script debugging in another tab of the same browser.
+[11:22:13] <jperrault> yes, you are right, I meant the other way around, was otp, too many things at once.
+[11:38:19] <scott_gonzalez> Are there explicit checks for window.PointerEventsPolyfill? as opposed to PointerEventsPolyfill?
+[12:23:37] <jperrault> It sets var pep = window.PointerEventsPolyfill, then tests expect(pep).to.be.ok  but otherwise is testing individual modules such as expect(pep.PointerMap).to.be.ok
+[12:43:55] <scott_gonzalez> So for minimal change right now, you can just do `window.PointerEventsPolyfill = whateverYouImportedWithAMD;`
+[12:44:46] <scott_gonzalez> snover: Do you know what other polyfills that use AMD are doing in this case?
+[12:44:58] <scott_gonzalez> Do they just always expose the global since that's the purpose of the polyfill?
+[12:50:28] <snover> well, i don’t think anyone writes them in AMD… the point of a module system is to avoid polluting the global scope, so you can get the version you know works without preventing anyone else from using a different version :)
+[13:08:43] <scott_gonzalez> So we should not have an AMD/UMD wrapper for PEP?
+[13:11:58] <arschmitz> scott_gonzalez: honestly for the whole file i dont think it makes sense for a polyfill
+[13:12:11] <arschmitz> amd and the concept of a polyfill dont seem to go together
+[13:15:56] <scott_gonzalez> ok, I'll adjust.
+[13:16:11] <scott_gonzalez> jperrault: I'll land a patch for that soon and that should fix your issue.
+[13:17:07] <pep-commit> [PEP] scottgonzalez opened issue #160: Remove UMD wrapper http://git.io/NGIO
+[14:02:57] <scott_gonzalez> So, actually, this isn't quite what I thought it was.
+[14:03:21] <scott_gonzalez> window.PointerEvent is always exposed, even with AMD.
+[14:03:32] <scott_gonzalez> window.PointerEventsPolyfill is really only for tests.
+[14:03:51] <scott_gonzalez> I don't think we should change anything right now. Just do the assignment I suggested earlier.
+[14:17:18] <snover> scott_gonzalez: you should talk to IBM about why they wanted it that way
+[14:17:29] <snover> it’s not a bad idea,
+[14:17:43] <snover> even if it is a polyfill there is still the issue of a bad version of the polyfill going out
+[14:17:44] <scott_gonzalez> You mean Google?
+[14:17:50] <snover> no i mean the AMD thing
+[14:17:58] <snover> that was one of the reasons that they were like, “i don’t know if we won’t use dpointer”
+[14:18:12] <scott_gonzalez> Oh, becauase of AMD?
+[14:18:17] <snover> yes
+[14:18:27] <scott_gonzalez> Seems like a silly reason to not use a different polyfill.
+[14:18:38] <scott_gonzalez> I think keeping the UMD wrapper is fine though.
+[14:18:59] <scott_gonzalez> Earlier I was thinking that the actual PointerEvent object wasn't being assigned to window.
+[14:19:20] <scott_gonzalez> But it's just the internals that were being exposed as PointerEventsPolyfill that matter.
+[14:19:24] <scott_gonzalez> For the tests.

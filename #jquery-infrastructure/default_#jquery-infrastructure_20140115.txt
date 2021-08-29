@@ -1,0 +1,184 @@
+[07:16:31] <gnarf> DaveMethvin: so same problem as yesterday
+[07:16:44] <gnarf> apparently pushing 100 megabit a second wasn't the cause 
+[07:16:54] <gnarf> just a nearby interesting number 
+[07:17:03] <DaveMethvin> well it didn't help, i'm sure
+[07:17:20] <gnarf> i totally stumped the poor frontline (mt) support tech who answered that call
+[07:17:45] <gnarf> my pings on the server seem to be about 75% failures
+[07:17:55] <DaveMethvin> so i think it may be an issue with the injected swarm code, but wanted to talk to Krinkle|detached  before i go breaking anything
+[07:18:09] <gnarf> thought experiment
+[07:18:13] <DaveMethvin> oh well thenthere's something else
+[07:18:25] <gnarf> im going to kill the web assets for about a minute
+[07:18:54] <gnarf> okay yeah
+[07:18:56] <gnarf> immediately 
+[07:19:00] <gnarf> 100% pings
+[07:19:52] <gnarf> restarted nginx
+[07:20:10] <gnarf> hrm
+[07:20:13] <gnarf> still seems stable
+[07:20:19] <gnarf> i wonder
+[07:21:51] <gnarf> and back to being broken
+[07:37:00] <scott_gonzalez> gnarf: So you've narrowed it down to something being served by nginx (though not necessary nginx itself), right?
+[07:54:00] <gnarf> scott_gonzalez: my theory
+[07:54:11] <gnarf> is that there are just too many connections open or something
+[07:54:45] <scott_gonzalez> How long did it take for the server to start having issues after you restared nginx? 2-3 minutes?
+[07:55:29] <gnarf> 30 seconds
+[07:55:40] <gnarf> seems to happen at 5000+ active connections
+[07:55:48] <scott_gonzalez> hmm...
+[07:56:14] <scott_gonzalez> I was going to suggest just ripping out individual sites from nginx and seeing if we can isolate it.
+[07:56:18] <scott_gonzalez> Though it could just be volume.
+[07:56:33] <gnarf> https://gist.github.com/gnarf/b54e5938d80dae457ec5
+[07:56:42] <gnarf> i'm pretty sure its codeorigin
+[07:56:48] <gnarf> and that one is a pain to move 
+[07:56:57] <gnarf> but
+[07:57:07] <gnarf> this has to be a software limit
+[07:57:24] <gnarf> so i was running time curl statsurl in a tight loop
+[07:57:27] <gnarf> while i restarted
+[07:57:31] <gnarf> that gist is the result
+[07:57:37] <gnarf> it was super speedy until 5000
+[07:57:42] <gnarf> then suddenly everything went to shit
+[07:57:47] <scott_gonzalez> hmm...
+[07:58:16] <scott_gonzalez> Well, I'm no good at this stuff :-/
+[07:58:21] <scott_gonzalez> I'm gonna go grab lunch.
+[08:04:25] <s5fs> hi
+[08:04:32] <gnarf> hi
+[08:04:47] <s5fs> lemme get caught up on scrollback
+[08:06:07] <gnarf> It's a video party! https://plus.google.com/hangouts/_/76cpigt8imsdcp2tf92lhj6iqc?hl=en
+[08:07:10] <s5fs> man i'm in bed
+[08:07:17] <s5fs> bedministration
+[08:41:53] <Krinkle> DaveMethvin: I read something in swarm inject code might be causing an issue? What's the issue?
+[08:42:43] <DaveMethvin> Krinkle: the new core unit tests use sinon fake timers, which change setTimeout
+[08:43:12] <DaveMethvin> so if inject.js saved a copy of the real setTimeout on load i think that would protect it better
+[08:43:52] <Krinkle> DaveMethvin: Yes, though I did have a conversation about that before. One of the things I said was that sinon should not leave setTimeout dirty outside test runs.
+[08:44:02] <Krinkle> It is single threaded, so whenever testswarm executes something, it should be restored by that time.
+[08:44:16] <Krinkle> Maybe we're not using sinon correctly and forgetting to tear it down?
+[08:44:22] <Krinkle> Anyhow, I'll add that to TestSwarm
+[08:44:37] <DaveMethvin> well right now it's on a module basis, i am not sure we can do a per-test setup/teardown and get it working right but we should be able to i guess
+[08:44:38] <Krinkle> But let's not forget to double check jquery's usage of sinon
+[08:44:42] <DaveMethvin> agreed
+[08:44:55] <Krinkle> the module "teardown" is a per-test setup/teardown.
+[08:45:09] <Krinkle> It is configured per module, but runs for each test. That's by design.
+[08:45:10] <DaveMethvin> in that case i don't know why it would break
+[08:45:42] <Krinkle> I suppose one could easily verify it by running the jquery test in a browser and seeing what setTimeout evaluates to in the console.
+[08:46:10] <DaveMethvin> let me chck
+[08:46:58] <DaveMethvin> seems to be the native code at the end
+[08:47:03] <DaveMethvin> let me breakpoint it a few places
+[08:49:01] <DaveMethvin> oh ... BUT
+[08:49:09] <DaveMethvin> Krinkle: some of the tests have a stop()
+[08:49:28] <DaveMethvin> so the setTimeout shim is still in place at that point
+[08:51:45] <Krinkle> DaveMethvin: Hm.. yeah, and depending on when TestSwarm runs, it can run at that point.
+[08:51:58] <Krinkle> The hearbeat should probably not run while qunit is idling for an async test.
+[08:52:15] <Krinkle> But we wouldn't want to rely on QUnit doing it "right" either, since it's supposed to be agnostic
+[08:52:19] <Krinkle> Alright, that's enough reason :)
+[08:52:27] <DaveMethvin> lol yeah
+[08:52:58] <DaveMethvin> ok gtg thanks
+[09:04:35] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/c2a011dbefed946abc8b1994ea524d491beef1cb
+[09:04:35] <jqcommit> 13infrastructure/06puppet-stage 14c2a011d 15Corey Frang: Adding origin.jquery.com as a second full wordpress
+[09:04:45] <jqcommit> 01[13infrastructure01] 15gnarf merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/6f5dde352eeb...c2a011dbefed
+[09:22:02] <jqcommit> [13infrastructure] 15aulvi reopened issue #231: Move some services off of jq01 02https://github.com/jquery/infrastructure/issues/231
+[10:02:56] <gnarf> kborchers: ping
+[10:03:03] <gnarf> kborchers: join the 🎉?
+[10:04:14] <kborchers> on a call right now
+[10:04:17] <kborchers> emergency?
+[10:04:22] <gnarf> nah
+[10:04:27] <gnarf> at your lesiure
+[10:04:30] <kborchers> k
+[10:04:32] <gnarf> its a 🎉
+[10:04:50] <s5fs> yeah it's a question mark diamond ;)
+[10:04:52] <gnarf> maybe a 💩🎉
+[10:07:20] <ryanneufeld> should I join in gnarf
+[10:07:33] <gnarf> come and go as you please today
+[10:08:26] <s5fs> ryanneufeld: hey man :)
+[10:08:31] <gnarf> however - we did just setup a second wordpress server on the temp helix in like <1 hr
+[10:08:39] <ryanneufeld> nice
+[10:20:11] <jqcommit> [13infrastructure] 15gnarf closed issue #231: Move some services off of jq01 02https://github.com/jquery/infrastructure/issues/231
+[10:20:22] <gnarf> clarkbox: ping ping
+[10:21:35] <scott_gonzalez> gnarf: We finally got a helix?
+[10:21:49] <gnarf> scott_gonzalez: it's not "our" helix
+[10:21:57] <gnarf> its a shard on one of the demo units
+[10:22:01] <gnarf> like trial helix
+[10:22:06] <scott_gonzalez> heh
+[10:22:15] <scott_gonzalez> I guess we'll take what we can get.
+[10:22:17] <s5fs> squatters rights
+[10:22:22] <gnarf> its where splunk and jenkins have been for a bit
+[13:15:13] <Krinkle> Upgrading various Jenkins plugins
+[18:21:56] <s5fs> gnarf: ping
+[18:22:03] <gnarf> sup
+[18:22:18] <s5fs> jenkins is borked up, take a peek
+[18:22:55] <s5fs> load the web ui
+[18:23:11] <gnarf> [16:15:13] Krinkle:	 Upgrading various Jenkins plugins
+[18:23:14] <gnarf> ?
+[18:23:29] <s5fs> yes
+[18:23:30] <Krinkle> Hm..
+[18:23:33] <Krinkle> That's not good.
+[18:23:41] <s5fs> Krinkle: hey how'd the plugins upgrade go?
+[18:23:51] <Krinkle> It went fine, the first job after that ran fine.
+[18:23:55] <Krinkle> Maybe it was still cached?
+[18:24:10] <s5fs> okay, cool. nothing obvious during the upgrade process
+[18:24:40] <s5fs> should i try restarting jenkins?
+[18:24:56] <Krinkle> Hold on
+[18:25:05] <s5fs> holding.
+[18:25:12] <Krinkle> I cleaned up some corrupted data
+[18:25:17] <Krinkle> Spawned http://jenkins.jquery.com/job/QUnit/360/console
+[18:25:22] <Krinkle> Let's see how that one goes
+[18:25:32] <s5fs> cool, thanks
+[18:27:05] <s5fs> i wish i'd have payed more attention to how long the builds took normally
+[18:27:49] <Krinkle> Well, most of the slow builds are ones using cross browser tests, which means we're up to the availability, concurrency and response time of browserstack. 
+[18:28:08] <Krinkle> If you click the link on the bottom there you can track progress in testswarm
+[18:28:16] <Krinkle> http://swarm.jquery.org/job/2347
+[18:28:23] <Krinkle> Currently waiting for Safari 6.0 to spawn
+[18:28:24] <Krinkle> and there it is
+[18:28:57] <Krinkle> So it's working fine ?
+[18:29:08] <s5fs> appears to be!
+[18:29:16] <Krinkle> I guess the "last build status" didn't survive the upgrade
+[18:29:27] <Krinkle> So http://jenkins.jquery.com/ shows grey icons N/A for jobs not having run since the upgrade
+[18:29:31] <Krinkle> the data isn't lost though
+[18:29:59] <Krinkle> Actually, it does appear to have lost past build data. It isn't just not indexed but not there.
+[18:30:03] <Krinkle> history that is
+[18:30:22] <s5fs> yeah interesting
+[18:30:39] <Krinkle> Is either of you github admin for jquery/testswarm and jquery/qunit?
+[18:30:46] <Krinkle> It needs web hook to be set up I think
+[18:30:53] <s5fs> gnarf is
+[18:30:59] <Krinkle> the one for TestSwarm (I created that one today) isn't running
+[18:31:02] <Krinkle> http://jenkins.jquery.com/job/QUnit/GitHubPollLog/
+[18:31:05] <Krinkle> http://jenkins.jquery.com/job/TestSwarm/GitHubPollLog/
+[18:31:10] <Krinkle> presumably it needs a hook set up from github
+[18:31:18] <Krinkle> take QUnit as example to copy from
+[18:31:21] <s5fs> gnarf: ping again :D
+[18:35:15] <Krinkle> also, it wouldn't hurt to at some point do an upgrade of Jenkins itself. I only upgraded plugins that I know are backwards compatible and that we frequently use and can easily verify are still working properly.
+[18:35:37] <Krinkle> But for that we need to make proper backups, and orchestrate a more proper maintenance window
+[18:35:41] <gnarf> s5fs: you do ;)
+[18:37:12] <s5fs> gnarf: haha, didn't we cover webhooks this morning and i didn't have access?
+[18:42:21] <s5fs> Krinkle: okay so you need a webhook on testswarm only?
+[18:42:35] <s5fs> jquery/testswarm
+[18:42:41] <Krinkle> Yeah, I created that Jenkins job only today (we've never tested TestSwarm until now... :O )
+[18:42:58] <s5fs> okay, it's been set for jquery/testswarm using jquery/qunit as an example
+[18:43:04] <Krinkle> but noticed it isn't working. I thought that the Jenkins GitHub plugin takes care of it, but it needs a web hook I think.
+[18:43:40] <Krinkle> It probably has a fallback to polling (like it does for plain Git and SVN), but we probably disabled that in favour of a push hook.
+[18:43:40] <Krinkle> Thanks
+[18:44:10] <s5fs> i don't know how long it will take to update or whatever
+[18:44:19] <Krinkle> s5fs: gnarf: Can you also enable the Travis CI hook for jquery/testswarm?
+[18:44:25] <Krinkle> I've created the .travis.yml file already
+[18:44:28] <s5fs> Krinkle: sure
+[18:45:35] <s5fs> Krinkle: what travis user/token/domain should i provide?
+[18:45:46] <Krinkle> s5fs: Log in via travis-ci.org
+[18:45:50] <Krinkle> it will do it via the API for you
+[18:46:06] <s5fs> Krinkle: thanks, haven't set this up before
+[18:46:07] <Krinkle> I don't think there is a universal token, it gets one via oauth
+[18:46:24] <Krinkle> https://travis-ci.org/profile/jquery (when logged-in)
+[18:46:30] <Krinkle> Then toggle off/on for testswarm
+[18:51:56] <s5fs> Krinkle: sorry, i'm not seeing testswarm
+[18:52:48] <Krinkle> https://travis-ci.org/ -> (top right) Sign in with GitHub -> https://travis-ci.org/profile -> jquery -> testswarm
+[18:54:19] <Krinkle> [#| off] -> [#| on]
+[18:54:25] <s5fs> Krinkle: haha okay okay, i got it
+[18:54:34] <s5fs> the switch has been flipped
+[18:54:40] <s5fs> want me to sync now?
+[18:56:26] <s5fs> Krinkle: i appreciate your help :)
+[19:05:10] <s5fs> Krinkle: okay the hooks are in place, push a commit when you're ready to test
+[20:13:20] <Krinkle> s5fs: gnarf: Restored build histories
+[20:14:25] <Krinkle> Upgraded the "Credentials plugin" and re-enabled it (it was disabled of some reason, which also caused various exceptions when opening the job/configure page. e.g. http://jenkins.jquery.com/job/jQuery%20Core/configure which is now accessible again
+[20:23:31] <s5fs> Krinkle: nicely done!
+[20:23:56] <Krinkle> gnarf: Your manual build for jQuery Core failed because env.GIT_COMMIT was unset
+[20:24:06] <Krinkle> I'm patching configurations now to add :
+[20:24:07] <Krinkle> export COMMIT=${GIT_COMMIT:-$(git rev-parse HEAD)}
+[20:24:17] <Krinkle> So that it doesn't rely on the env of the push trigger
+[20:24:23] <Krinkle> but also works when triggering manually
+[20:24:33] <Krinkle> aborted and retriggered build of jQuery core

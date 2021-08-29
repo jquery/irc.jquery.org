@@ -1,0 +1,375 @@
+[06:14:53] <gibson042> .
+[11:27:54] <Krinkle> .
+[11:28:19] <Krinkle> jzaefferer: hey there, you back from the conference?
+[11:30:38] <jzaefferer> Hey Krinkle
+[11:30:47] <jzaefferer> Back yeah, but pretty tired
+[11:31:07] <Krinkle> gnarf: btw, just catching up on github notifications, did you have time to dig into https://github.com/jquery/jquery/commit/58ed62ed12cb48d9224f699e86e197804ca5ece4
+[11:31:09] <socialhapy> ★ Commit on jquery by dmethvin (2d, 23h ago): Effects: 1.8 Animation Rewrite - thanks @mikesherov and @gibson042
+[11:31:22] <Krinkle> jzaefferer: Do you have any experience with the GitHub API?
+[11:31:31] <jzaefferer> I want to focus on TestSwarm/BrowserStack/Jenkins the next days, update the latter two enough that we can deploy 1.0.0
+[11:31:52] <gnarf> the test fails? not yet
+[11:31:54] <Krinkle> great, I have somewhat bad news on that regard, not terrible just a minor set back
+[11:31:59] <Krinkle> ^ @ jzaefferer
+[11:32:03] <gnarf> Been a bit overworked this week
+[11:32:11] <jzaefferer> Krinkle: Afaik scott_gonzalez has some experience with the GitHub API, at least he managed to implement gist-diff
+[11:32:31] <gnarf> was hoping mikesherov might know why that happened it seems like thats in the css changes
+[11:32:32] <Krinkle> jzaefferer: I was hoping to connect you to hasher (wikimedia dev), to help and sweeten the jenkins-testswarm plugin
+[11:32:35] <gnarf> that he did
+[11:32:53] <Krinkle> but it appears he doesn't have any experience writing Jenkins plugins, I misinterpreted something.
+[11:33:04] <jzaefferer> Krinkle: Does he know Java?
+[11:33:30] <johnbender> rwaldron: _|Nix|_ metioned eventCascade in our meeting and it reminded me to ask you about the qunit plugin :D
+[11:33:32] <Krinkle> I thing he'll be able to read basic java, but I haven't seen him write any
+[11:33:43] <Krinkle> He didn't jump on the offer to work on a jenkins plugin
+[11:34:12] <Krinkle> so we (without me that is) will have to figure it out on our own
+[11:34:15] <jzaefferer> Ah, okay, that probably won't help much
+[11:35:00] <Krinkle> aside from the testswarm plugin, I was hoping maybe we can figure out a way in jquery's build configuration in jenkins to somehow make it report back to github through a comment
+[11:35:19] <Krinkle> (after the build is considered completed that is, so this needs the plugin to be fixed for 1.0.0)
+[11:35:51] <gnarf> hrm
+[11:35:55] <Krinkle> just a basic "passes", "failed" would be fine + a link to the build page on jenkins
+[11:36:06] <gnarf> i wonder if we couldn't implement the "testswarm" as a part of a grunt task
+[11:36:27] <Krinkle> I have heard the term "grunt" before, but kinda clueless on it
+[11:36:49] <Krinkle> I'll retype what I was writing before you mentioned "grunt" now, hold on
+[11:36:58] <gnarf> Krinkle: grunt is a make/rake/jake replacement by ben_alman - we are switching to it for our builds
+[11:37:24] <Krinkle> Considering jQuery is currently only running jenkins+testswarm *after* the merge into master, I think it makes sense to only have it leave a comment in case of a failure
+[11:37:30] <ben_alman> http://weblog.bocoup.com/introducing-grunt/
+[11:37:53] <Krinkle> is grunt related to *before* the landing of a pr>?
+[11:37:53] <gnarf> Krinkle: the problem is it considers everything a failure right now
+[11:38:09] <Krinkle> gnarf: I know, that is a different issue which will be obsolete if we fix the plugin for 1.0.0
+[11:38:32] <gnarf> Krinkle: before and after, its the build process
+[11:39:35] <Krinkle> where in the flow of a pr is it coming in (taking the basic workflow of: fork, commit, create pr, review, land/close pr, jenkins-start, testswarm, jenkins-end),
+[11:39:59] <gnarf> Krinkle: it would happen between jenkins-start and testswarm
+[11:40:07] <gnarf> also between fork and commit
+[11:40:16] <gnarf> but i mean, its just a build target right?
+[11:40:21] <Krinkle> k
+[11:40:29] <gnarf> grunt swarm could be a task that only runs from jenkins box
+[11:40:31] <Krinkle> so its not really related to testswarm or qunit
+[11:40:39] <Krinkle> hm..
+[11:41:26] <Krinkle> so right now in Jenkins we have a project for "jQuery core" (which monitors master, or in the current case, 1.8-pre).
+[11:41:32] <gnarf> it could submit the job, and poll it, and potentially spawn up browserstacks to make sure it finishes that job
+[11:41:39] <gnarf> Krinkle: there are two jQuery jobs in jenkis
+[11:41:44] <gnarf> one watches master, one 1.8pre
+[11:41:49] <gnarf> unless someone changed that
+[11:41:53] <gnarf> thats how i set it up
+[11:41:58] <Krinkle> I was thinking maybe we could create a separate project for "jQuery core (PR)" which would be for testing PRs before they land (clone, cherry pick, then submit to testswarm)
+[11:42:08] <Krinkle> and then have that project not report to IRC but to the PR on Github
+[11:42:33] <gnarf> If jenkins can watch pulls (i don't think it can)
+[11:43:39] <Krinkle> so basically so that humans don't have to check out the PR locally to run the unit test, and instead have it be done automatically (could be combined with other stuff like lint checking)
+[11:44:06] <Krinkle> so that if I create a PR, a bot will lint the resulting state and run it through testswarm, or at least run qunit in node
+[11:44:11] <Krinkle> but now I see that is what grunt does
+[11:44:16] <Krinkle> a pre-commit check for developers
+[11:44:19] <Krinkle> correct?
+[11:44:22] <gnarf> yes
+[11:44:33] <Krinkle> but why is it also used by jenkins?
+[11:44:39] <gnarf> it can be used post-commit as well
+[11:44:41] <Krinkle> how does it affect the jenkins job build
+[11:44:47] <gnarf> grunt is the build
+[11:45:01] <gnarf> jenkins needs to build dist/jquery.js so it can be tested in the swarm
+[11:45:07] <Krinkle> oh, it is the step-by-step proces to do the build?
+[11:45:11] <Krinkle> like ant?
+[11:45:23] <Krinkle> an alternative to ant?
+[11:45:24] <gnarf> Krinkle: yes, make/ant/rake/jake
+[11:45:28] <Krinkle> aaaah
+[11:45:33] <Krinkle> okay
+[11:45:34] <gnarf> now grunt
+[11:45:55] <Krinkle> hm..
+[11:46:00] <Krinkle> so how does jenkins submit to testswarm then
+[11:46:05] <Krinkle> that isn't done by grunt right?
+[11:46:09] <Krinkle> since I couldn't do that locally
+[11:46:12] <gnarf> right now, it uses its plugin
+[11:46:20] <gnarf> it could be a grunt task though
+[11:47:27] <gnarf> not sure what benifit we might gain there, other than if we made it a grunt task, we wouldn't have to deal with jenkins plugins and writing java
+[11:47:49] <Krinkle> I'm not sure I follow
+[11:48:12] <Krinkle> We need the historical data and being able to link to test results
+[11:49:16] <gnarf> not sure how any of that would change?
+[11:49:33] <Krinkle> Those are in Jenkins
+[11:49:37] <Krinkle> the build history etc.
+[11:49:43] <gnarf> jenkins just exec's "make" right now
+[11:49:47] <Krinkle> and interconnectivity between different kind of job
+[11:49:53] <gnarf> and all the stuff that make outputs is put into the log
+[11:49:56] <gnarf> that wont change with grunt
+[11:50:01] <Krinkle> I don't see testswarm anywhere in grunt.js
+[11:50:22] <gnarf> thats because it isn't currently there?
+[11:50:31] <Krinkle> exactly
+[11:50:40] <Krinkle> but it is being run, so "right now" is incorrect
+[11:51:05] <gnarf> huh?
+[11:51:25] <gnarf> jenkins-testswarm is what handles the swarm job creation
+[11:51:31] <gnarf> "its plugin"
+[11:51:36] <Krinkle> I nkow
+[11:51:38] <Krinkle> I know
+[11:52:04] <Krinkle> so the jenkins project that is tracking github repo branch, doesn't just run grunt
+[11:52:27] <gnarf> I'm not even sure what we are talking about anymore, I just had a random idea that if there were issues we couldn't solve in jenkins-testswarm ; we could maybe solve them in a grunt task
+[11:52:51] <gnarf> Krinkle: not yet - although now that grunt has landed on 1.8pre I should probably include it
+[11:52:54] <Krinkle> it also scans the modules directory and creates a request to addjob
+[11:54:20] <Krinkle> I'm trying to get a sense of the current (undocumented) situation first
+[11:54:28] <gnarf> i don't think it scans anything
+[11:55:00] <gnarf> we just define all the tests here: http://cl.ly/082U311M3E1r253B1z1L
+[11:55:08] <gnarf> do you have a login to jenkins?
+[11:55:13] <Krinkle> no
+[11:55:55] <Krinkle> omg, that is terrible, I had expected the jenkins-testswarm plugin to be very different
+[11:55:56] <Krinkle> it requires manual hardcoded input of all runs (granted, which a GIT_COMMIT variable)
+[11:56:07] <gnarf> Krinkle: yup
+[11:56:44] <gnarf> TBH - I'm not a very big fan of jenkins, but its what we are using right now
+[11:56:58] <gnarf> I really don't have a better suggestion either
+[11:57:13] <gnarf> but if we made a "grunt swarm" it could handle all that test submission
+[11:57:41] <Krinkle> that only runs it locally
+[11:57:46] <Krinkle> that doesn't store it anywhere
+[11:57:56] <Krinkle> we need Jenkins to actually do the continuous integration part
+[11:58:08] <gnarf> Krinkle: jenkins logs the output
+[11:58:26] <gnarf> Krinkle: I'm saying we make jenkins execute "grunt swarm" instead of using jenkins-testswarm
+[11:58:26] <Krinkle> I thought you were suggesting to drop jenkins entirely
+[11:58:39] <gnarf> Krinkle: it would lower our dependency on jenkins too
+[11:58:50] <gnarf> making it easier to switch to something like travis if we ever wanted to try it
+[11:58:55] <gnarf> whatever CI we want to use
+[11:59:15] <Krinkle> the jenkins-testswarm plugin is currently very basic
+[11:59:30] <Krinkle> just dumping a testswarm url is not the long-term purpose of it I had in mind
+[11:59:35] <Krinkle> let me show you something
+[12:00:01] <Krinkle> note that I take no credit for the following and there are some bugs to be fixed
+[12:00:02] <Krinkle> https://integration.mediawiki.org/ci/
+[12:00:10] <Krinkle> Check "MediaWiki-GIT-Fetching"
+[12:00:23] <Krinkle> that is a super-project with sub projects that do different tests
+[12:00:37] <Krinkle> in the case of mediawiki it includes running phpunit on several different database backends
+[12:00:44] <Krinkle> but anyway, that is irrelevant right now
+[12:01:09] * Krinkle looks for a link
+[12:01:18] <Krinkle> check for example: https://integration.mediawiki.org/ci/job/MediaWiki-Tests-Databaseless/885/testReport/junit/(root)/?
+[12:01:43] <gnarf> Krinkle: so grunt also has a phantomjs unit built in
+[12:01:48] <gnarf> if you use it
+[12:01:56] <Krinkle> there the past behavior of a test can be tracked, including how it performs. that is how most jenkins plugins are created
+[12:02:14] <Krinkle> they extract data from the test suite and put it in the build storage, not just dump something in the console output
+[12:02:37] <Krinkle> anyway, the way I see it we have 2 options
+[12:02:42] <gnarf> Krinkle: sounds like a project for someone who wants to write java
+[12:03:14] <Krinkle> 1) Improve the jenkins-testswarm to properly extract the results from testswarm so that TestSwarm can focus on being a stable API-driven framework for test distribution
+[12:04:13] <Krinkle> 2) We don't use jenkins as primary ci (only to monitor github, trigger testswarm and report to irc or github comments), and improve TestSwarm to handle larger data sets
+[12:04:25] <Krinkle> 2a) pagination between jobs and some other UI improvements
+[12:04:47] <Krinkle> I think 2) sounds good
+[12:05:15] <Krinkle> which would make the jenkins-testswarm plugin obsolete
+[12:06:14] <Krinkle> we'd instead have a js file that jenkins executes that does the building (do lint, form the addjob request, poll testswarm api until it is ready, then extract basic "pass" or "fail" determination, and report to IRC)
+[12:07:10] <Krinkle> alrighty, I gotta quickly sneak out for dinner, they're waiting for me downstairs. I'll be back in a bit (sorry!)
+[12:07:53] <gnarf> Krinkle-away: but yeah - thats what I meant by making it into a grunt task -- :)
+[12:09:16] <Krinkle-away> with the new api in testswarm 1.0 the submission of jobs, the polling and the job status extraction becomes so simple, that it doesn't make sense to turn it into a plugin, we can easily duplicate that between jquery and mediawiki in our build logic and anyone that wants to use testswarm with jenkins
+[12:09:21] <Krinkle-away> (gone for real now)
+[12:10:33] <gnarf> Krinkle-away: next time your around, ping me or jzaefferer - we need to get you a login to jenkins so you can poke around for yourself ;)
+[12:24:37] <Krinkle> gnarf: thx, I'll read up on grunt first.
+[12:30:50] <gnarf> jzaefferer: i can't seem to get into the people to setup a use for Krinkle
+[13:01:05] <gnarf> gibson042: just FYI, I don't think `p` can ever be > 1 in an easing fn
+[13:01:30] <gibson042> I believe you are correct
+[13:02:33] <gibson042> but since it was in a test, I opted for defensiveness
+[13:02:36] <gnarf> sure sure
+[13:03:52] <gnarf> gibson042: also if you are in the vicinity of that code, can you check to see if you can figure out what mikesherov might of broke in the dimensions test suite as pointed out by Krinkle in https://github.com/jquery/jquery/commit/58ed62ed12cb48d9224f699e86e197804ca5ece4 -- I doubt I can get to it until this weekend myself
+[13:03:53] <socialhapy> ★ Commit on jquery by dmethvin (3d, 58m ago): Effects: 1.8 Animation Rewrite - thanks @mikesherov and @gibson042
+[13:04:42] <gnarf> or wait
+[13:04:51] <gnarf> were those the tests that needed to be blown up
+[13:04:58] <gibson042> isn't that from clipping negative width/height to zero in the CSS module?
+[13:05:19] <gnarf> yup
+[13:05:30] <gnarf> it needs a test suite tweak and a reference to that ticket #
+[13:05:33] <gibson042> did he forget to change the tests?
+[13:05:34] <gibson042> ah
+[13:05:35] <gibson042> right
+[13:05:54] <gibson042> I probably won't be able to get to it, I'm on vacation starting in about an hour
+[13:06:14] <gnarf> gibson042: no prob, I'll try to sneak some time in on it tonight if mike doesn't beat me to it
+[13:07:47] <gnarf> rwaldron: i think https://github.com/jquery/jquery/pull/750 is landable - have you had a chance to look it over yet?
+[13:07:48] <socialhapy> ★ Pull request on jquery by gibson042 (2d, 14h ago): 1.8 effects special easing
+[13:14:47] <Krinkle> jzaefferer: I'm currently working on testswarm-browserstack
+[13:14:51] <gnarf> @gibson042 btw - You've been a massive help on this branch <3's
+[13:15:02] <gnarf> I'll owe ya a beer if you make it to jqconf ;)
+[13:15:25] <gibson042> heh... not this time, but maybe when it comes back east
+[13:15:45] <gnarf> TXJS? :)
+[13:16:07] <gibson042> did you see the size diff on the latest? I think the net increase is now under 135
+[13:16:13] <gnarf> gibson042: yeah i did
+[13:16:27] <gnarf> i knew getting it down to `defaultPrefilter` would help
+[13:40:54] <rwaldron> gnarf looking
+[13:41:12] <rwaldron> gnarf have you ever done gamepad/joystick controls?
+[13:42:05] <gnarf> rwaldron: on the playstation2 and the xbox, yes
+[13:42:09] <rwaldron> gnarf TBH, i'd prefer if DaveMethvin handled larger stuff like this for now
+[13:42:18] <rwaldron> i'm still getting used to the workflow
+[13:42:36] <rwaldron> I'd feel better with smaller PRs for now
+[13:42:42] <rwaldron> ok, so re: controllers
+[13:42:56] <rwaldron> analog stick axes, the value
+[13:42:59] <gnarf> rwaldron: fair nuff - i was gonna ask dave if i was clear to land some of these if we groupthink em
+[13:43:24] <rwaldron> what is the standard expected value range?
+[13:43:33] <gnarf> usually -1 -> 1
+[13:43:40] <gnarf> but on some devices its way out of wack
+[13:43:40] <rwaldron> neat
+[13:43:55] <rwaldron> i have 0-1 atm
+[13:44:41] <gnarf> i think that on the ps2 we had to convert from [0,32768) to [-1,1]
+[13:45:29] <rwaldron> I start with 0-1023 both directions
+[13:45:48] <gnarf> rwaldron: honestly, whatever the value is - map it to what you want and you're gold ;)
+[13:46:04] <rwaldron> potentiometer resistance to a voltage measurement
+[13:46:06] <rwaldron> bah
+[13:46:16] <gnarf> every controller i've ever had the pleasure of coding for has had a different range
+[13:46:20] <rwaldron> oh
+[13:46:24] <rwaldron> then I feel less bad
+[13:58:02] <gnarf> ?tell mikesherov hey man - someone pinged on http://bugs.jquery.com/ticket/8627 today -- do you have any thoughts on how to handle that in the current 1.8pre?
+[13:58:03] <bot-t> gnarf, Okay.
+[14:01:15] <rwaldron> gnarf gotta another sec?
+[14:01:29] <rwaldron> L: -1 (or in my case: 0)
+[14:01:34] <rwaldron> R: 1
+[14:01:41] <rwaldron> U: 1
+[14:01:52] <rwaldron> D: -1 (or in my case: 0)
+[14:02:05] <rwaldron> are these in the correct ordeR?
+[14:03:34] <gnarf> rwaldron: i think, but like i said - whatever you end up doin, so long as it works for your app is best ;)
+[14:03:49] <gnarf> if you're writing a lib, giving access to the raw value / range would probably be important
+[14:03:58] <rwaldron> it's not for an app
+[14:04:16] <rwaldron> gnarf https://github.com/rwldrn/johnny-five
+[14:04:46] <rwaldron> this needs to be updated, but basically, this: https://github.com/rwldrn/johnny-five/blob/master/docs/joystick.md
+[14:05:37] <gnarf> mapping tiny ranges to other tiny ranges is trivial - there are other things to be aware of like a "dead zone" in the middle, etc
+[14:05:57] <rwaldron> I'm working on that right now
+[14:06:51] <gnarf> a lot of stick based controllers have pretty terrible outer and center sensitivity
+[15:25:25] <Krinkle> scott_gonzalez: are you available to maybe review a patch for testswarm-browserstack before I commit it and start a PR? Just a quick check to see if you have any feedback
+[15:26:28] <scott_gonzalez> sure
+[15:29:21] <Krinkle> ok, patching coming up
+[15:33:30] <Krinkle> scott_gonzalez: git show --format=email is OK ?
+[15:34:02] <Krinkle> https://toolserver.org/~krinkle/tmp/Krinkle-testswarm-browserstack-b10b541a.patch
+[15:34:02] <scott_gonzalez> sure
+[15:35:49] <scott_gonzalez> FYI: You can create a gist from a diff to get the same view as a GitHub commit page.
+[15:35:52] <scott_gonzalez> https://gist.github.com/b5975a7b151dfa234f3f
+[15:35:56] <Krinkle> scott_gonzalez: Can you get in touch with browserstack to have them update the /browsers api response to also show mobile devices and OS ?
+[15:36:18] <scott_gonzalez> I've asked about that, they're not planning on exposting them through the API yet.
+[15:36:26] <Krinkle> hm.. it seems to read it as a diff not as a patch (red lines in commit message)
+[15:36:50] <Krinkle> but anyway, looks nice :)
+[15:36:51] <scott_gonzalez> Yeah, I named the file a.diff :-P
+[15:36:56] <Krinkle> ok
+[15:37:25] <scott_gonzalez> Oh well, naming it .pach didn't change the highlighting.
+[15:37:41] <scott_gonzalez> Instead of swarmHost and swarmPath, why not just parse swarmUrl?
+[15:37:48] <scott_gonzalez> node has a built-in parser.
+[15:38:19] <Krinkle> I know javascript inside out and the DOM pretty good as well, but I have near-zero experience with node
+[15:38:28] <Krinkle> Any pointers?
+[15:38:33] <Krinkle> I'll get it done
+[15:39:29] <scott_gonzalez> http://nodejs.org/docs/latest/api/url.html
+[15:39:49] <scott_gonzalez> url.parse() will make it very easy.
+[15:39:53] <Krinkle> can't http.request just take a url?
+[15:39:55] <Krinkle> seems to silly
+[15:40:07] <Krinkle> so silly* that i have to parse it myself
+[15:40:53] <scott_gonzalez> That's because the built-in HTTP module is very low level.
+[15:41:02] <Krinkle> yeah I figured
+[15:41:06] <scott_gonzalez> And that's how the HTTP protocol works...
+[15:41:14] <Krinkle> I know
+[15:41:22] <scott_gonzalez> Just add Mikeal's request module as a dependency :-)
+[15:41:22] <Krinkle> anyway, I'll use this
+[15:41:22] <scott_gonzalez> https://github.com/mikeal/request
+[15:41:32] <scott_gonzalez> Then you can avoid parsing.
+[15:41:33] <Krinkle> or not
+[15:41:43] <scott_gonzalez> Pretty much everyone uses it.
+[15:41:48] <Krinkle> ok
+[15:42:12] <scott_gonzalez> I feel like spawnUrl is unecessary (I realize it already existed).
+[15:42:19] <scott_gonzalez> Couldn't we just ask for the project name?
+[15:42:43] <scott_gonzalez> Won't it always be swarmUrl + run + project?
+[15:42:44] <Krinkle> well, I thought about constructing it based on the swarmURl
+[15:42:47] <Krinkle> but we can't do that
+[15:42:57] <scott_gonzalez> why not?
+[15:43:02] <Krinkle> for one, one may want to use different swarm client usernames, although thats not the primary reason
+[15:43:17] <Krinkle> the primary reason is in testswarm 1.0.0 there will be no fixed rewrite pattern
+[15:43:23] <Krinkle> one could use different patterns
+[15:43:31] <Krinkle> and secondly, most importantly
+[15:43:36] <Krinkle> the runToken
+[15:43:44] <scott_gonzalez> ah, ok
+[15:43:48] <Krinkle> one can configure the swarm to require a runToken in the url
+[15:43:50] <scott_gonzalez> Maybe just accept a path then?
+[15:43:52] <Krinkle> too many variables to account for
+[15:44:09] <scott_gonzalez> Seems silly to require the host/port/basepath twice
+[15:44:26] <scott_gonzalez> Anyway, that's not what you wanted me to look at...
+[15:44:35] <Krinkle> yeah, I didn't really change that
+[15:44:44] <scott_gonzalez> BrowSack -> BrowserStack
+[15:44:52] <scott_gonzalez> also, already existed.
+[15:45:01] <Krinkle> but I did consider changing it and kept it, so in a way I did change it (re-emphasizing the choose)
+[15:45:04] <Krinkle> choise*
+[15:45:09] <Krinkle> BrowSack, fixing
+[15:47:04] <scott_gonzalez> I'm not sure if the rest of the code is following this pattern, but getSwarmState( success, error ) is bad for node.
+[15:47:24] <Krinkle> bad how?
+[15:47:25] <Krinkle> convention?
+[15:47:26] <scott_gonzalez> Everything should be method( arg, arg, callback )
+[15:47:36] <Krinkle> success and error are both callbacks
+[15:47:37] <scott_gonzalez> And callbacks are function( error, arg, arg )
+[15:47:50] <Krinkle> Oh, I see
+[15:48:05] <scott_gonzalez> On error, you pass just an error object as the first param.
+[15:48:14] <scott_gonzalez> On success, you pass null and then any relevant data.
+[15:48:44] <scott_gonzalez> All node code follows that convention, and there are a lot of utilities written around that pattern.
+[15:48:54] <scott_gonzalez> All control flow modules require it.
+[15:48:54] <Krinkle> on first reaction it looked more like a lazy implementation than an intended pattern, but this is how it is done?
+[15:48:56] <Krinkle> ok
+[15:49:09] <scott_gonzalez> Yeah, in the early days node had promises.
+[15:49:21] <scott_gonzalez> But there was too much bike shedding about what promises should look like.
+[15:49:22] <Krinkle> yeah, that makes more sense
+[15:49:39] <scott_gonzalez> So Ryan decided to ditch them and follow callback( error, ... )
+[15:49:46] <scott_gonzalez> Since you can easily build abstractions on top of it.
+[15:50:00] <scott_gonzalez> It seems a bit odd at first, bit it's really pretty nice.
+[15:52:35] <scott_gonzalez> When you have an error, instead of returning an object with code and info, generate an actual error.
+[15:52:42] <scott_gonzalez> new Error( msg )
+[15:53:25] <scott_gonzalez> No need to stringify for:
+[15:53:25] <scott_gonzalez> console.log('testswarm needs these browsers:\n', JSON.stringify(swarmState.userAgents));
+[15:53:42] <Krinkle> I just follow the pattern
+[15:53:47] <scott_gonzalez> I know :-)
+[15:54:02] <Krinkle> it didn't make sense to me either, but was too lazy to try without it
+[15:54:24] <scott_gonzalez> Don't worry about cleaning up all of this stuff right now.
+[15:54:29] <scott_gonzalez> I'm just saying stuff as I see it.
+[15:54:43] <gnarf> Krinkle: I can't figure out how to get you whatever permissions you need on jenkins btw, I tried - maybe jzaefferer can help
+[15:55:56] <scott_gonzalez> Looks good in general.
+[15:57:26] <Krinkle> scott_gonzalez: git diff > https://toolserver.org/~krinkle/tmp/Krinkle-testswarm-browserstack-b10b541a-2.diff (I'll squash it later)
+[15:58:02] <Krinkle> now for the callback pattern in getSwarmState
+[15:58:48] <scott_gonzalez> That got a little easier, huh?
+[16:01:05] <Krinkle> yeah
+[16:03:27] <Krinkle> scott_gonzalez: so JSON.stringify is redundant in all arrays/objects passed to console.log?
+[16:06:03] <Krinkle> https://toolserver.org/~krinkle/tmp/Krinkle-testswarm-browserstack-b10b541a-2b.diff
+[16:06:06] <scott_gonzalez> yeah
+[16:06:30] <scott_gonzalez> Well, it depends how deep the objects/arrays are.
+[16:06:40] <scott_gonzalez> console.log() will truncate at a certain depth.
+[16:07:01] <scott_gonzalez> But we're using pretty shallow objects.
+[16:07:36] <Krinkle> yeah
+[16:08:05] <Krinkle> I've only tested --getNeeded, I'll need a public testswarm install running 1.0.0 to test it with browserstack for real
+[16:08:16] <Krinkle> getNeeded also works with localhost
+[16:08:28] <Krinkle> browserstack api can't do ssh tunnel
+[16:08:37] <Krinkle> I'll open a port in  my router for now and test that way
+[16:26:31] <mikesherov> debug minified code!
+[16:26:31] <bot-t> (2 hours 28 mins ago) <gnarf> tell mikesherov hey man - someone pinged on http://bugs.jquery.com/ticket/8627 today -- do you have any thoughts on how to handle that in the current 1.8pre?
+[16:26:53] <mikesherov> http://www.html5rocks.com/en/tutorials/developertools/sourcemaps/
+[16:27:33] <ajpiano> mikesherov omg
+[16:27:58] <mikesherov> drum roll please
+[16:28:18] <gnarf> mikesherov: also - you broke some offset units with your <0 patch
+[16:28:24] <gnarf> :)
+[16:28:33] <gnarf> Krinkle keeps yelling at me about it
+[16:29:01] <Krinkle> I do not yell :P
+[16:29:22] <mikesherov> wait, really?
+[16:29:25] <mikesherov> Hrmmph
+[16:29:57] <mikesherov> I tested it... ok, I'll look
+[16:31:10] <rwaldron> Yeah, Krinkle has been on the ball with those swarm failures
+[16:31:11] <gnarf> Krinkle: shhhhh
+[16:31:26] * gnarf grins
+[16:32:58] <mikesherov> which browsers, gnarf?
+[16:33:12] <gnarf> all of em according to Krinkle
+[16:33:15] <mikesherov> or Krinkle:
+[16:33:16] <gnarf> its in "dimensions"
+[16:33:18] <mikesherov> hmmmm
+[16:33:25] <gnarf> there is a note on the commit
+[16:33:30] <mikesherov> filter=offset?
+[16:34:12] <scott_gonzalez> mikesherov: http://swarm.jquery.org/?state=runresults&run_id=867&client_id=2404
+[16:34:30] <mikesherov> pfft
+[16:35:00] <mikesherov> negative width ignored should have been pulled in
+[16:35:06] <mikesherov> that's specifically a test I had to change
+[16:35:12] <mikesherov> I'll check the other ones
+[16:36:26] <mikesherov> oh, yeah, I just need to update tests
+[16:36:47] <mikesherov> They rely on the same expectation that negative numbers are no-ops which is no longer true
+[16:38:54] <gnarf> mikesherov: reference the ticket number
+[16:38:59] <gnarf> in the commit
+[16:39:03] <gnarf> thats all i ask
+[16:39:05] <mikesherov> yup, will do
+[16:39:21] <mikesherov> I borked it. My bad... submitting PR now
+[16:47:38] <mikesherov> gnarf: https://github.com/jquery/jquery/pull/755
+[16:47:39] <socialhapy> ★ Pull request on jquery by mikesherov (2.788s ago): fix broken unit tests from implementing #11604 :-\
+[16:49:12] <mikesherov> sory about that!
+[16:49:16] <mikesherov> sorry*
+[16:49:53] <gnarf> mikesherov: see comment
+[16:50:17] <gnarf> i think we might want to keep the others expecting 30
+[16:51:18] <mikesherov> well, it's just to check that the padding and border don't affect .width() or .height()
+[16:51:32] <mikesherov> both are fine, you're is less change
+[16:52:44] <gnarf> damn, rick left
+[16:52:56] <gnarf> i was gonna try to talk him into pulling it ;)
+[16:52:57] <mikesherov> would he yell at me?
+[16:53:04] <mikesherov> OK, cool
+[17:04:56] <Krinkle> scott_gonzalez: https://github.com/clarkbox/testswarm-browserstack/pull/8
+[17:04:57] <socialhapy> ★ Pull request on testswarm-browserstack by Krinkle ( ago): issue #7: Update for TestSwarm 1.0 and some other minor fixes
+[17:07:54] <Krinkle> scott_gonzalez: tested locally with a testswarm install and browserstack account
+[17:08:03] <Krinkle> went great :)
+[17:09:17] <jqcommit> [testswarm] Krinkle pushed 1 new commit to master: http://git.io/3sEfeA
+[17:09:17] <jqcommit> [testswarm/master] fix typo - Timo Tijhof
+[17:12:09] <Krinkle> nn
+[17:13:36] <scott_gonzalez> :-)
+[19:14:09] <socialhapy> ★ Tweet from jquerymobile: MS Open Tech: Announcing the open source Metro style theme for jQuery Mobile - http://t.co/fbYrIQx6 ★ http://bit.ly/JqyTXa

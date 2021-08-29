@@ -1,0 +1,53 @@
+[02:34:40] <M4rius> Hi scott_gonzalez, I saw you pinged me at the meeting yesterday, sorry about that.
+[02:41:09] <M4rius> About over/out events during capture, on your message to the mailing list, so far only Rick from Chromium said that there should be an "enter/over" on the element under the cursor once the capture is released, right?
+[02:50:02] <M4rius> Is there something I can currently do for this issue? Should I try my luck on a fix for consistencies sake across browsers?
+[06:03:58] <scott_gonzalez> M4rius: Let's move forward with that recommendation. I'll try to get it finalized in next week's PEWG call.
+[06:07:20] <M4rius> Sounds good. We would also need to adjust IE11's pointerevents, right?
+[06:39:55] <scott_gonzalez> I think our code shouldn't do anything at all in IE11.
+[06:42:19] <M4rius> IE11 does pointerenter on the "other" element once it received a pointermove. Iiuc it would be nicer to have a pointerenter the moment the capture is released
+[06:43:54] <M4rius> So leave IE11 as is and rather synchronize it for mouse? Would touch with pens need to be considered as well?
+[06:46:30] <pep-commit> [PEP] scottgonzalez pushed 3 new commits to master: http://git.io/vUkfJ
+[06:46:30] <pep-commit> PEP/master 7f0050e Scott González: Build: Use JSCS to lint and fix code style...
+[06:46:30] <pep-commit> PEP/master 3dd58d7 Scott González: Build: Add JSHint for additional linting...
+[06:46:30] <pep-commit> PEP/master da854e4 Scott González: Build: Disallow spaces inside brackets...
+[07:01:07] <M4rius> Cache + Remote Server Delay + Upload Delay = <3
+[07:01:33] <M4rius> whoops, sorry, wrong chat. I need to get grip on my chat window handling
+[07:07:21] <pep-commit> [PEP] scottgonzalez closed pull request #184: W3C tests (master...w3c-tests) http://git.io/vfwoy
+[10:36:38] <scott_gonzalez> So I'm digging into these IE11 test failures now.
+[10:36:49] <scott_gonzalez> And I can't help but wonder why we're even running tests in IE11 in the first place.
+[10:37:09] <scott_gonzalez> Shouldn't we just ignore any environment that already has `window.PointerEvent`?
+[10:38:41] <scott_gonzalez> I didn't dig all the way down yet, but I'm pretty sure these failures are because the actual code doesn't set stuff up when native pointer events exist.
+[10:39:12] <scott_gonzalez> At least once I changed the HAS_MS check.
+[10:39:21] <scott_gonzalez> Because now it's actually trying to run more tests.
+[10:43:24] <snover> three things i can think of. one, to make sure the polyfill does not break ie11. two, to make sure the test expectations match native behaviour. three, (follow on to #2) to make sure ie11 isn’t violating the spec.
+[10:44:11] <snover> scott_gonzalez: ^
+[10:52:14] <scott_gonzalez> Well, how about this? What if we make sure that out code does absolutely nothing in IE11 and then we don't run unit tests there?
+[10:52:22] <scott_gonzalez> s/out/our/
+[10:52:59] <scott_gonzalez> If we find differences in the functional tests, then we can re-evaluate how to handle IE11.
+[10:53:02] <snover> great as long as you don’t accidentally break the code that makes the code do absolutely nothing :)
+[10:53:11] <snover> which is what the test are supposed to … test
+[10:53:36] <scott_gonzalez> Seems like it should be as simple as `if ( window.PointerEvent ) { return; }` right at the top of the built file.
+[10:54:05] <snover> then what happens to a library that pulls it in as a shim instead?
+[10:54:41] <scott_gonzalez> We already have https://github.com/jquery/PEP/blob/master/src/platform-events.js#L7-L11
+[10:55:02] <snover> i’m just not clear on what the big deal is about that
+[10:55:49] <scott_gonzalez> What do you mean? If you pull it in and you're in an environment that needs the polyfill, you'll get the behavior.
+[10:56:06] <scott_gonzalez> If you're in an environment that already has pointer events, you don't need it, so it becomes a no-op.
+[10:56:15] <snover> sorry, i can’t words
+[10:57:04] <scott_gonzalez> PEP is already basically a no-op in IE11.
+[10:57:14] <snover> why is it such a problem to run the tests?
+[10:57:20] <arschmitz> scott_gonzalez: your pproach makes sense to me
+[10:57:48] <scott_gonzalez> Because the tests expect our code to actually be doing things.
+[10:57:59] <arschmitz> snover: from what i gather the tests expect thing in the polyfill that are not there because fo the no op
+[10:58:21] <arschmitz> they are testing the polyfill specificly not that pointer events take place properly
+[10:58:29] <arschmitz> scott_gonzalez: is that correct?
+[10:58:59] <arschmitz> scott_gonzalez: so for the webdriver tests your working on it would be fine to run ie11
+[10:59:04] <scott_gonzalez> Right, so here's an example.
+[10:59:13] <arschmitz> because assuming it passes the w3c tests it will pass those
+[10:59:54] <scott_gonzalez> To test capture events, the test is firing a down event, setting pointer capture, then firing an up event.
+[10:59:54] <scott_gonzalez> https://github.com/jquery/PEP/blob/master/tests/unit/capture.js#L57-L59
+[11:00:15] <scott_gonzalez> That results in a mouse event being fired.
+[11:01:00] <scott_gonzalez> Which I'm assuming doesn't go through the normal pointer event system in IE11.
+[11:05:45] <snover> hard to evaluate anything about these tests given things like “this test disabled for MSPointerEvents due to flakiness”
+[11:12:19] <scott_gonzalez> I'm just going to ignore the failures for now and read through all the tests.
+[11:40:54] <pep-commit> [PEP] scottgonzalez pushed 1 new commit to master: http://git.io/vULEB
+[11:40:54] <pep-commit> PEP/master 43ce883 Scott González: Update comment about mouse requiring pointerId 1...

@@ -1,0 +1,185 @@
+[05:24:55] <scott_gonzalez> I hate GitHub Issues.
+[06:10:28] <gibson042> .
+[07:51:51] <rwaldron> gibson042 ping
+[08:11:39] <doesallmagic> Project jQuery Migrate Core 1.x build #25: SUCCESS in 10 min: http://swarm.jquery.org:8080/job/jQuery%20Migrate%20Core%201.x/25/
+[08:18:29] <gibson042> rwaldron here
+[08:19:17] <rwaldron> gibson042 hi!
+[08:19:24] <rwaldron> Just putting together some examples for you
+[08:19:35] <gibson042> examples?
+[08:19:49] <rwaldron> I'm responding to your review notes
+[08:19:53] <rwaldron> https://github.com/jquery/jquery/pull/1160/files#r2961668
+[08:19:54] <b-ot> rwaldron: Pull request #1160 by rwldrn (6d 18h 21m 38s): Rewrite data to use a valueOf-override keying system
+[08:19:57] <gibson042> ah, cool
+[08:20:07] <gibson042> how promising is data-at-the-node?
+[08:20:49] <rwaldron> I can just explain here
+[08:21:50] <rwaldron> gibson042 basically, my motivation to avoid direct expandos is the plain object case
+[08:22:20] <rwaldron> var o = {}; jQuery( o ).data( "a", "alpha" ); console.log( o ); // flood coming...
+[08:22:24] <gibson042> right, but doesn't Object.defineProperty address that?
+[08:22:30] <rwaldron> {
+[08:22:30] <rwaldron>   jQuery19109268679784145206: {
+[08:22:30] <rwaldron>     data: {
+[08:22:30] <rwaldron>       a: "alpha"
+[08:22:30] <rwaldron>     },
+[08:22:30] <rwaldron>     // This is the toJSON that we explicitly define
+[08:22:31] <rwaldron>     toJSON: function() {...}
+[08:22:31] <rwaldron>   },
+[08:22:32] <rwaldron>   __proto__: Object
+[08:22:32] <rwaldron> }
+[08:22:37] <rwaldron> one sec, I'll get to that
+[08:22:57] <rwaldron> var o = {};
+[08:22:57] <rwaldron> Object.defineProperty( o, jQuery.expando, {
+[08:22:57] <rwaldron>   value: { data: {} },
+[08:22:57] <rwaldron>   writable: true,
+[08:22:57] <rwaldron>   configurable: true,
+[08:22:57] <rwaldron>   enumerable: false
+[08:22:57] <rwaldron> });
+[08:23:05] <rwaldron> is basically what you're looking for
+[08:23:22] <rwaldron> the issue I have there is that the property still appears on the object when debugging
+[08:24:01] <rwaldron> it actually does that today and has been one of those things that we just "accepted" because there was no way around it
+[08:24:02] <danheberden> rwaldron: SyntaxError: Unexepcted identifier @ line 11
+[08:24:07] <rwaldron> I was hoping to improve that
+[08:24:26] <rwaldron> danheberden?
+[08:24:33] <danheberden> "one sec, I'll get to that" isn't valid javascript
+[08:24:34] <ben_alman> DaveMethvin: https://github.com/cowboy/jquery-tiny-pubsub/issues/1
+[08:24:35] <gibson042> so showing the data while debugging is a con?
+[08:24:36] <danheberden> i was trying to be funny
+[08:24:45] <rwaldron> BWAHAHAHAHASHBDKAJSDBKJASDBKJSDLJSKDJVSD
+[08:24:46] <rwaldron> :D
+[08:24:56] <rwaldron> Hi-Larry-us
+[08:25:05] <rwaldron> gibson042 yes
+[08:25:39] <rwaldron> it won't appear in for-in
+[08:25:46] <rwaldron> nor Object.keys()
+[08:26:05] <rwaldron> but it will appear in Object.getOwnPropertyNames()
+[08:26:45] <gibson042> that seems on par with the risk of node.valueOf !== Object.valueOf from our overriding
+[08:27:31] <gibson042> if anything, hiding the data except while debugging seems like it might be beneficial
+[08:28:27] <gibson042> but maybe I'm just not seeing the potential issues
+[08:28:36] <rwaldron> I'm not sure I follow "the risk"—aside from the dead obvious that we've overridden it.
+[08:29:16] <gibson042> exactly... it's slightly unexpected for anyone who goes looking, but benign
+[08:29:24] <gibson042> I think that accurately describes both approaches
+[08:29:37] <rwaldron> (I agree with that assessment)
+[08:30:43] <rwaldron> Also, the way we used two different caching systems in the past is what lead us to having the most insane code for user data, private data and node or plain object
+[08:31:09] <rwaldron> my biggest motivation was to make this easy to maintain
+[08:31:47] <rwaldron> which is why I felt obligated to choose a path that worked well for both node and plain object cases
+[08:32:11] <rwaldron> I think you can certainly empathize :D
+[08:32:17] <gibson042> AMEN
+[08:32:30] <rwaldron> I mean... I KNOW you've written code in the old system
+[08:32:34] <rwaldron> haha
+[08:32:41] <rwaldron> so this was mostly for us
+[08:33:10] <rwaldron> A little win for the user, but better in the long term for maintenance sake.
+[08:33:24] <rwaldron> Also... there are stupid edge cases that WE actually created
+[08:33:29] <rwaldron> in the core!
+[08:33:37] <rwaldron> so those had to be accounted for
+[08:33:39] * rwaldron sighs
+[08:33:55] <gibson042> yeah; at least they'll be commented now
+[08:34:17] <rwaldron> Commented?
+[08:34:23] <rwaldron> I wrote a goddamn book!
+[08:34:30] <gibson042> lol
+[08:34:34] * rwaldron is thankful for uglify and gzip
+[08:34:39] <rwaldron> :)
+[08:35:09] <gibson042> at any rate, I can certainly embrace https://github.com/jquery/jquery/pull/1160 as-is, but if you have no philosophical object to storing data locally then it might be worth some investigation
+[08:35:10] <b-ot> gibson042: Pull request #1160 by rwldrn (6d 18h 36m 54s): Rewrite data to use a valueOf-override keying system
+[08:35:41] <gibson042> *objection
+[08:35:56] <rwaldron> Incidentally, as a side-note/value-add... jQuery._data and _removeData can be removed eventually
+[08:36:01] <rwaldron> they're unnecessary
+[08:36:43] <gibson042> yes, and it'll be good to have the objection of finally ejecting our internal-use methods
+[08:36:55] <gibson042> err, opportunity
+[08:36:59] <gibson042> (damn head cold)
+[08:37:51] <rwaldron> RE: your question above, about storing data locally...
+[08:38:08] <rwaldron> If we store it locally, that means our internal data will be there
+[08:38:27] <rwaldron> need two different data stores with the same key per object (node or plain)
+[08:38:43] <rwaldron> which brings us back to the bad-old-days
+[08:39:14] <rwaldron> Also, the approach I've taken will give us a smooth transition to WeakMaps in a year or so
+[08:39:19] <rwaldron> IE11
+[08:39:36] <gibson042> ah, right
+[08:39:46] <gibson042> that being the case, I think I'm satisfied
+[08:39:52] <rwaldron> Marvelous
+[08:40:03] <gibson042> thanks for the discussion
+[08:40:08] <rwaldron> gibson042 should I add all of this to the comments?
+[08:40:14] <rwaldron> might be helpful for future-us
+[08:40:26] <gibson042> good point
+[08:40:31] <gibson042>  I think it'd be valuable
+[08:40:32] <rwaldron> I can do that
+[08:40:40] <rwaldron> great
+[08:40:44] <rwaldron> always a pleasure
+[08:40:58] <rwaldron> I'll ping you when I push the changes
+[08:47:18] <gibson042> rwaldron: one other thing
+[08:47:30] <gibson042> why define a new `ref` instead of using `jQuery` etc.?
+[08:48:14] <gibson042> (i.e., a preexisting assigned variable)
+[08:52:04] <rwaldron> gibson042 I thought about using one of the objects declared at the top of that module
+[08:52:06] <rwaldron> I can do that
+[08:54:55] <rwaldron> gibson042 oooo
+[08:55:07] <rwaldron> how about the _$ object
+[08:55:21] <rwaldron> hrm.
+[08:55:26] <rwaldron> No gzip gain
+[08:55:55] <gibson042> did you try it with `jQuery`?
+[08:56:17] <rwaldron> that would allow user code to get the key
+[08:56:33] <rwaldron> I'm going to try it with "Data"
+[08:56:39] <gibson042> :yes:
+[08:57:00] <rwaldron> -2 bytes.
+[08:57:02] <rwaldron> WIN
+[08:57:06] <gibson042> :D
+[08:57:10] * rwaldron *high-five*
+[09:04:27] <rwaldron> gibson042 summary: https://github.com/rwldrn/jquery/commit/0b8d675b445cbd0b4b542f1348d5013521757947
+[09:04:28] <b-ot> rwaldron: Rick Waldron (2m 1s): Adds Implementation Summary, from discussion with @gibson042
+[09:04:38] <rwaldron> ref=>Data: https://github.com/rwldrn/jquery/commit/575fd7b96fd422237f7d6c2f11bafe8c5be29d41
+[09:04:39] <b-ot> rwaldron: Rick Waldron (1m 12s): Replace "ref" with existing "Data" reference, per @gibson042 review notes
+[09:40:10] <jqcommit> 01[13jquery01] 15rwldrn pushed 1 new commit to 06master: 02http://git.io/82tXgw
+[09:40:10] <jqcommit> 13jquery/06master 141d5d959 15Rick Waldron: Optimized Data rewrite
+[09:47:01] <doesallmagic> Project jQuery Core build #691: STILL FAILING in 5 min 35 sec: http://swarm.jquery.org:8080/job/jQuery%20Core/691/
+[09:47:02] <doesallmagic> waldron.rick: Optimized Data rewrite
+[10:18:44] <jqcommit> 01[13jquery.com01] 15ajpiano pushed 1 new commit to 06master: 02http://git.io/B8Y-kg
+[10:18:44] <jqcommit> 13jquery.com/06master 14bfe5ba0 15adam j. sontag: Fix typo on home page
+[10:20:40] <jqcommit> 01[13jquery.com01] 15ajpiano tagged 06v1.9.1-2 at 141089f14: 02http://git.io/x0sa-A
+[10:20:40] <jqcommit> 13jquery.com/06v1.9.1-2 14f6270a5 15adam j. sontag: 1.9.1-2
+[11:01:50] <scott_gonzalez> awesome: "Feature detection is just workaround which breaks logic and doesn't make sense, when 'feature' I try to exploit is not listed."
+[11:10:31] <DaveMethvin> scott_gonzalez i have a topic for my toronto talk now, it's about the abuse of $.browser
+[11:10:55] <scott_gonzalez> haha
+[11:11:00] <DaveMethvin> so sad, the stackoverflow experts are advising that ppl copy/paste the $.browser code into their plugins/projects
+[11:11:15] <DaveMethvin> and nearly every usage i find is WRONG
+[11:11:17] <scott_gonzalez> :-/
+[11:11:56] <DaveMethvin> yeah beyond the license violation it's not solving the problem we were hoping to solve by taking it out
+[11:13:29] <scott_gonzalez> "Experts" always makes me think of http://web.archive.org/web/20110514114618/http://diveintomark.org/archives/2004/08/16/specs
+[12:03:39] <Gho5t> why is it inappropriate?
+[12:03:49] <Gho5t> I know we're supposed to use progressive enhancement and all...
+[12:03:54] <Gho5t> but sometimes it just does the job
+[12:04:17] <DaveMethvin> Gho5t use navigator.userAgent if that's what you want to do
+[12:04:50] <Gho5t> why doesn't $.browser use that?
+[12:05:07] <DaveMethvin> it did and that's why we got rid of it
+[12:05:13] <DaveMethvin> but if that's what you want to do
+[12:05:22] <DaveMethvin> then do it
+[12:05:32] <DaveMethvin> i won't try to talk you out of it
+[12:05:40] <DaveMethvin> as long as you don't try to justify it as good practice
+[12:06:01] <Gho5t> gotcha
+[14:00:49] <gnarf> DaveMethvin: point out the bad suggestions on SO - I'll gladly fight to change them
+[14:01:43] <gnarf> when you see them that is
+[14:02:27] <DaveMethvin> gnarf here's one, there are a few more like this http://stackoverflow.com/questions/14545023/jquery-1-9-browser-detection
+[14:03:16] <DaveMethvin> besides defeating the point of taking the code out, it doesn't attribute the code to jQuery which is a license violation
+[14:06:40] <DaveMethvin> gnarf here is one i replied on yesterday http://stackoverflow.com/questions/14365725/easiest-lightest-replacement-for-browser-detection-jquery-1-9
+[14:10:33] <gnarf> we need a good catchphrase
+[14:10:33] <gnarf> like
+[14:11:07] <gnarf> Using $.browser to detect ____ is like _______________
+[14:12:15] <gnarf>   What is the oldest "don't sniff browsers" article you can think of?
+[14:12:35] <DaveMethvin> geez it has to be circa 2009 or so
+[14:12:59] <DaveMethvin> and so many of these sniffers are wrong in the first place, from a logic standpoint
+[14:13:22] <gnarf> DaveMethvin: the code pasted in the one you linked
+[14:13:24] <gnarf> is it ours?
+[14:13:39] <DaveMethvin> i think they both are, aren't they?
+[14:14:27] <gnarf> just making sure
+[14:14:36] <gnarf> http://stackoverflow.com/q/14545023
+[14:15:59] <gnarf> my comment and my answer
+[14:16:02] <gnarf> u approve? :)
+[14:16:30] <DaveMethvin> yeah ... i don't know how we convince people that the solution isn't to just add back the browser sniffing
+[14:16:38] <DaveMethvin> esp since most of them are doing it wrong
+[14:16:59] <gnarf> https://twitter.com/gnarf37/status/301092438020349952
+[14:16:59] <b-ot> gnarf: @gnarf37: To all my friends on Stack Overflow - Please help fight bad information, and browser sniffing. Vote for my answer here: http://t.co/d2j8MMbV
+[14:17:17] <DaveMethvin> yay!
+[14:20:08] <gnarf> heh
+[14:20:14] <gnarf> he already accepted my answer instead DaveMethvin
+[14:21:05] <DaveMethvin> must follow you on twitter! :D
+[14:33:24] <gnarf> DaveMethvin: anytime you see something like that on SO - point me at it, I'll fix it ;)
+[14:33:38] <DaveMethvin> cool, thanks!
+[14:44:43] <gnarf> DaveMethvin: okay, now the old answer is down to a 5 instead of 9, and mine is accepted and up to 5, I'd say this one is a win!
+[22:00:34] -verne.freenode.net- [freenode-info] channel trolls and no channel staff around to help? please check with freenode support: http://freenode.net/faq.shtml#gettinghelp
+[22:06:51] <doesallmagic> Project jQuery 1.x Core build #64: STILL FAILING in 20 min: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/64/
+[22:06:51] <doesallmagic> richard.gibson: No ticket: keep jquery.min.js.gz under 32K
+[23:38:16] <jqcommit> [13jquery] 15siovene opened pull request #1166: Adds vim recovery file extensions to .gitignore. (06master...06vim-gitignore)  02http://git.io/CJiZcA

@@ -1,0 +1,485 @@
+[11:01:19] <arschmitz> agcolom: jasperdegroot: gabriel_schulhof: cgack: lisa_deluca: sfrisk: Meeting Time
+[11:01:32] <jasperdegroot> hi all
+[11:01:33] <sfrisk> allo
+[11:01:38] <cgack> howdy!
+[11:01:57] <gabriel_schulhof> Hey!
+[11:02:11] <agcolom> hi :-)
+[11:02:16] <arschmitz> ianmaffett: Welcome
+[11:03:02] <arschmitz> agenda: https://docs.google.com/spreadsheet/ccc?key=0AskujzE4Ig0QdG5nSmZiSUhjYm4ya29CdjhLZmJwSWc&usp=drive_web#gid=55
+[11:03:10] <lisa_deluca> howdy
+[11:03:49] <arschmitz> Ok so gabriel_schulhof tracked down the perf regression we saw
+[11:04:03] <arschmitz> apparently widget :pseudo selectors are terrible
+[11:04:22] <gabriel_schulhof> Yes, but also because we were doing $( ":mobile-toolbar" )
+[11:04:24] <arschmitz> we should go through the rest of the code base and make sure we are not using them anywhere
+[11:04:29] <gabriel_schulhof> That searches the whole document.
+[11:04:43] <gabriel_schulhof> Or, I mean :mobile-pagecontainer
+[11:05:01] <arschmitz> gabriel_schulhof: see my comment about avoiding that completely on your pr
+[11:05:03] <gabriel_schulhof> Doing this.element.closest( ":mobile-pagecontainer" ) examines at most 2-3 elements.
+[11:05:05] <arschmitz> and using a class
+[11:05:21] <gabriel_schulhof> Yeah, I guess ui-mobile-viewport.
+[11:06:04] <arschmitz> gabriel_schulhof: then we also need to answer the queston at some point is what about toolbars outside any page container
+[11:06:35] <gabriel_schulhof> arschmitz: Well, then the selector will return an empty set *shrug(
+[11:06:37] <gabriel_schulhof> *
+[11:06:45] <arschmitz> right but is that correct
+[11:06:50] <gabriel_schulhof> Up to toolbar to handle that case.
+[11:07:00] <gabriel_schulhof> We don't currently support that, do we?
+[11:07:04] <arschmitz> anyway this is a simple fix for now
+[11:07:09] <arschmitz> gabriel_schulhof: we never say
+[11:07:21] <gabriel_schulhof> arschmitz: :) Pagecontainer is the new page :)
+[11:07:31] <gabriel_schulhof> We need to add support for widgets outside the pagecontainer.
+[11:07:35] <arschmitz> we allow you to use something besides body
+[11:07:43] <arschmitz> and say to put toolbar in body for external
+[11:07:48] <arschmitz> which would imply you can
+[11:08:01] <gabriel_schulhof> Right. We should say put it in the pagecontainer for external.
+[11:08:18] <arschmitz> im not sure i would agree with that
+[11:08:37] <arschmitz> but thats something for another time
+[11:08:47] <gabriel_schulhof> Right.
+[11:08:57] <arschmitz> perf wise lets go with just using ui-mobile-viewport
+[11:09:04] <arschmitz> and only doing for fixed
+[11:09:08] <gabriel_schulhof> Oh, absolutely!
+[11:09:11] * jasperdegroot noticed 40 matches for ":mobile-" (in ui-1-12 branch)
+[11:09:34] <arschmitz> ok so lets get those sorted out though i suspect many may be in demos
+[11:10:05] <jasperdegroot> yes and in tests
+[11:10:24] <jasperdegroot> also some in widgets (collapsible set, selectmenu, loader)
+[11:10:26] <gabriel_schulhof> 14 in the lib.
+[11:10:32] <arschmitz> those are fine ( though cant hurt to see if something better is easy )
+[11:10:45] <arschmitz> collapsible set we dont need to worry about
+[11:10:51] <jasperdegroot> right
+[11:10:58] <arschmitz> anything else though we want to remove
+[11:11:46] <arschmitz> ok so moving on
+[11:12:05] <arschmitz> things with classes and button are very much in flux at the moment
+[11:12:14] <arschmitz> _classes is not going to happen any more
+[11:12:15] <cgack> that performance regression wasn't a 1.4.6 need was it, or just additional to 1.5?
+[11:12:24] <arschmitz> nope
+[11:12:28] <arschmitz> just for 1.5
+[11:12:40] <cgack> k
+[11:12:41] <arschmitz> and we will be using some form of _addClass and _removeClass
+[11:12:53] <arschmitz> but there are 2 competeing apis right now
+[11:13:18] <arschmitz> _addClass( elements, classes, extra ); and _addClass( elements, classes );
+[11:13:43] <arschmitz> It looks like we will likely ( maybe? ) end up with auto destroy for all classes
+[11:13:50] <gabriel_schulhof> There's also the whole tracking issue.
+[11:13:55] <gabriel_schulhof> Right.
+[11:14:03] <gabriel_schulhof> Both of those APIs accommodate tracking.
+[11:14:11] <arschmitz> yes
+[11:14:19] <arschmitz> there is no tracking issue
+[11:14:33] <arschmitz> The main issues are which api
+[11:14:38] <arschmitz> and if it will include autodestroy
+[11:14:49] <arschmitz> the first one who knows the second ond is likely yes
+[11:14:59] <arschmitz> this means like _on and _off
+[11:15:06] <arschmitz> if you use _AddClass and _removeClass
+[11:15:09] <gabriel_schulhof> "if it will include autodestroy" is what I refer to as the tracking issue.
+[11:15:21] <arschmitz> you will never have to remove any class in destroy
+[11:15:27] <cgack> is there a good metric we could use to compare the api differences?
+[11:15:28] <gabriel_schulhof> It would be cool.
+[11:15:42] <arschmitz> cgack: yes just a sec
+[11:15:59] <arschmitz> cgack: https://github.com/jquery/jquery-ui/pull/1394
+[11:16:15] <arschmitz> that shows the difference moving from one to the other
+[11:16:50] <gabriel_schulhof> arschmitz: What if you add a parameter to _addClass() indicating that classes need not be removed upon destroy?
+[11:17:04] <arschmitz> gabriel_schulhof: that is not part of the issue at all
+[11:17:11] <gabriel_schulhof> arschmitz: Like, it's basically the widget telling _addClass() that it can safely skip this element at destroy.
+[11:17:23] <gabriel_schulhof> arschmitz: Nono. I just had this idea.
+[11:17:27] <arschmitz> that would be fairly pointles
+[11:17:30] <gabriel_schulhof> arschmitz: Then you needn't worry about optimisation.
+[11:17:34] <arschmitz> because the main use is for set options
+[11:17:47] <arschmitz> and as scott_gonzalez pointed out yesterday there is no need for optimization
+[11:18:02] <gabriel_schulhof> Well, OK.
+[11:18:31] <arschmitz> 60000 elements per second is not going to be an issue
+[11:18:46] <arschmitz> and on things like removing pages
+[11:18:50] <gabriel_schulhof> On what hardware?
+[11:18:54] <arschmitz> the solution is elsewhere
+[11:19:15] <arschmitz> like _remove()
+[11:19:27] <arschmitz> which will skip destroy entirely
+[11:20:02] <gabriel_schulhof> Right, yeah, but that's a whole new feature. I'm not sure if we should tackle that for 1.5.0/1.12.0
+[11:20:16] <gabriel_schulhof> There're already way too many things in flux.
+[11:20:36] <arschmitz> gabriel_schulhof: well we are not going to add an optimization liek that for a single version with no proof its actually needed
+[11:20:51] <arschmitz> it changes the api
+[11:21:00] <gabriel_schulhof> Yeah, sorry! I dropped the idea as soon as you reminded me of _remove()
+[11:21:44] <arschmitz> ok so anyway there is not much point in doing any updates related to 1.12 until this is ironed out
+[11:21:45] <gabriel_schulhof> arschmitz: So, if we're gonna use _addClass() mostly for _setOptions(), I think we should go with the three-param version.
+[11:22:11] <arschmitz> so lets try to concentrate on things not effected by this
+[11:22:22] <arschmitz> gabriel_schulhof: put it in the PR
+[11:22:39] <gabriel_schulhof> OK.
+[11:23:09] <arschmitz> gabriel_schulhof: and remember the three param version makes no difference to autodestroy or anything under the hood
+[11:23:19] <arschmitz> its just if you think the classes should be mixed or not
+[11:23:42] <arschmitz> the factory will sort out if its a classes key or not
+[11:24:09] <arschmitz> Ok so i reviewed i think all of the PR's which are not based of ui-1-12
+[11:24:11] <gabriel_schulhof> arschmitz: Right, I guess that's what I'm concerned with. Are we going to track non-key classes? I don't believe we've established one way or the other.
+[11:24:27] <arschmitz> if we do auto destory yes if we dont no
+[11:24:34] <arschmitz> that has nothing to do with which api we use
+[11:24:50] <arschmitz> they can be tracked weather its 2 params or 3
+[11:25:58] <arschmitz> there are lots of PR's that are just waiting to land
+[11:26:32] <arschmitz> so if you had ( non ui-1-12 ) PR's waiting please check them when you get a chance they should be reviewed
+[11:27:03] <gabriel_schulhof> Nice!
+[11:27:16] <cgack> do table & navbar review apply here?
+[11:27:37] <arschmitz> i can review them
+[11:27:51] <arschmitz> but they need to be incorperated into classes before we can really do anything with them
+[11:27:53] <gabriel_schulhof> I dunno how they jive with classes though.
+[11:27:58] <gabriel_schulhof> Right.
+[11:28:04] <arschmitz> so it would be more a general function review
+[11:28:08] <arschmitz> then a real code review
+[11:28:19] <cgack> yeah, but can we reduce a rebase by reviewing them into a branch now?
+[11:28:22] <arschmitz> which im happy to do its up to the two of you
+[11:28:37] <gabriel_schulhof> arschmitz: What about the tests for ui-1-12? can you look at those?
+[11:28:38] <arschmitz> cgack: evntually they will need to be in a single branch
+[11:28:46] <gabriel_schulhof> arschmitz: That would help us keep ui-1-12 clean.
+[11:28:52] <arschmitz> gabriel_schulhof: sure that way its ready
+[11:29:08] <gabriel_schulhof> arschmitz: https://github.com/jquery/jquery-mobile/pull/7738
+[11:29:48] <arschmitz> ill go through after the meeting
+[11:30:14] <gabriel_schulhof> *sigh* ... I get the nagging suspicion that our tests will become completely unhinged from all these changes. We're gonna end up using them mostly for reference (to see what things we were testing - conceptually) rather than as actual tests.
+[11:30:49] <gabriel_schulhof> But it's just a nagging suspicion. We might be able to power through them and update the assumptions.
+[11:30:55] <arschmitz> gabriel_schulhof: not sure what you mean?
+[11:31:35] <gabriel_schulhof> arschmitz: When I was fixing the tests very often I had to re-write one or two. Conceptually, /what/ the test was testing continued to be valid, but /how/ it was testing it was completely off.
+[11:31:59] <arschmitz> right assumptions have changed
+[11:32:40] <gabriel_schulhof> Yeah, but we've "encoded" many regressions and bug fixes as tests. Those continue to be things for which we need to ensure correctness.
+[11:32:41] <arschmitz> gabriel_schulhof: like icons
+[11:33:05] <gabriel_schulhof> Otherwise old bugs will re-surface.
+[11:33:20] <arschmitz> gabriel_schulhof: yes and now sadly we are bad about documenting platforms
+[11:33:21] <cgack> but as gabriel_schulhof we at least have reference to what needs testing
+[11:33:27] <gabriel_schulhof> Anyway ... all this is pretty clear, and we'll just have to keep trying to keep tests green in ui-1-12.
+[11:33:40] <gabriel_schulhof> cgack: Exactly!
+[11:33:54] <gabriel_schulhof> cgack: That's probably the most valuable information stored in the tests.
+[11:34:17] <arschmitz> gabriel_schulhof: the reality is though any test that is for button checkboxradio or controlgroup
+[11:34:31] <cgack> gabriel_schulhof: indeed!
+[11:34:32] <gabriel_schulhof> arschmitz: Oh yeah. Raze those with extreme prejudice :)
+[11:34:46] <arschmitz> is likely either already covered in ui, is not really a bug, or should be in ui not mobile
+[11:34:54] <gabriel_schulhof> Absolutely.
+[11:35:15] <arschmitz> the only test for those that should be in mobile are for backcompat or things we change
+[11:35:33] <gabriel_schulhof> BTW: checkboxradio looks completely native right now. I'm assuming that's because the CSS hasn't yet caught up with the JS in ui-1-12, right?
+[11:35:50] <jasperdegroot> yes
+[11:35:58] <gabriel_schulhof> OK. That's cool!
+[11:36:17] <arschmitz> jasperdegroot: you were asking questions before the meeting any progress there
+[11:36:19] <jasperdegroot> gabriel_schulhof: I am working on that in 1.5-button-css-and-demos branch
+[11:36:29] <gabriel_schulhof> Awesome!
+[11:36:30] <arschmitz> thats the one thing that wont be effected by the ui changes coming
+[11:36:33] <jasperdegroot> arschmitz: yeah, made some good progress
+[11:36:46] <arschmitz> execlent
+[11:36:53] <jasperdegroot> I think I can finish PR 1.5-button-css-and-demos this weekend
+[11:36:59] <arschmitz> execlent
+[11:37:15] <arschmitz> would like to get that merged asap even if you have to do seperate prs after to fix up some things
+[11:37:43] <jasperdegroot> ok
+[11:37:54] <jasperdegroot> I haven't had time to look into "Update widgets that use icons to generate spans instead of adding icon class to the element + update the "Enhanced" examples on demo pages"
+[11:37:58] <gabriel_schulhof> Let's please release 1.5.0 during a major conference so we can go and hose ourselves afterwards :)
+[11:38:09] <jasperdegroot> so that's probably something we can do after merging into ui-1-12
+[11:38:13] <arschmitz> jasperdegroot: generating spans can be part of classes prs
+[11:38:21] <jasperdegroot> ok
+[11:38:27] <jasperdegroot> one question
+[11:38:33] <jasperdegroot> what's the plan with selectmenu
+[11:38:43] <arschmitz> its not going to change in 1.5
+[11:38:55] <jasperdegroot> they are still broken inside controlgroups in my branch
+[11:38:56] <arschmitz> other then getting classes and probably enhanced
+[11:38:58] <gabriel_schulhof> What about announcements as to its deprecation?
+[11:39:20] <arschmitz> gabriel_schulhof: cant get rid of something until we have the replacment ready
+[11:39:22] <gabriel_schulhof> ... and dialog is still hanging in there solely because of selectmenu :/
+[11:39:26] <arschmitz> ui is no where near usable yet
+[11:39:30] <gabriel_schulhof> Yeah ... *sigh* ...
+[11:39:32] <arschmitz> gabriel_schulhof: yeah sadly
+[11:40:05] <arschmitz> jasperdegroot: we wont be able to make selectmenu work in controlgroup until it recieves the classes option
+[11:40:13] <jasperdegroot> arschmitz: what I need to know is if the outer div gets class ui-button next to ui-select or not
+[11:40:22] <arschmitz> both
+[11:40:27] <jasperdegroot> arschmitz: ok clear
+[11:40:35] <jasperdegroot> than I am not gonna fix it with CSS
+[11:40:45] <jasperdegroot> one other thing
+[11:40:45] <arschmitz> jasperdegroot: look at how checkboxradio works with classes
+[11:41:01] <arschmitz> it get ui-button but also a checkboxradio class
+[11:41:10] <arschmitz> that just has no styles connected to it
+[11:41:14] <jasperdegroot> after switching to accordion only listview will be using our addFirstLast classes method
+[11:41:43] <arschmitz> yeah we can probably just roll that into listview at that point
+[11:42:01] <jasperdegroot> arschmitz: ok, I will just see how selectmenu looks after classes option has been added
+[11:42:26] <arschmitz> jasperdegroot: yeah not much you can do with select menu until then with regards to controlgroups
+[11:42:35] <jasperdegroot> arschmitz: yes, and it should add ui-corner-top/bottom classes
+[11:42:59] <arschmitz> jasperdegroot: it does but through classes option
+[11:43:05] <arschmitz> so it fails completely with that missing
+[11:43:30] <gabriel_schulhof> How does accordion deal with the first collapsible being hidden?
+[11:43:46] <gabriel_schulhof> Or the last one, for that matter.
+[11:43:57] <arschmitz> gabriel_schulhof: what do you mean?
+[11:44:22] <arschmitz> http://jqueryui.com/accordion/
+[11:44:23] <jasperdegroot> he means if the 2nd button gets the corners classes
+[11:44:25] <gabriel_schulhof> arschmitz: Well, we added addFirstLast precisely because CSS doesn't have a :first-visible-child selector nor a :last-visible-child selector.
+[11:45:00] <arschmitz> gabriel_schulhof: there is no need of a first last there
+[11:45:05] <gabriel_schulhof> Oh, right. UI accordion rounds all accordions.
+[11:45:21] <arschmitz> gabriel_schulhof: and we can make it look however we want
+[11:45:24] <gabriel_schulhof> arschmitz: OK, so are we gonna drop our integrated look-and-feel in mobile?
+[11:45:37] <arschmitz> gabriel_schulhof: thats more or less up to sfrisk shes doing the implementation there
+[11:45:48] <arschmitz> we will want it to fit with the rest of mobile overall look
+[11:46:03] <arschmitz> but the exact look can be whatever we want
+[11:46:13] <gabriel_schulhof> arschmitz: Right, but she won't have the tools to implement the overall-rounded look, because she needs to know the first /visible/ and last /visible/ child.
+[11:46:28] <arschmitz> right so we probably wont do that :)
+[11:46:43] <jasperdegroot> or we keep our method
+[11:46:45] <sfrisk> *makes notes*
+[11:46:59] <gabriel_schulhof> jasperdegroot: ... but that would have to be an extension to accordion.
+[11:47:10] <jasperdegroot> gabriel_schulhof: yes
+[11:47:20] <arschmitz> i really dont think adding in the extra logic all based on corners is a good decision
+[11:47:28] <jasperdegroot> not saying that we should do it
+[11:47:37] <jasperdegroot> agreed
+[11:47:38] <arschmitz> but im open to others opinions
+[11:47:48] <arschmitz> sfrisk: since your working on this whats your thought?
+[11:47:51] <jasperdegroot> nothing wrong with changing a look from time to time
+[11:48:05] <arschmitz> and this is a whole new widget
+[11:48:17] <arschmitz> in mobile so we are not restricted by collapsible / set
+[11:48:31] <gabriel_schulhof> arschmitz: Well, it's really an extension to CSS itself. I'm not advocating keeping the extension, just curious.
+[11:48:41] <sfrisk> about rounded corners vs not rounded corners?
+[11:49:02] <gabriel_schulhof> sfrisk: About rounded top corners on the topmost collapsible and rounded bottom corners on the bottom-most.
+[11:49:14] <gabriel_schulhof> sfrisk: The problem is if the first is hidden, you need to add the rounding to the second.
+[11:49:19] <arschmitz> well about if it should be like this http://demos.jquerymobile.com/1.4.5/collapsibleset/
+[11:49:30] <arschmitz> or if it should be like http://jqueryui.com/accordion/
+[11:49:34] <jasperdegroot> sfrisk: currently our collapsible set looks like listview with all collapsibles on top of eachother
+[11:49:55] <jasperdegroot> UI's accordion is a set of single collapsibles
+[11:50:13] <gabriel_schulhof> Wait a sec! controlgroup definitely needs the first-last rounding, right?
+[11:50:15] <cgack> my opinion is if we are introducing a new look and feel, nobody will miss it, and if they do, we can perhaps come up with an overly complicated workaround and add it to the demos
+[11:50:18] <sfrisk> I mean, if you had a class that was applied to the visible ones, it should actually be doable I would think
+[11:50:25] <arschmitz> gabriel_schulhof: yes but its baked in from ui
+[11:50:26] <jasperdegroot> gabriel_schulhof: the widget adds the corner classes
+[11:50:46] <gabriel_schulhof> jasperdegroot: Aaah, OK, so the widget can check which is the first visible child.
+[11:50:47] <sfrisk> maybe . . thinking it through
+[11:50:49] <jasperdegroot> I didn't test with hidden buttons in it, though
+[11:51:05] <gabriel_schulhof> arschmitz: So, basically, it duplicates what our extension does.
+[11:51:13] <jasperdegroot> gabriel_schulhof: not sure
+[11:51:18] <arschmitz> gabriel_schulhof: some what
+[11:51:28] <jasperdegroot> I can test now
+[11:51:32] <arschmitz> it does
+[11:51:36] <arschmitz> i wrote it lol
+[11:51:36] <gabriel_schulhof> I suppose it's simple enough that it can be coded inline for each case where it's necessary.
+[11:51:52] <arschmitz> theres an option just like no
+[11:51:57] <arschmitz> excludeInvisibles
+[11:52:12] <jasperdegroot> ah nice :)
+[11:52:16] <sfrisk> nice!
+[11:52:31] <jasperdegroot> arschmitz: what are invisibles in this case?
+[11:52:37] <jasperdegroot> arschmitz: we used "ui-screen-hidden"
+[11:52:38] <arschmitz> :visible
+[11:52:41] <jasperdegroot> ah ok
+[11:52:46] <arschmitz> its the actual true visible
+[11:52:57] <gabriel_schulhof> That's hard to establish during page load.
+[11:53:01] <jasperdegroot> not sure what CSS we used for ui-screen-hidden
+[11:53:13] <gabriel_schulhof> display: none !important, IIRC.
+[11:53:13] <arschmitz> gabriel_schulhof: thats why it binds to pagebeforshow
+[11:53:18] <jasperdegroot> if it's display none the class could still be used
+[11:53:26] <arschmitz> and refreshes
+[11:53:56] <gabriel_schulhof> arschmitz: What about outside pages? I guess it's the user's responsibility to refresh in that case.
+[11:54:09] <arschmitz> if its outside a page its not hidden
+[11:55:08] <gabriel_schulhof> That's true, and in this case we don't need to perform computations that may be affected by whether the style has been applied or not. Cool!
+[11:55:44] <arschmitz> also iv been thinking
+[11:55:50] <arschmitz> why do we display none
+[11:56:05] <arschmitz> why dont we just throw up a absolute white div covering the screen
+[11:56:27] <arschmitz> then everything would be visible according to a selector
+[11:57:08] <gabriel_schulhof> I don't get it.
+[11:57:10] <arschmitz> jasperdegroot: gabriel_schulhof: any idea?
+[11:57:13] <jasperdegroot> neither do I
+[11:57:22] <arschmitz> right now we do display:none
+[11:57:27] <arschmitz> to hide everything durring loading
+[11:57:35] <jasperdegroot> ah
+[11:57:38] <gabriel_schulhof> Oh, during loading.
+[11:57:44] <jasperdegroot> thought we were talking about buttons
+[11:57:46] <gabriel_schulhof> But that's to avoid FOUC.
+[11:57:46] <arschmitz> why dont we append a div thats 100% width 100% height and white
+[11:58:16] <arschmitz> we could do the same for transitions
+[11:58:25] <arschmitz> all but slide go to a white page at a point
+[11:58:29] <arschmitz> using display none
+[11:58:56] <arschmitz> instead make them visible behind a full div and avoid all this hidden durring init nonsense
+[11:59:36] <jasperdegroot> a white page between transitions?
+[11:59:56] <arschmitz> yes all our current transitions execpt slide go to a blank white page
+[12:00:00] <arschmitz> to hide scrollong
+[12:00:02] <arschmitz> scrolling
+[12:00:24] <arschmitz> or black if theme b
+[12:00:40] <jasperdegroot> ah ok
+[12:00:50] <jasperdegroot> now I remember
+[12:01:06] <jasperdegroot> thought you meant it was actually white
+[12:01:10] <arschmitz> rather then using display none if we hid content with a solid div :visible would work
+[12:01:42] <gabriel_schulhof> arschmitz: So, when the page gets attached to the DOM after Ajax everything's visible?
+[12:01:50] <gabriel_schulhof> arschmitz: That would be cool.
+[12:02:04] <arschmitz> thats the idea just not 100% sure we can make it work
+[12:02:06] <gabriel_schulhof> Oh, and most importantly, before we instantiate widgets.
+[12:02:16] <arschmitz> gabriel_schulhof: yes exactly
+[12:02:22] <arschmitz> so lets just think about this
+[12:02:34] <jasperdegroot> could even transition the opacity so contents fade in
+[12:02:43] <arschmitz> ok we are out of time
+[12:02:52] <arschmitz> so lets just run through last few things real fast
+[12:02:59] <arschmitz> pointer events still waiting on lawyers
+[12:03:03] <gabriel_schulhof> Yeah, I mean our viewport has overflow-x: hidden, so there should not be a scrollbar if we plant the page to the right of the visible page before the transition.
+[12:03:27] <arschmitz> css-framework had first official meeting this week
+[12:03:34] <gabriel_schulhof> Nice!
+[12:03:37] <jasperdegroot> cool
+[12:03:40] <arschmitz> they are tuesdays at 1pm eastern right here
+[12:03:43] <arschmitz> all are welcome
+[12:03:56] <arschmitz> sfrisk: is the official new team lead on that project
+[12:04:02] <lisa_deluca> arschmitz: is there a link to see the chat history?
+[12:04:06] <gabriel_schulhof> *clap* *clap* *clap* *clap* *clap*
+[12:04:16] <sfrisk> Having people at meetings would be awesome :-)
+[12:04:35] <arschmitz> lisa_deluca: all channels are logged here
+[12:04:36] <sfrisk> Also we're voting on a css project name, it's a race between Draft and Chassis
+[12:04:47] <sfrisk> I'll get the links
+[12:04:52] <jasperdegroot> yeah I saw that in the minutes
+[12:04:56] <gabriel_schulhof> lisa_deluca: http://irc.jquery.org/
+[12:04:58] <jasperdegroot> where can we vote?
+[12:05:11] <arschmitz> sfrisk: oh yeah can you post the link in the issue for that
+[12:05:12] <sfrisk> agenda from tuesday -> https://docs.google.com/spreadsheets/d/1FUdRcAq2d8njs8KAcfQmEyoZL74SXLsLp1rtc7E9z_I/edit?usp=sharing
+[12:05:16] <arschmitz> to vote
+[12:05:29] <sfrisk> voting link -> https://www.surveymonkey.com/s/VPM2WCN
+[12:05:31] <arschmitz> that way anyone watching the repo will get it
+[12:05:41] <lisa_deluca> gabriel_schulhof: thanks
+[12:05:54] <arschmitz> lisa_deluca: you can get transcripts of all channels any time there
+[12:06:25] <gabriel_schulhof> lisa_deluca: It just sucks that it isn't indexed by Google - you can't search the archives :/
+[12:06:42] <gabriel_schulhof> lisa_deluca: I guess it's to reduce load on the server.
+[12:06:42] <arschmitz> gabriel_schulhof: probably best its not
+[12:06:47] <jasperdegroot> lol
+[12:06:57] <arschmitz> gabriel_schulhof: not sure we want every conversation searchable
+[12:07:00] <arschmitz> :-)
+[12:07:04] <lisa_deluca> will the new css framework have device specific styles... like an ios style and an android style?
+[12:07:12] <arschmitz> lisa_deluca: no
+[12:07:27] <lisa_deluca> :(
+[12:07:40] <arschmitz> lisa_deluca: its a combination of a markup and class structure standard and a single implementation of that standard
+[12:07:43] <gabriel_schulhof> I suppose it should be easily themeable in that direction though, right?
+[12:07:53] <jasperdegroot> lisa_deluca: the community often develops platforms specific themes
+[12:07:54] <arschmitz> lisa_deluca: we dont have the man power to maintain multiple themes
+[12:08:17] <arschmitz> its just not realistic that the idea though behind the standard aspect
+[12:08:19] <gabriel_schulhof> lisa_deluca: Yeah, people have written Android themes for jQM before.
+[12:08:23] <jasperdegroot> for JQM there is a theme available for every platform
+[12:08:34] <lisa_deluca> understandable, seems to be the biggest complaint with customers about going to jQuery though.  They want it to "feel" native
+[12:08:36] <arschmitz> it will make it possible to have completely interchangable themes across many js toolkits and css theme frameworks
+[12:08:39] <jasperdegroot> gabriel_schulhof: Android, iOS, Windows Phone, Blackberry 10
+[12:08:53] <gabriel_schulhof> Right, true.
+[12:09:01] <arschmitz> yeah we have themes written by 3rd parties for every major platform already
+[12:09:12] <arschmitz> and this is a step to encourage more of that
+[12:09:12] <jasperdegroot> yup
+[12:09:20] <sfrisk> I mean, it's possible someone could theme the css-framework to mimic iOs/Android
+[12:09:39] <arschmitz> sfrisk: yeah i mean that the whole point behind the standard aspect of the project
+[12:09:52] <gabriel_schulhof> Yeah, and all of a sudden your theme would work with any and all projects that support the css-framework.
+[12:09:54] <arschmitz> to have people make lots of themes based on it like that
+[12:09:56] <lisa_deluca> so the new css framework will be easier to extend with different themes than it is today? cool
+[12:10:22] <arschmitz> lisa_deluca: it will be an independant project designed around the idea of a markup standard for widgets and components
+[12:10:32] <gabriel_schulhof> lisa_deluca: Well, your theme should gain wider impact if it's for the css-framework.
+[12:11:00] <lisa_deluca> so the ones today will have to be rewritten? the 3rd party ones?
+[12:11:06] <arschmitz> so like right now Zurb foundation, famo.us, caridnal css, cascade css, intel app framework, topcoat, and others have all commited to help
+[12:11:29] <gabriel_schulhof> lisa_deluca: Those themes need to be updated for each new version of jQM anyway.
+[12:11:40] <arschmitz> so if all of those stick any of those alone with the one create by the actuall css framework will all be 100% interchangable
+[12:11:45] <gabriel_schulhof> lisa_deluca: This time, the update will gain them css-framework compatibility.
+[12:12:15] <jasperdegroot> it requires a lot of updating anyway
+[12:12:17] <lisa_deluca> nice, and exciting!
+[12:12:24] <gabriel_schulhof> lisa_deluca: Meaning that the updated theme should, in theory all of a sudden be useable on all frameworks arschmitz mentioned.
+[12:12:26] <arschmitz> https://github.com/jquery/css-framework/
+[12:12:31] <jasperdegroot> also because the platform look changes
+[12:12:40] <jasperdegroot> now everyone want Material Design theme :)
+[12:12:43] <arschmitz> gives a brief outline of the goals
+[12:13:17] <gabriel_schulhof> jasperdegroot: Everyone on Android, presumably ...
+[12:13:20] <arschmitz> lisa_deluca: also feel free to ask sfrisk or myself any questions about it
+[12:13:21] <sfrisk> I've been looking into Material Design, I really like it
+[12:13:29] <jasperdegroot> sfrisk: me too
+[12:13:41] <cgack> sfrisk: jasperdegroot  me three
+[12:13:55] <arschmitz> i like the vast majority of the concepts in it
+[12:14:00] <gabriel_schulhof> I also kinda like it.
+[12:14:04] <arschmitz> though have reservations about a few things
+[12:14:21] <gabriel_schulhof> OTOH, AFAIK it's the only explicit design concept to be released into the public.
+[12:14:26] <arschmitz> there is an open issue on the css framework about design direction people can feel free to weigh in there
+[12:14:32] <gabriel_schulhof> Usually design concepts are closely guarded secrets.
+[12:14:55] <jasperdegroot> gabriel_schulhof: not sure
+[12:15:04] <jasperdegroot> gabriel_schulhof: all the platforms want apps in the app store
+[12:15:10] <sfrisk> It's interesting to see a style guide document about how animations work too
+[12:15:21] <jasperdegroot> so they also teach how to make an with the platform look
+[12:15:39] <jasperdegroot> sfrisk: yeah
+[12:15:51] <gabriel_schulhof> jasperdegroot: Yes, that's right, but they won't tell you what the unifying concept behind the look and feel of their platform was. You mostly end up immitating the various details you see.
+[12:16:14] <arschmitz> anyone who knows anyone potentially interested in the framework feel free to point them in the direction of the repo, sfrisk, or myself also we are always looking for help getting this going
+[12:16:18] <jasperdegroot> gabriel_schulhof: yeah, that's true. Google gives more insights
+[12:16:31] <gabriel_schulhof> jasperdegroot: Exactly! And AFAIK, they're the first to do that.
+[12:18:02] <gabriel_schulhof> jasperdegroot: I wish we'd get more design concepts expressed publically.
+[12:18:11] <sfrisk> me too
+[12:18:33] <arschmitz> yeah design is something that tends to be pretty closely guarded
+[12:18:34] <gabriel_schulhof> jasperdegroot: So your app could not only benefit from a theme and a framework, but a design concept as well.
+[12:18:36] <jasperdegroot> yeah
+[12:18:58] <sfrisk> As a developer who has been learning design slowly, I appreciate transparency explaining why things are done
+[12:19:02] <jasperdegroot> I learned a lot from that Google Material Design document
+[12:19:04] <sfrisk> and what the trends are
+[12:19:07] <gabriel_schulhof> Well, I'm preaching to the choir here, no doubt, but I'm glad I find kindred spirits :)
+[12:20:06] <jasperdegroot> :)
+[12:20:23] <gabriel_schulhof> Anyway ... we've philosofied about this in Chicago a bit, so this can easily segue into a long discussion :)
+[12:20:45] <arschmitz> right now things on the framework are still kinda slow
+[12:20:53] <arschmitz> but we will really ramp up once we have a name
+[12:21:09] <arschmitz> a LOT of the current tasks are waiting on that
+[12:21:37] <gabriel_schulhof> Is the vote a secret vote?
+[12:21:59] <arschmitz> sfrisk: ^^
+[12:22:12] <sfrisk> yeah
+[12:22:16] <sfrisk> I have no idea who voted what
+[12:22:33] <jasperdegroot> the last vote was me ;)
+[12:22:34] <jasperdegroot> lol
+[12:22:38] <arschmitz> lol
+[12:22:55] <gabriel_schulhof> *sigh* ... 'cause I was gonna launch a campaign for [******] :)
+[12:23:09] <arschmitz> gabriel_schulhof: there are only 2 options
+[12:23:13] <arschmitz> Draft
+[12:23:18] <arschmitz> or Chassis
+[12:23:39] <sfrisk> those were the two people liked in the meeting
+[12:23:45] <arschmitz> the period to nominate names ended tuesday
+[12:23:56] <gabriel_schulhof> I know, I know ... that was supposed to be a password input containing the one of those two I wanted to launch a campaign for ;)
+[12:24:10] <arschmitz> oh
+[12:24:15] <sfrisk> ahhhh
+[12:24:16] <arschmitz> totally didnt get that lol
+[12:24:33] <gabriel_schulhof> There go my aspirations to be a UI designer :(
+[12:24:34] <gabriel_schulhof> ;)
+[12:25:04] <arschmitz> oh so semi related thing i was pondering while walking today
+[12:25:25] <arschmitz> we should decouple the concept of "pages" from nav
+[12:25:34] <arschmitz> to make things lie toolbar and overall page layout
+[12:25:34] <gabriel_schulhof> Yes! Please!
+[12:25:45] <arschmitz> possible on non single page apps in a more reasonable sense
+[12:25:58] <jasperdegroot> good idea
+[12:26:02] <arschmitz> bootstrap does this well
+[12:26:17] <arschmitz> so this is likely something to do in compbo with css framework
+[12:26:22] <gabriel_schulhof> Also, let's establish that in all our public communications, when we talk about pages we are talking about jQuery Mobile page divs, not "Web pages". We refer to the latter as HTML documents.
+[12:26:34] <arschmitz> but it requires a little change in perspective on the mobile side
+[12:28:55] <arschmitz> anyway just another point for thought not something for right now
+[12:28:56] <jasperdegroot> I see an item about popup on android in the agenda
+[12:29:08] <arschmitz> gabriel_schulhof: thats you right?
+[12:29:35] <gabriel_schulhof> arschmitz: Yeah.
+[12:29:38] <gabriel_schulhof> It's looking bad.
+[12:29:51] <arschmitz> ok quick overview?
+[12:29:55] <gabriel_schulhof> The popup is all over the place upon resize/orientationchange.
+[12:30:15] <gabriel_schulhof> Just open demos/popup/ on Android 4.4.2.
+[12:30:28] <gabriel_schulhof> Though TBH I haven't encountered the problem on my 4.4.2 tabled.
+[12:30:30] <gabriel_schulhof> tablet
+[12:30:46] <arschmitz> ok i have one right here on that version
+[12:30:48] <gabriel_schulhof> Bottom line is Android used to be good about not sending resize events. No longer.
+[12:30:50] <arschmitz> charged and redy to go lol
+[12:31:13] <jasperdegroot> I am looking on Android 5 now
+[12:31:13] <gabriel_schulhof> Now there's a resize event when the virtual KB comes up.
+[12:31:28] <gabriel_schulhof> Just open the "Sign in" popup and click on the "username" text input.
+[12:32:12] <jasperdegroot> works fine here
+[12:32:31] <arschmitz> fine here
+[12:32:32] <gabriel_schulhof> jasperdegroot: How about if you rotate the device.
+[12:32:43] <gabriel_schulhof> Well, OK. I've reproduced it with an emulated 4.4.2.
+[12:32:44] <jasperdegroot> well, only if you change orientation while the keyboard is up the position is off
+[12:32:51] <gabriel_schulhof> There is, however, a "race condition".
+[12:33:33] <gabriel_schulhof> If you get a resize event and the device freezes long enough because of all the resizing, the timeout that gets added in response to the resize event triggers causing the popup to reposition itself.
+[12:33:40] <jasperdegroot> we are going to switch to tooltip, right arschmitz ?
+[12:33:47] <gabriel_schulhof> So, on weak devices this will happen, whereas on performant ones it will not.
+[12:33:52] <gabriel_schulhof> dialog.
+[12:34:13] <gabriel_schulhof> AFAIK dialog doesn't have /any/ orientationchange/resize handling. Does it?
+[12:34:18] <jasperdegroot> ah, right, dialog
+[12:34:38] <gabriel_schulhof> Ideally we should be using position: fixed.
+[12:34:56] <arschmitz> jasperdegroot: tooltip for what exactly?
+[12:34:57] <gabriel_schulhof> Then it wouldn't matter where the page ended up scrolling to in response to an orientationchange.
+[12:35:05] <jasperdegroot> arschmitz: nah, I meant dialog
+[12:35:09] <arschmitz> oh ok
+[12:35:10] <jasperdegroot> will replace popup
+[12:35:23] <arschmitz> gabriel_schulhof: ah not position fixed
+[12:35:32] <arschmitz> have you ever zoomed with position fixed elements?
+[12:35:39] <jasperdegroot> just wondering if we should invest much time in popup review if it's not a big issue
+[12:35:56] <arschmitz> jasperdegroot: no we should not
+[12:36:01] <gabriel_schulhof> arschmitz: I mean, if position fixed worked ideally, it would be foolish not to use it for things that have to stay on the screen.
+[12:36:04] <jasperdegroot> right, position fixed is still far from ideal
+[12:36:16] <arschmitz> gabriel_schulhof: yes but its horrible if you zoom
+[12:36:30] <arschmitz> gabriel_schulhof: its great if you disable zoom but thats it
+[12:36:56] <gabriel_schulhof> jasperdegroot: It's a bug though, and it seems to have (re)surfaced recently.
+[12:37:18] <jasperdegroot> gabriel_schulhof: let's check on some more Android devices
+[12:37:35] <gabriel_schulhof> I might even call it a regression, because I tested popups on Android 2.3.5 for behaviour during orientationchange, and it's bad.
+[12:37:39] <arschmitz> gabriel_schulhof: seriously zoom with position fixed popus is like living in an alternate universe lol
+[12:37:41] <gabriel_schulhof> jasperdegroot: Yeah.
+[12:37:47] <gabriel_schulhof> arschmitz: :)
+[12:37:51] <jasperdegroot> lol
+[12:38:14] <jasperdegroot> maybe open another popup with "Do not zoom please!" in it
+[12:38:15] <arschmitz> anyway lets wrap this up
+[12:38:16] <jasperdegroot> :)
+[12:38:20] <gabriel_schulhof> OK.
+[12:38:23] <arschmitz> we are like way way over time
+[12:38:45] <arschmitz> anyone have anything else that cant wait or anything from the community?
+[12:39:05] <gabriel_schulhof> I'm good.
+[12:39:40] <jasperdegroot> ok later all
+[12:39:42] <arschmitz> ok lets continue this on -dev then
+[12:39:48] <cgack> later
+[12:39:52] <agcolom> later
+[12:39:57] <arschmitz> bye every one

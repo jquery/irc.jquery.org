@@ -1,0 +1,251 @@
+[09:24:03] <DaveMethvin> gnarf s5fs ryanneufeld jquery.com has a redirect loop
+[09:55:13] <ryanneufeld> uh oh
+[09:55:52] <ryanneufeld> DaveMethvin: I don't actually know how to fix this...
+[09:58:42] <DaveMethvin> seems to have been going on for a while ryanneufeld, can you tell what is redirecting?
+[09:58:43] <ryanneufeld> can someone text/call gnarf?
+[09:58:48] <DaveMethvin> i can ping the server okay it seems
+[09:59:00] <ryanneufeld> I checked the config, but I can't see why it's doing this
+[09:59:37] <DaveMethvin> just pinged gnarf on skype
+[10:01:20] <ryanneufeld> ok, I know he recently setup some 301 stuff, but I can't seem to find it in the git logs
+[10:03:16] <DaveMethvin> it's definitely redirecting to itself, not sure where that would be done
+[10:04:46] <DaveMethvin> http://gyazo.com/e471a370257c39a16c1daf367055f3ed
+[10:08:53] <ryanneufeld> it's also only the homepage
+[10:09:11] <ryanneufeld> http://jquery.com/browser-support/
+[10:09:15] <ryanneufeld> seems to be working
+[10:12:56] <ryanneufeld> I'm pretty stumped DaveMethvin nginx is greek to me
+[10:15:35] <gnarf> hrm
+[10:15:48] <ryanneufeld> morning
+[10:16:00] <gnarf> ryanneufeld: want me to screen share the investigation?
+[10:16:35] <gnarf> though i seem to be getting to jquery.com just fine myself
+[10:16:51] <s5fs> gnarf: hi
+[10:16:53] <s5fs> ryanneufeld: hi
+[10:17:41] <gnarf> DaveMethvin: still having trouble?
+[10:18:03] <DaveMethvin> still happening here gnarf 
+[10:18:08] <ryanneufeld> gnarf: I'm still getting the loop too
+[10:18:12] <gnarf> wtf
+[10:18:14] <s5fs> DaveMethvin: i'm also not seeing a loop
+[10:18:26] <ryanneufeld> http://jquery.com/?cb=1o2242 that works
+[10:18:27] <s5fs> DaveMethvin: have you tried from a different computer? or your phone?
+[10:18:32] <ryanneufeld> could be a CDN?
+[10:18:33] <gnarf> DaveMethvin: can you try in a different browser just to test cache?
+[10:18:47] <gnarf> though why it was 301 in the first place stumps me
+[10:18:54] <DaveMethvin> same result in ie
+[10:19:05] <s5fs> try a different computer
+[10:19:09] <gnarf> what dns are you getting from jquery.com ?
+[10:19:18] <DaveMethvin> here's my tracert http://gyazo.com/23bb57e65cc9e12f98d6219c059d5388
+[10:19:39] <gnarf> seems right
+[10:19:46] <gnarf> hrm
+[10:20:23] <ryanneufeld> https://gist.github.com/4e42d644cf4d9de5ad14 
+[10:20:26] <ryanneufeld> that's mine
+[10:20:37] <s5fs> ryanneufeld: can you replicate?
+[10:20:41] <s5fs> gnarf: can you replicate?
+[10:20:56] <gnarf> nope
+[10:20:57] <gnarf> https://gist.github.com/gnarf/09cfbcbb9402bb5f53c9
+[10:21:58] <gnarf> from jq01 and my laptop both, i get a 200
+[10:22:06] <s5fs> gnarf: try w/o ssl
+[10:22:17] <s5fs> now i see the loop
+[10:22:22] <DaveMethvin> curl works for me, same as you
+[10:22:25] <ryanneufeld> https works fine
+[10:22:30] <ryanneufeld> but http does not
+[10:22:44] <gnarf> DaveMethvin: gives you a 200?
+[10:22:47] <DaveMethvin> yes
+[10:22:49] <gnarf> hrm
+[10:22:51] <DaveMethvin> both http and https
+[10:23:08] <gnarf> DaveMethvin: do you know your public IP?
+[10:23:35] <DaveMethvin> gnarf 71.166.54.133
+[10:23:55] <ryanneufeld> gnarf / DaveMethvin / s5fs: I noticed something interesting over here
+[10:24:06] <ryanneufeld> if you add ?cb=fgalkfgsa or something of the like
+[10:24:11] <ryanneufeld> on http:// it works
+[10:24:22] <ryanneufeld> does jquery.com have a CDN?
+[10:24:26] <DaveMethvin> sho nuff
+[10:25:30] <gnarf> 71.166.54.133 - - [18/Jan/2014:10:22:07 -0800]  "GET / HTTP/1.1" 301 5 "-" "Mozilla/5.0 (Windows NT 6.3; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1700.76 Safari/537.36" cache:0,0
+[10:25:41] <gnarf> ryanneufeld: no
+[10:26:11] <ryanneufeld> okay, so some rule somewhere is redirecting / on http
+[10:26:15] <ryanneufeld> I checked the commits
+[10:26:21] <ryanneufeld> I couldn't see anything that would cause that
+[10:26:27] <ryanneufeld> but I don't know nginx that well
+[10:26:34] <gnarf> two things bother me here
+[10:26:41] <gnarf> 1) daves redirect shows "powered by php"
+[10:26:49] <gnarf> so that means wordpress is sending it
+[10:27:05] <gnarf> 2) there are a ton of people getting it
+[10:27:44] <ryanneufeld> mhmm
+[10:28:19] <gnarf> we have almost 4 hours in .access.log and there are 115,108,681 301 requests from /
+[10:28:37] <ryanneufeld> so what happened 4 hours ago
+[10:28:48] <gnarf> logrotate?
+[10:28:57] <ryanneufeld> that shouldn't have caused this though
+[10:29:10] <ryanneufeld> any changes to wp-content?
+[10:29:48] <gnarf> checking through https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20sourcetype%3D%22access_combined%22%20host%3D%22jquery.com%22%20uri%3D%22%2F%22%20status%3D301&earliest=-7d%40h&latest=now
+[10:30:07] <gnarf> see if i can figure out where it actually started giving 301s
+[10:30:32] <s5fs> yeah
+[10:31:21] <gnarf> ✓ root@jq01:gnarf# grep 'GET / HTTP/1.1" 200' /var/log/nginx/jquery.com.access.log | wc -c
+[10:31:21] <gnarf> 13896
+[10:31:26] <gnarf> why does it let me win?
+[10:31:37] <gnarf> oh
+[10:31:38] <gnarf> hrm
+[10:32:24] <s5fs> ok imma put on pants
+[10:32:51] <gnarf> it started happening today
+[10:33:12] <gnarf> switching graph to 24 hours so i can see better
+[10:33:35] <s5fs> i've made no changes
+[10:33:51] <s5fs> wish i had, would be easier to troubleshoot haha
+[10:34:13] <ryanneufeld> there isn't anything that stands out to me in the git history
+[10:35:26] <gnarf> yeah
+[10:35:53] <gnarf> confirm for me ryan, that you also see PHP powering the request that gives you the redirect
+[10:36:05] <gnarf> no way anyone made any change
+[10:36:12] <gnarf> it happened 5am eastern
+[10:37:02] <gnarf> http://cl.ly/image/28272n2H2515
+[10:37:49] <s5fs> 5am on the dot?
+[10:38:17] <gnarf> http://cl.ly/image/2J2R2H3a462Y
+[10:38:27] <ryanneufeld> gnarf: yes I do
+[10:38:31] <gnarf> HEAD requests tell a different (strange) story
+[10:40:55] <gnarf> https://twitter.com/gnarf/status/424612300968820738
+[10:40:55] <b-ot> gnarf: @gnarf: @nacin any chance you can join us in #jquery-infrastructure ? That or send us a super smart wordpress debugger? :)
+[10:41:51] <gnarf> i am still able to hit jquery.com
+[10:41:54] <gnarf> and get a 200
+[10:41:54] <gnarf> wtf
+[10:42:13] <s5fs> yeah i can't repro now
+[10:42:37] <gnarf> so
+[10:42:44] <s5fs> gnarf: honestly, i think we should reboot the host
+[10:43:08] <ryanneufeld> I can
+[10:43:15] <ryanneufeld> still get the loop
+[10:43:32] <gnarf> try hitting another url
+[10:43:35] <gnarf> and doing a document.cookie="wordpress_test_cookie=WP+Cookie+check;"
+[10:43:45] <gnarf> or however you set a cookie
+[10:44:38] <ryanneufeld> its only on / on non-ssl
+[10:44:47] <gnarf> yeah
+[10:45:01] <gnarf> try setting that cookie on another url and see if you still get the redirect from /
+[10:45:09] <gnarf> im trying to figure out why >I< don't get it
+[10:45:58] <ryanneufeld> even w/ cookie i get looped
+[10:47:02] <gnarf> any interesting things in your cookie?
+[10:47:50] <gnarf> s5fs: can >you< try logging in on /wp-admin/ ?
+[10:47:59] <gnarf> ryanneufeld: i want you to be able to repro the fail 
+[10:47:59] <gnarf> :)
+[10:48:05] <ryanneufeld> I'm not seeing anything useful in the cookies
+[10:48:12] <ryanneufeld> I can 
+[10:48:20] <ryanneufeld> I'm still seeing the loop
+[10:48:43] <s5fs> gnarf: yeah i'm logged in
+[10:49:07] <s5fs> once logged in i do not redirect
+[10:49:17] <gnarf> okay
+[10:49:19] <gnarf> logout?
+[10:49:29] <s5fs> logout and redirects occur, just like ryan
+[10:49:41] <s5fs> verified on windows and linux, multiple browsers.
+[10:49:48] <gnarf> okay
+[10:49:56] <gnarf> so this is definitely wordpress?
+[10:50:02] <ryanneufeld> seems that way
+[10:50:04] <gnarf> try
+[10:50:10] <s5fs> concur, appears to be wp
+[10:50:12] <gnarf> document.cookie="_mcnc=1"
+[10:50:44] <ryanneufeld> I get no redirect with that cookie
+[10:50:56] <gnarf> clear it and it comes back?
+[10:51:08] <ryanneufeld> yep
+[10:51:13] <gnarf> so there is a cached 301
+[10:51:28] <ryanneufeld> cached by what?
+[10:51:28] <gnarf> oh
+[10:51:30] <gnarf> boo
+[10:51:35] <ryanneufeld> nginx?
+[10:51:41] <gnarf> my thought - yes
+[10:51:44] <gnarf> lemme restart nginx
+[10:51:49] <ryanneufeld> I tried that
+[10:51:55] <s5fs> i still wanna reboot the host
+[10:51:57] <gnarf> can you all hit without loops now?
+[10:52:06] <ryanneufeld> no
+[10:52:11] <s5fs> still looping
+[10:52:14] <gnarf> wtf
+[10:52:15] <ryanneufeld> I tried restarting fpm and nginx before you joined us
+[10:52:24] <s5fs> ryanneufeld: good to know
+[10:52:50] <gnarf> still redirecting?
+[10:52:54] <s5fs> correct
+[10:53:18] <gnarf> clear browser cache?
+[10:53:27] <gnarf> force reload?
+[10:53:43] <ryanneufeld> incognito
+[10:53:56] <ryanneufeld> browsers I never use
+[10:54:11] <gnarf> still redirecting...
+[10:54:14] <gnarf> # cache redirects for a long time
+[10:54:14] <gnarf> # fastcgi_cache_valid 301 302 1d;
+[10:54:18] <gnarf> i tried commenting that out
+[10:54:48] <ryanneufeld> some wizzardy was done with moving services, could that have done this?
+[10:54:53] <ryanneufeld> or was WP hacked maybe?
+[10:55:08] <gnarf> s5fs: i think you win
+[10:55:20] <ryanneufeld> maybe try mv wordpress wordpress.backup and then re-running puppet
+[10:55:20] <s5fs> okay, go ahead and do the dirty, i'll log out
+[10:55:40] <gnarf> cross fingers we aren't in the middle of a "backup"
+[10:55:55] <s5fs> gnarf: we're already partially offline, may as well go the full route
+[10:56:06] <s5fs> it's saturday and we're all here, perfect time to live dangerously
+[10:56:35] <gnarf> s5fs: and we know how to make a backup wp server in under an hour
+[10:56:36] <gnarf> :)
+[10:56:39] <s5fs> yup!
+[10:56:41] <ryanneufeld> haha
+[10:56:47] <ryanneufeld> pull the trigger
+[10:56:53] <gnarf> its rebooting
+[10:56:55] <ryanneufeld> k
+[10:57:16] <gnarf> and its back
+[10:57:31] <ryanneufeld> and it's still looping
+[10:57:47] <s5fs> craaaaap
+[10:57:52] <gnarf> okay - i think ryanneufeld wins 
+[10:58:47] <ryanneufeld> are you doing it? or shal I?
+[10:58:47] <gnarf> stopped nginx, moved /var/www/wordpress to wordpress.bak and started a puppet run
+[10:58:49] <s5fs> i'm still glad it's been rebooted
+[10:59:16] <ryanneufeld> are we using apc at all?
+[10:59:24] <gnarf> ryanneufeld: i don't believe so
+[10:59:27] <ryanneufeld> k
+[10:59:45] <ryanneufeld> restarting fpm should not be needed
+[11:00:09] <gnarf> okay wordpress should be back
+[11:00:29] <gnarf> fresh install of wp latest
+[11:00:56] <ryanneufeld> still getting redirect
+[11:01:16] <s5fs> same
+[11:01:25] <gnarf> okay
+[11:01:29] <gnarf> killed the fastcgi option again
+[11:01:33] <gnarf> still getting it?
+[11:01:52] <gnarf> i'm still getting 200s
+[11:02:12] <s5fs> I'm still redirecting
+[11:02:13] <ryanneufeld> still getting the loop
+[11:03:02] <s5fs> same
+[11:05:19] <gnarf> well im in the no-cache land because of cookies
+[11:06:12] <ryanneufeld> I'm out of ideas
+[11:06:28] <gnarf> okay
+[11:06:30] <gnarf> cookies cleared 
+[11:06:35] <gnarf> redirect loop engaged for me
+[11:06:43] <s5fs> gnarf: what was the chatter about wp autoupdates a while ago?
+[11:07:01] <ryanneufeld> well, that wouldn't have caused this, would it?
+[11:07:02] <s5fs> gnarf: okay good, we're all able to repro
+[11:07:17] <s5fs> ryanneufeld: i dont know, is it possible that something updated at 5a est?
+[11:07:34] <ryanneufeld> check the mtimes on the files?
+[11:08:03] <gnarf> so the "head" requests started doing that earlier
+[11:09:23] <ryanneufeld> when you say 'head' request, I'm not sure I understand what you're meaning
+[11:09:36] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/0137cea8c463b8581dedaa171c891027ca8e9bff
+[11:09:36] <jqcommit> 13infrastructure/06puppet-master 140137cea 15Corey Frang: removing cache on redirects for now
+[11:09:44] <gnarf> HEAD /
+[11:09:50] <gnarf> those were getting 301's even easier
+[11:09:52] <gnarf> earlier
+[11:10:04] <gnarf> started before the GET requests started
+[11:10:10] <gnarf> and then stopped shortly after they started
+[11:10:26] <ryanneufeld> interesting
+[11:10:33] <ryanneufeld> nefarious?
+[11:13:00] <gnarf> http://jquery.com/?
+[11:13:04] <gnarf> ^ win
+[11:13:06] <gnarf> wtf
+[11:13:38] <s5fs> yeah i noticed that earlier too
+[11:14:01] <ryanneufeld> yeah
+[11:14:06] <ryanneufeld> I mentioned that earlier
+[11:14:12] <ryanneufeld> anything other than the root works
+[11:14:47] <ryanneufeld> gnarf: try re*re on the wp-config?
+[11:15:34] <gnarf> its an infra hangout 🎉! https://plus.google.com/hangouts/_/7acpiacndeuslm4fne662iidi4?hl=en
+[11:16:45] <ryanneufeld> I joined just in time to see Corey walk out of the room
+[11:21:05] <ryanneufeld> http://web-sniffer.net/
+[12:16:28] <nacin> gnarf: you rang?
+[12:16:46] <gnarf> nacin: can you join us on the hangout?
+[12:16:51] <gnarf> https://plus.google.com/hangouts/_/7acpiacndeuslm4fne662iidi4?hl=en
+[12:17:41] <gnarf> we are having a weird weird issue
+[12:17:48] <gnarf> http://jquery.com/ is giving 301
+[12:17:49] <gnarf> to itself
+[12:18:21] <gnarf> we moved it to a backup server
+[12:18:25] <gnarf> and its not happening over there
+[12:18:31] <gnarf> but its definitely wordpress sending the 301
+[12:59:44] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/45d0ddc952820ec913ad8bc5b327e3a205cffe9c
+[12:59:44] <jqcommit> 13infrastructure/06puppet-stage 1445d0ddc 15Corey Frang: Add get args to cache keys
+[12:59:59] <jqcommit> 01[13infrastructure01] 15gnarf merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/0137cea8c463...45d0ddc95282
+[14:07:00] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/4bc51687bc8d0f02cb0abde58ebb2157ce3b4270
+[14:07:00] <jqcommit> 13infrastructure/06puppet-master 144bc5168 15Corey Frang: wordpress template: backup codeorigin git folder
+[14:07:49] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/d25bc38677ab9c1d218393e0be62a0f21dc43845
+[14:07:49] <jqcommit> 13infrastructure/06puppet-stage 14d25bc38 15Corey Frang: typo
+[14:09:51] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/8cba12053ab4fadfd3f6cf8f1e3cd8aed0953add
+[14:09:51] <jqcommit> 13infrastructure/06puppet-master 148cba120 15Corey Frang: backup gw-resources folder

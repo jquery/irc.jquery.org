@@ -1,0 +1,77 @@
+[00:11:05] <Ardy> Hello
+[00:11:10] <Ardy> anyone can help me please 
+[04:51:43] <m_gol> scott_gonzalez gibson042 snover: as I said, I'd be just for defining function isNaN(x) {return x !== x} and you can use isNaN later wherever you want. You get both clarity and an isNaN implementation that is not messed up
+[05:06:21] <scott_gonzalez> I'm fine with that. But if the complaint is bytes, I doubt this is going to help.
+[05:08:12] <m_gol> depends how often do we use it
+[05:16:44] <m_gol> btw, I'd be grateful if anyone pointed me to possible reasons of 3 test failures after my tests refactor: https://github.com/jquery/jquery/pull/1342
+[05:16:45] <b-ot> m_gol: Pull request #1342 by mzgol (1w 1d ago): Fix #10814. Make support tests lazy and broken out to components. Fix #14084: attach the test div to documentElement, not body.
+[05:17:11] <scott_gonzalez> I was assuming the list yesterday was exhuastive.
+[05:17:14] <scott_gonzalez> Which is 3 uses.
+[05:18:07] <m_gol> scott_gonzalez: what list?
+[05:18:16] <scott_gonzalez> The list of isNaN() checks in the discussion.
+[05:20:00] <m_gol> you mean this? https://github.com/jquery/contribute.jquery.org/issues/54 does it have anything in common about failures my PR introduces?
+[05:20:01] <b-ot> m_gol: Issue #54 by gibson042 (17h 7m ago): JS style guide: NaN checks
+[05:21:51] <scott_gonzalez> No, I ws responding to your saying "depends how often do we use it"
+[05:22:15] <m_gol> ah, right
+[06:21:59] <m_gol> scott_gonzalez: well, if it's only 3 places then `x !== x` together with an inline `/* isNaN */ comment should be clear enough
+[07:29:39] <m_gol> DaveMethvin, you here?
+[07:29:45] <DaveMethvin> yep
+[07:29:47] <DaveMethvin> sup?
+[07:29:49] <m_gol> :)
+[07:30:05] <DaveMethvin> just catching up on tuff
+[07:30:07] <DaveMethvin> stuff
+[07:30:08] <m_gol> I should have the patch refactoring support for 1.x ready by tomorrow
+[07:30:16] <DaveMethvin> oh boy!
+[07:30:45] <m_gol> for now the patch for master is almost ready, I just have no idea why 3 tests are failing still :/
+[07:31:03] <m_gol> the 1.x one is done a little differently since I'm not rewriting body tests to use documentElement
+[07:31:03] <DaveMethvin> oh yeah i meant to look
+[07:31:11] <m_gol> but it will mostly be the same mechanism
+[07:31:31] <m_gol> I'm thinking about one possible change to what I've done for master
+[07:31:44] <m_gol> I'm thinking about employing a pattern
+[07:31:44] <m_gol> :
+[07:32:00] <DaveMethvin> like?
+[07:32:10] <m_gol> a moment ;)
+[07:33:49] <m_gol> https://gist.github.com/mzgol/6437795
+[07:34:10] <m_gol> currently I've only implemented what's inside `if` but not the latter redefine
+[07:34:15] <m_gol> but that might be even faster
+[07:34:29] <m_gol> and would allow me to remove memoizing support test results in some places
+[07:35:25] <DaveMethvin> yeah that looks good, i think we danced around something similar when we discussed it last week
+[07:35:40] <DaveMethvin> basically no overhead at all once you do the test
+[07:35:47] <DaveMethvin> probably a bit larger, but meh
+[07:35:48] <m_gol> k, will change to that pattern
+[07:35:51] <m_gol> yeah
+[07:36:02] <m_gol> any idea what might cause these 3 failures? :/
+[07:36:12] <m_gol> they're all with iframe tests (but most iframe tests run just fine)
+[07:36:29] <m_gol> and they're all not even reaching the expect statement which seems weird :/
+[07:36:33] <DaveMethvin> i am not sure ... do they have anything in common?
+[07:36:47] <DaveMethvin> do you have a link?
+[07:37:18] <m_gol> https://f.cloud.github.com/assets/1758366/1030679/02e493f4-0ec0-11e3-85c0-b9237ba6b6f9.png
+[07:37:30] <m_gol> or do you mean a link for the compiled version?
+[07:37:34] <gibson042> m_gol that pattern is not very duck-punch friendly
+[07:38:30] <DaveMethvin> gibson042 right but these are for hooks ... are there a lot of people punching hooks?
+[07:39:21] <gibson042> any interface that we've documented should be sacred until deprecation
+[07:39:50] <gibson042> others are fair game :D
+[07:40:05] <m_gol> I don't think we documented these hooks :P
+[07:40:07] <DaveMethvin> i'm just tryna figure out a scenario where this would break someone's code
+[07:40:12] <DaveMethvin> yeah and there's that :)
+[07:40:39] <DaveMethvin> they're not in any formal docs at api.jquery.com but it's kinda like the event hooks
+[07:41:32] <DaveMethvin> so what would breakage look like?
+[07:42:13] <DaveMethvin> sorry i have to run off, probably 20-30 minutes
+[07:42:30] <m_gol> DaveMethvin: https://dl.dropboxusercontent.com/u/10200888/jquery/jquery.js
+[07:42:33] <m_gol> ok, np.
+[07:43:09] <m_gol> breakage would be omitting what sb monkey-patched
+[07:43:27] <m_gol> but, well, I haven't seen any code monkey-patching hooks...
+[07:48:06] <gibson042> I was thinking more about wrapper-type replacements; e.g. `var fn=hooks.method; hooks.method = function(){ console.log( "method", [].slice.call(arguments) ); return fn.apply( this, arguments ); };`
+[07:49:22] <m_gol> yeah, I know
+[07:49:37] <m_gol> but still, do you think anyone does this to hooks? ;)
+[08:09:13] <gibson042> m_gol: I don't know. we're fine to dance all over undocumented interfaces, but documented ones should support that
+[08:09:39] <m_gol> I agree, but specific hooks are not documented
+[08:11:24] <gibson042> eh, as long as we go forward consciously it's probably ok
+[08:11:57] <m_gol> generally hooks are things we'd like to get rid of ASAP
+[08:12:07] <m_gol> as soon as some browsers stop sucking
+[08:12:20] <gibson042> yep
+[11:33:34] <jgornick> Hey guys, anyone ever see window.nodeName resolve to an HTMLElementCollection in IE8?
+[11:55:54] <jqcommit> [13jquery] 15ameyms opened pull request #1349: Optimize jQuery.grep on 1.x and add unit tests for the same (#14332) (061.x-master...06optimize_grep-1.x-master)  02http://git.io/HjPtAw
+[12:04:49] <jqcommit> [13jquery] 15ameyms opened pull request #1350: Optimize $.grep in 2.x by using native Array.filter method (06master...06optimize-grep)  02http://git.io/P_1yNQ
+[12:49:32] <jqcommit> [13jquery] 15ameyms closed pull request #1350: Optimize $.grep in 2.x by using native Array.filter method (06master...06optimize-grep)  02http://git.io/P_1yNQ
+[17:29:04] <jqcommit> [13jquery] 15igorlima opened pull request #1351: Update grunt watch dependency (06master...06dependencies/updating)  02http://git.io/V-RunA

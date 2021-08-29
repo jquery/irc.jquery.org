@@ -1,0 +1,80 @@
+[07:21:51] <scott_gonzalez> gnarf s5fs: https://github.com/jquery/plugins.jquery.com/pull/142
+[07:21:51] <b-ot> scott_gonzalez: Pull request #142 by scottgonzalez (1h 53m ago): Case insensitive names & ability to remove a plugin
+[11:10:37] <scott_gonzalez> Bah
+[11:11:39] <scott_gonzalez> So, umm... https://twitter.com/scott_gonzalez/status/352045781307502593
+[11:11:40] <b-ot> scott_gonzalez: @scott_gonzalez: Think of your data recovery plan as a complete failure if you've never done a successful full restore as a test.
+[11:12:06] <scott_gonzalez> We've never tested plugin site restore at large scale.
+[11:12:25] <scott_gonzalez> Running "restore-repos" task
+[11:12:25] <scott_gonzalez> <WARN> Task "restore-repos" failed. Use --force to continue. </WARN>
+[11:12:46] <scott_gonzalez> At least I noticed before we had an actual problem.
+[11:22:29] <scott_gonzalez> WTF?
+[11:23:12] <scott_gonzalez> Who knows why `git clone git://github.com/Bwrrp/jquery-scrollfocus.git` won't work?
+[11:23:23] <scott_gonzalez> It's the protocol and that specific repo.
+[11:23:39] <scott_gonzalez> git@github.com:bwrrp/jquery-scrollfocus.git works just fine.
+[11:24:27] <scott_gonzalez> Oh, looks like it's a casing issue.
+[11:25:05] <scott_gonzalez> So I guess this guy changed his username.
+[11:25:54] <agcolom> scott_gonzalez: you want me to try?
+[11:26:03] <scott_gonzalez> agcolom: No, it's going to fail for you too.
+[11:27:09] <agcolom> Oh, yes, sorry, I was going to say case issue, but you've said that already ;-)
+[11:29:04] <scott_gonzalez> So I guess this is point where we say "hmm...maybe being a registry and not storing the data ourselves isn't such a great idea."
+[11:29:18] <scott_gonzalez> FML
+[11:38:44] <gnarf> scott_gonzalez: sounds... fun
+[11:39:22] <scott_gonzalez> gnarf: What do you think we should do in a case like this?
+[11:39:38] <scott_gonzalez> I'm 99% sure the user changed their username from Bwrrp to bwrrp so the URLs are broken now.
+[11:40:20] <scott_gonzalez> There's no way for us to discover this programmatically, so we can't restore this user's plugins in case of a failure.
+[11:40:36] <gnarf> unless we fix the db yeah?
+[11:41:02] <gnarf> second question - do we care about a plugin thats now a 404?
+[11:41:27] <scott_gonzalez> Well, the plugin still exists. He just changed his username.
+[11:41:41] <gnarf> and next time he pushes a commit, it will re-add with the right urls?
+[11:42:03] <scott_gonzalez> I believe so.
+[11:42:14] <scott_gonzalez> It should see it as a completely different repo and reprocess all the tags.
+[11:42:23] <agcolom> scott_gonzalez: yes, you can see the change here: https://github.com/bwrrp?tab=activity
+[11:42:29] <scott_gonzalez> Although right now we have him listed as the owner of his plugins.
+[11:42:43] <agcolom> he changed his username about 2 months ago
+[11:42:45] <scott_gonzalez> And it'll probably say that it's owned by old him and not let him publish.
+[11:42:52] <gnarf> scott_gonzalez: does the change owner script help?
+[11:43:07] <gnarf> i mean i did the gnarf37 -> gnarf thing
+[11:43:10] <scott_gonzalez> gnarf: Yeah, for him being able to claim ownership.
+[11:43:22] <scott_gonzalez> So you think we should manually fix this?
+[11:43:30] <scott_gonzalez> I kind of want to just yell loudly at GitHub for htis.
+[11:43:53] <scott_gonzalez> There's no reason for this to 404.
+[11:44:16] <scott_gonzalez> hmm....actually
+[11:44:26] <scott_gonzalez> Do they do git redirects or just HTTP redirects?
+[11:44:35] <scott_gonzalez> What's something that we've moved?
+[11:44:40] <gnarf> gnarf37 -> gnarf
+[11:44:52] <scott_gonzalez> Oh right, any of your stuff.
+[11:44:55] <scott_gonzalez> I'll test that.
+[11:44:57] <gnarf> gnarf37/jquery-requestAnimationFrame.git
+[11:45:21] <gnarf> they only recently started doing redirects for github 
+[11:45:42] <scott_gonzalez> $ git clone git://github.com/gnarf37/node-notifier-server.git
+[11:45:42] <scott_gonzalez> Cloning into 'node-notifier-server'...
+[11:45:42] <scott_gonzalez> remote: Counting objects: 45, done.
+[11:45:46] <scott_gonzalez> Works just fine
+[11:45:52] <scott_gonzalez> So yeah, I should yell at GitHub for this.
+[11:45:59] <gnarf> because i changed after they added github ? :)
+[11:46:06] <gnarf> er redirects
+[11:46:48] <scott_gonzalez> I'm pretty sure it was retroactive.
+[11:47:04] <scott_gonzalez> We created jquery-orphans before the redirects, right?
+[11:47:12] <gnarf> i dunno
+[11:48:08] <scott_gonzalez> May 16 is when they added redirects.
+[11:48:41] <scott_gonzalez> jquery-orphans was created April 22.
+[11:49:21] <scott_gonzalez> Hmm...looks like it wasn't retroactive.
+[11:49:25] <scott_gonzalez> https://github.com/jquery/jquery-compat-1.0 doesn't redirect.
+[11:49:40] <scott_gonzalez> https://github.com/jquery/jquery-tmpl does
+[11:50:45] <scott_gonzalez> Hmm..he changed after the redirects were implemented
+[11:51:01] <scott_gonzalez> Somewhere between May 21 and May 29
+[11:58:31] <scott_gonzalez> gnarf: So we have a bigger issue, I think.
+[11:58:42] <scott_gonzalez> Let's say this guy had actually deleted his account.
+[11:59:14] <scott_gonzalez> We'd need a way to know that we shouldn't get hung up on the fact that we can't add his old releases during a restore.
+[12:00:25] <scott_gonzalez> hmm...Let me see why we even care about the git repo existing when we're trying to add to WordPress.
+[12:01:26] <scott_gonzalez> Looks like we shouldn't care about this at all.
+[12:01:37] <scott_gonzalez> Let me try doing a restore without restoring the repo checkouts.
+[12:07:54] <scott_gonzalez> Ah, we use it to get the release date.
+[12:19:11] <scott_gonzalez> gnarf: I'm thinking we should amend the manifests with data that we care about.
+[12:19:22] <scott_gonzalez> Like release date.
+[12:19:53] <scott_gonzalez> We store the manifest in SQLite and WordPress.
+[12:20:03] <scott_gonzalez> So we should probably have all the data that we care about in there.
+[12:20:19] <scott_gonzalez> We should never have to go back to git to get data.
+[12:20:22] <scott_gonzalez> What do you think?
+[12:20:38] <scott_gonzalez> I'll need to write a script that goes through the existing plugins and updates all the data.
+[12:20:44] <gnarf> agree

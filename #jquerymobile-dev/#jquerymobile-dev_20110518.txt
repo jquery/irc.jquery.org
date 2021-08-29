@@ -1,0 +1,331 @@
+[07:52:02] <scottjehl> hey Kin
+[07:52:20] <kinblas_> yo
+[07:52:41] * kinblas notes he never got the freenode registration email
+[07:53:10] <scottjehl> heh mine went to spam
+[07:57:12] <kinblas> hey just a caution to _nickel and scottjehl
+[07:57:18] <kinblas> This pull https://github.com/jquery/jquery-mobile/pull/1648/files
+[07:57:37] <kinblas> the diffs contain the viewport stuff scottjehl removed yesterday
+[07:58:16] <scottjehl> I'm not certain that pull is the most direct way to fix this issue
+[07:58:52] <scottjehl> for one thing, mobile core should not have any vars for listview configuration
+[08:01:58] <kinblas> right I mentioned that in the pull
+[08:02:12] <kinblas> the other thing is I'm not sure that it is doing the right thing
+[08:02:19] <kinblas> for one thing the expando thing is always -1
+[08:02:32] <kinblas> and -1 is used as the index into that object
+[08:02:33] <kinblas> always
+[08:02:57] <kinblas> I think the purpose was supposed to have a dictionary for each list where the values are the next id to use
+[08:03:03] <kinblas> but I don't think that's what it is doing
+[08:03:17] <kinblas> you might as well just have a single var nextID = 0;
+[08:03:27] <kinblas> at the top of the listview function and just increment that every time we build a list
+[08:18:00] <StevenBlack> Regression?
+[08:18:04] <StevenBlack> ?m1633
+[08:18:05] <bot-t> [#1633] iOS images not found with relative path (open) - https://github.com/jquery/jquery-mobile/issues/1633
+[08:23:52] <kinblas> StevenBlack: probably fallout from the site relative changes
+[08:24:03] <kinblas> that were done a month or so ago
+[08:50:21] <StevenBlack> kinblas: so assign-yourself docs#m1633 ?
+[08:50:25] <bot-t> kinblas, [#1633] iOS images not found with relative path (open) - https://github.com/jquery/jquery-mobile/issues/1633
+[08:50:37] <kinblas> Sure
+[08:50:54] <kinblas> I'll make sure it works properly
+[08:51:16] <StevenBlack> K.  Maybe comment that you've got the issue.  I think prompt feedback to the community on active discussions is important.
+[08:51:43] <kinblas> It does actually bring up an interesting issue though
+[08:51:50] <kinblas> as we pull in pages left and right
+[08:52:03] <kinblas> with different paths (therefore bases)
+[08:52:40] <kinblas> if someone dynamically adds images to some random page with relative URLS, that means the only way that will work is if we change the base as we switch pages
+[08:53:11] <kinblas> I'm not sure we want to do that
+[08:53:46] <StevenBlack> Interesting.
+[08:53:51] <StevenBlack> This is one reason I like the routes concept in pathjs.
+[08:54:00] <kinblas> we'll figure something out ... we'll at least have tools that allow folks to resolve a relative path against some absolute page or document URL
+[08:54:27] <StevenBlack> There's 2-aspects to this right, base tag mutable and base tag invariant browsers?
+[08:54:37] <kinblas> yeah
+[08:54:40] <kinblas> sucks
+[08:55:26] <StevenBlack> Wonder if it just wouldn't be easier to treat all browsers the same, as if they were base-tag invariant.
+[08:55:58] <kinblas> that's a lot of work
+[08:56:16] <kinblas> we have to run through all elements that can use @action @src @href
+[08:56:19] <kinblas> and re-write URLs
+[08:59:14] <StevenBlack> Maybe another option is, at the earliest opportunity, convert relative URLs to absolute.  Upside: only have to do it once.  Downside: god knows.
+[09:02:19] <kinblas> we are already doing that
+[09:02:36] <kinblas> the problem with that particular issue is that they are injecting their own images at who knows when in the process
+[09:02:46] <kinblas> we may have already reset our base tag back to the document path
+[09:09:44] <StevenBlack> ah.  Cool.
+[09:32:17] <gseguin_> kinblas: hi
+[09:33:00] <kinblas> hi gseguin
+[09:33:20] <kinblas> regarding that list bug
+[09:33:26] <gseguin_> yeah?
+[09:33:28] <kinblas> we need to re-think how we generate the identifier
+[09:33:39] <gseguin_> I updated the comments
+[09:33:42] <kinblas> it looks like the original code was expecting each list to have a data-url on it
+[09:33:46] <gseguin_> I think so too
+[09:33:52] <gseguin_> yup
+[09:33:55] <kinblas> but what I think needs to happen is something like
+[09:34:14] <gseguin_> I didn't touch that part because it wasn't the one causing the problem
+[09:34:20] <kinblas> &list=someID&subList=10
+[09:34:31] <kinblas> it generates undefined right now doesn't it?
+[09:34:37] <gseguin_> yes
+[09:34:39] <kinblas> we never set data-url on the top level listview
+[09:34:42] <kinblas> so that's a bug
+[09:34:52] <kinblas> I'm not sure we should be setting data-url on it anyways
+[09:35:07] <kinblas> scottjehl: Did we originally set data-url on listviews?
+[09:35:09] <gseguin_> well, yes but it's not the root cause for that issue
+[09:35:39] <kinblas> well the root cause is we need a unique data-url for each dialog
+[09:35:59] <kinblas> but the issues I see that are related are that each listview doesn't necessarily have an id on it
+[09:36:26] <kinblas> we need some way to uniquely identify a list so we can generate unique data-url for the dialogs it brings up
+[09:37:03] <kinblas> isn't the root cause of the issue that each sublist dialog has the same data-url placed on it?
+[09:37:47] <gseguin_> yes it is
+[09:39:56] <kinblas> also, I believe the reason we use data-url as the "id" for the dialog is because of deep linking
+[09:40:35] <kinblas> so really what we need to store in our deep link hash is which list (for the current page) and which sub-list
+[09:42:03] <gseguin_> so why is parentPageId undefined?
+[09:45:49] <kinblas> do you mean parentId?
+[09:45:51] <kinblas> 			parentId = parentPage.jqmData( "url" ),
+[09:46:10] <kinblas> what I was saying earlier is that the code is assuming data-url was set on the listview
+[09:46:12] <kinblas> but it isn't
+[09:46:20] <kinblas> and I'm not sure that it should since its not a page
+[09:46:41] <gseguin_> oh ok
+[09:46:58] <kinblas> I think maybe what we should do is
+[09:47:10] <kinblas> check if the listview has an id
+[09:47:17] <kinblas> and use that, or if it doesn't generate one
+[09:47:40] <kinblas> then set the deep link hash to something like &list=myListId&subList=0
+[09:47:52] <kinblas> that's what I was trying to say earlier
+[09:48:03] <kinblas> we need to get Scott in on this conversation
+[09:48:31] <gseguin_> alright I think I got it
+[09:56:21] <gseguin_> Can I run the unit tests on the current code base on master somewhere on the web?
+[10:04:49] <kinblas> yeah: http://jquerymobile.com/test/tests/unit/<test name>
+[10:04:55] <kinblas> where test name is the name of the directory
+[10:05:11] <kinblas> unfortunately you can't get a directory listing so you'll have to know the names of the test dirs
+[10:05:20] <kinblas> core, navigation, listview, etc
+[10:06:29] <gseguin_> great thanks
+[10:09:48] <scottjehl> Kin, sorry. what's up
+[10:11:07] <kinblas> gseguin_ and I were discussing the fix for the listview problem
+[10:11:17] <scottjehl> ok
+[10:11:38] <kinblas> it seems that part of the problem stems from the fact that the data-url for the sub-list dialogs are generated from the data-url on the listview which doesn't exist
+[10:11:54] <kinblas> in any case, the strategy I was propsing was doing something like:
+[10:12:26] <kinblas> &list=<listID>&sublist=<subListIndex>
+[10:12:46] <kinblas> where listID is either the id on the top-level listview element, or a generated id if one doesn't exist
+[10:13:05] <kinblas> and subListIndex is either the index of the sublist within the listview *OR* an id
+[10:13:51] <kinblas> scottjehl: what do you think?
+[10:16:16] <scottjehl> think that makes sense...
+[10:16:44] <scottjehl> I do have some concern around identifying the list parent through param
+[10:17:06] <kinblas> so the original code attempts to identify via jqmData("url")
+[10:17:20] <kinblas> but that never gets set anywhere so the string undefined appears in the hash
+[10:17:34] <kinblas> which isn't very unique
+[10:17:39] <kinblas> :-)
+[10:18:53] <kinblas> so thinking about this further, do we really care what the sublist index is?
+[10:19:23] <scottjehl> this solution needs to scale to pushState for one
+[10:19:24] <kinblas> that is why can't we just get page.jqmData("url") and append the sublist identifier to that?
+[10:19:30] <scottjehl> that'll be good to keep in mind
+[10:19:49] <kinblas> so in the pushstate case
+[10:20:02] <kinblas> how would you envision the URL?
+[10:20:19] <kinblas> oh it would just be an #id
+[10:20:22] <scottjehl> other requirements are: if you refresh the page, the list ID should repeat identically
+[10:20:33] <scottjehl> no it needs both
+[10:21:41] <kinblas> both?
+[10:21:50] <kinblas> list id and sublist id?
+[10:22:10] <scottjehl> it needs the parent page ID , then a sublist id. That sublist ID could potentially have a list parent identifier
+[10:22:13] <scottjehl> I think anyway
+[10:22:19] <scottjehl> seems like that's the part that's missing
+[10:22:42] <scottjehl> but that identifier could be the index of that list on the page
+[10:22:46] <scottjehl> 1,2,3
+[10:23:11] <scottjehl> maybe I'm coming round to where you already were :)
+[10:23:24] <kinblas> heh
+[10:23:30] <scottjehl> just thinking one subpage param is probably enough
+[10:23:42] <kinblas> yeah the less the better
+[10:23:52] <kinblas> it just needs to be unique to identify that sublist dialog
+[10:23:54] <scottjehl> &ui-subpage=[listid],[sublist]
+[10:24:08] <kinblas> yeah, I'm fine with that
+[10:24:10] <scottjehl> or not comma
+[10:24:13] <scottjehl> dash maybe
+[10:24:47] <scottjehl> we might also do well to figure out a better ID name scheme that doesn't use the LI's text
+[10:24:51] <scottjehl> thoughts on that?
+[10:25:00] <kinblas> yeah I was wondering about that
+[10:25:06] <kinblas> when I saw
+[10:25:08] <kinblas> Animal-1
+[10:25:25] <kinblas> perhaps
+[10:25:29] <scottjehl> yeah. two sides of the coin. For one, it's a more semantic url
+[10:25:32] <kinblas> listview-1-2-1
+[10:25:45] <kinblas> nevermind we don't want to track nestings
+[10:26:15] <scottjehl> text may be best still, but it's open to collisions
+[10:26:31] <scottjehl> might be nice to consider a combination
+[10:27:05] <kinblas> well but if you have a list item "New York Times Bestsellers"
+[10:27:32] <kinblas> anyways I have to run for a bit, I'll be back in an hour or so
+[10:28:32] <scottjehl> k
+[10:30:21] <scottjehl> I'd like to see a solution that's encapsulated in listview still though. Best if we don't add options to core about a potentially-optional widget
+[10:30:55] <kinblas> agreed
+[10:34:20] <gseguin_> yeah I already got rid of the attr I had put in the core config object
+[10:34:42] <scottjehl> oh cool
+[10:34:50] <scottjehl> hey gseguin: nice work, btw
+[10:34:56] <scottjehl> thanks for jumping in and helping :)
+[10:37:37] <gseguin_> the pleasure is mine
+[10:37:59] <scottjehl> ok so how to move forward here
+[10:38:30] <gseguin_> I'm working on implementing the solution you guys just discussed
+[10:38:52] <scottjehl> okay awesome. i'll look for your update, then
+[10:39:06] <gseguin_> the only thing I see about keeping the label in the id
+[10:39:11] <gseguin_> is for i18n
+[10:39:30] <gseguin_> you don't have a universal way of identifying a list item
+[10:39:40] <gseguin_> it'll depend on the locale
+[10:39:55] <scottjehl> that's maybe ok?
+[10:40:17] <scottjehl> not sure.
+[10:40:28] <gseguin_> I don't see a big problem with that
+[10:40:47] <scottjehl> if you want to try and handle it with strictly index numbers, i'm open to that
+[10:41:23] <gseguin_> is there even a use case?
+[10:41:48] <gseguin_> like a en user sending a link to a fr user?
+[10:42:27] <gseguin_> or a user changing his locale between 2 reloads
+[10:42:47] <gseguin_> anyways, that can be addressed separately
+[10:42:56] <gseguin_> I'll start with the label
+[10:49:04] <todd_> i'm wondering how useful these nested lists are compared to the code weight and potential bugs
+[10:49:15] <todd_> is this even an essential feature?
+[10:49:22] <todd_> just throwing that out there
+[10:49:42] <todd_> you can always just link between separate lists on pages
+[11:11:10] <toddparker> anyway, let's patch this up for now, thanks gseguin_
+[11:11:30] <gseguin_> you're welcome
+[11:55:34] <eddiemonge> ok latest on the cdn should work properly now. i had a typo in the script that refreshed the cdn files
+[13:18:34] <gseguin_> why is $.mobile.subPageUrlKey == "ui-page" and not == "ui-subpage" ?
+[13:20:09] * kinblas shrugs
+[13:20:28] <kinblas> scottjehl: ??
+[13:21:51] <scottjehl> umm
+[13:22:05] <scottjehl> I guess because it's a page
+[13:22:10] <scottjehl> but yeah
+[13:22:12] <scottjehl> noted
+[13:22:13] <scottjehl> :)
+[13:22:21] <scottjehl> we can change that one
+[13:22:29] <scottjehl> it's a default
+[13:22:48] <scottjehl> overrideable. Want to set it to "ui-subpage"?
+[13:24:09] <gseguin_> oh noone in particular, I was just wondering why it wasn't $.mobile.pageUrlKey
+[13:25:43] <gseguin_> following a discussion earlier today with kinblas regarding nested listviews
+[13:26:35] <kinblas> gseguin_: not sure if you caught Scott's suggestion of combining the 2 name/val pairs I suggested above into one dash/space/comma separated value
+[13:27:50] <gseguin_> &subpage=<list-id>,<sublist-id> ?
+[13:28:22] <kinblas> yeah
+[13:29:06] <gseguin_> yeah hence my question about the $.mobile.subPageUrlKey attr
+[13:36:18] <gseguin_> How come the listview unit tests run fine on http://jquerymobile.com/test/tests/unit/ but some fail on my local http server with (apparently) the same code base
+[13:36:19] <gseguin_> ?
+[13:37:54] <kinblas> Which tests?
+[13:38:01] <gseguin_> listview
+[13:38:05] <gseguin_> oh sorry
+[13:38:10] <gseguin_> let me find out
+[13:38:13] <kinblas> navigation is usually the culprit
+[13:38:23] <gseguin_> 4,5,6
+[13:38:24] <kinblas> there's usually a timing issue when things error
+[13:38:29] * kinblas tries locally
+[13:39:22] <kinblas> gseguin_: which browser are you using?
+[13:39:27] <gseguin_> FF4
+[13:40:37] <kinblas> I just updated to the HEAD and only 8 fails in FF4 for me
+[13:41:28] <gseguin_> hmm
+[13:41:30] <kinblas> same failure (#8) in Safari
+[13:41:36] <gseguin_> ok
+[13:41:42] <gseguin_> let me try safari
+[13:42:44] <gseguin_> failing the same 4,5,6
+[13:42:55] <gseguin_> will look into that later
+[13:42:57] <kinblas> you on mac or windows?
+[13:43:07] <kinblas> fyi, my tree is pure :-) no changes
+[13:43:16] <gseguin_> Mac of course
+[13:43:38] <kinblas> oh that one
+[13:43:40] <kinblas> :-)
+[13:44:12] <gseguin_> I'll try on a freshly pulled tree later
+[13:44:25] <kinblas> I get the same failures on http://jquerymobile.com/test/tests/unit/listview/
+[13:44:26] <gseguin_> to come back to the nested listview
+[13:44:39] <gseguin_> oh! on mac?
+[13:45:02] <kinblas> nah I'm on windows
+[13:45:13] <kinblas> have to keep a balance in the force
+[13:45:28] <gseguin_> true
+[13:46:36] <gseguin_> where does the list item label fit in the new url ?
+[13:51:06] <kinblas> I don't think we should be using the label of the item as part of the URL
+[13:51:35] <kinblas> we never know how long it is or what characters they use, etc
+[13:51:44] <gseguin_> true
+[13:53:13] <gseguin_> so something like this: http://jsfiddle.net/ghislain/ZMBtE/
+[14:15:16] <gseguin_> kinblas: ?
+[14:16:15] <kinblas> yo
+[14:16:46] <gseguin_> so something like this: http://jsfiddle.net/ghislain/ZMBtE/
+[14:18:03] <scottjehl> I just turned off the back buttons
+[14:18:09] <toddparker> woo hoo
+[14:18:23] <scottjehl> https://github.com/jquery/jquery-mobile/commit/fd0819f3799557fafe029198062cd9b39b680159
+[14:21:33] <kinblas> scottjehl: toddparker: I haven't read all of your back button off proposal
+[14:22:05] <kinblas> I kind of liked the back button
+[14:22:10] <kinblas> :-/
+[14:22:40] <kinblas> gseguin_: I can't see the final hash output in that sample
+[14:22:40] <scottjehl> fortunately, there's another one on your browser already :)
+[14:22:41] <toddparker> http://jquerymobile.com/blog/2011/05/13/jquery-mobile-team-update-week-of-may-9th/
+[14:22:50] <kinblas> heh
+[14:22:53] <toddparker> the gist: turning it off by default
+[14:23:02] <kinblas> there isn't one when I save to screen though
+[14:23:03] <toddparker> but we're leaving the feature in
+[14:23:09] <toddparker> you just need to turn it on
+[14:23:34] <kinblas> folks can still add rel="back" though right?
+[14:23:40] <toddparker> and we made it less picky so you can refresh and it won't go away because we assume it's going to be used on apps, not sites
+[14:23:41] <kinblas> without doing any additional work?
+[14:23:59] <toddparker> yeah, that's different
+[14:24:18] <toddparker> that basically does a history back and a reverse transition
+[14:25:11] <toddparker> this is just the feature that automatically places a back button in the left hand slot of a header unless you have a button there or tell it to buzz off
+[14:25:29] <scottjehl> yeah anything that triggers a hashchange to the previous url will do a back wards transition
+[14:25:38] <toddparker> if you read the comments of twitter replies, 95% of people said "woo hoo"
+[14:25:43] <scottjehl> back button, history.back() data-rel back.
+[14:25:45] <scottjehl> all the same
+[14:25:50] <gseguin_> scottjehl: that broke tests 3 & 15 of http://jquerymobile.com/test/tests/unit/listview
+[14:26:00] <scottjehl> thanks - yep getting those now
+[14:29:00] <kinblas> scottjehl: is there any hesitation for us inserting an id on listview elements that don't have ids?
+[14:29:17] <scottjehl> instead of data-url?
+[14:29:29] <kinblas> what does a data-url to a listview really mean?
+[14:29:56] <kinblas> what we really care about is a data-url on a sub-list-dialog
+[14:29:58] <kinblas> or page
+[14:30:02] <scottjehl> um. yeah I see what you mean
+[14:30:03] <kinblas> I meant sub-list-page
+[14:30:10] <scottjehl> guess that's fine
+[14:31:00] <kinblas> gseguin_: perhaps what we should do (looking at your changes)
+[14:31:17] <kinblas> is nuke the             parentId = parentPage.jqmData( "url" ),
+[14:31:25] <kinblas> it's always returning undefined
+[14:31:42] <kinblas> and then do something like
+[14:31:42] <gseguin_> ok
+[14:31:47] <gseguin_> is it?
+[14:31:55] <gseguin_> I mean, it is in all my tests
+[14:32:05] <gseguin_> don't know if it's always the case
+[14:32:52] <kinblas> oh wait, did you change something?
+[14:33:00] <kinblas> did it always look at the parent page?
+[14:33:16] <gseguin_> yes
+[14:33:44] <gseguin_> I mean no, I haven't changed anything, yes that code is the original
+[14:36:11] <kinblas> ok so let me back up a bit, I'm confused
+[14:36:24] <kinblas> so the undefined was coming from the page.jqmData("url") call
+[14:36:44] <kinblas> presumeably because it is an internal document page, versus a page loaded from a remote, right?
+[14:37:24] <gseguin_> that I don't know
+[14:37:38] <gseguin_> there are still some unknown in that code
+[14:37:44] <gseguin_> for me
+[15:03:59] <gseguin_> toddparker: can you close the pull request from this morning, it contains changes from different bug fixes
+[15:04:32] <gseguin_> I'm still figuring out git (sorry, coming from the mercurial world)
+[15:05:55] <gseguin_> I just created a branch for issue #1470 from which I'll issue the pull request
+[15:10:35] <eddiemonge> gseguin_: you dont want the change merged? if not then you can close the pull request yourself if you made it
+[15:10:59] <gseguin_> oh ok
+[15:11:20] <gseguin_> I don't know, I want to make it simple and not have someone go through a manual merge
+[15:11:49] <gseguin_> so I figured creating a branch with only the changes related to #1470 will do what I want
+[15:12:50] <eddiemonge> ?m1470
+[15:12:51] <bot-t> [#1470] Corner styling issue with listview refresh on growing lists (open, 5 - Critical, Ghislain) - https://github.com/jquery/jquery-mobile/issues/1470
+[15:15:22] <gseguin_> eddiemonge: changes are in the same files as the other issue I'm working on ?m1617
+[15:15:50] * gseguin_ bot-t doesn't like me
+[15:16:26] <eddiemonge> gseguin_: are the changes for both? or can you split them out into different branches see ?m1617
+[15:16:27] <bot-t> gseguin_, [#1617] Nested lists with same parent text resolve to the same sub-page. (open, 5 - Critical, Ghislain) - https://github.com/jquery/jquery-mobile/issues/1617
+[15:17:13] <gseguin_> yeah that's what I did I split them into 2 branches
+[15:17:24] <gseguin_> so I can issue 2 separate pull request
+[15:17:26] <eddiemonge> toddparker: im working on some quick and dirty changes for the blog right now. i say dirty because im not putting much effort into it since the whole blog design is changing soon anyway
+[15:27:17] <scottjehl> fixed those 2 failing tests btw
+[15:27:30] <gseguin_> cool!
+[15:27:44] <scottjehl> one still failing but it's unrelated
+[15:39:30] <StevenBlack> A thought on list and sublist id's... If I read above correctly, you're opting for using a mangled version of the text?  If so, I would advise against that.  Lots of problems.  Length always sucks in URL's.  Then there's  "&" characters, "#" characters, yech!   Just kick me if I read that wrong.
+[15:46:46] <gseguin_> StevenBlack: actually we're just going to use "&subpage=<list-id>-<sublist-id>"
+[15:47:40] <gseguin_> http://jsfiddle.net/ghislain/ZMBtE/ has the changes I'm planning to submit
+[15:56:09] <eddiemonge> comments here better?  http://jquerymobile.com/blog/2011/05/13/jquery-mobile-team-update-week-of-may-9th/comment-page-1/#comment-444
+[15:59:01] <eddiemonge> oops helps to clear the cache first
+[16:03:58] <kinblas> toddparker: scottjehl: _nickel: StevenBlack: I just landed changes to split the last of the nested functions out of changePage() ... on the navigation branch
+[16:04:00] <kinblas> https://github.com/jquery/jquery-mobile/blob/navigation/js/jquery.mobile.navigation.js
+[16:04:09] <kinblas> hopefully things will be easier to read/follow
+[16:04:14] <kinblas> there are now 3 functions at play
+[16:04:23] <kinblas> changePage, loadPage, transitionPages
+[16:04:35] <kinblas> no onto the URL hooks
+[16:04:42] <kinblas> I meant now onto
+[16:20:06] <gseguin_> kinblas: is that fiddle looking good to you?
+[16:34:14] <kinblas> gseguin_: sorry, I'm a bit tied up with some changes for the navigation branch
+[16:34:19] <kinblas> I'll take a look in a bit
+[16:38:37] <eddiemonge> gseguin_: just a quick glance at it and id say it could use some work. comments would be helpful as well
+[16:40:54] <eddiemonge> gseguin_: why are you emptying the parent at the end if anchor doesnt exist?
+[16:43:06] <gseguin_> eddiemonge: I'm not doing that, this is the original code
+[16:43:38] <gseguin_> I just introduced listId and changed the id generation
+[16:43:45] <eddiemonge> from where? if thats the original code then it looks llike it could use a bit of a refactor
+[16:44:36] <gseguin_> from master
+[17:55:04] * StevenBlack is code reading, very pleased that navigation is coming together!
+[18:06:13] <eddiemonge> yeah more makefile goodness
+[18:34:17] <StevenBlack> is lovin ( lovin! ) how navigation breaks into different functions, how we're moving more towards $.Deferred, and how refactoring navigation in this instance opens up new opportunities.
+[18:38:33] <StevenBlack> wow, very interesting observation: ?docs#m1659
+[18:38:34] <bot-t> wow, [#1659] $.mobile.pageloading(false) doubles time to render listview (open) - https://github.com/jquery/jquery-mobile/issues/1659

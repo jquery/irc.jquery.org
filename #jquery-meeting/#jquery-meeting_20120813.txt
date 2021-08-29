@@ -1,0 +1,268 @@
+[09:02:39] <DaveMethvin> hi guys
+[09:02:43] <b-ot> DaveMethvin, you have one new message, say “read” to me when you wish to read it.
+[09:02:52] <DaveMethvin> b-ot: read
+[09:02:53] <b-ot> DaveMethvin, from mikesherov, 14h 12m ago: I'd like to discuss http://bugs.jquery.com/ticket/12269#comment:3 in the meeting tomorrow
+[09:02:56] <DaveMethvin> lol
+[09:02:57] <DaveMethvin> ok
+[09:03:07] <mikesherov> hi
+[09:03:18] <DaveMethvin> added!
+[09:03:38] <DaveMethvin> who's here?
+[09:03:46] <DaveMethvin> i saw timmywil bug huntin
+[09:04:02] <timmywil> yo
+[09:04:25] <DaveMethvin> jaubourg: you around?
+[09:04:33] <PiereDome> read
+[09:05:10] <DaveMethvin> ok i guess it's time to get going here
+[09:05:22] <scott_gonzalez> I'm here. :-)
+[09:05:36] <DaveMethvin> well let's get the party started then!
+[09:05:43] <mikesherov> let's get it started in here
+[09:05:51] <DaveMethvin> we got a bunch o tickets
+[09:06:04] <mikesherov> word
+[09:06:09] <DaveMethvin> and of course now that we have a release people acutally test
+[09:06:22] <mikesherov> 1.8.1 all the things
+[09:06:32] <DaveMethvin> the ui one was sorta my fault, i was tryna fix mobile
+[09:06:35] <DaveMethvin> which i did
+[09:06:51] <timmywil> BLAME
+[09:06:53] <DaveMethvin> since both of them use an undocumented property in different incompatible ways
+[09:07:05] <mikesherov> blame don't fix bugs, but it sure makes me feel better
+[09:07:08] <DaveMethvin> but if i had to pick one to break it would have been mobile
+[09:07:14] <DaveMethvin> :P
+[09:07:23] <scott_gonzalez> heh
+[09:07:30] <scott_gonzalez> It's probably better to break UI.
+[09:07:40] <DaveMethvin> a lot more users tho
+[09:07:50] <scott_gonzalez> Yeah, but we releaes like every other day anyway :-P
+[09:08:01] <DaveMethvin> ok, so mikesherov you wanted to discuss the .width() one?
+[09:08:08] <mikesherov> yes
+[09:08:09] <DaveMethvin> how slooow can you goo
+[09:08:14] <scott_gonzalez> I would do a release today, but I'm in NY and don't have my laptop with the SVN repos...
+[09:08:24] <mikesherov> so right, .width() and .height() claim to always return the content width
+[09:08:30] <mikesherov> meaning without padding and border
+[09:08:50] <mikesherov> and so that's true if you're using content-box because the width css property corresponds to that
+[09:08:51] <timmywil> how big of a performance difference are we talking?
+[09:08:57] <DaveMethvin> 10x
+[09:09:02] <DaveMethvin> in chrome
+[09:09:24] <DaveMethvin> what we're returning is the right thing
+[09:09:25] <mikesherov> so for setting the .width() on 1000 elements in chrome, it's like a second
+[09:09:44] <mikesherov> vs. 10 milliseconds using .css('width')
+[09:09:57] <DaveMethvin> so 100x
+[09:10:00] <mikesherov> this is because .css('width') just sets css "width"
+[09:10:02] <mikesherov> yes, 100x
+[09:10:16] <DaveMethvin> thats kinda slow :P
+[09:10:19] <mikesherov> .width() now queries getComputedStyle for box-sizing before setting
+[09:10:20] <DaveMethvin> but damn
+[09:10:22] <mikesherov> yeah, it's slow
+[09:10:38] <mikesherov> so, what I was thinking was this
+[09:11:04] <jaubourg> sorry I was afk
+[09:11:06] <jaubourg> hi
+[09:11:10] <mikesherov> change the api docs for .width() and .height() to not respect box-sizing, and just do what it did in 1.7.2 (that is, be a passthrough to .css('width')
+[09:11:12] <timmywil> I vote we make jaubourg fix it
+[09:11:21] <timmywil> oh hai!
+[09:11:31] <jaubourg> oh hai
+[09:11:37] <jaubourg> what did I break again?
+[09:11:44] <mikesherov> and introduce .contentWidth() and .contentHeight() for those who really care that they're actually setting the content width regardless of box-sizing
+[09:11:49] <DaveMethvin> damn, i think we would almost have to given the speed diff mikesherov
+[09:12:06] <mikesherov> It's my fault
+[09:12:22] <mikesherov> I tested the hell out of the getters for speed
+[09:12:26] <mikesherov> which are actually faster now
+[09:12:30] <timmywil> throwing this out there, wouldn't inner/outer as setters also take care of it?
+[09:12:38] <mikesherov> timmywil: no
+[09:12:52] <timmywil> why? isn't this all about the extras?
+[09:12:53] <mikesherov> the diff is that .css('width') and .width() used to do the same thing
+[09:12:58] <mikesherov> yes, it's about extras
+[09:13:06] <DaveMethvin> you'd still have to get the border and padding for inner tho
+[09:13:08] <timmywil> so users can be explicit
+[09:13:11] <mikesherov> .css('width') doesn't use extras
+[09:13:15] <DaveMethvin> so yeah
+[09:13:22] <timmywil> I know, but still
+[09:13:31] <mikesherov> the point here is that .width() uses .css('width', 'content')
+[09:13:37] <mikesherov> which forces a box-sizing lookup
+[09:13:47] <mikesherov> because .width() purports to return the content width
+[09:13:59] <mikesherov> and so to gaurantee that, I need to inspect the box-sizing
+[09:14:17] <mikesherov> if we just said that .width() didn't, and introduce .contentWidth(), that takes care of that
+[09:14:34] <jaubourg> sounds reasonable
+[09:14:41] <mikesherov> .width() becomes dumb again, just like .css('width')
+[09:14:42] <DaveMethvin> right so .width() doesn't respect box-sizing for backcompat reasons
+[09:14:46] <mikesherov> .width() becomes sugar
+[09:14:51] <jaubourg> but won't people just use contentWidth all the time then?
+[09:14:55] <DaveMethvin> eys
+[09:14:56] <DaveMethvin> yes
+[09:14:58] <jaubourg> and say it's slow
+[09:15:01] <mikesherov> well, sure, they should, IF THEY crae
+[09:15:03] <mikesherov> care*
+[09:15:08] <DaveMethvin> right
+[09:15:12] <mikesherov> it's as slow as the other dimension setters
+[09:15:29] <mikesherov> the point is that .width() became a dimension aware setter
+[09:15:30] <jaubourg> why not just tell people to use css( "width" ) and be done with it
+[09:15:32] <timmywil> I'm not sure adding to the API is the answer
+[09:15:57] <jaubourg> we could see with browser vendors why getting the box model is so slow
+[09:15:59] <DaveMethvin> i think backcompat is the issue here
+[09:16:12] <DaveMethvin> it's slow b/c we're asking for a reflow
+[09:16:13] <mikesherov> well, I mean, we can just change the docs and make .width() the same as .css('width'), and then never provide a way to gaurantee setting/getting content width regardless of box-sizing
+[09:16:31] <mikesherov> it's not slow for asking for box-sizing
+[09:16:39] <jaubourg> oh
+[09:16:41] <DaveMethvin> right that's just a string
+[09:16:44] <mikesherov> understand that the previous setter didn't have to getComputedStyle at all
+[09:16:56] <jaubourg> I see now
+[09:16:58] <timmywil> so what causes the reflow?
+[09:17:09] <DaveMethvin> gCS?
+[09:17:19] <mikesherov> because it just set width without inspecting box-sizing or adjusted and subtracting margin or border or padding
+[09:17:20] <timmywil> really?
+[09:17:28] <mikesherov> getComputedStyle doesn't cause reflow
+[09:17:35] <mikesherov> the getComputedStyle call itself is slow
+[09:17:38] <mikesherov> always has been
+[09:17:48] <timmywil> ok, so no reflows?
+[09:18:14] <timmywil> that would be great to avoid regardless
+[09:18:21] <DaveMethvin> if anything has changed in the tree, gCS has to recalc doesn't it?
+[09:18:33] <DaveMethvin> or if it's not cached
+[09:18:34] <mikesherov> it's simply an issue pf previous method was: step 1. set…. new method is: step 1. get, step 2. inspect and make adjustments, 3. set
+[09:19:13] <mikesherov> depending on box-sizing, .width() either subtracts nothing, or subtracts padding and border
+[09:19:46] <mikesherov> I think in 99% of the cases, people are using content-box
+[09:19:52] <timmywil> ok that's fine. I think I'm leaning towards just recommending .css() if you don't care about box-sizing. back-compat doesn't seem like an issue since we received multiple bug reports about respecting box-sizing with .width()
+[09:19:52] <mikesherov> and are using .width() as sugar
+[09:20:19] <timmywil> whether that was documented or not, it seems people expect it
+[09:20:31] <mikesherov> I think slowing down .width() setter for the general case is a poor idea, in retrospect
+[09:20:34] <jaubourg> I agree with timmywil... what is the situation when the performance penalty is visible in an actual app
+[09:20:40] <mikesherov> I don't know
+[09:20:45] <jaubourg> that's key here
+[09:20:57] <mikesherov> And my opinion is tainted due to my guilt over this :-P
+[09:20:58] <jaubourg> do people set the width of a thousand elements in a single pass?
+[09:21:13] <mikesherov> only that one guy!
+[09:21:22] <timmywil> if you're setting width on hundreds of elements, avoiding unnecessary calculations is an intuitive performance concern
+[09:21:25] <DaveMethvin> these kind of perf regressions always come up
+[09:21:28] <jaubourg> well, he should use $.css then
+[09:21:38] <mikesherov> sure
+[09:21:40] <timmywil> or even .style
+[09:21:55] <DaveMethvin> we have some circular dependencies here
+[09:21:59] <mikesherov> well, .style is undocumented as a getter, no?
+[09:22:09] <DaveMethvin> people weren't using box-sizing because we didn't handle it well
+[09:22:10] <timmywil> mikesherov: I mean plain js
+[09:22:16] <mikesherov> oh, yeah
+[09:22:17] <DaveMethvin> now we do
+[09:22:51] <mikesherov> sure, I mean, at the end of the day, I think 99% of people are using content-box and .width() without expecting it to respect box-sizing
+[09:23:02] <mikesherov> making them pay a penalty seems silly in retrospect
+[09:23:09] <DaveMethvin> at the end of *today* at least mikesherov
+[09:23:17] <DaveMethvin> but again that's b/c of history
+[09:23:25] <DaveMethvin> and now if it works right, that may change
+[09:23:25] <jaubourg> it's a good thing... I don't see any reasonable use case where making width even 3 times slower would make such a penalty in the app
+[09:23:29] <timmywil> I'm not sure we would have said the same thing before this release
+[09:23:37] <mikesherov> adding .contentWidth() and reverting .width() seems reasonable to me, but I'm quick on the revert trigger
+[09:23:42] <DaveMethvin> lol probably not timmywil
+[09:23:52] <mikesherov> jaubourg: it's 100X slower :-\
+[09:23:58] <jaubourg> ah
+[09:24:02] * jaubourg hides
+[09:24:05] <mikesherov> LOL
+[09:24:06] <DaveMethvin> oh hell, i've done slower than THAT
+[09:24:17] <jaubourg> still, css( "width" ) can be used
+[09:24:20] <mikesherov> yes
+[09:24:23] <jaubourg> problem solved
+[09:24:26] <mikesherov> .css('width') is what everyone wants
+[09:24:27] <b-ot> mikesherov, memorised “css('width')”.
+[09:24:36] <DaveMethvin> damn  you b-ot
+[09:24:44] <mikesherov> b-ot: forget css('width')
+[09:24:49] <mikesherov> ugh
+[09:24:52] <DaveMethvin> nevermind
+[09:24:56] <mikesherov> so yeah
+[09:25:05] <jaubourg> mikesherov: no, that's what they had to be content with, now they can have the box-sizing aware behavior
+[09:25:22] <DaveMethvin> to me it is just stupid that .width() and .css("width") are exactly the same, it hardly saves typing
+[09:25:24] <jaubourg> and still use css( "width" ) when needs be
+[09:25:37] <DaveMethvin> why shouldn't .width() be smarter?
+[09:25:40] <mikesherov> right, that's why I changed them Dave
+[09:25:47] <mikesherov> that it should be smarter
+[09:25:48] <timmywil> DaveMethvin: +1
+[09:25:54] <DaveMethvin> yeah and i agreed with you at the time
+[09:26:09] <DaveMethvin> so perhaps we just let people know what is going on here
+[09:26:10] <mikesherov> wait a minute
+[09:26:17] <timmywil> well, is there a way we can respect box-sizing AND make it faster?
+[09:26:33] <jaubourg> I still agree with it... but 100x faster seems excessive to me, we're probably missing something
+[09:26:36] <DaveMethvin> you mean, have our cake and eat it too?
+[09:26:39] <mikesherov> so, the main bottleneck here is that we query for box-sizing
+[09:26:53] <DaveMethvin> which is per-element
+[09:27:08] <mikesherov> if we really wanted to make it faster, we can say that jquery only respects global and immutable box-sizing
+[09:27:31] <mikesherov> and make it a support test, like boxModel
+[09:27:38] <mikesherov> which we dperecated for that exact reason!
+[09:27:40] <jaubourg> or ask browser vendors to make retrieving box-sizing fast enough?
+[09:27:43] <DaveMethvin> kinda like jQuery.boxModel!
+[09:27:47] <DaveMethvin> yeah
+[09:27:51] <mikesherov> jaubourg: it's gCS itself
+[09:27:55] <jaubourg> same
+[09:28:05] <timmywil> I don't actually know if this is true, but I'm guessing that thanks to paul_irish, more and more people are doing * { box-sizing: border-box }
+[09:28:12] <mikesherov> yes, he is
+[09:28:17] <DaveMethvin> i agree that gCS shouldn't be expensive here, it's just getting a string property
+[09:28:23] <mikesherov> and it was part of my impetus to resolve those dependencies
+[09:28:28] <DaveMethvin> but i guess it has to follow the cascade
+[09:28:35] <mikesherov> gCS sucks
+[09:28:43] <DaveMethvin> almost as much as b-ot
+[09:28:48] <mikesherov> gCS honestly and truly is the worst api
+[09:28:55] <mikesherov> gCS is bot-t
+[09:28:59] <scott_gonzalez> haha
+[09:29:07] <mikesherov> gCS is b-ot
+[09:29:12] <mikesherov> cmon, remember it!
+[09:29:13] <scott_gonzalez> Of course that doesn't get picked up.
+[09:29:28] <scott_gonzalez> gCS is crap
+[09:29:32] <scott_gonzalez> hm...
+[09:29:43] <scott_gonzalez> I thought maybe it was ignoring nicks.
+[09:30:02] <DaveMethvin> so should we advise this guy to use .css("width") then?
+[09:30:03] <mikesherov> I mean, I can dig deeper here and see if there is anything I can do to perf this differently
+[09:30:10] <mikesherov> Yes, I mean, definitely
+[09:30:21] <mikesherov> the only question is if we hold the line or not
+[09:30:21] <jaubourg> DaveMethvin: +1
+[09:30:21] <DaveMethvin> that will work and is what he meant
+[09:30:25] <DaveMethvin> right
+[09:30:34] <DaveMethvin> i am inclined to hold it for now at least
+[09:30:36] <mikesherov> the problem is I think that's what everyone means
+[09:30:56] <mikesherov> anyway, let's revisit
+[09:30:57] <DaveMethvin> it's only really a problem if it's seriously slow
+[09:31:07] <mikesherov> it seems pretty freaking slow
+[09:31:09] <DaveMethvin> ok, lemme update our meeting notes
+[09:32:04] <timmywil>  DaveMethvin: don't we kinda require these? "jsFiddle/jsbin preferred but not required"
+[09:33:08] <timmywil> I think we're much less inclined to pay attention to tickets that don't have a test case from one of these two sites, so maybe the policy should be test case or GTFO
+[09:33:15] <DaveMethvin> if someone has a good test case on their own server i'm okay with that
+[09:33:29] <timmywil> I'm not, we can't edit that
+[09:33:43] <timmywil> when people do that, they rarely are using the git version
+[09:33:51] <DaveMethvin> i think the  hard part is if they are using an ajax service for example
+[09:33:55] <jaubourg> we can at least debug it and use dev tools to log what we need/edit
+[09:34:24] <jaubourg> for certain ajax scenarios, the owner server is the only practical way
+[09:34:24] <timmywil> that's an exception, but I'd like to persuade people to jsfiddle/jsbin as much as possible
+[09:34:35] <DaveMethvin> agreed that its an exception timmywil
+[09:34:52] <DaveMethvin> i think it's more an issue for ajax and ready stuff
+[09:35:05] <DaveMethvin> since there's some magic going on in the fiddlers
+[09:35:10] <jaubourg> gnarf: http://bugs.jquery.com/ticket/12278
+[09:35:19] <timmywil> the rookie test cases that are privately hosted using 1.6.4 are unacceptable
+[09:35:45] <jaubourg> you mean the one with all the app's code in? Gotta love those
+[09:35:48] <DaveMethvin> yeah those can be annoying and i don't think we  have time to copy/paste/update/screw with them to get them running
+[09:36:28] <DaveMethvin> anyway, esp after a release like this we are all slammed trying to triage things
+[09:36:42] <timmywil> yes agreed
+[09:36:43] <DaveMethvin> but inevitably the first report or two on a bug comes in and it's not very specific
+[09:36:48] <DaveMethvin> but it's like a canary in a coal mine
+[09:36:58] <DaveMethvin> so keep an open mind about those
+[09:37:22] <DaveMethvin> okay, other tix that need some attention or discussion?
+[09:37:26] <mikesherov> just for the record
+[09:37:43] <mikesherov> while triaging, I'm using the keywords dbr for next year's dramatic bug readings
+[09:37:54] <DaveMethvin> yeah like nobody figured THAT out mikesherov
+[09:37:58] <mikesherov> :-P
+[09:38:19] <mikesherov> I tried to not be suspicious
+[09:38:32] <DaveMethvin> oh like my "jqueries" :P
+[09:38:55] <mikesherov> I've been trying to get the css reports figured out, doesn't really look like anything other than the slowness thing
+[09:39:14] <DaveMethvin> so jaubourg there were a few tix related to ajax/get/load that could use  your tender loving care
+[09:39:20] <mikesherov> in general, I would love if we at least classify the component when we set a bug to pending
+[09:39:32] <mikesherov> That way it doesn't stay in the pil of unfiled
+[09:39:37] <DaveMethvin> the ie9 ready one has me worried mikesherov
+[09:39:47] <mikesherov> link?
+[09:39:49] <DaveMethvin> good point mikesherov
+[09:39:51] <timmywil> we should have a solution for complex pseudo selectors by 1.8.1
+[09:39:59] <DaveMethvin> http://bugs.jquery.com/ticket/12282
+[09:40:36] <jaubourg> DaveMethvin: yeah, I just got back from the coast and my tan and I will look into the ajax bugs
+[09:40:40] <DaveMethvin> it is HORRIBLE practice to document.write like that, but yeah it shoudl work and not fire ready too soon
+[09:41:54] <mikesherov> DaveMethvin, sounds like I just need to update the tests to include document.write and then do more feature inference to include IE9 and IE10 in the browsers that fire interactive too early
+[09:42:10] <DaveMethvin> probably so ...  you want to grab that one then?
+[09:42:15] <mikesherov> yeah
+[09:42:31] <DaveMethvin> thanks
+[09:42:55] <timmywil> alright, I gotta run!
+[09:42:59] <DaveMethvin> thanks timmywil
+[09:43:09] <timmywil> see yall laterz
+[09:43:23] <DaveMethvin> i think we've covered everything, there are just a bunch of tix to triage and investigate
+[09:43:38] <DaveMethvin> let's keep beating the pile down, thanks to everyone for keeping on top of it
+[09:44:09] <DaveMethvin> next week let's talk about 1.8.1
+[09:44:22] <DaveMethvin> that's it for me
+[09:45:49] <mikesherov> any thoughts on timeframe for 1.8.1
+[09:46:50] <DaveMethvin> maybe late next week or early the following?
+[09:47:04] <DaveMethvin> let's move to -dev

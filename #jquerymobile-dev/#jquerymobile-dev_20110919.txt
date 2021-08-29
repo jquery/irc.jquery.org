@@ -1,0 +1,117 @@
+[08:46:30] <_nickel> gseguin: toddparker: well I believe I've sorted out the scrollto issue
+[08:46:40] <_nickel> I need to check in with jblas and scott
+[08:46:46] <_nickel> when they make it in
+[08:46:51] <_nickel> I'll update the thread with my findings
+[08:47:09] <gseguin> which issue is that?
+[08:48:21] <_nickel> the scrollTo failing test
+[08:48:25] <_nickel> which is a legit failure
+[08:48:31] <gseguin> oh
+[08:48:34] <_nickel> there are some serious timing issues
+[08:48:49] <gseguin> the one that fails on Chrome
+[08:51:08] <_nickel> gseguin: fails in ff too
+[08:51:18] <_nickel> it fails everywhere if you try hard enough
+[08:51:28] <_nickel> its time sensitive because it binds to two events :(
+[08:51:56] <_nickel> gseguin: just sent out an email about the way beforechangepage and pagebeforechange are triggered
+[08:52:09] * gseguin reads
+[08:54:42] <_nickel> gseguin: just included a link to the snippet thats causing the problem
+[10:25:53] <toddparker> hi all
+[10:26:08] <toddparker> gseguin - coot had a good idea not eh collapsible theming
+[10:26:32] <toddparker> what is we don't apply theme classes by default, but if you add the content them data-attribute, we'll add in the classes
+[10:26:36] <toddparker> seems like an elegant want o go
+[10:26:45] <toddparker> and it doesn't change the default appearance for the RC
+[10:26:53] <toddparker> otherwise, I think this looks great
+[10:27:31] <toddparker> ^^ scott, not coot!
+[10:27:37] <toddparker> sorry scottjehl
+[10:44:13] <kinblas> _nickel: gseguin: toddparker: did you guys see an email from me regarding ajaxEnabled? Just wondering if the email made it since I was having some connection problems earlier.
+[11:10:02] <_nickel> kinblas: not yet
+[11:10:40] <kinblas> _nickel: toddparker replied so he confirmed it went out :-)
+[11:11:33] <_nickel> kinblas: to my gmail or adobe?
+[11:12:33] <kinblas> _nickel: should've been adobe
+[11:13:29] <_nickel> kinblas: yah I got it, I was looking at the sent "tab" in mail
+[11:14:52] <kinblas> _nickel: given todd's response, I guess I'm landing the fix :-
+[11:14:53] <kinblas> :-)
+[11:20:33] <_nickel> indeed
+[11:20:41] <_nickel> that jives with my understanding
+[11:21:17] <_nickel> kinblas: the term "ajax" has been sort of distorted
+[11:21:34] <_nickel> or at least the literal inpretation of Async Javascript and XML
+[11:21:39] <_nickel> *interpretation
+[11:22:05] <kinblas> _nickel: right, but the original code never checked what was about to be loaded, so I had to confirm
+[11:22:08] <kinblas> it just bailed if set
+[11:22:31] <kinblas> so I was like ... is this a click disabler? Or an ajax disabler.
+[11:22:47] <kinblas> _nickel: I fixed based on name
+[11:23:55] <_nickel> kinblas: right so it disabled communication with the server but not with the DOM which is in line with my understanding of the term
+[11:24:04] * _nickel is clarifying
+[11:24:08] <kinblas> right
+[11:24:13] <_nickel> genius
+[12:29:20] <_nickel> brb lucnh
+[12:29:26] <_nickel> *lunch
+[13:55:59] <_nickel> kinblas: am I stating the obvious in saying that the browers store scroll position between hashes?
+[13:56:07] * _nickel is still learning 
+[13:56:08] <_nickel> :(
+[13:56:29] <kinblas> _nickel: they store scroll position between pages
+[13:56:38] <kinblas> for hashes, I think it's a bit different
+[13:56:59] <kinblas> they scroll to the item with the id/name in the hash
+[13:57:10] <_nickel> kinblas: did you get a chance to read my email on how firefox is behaving in contrast to chrome
+[13:57:25] <kinblas> though I think that may be easy to test with a long doc like something from the w3.org
+[13:57:46] * kinblas checks mail
+[13:57:54] <kinblas> _nickel: sorry I've been debugging something
+[13:57:58] <_nickel> not at all
+[13:58:00] <_nickel> just curious
+[13:58:06] <_nickel> let me try somethings in my test case here
+[14:01:58] <kinblas> _nickel: I see this in the spec you referenced, when a fragment identifier (aka hash) is present
+[14:02:00] <kinblas> Scroll to the fragment identifier given in the document's current address. If this fails to find an indicated part of the document, then return to the fragment identifier loop step.
+[14:02:47] <_nickel> kinblas: so it appears the firefox is doing that before the hashchange (which in our case is the top of the page) but chrome seems to be delaying it
+[14:02:58] <_nickel> I can't reproduce that delay in my basic anchor + id test case
+[14:03:03] <_nickel> the chrome delay
+[14:03:22] <kinblas> _nickel: so I don't remember seeing in the spec something that says *WHEN* the location should be updated
+[14:03:28] <_nickel> the issue here being that we can't reliably store the scroll position in firefox on hashchange because its already at the top of the page
+[14:03:35] <_nickel> kinblas: right
+[14:03:43] <_nickel> I figured that would be the diff
+[14:12:52] <toddparker> hey guys
+[14:13:04] <toddparker> sorry i was distracted with theme roller stuff
+[14:13:09] <toddparker> man, that's gonna be cool
+[14:13:58] <scottjehl> hey!
+[14:14:08] <scottjehl> sorry all - been in the woods for several days
+[14:14:15] <_nickel> :D
+[14:17:59] <scottjehl> literally. in a cabin with a bunch of web nerds. almost no internet connection
+[14:18:00] <scottjehl> heh
+[14:34:27] <_nickel> scottjehl: it looks like Firefox is firing hashchange after scrolling to the hash fragment targetted element
+[14:34:48] <_nickel> meaning we don't get the scrolled value in time
+[14:34:50] <_nickel> :(
+[14:35:05] <scottjehl> hmm ok
+[14:35:15] <scottjehl> which is top, if it doesn't exist?
+[14:35:27] <scottjehl> or I guess it would exist
+[14:35:29] <_nickel> scottjehl: to reproduce you can just stick a debugger in getLastScroll before its set and watch it happen in ff
+[14:35:40] <_nickel> scottjehl: well visually its at the top anyhow right?
+[14:35:51] <_nickel> hrm
+[14:35:56] <_nickel> I guess you're right
+[14:36:03] <_nickel> if its not visible where is it/
+[14:36:32] <scottjehl> I debated whether we might maintain the active scrollTop by binding to scrollstop
+[14:37:56] <scottjehl> but then I thought binding to scrollstop would add a bit of overhead
+[14:38:02] <_nickel> yah
+[14:38:54] <_nickel> I was looking at binding to scroll but that clearly is a horrendous perf hit even if you throttle it
+[14:39:06] <scottjehl> ...which scrollstop does
+[14:39:25] <scottjehl> so then theres the interval.
+[14:39:53] <scottjehl> and around now is when I start looking for different occupations
+[14:40:01] <_nickel> scottjehl: when you say scrollstop do you mean the jquery plugin?
+[14:40:12] <_nickel> scottjehl: hhahah
+[14:40:12] <scottjehl> I mean our event we dispatch
+[14:40:13] <_nickel> exactly
+[14:40:22] * _nickel goes to look
+[14:40:24] <scottjehl> scrollstart, scrollstop
+[14:40:30] <_nickel> ah
+[14:40:32] <_nickel> it is in there
+[14:40:42] <scottjehl> in use for such plugins as the show/hide toolbars
+[14:40:54] <scottjehl> yeah. it binds to scroll though
+[14:41:07] <_nickel> hrm
+[14:41:27] <_nickel> I don't know that we have much of an option here if firefox is de-scrolling
+[14:42:25] <_nickel> "de-scrolling" may be the wrong term though since it may well be scrolling to where it thinks it should be given the position of the targetted element
+[14:45:14] <scottjehl> well, yeah... I guess that jump to top would fire a scrollstop anyway
+[14:48:36] <scottjehl> sooo....
+[14:52:23] <_nickel> scottjehl: exactly
+[14:52:44] <scottjehl> let's pick this up again later. I gotta jet
+[14:52:49] <scottjehl> sent you an email btw
+[14:52:50] <_nickel> scottjehl: kk
+[14:52:52] <_nickel> looking
+[14:53:16] <scottjehl> cool
+[14:53:18] <scottjehl> later!

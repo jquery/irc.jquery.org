@@ -1,0 +1,201 @@
+[00:58:48] <TeddyMurray> hi friends
+[08:14:58] <xTributex> Hi, im trying to figure out how to compare two jQuery objects (including their children) to another set.
+[08:16:34] <xTributex> * Sorry did not know i couldn't start a new Line * -> I don't want to loop through two sets because this would be slow, i tried comparing the strings directly getting the elements, and converting them to a string. But this would not account for positions in attributes, or classes (positions) See example: https://jsfiddle.net/bsdygzLq/
+[08:17:54] <xTributex> I tried to make the example as small as possible, so i did not provided any examples i tested out myself. If i should please let me know.
+[08:19:53] <Cork> xTributex: a jquery object doesn't contain the children, so that means it becomes very complicated
+[08:20:27] <xTributex> That is true, but i thought that jQuery automatically iterates the DOM elements for lets say $.filter etc.
+[08:20:30] <Cork> if you have to compare children then you basically have to walk the tree
+[08:20:38] <Cork> nope
+[08:20:39] <xTributex> hm..
+[08:20:42] <Cork> filter looks in the current set
+[08:20:47] <Cork> .find searchs in the dom tree
+[08:21:13] <shoky_> how would you even just compare 2 elements' attributes? is there some way Cork?
+[08:21:25] <xTributex> Okay, and what about converting them to a string, and setting a specific "Per element structure" so it would convert both strings to the same ruleset, then comparing the string? This would already be slower, but maybe still faster than iterating every DOM element and checking for attribute positions/ classes/ etc?
+[08:21:49] <xTributex> @shoky, you can just get the DOM elements -> attribute (Array) then compare them
+[08:21:55] <Cork> shoky_: ya, you could possibly use attributes to get the list of values, but... ugg
+[08:22:17] <Cork> xTributex: what exactly are you trying to do here?
+[08:22:27] <Cork> as in what are your gole instead of method
+[08:22:46] <xTributex> Well, im trying to build some kind of Sitebuilder, which uses a concept of symbols, which update the "Copied instances content based on whether they are different."
+[08:23:10] <Cork> and why do you need to compare them?
+[08:23:42] <shoky_> ah forgot about .attributes
+[08:23:56] <xTributex> Ehm, because i have an undomanager, and if i undo or redo respectively, the content gets updated. But i also have a Component with the "Fast values" which each main "Symbol Component" contains, and the function that updates those values, will also directly trigger a check on all "Copied instances"
+[08:24:24] <xTributex> Might've made that sound more complicated than it is.
+[08:24:53] <Cork> so you basically need to find your fast values in old undo steps?
+[08:25:51] <Cork> cause that is prob how i would do that instead of comparing the entire thing
+[08:26:22] <Cork> also (if your not doing that already) i would store the steps as dom elements, instead of as html strings
+[08:26:37] <Cork> then you can handle the changes better as it is references
+[08:26:38] <xTributex> No, its like this, the StateObject contains the "At that moment in time -> content of the Main Symbol" -> and since all Copies can trigger the "Edit function on themselves" it will send a global update towards their respective component if a change occured (Dragging/dropping an element, or changing a DOM Nodes value) Then that gets saved in the
+[08:26:38] <xTributex> stateObject, and when undone, or redone that content is used to update again the specific Components, which in turn update the available copied instances.
+[08:27:26] <Cork> ok?
+[08:27:30] <xTributex> The problem is, that would be great to do, on one page. But since im allowing the builder to contain multiple Page edits at once, with all pages being able to contain a "Copy" of said component, it gets a bit more tricky, since they live in Two different Window Contexts.
+[08:28:37] <xTributex> Thats why i decided for a -> Register (Every living instance, communicates with the main Window object - backend, and registers all their respective instances on that page. ) & Update loop respectively
+[08:29:27] <Cork> xTributex: well if you need to compare the trees
+[08:29:41] <xTributex> Maybe ill just break down the whole string in a loop since string manipulation is way faster than DOM iteration, and then rebuilding both with the same ruleset -> then comparing them.
+[08:29:42] <Cork> the close to only way to get something stable is to use a treewalker
+[08:29:51] <xTributex> Yep, which i don't want because of speed.
+[08:29:56] <Cork> cause else content will have to be included
+[08:30:13] <Cork> you know there is a dedicated treewalker in the dom right?
+[08:30:19] <Cork> that is there explicitly for speed
+[08:30:28] <Cork> https://developer.mozilla.org/en-US/docs/Web/API/Treewalker
+[08:30:43] <xTributex> #checking
+[08:31:28] <xTributex> I did not know about this walker, its probably relatively new?
+[08:31:39] <Cork> no, it is quite old
+[08:31:44] <Cork> at least 10 years old
+[08:31:46] <xTributex> Never knew of this one.
+[08:31:59] <xTributex> How is this walker different than, just iterating through the dom itself tho?
+[08:32:05] <xTributex> Does it use some kind of Engine cache
+[08:32:05] <Cork> was added in firefox 4
+[08:32:06] <xTributex> ?
+[08:32:23] <Cork> it is similar to MutationObserver
+[08:32:38] <Cork> so it walks the dom and gives you the elements matching your filter
+[08:32:54] <Cork> it walks more efficiently then you can in js
+[08:33:12] <Cork> though the code you run in the callback will be the same as any other walker
+[08:33:19] <Cork> (in speed)
+[08:33:24] <xTributex> I'll definitely look into it, other than that. I think my option might be quite resource efficient aswel?
+[08:33:47] <Cork> except you will have a ton of false positive (changed)
+[08:34:04] <Cork> as attribute order, case m.m. will trigger that
+[08:34:23] <xTributex> Well, if i break a string down, then rebuild it in the right ruleset, and then just compare ( String === String ), then there can't be any false positives?
+[08:34:27] <Cork> so i would say comparing it as strings is quite a bad idea
+[08:34:37] <Cork> it can
+[08:35:03] <Cork> '<div class="a b" data-some="a">' != 'div data-some="a" class="a b">'
+[08:35:19] <Cork> and a ton of other similar differeances
+[08:35:27] <xTributex> Yeah, but that format would not be happening
+[08:35:33] <Cork> heh
+[08:35:34] <Cork> ok
+[08:35:39] <xTributex> Atleast, as i have it in my head
+[08:35:47] <xTributex> if you're right, then ill find out the hard way-- right? ^^
+[08:35:53] <Cork> unless you manually create every html tag instead of parsing dom you can't be sure about that
+[08:35:58] <xTributex> im not trying to disagree --
+[08:36:42] <Cork> and that is why i recommended using just dom elements and do things like triggering events on them as they change instead
+[08:36:59] <Cork> then just fireing on the change event and propagate it to those who cares instead
+[08:37:08] <xTributex> No, but i would break down the string on basis of <tag attribute="values separated by whitespace" anotherattribute="same rule"> although i have to say, knowing that inline styles won't be there.
+[08:37:15] <xTributex> Yes, i will certainly try that.
+[08:38:05] <Cork> throwing html cags around is not a good idea for the simple reason: 1. you can't keep dom states, 2. you can't keep dom events, 3. you will thorw away the browser work of generating the dom over and over again
+[08:38:25] <Cork> 4. it makes extending it impossible, as this script has to know about it as it only uses the html
+[08:38:28] <Cork> and so on
+[08:38:35] <xTributex> Yes, true. I get you, obviously you would not know. But there's not going to be any Data (States) or events, stored in the elements
+[08:38:48] <Cork> for what you need
+[08:38:53] <xTributex> It would only need to purely compare two strings.
+[08:39:03] <Cork> for what you need right now ya
+[08:39:21] <xTributex> True, but im trying to think ahead, and see no option why that would need to change.
+[08:39:23] <Cork> i've done those mistakes a few times, and it is alway a bad idea to only look at what you need right now
+[08:39:29] <shoky_> what makes you say doing all this string juggling on each element is faster than walking the dom tree?
+[08:39:38] <Cork> cause it makes extentions impossible, and you will have to rewrite it later instead
+[08:39:39] <xTributex> I didn't say that=p
+[08:40:02] <shoky_> well you said you don't want to walk the tree because of speed :p
+[08:40:04] <xTributex> Just with my current base of knownledge is something i could do from knownledge. I would first need to try and get to know how to use the Walker respectively.
+[08:40:08] <xTributex> Which i will obviously try first
+[08:40:25] <xTributex> Yeah, again. using jquery traversing the DOM is slow.
+[08:40:38] <xTributex> Thats the only thing i knew =p if you say the walker is efficient, then ill do that. Or try my best at the very least
+[08:41:11] <Cork> walking the dom isn't slow in it self, it is just how often you do it
+[08:41:25] <Cork> best is to store references when you can so you don't have to search
+[08:41:38] <Cork> cause ya, wild searches is always slow
+[08:41:45] <Cork> not only in dom
+[08:42:00] <xTributex> yeah, one other option is, that in case the program is going to replace/ adjust an attribute (Which should at that time still be equal to its counterpart) i would have to keep in mind to restore the positions of the respective attributes
+[08:42:10] <xTributex> which is also something i could do (As it currently stands) But thats just an ugly fix.
+[08:42:54] <Cork> anyway so you use a contentEditable or what?
+[08:43:03] <xTributex> So, would you say this Treewalker is faster than, just traversing this $('<div>withcontent</div>'); then comparing everything untill i hit a false.
+[08:43:20] <xTributex> Ehm, yes and no, i use contentEditable for some things, but i try not to.
+[08:43:28] <Cork> xTributex: what makes treewalker faster is that you can specify filters in them
+[08:43:48] <xTributex> Yes, but how would i specify filters for something that is yet to be unknown what to compare?
+[08:43:48] <Cork> so you can reduce the callbacks you have to process
+[08:43:52] <xTributex> If that made any sense. :x
+[08:44:00] <Cork> also $('<div>text</div>') is not a traversal at all
+[08:44:12] <Cork> that is html parsing and then you have one element
+[08:44:16] <xTributex> no, but withcontent woudl specifcy any number of subchildren
+[08:44:25] <xTributex> yeah, but the DOM it creates does hold children.
+[08:44:39] <Cork> that doesn't create a dom it creates a node
+[08:44:56] <Cork> or more exactly a fragment of nodes
+[08:45:08] <Cork> (if you have more then one element)
+[08:45:16] <xTributex> Its however you wanna call it. in the case of #example, the jQuery 0: DOM Element Object -> contains ['children'] -> containing a DOM Set of its children.
+[08:45:36] <xTributex> Im not so good with these technical terms. Since im just a raw ongoer.
+[08:45:51] <Cork> xTributex: .find to find children of an element isn't explicitly expensive
+[08:46:07] <Cork> it is when you run the same selector over and over again that is becomes slow
+[08:46:14] <Cork> or when you search from the document root all the time
+[08:46:41] <xTributex> That i do know, but in the case of the traversing element being unknown i need to traverse all elements  (No matter how deep) comparing it to the other tree, till i get a False (which would indicate, something isn't equal to expected value)
+[08:47:04] <Cork> ya, and what is actaully what i question
+[08:47:18] <Cork> i would prob catch the changes done instead
+[08:47:22] <Cork> then you don't have to search at all
+[08:47:35] <xTributex> Loop element -> Get attributes -> sort them Alphabetically -> loop through them and compare them -> get Class attribute if any, then split all class values -> sort them alphabetically -> Etc.
+[08:47:41] <Cork> you will know what changes happened and can just store them or adjust what matters
+[08:48:07] <xTributex> I already do that, but since the undomanager holds a complete state (With all complete content) there isn't a change specified in there.
+[08:48:21] <xTributex> that would work, with single changes, but not a whole complete state being loaded.
+[08:48:42] <Cork> cause searching two known dom trees for what differs between them isn't something that is easily done, and definitely never fast (at least if you case about it beeing correct)
+[08:49:00] <Cork> xTributex: sure it can
+[08:49:29] <xTributex> The problem is, its a state based undo manager, not a step based undomanager (So, i store a whole state, for example UndoStates: [Beginning editing, state 1, state 2, state 3] i can now go from state 3 back to Beginning editing and Vice versa in 1 load, instead of traversing the "Single changes" back to where the user wants to "undo" to
+[08:50:03] <Cork> ya, but if you store the entire state and that state is correct
+[08:50:12] <Cork> you shouldn't have to search anything just insert it and be done
+[08:53:10] <xTributex> Yea,... Well, then ill have to specify the problem. First: You're right. If i rebuild it accordingly it would work that way. However: The loadState method that takes the state and loads everything accordingly works as following (First the main content of the whole editable area is injected) -> after that, the nodes are Reinitialized (So that
+[08:53:10] <xTributex> interaction with them is possible - this includes all copies from all the copies. After that the actual SymbolComponents get updated which in turn send an update "Again" to all the copies, which if a copy is currently in edit mode, one of the "Attributes" is data-y-id instead of data-y-instance-of with the same value. Then upon initialization
+[08:53:11] <xTributex> since, the init method searches for data-y-id it cant' find it, and initialization will fail.
+[08:54:02] <Cork> ya, well you're kinda locking in the problems so can't really fix much there
+[08:54:14] <xTributex> I could certainly just "Deny" the update on those "Currently in edit mode copies" but if there is a difference. Then this would break it yet again.
+[08:54:28] <xTributex> you're right. Im really thankful for your time tho. :)
+[08:54:38] <xTributex> Sorry if i made it hard on you-- certainly not what i intended to do.
+[08:54:59] <Cork> ya, if you require to store everything as strings you can't fix this without doing all this extra works in a fairly costly maner
+[08:55:34] <xTributex> yep, well, im already aware of that, so i wanted to ask people like you that know more about this, for a possible easier and more efficient solution.
+[08:55:44] <Cork> the best way to make things speedy is "do less work" :)
+[08:55:49] <xTributex> Hehe, yep =p
+[08:56:05] <xTributex> but you know how it goes when you're just "developing"
+[08:56:14] <Cork> no do differ to tagsopes and find the difference is _VERY HARD_
+[08:56:53] <xTributex> Anyway, thanks again for your help. Ill take what you told me, and i will find a solution.
+[08:56:54] <Cork> browser bendors has spent years of developer times to try to get that right
+[08:57:01] <Cork> bendors==vendors
+[08:57:23] <Cork> and they have a complete data tree they use to be able to do it
+[08:57:32] <Cork> (the rendering tree)
+[11:12:20] <Rockwood> <input type="hidden" data-field="_method" value="PATCH" >  how can i get the value of this input in jquery
+[11:12:44] <robertmaxrees> .val()
+[11:12:54] <robertmaxrees> or are you having trouble selecting it?
+[11:12:59] <Rockwood> yes
+[11:13:05] <robertmaxrees> can you add a class to it?
+[11:13:39] <robertmaxrees> if not, some more context would be very helpful.
+[11:13:40] <Rockwood> actually i am trying with another way
+[11:13:49] <robertmaxrees> err - just add a class heh
+[11:14:26] <Rockwood> console.log(processRoleRequest('update', {_method: row._method, roleName: row.roleName, roleDescription: row.roleDescription, roleStatus: roleStatus}));
+[11:14:38] <robertmaxrees> ??
+[11:14:39] <Rockwood> i am trying to get value in json  like that
+[11:14:47] <robertmaxrees> uh, ok?
+[11:14:53] <robertmaxrees> but that doesn't answer my question :)
+[11:14:58] <robertmaxrees> and also: just add a class.
+[11:15:01] <robertmaxrees> that's what they're for ;)
+[11:15:08] <Rockwood> okay let me try
+[11:19:25] <Rockwood> not sensing my case
+[11:19:30] <robertmaxrees> show me.
+[11:22:16] * robertmaxrees plays the jeopardy think music
+[11:22:47] <Rockwood> https://jsfiddle.net/5d10s8ry/1/
+[11:23:17] <robertmaxrees> ???
+[11:23:23] <robertmaxrees> where's the 'myonoffswitch' element??
+[11:24:14] <Rockwood> wait mint
+[11:24:22] <robertmaxrees> also looks like you have server-side rendering engine code in the html box, not html.
+[11:25:02] <Rockwood> https://jsfiddle.net/5d10s8ry/2/
+[11:25:37] <robertmaxrees> the substring 'myonoffswitch' exists nowhere i can see in yur html.
+[11:26:09] <Rockwood> k
+[11:26:24] <robertmaxrees> so you need to add that class
+[11:27:00] <Rockwood> https://kopy.io/eYTak
+[11:28:43] <robertmaxrees> dude
+[11:28:46] <robertmaxrees> https://i.imgur.com/CqqAk9s.png
+[11:29:02] <robertmaxrees> your code doesn't have "myonoffswitch" anywhere other than your js.
+[11:30:16] <Rockwood> ohh okay i remove that one
+[11:30:21] <Rockwood> removed
+[11:30:24] <robertmaxrees> ...
+[11:30:25] <robertmaxrees> dude
+[11:30:29] <robertmaxrees> you're being very vague.
+[11:30:34] <robertmaxrees> what are you trying to select?
+[11:31:17] <Rockwood> actually i wanna select _method for my php framework route access
+[11:31:44] <robertmaxrees> can you provide a more complete example with your rendered html and js?
+[11:32:35] <Rockwood> let me try to explain
+[11:32:46] <Rockwood> plz
+[11:33:15] <robertmaxrees> lmao
+[11:33:19] <robertmaxrees> go on ahead.
+[11:39:14] <robertmaxrees> still there?
+[11:39:54] <Cork> heh you'r more patient then i am :)
+[11:40:32] <robertmaxrees> :shrug: annoys me when people don't answer my questions, ignore my advice, then say they're going to do something but don't deliver.
+[11:40:46] <Cork> yup
+[11:40:47] <robertmaxrees> Rockwood if your explanation takes that long to type up, you're doing something wrong :/
+[11:50:36] <Rockwood> robertmaxrees, i am experimenting something with code
+[11:50:52] <Rockwood> i will be back if i fails
+[11:50:57] <Rockwood> ty
+[11:50:59] <robertmaxrees> yo
+[11:51:14] * taplar beatboxes
+[11:51:18] <robertmaxrees> i swear
+[11:51:26] <robertmaxrees> next time they pull that...

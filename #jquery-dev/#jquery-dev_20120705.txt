@@ -1,0 +1,1242 @@
+[05:03:50] <jaubourg> ?tell DaveMethvin http://blog.jquery.com/2012/07/01/jquery-1-9-and-2-0-tldr-edition/#comment-532031 OMG YOU WONT SLEEP EVER!!!!111
+[05:03:51] <bot-t> jaubourg, Okay.
+[05:12:01] <gibson042> .
+[07:50:30] <mikesherov> DaveMethvin: that's .ready bug is nasty
+[07:50:57] <DaveMethvin> yeah, not expected at all
+[07:51:13] <DaveMethvin> i think we focused on the jquery on a page with an iframe
+[07:51:19] <DaveMethvin> not jquery in an iframe on a page :D
+[07:51:40] <mikesherov> yeah, but I was doing nested iframes anyway
+[07:51:52] <mikesherov> I think I can repro the error pretty easily with what I had set up
+[07:52:02] <DaveMethvin> his outer iframe doesn't have jquery, that might affect it?
+[07:52:19] <timmywil> ajpiano: pingaling
+[07:52:43] <mikesherov> well, I think the problem is just that IE8 gets overzealous about what interactive means in IFRAMES
+[07:53:23] <mikesherov> I'm going to see if it's all oldIE, because if it's all oldIE, and I can't find a workaround, at least we can keep it for modern browsers
+[08:09:05] <mikesherov> DaveMethvin: I figured it out.
+[08:09:10] <mikesherov> and this is totally goofy
+[08:09:50] <DaveMethvin> walking the dog, back in about 20 minutes
+[08:10:13] <mikesherov> k
+[08:58:51] <DaveMethvin> mikesherov: back
+[08:58:59] <mikesherov> DaveMethvin: hey
+[08:59:07] <mikesherov> so yeah, pull request coming shortly
+[08:59:24] <mikesherov> but the gist is that oldIE still needs to wait for all subresources
+[08:59:30] <mikesherov> interactive is unreliable
+[08:59:34] <DaveMethvin> so i've been tryna collect up all the authors, and found this commit in SVN: http://code.google.com/p/jqueryjs/source/diff?spec=svn5941&r=5941&format=side&path=/trunk/jquery/src/event.js
+[09:00:24] <DaveMethvin> // ensure firing before onload, maybe late but also safe for iframes
+[09:00:43] <mikesherov> right
+[09:00:52] <mikesherov> so diego's hack is still needed
+[09:00:56] <mikesherov> for oldIE
+[09:01:03] * DaveMethvin shakes fist at oldIE
+[09:01:24] <mikesherov> so, the fix is pretty trivial
+[09:01:29] <mikesherov> but the idea is this:
+[09:01:53] <mikesherov> <body> <some elem> <long loading script> </body> is fine
+[09:02:14] <mikesherov> in that case, oldIE sees some elem and can get info about it when the readyState is interactive
+[09:02:21] <mikesherov> but, in this case:
+[09:02:25] <timmywil> ajpiano: you around?
+[09:02:42] <ajpiano> yabro.com
+[09:02:43] <bot-t> (25 hours 10 mins ago) <timmywil> tell ajpiano whenever you get a chance, we need a tweet for the blog. no rush.
+[09:02:43] <bot-t> (7 hours 41 mins ago) <coldhead> tell ajpiano the link to jQuery-lint in http://fixingthesejquery.com/#slide19 is dead :(
+[09:02:47] <mikesherov> <body> <long loading script> <some elem> </body>
+[09:02:52] <mikesherov> then oldIE barfs
+[09:02:53] <timmywil> that is all :)
+[09:03:31] <DaveMethvin> oldIE is like that girlfriend where at first her quirks are endearing but after a while they're stab-inducing
+[09:03:32] <ajpiano> mmkay
+[09:03:36] <DaveMethvin> not that i've ever done that
+[09:03:45] <DaveMethvin> or at least as proven in a court of law
+[09:03:45] <mikesherov> IE will say it's interactive, but really it can't see elements that are after unexecuted scripts
+[09:03:51] <mikesherov> ISNT THAT GREAT?!?!?
+[09:04:07] <timmywil> what's wrong with doScroll?
+[09:04:10] <DaveMethvin> no IE, you are not interactive
+[09:04:11] <mikesherov> nothing
+[09:04:12] <jq-jenkins> Project jQuery Color build #35: SUCCESS in 2 min 34 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/35/
+[09:04:12] <jq-jenkins> Perl: Add columnRuleColor (see CSS3 Multi-Column spec) to stepHooks list
+[09:04:19] <DaveMethvin> doScroll only applies to IE6 i think
+[09:04:19] <mikesherov> timmy, doScroll is great
+[09:04:27] <mikesherov> doScroll applies to all oldIE
+[09:04:32] <timmywil> ah, i see, so we're investigating 2.0?
+[09:04:35] <DaveMethvin> but it's our last resort there
+[09:04:48] <DaveMethvin> we were tryna use "interactive"
+[09:04:50] <mikesherov> the point was, we were trying to get oldIE to respond to readyState == "interactive"
+[09:04:51] <DaveMethvin> for readyState
+[09:04:57] <timmywil> ohhh, right
+[09:04:59] <timmywil> yea
+[09:05:01] <DaveMethvin> and it jumps the gun
+[09:05:02] <timmywil> I remember now
+[09:05:14] <mikesherov> right, but it didn't jump the gun in my naive tests
+[09:05:19] <ajpiano> timmywil: for the new Sizzle post or for TLDR edition of 1.9
+[09:05:24] <mikesherov> and so now I have a unit that shows how IE is borked
+[09:05:34] <mikesherov> so future intrepid warriors can attempt
+[09:05:36] <timmywil> ajpiano: I think just for sizzle
+[09:05:39] <ajpiano> ok
+[09:05:54] <DaveMethvin> need moar pathological unit tests
+[09:06:06] <mikesherov> well, it's not so pathological
+[09:06:22] <timmywil> thanks ajpiano
+[09:06:58] <DaveMethvin> unfortunately a pretty common case i guess
+[09:06:59] <timmywil> mikesherov: you have a solution already?
+[09:07:09] <mikesherov> yes
+[09:07:16] <timmywil> i wanna see :)
+[09:07:18] <mikesherov> in that, there is no good solution in oldIE
+[09:07:26] <mikesherov> and so just reverting the behavior
+[09:07:28] <DaveMethvin> back to "complete" i guess
+[09:07:31] <mikesherov> so actually, no real solution
+[09:07:36] <timmywil> oh, well, bah
+[09:07:48] <mikesherov> I'm not THAT good
+[09:07:52] <DaveMethvin> retreat is  a perfectly fine solution! :)
+[09:07:58] <mikesherov> I figure if diego couldn't figure it out, neither can anyone
+[09:08:07] <timmywil> oh, im not knocking mikesherov, I'm knocking IE
+[09:08:23] <DaveMethvin> teh solution is jqueries 2.0 ;)
+[09:08:25] <timmywil> mikesherov: that is a good assumption
+[09:08:28] <mikesherov> yeah, but I at least built up a good suite of tests that clearly show the problem
+[09:08:43] <mikesherov> and that's half the battle
+[09:08:50] <timmywil> absolutely
+[09:09:12] <socialhapy> ★ Tweet from jquery: Check out the latest changes to Sizzle that are landing in jQuery 1.8! http://t.co/LNuWVjDt ★ http://bit.ly/LRnBx8
+[09:09:30] <timmywil> woot
+[09:14:58] <jq-jenkins> Project jQuery Color build #36: SUCCESS in 3 min 7 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/36/
+[09:14:59] <jq-jenkins> Corey Frang: Add all 147 HTML/CSS legal color names into new SVG-names JS file
+[09:19:31] <scott_gonzalez> gnarf: The order of color names is now odd.
+[09:19:46] <gnarf> scott_gonzalez: odd?
+[09:19:57] <scott_gonzalez> They're no longer alphabetical.
+[09:20:04] <gnarf> I'll fix that
+[09:20:09] <scott_gonzalez> It seems random, but I assume it's not :-P
+[09:25:13] <jq-jenkins> Project jQuery Color build #37: SUCCESS in 3 min 38 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/37/
+[09:25:14] <jq-jenkins> Corey Frang: Alphabetic ordering for basic colors
+[09:27:00] <mikesherov> the alphabet is random
+[09:27:02] <mikesherov> https://github.com/jquery/jquery/pull/848
+[09:27:03] <socialhapy> ★ Pull request on jquery by mikesherov (1m, 8s ago): fixes #12018, readyState "interactive" in oldIE is a liar
+[09:27:10] <mikesherov> DaveMethvin: ^^
+[09:27:35] <DaveMethvin> document.pantsState==="onfire"
+[09:27:41] <mikesherov> lol
+[09:28:09] <mikesherov> at least we get to keep the extra seconds in modern browsers :-\
+[09:28:46] <mikesherov> but now the whole benefit of interactive really only comes through when jQuery is asynchronously loaded
+[09:28:59] <mikesherov> better than nothing I suppose
+[09:33:14] <DaveMethvin> mikesherov: so the benefit to that second check is that if you load jquery async we can fire ready a bit earlier on everything but oldIE
+[09:33:54] <mikesherov> right
+[09:34:00] <DaveMethvin> alright i get it
+[09:34:31] <ryanneufeld> DaveMethvin: lol
+[09:35:11] <DaveMethvin> ryanneufeld: okay what did i say now
+[09:35:24] <ryanneufeld> DaveMethvin: document.pantsState==="onfire"
+[09:35:28] <ryanneufeld> made me lol
+[09:35:40] <mikesherov> basically, when oldIE says it's interactive, it's lying
+[09:35:53] <mikesherov> so we can just check for that and throw it away all the time
+[09:36:07] <ryanneufeld> why bother checking then?
+[09:36:21] <mikesherov> because what if it's not oldIE
+[09:36:32] <ryanneufeld> well, then... fine
+[09:36:36] <DaveMethvin> one bad browser don't spoil the whole bunch
+[09:36:36] <mikesherov> LOL
+[09:36:49] <DaveMethvin> the jackson 5 taught me that
+[09:36:54] <ryanneufeld> DaveMethvin: yes, yes it does. oldIE proves that :p
+[09:37:00] <mikesherov> yeah, plus jQuery 2.0
+[09:37:07] <DaveMethvin> awwww  yeah
+[09:37:16] <mikesherov> I like putting addEventListener checks everywhere
+[09:37:22] <mikesherov> it reminds me of all the shit I can cut
+[09:37:54] <DaveMethvin> i've already got an itchy delete key finger
+[09:38:00] <mikesherov> Yeah
+[09:38:14] <mikesherov> I don't even want a 1.8.1
+[09:38:21] <DaveMethvin> just look at that one function, about two-thirds of it can be removed
+[09:38:22] <mikesherov> go straight to 1.9/2.0
+[09:39:01] <DaveMethvin> maybe 1.8 won't have any bugs, this may have been the only one
+[09:39:02] <DaveMethvin> :D
+[09:39:18] <mikesherov> LOL
+[09:39:27] <DaveMethvin> i mean, how many bugs could have possibly been introduced by a complete rewrite of sizzle and effects anyway?
+[09:39:31] <DaveMethvin> maybe one or two
+[09:39:35] <mikesherov> I'm sure someone is going to complain about the assumptions that the vendor prefixing makes
+[09:39:47] <DaveMethvin> someone already did
+[09:40:14] <DaveMethvin> i think its a good idea
+[09:40:45] <mikesherov> I only even wrote it to fix border-box
+[09:40:53] <ryanneufeld> I think once people w/ jquery start using it
+[09:40:59] <ryanneufeld> browsers will stop needing them
+[09:41:18] <DaveMethvin> yeah, which proves they were a stupid idea in the first place
+[09:41:28] <mikesherov> well of course they're stupid
+[09:41:35] <mikesherov> it's experimental syntax
+[09:41:46] <mikesherov> if it gets changed, the browser will stop parsing it anyway
+[09:41:59] <mikesherov> it's not like you need a prefix for that
+[09:42:28] <mikesherov> there is no solution for the idea that people will treat experimental syntax like stable syntax
+[09:42:40] <mikesherov> that will always happen
+[09:42:43] <DaveMethvin> it was impractical to think someone could ship cool stuff and that devs would go back and lovingly repair all their code using it if the syntax/semantics changed
+[09:43:00] <jq-jenkins> Project jQuery Color build #38: SUCCESS in 2 min 53 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/38/
+[09:43:00] <jq-jenkins> Corey Frang: Including svg-names in build process
+[09:43:09] <DaveMethvin> oh yeah jenkins, rub it in
+[09:43:36] <ryanneufeld> I just setup my first jenkins build yesterday
+[09:43:39] <ryanneufeld> <#
+[09:43:43] <DaveMethvin> jenkins says, "see, Corey made HIS project succeed, what's wrong with YOU?"
+[09:43:45] <ryanneufeld> derp, <3
+[09:43:53] <mikesherov> I'm actually really glad that the hack you put in didn't fix the issue dave
+[09:44:05] <DaveMethvin> i only half fixed it mikesherov
+[09:44:10] <DaveMethvin> just to see if it would migrate
+[09:44:16] <DaveMethvin> more of a diagnostic thing
+[09:44:17] <mikesherov> and it did migrate
+[09:44:27] <mikesherov> I'm glad that happened.
+[09:44:30] <DaveMethvin> no, i think i "fixed" the static ones
+[09:44:34] <mikesherov> oh
+[09:44:36] <DaveMethvin> which are the ones i was aiming for
+[09:44:41] <mikesherov> is that right?
+[09:44:42] <DaveMethvin> only the relative ones are left
+[09:44:50] <mikesherov> I'm so used to seeing either 8 or 12
+[09:45:00] <DaveMethvin> http://swarm.jquery.org/result/29874
+[09:45:46] <DaveMethvin> but i am not understanding the problem any better
+[09:48:39] <mikesherov> yeah
+[09:48:45] <mikesherov> the problem is clear
+[09:48:54] <mikesherov> the URL is the culprit :-P
+[09:49:07] <mikesherov> as soon as you check for the right url, the problem goes away!
+[09:49:08] <jq-jenkins> Project jQuery Color build #39: SUCCESS in 2 min 38 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/39/
+[09:49:08] <jq-jenkins> Corey Frang: Grunt now tracks size on all 3 builds
+[09:50:44] <ryanneufeld> gnarf++
+[09:51:34] <DaveMethvin> if you recall, the original test was $.browser.ie ... maybe i should go back to that? then i can put a dead cat in a paper bag and swing it around my head for good luck
+[09:52:23] <gnarf> repeating this from jqueryui-dev
+[09:52:29] <gnarf> our current naming structure for builds is
+[09:52:32] <gnarf> jquery-git.js
+[09:52:38] <gnarf> or jquery-ui-git.js
+[09:52:42] <gnarf> but like
+[09:52:48] <gnarf> jquery color is jquery.color.js
+[09:53:06] <gnarf> should we use jquery.color-git.js or jquery.color.git.js
+[09:53:08] <gnarf> and similarly
+[09:53:23] <mikesherov> I really think what we need to do DaveMethvin is replicate the error. FInd a local environment that exhibits this.
+[09:53:29] <gnarf> jquery.color.plus-names-git.js or jquery.color.plus-names.git.js
+[09:53:31] <DaveMethvin> WARNING: bike shed ahead
+[09:53:36] <DaveMethvin> mikesherov: agreed
+[09:53:41] <gnarf> personally - i like the second
+[09:54:01] <gnarf> but the first is more "standard" for our releases
+[09:54:03] <mikesherov> I mean, Krinkle should be able to tell us how to replicate
+[09:54:05] <gnarf> opinions?
+[09:54:21] <mikesherov> I think rename the file to jquery-color-git.js
+[09:54:33] <mikesherov> and then paint the shed blue and call it a day
+[09:54:37] <DaveMethvin> the convention for plugins has been jquery.whatever.s
+[09:54:38] <DaveMethvin> js
+[09:54:47] <mikesherov> nvm then
+[09:54:58] <DaveMethvin> but for repos i was using dashes
+[09:55:05] <DaveMethvin> so hellidunno
+[09:55:12] <DaveMethvin> we aren't consistent thats fer sure
+[09:55:43] <DaveMethvin> so like, jquery-compat-1.9 is the repo for the compat plugin
+[09:56:23] <DaveMethvin> and i kind of assumed the plugin name would be jquery-compat-1.9.js
+[09:56:52] <DaveMethvin>  jquery-compat-1.9.min.js and  jquery-compat-1.9-git.js  ??
+[09:57:06] <DaveMethvin> we generally don't do min on git builds
+[09:57:11] <gnarf> everything else uses -git
+[09:57:17] <gnarf> so im gonna use -git
+[09:57:26] <gnarf> (except for mobile, who doesn't put anything on their git build)
+[09:57:33] <DaveMethvin> such an executive decider! i like it
+[10:01:04] <ryanneufeld> I like the -git
+[10:01:10] <jq-jenkins> Project jQuery Color build #40: SUCCESS in 2 min 54 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/40/
+[10:01:11] <ryanneufeld> but feel that -unstable would be a good call too :P
+[10:01:32] <ryanneufeld> -use-in-production-at-own-risk.js
+[10:01:58] <gnarf> http://code.jquery.com/color/jquery.color-git.js
+[10:04:06] <jq-jenkins> Project jQuery Color build #41: SUCCESS in 2 min 55 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/41/
+[10:07:35] <gnarf> so um
+[10:07:43] <gnarf> the ?reload doesn't seem to be working on index.html
+[10:14:03] <gnarf> well - whenever it decides to update - color has a live copy listed on http://code.origin.jquery.com/ now
+[10:19:37] <jq-jenkins> Project jQuery Color build #42: ABORTED in 1 min 15 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/42/
+[10:19:38] <jq-jenkins> Corey Frang: Add COMMIT environment variable from jenkins to git builds
+[10:19:45] <jq-jenkins> Project jQuery Color build #43: FAILURE in 5.7 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/43/
+[10:24:14] <gnarf> nice - now with commit ID: http://code.jquery.com/color/jquery.color-git.js
+[10:24:15] <gnarf> :)
+[10:24:21] <jq-jenkins> Yippie, build fixed!
+[10:24:22] <jq-jenkins> Project jQuery Color build #44: FIXED in 3 min 54 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/44/
+[10:24:30] * gnarf hugs jq-jenkins
+[10:24:38] <gnarf> he's not as mean about color as he is core....
+[10:28:09] <jq-jenkins> Project jQuery Color build #45: SUCCESS in 2 min 53 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/45/
+[10:29:02] <gnarf> scott_gonzalez: do i need an AUTHORS.TXT on color?
+[10:29:35] <scott_gonzalez> Yeah, you should add one.
+[10:29:44] <scott_gonzalez> Maybe I should create a grunt plugin for the authors task.
+[10:30:17] <gnarf> how were you generating it?
+[10:32:24] <gnarf> git log --format="%an <%ae>" | sort | uniq
+[10:32:25] <gnarf> ?
+[10:33:02] <jq-jenkins> Project jQuery Color build #46: SUCCESS in 2 min 57 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/46/
+[10:33:03] <jq-jenkins> Corey Frang: Removing Make build process - grunt does all magic now
+[10:34:30] <mikesherov> nice, gnarf
+[10:37:23] <ajpiano> danheberden: ping?
+[10:37:33] <danheberden> ajpiano: PONG
+[10:37:45] <ajpiano> danheberden: can you see whats going on with archive.plugins.jquery
+[10:38:08] <danheberden> um...
+[10:38:26] <ajpiano> its showing some default drupal error
+[10:38:27] <ajpiano> :|
+[10:38:33] <danheberden> yeah :/
+[10:39:08] <danheberden> seems mysql wasn't started
+[10:39:12] <danheberden> so, BOOM DONE
+[10:39:18] <gnarf> danheberden: \o/
+[10:39:23] <ryanneufeld> ?cc
+[10:39:23] <bot-t> CASE CLOASED >: |
+[10:39:27] <ajpiano> danheberden: danke
+[10:39:33] <danheberden> IT TOOK ALL THE SKILLS
+[10:39:38] <gnarf> danheberden: did you get my pm from like 2 days ago where I needed access to something?  I don't even remember what it was now...
+[10:39:56] <danheberden> um, lemme look - still catching up on the chat/social stuff
+[10:40:17] <danheberden> um, i got the gist to review but no access thing?
+[10:40:30] <danheberden> i had added an ssh key to a server like 4 days ago
+[10:40:37] <danheberden> so, ya, if that was it you got it! :D
+[10:41:47] <danheberden> and out of the fire rose a new ircjsbot
+[10:41:56] <jq-jenkins> Project jQuery Color build #47: SUCCESS in 2 min 54 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/47/
+[10:41:57] <jq-jenkins> Corey Frang: Adding AUTHORS.TXT: Authors ordered by first contribution
+[10:47:38] <scott_gonzalez> gnarf: Yeah, and piped through tac
+[10:48:43] <scott_gonzalez> gnarf: https://github.com/jquery/jquery-ui/blob/master/build/tasks/build.js#L188
+[10:49:09] <scott_gonzalez> gnarf DaveMethvin: I'll extract this to a node module.
+[10:55:47] <gnarf> scott_gonzalez: what do you do about the people who ended up double listed?
+[10:56:07] <scott_gonzalez> You remove the duplicates. You have to keep them in order of first appearance though.
+[10:56:16] <scott_gonzalez> Which is why tac is important.
+[10:56:20] <gnarf> k, thats what i did :)
+[10:56:21] <scott_gonzalez> Otherwise your list is revered.
+[10:56:26] <scott_gonzalez> *reversed.
+[10:56:48] <gnarf> there weren't enough to make that a hard process manually on color
+[10:56:52] <gnarf> so i just did it manually
+[10:58:20] <ben_alman> q for you guys
+[10:58:35] <ben_alman> are PRs merged into master?
+[10:58:38] <ben_alman> is that how it works?
+[10:59:08] <gnarf> danheberden: it was services.jquery.com - has my old key i'm pretty sure
+[10:59:22] <gnarf> and i went to pull that key off my backup drive, only to realize that that backup drive died
+[10:59:44] <gnarf> ben_alman: depends on the timing
+[10:59:50] <ben_alman> what do you mean
+[10:59:54] <gnarf> ben_alman: we were working from 1.8pre branch for a bit
+[11:00:04] <gnarf> so pulls were landing there
+[11:00:14] <gnarf> but for the most part, people target pulls at master
+[11:00:20] <ben_alman> were you still landing PRs to master at the same time?
+[11:00:25] <gnarf> on UI - we use development branches quite a bit
+[11:00:37] <gnarf> ben_alman: the idea was that we MIGHT land a pull to master if there was need for a 1.7.3
+[11:00:47] <ben_alman> ok so if that happened
+[11:00:50] <ben_alman> like say you needed 1.7.3
+[11:01:04] <ben_alman> you'd land the PR into master, bump and release a hotfix version
+[11:01:17] <gnarf> then backport to the 1.8pre branch
+[11:01:17] <ben_alman> how do you then re-integrate the changes into your devel 1.8pre branch?
+[11:01:28] <gnarf> cherry-pick it if you can
+[11:01:30] <gnarf> or backport it
+[11:01:42] <gnarf> thats what we do with UI and master = 1.9pre, 1-8-stable = 1.8 branch
+[11:01:48] <ben_alman> is backport a merge of the PR into 1.8pre, a rebase of master onto 1.8pre, or what
+[11:02:12] <gnarf> backport = cherry-pick where possible, manual integration otherwise
+[11:02:30] <ben_alman> so what happens when you go to merge 1.8pre back into master?
+[11:02:44] <ben_alman> you'll have that extra PR commit etc on top of master
+[11:03:01] <gnarf> thats why UI uses master = develop, stable = stable branch
+[11:03:12] <gnarf> Core went the other way this time
+[11:03:37] <gnarf> but presumably, any changes from master would of been MERGED to 1.8-pre as they happened in the case of core
+[11:04:13] <ben_alman> so if you dev on master, and stable is effectively forked to land hotfixes, how do you re-integrate those hotfixes into the history of master? or do you just totally not care?
+[11:04:27] <ben_alman> ok so you guys don't rebase
+[11:04:42] <gnarf> ben_alman: in the sense of old stable, its forever forked
+[11:04:44] <ben_alman> always merging, and not caring about a linear git history
+[11:04:49] <gnarf> we will never merge 1-8-stable -> master
+[11:05:08] <gnarf> sometimes we need to hotfix code that is long gone in master
+[11:05:12] <gnarf> etc
+[11:05:23] <ben_alman> so what happens when you want master to be the latest version
+[11:05:34] <ben_alman> do you delete master and rename 1.8pre to master?
+[11:05:38] <gnarf> thats UI's model
+[11:05:44] <ben_alman> you delete master?
+[11:05:48] <gnarf> no
+[11:05:59] <gnarf> UI = master is our main working branch
+[11:06:09] <ben_alman> right
+[11:06:10] <gnarf> we make feature fork branches, and stable fork branches
+[11:06:12] <ben_alman> what would you do with jquery
+[11:06:19] <ben_alman> now that you're in opposite-land
+[11:06:24] <gnarf> with core? presumably, we should use the same model
+[11:06:28] <gnarf> I'm not sure what Dave's plan was
+[11:06:32] <gnarf> but it was backwards IMO
+[11:06:34] <ben_alman> right but it's already backwards?
+[11:06:47] <ben_alman> i'm trying to figure all this out for grunt
+[11:06:47] <gnarf> now, its back to master
+[11:06:51] <gnarf> and there is no stable branch
+[11:06:51] <ben_alman> and it's so super confuse
+[11:07:06] <gnarf> ben_alman: suggestion: fork 0.3-stable now
+[11:07:18] <gnarf> start making your big 0.4 changes
+[11:07:21] <gnarf> or if you already have
+[11:07:29] <gnarf> find the commit to fork 0.3-stable from
+[11:07:30] <ben_alman> i've been working on 0.4 for months
+[11:07:38] <ben_alman> and just had to push a few hotfixes on 0.3
+[11:07:48] <ben_alman> i've just completed a huge rebase of master onto devel
+[11:07:49] <gnarf> do those in a 0.3-stable branch
+[11:08:14] <ben_alman> once 0.4 is released i want to formalize what i'm doing
+[11:08:17] <gnarf> you might have to fix some bugs twice because of giant structure changes
+[11:09:33] <gnarf> but most things you can cherry-pick
+[11:10:01] <gnarf> then anytime you make a new commit to 0.4, decide if it can be cherry-picked to / easily fixed on 0.3-stable
+[11:10:15] <ben_alman> right
+[11:10:17] <gnarf> "0.4" = master
+[11:10:37] <gnarf> 0.3-stable will never come back home to master... it's just your bucket to maintain it
+[11:10:47] <ben_alman> not a big fan of people looking at master and not knowing if that version is "Ready to roll" at any particular time
+[11:11:05] <ben_alman> it feels like master should always be the latest release
+[11:12:24] <ben_alman> do you ever have a 1.8.1-stable
+[11:12:36] <ben_alman> or is it always 1.8.0-stable and then patches are on that
+[11:12:49] <ben_alman> or you have 1-8-stable
+[11:12:53] <ben_alman> where does 1.8.1 go
+[11:13:48] <ben_alman> do you branch 1-8-1-dev from 1-8-stable?
+[11:22:20] <ben_alman> trying to understand better and working through ideas here
+[11:22:20] <ben_alman> http://oksoclap.com/grunt-git-devel
+[11:22:32] <ben_alman> i just need to understand your model better
+[11:24:25] <scott_gonzalez> ben_alman: You always want the next version coming from master.
+[11:24:32] <scott_gonzalez> If you want master to always be safe, then use features branches.
+[11:24:39] <scott_gonzalez> But do not create a version branch for future dev.
+[11:24:43] <scott_gonzalez> 1.8pre for core was a mess.
+[11:27:08] <gf3> scott_gonzalez, ben_alman: Also tags for versions, that's easy and safe
+[11:27:21] <scott_gonzalez> Yes, tags for versions.
+[11:29:06] <mikesherov> ben_alman: what jquery for 1.8 was wrong
+[11:29:33] <mikesherov> what we should have been doing is what we do now, and in the past: always feature branch, and PR against master
+[11:29:51] <mikesherov> then when there is a "stable" release pending, tag it
+[11:30:12] <mikesherov> hotfixes get applied to both the tagged and master version
+[11:32:43] <gf3> I'd even be in favour of bumping the patch version instead of applying new commits to a tag
+[11:35:37] <scott_gonzalez> gf3: You should never apply new commits to a tag.
+[11:35:45] <gf3> scott_gonzalez: Exactly
+[11:35:55] <gf3> /cc mikesherov
+[11:35:59] <scott_gonzalez> The branch should not have a patch version in it.
+[11:36:04] <scott_gonzalez> 1-8-stable, not 1-8-1-stable
+[11:36:45] <mikesherov> well, sure
+[11:37:00] <ben_alman> a tag is just another ref though, right?
+[11:37:08] <ben_alman> it's just another name that points to a commit
+[11:37:13] <gnarf> correct
+[11:37:15] <gf3> ben_alman: You can think of it as a read-only branch
+[11:37:20] <mikesherov> everything is just a thing that points to a commit :-)
+[11:37:22] <gnarf> git alias tag commitid
+[11:37:45] <ben_alman> a tag is a name to a commit that doesn't automaticaly fast-forward to any new commits added on top of it
+[11:37:47] <gnarf> ben_alman: updated the workflow for the jquery model a bit
+[11:37:47] <ben_alman> or something
+[11:38:25] <ben_alman> so i definitely don't like the idea of having master be anything but the current release
+[11:38:31] <mikesherov> point being that if you REALLY needed to backport, you can checkout a copy of the tag, make a branch off of it, apply the hotfix, and make another tag
+[11:38:34] <ben_alman> i reeealy feel that's a bad idea
+[11:38:56] <ben_alman> it seems wrong to me
+[11:38:57] <scott_gonzalez> The thing about "applying new commits to a tag" is that you will end up on no branch if you do that :-P
+[11:39:06] <mikesherov> sure
+[11:39:20] <gnarf> so we use a stable branch
+[11:39:21] <gnarf> also
+[11:39:21] <mikesherov> OH
+[11:39:25] <mikesherov> Nevermind
+[11:39:27] <gnarf> ben_alman: your "release" can be a branch too
+[11:39:32] <gnarf> that you just merge from master to
+[11:39:41] <ben_alman> release would just be a tag, though right?
+[11:39:41] <scott_gonzalez> ben_alman: Why? Using master as anything else is unbelievably annoying for everyone else.
+[11:40:02] <gnarf> ben_alman: ^^^^
+[11:40:23] <mikesherov> from a practical standpoint, master should always be dev. because of github's default to master
+[11:40:28] <mikesherov> of course, you can override that
+[11:40:57] <mikesherov> you can make dev be the default branch, but that's just unnecessary cruft
+[11:40:59] <gnarf> only benefit is that a git clone gets you latest stable
+[11:41:19] <gnarf> but like, don't you want git clone to get you latest dev usually anyway?
+[11:41:22] <scott_gonzalez> gnarf: I view that as a negative, not a benefit.
+[11:41:26] <mikesherov> if you really need to backport and maintain multiple versions, you should branch instead of tag
+[11:41:33] <ben_alman> you're making good points
+[11:41:49] <ben_alman> i'm trying to process it all
+[11:41:54] <scott_gonzalez> If you're cloning, it's for dev, you want current code in master.
+[11:42:04] <scott_gonzalez> People expect dev to happen in master.
+[11:42:14] <scott_gonzalez> When core moved dev to 1.8pre all hell broke loose.
+[11:42:18] <scott_gonzalez> PRs were totally wrong.
+[11:42:22] <scott_gonzalez> jquery-git broke.
+[11:42:27] <mikesherov> yes, that's right scott_gonzalez
+[11:42:32] <scott_gonzalez> Everyone had to start following a new RSS feed.
+[11:42:37] <gnarf> heh
+[11:42:40] <gf3> ben_alman: It's commonplace for master to not be stable/release
+[11:42:41] <scott_gonzalez> It's a mess.
+[11:43:01] <mikesherov> but jquery is a bit different in that we support one version
+[11:43:02] <scott_gonzalez> master is master, it is not production, it is not stable.
+[11:43:03] <gf3> ben_alman: I would not expect that moving to a project on git
+[11:43:12] <gf3> ben_alman: Especially since branching is so cheap in git
+[11:43:24] <ben_alman> fair enough
+[11:43:24] <gnarf> mikesherov: even if we supported 2, we can have a 1.7-stable branch right now if we want it
+[11:43:26] <mikesherov> when we start supporting 1.9/2.0 simultaneously, I'd expect we'd have to change that expectation
+[11:43:31] <gnarf> and we can backport
+[11:43:32] <mikesherov> right, we COULD
+[11:43:32] <ben_alman> we can look at the git repo as a development tool
+[11:43:36] <ben_alman> and not as anythin gelse
+[11:43:42] <mikesherov> the point being, it's just a matter of perception and convention
+[11:43:42] <ben_alman> it is the thing in which development is done
+[11:43:51] <ben_alman> and history is kept etc
+[11:43:56] <mikesherov> i.e., what's in master? 1.9 or 2.0?
+[11:44:09] <scott_gonzalez> mikesherov: That's going to be an intersting situation. I
+[11:44:15] <scott_gonzalez> I've already been thinking about that.
+[11:44:20] <ben_alman> so scott_gonzalez you said this:
+[11:44:27] <DaveMethvin> i think we need a 1.9-stable branch
+[11:44:33] <ben_alman> <scott_gonzalez> If you want to fix something in 0.3.x, you would first get it working properly in master. <scott_gonzalez> Then, if possible, you'd cherry-pick the commit(s) into 0-3-stable.
+[11:44:34] <scott_gonzalez> DaveMethvin: That's my thought.
+[11:44:40] <mikesherov> Right, I would imagine 1.9 in master, and 2.0 in a branch called 2.0
+[11:44:46] <scott_gonzalez> 2.0 is what will survive in the future.
+[11:44:48] <scott_gonzalez> So it should be master.
+[11:44:55] <mikesherov> that's interesting
+[11:44:55] <DaveMethvin> i'd say that
+[11:45:01] <gnarf> ben_alman: and if the problem is only in 0.3.x - you fix it in 0-3-stable
+[11:45:01] <ben_alman> i think the expectation would be to get the code working in master first, for a quick release, THEN after to get those changes back into devel
+[11:45:02] <mikesherov> Well, ok then
+[11:45:07] <DaveMethvin> master is the most leadingest of edges
+[11:45:32] <scott_gonzalez> ben_alman: Have you ever seen companies using hotfix branches?
+[11:45:38] <scott_gonzalez> They're a mess. Regressions like crazy.
+[11:45:43] <gf3> It's true
+[11:45:43] <ben_alman> scott_gonzalez: yes
+[11:45:46] <gf3> We used to do that
+[11:45:48] <scott_gonzalez> Also, you don't have million dollar customers...
+[11:45:48] <gf3> W stopped
+[11:45:51] <gf3> s/W/We
+[11:46:06] <scott_gonzalez> There are no urgent bugs in grunt ;-)
+[11:46:09] <ben_alman> you hotfix in a branch, immediately mrege it into master and delete the branch
+[11:46:16] <ben_alman> scott_gonzalez: there were during the conf
+[11:46:26] <ben_alman> i had to get the jq plugin one fixed b4 my talk
+[11:46:27] <gnarf> ben_alman: local development, yes thats how i do it
+[11:46:31] <gnarf> but i rarely push my hotfix branch
+[11:46:41] <scott_gonzalez> ben_alman: And you got it working only in 0.3.x, correct?
+[11:46:46] <gnarf> unless i really want a review on it
+[11:46:47] <scott_gonzalez> And left the conf with it still broken in 0.4?
+[11:46:49] <mikesherov> well, right, any branch that is single feature should be shortlived
+[11:46:52] <ben_alman> scott_gonzalez: at the time, yes
+[11:46:56] <ben_alman> scott_gonzalez: yes
+[11:47:02] <ben_alman> in #grunt you suggested the opposite
+[11:47:11] <scott_gonzalez> Yes, for this exact reason.
+[11:47:16] <ben_alman> for what reason?
+[11:47:17] <scott_gonzalez> You left the conf with a regression.
+[11:47:36] <scott_gonzalez> "Hey guys, look this works!"
+[11:47:43] <ben_alman> it wasn't a regression because there was no actual release version where it didn't work
+[11:47:48] <ben_alman> there was a dev version
+[11:48:06] <ben_alman> it's called a "hotfix" for a reason though
+[11:48:11] <ben_alman> it has to go live yesterday
+[11:48:33] <ben_alman> dev can be updated any time, just as long as it's before it gets released
+[11:48:33] <mikesherov> right, so you have master (which is effectively the dev version of 4.0), and you have a branch called 3.9...
+[11:48:38] <scott_gonzalez> That should honestly be a very rare exception for anything you're building.
+[11:48:49] <ben_alman> scott_gonzalez: yess i don't forsee a lot of hotfixes
+[11:48:58] <ben_alman> you needed ; when linting or concating or something
+[11:49:04] <ben_alman> so i released a hotfix for you
+[11:49:18] <ben_alman> then added it back into dev
+[11:49:20] <scott_gonzalez> I would not refer to that as a hotfix.
+[11:49:21] <mikesherov> if there is a bug in 3.9 that needs to go out before 4.0 is released, you branch off of 3.9 to fix it, then merge it into 3.9, and also merge it into 4.0
+[11:49:27] <scott_gonzalez> I'd refer to that as a maintaenance release.
+[11:49:29] <ben_alman> lol it was something a customer needed asap
+[11:49:32] <mikesherov> then you release 3.9.1
+[11:50:11] <ben_alman> so anyways
+[11:50:33] <ben_alman> how do you guys go from 1.8-stable to 1.8.1? what's the flow look like?
+[11:50:40] <ben_alman> do you create a 1.8.1-dev ?
+[11:50:41] <scott_gonzalez> git tag 1.8.1 // done
+[11:50:46] <ben_alman> wait
+[11:50:53] <ben_alman> i'm saying your 1.8-stable is pristine
+[11:50:54] <scott_gonzalez> 1-8-stable is always 1.8.next
+[11:50:56] <gnarf> ben_alman: commit version # change - tag - commit back to 1.8-stable version
+[11:51:01] <ben_alman> 1.8.1 tag === 1-8-stable HEAD
+[11:51:06] <ben_alman> wait
+[11:51:11] <ben_alman> 1-8-stable is unstable?
+[11:51:13] <scott_gonzalez> Yes, at the time that 1.8.1 is tagged.
+[11:51:21] <scott_gonzalez> haha
+[11:51:27] <scott_gonzalez> It's stable.
+[11:51:36] <scott_gonzalez> It's not a release, but it's stable code.
+[11:51:51] <gnarf> its just the bucket collecting fixes until the next release
+[11:51:51] <scott_gonzalez> 1-8-stable is always 1.8.latest + fixes.
+[11:51:52] <ben_alman> would you say that master is always stable then?
+[11:51:56] <sizcommit> [sizzle] timmywil pushed 1 new commit to master: http://git.io/q7-8LA
+[11:51:56] <sizcommit> [sizzle/master] pseudo-class names are case-insensitive. See http://www.w3.org/TR/selectors/#pseudo-classes - timmywil
+[11:52:00] <scott_gonzalez> Yes, master is stable.
+[11:52:11] <ben_alman> so what's unstable? feature branches?
+[11:52:16] <scott_gonzalez> Yes
+[11:52:21] <scott_gonzalez> Which we very rarely use for UI.
+[11:52:22] <gnarf> ticket branches
+[11:52:29] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/iINXWg
+[11:52:29] <jqcommit> [jquery/master] Update Sizzle: pseudo-classes should be case-insensitive - timmywil
+[11:52:29] <ben_alman> do you ever call something -unstable?
+[11:52:30] <gnarf> on our local forks
+[11:52:32] <scott_gonzalez> no
+[11:52:38] <ben_alman> ok so the name is a red herring
+[11:52:42] <gnarf> we should prolly just name the branch 1.8
+[11:52:46] <gnarf> but whatever
+[11:52:46] <scott_gonzalez> So -stable refers to the release category
+[11:52:48] <ben_alman> it adds nothing except possible confusion
+[11:52:52] <gnarf> maybe even 1.8.next
+[11:52:52] <scott_gonzalez> legacy vs. stable vs. dev
+[11:53:03] <ben_alman> when would you use legacy or dev?
+[11:53:15] <scott_gonzalez> We'd never use dev because that's master.
+[11:53:21] <scott_gonzalez> We'd use legacy if we had a 1.7 branch
+[11:53:22] <ben_alman> but it's also stable.
+[11:53:27] <scott_gonzalez> 1-7-legacy, 1-8-stable, master
+[11:53:29] <ben_alman> master is both dev and stable implicitly
+[11:53:42] <scott_gonzalez> The code in 1-7-legacy would be stable, any release coming out of 1-7-legacy would be legacy.
+[11:53:43] <ben_alman> have you ever used legacy?
+[11:53:55] <ben_alman> wait, so is legacy the stable of 2 versions ago?
+[11:54:06] <scott_gonzalez> No, because we don't support legacy releases other than new blockers, which is extremely rare.
+[11:54:10] <ben_alman> it seems like dev/legacy/stable are just extra cruft that can go away
+[11:54:11] <gnarf> if we had to support -2
+[11:54:17] <scott_gonzalez> Let's stay IE10 is released and 1.7.3 breaks.
+[11:54:24] <ben_alman> ok
+[11:54:27] <mikesherov> 1.7.2*
+[11:54:29] <gnarf> ben_alman: I say you make an 0.3.x branch
+[11:54:37] <scott_gonzalez> mikesherov: UI :-)
+[11:54:40] <gnarf> ben_alman: then you can tag versions from it
+[11:54:41] <mikesherov> OH
+[11:54:47] <scott_gonzalez> We'd create a 1-7-legacy branch from the 1.7.3 branch and work in there.
+[11:54:54] <ben_alman> yeah i'm just thinking i'd call it 0.3.0 and not 0.3.0-stable
+[11:55:01] <gnarf> ben_alman: and let master be 0.4 until you bump to 0.5 and you can have 0.4.x branch and delete 0.3.x
+[11:55:05] <scott_gonzalez> ben_alman: You can't 0.3.0 is a tag
+[11:55:13] <mikesherov> yeah, -stable is red herring
+[11:55:23] <ben_alman> 0.3.0-branch ?
+[11:55:23] <gnarf> ben_alman: hence .x or .next
+[11:55:29] <mikesherov> the point is this, tags are just there for downloading, pretty much
+[11:55:43] <scott_gonzalez> ben_alman: That's fine.
+[11:55:50] <mikesherov> if you have the possibility of supporting an old point in the code, it has to be a branch
+[11:55:53] <scott_gonzalez> We use dashes so that it's clear that it's not a tag.
+[11:55:58] <ben_alman> ok so let me get back to my old question
+[11:56:03] <scott_gonzalez> But 0.3-branch would honestly fine.
+[11:56:11] <ben_alman> i release 0.4
+[11:56:14] <gnarf> 0.3-next
+[11:56:17] <ben_alman> so now i have a 0-4-0 branch
+[11:56:31] <gnarf> ben_alman: not if 0.4 is still where "development" is happening
+[11:56:33] <scott_gonzalez> Don't put patch version numbers in your branch, it's confusing.
+[11:56:39] <ben_alman> and i change the 0.4.0 version in master to 0.5.0pre
+[11:56:47] <ben_alman> ok so the branch is 0-4
+[11:57:09] <ben_alman> and master would be 0.5.0pre
+[11:57:12] <scott_gonzalez> yup
+[11:57:13] <gnarf> ben_alman: are you going from 0.4.0 to 0.5pre ?
+[11:57:14] <ben_alman> in package.json or w/e
+[11:57:18] <ben_alman> gnarf: who knows
+[11:57:19] <gnarf> or are you working on 0.4.x for a bit
+[11:57:30] <ben_alman> master is where i'd be developing api breaking change stuff
+[11:57:33] <ben_alman> or w/e
+[11:57:35] <gnarf> yes
+[11:57:37] <scott_gonzalez> ben_alman: correct
+[11:57:43] <gnarf> agree
+[11:57:48] <gnarf> then yeah
+[11:57:51] <gnarf> after release
+[11:57:58] <ben_alman> so do i work on 0.4.1 in master or in the 0-4 branch
+[11:58:12] <scott_gonzalez> ben_alman: That depends on the answer to gnarf's question.
+[11:58:13] <gnarf> ben_alman: fix in master, port to 0.4.1
+[11:58:13] <ben_alman> i have no idea at this point if i'm going to be doing minor fixes or major changes
+[11:58:33] <scott_gonzalez> But you'd work in master, then port to 0-4.
+[11:58:46] <gnarf> or at least thats how ui handles it
+[11:58:57] <scott_gonzalez> It's the easiest model.
+[11:59:05] <ben_alman> it seems super not easiest :P
+[11:59:07] <mikesherov> yeah, and that's just an artifact of not knowing what the next version is tackling
+[11:59:11] <ben_alman> trying to figure it out
+[11:59:28] <gnarf> if its a problem only in 0.4 (because you already did some api stuff) - fix it in 0.4
+[11:59:40] <mikesherov> ben_alman: figure out if you're doing a 0.4.1 first
+[12:00:03] <ben_alman> but you'd never fix it in 0.4 first and then do it in master, no matter how urgent the release needed to be
+[12:00:20] <gnarf> ben_alman: it can go either way - we usually go master -> back
+[12:00:20] <scott_gonzalez> ben_alman: You can. It should be rare.
+[12:00:25] <gnarf> because its not "urgent"
+[12:00:28] <ben_alman> right
+[12:00:37] <ben_alman> but if it was perceived to be urgent
+[12:00:38] <gnarf> and master -> back makes more sense to solve the problem
+[12:00:49] <scott_gonzalez> Then feel free to fix directly in 0-4.
+[12:00:49] <ben_alman> like when node 1.0.0 comes out
+[12:00:51] <mikesherov> and backporting to the branch should be easier than porting from branch to master
+[12:00:54] <gnarf> then sure, fix in branch - then cherry-pick it forward
+[12:01:00] <gnarf> or even
+[12:01:00] <ben_alman> i'll need to fix it immediately in the branch and publish
+[12:01:03] <ben_alman> k
+[12:01:06] <gnarf> fix in branch, cherry-pick test forward
+[12:01:11] <ben_alman> ok so back to the branch
+[12:01:16] <mikesherov> right, either way you need to cherry pick something
+[12:01:49] <ben_alman> do i branch 0-4 immediately after tagging v0.4.0 or do i wat until the development i'm doing in master starts to get so out of hand that i need to branch?
+[12:01:57] <gnarf> ben_alman: second
+[12:02:15] <ben_alman> any reason to not do it immediately for consistency's sake?
+[12:02:16] <mikesherov> wait, really, gnarf?
+[12:02:34] <mikesherov> I'd personally branch immediately
+[12:02:35] <scott_gonzalez> You can do either, if you wait, you'll have less cherry-picking :-)
+[12:02:47] <gnarf> ben_alman: if you aren't working on 0.5 stuff - there is no reason to make yourself cherry-pick and merge every commit
+[12:02:49] <scott_gonzalez> attention dropping...on a call now
+[12:03:02] <mikesherov> but if you wait, doesn't that mean you're including stuff from master that technically isn't in the 4.0 release
+[12:03:22] <gnarf> as soon as there is stuff in master that isn't going to be in a 0.4.x - branch it
+[12:03:28] <gnarf> or there will be stuff
+[12:03:29] <gnarf> i should say
+[12:03:43] <gnarf> once you have content for 0.5, you need the 0.4 branch
+[12:03:44] <mikesherov> i.e. ben creates 4.0 tag, then does some work that changes an API (which requires 5.0 because of semver), then he finds something he needs to fix in 4.0...
+[12:04:21] <ben_alman> so the big issue i'm trying to deal with here is that if i'm in the middle of 0.4's lifecycle and 0.5 is being worked on in master, people will submit PRs against 0.5 when they really mean to be fixing bugs in 0.4, right?
+[12:04:24] <mikesherov> right, but then by definition, isn't the 4.0 tag the point in time in which non 4.0 stuff is getting into master ;-)
+[12:04:43] <gnarf> ben_alman: maintainers can backport, or you can say "can you fix in this branch too please"
+[12:05:11] <gnarf> ben_alman: if we get a bug fix on our "master" right now on UI that can be applied to 1-8-stable, we cherry pick the commit
+[12:05:15] <gnarf> and push both at the same time
+[12:05:16] <mikesherov> ben_alman: that's the whole thing about having a 0.5.0 immediately after 0.4.0
+[12:05:30] <ben_alman> it's weird that they're filing bugs against a version that hasn't been released which is different from the version in which they're seeing the iusse
+[12:06:13] <mikesherov> it's weird in either case
+[12:06:25] <gnarf> ben_alman: if the bug is still in 0.5 - you want it fixed there ... if it can be also fixed in 0.4, you want to cherry-pick it
+[12:06:54] <mikesherov> gnarf: what if the bug is in an API that is deprecated in 0.4.0?
+[12:06:56] <ben_alman> it's weird
+[12:07:20] <mikesherov> meaning, the maintainers wouldn't be able to repro in master, and think the bug is "fixed"
+[12:07:25] <gnarf> mikesherov: then the person fixing it fixes it in 0.4 (and i assume you meant deprecated in 0.5)
+[12:07:36] <mikesherov> yes, I assumed that
+[12:07:45] <gnarf> mikesherov: any person working on it is aware of the branch
+[12:07:50] <mikesherov> sure
+[12:08:00] <ben_alman> it seems odd to me to try to think about minor releases as anything more than a linear evolution of code; i think about minor and patch releases as a relatively linear thing and as such it makes sense logically to rebase (as much as that kills PRs and whatnot)
+[12:08:02] <gnarf> mikesherov: if the bug is in 1.8-stable, and not in git (which is super easy to test right?)
+[12:08:11] <ben_alman> it seems like this approach would make sense across major versions
+[12:08:14] <ben_alman> but not minor versions
+[12:08:48] <mikesherov> yes, very easy gnarf
+[12:08:54] <gnarf> ben_alman: so like 1.9 is not a "major version" but it is so pervasively different that we need to support 1.8 while we work on it.
+[12:09:19] <gnarf> so we have a branch for that
+[12:09:23] <gnarf> and it works out really easy
+[12:09:24] <ben_alman> why not maintain 1.8 adding patches and then rebase those into 1.9?
+[12:09:34] <mikesherov> right, but for example, it wasn't until 1.7.2 was released that we were able to work on breaking changes, gnarf
+[12:09:38] <gnarf> ben_alman: does it matter which direction you move?
+[12:09:54] <gnarf> so long as master is the latest edge, everyone can figure it out
+[12:10:02] <mikesherov> yes, they can figure it out
+[12:10:05] <gnarf> mikesherov: not if you had a 1.7 branch
+[12:10:14] <ben_alman> well if you fix a bug in 1.8.1 and then rebase that on top of 1.9, you don't have to cherry-pick the commit
+[12:10:19] <ben_alman> you just fix it in the rebase
+[12:10:45] <mikesherov> rebase, cherry-pick, merge, those don't matter
+[12:10:48] <gnarf> ben_alman: cherry-pick is like just as easy as rebase
+[12:10:53] <ben_alman> sure
+[12:10:53] <gnarf> mikesherov: ++
+[12:10:53] <mikesherov> they're just vanity for the history
+[12:11:08] <ben_alman> yeah but doesn't the history being linear help?
+[12:11:19] <gnarf> ben_alman: its still linear right?
+[12:11:23] <mikesherov> but the history isnt linear
+[12:11:30] <ben_alman> gnarf: not anymore
+[12:11:36] <ben_alman> it's a big branchy tangles mess
+[12:11:42] <mikesherov> if you make a patch for 0.5.0 and 0.4.0, those are different commits
+[12:11:43] <jq-jenkins> Project jQuery Core build #213: STILL FAILING in 19 min: http://swarm.jquery.org:8080/job/jQuery%20Core/213/
+[12:11:44] <jq-jenkins> timmywillisn: Update Sizzle: pseudo-classes should be case-insensitive
+[12:11:54] <ben_alman> rebasing is like x→x→x→x→x
+[12:12:03] <mikesherov> it's not, ben, because at some point, you stop maintaining the old branches
+[12:12:04] <gnarf> ben_alman: it also "rewrites history"?
+[12:12:04] <ben_alman> merging or cherry picking looks like a train switchyeard
+[12:12:08] <ben_alman> gnarf: yes
+[12:12:20] <gnarf> ben_alman: bad idea for every developer who works
+[12:12:30] <gnarf> if your pulls don't fast forward, its a clusterfuck for people
+[12:12:37] <mikesherov> jquery squashes every PR to look like a commit
+[12:12:49] <ben_alman> do you guys add merge commits or no
+[12:12:51] <mikesherov> there are actually no merges in jquery's history for the most part
+[12:12:56] <gnarf> we merge with squash into master
+[12:13:05] <gnarf> which is not a "merge commit"
+[12:13:08] <gnarf> but it is
+[12:13:13] <mikesherov> right, but it's not
+[12:13:32] <gnarf> if that picks cleanly to release branch
+[12:13:34] <gnarf> we do
+[12:13:34] <ben_alman> git merge --squash ?
+[12:13:38] <gnarf> ben_alman: yes
+[12:13:42] <mikesherov> from the POV of history, it looks like a single commit, authored by the original author, and committed by the squasher
+[12:14:01] <ben_alman> if you need to edit the commit
+[12:14:06] <ben_alman> because their commit is inadequate
+[12:14:07] <ben_alman> what happens
+[12:14:11] <mikesherov> yeah, even then, same thing
+[12:14:15] <ben_alman> like say they have it 90% done but you have to fix it
+[12:14:16] <gnarf> ben_alman: squash is also --no-commit
+[12:14:24] <ben_alman> hmmn?
+[12:14:25] <gnarf> ben_alman: so you just patch it before you land it
+[12:14:28] <mikesherov> occasionally, DaveMethvin will fix my whitespace
+[12:14:28] <gnarf> in the same commit
+[12:14:41] <ben_alman> and does it show the other person as authoring your changes as well?
+[12:14:45] <gnarf> ben_alman: yes
+[12:14:45] <mikesherov> but it'll still say author: mikesherov, committer: DaveMethvin
+[12:15:01] <DaveMethvin> ben_alman: i use --amend and --author="" a LOT
+[12:15:11] <gnarf> git merge --squash remote/branch
+[12:15:11] <ben_alman> ok so it's understood somewhere that the author of a patch is not necessarily the actual author of all of the patch?
+[12:15:16] <mikesherov> and actually, pulley does the same thing
+[12:15:19] <gnarf> git commit --author="....."
+[12:15:22] <mikesherov> it automates that, ben_alman
+[12:15:34] <mikesherov> yes, it's understood
+[12:15:49] <gnarf> ben_alman: it also puts all the commits individually in the log usually
+[12:15:55] <mikesherov> very rarely now though, as my patches are always so pristine :-P
+[12:16:15] <DaveMethvin> right now i'm editing a big-ass patch with conflicts, so unless i kicked it back for the submitter to resolve i really *have* to add my tender touch
+[12:16:16] <mikesherov> so anyway, back to your point
+[12:16:17] <gnarf> ben_alman: like in UI - we often have to change the log message to fix our guidelines
+[12:16:22] <mikesherov> the history looks like a tree
+[12:16:29] <mikesherov> but the branches aren't that long
+[12:16:41] <gnarf> the jquery-ui branch is :)
+[12:16:43] <ben_alman> DaveMethvin: and it gets committed as a single commit?
+[12:16:51] <mikesherov> you end up maintaining master and one branch back
+[12:17:08] <DaveMethvin> to resolve conflicts, yes
+[12:17:15] <DaveMethvin> it won't do a commit of something conflicted
+[12:17:16] <mikesherov> ben_alman, check out https://github.com/jeresig/pulley
+[12:17:22] <ben_alman> DaveMethvin: it == ?
+[12:17:22] <DaveMethvin> but you can leave messages in the commit about it
+[12:17:34] <gnarf> mikesherov: i hate pulley
+[12:17:35] <DaveMethvin> git
+[12:17:38] <DaveMethvin> git==it
+[12:17:39] <gnarf> mikesherov: lazy way ;)
+[12:17:55] <mikesherov> I know, it's lazy, and you can actually write a git alias for it pretty easily
+[12:18:03] <ben_alman> are you recommending using pulley?
+[12:18:11] <mikesherov> but I'm pointing ben_alman there so he can see how it works
+[12:18:19] <mikesherov> it works fairly well, ben
+[12:18:22] <DaveMethvin> definitely understand how it works first
+[12:18:26] <gnarf> its workflow is close to what we do
+[12:18:33] <gnarf> some of us just do it
+[12:18:36] <DaveMethvin> then you can decide whether you like the time and effort that pulley saves you
+[12:18:37] <gnarf> others use pulley
+[12:18:44] <mikesherov> I beat it into shape after github api v3 came out... it works for most cases
+[12:18:52] <ben_alman> man it's so hard to look @ resig's javascript
+[12:18:59] <DaveMethvin> lol
+[12:19:08] <ben_alman> e v e r y t h i n g  i s  s o  w i d e
+[12:19:17] <DaveMethvin> i can't even look at MY javascript from a few years ago
+[12:19:18] <mikesherov> it's been rewritten since...
+[12:19:27] <ben_alman> it's like watching SD content on a HD tv
+[12:19:31] <mikesherov> to match jQuery's style guide
+[12:19:53] <mikesherov> anyway, it shows you how it jQuery does it's thing
+[12:20:07] <mikesherov> so, use it at your own risk... I've only mostly tested it
+[12:20:17] <mikesherov> I'm actually going to grunt pluginize it
+[12:20:36] <mikesherov> but definitely use it to understand how to maintain a clean log
+[12:20:41] <gnarf> mikesherov: hrm
+[12:20:55] <mikesherov> hrm?
+[12:21:07] <ben_alman> i don't really want to look at pulley anymore
+[12:21:10] <mikesherov> LOL
+[12:21:14] <mikesherov> anyway...
+[12:21:21] <ben_alman> between the tabs, extra spaces and node's callback-tastic indenation
+[12:21:27] <gnarf> ben_alman: general process... checkout the guys branch, make sure it works
+[12:21:28] <ben_alman> it's killing my brain with whitespace
+[12:21:31] <gnarf> fix any tests
+[12:21:41] <ben_alman> sure
+[12:21:42] <gnarf> etc
+[12:21:49] <gnarf> then jump back to master
+[12:21:56] <ben_alman> then git merge --squash thatbranch
+[12:22:02] <ben_alman> then… amend things?
+[12:22:08] <ben_alman> commit?
+[12:22:09] <gnarf> merge --squash branch
+[12:22:12] <mikesherov> amend ALL THE THINGS
+[12:22:16] <gnarf> then commit --author="...."
+[12:22:24] <gnarf> with any changes/conflicts resolved
+[12:22:27] <gnarf> then checkout stable
+[12:22:28] <ben_alman> what is the … there
+[12:22:31] <gnarf> cherry-pick
+[12:22:32] <ben_alman> for --author
+[12:22:38] <gnarf> ben_alman: the author of the pull
+[12:22:42] <ben_alman> yeah but what is it
+[12:22:58] <gnarf> ben_alman: git log --format="%an <%ae>" branch | head
+[12:23:01] <ben_alman> --author="\"Cowboy\" Ben Alman <cowboy@rj3.net>" ?
+[12:23:06] <mikesherov> ORRRR
+[12:23:09] <mikesherov> just use pulley :-P
+[12:23:46] <ben_alman> gnarf: do you type all this in, every time?
+[12:23:50] <gnarf> ben_alman: git commit --author="$(git log --format="%an <%ae>" branch | head -1)"
+[12:24:22] <mikesherov> he has it saved in a text doc
+[12:24:27] <gnarf> ben_alman: yes
+[12:24:42] <ben_alman> crazy
+[12:24:45] <mikesherov> or he could just write a script that does all that... hmmm, I wonder if anyone has thought of that
+[12:24:45] <ben_alman> no aliases?
+[12:24:52] <gnarf> ben_alman: lots are aliased
+[12:24:55] <ben_alman> i have aliases for all my crazy git shit
+[12:25:18] <gnarf> mikesherov: i don't like to automate multiple commands
+[12:25:22] <gnarf> mikesherov: specially in my git repo
+[12:25:26] <ben_alman> https://github.com/cowboy/dotfiles/blob/master/source/50_vcs.sh
+[12:25:29] <gnarf> i like to handle it with kid gloves
+[12:25:31] <mikesherov> I'm JK
+[12:25:46] <ben_alman> my gf function is awesome
+[12:25:48] <ben_alman> ♥
+[12:25:49] <gnarf> and really, copying the author is like 1/10th the time
+[12:26:06] <mikesherov> what about a pr git alias:
+[12:26:07] <mikesherov> pr = !"BRANCH=$(git branch | grep '^* ' | sed 's/^* //'); UPSTREAM=$(git remote -v | grep upstream | head -n1 | sed 's/^.\\+github.com[:\\/]\\(.\\+\\) \\(.\\+\\)$/\\1/' | sed 's/\\.git$//'); git push origin $BRANCH && curl -H \"Authorization: token $(git config --get github.apitoken)\" https://api.github.com/repos/$UPSTREAM/pulls -d \"{\\\"head\\\":\\\"$(git config --get github.user):$BRANCH\\\",\\\"base\\\":\\\"master\\\",\\\"
+[12:26:09] <gnarf> of all the rest of the things you need to do to land
+[12:26:27] <ben_alman> wow that's a lot of escaping
+[12:26:31] <gnarf> heh
+[12:26:45] <gnarf> you know you can make that a pr.sh and call it?
+[12:26:55] <mikesherov> sure, but it wouldn't be as awesome
+[12:27:13] <mikesherov> it's a pull request opener
+[12:27:17] <gnarf> itd be a lot more readable
+[12:27:23] <mikesherov> readable shmeadable
+[12:27:36] <ben_alman> so i just want to get all this straight
+[12:27:40] <ben_alman> it's mostly around versions
+[12:27:51] <ben_alman> at the point master will be 1.9 from 1.8
+[12:28:02] <mikesherov> from my coworker: https://github.com/weikinhuang/dotfiles/blob/master/.gitconfig
+[12:28:04] <ben_alman> you first branch 1-8-stable from master HEAD
+[12:28:16] <ben_alman> then bump master's version to 1.9pre
+[12:28:17] <gnarf> we branch 1-8-branch
+[12:28:20] <gnarf> yup
+[12:28:46] <ben_alman> so 1-8-stable starts as the last commit in master when you branched
+[12:29:06] <gnarf> yes - who's version was likely 1.8next
+[12:29:09] <gnarf> or 1.8git
+[12:29:10] <ben_alman> let's say it was 1.8.3pre plus some PRs that were just merged in because 1.8.3 is coming out soon
+[12:29:13] <gnarf> or whatever we use
+[12:29:15] <ben_alman> wait
+[12:30:04] <ben_alman> i go from 1.8.0 release → 1.8.1pre for dev → 1.8.1 release → 1.8.2pre for dev etc
+[12:30:06] <ben_alman> what do you do?
+[12:30:36] <gnarf> we use 1.8.22pre
+[12:30:46] <gnarf> ben_alman: yeah
+[12:31:04] <ben_alman> what was 1.8next or 1.8git ?
+[12:31:09] <gnarf> 1.8pre -> 1.8.0 -> 1.8.1pre --- all happens on master
+[12:31:19] <gnarf> i didn't remember if we used 1.8.1pre or 1.8git or what
+[12:31:25] <ben_alman> 1.8pre isn't a valid semver
+[12:31:28] <ben_alman> do you care about that?
+[12:31:36] <ben_alman> just curious
+[12:31:44] <gnarf> its not tagged
+[12:31:53] <gnarf> is 1.8.0pre valid?
+[12:31:56] <ben_alman> yep
+[12:31:59] <gnarf> cuz thats what it should probably be then
+[12:32:02] <ben_alman> yep
+[12:32:18] <ben_alman> but that's a marketing decision probably
+[12:32:48] <gnarf> so, there will be a commit that is "bumping version to 1.8.0" which is tagged 1.8.0 -- then "bumping version 1.8.1pre" is the very next commit
+[12:33:10] <ben_alman> right
+[12:33:15] <ben_alman> ok so back to my question
+[12:33:49] <ben_alman>  let's say at the point 1-8-stable was branched from master, master was 1.8.3pre plus some PRs that were just merged in because 1.8.3 is coming out soon
+[12:34:02] <gnarf> okay
+[12:34:12] <ben_alman> so you branch there and the next thing you do is immediately bump master version to 1.9.0pre ?
+[12:34:21] <ben_alman> or 1.9pre
+[12:34:23] <ben_alman> w/e
+[12:34:27] <gnarf> yes, 1.9.0pre
+[12:34:27] <ben_alman> or something else?
+[12:34:29] <ben_alman> ok.
+[12:34:33] <gnarf> lets stick with the valid semver
+[12:34:34] <gnarf> :)
+[12:34:50] <ben_alman> now 1-8-stable will always contain the latest version of 1.8.whatever
+[12:34:59] <ben_alman> as if it was still in master but just in a separate named branch
+[12:35:03] <gnarf> right + any thing landing there waiting for a release
+[12:35:05] <ben_alman> out of necessity
+[12:35:37] <ben_alman> so you try to hold out for as long as possible to start working on 1.9 because it makes working on maintenance for 1.8.x that much harder
+[12:35:40] <gnarf> while you work on 1.9.0pre - you will still be landing to 1-8-stable to create 1.8.next
+[12:35:48] <ben_alman> because of the branch + cherry-picking you have to do
+[12:36:05] <gnarf> ben_alman: core does, UI has been just pluggin along with it, but it makes landing a pull a little harder
+[12:36:19] <gnarf> sometimes you just decide the bug doesn't get fixed until 1.9 because backporting is too much of a pain
+[12:36:27] <ben_alman> ok
+[12:37:00] <DaveMethvin> i agree with the above conversation
+[12:38:22] <gnarf> and like - our releases are usually quick enough that bugs that are fixed in the next minor are not too far down the line that people can't wait
+[12:38:33] <gnarf> if we had to relase a jquery 1.7.3 right now
+[12:38:36] <gnarf> because of some crazy bug
+[12:38:44] <gnarf> we could always checkout the 1.7.2 tag
+[12:38:49] <gnarf> create the 1-7-branch from there
+[12:38:50] <ben_alman> if you haven't been able to guess, i want to formalize grunt's dev process into something sane
+[12:38:57] <ben_alman> starting with 0.4
+[12:39:29] <gnarf> but like, we don't anticipate even needing a branch for 1.7 at this point
+[12:39:36] <gnarf> so why make one
+[12:39:36] <ben_alman> i like what you guys have done because you can defend like, every part of it
+[12:39:58] <gnarf> ben_alman: heh
+[12:40:01] <ben_alman> http://bitdepth.thomasrutter.com/2010/04/02/stable-vs-stable-what-stable-means-in-software/
+[12:40:08] <ben_alman> this supports your use of the -stable suffix
+[12:40:13] <mikesherov> well, especially when all of our tools have the idea that master is latest baked into them
+[12:40:16] <ben_alman> so i can get behind it
+[12:40:50] <mikesherov> everything broke when we tried to make something other than master latest
+[12:41:56] <ben_alman> so i just need to think about my workflow
+[12:43:01] <ben_alman> i definitely need to make a few aliases for handling PRs
+[12:43:17] <ben_alman> but not what mikesherov posted
+[12:43:20] <ben_alman> because that's mental
+[12:43:26] <mikesherov> LOL
+[12:44:07] <mikesherov> ben_alman, if you read pulley's source, it outlines what DaveMethvin and gnarf already do... you can just get their dotfiles too though
+[12:44:16] <ben_alman> sure
+[12:44:23] <ryanneufeld> Does anyone know when the videos will be up from the conf? I missed johnbender's talk and would really like to see it
+[12:44:25] <ben_alman> does DaveMethvin even use unix?
+[12:44:28] <gnarf> ben_alman: i still type most of it by hand
+[12:44:37] <mikesherov> DaveMethvin is on windows
+[12:44:39] <DaveMethvin> windows with various layers of makeup, ben_alman
+[12:45:16] <mikesherov> g2g, good luck ben_alman
+[12:45:28] <DaveMethvin> here's the way i look at the whole pull/merge/push thing
+[12:45:36] <DaveMethvin> at some point i will understand git pretty well
+[12:45:38] <DaveMethvin> i am not there yet
+[12:45:49] <DaveMethvin> so the repetition gives me a chance to understand more about the process
+[12:45:57] <DaveMethvin> when it gets boring and tedious,
+[12:46:02] <DaveMethvin> i'll switch to pulley
+[12:46:02] <ben_alman> yeah i'm jsut a really shitty typer
+[12:46:07] <ben_alman> i won't use pully
+[12:46:13] <ben_alman> i'll just write my own
+[12:46:20] <ben_alman> then if it happens to be the same thing as pulley
+[12:46:20] <gnarf> ben_alman: the hardest ones are like - adding a remote
+[12:46:21] <ben_alman> i'll switch
+[12:46:38] <gnarf> i usually don't even work on a branch when merging
+[12:46:42] <ben_alman> gnarf: i did https://github.com/cowboy/dotfiles/blob/master/source/50_vcs.sh#L28-36
+[12:46:54] <ben_alman> haven't used it in ages tho
+[12:46:54] <ben_alman> heh
+[12:47:06] <ben_alman> so it was probably silly
+[12:47:18] <ben_alman> some of the git aliases i use all the time like function gc() { git checkout "${@:-master}"; } # Checkout master by default
+[12:47:22] <gnarf> its not terrible
+[12:47:46] <gnarf> i might steal that one
+[12:47:57] <gnarf> but it could be written in .gitconfig prolly
+[12:48:06] <gnarf> also, i used "hub" for a bit
+[12:48:17] <gnarf> hub remote add -f username
+[12:48:22] <gnarf> git checkout username/branch
+[12:48:28] <gnarf> grunt / test / whatever
+[12:48:41] <gnarf> git add / commit if needed
+[12:48:45] <gnarf> git log - copy username
+[12:48:50] <gnarf> git checkout master
+[12:48:56] <gnarf> git merge --squash commitid
+[12:49:09] <ben_alman> i have no idea what i'm looking at here
+[12:49:09] <gnarf> git commit --author="<paste>"
+[12:49:16] <gnarf> my pull merge workflow
+[12:49:24] <ben_alman> ah
+[12:50:08] <gnarf> use the editor to fix commit message
+[12:50:09] <gnarf> and done
+[12:50:11] <gnarf> push it
+[12:50:39] <gnarf> i avoid even creating the local branch
+[12:50:43] <gnarf> cuz otherwise i'd have 100
+[12:51:13] <gnarf> if i need to make changes i either do them between the squash and the commit, or i commit on top of a detached head and just remember the SHA
+[12:52:13] <gnarf> i also use export foo=1234567
+[12:52:14] <gnarf> alot
+[12:52:18] <gnarf> to remember a commit id
+[12:52:19] <gnarf> :)
+[12:56:37] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/mfTCRQ
+[12:56:37] <jqcommit> [jquery/master] Make unit tests friendly to Closure Compiler. Closes gh-845. - Chad Killingsworth
+[12:57:08] <DaveMethvin> ooh, nice tip about export gnarf
+[12:58:16] <ben_alman> so i'm looking at pulley
+[12:58:30] <ben_alman> it seems to do everything all in one step
+[12:59:03] <ben_alman> but like, what if you want to test in between pulling and committing
+[12:59:07] <ben_alman> not sure i understand
+[12:59:14] <gnarf> https://gist.github.com/3056078
+[12:59:25] <gnarf> ben_alman: thats why i no like pulley
+[12:59:39] <ben_alman> so i'm correct in thinking it should be 2 steps?
+[12:59:39] <gnarf> DaveMethvin: ^^^^ just hacked that together
+[12:59:47] <DaveMethvin> nice idea!
+[13:00:12] <ben_alman> gnarf: you could probably just add that into your prompt
+[13:00:18] <DaveMethvin> ben_alman: afaik that's one of its benefits but mikesherov can probably say more about it
+[13:00:27] <ben_alman> i already have a bunch of git stuff in my prompt
+[13:01:03] <gnarf> http://cl.ly/0A1c071H2y3w2p0k003b
+[13:01:16] <ben_alman> gnarf: git log -n1 --format='%an <%ae>' HEAD
+[13:01:22] <ben_alman> use -n1 instead of | head -1
+[13:01:26] <gnarf> ben_alman: -n1
+[13:01:27] <gnarf> thx
+[13:01:31] <gnarf> i looked and didn't see it
+[13:01:34] <ben_alman> unless i'm going from the wrong end
+[13:03:09] <gnarf> thats kinda useful ;)
+[13:04:12] <ben_alman> so did john ever like, test code before merging and closing the pr?
+[13:04:22] <ben_alman> because i don't see how he would've ever used pulley
+[13:04:30] <gnarf> ben_alman: checkout the branch first
+[13:04:31] <gnarf> test it
+[13:04:33] <gnarf> make sure it works
+[13:04:35] <gnarf> then pulley it
+[13:04:41] <gnarf> but like
+[13:04:42] <gnarf> yeah
+[13:04:45] <DaveMethvin> but of course my worflow is different
+[13:04:47] <gnarf> it just seemed messy
+[13:04:57] <ben_alman> checking out the branch is non-trivial to do when all you have is a pr #
+[13:05:04] <gnarf> i think i convinced DaveMethvin to use my workflow
+[13:05:06] <ben_alman> you need to hit their api
+[13:05:15] <ben_alman> gnarf: can you gist your workflow?
+[13:05:23] <DaveMethvin> check it out, tweak spacing, change the commit message to reference the trac ticket PLUS the github pull request number
+[13:05:23] <ben_alman> this might be an awesome grunt task tbh
+[13:05:49] <gnarf> ben_alman: there are like several "pause and do something by hand" points
+[13:05:53] <ben_alman> yes
+[13:05:54] <DaveMethvin> right
+[13:05:58] <DaveMethvin> and sometimes iterative
+[13:06:04] <gnarf> but like
+[13:06:08] <ben_alman> but you could maybe keep track
+[13:06:08] <gnarf> grunt pull #
+[13:06:15] <ben_alman> grunt pr:123 would first pull it
+[13:06:18] <gnarf> grunt pullmerge
+[13:06:24] <ben_alman> then doing grunt pr:123 again would squashmerge
+[13:06:25] <ben_alman> etc
+[13:06:38] <ben_alman> and at any point it could be like
+[13:06:50] <ben_alman> grunt pr:123:all to force complete it to end without any more stopping
+[13:06:54] <ben_alman> or something
+[13:07:06] <ben_alman> come in here
+[13:07:07] <ben_alman> http://oksoclap.com/grunt-git-devel
+[13:07:09] <DaveMethvin> or....just use git? it seems harder than using git, which you'll need to understand anyway
+[13:07:12] <ben_alman> and write the steps out
+[13:07:24] <DaveMethvin> the upside would be that you'd learn the steps really well during that process
+[13:07:25] <ben_alman> DaveMethvin: in case you haven't notivced i like to automate annoying repetetive stuff
+[13:07:27] <DaveMethvin> but i doublt i'd use it
+[13:07:38] <ben_alman> np
+[13:07:41] <ben_alman> i want this for ME
+[13:07:47] <ben_alman> that's how grunt started, you know
+[13:07:48] <ben_alman> jej
+[13:07:50] <ben_alman> heh too
+[13:08:22] <DaveMethvin> ?swarm
+[13:08:22] <bot-t> Swarm Status: http://swarm.jquery.org/user/jquery/ http://swarm.jquery.org/user/jqueryui/ http://swarm.jquery.org/user/qunit/ http://swarm.jquery.org/user/jquerycolor/ -- Jenkins http://swarm.jquery.org:8080
+[13:08:50] <DaveMethvin> need moar executors
+[13:09:07] <DaveMethvin> i don't want to push my next one until i see how this one did
+[13:21:59] <gnarf> DaveMethvin: http://oksoclap.com/grunt-git-devel -- is that about what you're doing?
+[13:23:14] <DaveMethvin> gnarf, yep that looks like what i do too
+[13:23:34] <gnarf> do you merge before you merge squash?
+[13:23:37] <ben_alman> so at the very least a few of these things can be automated
+[13:24:08] <ben_alman> like given a PR finding the remote/branch and checking that out into a pr-named local branch
+[13:24:42] <DaveMethvin> usually i pull --rebase
+[13:24:43] <ben_alman> also, getting the author who made the most changes along with a list of other authors
+[13:24:48] <DaveMethvin> and then merge --squash
+[13:25:07] <ben_alman> pull --rebase where
+[13:25:22] <DaveMethvin> on the branch
+[13:25:49] <DaveMethvin> if it's an old branch
+[13:25:53] <ben_alman> that rebases master onto the branch?
+[13:25:55] <DaveMethvin> otherwise i've just branched off master
+[13:26:00] <ben_alman> or rebases origin/master ?
+[13:26:01] <DaveMethvin> which shoudl be up to date
+[13:26:28] <DaveMethvin> honestly i end up wanting manual control on almost every step
+[13:26:34] <DaveMethvin> so unlesss it's a wizard that prompts me
+[13:26:44] <ben_alman> yes
+[13:26:44] <DaveMethvin> i will not be able to use a tool to automate it
+[13:26:46] <gnarf> i think he meant - he checks out the remote branch, then pulls master with --rebase
+[13:26:54] <ben_alman> look @ the things i'm listing as "might be able to be automated"
+[13:27:12] <ben_alman> those first 3 steps can totally be automated
+[13:27:18] <gnarf> having "grunt pr:1234" checking out the remote after fetching and making a pr-1234 is gonna be awesome
+[13:27:30] <ben_alman> that could be a bash script as well
+[13:27:34] <DaveMethvin> right
+[13:27:37] <ben_alman> it would be 10000x easier but not portable
+[13:27:42] <ben_alman> which makes me sad
+[13:27:52] <ben_alman> also, the GH api is all JSON
+[13:27:59] <ben_alman> and bash doesn't parse JSON so good
+[13:27:59] <ben_alman> heh
+[13:28:54] <DaveMethvin> well even on those first few steps
+[13:29:03] <DaveMethvin> i have exceptions
+[13:29:06] <ben_alman> really?
+[13:29:08] <DaveMethvin> like i'll try to land something
+[13:29:10] <tbranyen> isn't there a really good node json module that works in the terminal that you could install as a dev dep?
+[13:29:11] <DaveMethvin> and it needs more work
+[13:29:21] <DaveMethvin> so i ask the person to add some commits
+[13:29:30] <ben_alman> tbranyen: yes but i can then only get one value at a time
+[13:29:36] <DaveMethvin> so that would break unless you either delete the previous branch or update the curent one
+[13:29:37] <tbranyen> :-/
+[13:29:48] <DaveMethvin> so checkout -b isn't always right
+[13:29:50] <ben_alman> DaveMethvin: it's trivial to delete a branch or update an existing one
+[13:29:57] <ben_alman> i'd probably delete the branch tbg
+[13:29:59] <ben_alman> tbh
+[13:30:34] <gnarf> DaveMethvin: yeah, i'd blow that thing up as soon as you kicked it back
+[13:30:42] <gnarf> unless you were filing a pull on their pull
+[13:30:44] <gnarf> which i've done
+[13:30:45] <gnarf> :)
+[13:31:12] <DaveMethvin> if gruntpulley used a prefix for its branches that would be fine
+[13:31:16] <DaveMethvin> blow away whatever was tehre before
+[13:31:21] <ben_alman> sure
+[13:31:24] <ben_alman> pr-1234
+[13:31:26] <ben_alman> or whatever
+[13:31:32] <ben_alman> gpr-1234
+[13:31:42] <DaveMethvin> although a disturbing number of people use patch-1 for their patches the firs ttime :D
+[13:31:52] <ben_alman> i'd use the # of the PR
+[13:31:59] <DaveMethvin> but the branch is only going to exist for the duration of the gruntpulley process
+[13:32:06] <DaveMethvin> so that shoudl be fine
+[13:32:35] <DaveMethvin> WHERE ARE YOU JENKINS
+[13:33:10] <ryanneufeld> Does anyone know when the videos will be up from the conf? I missed johnbender's talk and would really like to see it
+[13:33:32] <danzik17> +1, was about to ask that
+[13:33:40] <ryanneufeld> or there better place to ask?
+[13:34:02] <gnarf> ryanneufeld: I'm not sure what the turn around time is, but whenever we get them, you'll likely know if you follow our tweets :)
+[13:34:15] <ryanneufeld> :)
+[13:34:31] <gnarf> I missed like every talk
+[13:34:37] <gnarf> so I'm excited to see them too
+[13:34:44] <ryanneufeld> haha yeah...
+[13:35:45] <ben_alman> i'm imagining that when you do a git merge --squash a commit message file is stored somewhere accessible
+[13:35:56] <ben_alman> which can have stuff cated onto its end
+[13:36:04] <ben_alman> maybe even the ahtor info
+[13:36:07] <ben_alman> author too
+[13:36:09] <ben_alman> dunnoes
+[13:36:13] <gnarf> ben_alman: the "list of other authors" is a very rare case, and probably doesn't deserve automation :)
+[13:36:20] <ben_alman> gnarf: fair enough
+[13:36:38] <gnarf> only a few of us actually compose pulls with multiple contribs
+[13:36:46] <DaveMethvin> i would say the push should not be automated, that way you can look at everything and do a final --amend if needed
+[13:38:10] <gnarf> also - for those of us that do, I doubt any of us really care about getting credit in a commit message either ;)
+[13:38:41] <sizcommit> [sizzle] timmywil pushed 3 new commits to master: http://git.io/WTL2YA
+[13:38:41] <sizcommit> [sizzle/master] POS handling should use matchExpr in case of extension (added extension tests). Since POS takes a different code path, no need to check for POS in pseudo matches. - timmywil
+[13:38:41] <sizcommit> [sizzle/master] Attribute names should be treated as case-insensitive when not xml. - timmywil
+[13:38:41] <sizcommit> [sizzle/master] Adjust dir caching to run on a per-selection basis rather than a per-element basis. - Yaffle
+[13:39:10] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/xaqTDw
+[13:39:10] <jqcommit> [jquery/master] Update Sizzle: adjusted POS handling; attribute names should be case-insensitive; dir cache performance tweak - timmywil
+[13:41:22] <sizcommit> [sizzle] timmywil pushed 1 new commit to master: http://git.io/gMJ1Dg
+[13:41:22] <sizcommit> [sizzle/master] Remove accidental addition of QUnit and add it to the gitignore for the future - timmywil
+[13:42:09] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/qN5AZQ
+[13:42:09] <jqcommit> [jquery/master] Sizzle: removes qunit and adds .gitignore - timmywil
+[13:42:09] <timmywil> woops
+[13:43:09] <ryanneufeld> do you guys use roles for jenkins?
+[13:52:09] <jq-jenkins> Project jQuery Core build #214: STILL FAILING in 26 min: http://swarm.jquery.org:8080/job/jQuery%20Core/214/
+[13:52:09] <jq-jenkins> dave.methvin: Make unit tests friendly to Closure Compiler. Closes gh-845.
+[13:53:53] <timmywil> DaveMethvin: holy failed lint batman
+[13:54:22] <timmywil> gnarf, ben_alman: you can adjust the config for pulley to put you into interactive mode on commits, which should pause everything.
+[13:54:32] <DaveMethvin> wha?
+[13:55:03] <timmywil> DaveMethvin: I think it's just a bunch of "use dot notation" instead nonsense
+[13:55:07] <timmywil> on the tests
+[13:55:36] <timmywil> also he uses single quotes everywhere
+[13:55:42] <timmywil> but that's not why it's failing
+[13:55:43] <DaveMethvin> yeah it is, but it should have been silenced, just a sec
+[13:56:18] <DaveMethvin> i am getting no errors from grunt
+[13:56:19] <timmywil> wait, no he doesn't, lint spits out single quotes
+[13:56:26] <DaveMethvin> on master
+[13:56:36] <timmywil> DaveMethvin: hmm
+[13:56:40] <timmywil> maybe I need to update grunt
+[13:57:03] <DaveMethvin> there should have been a change to the gruntfile to silence those messages
+[13:57:52] <timmywil> you're right, I was just looking at my last grunt watch output
+[13:57:54] <timmywil> thanks
+[13:57:56] <timmywil> sry!
+[13:57:59] <DaveMethvin> whew!
+[14:04:22] <scott_gonzalez> DaveMethvin: What the deal with TestSwarm? Is it copyright jQuery Foundation?
+[14:04:33] <scott_gonzalez> I seem to remember something crazy about Mozilla for a while.
+[14:04:38] <scott_gonzalez> Which I never really understood.
+[14:05:00] <DaveMethvin> i can say i know nothing about that :)
+[14:05:15] <DaveMethvin> at one point it was mozilla
+[14:07:39] <scott_gonzalez> Is it now jQuery?
+[14:07:42] <scott_gonzalez> Or is that unknown?
+[14:07:50] <scott_gonzalez> The copyright doesn't mention Mozilla at all.
+[14:18:45] <DaveMethvin> scott_gonzalez: not sure, jzaefferer should know i hope, or krinkle
+[14:18:56] <DaveMethvin> neither seem to be around now
+[14:22:11] <jq-jenkins> Project jQuery Core build #215: STILL FAILING in 22 min: http://swarm.jquery.org:8080/job/jQuery%20Core/215/
+[14:22:12] <jq-jenkins> * timmywillisn: Update Sizzle: adjusted POS handling; attribute names should be case-insensitive; dir cache performance tweak
+[14:22:12] <jq-jenkins> * timmywillisn: Sizzle: removes qunit and adds .gitignore
+[14:26:42] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/k3Rqkw
+[14:26:42] <jqcommit> [jquery/master] Fix #12026. Let props in $(html, props) be any jQuery.fn method. - Dave Methvin
+[14:28:50] <gnarf> hrm
+[14:29:01] <gnarf> so for some reason i can't seem to write a unit for this
+[14:29:04] <gnarf> and its pissing me off
+[14:29:17] <gnarf> http://jsfiddle.net/NGBaX/2/
+[14:41:53] <gnarf> hrm
+[14:43:27] <gnarf> okay wtf
+[14:43:40] <gnarf> http://jsfiddle.net/ZghJu/  <-- run that in ie8
+[14:43:47] <gnarf> you'll get an "unspecified error"
+[14:43:54] <gnarf> http://jsfiddle.net/ZghJu/show/ <--- run that in ie8 --- no error
+[14:44:28] <gnarf> anyone ever seen something like this?
+[14:44:36] <gnarf> DaveMethvin? scott_gonzalez?
+[14:45:02] <gnarf> im thinking this might be like a quirks/xhtml doctype thing
+[14:45:58] <scott_gonzalez> gnarf: no idea :-/
+[14:45:58] <jqcommit> [testswarm] scottgonzalez created copyright (+1 new commit): http://git.io/TJRzsA
+[14:45:58] <jqcommit> [testswarm/copyright] Update copyright to jQuery Foundation. - Scott González
+[14:47:29] <gnarf> anyway
+[14:47:34] <gnarf> given then same bullshit in my unit tests
+[14:47:39] <gnarf> i can't reproduce it
+[14:47:40] <gnarf> so like
+[14:47:44] <gnarf> i dunno how to test this
+[14:48:27] <gnarf> ircjsbot: tell mikesherov hey- on #9217 -- I haven't been able to get a unit test to fail... can you maybe see if you can?  I have a patch, but need a unit that fails now to legitimize it.
+[14:48:28] <ircjsbot> gnarf, no YOU can
+[14:48:28] <ircjsbot> gnarf, I’ll tell mikesherov about that.
+[14:48:28] <ircjsbot> gnarf, no.
+[14:48:28] <DaveMethvin> gnarf: catching up here
+[14:48:36] <DaveMethvin> wat?
+[14:48:42] <gnarf> ircjsbot: when did you get so lippy?
+[14:48:42] <ircjsbot> gnarf, no YOU get so lippy
+[14:48:52] <DaveMethvin> lol!
+[14:49:17] <gnarf> ircjsbot: tell DaveMethvin so long as it actually works....
+[14:49:17] <ircjsbot> gnarf, I’ll tell DaveMethvin about that.
+[14:49:17] <ircjsbot> gnarf, you have one new message, just say “read” to me when you wish to read it.
+[14:49:23] <DaveMethvin> man everything is running slow today
+[14:49:23] <ircjsbot> DaveMethvin, you have one new message, just say “read” to me when you wish to read it.
+[14:49:25] <gnarf> read
+[14:49:31] <DaveMethvin> ircjsbot: read
+[14:49:31] <ircjsbot> DaveMethvin, from gnarf, 14 seconds ago: so long as it actually works....
+[14:49:47] <DaveMethvin> ok gnarf, lemme see
+[14:49:55] <gnarf> ircjsbot: read
+[14:49:55] <ircjsbot> gnarf, from nlogax, 40 seconds ago: dunno :O
+[14:50:32] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/qFC1PA
+[14:50:32] <jqcommit> [jquery/master] Remove more attrFn vestiges from events. - Dave Methvin
+[14:51:04] <DaveMethvin> MINUS FOURTEEN SUCKAS
+[14:51:22] <gnarf> DaveMethvin: i'm very frustrated with this test case
+[14:51:50] <DaveMethvin> gnarf: imma try a real ie8 vm
+[14:52:44] <gnarf> DaveMethvin: it was more consistent in ie7, but even then, still couldn't get a unit written exactly the same using #foo p
+[14:52:47] <gnarf> to break
+[14:53:08] <gnarf> must be something about the element having existed outside dom at some point
+[14:53:13] <DaveMethvin> gnarf: i'm getting the unspecified error on http://jsfiddle.net/ZghJu/show/ as well
+[14:53:14] <gnarf> because qunit-fixture is cloned
+[14:53:48] <gnarf> DaveMethvin: https://gist.github.com/3040d3c52ed57e042bc8
+[14:53:54] <gnarf> can you try that in your effects.js units
+[14:54:08] <gnarf> and maybe see if im just having bad luck with browserstack?
+[14:56:07] <gnarf> like
+[14:56:12] <gnarf> i don't see why that one would pass
+[14:56:15] <gnarf> when the others wouldn't
+[14:56:18] <DaveMethvin> ok so the error is on this line, right? 				tween.elem[ tween.prop ] = tween.now;
+[14:56:28] <gnarf> yes
+[14:56:34] <DaveMethvin> unspecified error
+[14:56:38] <gnarf> its setting scrollLeft on a disconnected node
+[14:56:45] <DaveMethvin> oh
+[14:57:00] <DaveMethvin> can it do that? :D
+[15:01:00] <DaveMethvin> gnarf: when i run that gist locally in effects it seems to work
+[15:01:13] <gnarf> "to work" meaning it doesn't have an error?
+[15:01:14] <DaveMethvin> note of course that you have to have dev tools open for console.log
+[15:01:18] <DaveMethvin> green
+[15:01:27] <DaveMethvin> animation completed
+[15:01:36] <gnarf> yeah, like thats the same code that causes a failure in the fiddle
+[15:01:44] * gnarf screams
+[15:03:28] <DaveMethvin> wow that is bizarre
+[15:03:36] <gnarf> so like
+[15:03:37] <DaveMethvin> yeah it passes when i run it locally
+[15:03:42] <gnarf> i don't want to patch the bug
+[15:03:50] <gnarf> until we can find out what actually causing it
+[15:03:53] <DaveMethvin> right
+[15:04:11] <DaveMethvin> so was this a unit test that failed, or a ticket from someone?
+[15:04:21] <gnarf> ticket 9217
+[15:04:27] <gnarf> im trying to write the unit
+[15:04:39] <DaveMethvin> i have to run but will be back shortly
+[15:04:41] <gnarf> i had already boiled it down to setting scrollLeft on an elem with a missing parentNode
+[15:04:57] <gnarf> but like - now...
+[15:19:17] <jq-jenkins> Project jQuery Core build #216: STILL FAILING in 21 min: http://swarm.jquery.org:8080/job/jQuery%20Core/216/
+[15:19:17] <jq-jenkins> * dave.methvin: Fix #12026. Let props in $(html, props) be any jQuery.fn method.
+[15:19:18] <jq-jenkins> * dave.methvin: Remove more attrFn vestiges from events.
+[17:28:06] <scott_gonzalez> DaveMethvin: Is there a reason core uses jQuery.isFunction() instead of jQuery.type() === "function"?
+[17:28:24] <ben_alman> because dogfood is yummy
+[17:29:57] <DaveMethvin> i dunno scott_gonzalez, because it's shorter?
+[17:30:03] <DaveMethvin> i think isFunction came first
+[17:30:12] <DaveMethvin> and it's a documented interface
+[17:30:20] <scott_gonzalez> Yeah, it came first.
+[17:30:22] <DaveMethvin> then .type showed up later
+[17:30:33] <scott_gonzalez> I figured it was just "that's how it was"
+[17:30:41] <scott_gonzalez> Wasn't sure if it was a concious decision to stay with it.
+[17:30:44] <DaveMethvin> it is probably a bit shorter
+[17:31:04] <DaveMethvin> and really we should be able to use typeof === "function"
+[17:31:18] <DaveMethvin> we would  have gotten away with it if it wasn't for that crazy Webkit
+[17:31:35] <DaveMethvin> of course that bug may have gone away in Safari 3
+[17:31:42] <DaveMethvin> and we just didn't notice
+[17:36:14] <ben_alman> aren't regexps typeof function in some IEs?
+[17:36:28] <ben_alman> not that you often need to disambiguate between regexp and function
+[17:37:41] <scott_gonzalez> DaveMethvin: It is indeed shorter. +39 to use .type()
+[17:37:50] <scott_gonzalez> That was a LOT of instances to update...
+[17:38:06] <DaveMethvin> i think we should look at using typeof if we can
+[17:38:10] <DaveMethvin> saves a function call too
+[17:38:26] <scott_gonzalez> $.type() saves a function call over $.isFunction() :-P
+[17:38:37] <DaveMethvin> right, but just ONE :D
+[17:40:33] <DaveMethvin> ben_alman: i think the one that got us was certain DOM properties returned typeof==function in Webkit, but it has been a LOONG time so it may have been fixed
+[17:40:42] <ben_alman> gotcha
+[17:44:29] <DaveMethvin> ben_alman: and you're right, typeof /regexp/ == "function" in older webkit ... don't know when it was fixed but safari 5 and the latest chrome are ok
+[17:44:38] <ben_alman> cool
+[18:28:21] <scott_gonzalez> DaveMethvin: Do you have an expected date for 1.8?
+[18:28:43] <scott_gonzalez> We haven't had a single bug filed against 1.9.0-beta.1 o_O
+[18:28:54] <DaveMethvin> we had a few bugs this week which is good
+[18:29:04] <DaveMethvin> hoping for a beta2 next week
+[18:29:11] <DaveMethvin> final by the end of the month
+[18:29:31] <scott_gonzalez> Cool, let me know a day before the beta. I'll kick off another full UI build.
+[18:52:37] <ben_alman> DaveMethvin gnarf ping
+[18:52:46] <ben_alman> PR process question
+[18:53:04] <ben_alman> or scott_gonzalez
+[18:56:48] <ben_alman> what are the commands you use to create a pr-based branch and pull down the pr branch?
+[18:57:32] <ben_alman> i've got: git checkout -b pr-123 master; git pull remote_url remote_ref
+[18:57:42] <ben_alman> but then i see that git pull trying to merge
+[18:57:47] <ben_alman> which doesn't seem right
+[21:48:56] <gnarf> git co remote/repo ; git checkout -b pr-123 ; git pull --rebase upstream master
+[21:49:09] <gnarf> so the "base" is the remote
+[21:49:16] <gnarf> and then rebase on pull in

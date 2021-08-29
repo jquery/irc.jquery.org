@@ -1,0 +1,247 @@
+[14:01:59] <arschmitz> agcolom: apsdehal: gabrielschulhof: jasperdegroot: cgack: sfrisk: meeting time
+[14:02:06] <sfrisk> allo
+[14:02:15] <apsdehal> Hi
+[14:02:26] <jasperdegroot> hola
+[14:03:11] <cgack> howdy
+[14:03:31] <gabrielschulhof> Hey!
+[14:04:19] <arschmitz> ok lets get started
+[14:04:21] <arschmitz> agenda
+[14:04:25] <arschmitz> https://docs.google.com/spreadsheets/d/11-mngR57h54cIOjGDE2Z6LjaiyRgDwlcvKUzZn2Fw6M/edit#gid=1353055610
+[14:04:55] <arschmitz> So i got most of the changelog done was hoping to finish before the meeting today but got sucked into some infra issues deploying sites and DB again
+[14:05:01] <arschmitz> but those are now fixed
+[14:05:21] <arschmitz> changelog is about 90% done
+[14:05:33] <jasperdegroot> nice!
+[14:05:42] <arschmitz> all the commits are set just need to de dup the issues
+[14:06:01] <arschmitz> jquery ui 1.12.1 was released earlier today
+[14:06:09] <cgack> woot
+[14:06:20] <cogwurx> yay!
+[14:06:22] <arschmitz> which contains the memory leak handling we talked about last week and a few other fixes for some things we use like checkboxradio
+[14:07:09] <jasperdegroot> great
+[14:07:19] <arschmitz> so now we dont need to worry about doing _removeClass when removing elements from the dom
+[14:07:24] <arschmitz> it happens automagiclly
+[14:08:29] <agcolom> hey, I'm back (sorry a bit late!) let me know if there's anything you'd like me to review
+[14:09:13] <arschmitz> agcolom: no problem thank you
+[14:09:28] <arschmitz> so related to the infrastructure issues i mentioned before
+[14:09:46] <arschmitz> if anyone sees updates not happening on any site like they should when tagged or pushed to stage
+[14:10:02] <arschmitz> please ping me while its working now we dont know what exactly was causing the problem
+[14:11:35] <gabrielschulhof> arschmitz: We just need to make sure that we use jQuery to remove the element.
+[14:11:43] <arschmitz> yes
+[14:11:56] <arschmitz> but i dont believe there is any case we dont or wouldnt
+[14:12:09] <arschmitz> we never drop down to native api;s for that sort of thing
+[14:12:36] <arschmitz> that would cause other issues
+[14:12:46] <arschmitz> listeners would not be removed
+[14:12:48] <arschmitz> or data
+[14:12:57] <arschmitz> jquery would still hold all sorts of refrences
+[14:13:38] <gabrielschulhof> Yeah ... I know we do some stuff natively, but I think it's just DOM manip, not removal.
+[14:13:50] <arschmitz> right
+[14:14:04] <arschmitz> removal regardless of classes should never be done nativly it will cause issues
+[14:14:09] <arschmitz> like memory leaks
+[14:14:35] <gabrielschulhof> OK, so does that mean we can s/_removeClass// everywhere (so to speak)?
+[14:14:54] <gabrielschulhof> ... unless of course it's for a legit style change.
+[14:15:11] <arschmitz> gabrielschulhof: what do you mean ?
+[14:15:31] <arschmitz> oh like anywhere you were using it for untracking reasons?
+[14:15:35] <gabrielschulhof> Well, I can think of listview.
+[14:15:39] <gabrielschulhof> Yeah.
+[14:15:44] <arschmitz> yes listview can / should change
+[14:15:50] <arschmitz> just let the factory handle it
+[14:15:56] <gabrielschulhof> In listview I maintain a list of old items precisely for untracking.
+[14:16:06] <arschmitz> yeah that can be dropped
+[14:16:12] <gabrielschulhof> OK. Great!
+[14:16:37] <arschmitz> any time any element that has had _addClass used on it is removed from the dom
+[14:16:40] <gabrielschulhof> Can I already PR that against master?
+[14:16:43] <arschmitz> we remove all classes refrences
+[14:16:54] <arschmitz> if you bump the ui version in bower
+[14:17:07] <arschmitz> and run bowercopy
+[14:17:31] <arschmitz> which is simple
+[14:17:42] <gabrielschulhof> What version shall I pull? 1.12.1?
+[14:17:46] <arschmitz> yes
+[14:17:48] <gabrielschulhof> OK.
+[14:18:30] <arschmitz> i dont think we have another case of this sort of thing
+[14:18:35] <arschmitz> outside listview
+[14:20:09] <gabrielschulhof> No, I guess I can't think of one either.
+[14:20:18] <arschmitz> ok sounds good
+[14:20:42] <gabrielschulhof> I do have one thing about the history option we mentioned last week.
+[14:20:51] <arschmitz> ok
+[14:21:25] <gabrielschulhof> Should we assume that, if history is off, we use the current algorithm where we skip the entry if coming from a history=true page, but we don't skip it if we're coming from a history=false page?
+[14:22:18] <gabrielschulhof> ... or should we allow greater granularity than that, and have, like, history=skip-from-page in addition to true and false.
+[14:22:25] <arschmitz> hmmm
+[14:22:51] <gabrielschulhof> ... and then false means always skip, whether from history=true or history=false, and skip-from-page means skip only from history=true
+[14:23:18] <gabrielschulhof> We currently do not have this granularity, so this would be an extra feature, meaning we could defer it.
+[14:23:43] <gabrielschulhof> Just worth keeping in mind that we can go more granular than just true/false.
+[14:24:09] <arschmitz> yeah i think worth in future but not now maybe
+[14:24:20] <gabrielschulhof> Because there is the valid usecase I mention in the issue of page -> dialog1 -> dialog2 <-
+[14:24:27] <gabrielschulhof> OK.
+[14:24:53] <gabrielschulhof> Well, actually, there is a bit of a problem. If we false -
+[14:24:56] <gabrielschulhof> Sorry
+[14:25:47] <gabrielschulhof> if false <- true means skip, and we assume that false <- false means don't skip, then we cannot change the semantics to false <- false means skip in the future.
+[14:25:52] <gabrielschulhof> Not without backcompat.
+[14:25:57] <gabrielschulhof> ... for a minor version.
+[14:28:58] <arschmitz> so what i had envisioned
+[14:29:08] <arschmitz> was on the actual page to be loaded you set true/false
+[14:29:16] <arschmitz> and that page just is or is not added to the stack
+[14:29:39] <arschmitz> cut and dry
+[14:30:03] <gabrielschulhof> OK, so DOM-only operation.
+[14:30:24] <arschmitz> what do you mean?
+[14:30:31] <gabrielschulhof> No, wait, I get it.
+[14:31:05] <arschmitz> is there a reason that wouldnt work?
+[14:31:14] <gabrielschulhof> The content of the document changes, no history entry is created, but the history entry for the current page contains the original content of current page, not the updated content.
+[14:31:56] <gabrielschulhof> ... so when you navigate away and back, you get the original content, the updated content having been completely forgotten.
+[14:32:14] <arschmitz> yes
+[14:32:55] <gabrielschulhof> OK, so what about the dialog1 -> dialog2 scenario.
+[14:33:14] <gabrielschulhof> How do you clean up when you finally move away from the dialogs onto a page.
+[14:33:17] <gabrielschulhof> ?
+[14:34:18] <gabrielschulhof> dialog1 needs to have a history entry so you can move back to it from dialog2, but it must no longer have one after you've moved on to a page.
+[14:34:54] <gabrielschulhof> Anyway ... stuff to think about.
+[14:35:21] <arschmitz> so
+[14:35:26] <arschmitz> how would that occure
+[14:35:37] <arschmitz> you mean if the very first page you load is a dialog
+[14:35:56] <gabrielschulhof>  page1 -> dialog1 -> dialog2 <- dialog1 -> page2
+[14:37:07] <arschmitz> so if you click back on any of the dialogs it should go to page1
+[14:37:50] <arschmitz> actually at any point in that chain it should go to page1
+[14:37:51] <gabrielschulhof> OK. I guess we won't support, like, additional settings or something.
+[14:38:07] <gabrielschulhof> ... or are-you-sure type dialogs.
+[14:38:38] <arschmitz> if we get request for additional granularity or condital stuff we can considder
+[14:38:51] <arschmitz> but for now i think if you disable history for a page its disabled no ifs ands or buts
+[14:39:20] <arschmitz> i guess the one question is since this is an "option"
+[14:39:23] <gabrielschulhof> Yeah, that's actually a good way, because we clobber what we have now, and if people want it we reintroduce it the right way.
+[14:39:37] <arschmitz> can you set it after the fact
+[14:39:39] <gabrielschulhof> We can add a third possible value later.
+[14:39:57] <arschmitz> in which case we would have to go back and update this history and it gets messy
+[14:40:04] <gabrielschulhof> True, I guess you could set it in a page life cycle event.
+[14:40:21] <arschmitz> we just need to be clear in documentation its not an option
+[14:40:30] <arschmitz> of the widget and there for cant be updated
+[14:40:34] <gabrielschulhof> Nono. If you've chosen no history, we can still create a history entry over which we skip.
+[14:40:36] <arschmitz> thats its a navigation flag
+[14:40:56] <arschmitz> right but removing it is not so easy
+[14:41:02] <arschmitz> if you initially set to true
+[14:41:13] <gabrielschulhof> No we needn't remove it, just always skip over it, like we do now.
+[14:41:16] <arschmitz> oh no i see what your saying
+[14:41:20] <arschmitz> yes
+[14:41:25] <arschmitz> yeah that makes sense
+[14:41:39] <gabrielschulhof> ... but if somebody sets history to true, we no longer skip over it.
+[14:41:45] <arschmitz> yup
+[14:42:06] <gabrielschulhof> We can even replaceState and put the id there instead of the dialogHashKey which we currently put there.
+[14:42:21] <arschmitz> yes
+[14:42:26] <gabrielschulhof> Cool!
+[14:42:36] <arschmitz> gabrielschulhof: so if you want to keep running with this that would be good
+[14:42:43] <gabrielschulhof> So yeah, true/false + action during page event gives us granularity.
+[14:43:01] <arschmitz> i want to run through a couple new issues and pr's with the rest of the time unless you have any other thoughts on this
+[14:43:11] <gabrielschulhof> gabrielschulhof: The spirit is willing but the schedule is tight - though hopefully not unattainable.
+[14:43:24] <gabrielschulhof> Cool. I'm good.
+[14:43:50] <gabrielschulhof> I'm at Node.js Interactive right now, speaking tomorrow morning, but hopefully after that.
+[14:43:52] <arschmitz> apsdehal: any updates on https://github.com/jquery/api.jquerymobile.com/pull/394
+[14:43:56] <arschmitz> just waiting for you to land it
+[14:44:16] <apsdehal> Oh sorry, I will land it
+[14:44:25] <apsdehal> Give me today
+[14:44:36] <arschmitz> gabrielschulhof: https://github.com/jquery/api.jquerymobile.com/pull/360, https://github.com/jquery/api.jquerymobile.com/pull/354, and https://github.com/jquery/api.jquerymobile.com/pull/316
+[14:44:43] <arschmitz> are all waiting on comments from you
+[14:44:46] <apsdehal> gabrielschulhof: Is there a webinar for your talk?
+[14:44:58] <gabrielschulhof> apsdehal: There should be a video, AFAIK.
+[14:45:06] <apsdehal> Link
+[14:45:19] <gabrielschulhof> arschmitz: OK. I'll have a look.
+[14:46:03] <arschmitz> i think at least one of those you landed in conjunction with a different pr and just needs to be closed
+[14:46:33] <arschmitz> and lastly we got one new issue this week
+[14:46:35] <arschmitz> https://github.com/jquery/jquery-mobile/issues/8521
+[14:46:51] <apsdehal> Yeah, I was going to post that one
+[14:46:57] <arschmitz> which is a very old dup but i wanted to revisit if this is something we want to support or not
+[14:47:31] <arschmitz> its a little weird but there is a usecase for this
+[14:47:42] <arschmitz> where in an app context you want to load an external page
+[14:47:56] <apsdehal> Yeah, there were many issues that we closed for this
+[14:47:57] <arschmitz> basicly it could be something like a paypal payment redirect
+[14:48:19] <arschmitz> or something on your own site even that is not part of your jqm app for whatever reason
+[14:49:09] <apsdehal> gabrielschulhof: Found your talk https://eventmobi.com/nieu16/agenda/176233/928556
+[14:49:17] <gabrielschulhof> apsdehal: Yeah.
+[14:49:39] <arschmitz> so does anyone have any opinion on if this should be added to the framework or say this is outside our scope
+[14:50:53] <apsdehal> I guess we should add it, in case people want to implement payment redirects just as you said
+[14:51:32] <apsdehal> which is an extremely common scenario these days
+[14:51:35] <arschmitz> yes
+[14:51:39] <jasperdegroot> yeah
+[14:51:46] <arschmitz> the other common one is you have a jqm mobile site
+[14:51:52] <arschmitz> and a regular desktop site
+[14:52:05] <arschmitz> and you have some screen that you want to load thats part of your desktop site for something
+[14:52:16] <arschmitz> same idea as papal redirect but internal
+[14:52:39] <apsdehal> Yes
+[14:52:58] <arschmitz> gabrielschulhof: thoughts?
+[14:53:20] <gabrielschulhof> Looking, sorry.
+[14:53:52] <gabrielschulhof> rel=external?
+[14:54:04] <gabrielschulhof> What about it?
+[14:54:13] <gabrielschulhof> We were using that at some point extensively in the demos.
+[14:54:31] <gabrielschulhof> We were loading each demo page via http, not Ajax.
+[14:54:39] <arschmitz> gabrielschulhof: thats not what its about
+[14:54:46] <arschmitz> its about that we dont handle these at all right now
+[14:54:51] <arschmitz> we let the brpwser
+[14:55:02] <arschmitz> which within an app causes it to jump out of the app to the browser
+[14:55:26] <arschmitz> they want us to basicly add the ability to have it if your within an app do location.href=linkHref
+[14:55:40] <arschmitz> instead of letting the browser do it so that you stay within the app
+[14:56:12] <gabrielschulhof> Oh, I see, override the default behaviour of jumping out of an app?
+[14:56:17] <arschmitz> yes
+[14:56:30] <apsdehal> In India, many mobile apps use integrations and other stuff to achieve this thing so that user stays in the app
+[14:56:41] <arschmitz> yeah its common in general
+[14:56:42] <apsdehal> Because there we don't have paypal :p
+[14:57:02] <apsdehal> So it redirects to all merchant banks' websites
+[14:57:09] <gabrielschulhof> I dunno ... if we implement it, it should be an extension.
+[14:57:18] <gabrielschulhof> ... so people can opt out.
+[14:58:08] <arschmitz> gabrielschulhof: im thinking it would be another thing
+[14:58:15] <arschmitz> like rel="inapp"
+[14:58:32] <gabrielschulhof> Wait a sec. Are we talking about a data option, or a native HTML option.
+[14:58:33] <gabrielschulhof> ?
+[14:58:40] <arschmitz> data
+[14:58:54] <arschmitz> well i guess we just use native rel now
+[14:59:20] <gabrielschulhof> Why are there rel=external links in apps? Just don't put them there in the first place. I don't get it.
+[14:59:24] <arschmitz> but this seems like it needs its own discreet value
+[14:59:28] <gabrielschulhof> Apps are under the control of app developers.
+[14:59:40] <arschmitz> gabrielschulhof: picture something like this
+[14:59:50] <arschmitz> you use paypal for a payment processing solution
+[15:00:04] <arschmitz> you have a link that loads the paypal site to pay and then paypal redirects back
+[15:00:16] <arschmitz> right now it would send you out of the app when you click that link
+[15:00:25] <arschmitz> they want the ability to have it stay within the app context
+[15:00:39] <gabrielschulhof> But you write that link.
+[15:00:43] <arschmitz> yes
+[15:00:53] <gabrielschulhof> Why would you write it to direct the app to launch the browser?
+[15:01:03] <arschmitz> there is no choice
+[15:01:04] <gabrielschulhof> The app can request pages over http.
+[15:01:05] <arschmitz> within jqm
+[15:01:41] <gabrielschulhof> Well, the default behaviour for absolute URLs with a different domain is to let the default behaviour take course, which is an http request.
+[15:01:48] <arschmitz> yes
+[15:01:56] <arschmitz> but that opens in browser outside app
+[15:02:03] <gabrielschulhof> Oh, are you saying, like, Cordova's default behaviour is to open the browser?
+[15:02:09] <arschmitz> all apps
+[15:02:14] <arschmitz> when your in a webview
+[15:02:22] <arschmitz> if you have a link it sends you outside the app
+[15:02:33] <arschmitz> you need to navigate via js for it not to
+[15:02:33] <gabrielschulhof> OK so webviews open the browser and we want a tool whereby the http request opens in the webview.
+[15:02:39] <arschmitz> yes
+[15:02:44] <arschmitz> its as simple as
+[15:02:47] <gabrielschulhof> I see.
+[15:02:49] <gabrielschulhof> OK.
+[15:03:04] <gabrielschulhof> So yeah - I agree. Let's have data-ui-rel=inapp
+[15:03:06] <arschmitz> if ( ("standalone" in window.navigator) && window.navigator.standalone ) {
+[15:03:06] <arschmitz>         $(document).on('click', "a[rel*=external], area[rel*=external]", function(){
+[15:03:06] <arschmitz>             self.location=this.href;
+[15:03:08] <arschmitz>             return false;
+[15:03:10] <arschmitz>         });
+[15:03:12] <arschmitz>     }
+[15:03:16] <apsdehal> Yes, open the link in the webview in the app itself
+[15:03:34] <arschmitz> thats a hack
+[15:03:41] <gabrielschulhof> We should mark links with our own tags, not hijack native tags.
+[15:03:43] <arschmitz> but it gives you the idea of what we would need to do
+[15:03:52] <jasperdegroot> I have to go but +1 from me for supporting this
+[15:03:54] <arschmitz> gabrielschulhof: i agree
+[15:03:59] <gabrielschulhof> We can add this to the click handler right before it bails to HTTP.
+[15:04:01] <arschmitz> jasperdegroot: thank you
+[15:04:05] <arschmitz> yup
+[15:04:13] <gabrielschulhof> ... but for 1.5?
+[15:04:17] <arschmitz> gabrielschulhof: thats exactly what i had in mind
+[15:04:20] <arschmitz> no for 1.6
+[15:04:26] <arschmitz> but i need to respond to the issue
+[15:04:27] <apsdehal> +1
+[15:04:29] <gabrielschulhof> Then I agree. Let's do it for 1.6
+[15:04:41] <gabrielschulhof> ... with data-ui-rel=inapp
+[15:04:43] <arschmitz> ok so we will add this as a 1.6 feature
+[15:04:49] <gabrielschulhof> +1
+[15:04:58] <arschmitz> ok i think thats all i have today
+[15:05:02] <arschmitz> does anyone else have anything?
+[15:05:15] <gabrielschulhof> No, I'm good.
+[15:05:28] <apsdehal> I'm good too.
+[15:06:14] <apsdehal> Thanks and have a great weekend ahead
+[15:08:04] <arschmitz> thank you all see you next week

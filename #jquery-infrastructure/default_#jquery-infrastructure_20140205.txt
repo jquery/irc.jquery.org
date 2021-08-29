@@ -1,0 +1,181 @@
+[02:03:48] <jqcommit> [13infrastructure] 15jzaefferer closed issue #206: Get maxcdn stats into splunk 02https://github.com/jquery/infrastructure/issues/206
+[06:24:07] <jqcommit> 01[13infrastructure01] 15mzgol pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/4e0ed05fa8a872968d2050372d54ae46bdb283d7
+[06:24:07] <jqcommit> 13infrastructure/06puppet-stage 144e0ed05 15Michał Gołębiowski: Revert "testswarm: Update Opera 17/18 to 18/19"...
+[06:24:22] <jqcommit> 01[13infrastructure01] 15mzgol merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/a1198a7cc7a7...4e0ed05fa8a8
+[08:04:38] <ryanneufeld> ping gnarf scott_gonzalez I've got a question about wp-content
+[08:04:48] <scott_gonzalez> hey
+[08:05:11] <ryanneufeld> so, when I'm doing a grunt deploy
+[08:05:16] <ryanneufeld> it seems to want to write to content/uploads
+[08:05:41] <ryanneufeld> but I can't find that directory referenced anywhere in the code.
+[08:06:19] <ryanneufeld> it's all rather perplexing
+[08:06:30] <scott_gonzalez> It's a WordPress config.
+[08:06:42] <ryanneufeld> oic
+[08:06:50] <scott_gonzalez> http://codex.wordpress.org/Function_Reference/wp_upload_dir
+[08:07:18] <scott_gonzalez> This has come up a few times because of permissions problems on stage.
+[08:07:30] <ryanneufeld> yeas
+[08:07:39] <ryanneufeld> and that's what I'm trying to fix now
+[08:07:51] <ryanneufeld> I want to ensure it all is correct in the puppet manifests
+[08:07:56] <scott_gonzalez> I forget what gnarf wanted to do about it.
+[08:08:06] <ryanneufeld> where do we want the uploads to go?
+[08:08:21] <ryanneufeld> currently it seems to want /var/www/wordpress/content/uploads
+[08:08:24] <scott_gonzalez> It doesn't matter, it's just a temp location during the upload process.
+[08:08:31] <ryanneufeld> ok
+[08:08:36] <scott_gonzalez> It goes into gw-resources as soon as the upload finishes.
+[08:08:38] <gnarf>  /uploads is simple
+[08:08:44] <gnarf> but
+[08:09:26] <gnarf>  /jquery-wp-content/uploads/ makes more sense - the directory will get created by the git clone
+[08:09:34] <gnarf> but needs a+w 
+[08:10:07] <ryanneufeld> define( 'WP_CONTENT_DIR', dirname( ABSPATH ) . '/jquery-wp-content' );
+[08:10:07] <ryanneufeld> define( 'UPLOADS', dirname( ABSPATH ) . '/wordpress/uploads' );
+[08:10:54] <ryanneufeld> according to that, it seems to want to put them in jquery-wp-content
+[08:12:09] <ryanneufeld> so, I found it strange, when I ran grunt deploy
+[08:12:14] <ryanneufeld> and then I had to do this root@vagrant:/var/www/wordpress# chown www-data:www-data -R ./wordpress
+[08:12:43] <gnarf> no!
+[08:12:46] <gnarf> :)
+[08:12:57] <ryanneufeld> yes
+[08:13:04] <ryanneufeld> ?
+[08:13:09] <gnarf> you should only need gw-resources and jquery-wp-content/uploads to be chmod a+w 
+[08:13:17] <gnarf> don't want www-data to own the folder
+[08:13:28] <ryanneufeld> ok
+[08:13:32] <gnarf> i think puppet already ensures those
+[08:13:45] <ryanneufeld> so then it's putting the uploads in the wrong place
+[08:13:53] <ryanneufeld> so wp-config needs updating
+[08:14:00] <gnarf> we just need to define( 'UPLOADS', trailingslashit( ABSPATH ) . 'jquery-wp-content/uploads' ); in the wp-config 
+[08:14:45] <gnarf> piking that particular method rather than dirname because of define( 'UPLOADS', trailingslashit( WP_CONTENT_DIR ).'custom_uploads_name' ); being the suggestion in that func ref scott_gonzalez just linked
+[08:15:06] <gnarf> though we can probably base on WP_CONTENT_DIR instead
+[08:15:41] <ryanneufeld> ok
+[08:15:41] <ryanneufeld> lemme try that now
+[08:17:01] <ryanneufeld> provisioning now, will do a test deploy after
+[08:17:01] <ryanneufeld> on a VM
+[08:26:07] <ryanneufeld> hmm
+[08:29:10] <ryanneufeld> scott_gonzalez: isn't wordpress supposed to auto install with a pre-defined user?
+[08:29:18] <ryanneufeld> or did I misunderstand something
+[08:30:00] <scott_gonzalez> jquery-wp-content does its own setup.
+[08:30:09] <scott_gonzalez> Just follow the instructions in the README.
+[08:30:50] <scott_gonzalez> Step 9 requires actually going through the install page on the site.
+[08:31:38] <ryanneufeld> they're all step 1.
+[08:31:51] <ryanneufeld> ah
+[08:31:51] <ryanneufeld> yeah
+[08:31:55] <ryanneufeld> thats' what I've been doing
+[08:32:05] <ryanneufeld> I thought that part was supposed to be a bit more streamlined
+[08:32:06] <ryanneufeld> np
+[08:32:07] <ryanneufeld> thanks
+[08:33:31] <ryanneufeld> I'm wondering if maybe there is a way we could skip that part
+[08:33:55] <ryanneufeld> like, run an mysql query to set the username and password or something
+[08:43:19] <ryanneufeld> so, no amount of changing the UPLOADS appears to be working here
+[14:23:18] <Krinkle> m_gol: I added it to the registry because the browser is released, I then verified through the Live interface that it worked, then continued to do the browserSet update.
+[14:23:32] <Krinkle> m_gol: Looks like they haven't exposed it in the API yet though it is present in LIve
+[14:23:40] <Krinkle> I'll ping them
+[14:29:19] <m_gol> Krinkle: I don't see it even in Live
+[14:29:30] <m_gol> there is only 19 Next & 20 Dev
+[14:29:34] <Krinkle> It's labeled 19 Next, yeah
+[14:29:37] <Krinkle> but 19 is stable now
+[14:29:56] <Krinkle> I only need to test the user agent string being compatible which shouldn't change between next and stable
+[14:30:07] <m_gol> sure, but Next is not stable, there are updates in the meantime that may remove some functionality potentially
+[14:30:13] <Krinkle> yeah
+[14:30:29] <Krinkle> m_gol: btw, do you want to be CC-ed on the browserstack<->jquery feedback loop mail thread?
+[14:30:30] <m_gol> they have significant delays generally
+[14:30:35] <m_gol> sure!
+[14:40:07] <m_gol> Krinkle: generally, if a browser version appears in the API then it's not marked as beta/next/etc. but just as a number in BrowserStack Live
+[14:40:13] <m_gol> at least from what I've seen
+[14:50:09] <Krinkle> m_gol: That's correct, I asked them to implement it that way last year.
+[14:50:15] <Krinkle> They used to expose them right away.
+[14:50:22] <m_gol> I see
+[14:50:33] <m_gol> yeah, that's better
+[14:50:45] <Krinkle> Then they changed it to have the beta/next in the browser_version in the API , which they removed as well because it meant versions were dissappearing after a while (e.g. 19-next won't be there for ever)
+[14:50:55] <Krinkle> and then again to remove them from the API entirely.
+[14:51:42] <Krinkle> Anything better than having versions in there that aren't the real ones (e.g. opera 19 being next instead of stable)
+[14:55:00] <m_gol> agreed
+[14:55:46] <m_gol> I'm waiting for newer Androids which they said a week ago they'd "have some news on" withing a week ;)
+[18:36:17] <gnarf> ryanneufeld: did you ever destroy the DB after you changed UPLOADS?
+[18:36:23] <gnarf> I think it gets written to the DB
+[18:36:32] <gnarf> but i thought UPLOADS overrode everything. cc nacin?
+[21:02:10] <ryanneufeld> gnarf yeah, I did
+[21:02:15] <ryanneufeld> and it did not work
+[21:02:49] <ryanneufeld> gnarf: https://github.com/jquery/jquery-wp-content/blob/master/install.php#L44-47
+[21:02:57] <ryanneufeld> then I found that
+[21:03:22] <ryanneufeld> and now I'm confused
+[21:03:29] <ryanneufeld> looks like nacin wrote it
+[21:03:40] <ryanneufeld> I'm not familiar with the file
+[21:04:18] <ryanneufeld> s5fs: ^^
+[21:06:35] <s5fs> ryanneufeld: hi
+[21:07:25] <ryanneufeld> sup
+[21:07:37] <s5fs> ryanneufeld: oh, little bit of this, little bit of that
+[21:08:01] <s5fs> so your'e having trouble getting wordpress built or something?
+[21:08:25] <ryanneufeld> I'm not sure how that file gets called
+[21:08:35] <s5fs> I've only set up a local wp-content machine once, and i think i followed anne's docs
+[21:08:38] <ryanneufeld> but it seems to be what's setting the upload
+[21:08:54] <ryanneufeld> yeah, doing it manually works fine
+[21:09:03] <ryanneufeld> it's the puppetized install I'm working on
+[21:09:32] <s5fs> okay so when you puppetize the install it jacks up some file perms?
+[21:09:45] <s5fs> i read a little bit of the prior convo and that's what i gleaned, anyways
+[21:10:59] <ryanneufeld> gnarf said he wants the uploads dir to be something specific, which the current live site is using
+[21:11:07] <ryanneufeld> the problem is that the setting is in the DB
+[21:11:17] <ryanneufeld> and no ammount of editing wp-config seems to fix it
+[21:11:40] <s5fs> can't you just use the mysql binary and perform a manual update?
+[21:11:46] <s5fs> its not elegant but it should work
+[21:11:49] <ryanneufeld> my assumption is that it get's overridden in the install script
+[21:11:51] <ryanneufeld> yeah, we can
+[21:12:00] <ryanneufeld> but the folks at WP have advised we don't do that
+[21:12:28] <s5fs> what is their recommendation?
+[21:12:54] <s5fs> wait. when you say he wants the upload dir to be "something specific" do you mean path or permissions?
+[21:13:04] <ryanneufeld> use their built in functions
+[21:13:15] <ryanneufeld> so if they change the DB backend, nothing breaks
+[21:13:24] <s5fs> well sure
+[21:13:31] <ryanneufeld> I am gonna do another install with puppet
+[21:13:44] <ryanneufeld> but add some debug output along the way
+[21:14:28] <s5fs> sounds fun, i'm testing my app on hardware, slow going.
+[21:19:46] <nacin> ryanneufeld: I can help more tomorrow, but what about the uploads directory?
+[21:20:04] <ryanneufeld> gnarf: https://github.com/jquery/jquery-wp-content/blob/master/install.php#L44-47
+[21:20:08] <ryanneufeld> nacin: ^^
+[21:20:12] <ryanneufeld> is it safe for me to change that?
+[21:20:17] <nacin> what's set in the DB isn't actually used because you guys don't upload anything :-)
+[21:20:22] <ryanneufeld> well
+[21:20:24] <ryanneufeld> actually
+[21:20:38] <ryanneufeld> that's the ONLY place I'm seeing content/uploads
+[21:20:39] <nacin> well, grunt-wordpress uses it as a temporary location and then it gets moved
+[21:20:46] <ryanneufeld> >> Error publishing corporate-members.json.
+[21:20:46] <ryanneufeld> >> Error: XML-RPC fault: Unable to create directory content/uploads/2014/02. Is its parent directory writable by the server?
+[21:20:52] <ryanneufeld> right
+[21:21:04] <ryanneufeld> so the problem is, it needs to be different
+[21:21:14] <ryanneufeld> so we can control it easily with puppet
+[21:21:19] <ryanneufeld> we want to use a different path
+[21:21:33] <nacin> yeah, don't bother setting it in the DB
+[21:21:34] <ryanneufeld> what is a safe way to override it on install?
+[21:22:23] <ryanneufeld> is it not set by default?
+[21:23:10] <nacin> you can use the filter in wp_upload_dir() to customize the location to your heart's content
+[21:23:31] <ryanneufeld> on install?
+[21:24:17] <nacin> nah, generally
+[21:24:41] <ryanneufeld> right, so when we first install wp-content
+[21:24:50] <ryanneufeld> and go through the initial install
+[21:24:55] <ryanneufeld> is when we need it changed
+[21:25:02] <nacin> nope
+[21:25:16] <nacin> just filter it on run-time to whatever you want it to be and ignore what's in the DB
+[21:25:25] <ryanneufeld> I'm saying, that is when we would like the change to take effect
+[21:25:26] <ryanneufeld> oh
+[21:26:54] <ryanneufeld> so, how would we override that with the XML-RPC?
+[21:27:39] <nacin> add_filter( 'option_uploads_use_yearmonth_folders', '__return_false' ); add_filter( 'upload_dir', function( $upload_dir ) { $upload_dir['path'] = $upload_dir['basedir'] = 'wherever you want it to go'; return $upload_dir; } );
+[21:27:57] <nacin> can drop that into jquery-filters.php (you know, with whitespace and such) and it'll put all uploads into a singular directory
+[21:28:19] <ryanneufeld> okay
+[21:28:35] <ryanneufeld> in the plugin?
+[21:31:56] <nacin> yeah, can go in mu-plugins/jquery-filters.php
+[21:32:16] <nacin> I can properly test/comment/commit/deploy tomorrow, though it'll work
+[21:33:12] <ryanneufeld> I'm working on getting a distributable vm
+[21:33:17] <ryanneufeld> this should work
+[21:33:25] <s5fs> ryanneufeld: that's going to be great btw
+[21:34:39] <s5fs> ryanneufeld: also, i'd like to chat about vagrant box creation at some point. i need more than 8gb of storage for the trac vm and i'm wondering how long it would take to set up another machine w/a larger disk.
+[21:35:23] <ryanneufeld> s5fs: http://docs.vagrantup.com/v2/boxes/base.html
+[21:35:30] <ryanneufeld> That's how I did it
+[21:35:36] <ryanneufeld> it's pretty easy actually
+[21:37:18] <ryanneufeld> >> Error publishing corporate-members.json.
+[21:37:18] <ryanneufeld> >> Error: XML-RPC fault: Unable to create directory content/uploads/2014/02. Is its parent directory writable by the server?
+[21:37:18] <ryanneufeld> <WARN> Task "wordpress-sync" failed. Use --force to continue. </WARN>
+[21:37:44] <s5fs> dammit xml-rpc
+[21:38:03] <ryanneufeld> wait, no, I edited my local copy
+[21:38:04] <ryanneufeld> not the vm
+[21:38:05] <ryanneufeld> DERP
+[21:38:12] <s5fs> hahaha
+[21:38:20] <s5fs> we've all been there
+[21:40:00] <ryanneufeld> nacin: thanks buddy! that worked
+[21:40:35] <nacin> ryanneufeld: no problem
+[21:40:52] <ryanneufeld> who maintains that repo?

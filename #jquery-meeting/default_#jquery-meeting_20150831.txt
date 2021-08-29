@@ -1,0 +1,312 @@
+[09:00:44] <timmywil> DaveMethvin, markelog, gibson042, m_gol meeting time
+[09:00:55] <markelog> hey-hey
+[09:01:02] <timmywil> https://docs.google.com/document/d/1BadwSO6Sn91RBfr05s77r81ncEi0oMBJ5mZS-k215vg/edit#
+[09:01:03] <DaveMethvin> here
+[09:01:05] <arthurvr> hey everybody
+[09:01:18] <DaveMethvin> hey arthurvr
+[09:01:22] <timmywil> oi
+[09:02:21] <m_gol> present
+[09:02:21] <markelog> should we remove "Reminders (do not remove)"
+[09:02:23] <markelog> ?
+[09:02:23] <timmywil> DaveMethvin: so, from what I can tell, you don't see a way to fix https://github.com/jquery/jquery/issues/2558
+[09:02:26] <markelog> from agenda
+[09:02:29] <markelog> a bit confusing
+[09:02:43] <timmywil> markelog: no
+[09:02:55] <m_gol> markelog: why?
+[09:03:04] <DaveMethvin> yeah i don't see how we can do it, the browsers are only supposed to stop clicks and not anything else
+[09:03:10] <timmywil> markelog: those are things taht apply every week that I don't want to copy every time
+[09:03:15] <markelog> it has "Beta release todo" which refers to "alpha" blog post, which called "beta"
+[09:03:27] <DaveMethvin> it's really useful to have a hover tip that would tell the user why a button is disabled for example
+[09:03:31] <m_gol> DaveMethvin: I don't think you understood the issue :)
+[09:03:40] <timmywil> well, eventually it will be beta. We can call it alpha if you want.
+[09:03:40] <m_gol> the OP doesn't want mouseenter to work on disabled elements
+[09:03:44] <m_gol> but their parents
+[09:04:04] <m_gol> currently it doesn't work if the disabled element touches the border of the parent and you hover via this border
+[09:04:15] <m_gol> only mouseenter fires on the parent there, no mouseover
+[09:04:16] <DaveMethvin> oh well that's easy, add padding. :)
+[09:04:37] <markelog> timmywil: not sure if i understand
+[09:04:39] <DaveMethvin> i thought they wanted the disabled button to actually work with mouse hovers which they should according to the spec
+[09:04:45] <markelog> we released an alpha
+[09:04:49] <timmywil> markelog: let's sidebar on that later
+[09:04:53] <DaveMethvin> but they don't except in ie
+[09:04:53] <markelog> ok
+[09:04:55] <m_gol> DaveMethvin: "My plugin needs to handle mouseenter on elements, which can contain some disabled elements."
+[09:05:25] <DaveMethvin> oh i interpreted that as "i want to handle mouseenter on disabled lements"
+[09:05:31] <DaveMethvin> but i see what you're saying
+[09:05:33] <m_gol> kind of weird that you can get mouseenter without mouseover...
+[09:05:41] <DaveMethvin> it's totally screwy
+[09:05:48] <DaveMethvin> the browsers are doing it wrong
+[09:06:07] <timmywil> but can we fix it without mouseover being triggered on the disabled element?
+[09:06:18] <m_gol> timmywil: mouseenter capture phase works
+[09:06:25] <DaveMethvin> we fix this persons problem but not the general case
+[09:06:37] <timmywil> m_gol: even if you only mouse over the disabled element?
+[09:06:48] <m_gol> we can't use mouseenter bubbling phase as that would destroy event delegation
+[09:06:49] <DaveMethvin> see the last test case i posted
+[09:07:13] <m_gol> timmwil: yup, see https://jsfiddle.net/unhturm4/19/
+[09:07:18] <DaveMethvin> only mouseenter works and only for the container not the disabled element, and it shows the target wrong
+[09:07:24] <DaveMethvin> "wrong"
+[09:08:30] <m_gol> DaveMethvin: why wrong?
+[09:08:43] <DaveMethvin> well "wrong" if you want mouse events on a disabled button
+[09:08:44] <timmywil> the event target is the div, not the button
+[09:08:53] <DaveMethvin> which the spec doesn't prevent, only clicks
+[09:09:01] <m_gol> ok, so we have two issues here
+[09:09:07] <timmywil> yes
+[09:09:10] <m_gol> 1. mouseenter/mouseover don't fire on disabled elements
+[09:09:17] <m_gol> there's absolutely nothing we can do about it
+[09:09:22] <m_gol> since there's no event
+[09:09:34] <m_gol> mouseover/mouseenter don't fire, either in bubble or capture phase
+[09:09:36] <timmywil> 2. they don't propagate to the parent, but we can fix that
+[09:09:39] <timmywil> right?
+[09:09:40] <m_gol> yup
+[09:09:43] <timmywil> gotcha
+[09:09:46] <DaveMethvin> i agree the op wants a smaller problem fixed but it's not worth us trying to fix it, because it's caused by the larger problem of no mouseover on the disabled button
+[09:10:07] <DaveMethvin> he should just have people add a pixel of padding for now
+[09:10:26] <timmywil> yea, if we fix 1, we fix 2 also
+[09:10:33] <DaveMethvin> i'm surprised the border doesn't count tbh but i gues it's only the content area
+[09:10:40] <timmywil> and by fix 1, I mean encourage vendors to fix it
+[09:11:13] <m_gol> unfortunately it will still be how it is in Safari 9 which we'll drop on 2017 or sth
+[09:11:38] <timmywil> so we might need a workaround for 2 until then
+[09:11:50] <DaveMethvin> well to be realistic this fix won't be out into 3.0 anyway and if he wants backcompat he will need a pixel of padding :)
+[09:12:04] <DaveMethvin> or a native event
+[09:12:09] <timmywil> ah yea, his plugin would require 3.0+
+[09:12:20] <m_gol> I *really* hope that you cannot cause this bug if you move the mouse quickly enough on a 5px padding :D
+[09:12:22] <DaveMethvin> s/into/until/
+[09:12:47] <DaveMethvin> or from the edge of the browser window
+[09:13:15] <m_gol> depends
+[09:13:31] <m_gol> I wonder how common it is
+[09:13:52] <DaveMethvin> well it took until now to get a report
+[09:13:55] <DaveMethvin> so not very :)
+[09:14:13] <m_gol> well
+[09:14:13] <timmywil> I think it's worth it to fix the smaller problem (probably not much code), but we should open issues with appropriate browser vendors
+[09:14:40] <m_gol> so, every desktop browser we support has native mouseenter support
+[09:14:43] <m_gol> (even if buggy)
+[09:14:52] <m_gol> probably not true for Android but I'd need to check
+[09:15:14] <DaveMethvin> for all those android mouse issues :)
+[09:15:16] <m_gol> for desktop we could (probably) switch our impl to not use mouseover but mouseenter in capture phase
+[09:15:18] <m_gol> ah
+[09:15:20] <m_gol> lol
+[09:15:34] <m_gol> :)
+[09:15:44] <timmywil> well, doesn't mouseover still fire on touch?
+[09:15:47] <timmywil> idk
+[09:15:53] <DaveMethvin> yes it does i think
+[09:15:57] <DaveMethvin> simulated
+[09:16:00] <timmywil> right
+[09:16:14] <DaveMethvin> who knows if if the simulated events work as expected
+[09:16:21] <m_gol> and mouseenter?
+[09:16:30] <timmywil> m_gol: that's the question
+[09:16:49] <m_gol> the only thing I'm worried about is that switching the implementation may uncover a new set of bugs
+[09:16:54] <DaveMethvin> right
+[09:17:05] <timmywil> m_gol: sure
+[09:17:12] <DaveMethvin> and we're trying to cover for the disabled element bugs the browser shouldn't be doing
+[09:17:13] <timmywil> but we agree it's worth exploring, I think
+[09:17:27] <DaveMethvin> so i'd like to talk to the browser guys to see if they are sticking to this
+[09:17:38] <DaveMethvin> there are lots of good reasons to fire over/enter for disabled elements
+[09:17:43] <m_gol> I wonder if it's not one of those things that might wait until 3.1.0
+[09:17:49] <DaveMethvin> like to give a tooltip explaining why they're disabled
+[09:17:53] <timmywil> DaveMethvin: agreed, but m_gol's point about Safari taking forever is what leads me to argue for a workaround now
+[09:17:54] <m_gol> technically it shouldn't be a breaking change (modulo bugs)
+[09:18:17] <DaveMethvin> but the problem is that we can only solve the little edge case this bug report talks about
+[09:18:22] <DaveMethvin> not the bigger case of disabled elements
+[09:18:49] <m_gol> depends if you treat it as an edge case :)
+[09:18:51] <timmywil> there may be other advantages to switching to mouseenter
+[09:19:12] <DaveMethvin> or disadvantages
+[09:19:17] <DaveMethvin> we'd just have to try
+[09:19:18] <timmywil> yea, but we don't know
+[09:19:19] <m_gol> note that we're unable to switch fully to native mouseenter due to: 1) event delegation, 2) Safari 7 has it broken
+[09:19:30] <m_gol> but that shouldn't be a problem if we use the capture phase
+[09:19:43] <timmywil> oh, so we still need to simulate delegation?
+[09:19:56] <DaveMethvin> mouseenter doesn't bubble
+[09:19:59] <m_gol> well, there's no such thing as native event delegation so... :-)
+[09:20:22] <DaveMethvin> it fires mouseenter on the container but shows the target as the container, not the child
+[09:20:23] <m_gol> yup, focus & mouseenter don't bubble but they do fire for every ancestor in the capture phase
+[09:20:30] <DaveMethvin> that's why we use mouseover, the target is right
+[09:20:49] <DaveMethvin> yeah, it's almost like bubbling because of the z-stack
+[09:21:06] <DaveMethvin> but the target is wrong
+[09:21:12] <DaveMethvin> so we can't use it for delegation
+[09:21:33] <m_gol> DaveMethvin: I think the target is correct
+[09:21:47] <m_gol> it's just that mouseenter fires a separate event for each ancestor as you're entering this ancestor
+[09:21:56] <m_gol> see https://jsfiddle.net/unhturm4/21/
+[09:22:05] <m_gol> I took your test case and undisabled the button
+[09:22:16] <m_gol> and hover over the button
+[09:22:18] <DaveMethvin> looking now
+[09:22:29] <m_gol> mouseenter fires for both the button and the div
+[09:23:02] <m_gol> and for the div twice
+[09:23:03] <timmywil> possibly close enough to delegation for grenades ^
+[09:23:08] <m_gol> one of them is with target === button
+[09:23:16] <DaveMethvin> yeah which confuses me
+[09:23:22] <DaveMethvin> that bubbled?
+[09:23:29] <m_gol> no, captured
+[09:23:38] <DaveMethvin> oh i was looking at capture, right
+[09:23:39] <m_gol> "a mouseenter capture" happens twice
+[09:23:45] <m_gol> once with the div, once with the button
+[09:23:51] <DaveMethvin> ok per your comment on the ticket
+[09:24:10] <DaveMethvin> yeah that could work for non-disabled elements
+[09:24:23] <m_gol> in your test case it doesn't fire because it doesn't fire at all for disabled elements
+[09:24:46] <m_gol> in any case, this is inconsistent
+[09:24:48] <DaveMethvin> but it already works for non-disabled elements, except this case of a disabled child being on the edge
+[09:25:08] <m_gol> if they wanted to ignore the disabled elements with mouseover, they should do the same for mouseenter
+[09:25:20] <DaveMethvin> yeah
+[09:25:26] <DaveMethvin> it's inconsisent and not helpful
+[09:25:29] <m_gol> yup
+[09:25:50] <m_gol> who can we bother for such standards-related DOM Events stuff? mikesherov?
+[09:25:53] <DaveMethvin> let me talk to the events folks who are managing the spec and see if we can get this changed, first of all
+[09:26:01] <DaveMethvin> travis leithead at ms?
+[09:26:06] <DaveMethvin> let me check the header on the spec
+[09:26:12] <m_gol> ok, great. It'd be good to act on it once we understand what's intended :)
+[09:26:36] <timmywil> good first step
+[09:26:43] <DaveMethvin> Gary Kacmarcik at google too ... i'll do that
+[09:27:06] <m_gol> yeah, I'd like to hear the rationale for disabling just one of these events
+[09:27:46] <timmywil> How about https://github.com/jquery/jquery/pull/2534?
+[09:28:33] <timmywil> LGTM, but I'd like to get a +1 from gibson042 and jaubourg
+[09:28:46] <DaveMethvin> yeah i'd like their opinions too
+[09:28:46] <gibson042> my opinion is at https://github.com/jquery/jquery/issues/2532#issuecomment-130345712 , but I'd like everyone else's
+[09:29:08] <DaveMethvin> i am concerned about the complexity
+[09:29:09] <markelog> so -1
+[09:29:12] <timmywil> gibson042: I read that, but is the PR good enough
+[09:29:22] <markelog> that was my question to gibson042
+[09:29:23] <markelog> )
+[09:29:25] <gibson042> I don't think so
+[09:29:54] <gibson042> the PR makes our code harder to follow, not easier
+[09:29:54] <markelog> you already can do this with old interface
+[09:30:08] <markelog> the question is, if it is more useful
+[09:30:55] <gibson042> I don't think there's anything you can do with async converters that you can't already do with .then
+[09:30:55] <DaveMethvin> unfortunately the design of $.ajax always seems to lead to further internalized complexity each time we want to add a feature
+[09:31:36] <DaveMethvin> it would be a good exercise to figure out how this would be documented before it's landed, if it does land
+[09:31:39] <gibson042> DaveMethvin: because conversion is assumed internal to fetching, which this compounds
+[09:32:12] <DaveMethvin> when i use $.ajax i am always having to read through the mass of docs to remember how it all interacts
+[09:32:33] <DaveMethvin> it does the right thing, except when it doesn't :)
+[09:32:38] <timmywil> The only reason I'm reticent to say no is that the new fetch API has async converters.
+[09:32:55] <timmywil> but you can argue that's different
+[09:33:18] <timmywil> but with fetch, if you want json, you have to wait
+[09:33:30] <gibson042> link? I'd be surprised if converters weren't separate from transports
+[09:33:58] <timmywil> fetch().then(response) { return response.json(); }).then(json) { console.log(json);});
+[09:34:09] <timmywil> so not the same, really
+[09:34:15] <gibson042> yeah, that's the pattern I'm arguing for
+[09:34:28] <gibson042> it's _already_ possible with $.ajax
+[09:34:40] <DaveMethvin> if you get the response as text you can do whatever you want
+[09:35:01] <timmywil> fair enough.
+[09:35:05] <timmywil> yea, I think we should reject
+[09:35:56] <timmywil> it's not necessary to inject the async conversion into $.ajax
+[09:36:40] <DaveMethvin> right, it's more that doing this will allow someone to extend the magic that $.ajax does, which i don't think is a help to later readers of the code
+[09:37:35] <timmywil> anything else?
+[09:38:08] <m_gol> markelog
+[09:38:13] <m_gol> how are you with the landing?
+[09:38:22] <markelog> couldn't do it today
+[09:38:29] <markelog> too much work
+[09:38:36] <markelog> i will sleep a bit
+[09:38:41] <markelog> say six hours
+[09:38:41] <timmywil> ok, thanks everybody!
+[09:38:49] <markelog> and it will be first thing on my mind
+[09:38:54] <m_gol> k
+[09:38:58] <markelog> and will merge all other related prs
+[09:39:01] <markelog> cool?
+[09:39:04] <m_gol> sure
+[09:39:12] <m_gol> timmywil: there's one thing
+[09:39:17] <m_gol> we need to one day discuss
+[09:39:19] <timmywil> sure
+[09:39:22] <m_gol> i.e. plans for the next Migrate
+[09:39:28] <timmywil> ah
+[09:39:32] <DaveMethvin> yeah
+[09:39:37] <gibson042> also, is https://github.com/jquery/jquery/issues/2562 worth talking about?
+[09:39:37] <DaveMethvin> i am good with going 3.0 only
+[09:39:39] <m_gol> https://github.com/jquery/jquery-migrate/issues/115
+[09:39:42] <timmywil> as in whether to make it 3.0 only
+[09:40:00] <m_gol> yeah, there are a couple of issues
+[09:40:09] <m_gol> if it's 3.0 only then what behavior should it restore?
+[09:40:20] <m_gol> if it restores 1.6 behavior then upgraders from 1.8 will suffer
+[09:40:28] <DaveMethvin> i was wondering whether there should be some sort of per-feature control
+[09:40:31] <DaveMethvin> or at least groups
+[09:40:44] <DaveMethvin> there are a few things like attroperties that can cause issues
+[09:40:53] <m_gol> another option would be to not make it 3.0-only but keep current support but always warn (without upgrading behavior)
+[09:41:22] <m_gol> so that you'd have, e.g., 1.6, add Migrate, see you're using attr in a bad way, change & upgrade
+[09:41:29] <m_gol> but that might not be possible in all cases
+[09:41:38] <m_gol> so maybe what DaveMethvin proposes
+[09:41:42] <DaveMethvin> i like the idea of only having to support one jquery version
+[09:41:53] <DaveMethvin> and then just selectively enable things
+[09:41:56] <m_gol> those features could be grouped so that you'd enable "upgrading-from-1.6"
+[09:42:03] <DaveMethvin> we'd need to figure out how to do that yeah
+[09:42:28] <DaveMethvin> migrateOriginalVersion = "1.6" or something
+[09:42:29] <m_gol> anyway, if you all cold look at https://github.com/jquery/jquery-migrate/issues/115 and think about it then we could discuss next week :)
+[09:42:47] <DaveMethvin> yeah i'd love to get some input on that
+[09:43:12] <gibson042> the model I'm advocating is: The next jQuery Migrate release warns about backwards incompatibility (e.g., `$el.data("dashed-key" )` when a "dashed-key" datum exists) and _optionally_ updates behavior to match jQuery 3.
+[09:43:47] <m_gol> gibson042: that assumes Migrate keeps working with older jQueries?
+[09:44:05] <timmywil> gibson042: that sounds like more work
+[09:44:15] <m_gol> updating behavior might be difficult in some cases
+[09:44:22] <timmywil> :P
+[09:44:23] <DaveMethvin> i think the tough part is that we still can't support mixing and matching different plugins that support different behaviors of
+[09:44:25] <m_gol> when the new way requires non-isolated changes
+[09:44:28] <gibson042> actually, it sort of sidesteps older jQueries
+[09:44:30] <DaveMethvin> jquery versions
+[09:44:52] <gibson042> but technically would be something like one major back, and YMMV on older
+[09:45:31] <gibson042> updating behavior should always be possible, and via cherry-pick from jquery/jquery@master at that
+[09:45:42] <DaveMethvin> i think we'll need to look at what we're patching and whether it's safe to just polyfill it (like $.browser) or whether it's tricky (like data names and attroperties)
+[09:46:27] <gibson042> that's just it, there's no more "adding back" anything
+[09:46:31] <gibson042> just "pull forward"
+[09:47:03] <DaveMethvin> gibson042: can you outline what you mean on the ticket?
+[09:47:20] <timmywil> he basically did
+[09:47:28] <gibson042> "Forward over an old jQuery"
+[09:47:47] <DaveMethvin> ok then i'll re-read
+[09:48:02] <m_gol> so Migrate would not require using jQuery 3.0 but it wouldn't restore anything either
+[09:48:35] <timmywil> the problem is, the forwarding way doesn't restore expected behavior and warn about the changes. It just goes ahead and makes the changes and says, "look what happened." The former is less obtrusive.
+[09:49:01] <m_gol> timmywil: Migrate could patch jQuery APIs to warn about deprecated usage
+[09:49:07] <gibson042> what do you mean by "restore expected behavior"? The model would have new Migrate on top of old jQuery
+[09:49:16] <m_gol> it just wouldn't restore this behavior when used with newer jQueries
+[09:49:22] <timmywil> I mean, expected as in old behavior
+[09:49:40] <gibson042> there's nothing to restore, though... the behavior gets inherited
+[09:50:05] <DaveMethvin> ok now i'm really confused, but i'll read through the ticket to see if i am just missing something
+[09:50:15] <gibson042> basically, what I'm saying is that we should stop writing code that makes a new jQuery act old
+[09:50:17] <timmywil> right, I'm mixing models, sorry
+[09:50:37] <DaveMethvin> so how do we make old code work with new jquery?
+[09:50:58] <gibson042> we don't
+[09:51:11] <m_gol> DaveMethvin: we add Migrate to the old jQuery that we use and then we address warnings. We update jQuery once they're addressed
+[09:51:20] <timmywil> heh, but isn't that the stated purpose of migrate?
+[09:51:34] <DaveMethvin> that's what it does today right?
+[09:51:42] <gibson042> BUT if someone wants to take advantage of new interfaces while not breaking old code, they can add Migrate and enable monkey patching
+[09:51:52] <m_gol> timmywil: isn't the purpose of migrate to aid upgrading to newer jQuery?
+[09:52:07] <DaveMethvin> yes
+[09:52:09] <m_gol> DaveMethvin: no, today you can update jQuery & add Migrate at the same time and it'd restore previous behavior
+[09:52:21] <gibson042> so (jquery old) + (plugins for jquery old) + (jquery migrate) + (plugins for new jquery)
+[09:52:28] <timmywil> m_gol: sure, but the path to upgrading has been making old code work with new jQuery
+[09:52:56] <gibson042> transitioning away from (jquery old) when all warnings are resolved
+[09:53:02] <m_gol> timmywil: that won't scale long-term, though
+[09:53:11] <m_gol> some plugins may require new jQuery
+[09:53:16] <gibson042> (the warnings being generated by jquery migrate for all changed behavior)
+[09:53:22] <m_gol> if you add Migrate to make an older plugin work, the newer one might get broken
+[09:53:33] <m_gol> so the only way to update is to fix warnings anyway
+[09:53:39] <timmywil> ah, good point
+[09:53:54] <m_gol> and this is where Migrate shines - it tells the dev what needs to be changed to be able to update jQuery
+[09:54:07] <DaveMethvin> plugin version conflicts is basically the same problem as npm version conflicts and there is no easy way out of that, i'm glad to concede that battle
+[09:54:09] <gibson042> m_gol++
+[09:54:22] <timmywil> the page might be wonky until the warnings are addressed, but I guess that's okay
+[09:54:35] <DaveMethvin> we have always advocated migrate as a crutch not a long term solution
+[09:54:53] <DaveMethvin> altho many people use it long term unfortunatley
+[09:54:59] <m_gol> timmywil: in most cases the page with old jQuery + Migrate should work fine, it would just print a lot of warnings
+[09:55:00] <gibson042> assuming migrate doesn't monkey patch by defaulting, adding it on top of an old jQuery wouldn't affect behavior at all
+[09:55:05] <gibson042> it would only add warnings
+[09:55:33] <timmywil> that's where you lose me
+[09:55:43] <timmywil> you are changing behavior by making it work like 3.0
+[09:55:43] <DaveMethvin> i just want to be sure the *instructions* are clear for people on how they are to use this tool
+[09:55:59] <m_gol> I'd start with just warning, no changing behavior
+[09:56:05] <timmywil> that means "changing behavior", which may manifest as wonky behavior
+[09:56:05] <gibson042> exactly
+[09:56:05] <m_gol> the instructions would be as follows:
+[09:56:43] <timmywil> until they address the difference in behavior to restore what they intended
+[09:56:45] * m_gol 1. old code + old jQuery.
+[09:56:45] <m_gol> 2. old code + old jQuery + Migrate (lots of warnings in console).
+[09:56:45] <m_gol> 3. fixed code + old jQuery + Migrate (hardly any warnigns).
+[09:56:59] <m_gol> 4. fixed code + new jQuery + Migrate (maybe a few warnings)
+[09:57:03] <m_gol> 5. fixed code + new jQuery
+[09:57:15] <gibson042> 1. Load jQuery Migrate after jQuery old; 2. see warnings about code that will act differently in jQuery new; 3. fix warnings; 4. switch from jQuery old to jQuery new; 5. drop Migrate
+[09:57:20] <m_gol> that's assuming Migrate just prints warnings. nothing else
+[09:57:36] <m_gol> gibson042: yep, that's what I wrote :)
+[09:57:48] <DaveMethvin> put that in the ticket :)
+[09:57:58] <timmywil> gibson042: oh, I thought you were arguing for making old jQuery behave like new jQuery in step 1
+[09:58:04] <timmywil> so just warnings?
+[09:58:44] <gibson042> yes, unless we feel really ambitious, in which case we can allow for more complexity in step 4 by having switches in Migrate to make jQuery old act new
+[09:58:44] <DaveMethvin> i have to run
+[09:59:01] <gibson042> but the default behavior would be to ONLY add warnings
+[09:59:02] <timmywil> yea, we're about out of time anyway.
+[09:59:12] <timmywil> gibson042: I like that, tho
+[09:59:21] <timmywil> we'll discuss again next week
+[09:59:28] <gibson042> yep
+[09:59:33] <timmywil> thanks all

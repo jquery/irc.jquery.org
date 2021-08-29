@@ -1,0 +1,155 @@
+[09:01:05] <DaveMethvin> rwaldron timmywil gibson042 jaubourg m_gol orkel mikesherov gnarf  It's Core meetin time!
+[09:01:12] <timmywil> ahhh
+[09:01:15] <rwaldron> her
+[09:01:18] <rwaldron> here*
+[09:01:20] <orkel> here
+[09:01:22] <timmywil> she
+[09:01:25] <gibson042> ready
+[09:01:28] <DaveMethvin> huurrrr
+[09:02:08] <DaveMethvin> sweet
+[09:02:17] <DaveMethvin> so i got the agenda filled out
+[09:02:40] <DaveMethvin> i think we're in good shape for 1.10 ... anyone have something they need to get into there?
+[09:02:57] <DaveMethvin> i was just looking at the milestone: none to see if we have missed any biggies
+[09:04:26] <DaveMethvin> i should have jQuery Migrate 1.2 out tomorrow or weds
+[09:04:35] <gibson042> do we want to do something about http://bugs.jquery.com/ticket/13803 ?
+[09:05:13] <DaveMethvin> yeah we never discussed that
+[09:06:05] <DaveMethvin> so it really seems like we're bending over backwards for crazy bad practices
+[09:06:48] <DaveMethvin> if we can offer some way for them to do the same thing with some minor rewrite, and it's not common, is that good enough?
+[09:07:10] <gibson042> I would say yes
+[09:07:19] <DaveMethvin> just looking towards 1.10/2.1 where we want to really lock down against inadventent script executino
+[09:07:27] <DaveMethvin> and this is kind of in the same vein
+[09:07:36] <DaveMethvin> anybody else have feels on this?
+[09:07:54] <gibson042> but to be fair, $("<script src='http://remote.example/...'/>").appendTo(...) is only bad because we painted ourselves into a corner
+[09:08:27] <DaveMethvin> yeah but it just seems wrong
+[09:08:29] <gibson042> well, more precisely we made it worse
+[09:08:31] <gibson042> right
+[09:08:32] <DaveMethvin> we already have getScript
+[09:08:46] <m_gol> present
+[09:08:49] <DaveMethvin> and letting someone do it via html is begging for trouble
+[09:09:54] <DaveMethvin> the only scenarios that I see being hard to solve are ones where people intersperse html and script tags, where they expect scripts to be sync
+[09:10:18] <gibson042> I agree with that assessment
+[09:12:14] <DaveMethvin> so ... we should leave this broken and steer people to $.getScript?
+[09:12:28] <DaveMethvin> trying to think of things we'll break
+[09:13:27] <m_gol> well, some are obvious
+[09:13:51] <m_gol> if sb loads another page using $.ajax and will append its contents somewhere
+[09:14:10] <m_gol> I'm not sure if that's common enough
+[09:14:54] <DaveMethvin> i like things that are clear ... so $.getScript() or $.parseHTML(..., true) make it clear you want to run scripts
+[09:15:06] <DaveMethvin> $(selector) does not :)
+[09:15:18] <DaveMethvin> var selector  = "<script....>"
+[09:15:36] <m_gol> ;)
+[09:15:51] <DaveMethvin> maybe the jQuery Migrate thing has made me a bit more sensitive to this :)
+[09:16:09] <m_gol> hahah
+[09:16:14] <timmywil> DaveMethvin: agreed, but I just hope it's not too common
+[09:16:16] <m_gol> is the 0-day patched now?
+[09:16:28] <DaveMethvin> m_gol doing that today
+[09:16:42] <m_gol> as for performance... http://jsperf.com/jquery-1-9-1-vs-2-0-0-beta/5
+[09:16:52] <DaveMethvin> well if it IS common it's indistinguishable from XSS
+[09:16:53] <gibson042> the root question here is mainly if we move forward with our backwards-incompatible change to preferring synchronicity over "guaranteed" evaluation
+[09:17:00] <m_gol> 2.x is still slower, is rwaldron working on that?
+[09:17:02] <DaveMethvin> which is why it bothers me
+[09:17:18] <rwaldron> m_gol yes
+[09:17:27] <rwaldron> I was at bocoupfest all last week
+[09:17:30] <rwaldron> no chance to work on it
+[09:17:47] <m_gol> k
+[09:18:08] <rwaldron> I'll wrap that up either today or tomorrow
+[09:18:18] <DaveMethvin> gibson042 true that is the main issue
+[09:19:03] <DaveMethvin> does it seem reasonable to have such as guarantee in 1.10/2.1?
+[09:19:18] <timmywil> you mean 1.11/2.1?
+[09:19:22] <DaveMethvin> yesh
+[09:19:27] <timmywil> yes
+[09:19:39] <gibson042> it seems to me like since we don't want people exercising this anyway, we might as well revert the logic for both branches to match 1.9
+[09:19:57] <DaveMethvin> at least it will match i guess
+[09:19:59] <gibson042> that way we're at least self-consistent
+[09:20:09] <DaveMethvin> and we can break it consistently from there :D
+[09:20:12] <gibson042> yep
+[09:20:33] <timmywil> i'm confused. so run scripts in 1.10/2.0?
+[09:20:45] <timmywil> but stop in 1.11/2.1?
+[09:21:03] <timmywil> which is fine with me
+[09:21:22] <gibson042> timmywil:  run scripts in 1.10/2.0 the same way we did in 1.9 (cross-origin execute asynchronously)
+[09:21:38] <gibson042> and clamp down hard on the practice in 1.11/2.1
+[09:21:57] <timmywil> meaning force explicit execution?
+[09:22:15] <DaveMethvin> right, clamp down on script execution via strings in general ... make someone say they have html with script they want to run
+[09:22:23] <DaveMethvin> rather than just running scripts everywhere we find them
+[09:22:24] <timmywil> ok then
+[09:22:40] <DaveMethvin> since that creates giant xss holes
+[09:22:48] <timmywil> heh, xss holes
+[09:23:00] <timmywil> ok
+[09:23:32] <DaveMethvin> gibson042 can you do that for 13803 then?
+[09:23:37] <gibson042> yes
+[09:23:42] <DaveMethvin> thanks!
+[09:24:38] <DaveMethvin> timmywil can you get #13577? should be an easy one
+[09:24:59] <timmywil> yea, just noticed it again
+[09:25:06] <gnarf> DaveMethvin: kinda here, just got into work
+[09:25:14] <DaveMethvin> np gnarf
+[09:25:34] <DaveMethvin> http://bugs.jquery.com/ticket/13803 does it seem like checking nodeType===1 is right?
+[09:25:43] <DaveMethvin> definitely should be consistent
+[09:26:05] <DaveMethvin> well, i can't think of a reason for it being INconsistent
+[09:26:26] <orkel> do you mean 13832?
+[09:26:43] <DaveMethvin> duh yes
+[09:26:47] <DaveMethvin> copy didn't copy
+[09:28:20] <gnarf> ping me if you want my opinion
+[09:29:55] <DaveMethvin> 13832 is the same in both 1.10 and 2.0 so we should definitely change before the bug fix release
+[09:30:01] <DaveMethvin> and before 1.10
+[09:30:04] <timmywil> seems like there's a reason why we've always allowed documents in .parent
+[09:30:57] <DaveMethvin> so i haven't looked to see how far back this inconsistency goes
+[09:31:08] <DaveMethvin> if it
+[09:31:21] <DaveMethvin> has been this way for-ever then it may be risky to change
+[09:31:32] <DaveMethvin> i suppose we could document it
+[09:31:56] <DaveMethvin> but making it consistent seemed reasonable
+[09:32:15] <DaveMethvin> lemme see
+[09:33:31] <timmywil> allowing only nodeType 1 seems to break quite a few tests
+[09:34:22] <timmywil> er, maybe those were already broken.
+[09:34:38] <m_gol> it's commit b734666
+[09:34:45] <m_gol> from Feb 14, 2013
+[09:34:48] <m_gol> quite recent ;)
+[09:35:03] <m_gol> "Fix #13265 #13332: traversing methods with text nodes. Close gh-1145."
+[09:35:14] <DaveMethvin> parent() allowing document has been that way for ever
+[09:35:21] <DaveMethvin> well at least back to 1.2.1
+[09:35:24] <DaveMethvin> :D
+[09:35:30] <DaveMethvin> so i think parents() is broken
+[09:35:45] <m_gol> ah, it was just reverted in this commit to the previous behavior...
+[09:36:36] <DaveMethvin> yeah parents() hasnt changed recently either
+[09:36:39] <DaveMethvin> soooo
+[09:36:46] <m_gol> :(
+[09:36:52] <DaveMethvin> these two have been inconsistent since time began
+[09:36:54] <DaveMethvin> afaict
+[09:37:04] <DaveMethvin> which makes me fear changing either
+[09:37:20] <m_gol> well, certainly for 2.0.1...
+[09:37:26] <DaveMethvin> i can see the value of either behavior
+[09:37:50] <DaveMethvin> what if we just documented it?
+[09:38:01] <timmywil> sounds good to me
+[09:38:18] <DaveMethvin> any objections?
+[09:38:25] <m_gol> heh
+[09:38:47] <m_gol> it doesn't sound good that .parent() can return a greater set than .parents()
+[09:39:08] <timmywil> makes sense to me
+[09:39:43] <timmywil> .parent() is more specific and does not filter on a selector
+[09:40:04] <DaveMethvin> yeah but if we change something that has acted that way for  years we're bound to break something
+[09:40:11] <timmywil> well, it does filter on a selector
+[09:40:14] <gibson042> can we at least agree not to align them before 1.11/2.1? that'll at least give more deliberation time
+[09:40:15] <orkel> what are use-cases for $(html).parent/parents()?
+[09:40:21] <DaveMethvin> and their use cases are probalby not similar
+[09:40:40] <m_gol> yeah, well, I just don't like it that .parent() may not be contained in .parents()
+[09:40:51] <timmywil> orkel: I don't think it's so much about $("html").parent(), but $(elem).parent()
+[09:40:54] <m_gol> but if we can't change it without breaking a lot of code
+[09:41:21] <m_gol> then I won't object, I'll just stop on not liking it ;)
+[09:41:23] <DaveMethvin> i have no idea if it will break code, but unfortunately history has told us there is know way we can know
+[09:41:36] <DaveMethvin> so we either change one or the other
+[09:41:49] <DaveMethvin> but orkel's question is a good one, what are the use caess
+[09:41:50] <m_gol> can't we change it for 1.11/2.1?
+[09:41:52] <DaveMethvin> cases*
+[09:42:04] <DaveMethvin> sure we can change it ... which one should we change?
+[09:42:19] <orkel> i say if change this, let's do it in 1.11/2.1
+[09:42:26] <gibson042> +1
+[09:42:38] <DaveMethvin> if parent() returns null i would expect the element to be disconnected for example
+[09:42:43] <m_gol> +1 for 1.11/2.1, definitely not for 2.0.1
+[09:42:46] <DaveMethvin> so we change parents()?
+[09:42:56] <timmywil> if ( !$(elem).parent().length ) { // detached }
+[09:43:00] <gibson042> DaveMethvin: we decide later
+[09:43:05] <DaveMethvin> chicken!
+[09:43:22] <DaveMethvin> okay let me make a note on the ticket
+[09:44:43] <m_gol> well, having document in parents() seems not nice, too
+[09:44:51] <m_gol> it's kind of different from most nodes
+[09:45:26] <timmywil> I really don't think we need to change either one. If we change .parents(), won't we need to change .closest()? Can't we agree that .parent() can have special use cases not applicable to .parents()?
+[09:45:49] <DaveMethvin> yeah i think the similarity of the names may not be as relevant
+[09:46:26] <DaveMethvin> okay well that pretty much does it ... any other issues?
+[09:47:02] <DaveMethvin> alrighty then .. see you in -dev!

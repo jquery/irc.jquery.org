@@ -1,0 +1,240 @@
+[00:43:33] <jqmobilecommit> [13jquery-mobile] 15uGoMobi closed issue #7201: [Question] Only numeric password input 02http://git.io/hBg7AQ
+[05:31:44] <agcolom> scottgonzalez: do you want typo fixes in api.jqueryui.com direct in master or via PR?
+[05:38:34] <scottgonzalez> Let's start with a PR.
+[05:40:38] <agcolom> ok
+[06:00:51] <_|Nix|_> uGoMobi: Ping!
+[06:00:59] <uGoMobi> _|Nix|_: pong
+[06:01:17] <_|Nix|_> uGoMobi: Hey! So, as I'm starting to use cheerio more, I'm finding that it's correcting our HTML.
+[06:01:24] <_|Nix|_> uGoMobi: For example, it removes </input>
+[06:01:50] <_|Nix|_> uGoMobi: ... and it's finding un-closed form tags, so it added </form></form> to our output.
+[06:02:11] <_|Nix|_> uGoMobi: It's processing the demos to create dist/demos
+[06:02:56] <_|Nix|_> uGoMobi: I ran a diff -Nru on the dist produced by the original process, vs. the dist produced by the cheerio-based process.
+[06:03:06] <_|Nix|_> uGoMobi: ... and I found these surprising differences.
+[06:03:12] <_|Nix|_> uGoMobi: In a way, it's an HTML validator as well.
+[06:03:27] <_|Nix|_> So, I'll fix these things in the original demos source.
+[06:04:02] <_|Nix|_> So that such differences no longer cause the dist/ produced via regexs to differ from the dist/ produced via cheerio.
+[06:04:21] <uGoMobi> _|Nix|_: ok cool
+[06:04:26] <uGoMobi> _|Nix|_: I never used cheerio
+[06:04:35] <uGoMobi> _|Nix|_: looking at it now
+[06:04:45] <_|Nix|_> uGoMobi: It's cool. It's an implementation of a subset of the jQuery API.
+[06:05:06] <uGoMobi> _|Nix|_: good to use it locally to find these issues
+[06:05:25] <_|Nix|_> uGoMobi: It has one major shortfall though: $( "script" ).html( $( "script" ).text() ) gets rid of things like x = "<div></div>";
+[06:05:31] <scottgonzalez> _|Nix|_: Just use a real HTML linter.
+[06:05:47] <scottgonzalez> https://github.com/jzaefferer/grunt-html
+[06:06:15] <_|Nix|_> scottgonzalez: This is incidental. I discovered these things while starting to turn an HTML file into a DOM tree and then back into an HTML file.
+[06:06:36] <_|Nix|_> scottgonzalez: Whether we add an HTML linter to the build process is another question.
+[06:06:58] <scottgonzalez> I'm saying that you should add it instead of manually fixing differences from a round trip.
+[06:07:29] <uGoMobi> _|Nix|_: we should look into adding HTML and CSS linter
+[06:07:47] <scottgonzalez> For CSS, use grunt-contrib-csslint
+[06:07:59] <_|Nix|_> scottgonzalez: Agreed, but I don't currently want to expand the scope of what I'm working on.
+[06:08:04] <uGoMobi> yeah, was talking about that one with arschmitz already the other day
+[06:08:05] <_|Nix|_> uGoMobi: File an issue?
+[06:08:16] <_|Nix|_> uGoMobi: .. or two?
+[06:08:42] <uGoMobi> _|Nix|_: yeah, let's open two tickets
+[06:09:13] <uGoMobi> and point to those GH repos
+[06:09:24] <uGoMobi> _|Nix|_: why did you start using cheerio?
+[06:11:01] <_|Nix|_> uGoMobi: Because we were doing way too much with regex, and I started having to parse HTML using .replac()
+[06:11:05] <_|Nix|_> I mean replace()
+[06:11:20] <_|Nix|_> That's just insane, and actually not even possible using only regex.
+[06:12:19] <_|Nix|_> uGoMobi: By converting things into DOM, I can actually target $( "script" ).attr( "src", $( "script" ).attr( "src" ).replace( /regex/, "value" ) and I don't have to worry about accidentally replacing other stuff.
+[06:12:46] <_|Nix|_> uGoMobi: ... because the original regex ran over the entire document and had /gi at the end, so they were replacing matching patterns in the entire document.
+[06:13:58] <_|Nix|_> uGoMobi: Which just happens to work really well, but doing things like "replace the first occurrence of ../css/ with css/" just happens to work for jquery.mobile.css, but it was also mangling the path in the grunticon demo, where ../css first occurs inside the script tag that calls grunticon([ ... ]);
+[06:13:59] <scottgonzalez> If you're just doing script replacements, that's actually pretty easy to do correctly with regex.
+[06:14:17] <scottgonzalez> We use cheerio for moving the UI demos to jqueryui.com, but the script replacement is still regex.
+[06:14:37] <_|Nix|_> scottgonzalez: It's more than that. I have to re-write the hrefs and the srcs, and I have to edit the contents of script tags.
+[06:14:45] <scottgonzalez> I'm not saying that you shouldn't use cheerio for it.
+[06:15:06] <scottgonzalez> Edit the contents of script tags?
+[06:15:37] <_|Nix|_> scottgonzalez: Yes. For example, we have a grunticon demo that says grunticon([ "path/to/file1", "path/to/file2" ]);
+[06:15:47] <_|Nix|_> scottgonzalez: I have to modify the paths in that list.
+[06:16:05] <scottgonzalez> They're not relative?
+[06:16:37] <_|Nix|_> scottgonzalez: Yes, but the number of ../s differs in dist/demos/ from demos/
+[06:16:49] <uGoMobi> I think we move things during build process which breaks the relative path
+[06:16:58] <scottgonzalez> That seems non-ideal.
+[06:17:04] <scottgonzalez> but ok
+[06:17:17] <uGoMobi> true
+[06:18:00] <uGoMobi> maybe we should look at the cause of the problem first
+[06:18:19] <_|Nix|_> uGoMobi: You mean having to change the paths?
+[06:18:44] <uGoMobi> _|Nix|_: yeah, why do we have to move things to another location?
+[06:19:03] <uGoMobi> _|Nix|_: why can't it all stay the same (relative to demos/)?
+[06:19:06] <_|Nix|_> uGoMobi: Because the references are different: We don't have external/jquery/jquery.js, but js/jquery.js
+[06:19:22] <_|Nix|_> uGoMobi: Well, it can, as long as we copy external/ into dist.
+[06:19:29] <scottgonzalez> Surely you're not passing jquery.js to grunticon.
+[06:19:44] <_|Nix|_> scottgonzalez: No, that's another example of where paths need to be changed.
+[06:20:15] <scottgonzalez> Which set of demos are we talking about?
+[06:20:20] <scottgonzalez> demos.jquerymobile.com?
+[06:20:21] <_|Nix|_> scottgonzalez: In demos/ we refer to core as ../../external/jquery/jquery.js, whereas in dist/demos we refer to core as ../../js/jquery.js
+[06:20:45] <_|Nix|_> scottgonzalez: I'm talking about the output of running grunt inside the jquery-mobile repo.
+[06:20:59] <_|Nix|_> scottgonzalez: That results in a directory dist/ where everything resides.
+[06:21:11] <_|Nix|_> scottgonzalez: I'm assuming that demos.jquerymobile.com gets a copy of dist/demos
+[06:21:51] <_|Nix|_> scottgonzalez: ... and we had a bunch of broken demos in dist/demos because of paths that should've been fixed but weren't, or paths that were "mal-fixed".
+[06:22:59] <_|Nix|_> scottgonzalez: I've fixed those problems, but realized in the process that we shouldn't be doing this path-fixing via running regexs over the entire contents of a file. Instead, we should parse it and run local regex on the appropriate attributes of the appropriate tags.
+[06:23:33] <uGoMobi> _|Nix|_: I am afraid that we will keep running into the same problems with new demos
+[06:23:39] <scottgonzalez> Or you can just make the built demos saner.
+[06:23:43] <uGoMobi> _|Nix|_: it would be nice if we can simplify it
+[06:24:01] <_|Nix|_> scottgonzalez: I guess that's the wider goal.
+[06:24:03] <uGoMobi> yeah, I would prefer looking into that
+[06:24:19] <uGoMobi> that would also make it easier for people to contribute to the demos
+[06:25:15] <_|Nix|_> uGoMobi: Come to think of it, we might be able to get rid of the php inclusion as well. We can Ajax in the search and nav menus and keep them in the DOM.
+[06:25:29] <_|Nix|_> uGoMobi: So, we could get away from using <?php include() ?>
+[06:26:11] <uGoMobi> _|Nix|_: yeah, that would be nice for sure
+[06:26:35] <_|Nix|_> Anyway, in the meanwhile these DOM inconsistencies remain, so I'll make a PR about fixing them.
+[06:30:09] <uGoMobi> _|Nix|_: ok thanks
+[06:44:57] <scottgonzalez> tj_vantoll: Did you test this on a local IE9? http://bugs.jqueryui.com/ticket/9816
+[06:45:05] <scottgonzalez> It's working fine in BrowserStack.
+[07:04:22] <_|Nix|_> Hmmm ... it might not be possible to use cheerio. It can't handle things like data-html="<span class='ui-bar ui-shadow ui-overlay-d ui-corner-all'><img src='../_assets/img/jquery-logo.png'><h2>is loading for you ...</h2></span>"
+[07:04:36] <_|Nix|_> It escapes it :/
+[07:04:48] <_|Nix|_> ... which may or may not be the correct thing to do ...
+[07:07:15] <_|Nix|_> Well, I guess I could paste in the escaped HTML ... it seems to work ...
+[07:08:22] <scottgonzalez> Attribute values should be escaped.
+[07:08:30] <scottgonzalez> When you read the value back, it'll be correct.
+[07:09:20] <scottgonzalez> Is data-html part of an actual API or just something you do in the demos?
+[07:10:13] <tj_vantoll> scottgonzalez: I did test it on a local IE9 to recreate the crash.
+[07:10:44] <scottgonzalez> hmm...
+[07:10:58] <tj_vantoll> I can dig into that again as I have my true IE9 machine right next to me.
+[07:12:57] <_|Nix|_> scottgonzalez: The loader widget has an option where you can give it custom html to display while the page is loading.
+[07:13:03] <scottgonzalez> tj_vantoll: Which OS?
+[07:13:22] <_|Nix|_> scottgonzalez: OK, so the parser is doing the Right Thing™ ... 
+[07:13:28] <tj_vantoll> I recreated it on my Windows 7 VM.
+[07:13:45] <tj_vantoll> I'm going to try it on my Vista laptop once it startsup.
+[07:14:00] <tj_vantoll> I had forgotten how long it takes Vista to do anything.
+[07:14:02] <scottgonzalez> I wonder what's different between your VM and BrowserStack's.
+[07:14:05] <scottgonzalez> heh
+[07:14:28] <tj_vantoll> It also worked for me in BrowserStack. I probably should've mentioned that in the ticket.
+[07:16:15] <tj_vantoll> It crashes on my Vista machine as well.
+[07:17:35] <scottgonzalez> You'll probably end up needing to contact Microsoft for this one.
+[07:17:59] <scottgonzalez> You got a card for the new contact in San Diego, right?
+[07:19:42] <tj_vantoll> Yep.
+[07:19:58] <tj_vantoll> Yeah I can't imagine this is anything we're doing, but I can't contain my curiosity.
+[07:39:52] <agcolom> arschmitz: Hi, I've noticed there are still some "TODO" comments in the code in places... 
+[07:40:01] <agcolom> e.g.: https://github.com/jquery/jquery-mobile/blob/master/js/widgets/loader.js#L69 
+[07:42:48] <uGoMobi> _|Nix|_: I assigned this TR update PR to arschmitz but I think this is something any team member can review... https://github.com/jquery/themeroller.jquerymobile.com/pull/181
+[07:43:09] <uGoMobi> _|Nix|_: can you give it a look?
+[07:44:48] <uGoMobi> _|Nix|_: and maybe my other TR PR as well :) https://github.com/jquery/themeroller.jquerymobile.com/pull/182
+[07:47:56] <_|Nix|_> uGoMobi: OK.
+[07:48:10] <uGoMobi> _|Nix|_: thanks!
+[07:50:15] <arschmitz> agcolom: yes there are many like that left by past team members
+[07:50:52] <jqmobilecommit> [13jquery-mobile] 15uGoMobi opened issue #7203: Add HTML linter 02http://git.io/td04Qw
+[07:51:13] <jqmobilecommit> [13jquery-mobile] 15uGoMobi opened issue #7204: Add CSS linter 02http://git.io/w8Uipw
+[07:55:01] <tj_vantoll> scottgonzalez: I'm going to shoot the new Microsoft contact an email. Was he actually in SD or did someone else from Microsoft let you know Tony had left?
+[08:03:42] <scottgonzalez> He was in SD. He came up to me after my keynote because I mentioned the work we've done with Tony.
+[08:05:09] <jqcommit> [13themeroller.jquerymobile.com] 15uGoMobi closed pull request #181: Version: Updated to 1.4.2 (06master...061.4.2-update) 02http://git.io/xmmGXw
+[08:06:29] <tj_vantoll> scottgonzalez: Ok thanks.
+[08:21:32] <jqcommit> [13themeroller.jquerymobile.com] 15uGoMobi closed pull request #182: Zip: Copy the loader GIF from the right location (06master...06ajax-loader) 02http://git.io/o8k9EA
+[08:22:17] <jqcommit> [13themeroller.jquerymobile.com] 15uGoMobi 04deleted 061.4.2-update at 14fe12508: 02http://git.io/vYO-5A
+[08:22:27] <jqcommit> [13themeroller.jquerymobile.com] 15uGoMobi 04deleted 06ajax-loader at 14b3c89f3: 02http://git.io/8Xhyjg
+[08:23:47] <jqcommit> [13themeroller.jquerymobile.com] 15uGoMobi pushed 1 new commit to 06master: 02http://git.io/Xkf_Uw
+[08:23:47] <jqcommit> 13themeroller.jquerymobile.com/06master 1401d801d 15Jasper de Groot: 1.0.5
+[08:25:17] <jqcommit> [13jquerymobile.com] 15arschmitz 04force-pushed 06changelog from 148484fde to 1490fde2c: 02http://git.io/_1S9pA
+[08:25:18] <jqcommit> 13jquerymobile.com/06changelog 1490fde2c 15Alexander Schmitz: Changelog: add changelogs for 1.4.1 and 1.4.2...
+[08:26:44] <jqcommit> [13jquerymobile.com] 15arschmitz 04force-pushed 06changelog from 1490fde2c to 147a59c52: 02http://git.io/_1S9pA
+[08:26:45] <jqcommit> 13jquerymobile.com/06changelog 147a59c52 15Alexander Schmitz: Changelog: add changelogs for 1.4.1 and 1.4.2...
+[08:27:06] <arschmitz> uGoMobi: agcolom: if either of you are around care to take one last look at ^^
+[08:27:54] <uGoMobi> arschmitz: I can look at it now
+[08:28:18] <uGoMobi> arschmitz: when you force-push all previous comments are gone
+[08:29:34] <arschmitz> uGoMobi: yeah sorry i was rebasing it when i update but then thought there were enough things that i wanted someone to take anohter look
+[08:30:31] <arschmitz> so other then push to a whole new branch there was no other choice ( well or lose all the changes and re do )
+[08:54:35] <uGoMobi> arschmitz: I am done with reviewing
+[09:01:02] <uGoMobi> hmm... how come you still see 1.4.0 and 1.4.1 in the version menu on themeroller.jquerymobile.com while on stage.themeroller.jquerymobile.com you only see 1.4.2 as supposed?
+[09:01:49] <uGoMobi> you can't select them though, it's just that they stay in the menu
+[09:08:43] <agcolom> arschmitz: uGoMobi: just checking... we're now working on 1.5?
+[09:08:52] <arschmitz> yes
+[09:08:57] <uGoMobi> agcolom: yes
+[09:09:24] <arschmitz> uGoMobi: guessing it pulls folders and they were not deleted
+[09:10:51] <uGoMobi> arschmitz: I thought it echoed the content of the array in version.php, but you might be right
+[09:12:39] <agcolom> arschmitz: on just back online. you still need me to look at the changelog?
+[09:13:02] <arschmitz> uGoMobi: http://www.amazon.com/OmniMount-CMK-Cable-Management-Covers/dp/B000LTNIZE/ref=sr_1_3?ie=UTF8&qid=1393952651&sr=8-3&keywords=wall+mount+cable+cover
+[09:13:04] <arschmitz> oops
+[09:13:06] <arschmitz> lol
+[09:13:17] <arschmitz> uGoMobi: https://github.com/jquery/themeroller.jquerymobile.com/blob/master/version.php#L46
+[09:13:33] <uGoMobi> I like cable management ;)
+[09:13:39] <uGoMobi> wireless is even better :P
+[09:13:59] <arschmitz> uGoMobi: yeah im wallmounting a couple tvs and building an office
+[09:14:36] <uGoMobi> arschmitz: yeah, I just found that line too. Was trying to find out why we do it like that and not just use that array at the bottom
+[09:15:09] <arschmitz> not sure\
+[09:15:09] <uGoMobi> arschmitz: can you remove folders from the server on which the TR is running?
+[09:15:24] <arschmitz> i should and if not ill bug infra 
+[09:15:35] <uGoMobi> ok thanks
+[09:15:55] <uGoMobi> I'll look into preventing this in the future
+[09:25:46] <arschmitz> uGoMobi: fixed
+[09:26:00] <uGoMobi> arschmitz: awesome. thanks!
+[09:27:58] <jqcommit> [13themeroller.jquerymobile.com] 15uGoMobi opened issue #184: Use the array with versions instead of scanning for directories 02http://git.io/3-B5OQ
+[09:33:28] <arschmitz> uGoMobi: that really just covers up this issue though
+[09:33:49] <uGoMobi> arschmitz: right, we should remove old folders
+[09:33:58] <arschmitz> which is why were these folders not removed from the server when they were removed from the repo
+[09:34:18] <uGoMobi> yup
+[09:35:36] <uGoMobi> arschmitz: have to keep in mind that we are going to replace the TR
+[09:36:04] <arschmitz> uGoMobi: yes but we cant keep cluttering up the servers with unneeded folders
+[09:36:12] <arschmitz> and if it happens here it might other places as well
+[09:36:28] <uGoMobi> arschmitz: yes that's true
+[09:37:12] <uGoMobi> arschmitz: just saying that if it's only an issue with these TR folders we could wait until 2.0 if it's hard to fix now
+[09:37:25] <uGoMobi> arschmitz: but you're right we should investigate
+[09:42:37] <arschmitz> lol ryanneufeld but check this out https://github.com/jquery/themeroller.jquerymobile.com/blob/master/version.php#L46
+[09:42:41] <arschmitz> oops
+[09:42:43] <arschmitz> wrong channel
+[10:01:26] <jquicommit> [13api.jqueryui.com] 15agcolom opened pull request #196: Fix Typos  (06master...06fix-typo) 02http://git.io/0VtOKQ
+[10:07:08] <scottgonzalez> agcolom: You can push the typo fixes to master.
+[10:07:16] <scottgonzalez> Thanks :-)
+[10:07:30] <agcolom> no problem :-) 
+[10:07:47] <agcolom> so just the way I do it for mobile then?
+[10:13:23] <jquicommit> [13api.jqueryui.com] 15agcolom closed pull request #196: Fix Typos  (06master...06fix-typo) 02http://git.io/0VtOKQ
+[10:14:26] <scottgonzalez> agcolom: You didn't capitalize the first letter in the commit message.
+[10:14:35] <agcolom> No I just only saw that!
+[10:14:39] <agcolom> Sorry :-(
+[10:14:42] <scottgonzalez> It's ok.
+[10:20:46] <gseguin> mornin'
+[10:52:44] <arschmitz> _|Nix|_: ping!
+[11:07:34] <_|Nix|_> arschmitz: What's up?
+[11:07:46] <arschmitz> _|Nix|_: was just looking at dialog removal
+[11:08:07] <arschmitz> _|Nix|_: customselect is going to be a bit complicated to make fall back to native the way it works right now
+[11:08:19] <_|Nix|_> arschmitz: Yes, I know.
+[11:08:34] <_|Nix|_> arschmitz: The wrapper has to be the same for both native and non-native.
+[11:08:45] <arschmitz> YUP
+[11:09:01] <arschmitz> _|Nix|_: and thats not all
+[11:09:08] <arschmitz> the event bindings are all different
+[11:10:10] <_|Nix|_> Yeah, I know, although off-the-top-of-my-head I can think of handling the event that normally results in the native dropping down, preventing default on that, and then handing things over to the non-native.
+[11:11:18] <arschmitz> yeah im playing around with it now
+[11:11:35] <arschmitz> its going to require some pretty extensive re-write to custom-select it seems
+[11:12:50] <_|Nix|_> arschmitz: Unsurprisingly.
+[11:13:55] <_|Nix|_> arschmitz: I think the key thing is to keep using the central click handling to bring up the popup, because I remember there were all kinds of event-order issues on Android if you handled click yourself.
+[11:14:19] <arschmitz> ok
+[11:21:43] <_|Nix|_> uGoMobi: Can we all please make sure our editors are set to not produce spaces upon indentation? I've recently changed all HTML files to use tabs instead of spaces for indentation, and now some of them are full of spaces again.
+[11:21:47] <_|Nix|_> arschmitz: ^
+[11:21:49] <_|Nix|_> gseguin: ^
+[11:21:53] <_|Nix|_> agcolom: ^
+[11:22:42] <arschmitz> mine is set to autodetect and use whatever is there
+[11:23:12] <_|Nix|_> arschmitz: OK.
+[11:23:13] <uGoMobi> _|Nix|_: I can check although I am pretty sure I always use spaces
+[11:23:48] <arschmitz> uGoMobi: do you mean tabs?
+[11:23:56] <uGoMobi> errr tabs
+[11:24:06] <uGoMobi> thanks arschmitz :)
+[11:25:08] <_|Nix|_> Hmmm ... http://contribute.jquery.org/style-guide/html/#indentation says nothing about what to indent with, only when to indent.
+[11:25:11] <uGoMobi> _|Nix|_: I wonder if this might have to do with GitHub
+[11:25:27] <_|Nix|_> uGoMobi: I dunno ... I suppose I could trace it back ...
+[11:25:43] <_|Nix|_> uGoMobi: ... but I'm more worried about fixing the demos.
+[11:26:14] <arschmitz> _|Nix|_: its only specified in the js style guide
+[11:26:24] <uGoMobi> right
+[12:02:06] <jqmobilecommit> [13jquery-mobile] 15jonas-db opened issue #7205: Feature request: checkboxradio checked option 02http://git.io/_24dIw
+[12:10:01] <jqmobilecommit> [13jquery-mobile] 15arschmitz closed issue #7205: Feature request: checkboxradio checked option 02http://git.io/_24dIw
+[12:31:50] <jqmobilecommit> [13jquery-mobile] 15Ruffio opened issue #7206: Feature request: question mark icon 02http://git.io/XZ7kHg
+[12:44:58] <jqmobilecommit> [13jquery-mobile] 15Ruffio opened issue #7207: Feature request: unlock icon 02http://git.io/60TijA
+[12:48:44] <jqcommit> [13api.jquerymobile.com] 15Ruffio opened issue #283: Icon overview page shows 'Home' icon twice 02http://git.io/GRIOZQ
+[12:56:50] <gseguin> _|Nix|_: +1 we should also add .editorconfig to the repo
+[13:00:53] <arschmitz> _|Nix|_: we gota talk about custom select when you have time
+[13:17:13] <agcolom> arschmitz: uGoMobi: I'm dealing with http://git.io/GRIOZQ
+[13:17:59] <agcolom> I just realised the icon list is not in alphabetical order, and I thought it should be. Is that ok with you?
+[13:18:13] <agcolom> (if I make that change?)
+[13:18:26] <agcolom> I thought it would make searching for icons easier.
+[13:23:29] <arschmitz> agcolom: yea sounds good to me
+[13:29:51] <agcolom> arschmitz: Thx! nearly done...
+[13:34:42] <jqcommit> [13api.jquerymobile.com] 15agcolom opened pull request #284: Icons: Removed duplication and ordered alphabetically (06master...06283-icon-list) 02http://git.io/lZL4VA
+[14:00:45] <jquicommit> [13jquery-ui] 15jzaefferer 04force-pushed 06jquery-switcher-ui from 148bc3918 to 14f75fc59: 02http://git.io/nWLlcA
+[14:00:45] <jquicommit> 13jquery-ui/06jquery-switcher-ui 14f75fc59 15Jörn Zaefferer: Tests: Expose jQuery version select...
+[14:03:06] <jquicommit> [13jquery-ui] 15jzaefferer 04force-pushed 06jquery-switcher-ui from 14f75fc59 to 143651d44: 02http://git.io/nWLlcA
+[14:03:06] <jquicommit> 13jquery-ui/06jquery-switcher-ui 143651d44 15Jörn Zaefferer: Tests: Expose jQuery version select...
+[14:03:31] <jquicommit> [13jquery-ui] 15jzaefferer merged 06jquery-switcher-ui into 06master: 02http://git.io/XAw1Ng
+[14:11:37] <agcolom> arschmitz: uGoMobi: _|Nix|_: gseguin: you may have seen this already... I thought I'd share anyway as seems like something useful...  https://developers.google.com/chrome-developer-tools/docs/remote-debugging 
+[14:12:24] <gseguin> agcolom: thanks for sharing
+[14:12:44] <agcolom> gseguin: you're welcome :-)
+[14:52:29] <uGoMobi> agcolom: Thanks. I was already using it and it works pretty nice.
+[15:18:08] <jqmobilecommit> [13jquery-mobile] 15thenewguy opened issue #7208: Panel on multi page html is hidden by content 02http://git.io/U0zMBA
+[17:34:27] <jqmobilecommit> [13jquery-mobile] 15frankie-loves-jesus opened issue #7209: How to avoid .ui-btn-left and .ui-btn-right being assigned to links in header? 02http://git.io/G1s8Xw

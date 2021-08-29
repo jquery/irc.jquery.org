@@ -1,0 +1,107 @@
+[05:34:40] <gibson042> .
+[07:08:08] <matjas> re: http://goo.gl/Vzaxa is removing XHTML (`application/xhtml+xml`, that is) support an option? also, how about removing quirks mode support?
+[07:51:05] <rwaldron> how about, no
+[08:12:12] <matjas> rwaldron: …why not?
+[08:13:25] <matjas> i can’t think of a reason why it should be out of the question
+[08:14:05] <matjas> who uses XHTML? who relies quirks mode? and why wouldn’t those people not just use jQuery 1.7 or any other current version that supports XHTML + quirks?
+[08:14:34] <matjas> if you use XHTML chances are you don’t really need jQuery anyway — as IE < 9 can’t even render XHTML
+[08:18:56] <timmywil> matjas: do we know it would actually save much?
+[08:20:01] <matjas> timmywil: no idea, but i remember committing some stuff that broke XML support
+[08:20:26] <matjas> it would result in some savings, that’s for sure
+[08:23:23] <timmywil> Seems like it would result in different code, not necessarily shorter code.  Since we support IE6-8, it shouldn't be difficult to tack on xhtml and quirks, so I don't see the gain in removing it unless it made things simpler (which it wouldn't) or gave us enough of a size reduction (which I'm open to but doubt).
+[08:25:07] <timmywil> we do not officially support quirksmode btw, but we consider easy fixes in bug tickets.
+[08:31:36] <scott_gonzalez> Indeed, quirks mode is not supported. I wonder how many bug reports we'll start getting with people encouraging devs to use quirks mode in old IE for box model changes.
+[08:32:11] <scott_gonzalez> timmywil: Have you seen my PR for easings?
+[08:33:27] <timmywil> scott_gonzalez: saw it, haven't dug into it
+[08:33:53] <scott_gonzalez> ok
+[08:34:10] <scott_gonzalez> I've been waiting on that before landing my rewrite of the easings in jQuery UI.
+[08:34:19] <scott_gonzalez> It's 54% smaller now :-)
+[08:35:19] <timmywil> nice!
+[08:35:54] <scott_gonzalez> I just want to make sure we're ok with reducing our easings to just use state.
+[08:35:55] <matjas> timmywil: there’s jQuery.isXMLDoc and Sizzle.isXML… both are used throughout the code. looks like it could save quite a bit
+[08:36:19] <timmywil> matjas: we can't drop xml support
+[08:36:27] <matjas> no
+[08:36:27] <scott_gonzalez> Doesn't XHR return XML?
+[08:36:58] <matjas> but some of these may be just XHTML-specific
+[08:37:09] <timmywil> yea perhaps
+[08:45:16] <DaveMethvin> ohai
+[08:45:35] <DaveMethvin> I think IE10  now supports XHTML
+[08:45:47] <DaveMethvin> better late than ... well no not better at all
+[08:46:02] <DaveMethvin> but since we have to support xml we might as well support xhtml
+[08:47:22] <DaveMethvin> although it would be nice to see if we could reduce the overhead or number of calls to isxmldoc() inside our code, that shows up frequently in profiling
+[08:52:02] <matjas> DaveMethvin: ie9 too iirc
+[08:54:54] <DaveMethvin> when we can eliminate oldIE (6/7/8) totally we can revisit some design decisions that could make a big perf/size diff, but for now i'm pretty good with that list
+[10:08:07] <danheberden> btw i totes wrote this with you in mind, DaveMethvin http://weblog.bocoup.com/easily-test-jquery-pre-release-versions/
+[10:08:26] <DaveMethvin> yeah, thanks danheberden i retweeted <#
+[10:08:29] <DaveMethvin> <3
+[10:08:51] <danheberden> i should have started it with "so Dave gets REALLLLY mad when you don't do this, so pay attention!"
+[10:31:31] <jzaefferer> ugh… hey DaveMethvin, could you delete this comment I just posted? http://bugs.jquery.com/ticket/10442#comment:6 didn't notice I wasn't logged in until after I submitted it...
+[10:32:26] <DaveMethvin> jzaefferer: sure, done
+[10:32:57] <jzaefferer> thx
+[10:42:26] <David_Souther> Hello, jquery devs :) I'm curious about http://bugs.jquery.com/ticket/10442
+[10:43:45] <David_Souther> I see $.widget from jQuery UI as a very powerful extension/inheritance mechanism, and was looking for any discussion on moving it into core as a robust plugin handling system.
+[10:45:23] <ajpiano> David_Souther: as DaveMethvin said, we are trying to get leaner and more modular within core
+[10:45:34] <ajpiano> the widget factory is just tooooo big to drop into jquery core
+[10:45:49] <ajpiano> and i say that as someone who's heavily evangelised the widget factory
+[10:46:09] <DaveMethvin> yeah i have nothing against the widget factory but don't think it belongs in core
+[10:46:14] <sonotos> hm well in most cases widget is required anyways
+[10:46:21] <DaveMethvin> required by who?
+[10:46:28] <sonotos> plugins
+[10:47:17] <DaveMethvin> plenty of plugins are not built on the widget factory
+[10:47:52] <ajpiano> and ones that do can include it. there's nothing wrong with clearly delineated dependencies
+[10:48:01] <DaveMethvin> the idea here is to have layered dependencies
+[10:48:12] <DaveMethvin> you are welcome to "flatten" that by combining it all into one file
+[10:48:16] <DaveMethvin> and i'd encourage it
+[10:48:25] <DaveMethvin> but we shouldn't try to predict those needs
+[10:48:34] <sonotos> DaveMethvin: yes, but as many people are using more than one, you have a good chance new compley plugins are build as widget
+[10:48:47] <ajpiano> sonotos: and those people still only need to include the widget factory once
+[10:49:01] <DaveMethvin> they can get it once if they want, nothing is stopping them
+[10:49:15] <DaveMethvin> i don't want to make that decision for them, it's their project
+[10:49:24] <DaveMethvin> if we include stuff in core, everyone pays
+[10:49:30] <DaveMethvin> whether they need it or not
+[10:49:41] <David_Souther> If I may, as I'm still very new to the jQuery devel process, what is the delineation of core and ui?
+[10:50:10] <David_Souther> To me, core is everything I get in http://code.jquery.com/jquery-1.7.1.min.js
+[10:50:13] <DaveMethvin> ui consists mostly of visible stuff, that's one way to look at it
+[10:50:29] <DaveMethvin> core is foundational things, manipulation, ajax, etc
+[10:50:32] <David_Souther> Whereas UI is what I get when I build an install from themeroller
+[10:50:51] <DaveMethvin> and that is a good example of why core is not pieces-parts
+[10:51:06] <DaveMethvin> you know if your project needs an accordion
+[10:51:28] <DaveMethvin> but you'd be hard pressed to know which apis you need in core, esp if you include plugins and UI
+[10:51:52] <David_Souther> Coming into this, I was frustrated with the module pattern adding to $.fn where http://docs.jquery.com/Plugins/Authoring recommends copy/pasting the bridge code and going from there
+[10:52:07] <David_Souther> That approach is also very difficult to extend plugins, etc
+[10:52:20] <DaveMethvin> it's a pretty thin wrapper, but yes it's also intended for non-UI plugins imo
+[10:52:42] <DaveMethvin> widget is for visible widgets, it has a mouse handler for example
+[10:53:05] <David_Souther> Whereas $.widget provides a wonderful extension around the prototype chain and the bridge, has almost no UI code directly (minus an optional use of $.Widget as a base class), and is only ~150 lines
+[10:53:44] <DaveMethvin> great, so use it, that's the beauty of the jquery plugin system
+[10:53:49] <sonotos> hm i use Widget for all plugins meanwile, it provides a clean architecture
+[10:54:24] <DaveMethvin> jquery core is not a framework, it's meant to be a component you build upon
+[10:55:00] <David_Souther> @DaveMethvin I had never thought of core like that... but wow, I like it. You've just shifted my world view.
+[10:55:01] <sonotos> at least jQuery is a fix for the pains of DOM
+[10:55:11] <DaveMethvin> clearly there are plugins where widgets are not appropriate, filtering plugins or ajax plugins for example
+[10:55:45] <DaveMethvin> and people build things like sproutcore or backbone on top of us
+[10:55:59] <DaveMethvin> so they have their own philosophies
+[10:56:06] <ajpiano> David_Souther: have you seen, by any chance  https://github.com/blueimp/jQuery-File-Upload/blob/master/jquery.fileupload.js
+[10:56:15] <ajpiano> it uses AMD to define its deps
+[10:56:30] <David_Souther> This leads me to a different question- is there any movement in jquery to make core itself more modular? I have come across places where I might not want the DOM/CSS support, but just the javascript language features? (Deferreds, events, etc)
+[10:56:51] <DaveMethvin> yes, we're working on modularity for 1.8
+[10:57:05] <DaveMethvin> i don't think we'll be exposing that unless you clone the repo though
+[10:57:10] <sonotos> hm nice plugin
+[10:57:25] <DaveMethvin> that is, our final public output will still be a combined single js file for each release
+[10:57:35] <David_Souther> Awesome. And that's fair enough, it is more an edge case
+[10:58:11] <DaveMethvin> the Mobile guys are using AMD for definining their module deps and then stripping that out to build the final file, i wanted to take a closer look at that
+[10:58:20] <DaveMethvin> you kind of get the best of both worlds
+[10:59:20] <ajpiano> but the point is that like, as a plugin author, assuming that jQuery will just have every dependency you need is naive, and you should be specific instead of asking core to to just be the container for everything you could possibly need :)
+[10:59:34] <DaveMethvin> ^ yeah!
+[11:10:45] <scott_gonzalez> I dont't think $.widget belongs in core either :-P
+[11:12:32] <scott_gonzalez> When the insanity of UI 1.9/1.10/2.0 settles down. I'll look into having better separation between $.wdiget/$.widget.bridge/$.Widget.
+[11:12:51] <scott_gonzalez> But for now, it's really not an issue. Just load jquery.ui.widget.js and use it.
+[12:00:19] <boaz> hey ajpiano, DaveMethvin, this blog post from danheberden is a good tip for the jQuery dev community: https://twitter.com/#!/bocoup/status/167299433778790400
+[12:00:20] <socialhapy> ★ Tweet from bocoup: Easily test new versions of @jQuery in production: http://t.co/V7RmlBmZ – New weblog post from @danheberden ★ http://bit.ly/x96NP8
+[12:00:29] <boaz> you think @jquery could RT it?
+[12:00:52] <DaveMethvin> boaz: already RT it myself, and  yeah it's good info
+[12:01:01] <ajpiano> yeah
+[12:01:04] <DaveMethvin> ajpiano holds the keys
+[12:01:26] <boaz> ajpiano RT DAT TWEET
+[12:01:59] <ajpiano> done
+[12:02:08] * ajpiano logs out of jquery twitter
+[12:05:08] <danheberden> ajpiano lol

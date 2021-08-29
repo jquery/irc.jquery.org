@@ -1,0 +1,68 @@
+[06:55:46] <jzaefferer> hey kborchers, yt?
+[06:55:58] <kborchers> yep
+[06:56:16] <jzaefferer> I've got a scrolling positioning issue that I can't reproduce outside of the application, which is a bit annoying, maybe you've got an idea what's going on
+[06:56:34] <jzaefferer> basically I've got tooltips on elements that are positioned absolutely within some other element
+[06:56:54] <jzaefferer> looks fine as long as you don't scroll down, then the tooltips 'stay' instead of taking scroll into account
+[06:57:15] <jzaefferer> the app uses 1.8.16 and an old version of tooltip from 2010
+[06:57:43] <jzaefferer> though tooltip itself doesn't really do any positioning, and I tried overriding the position plugin with the current version, which doesn't make any difference
+[06:58:22] <jzaefferer> CSS for .ui-tooltip is pretty trivial as well, and matches whats currently in jquery.ui.tooltip.js
+[06:59:15] <kborchers> hmm
+[06:59:50] <jzaefferer> as for fractions and FF: we don't care for 1.9+old jQuery versions, so that shouldn't be a problem, right?
+[07:01:03] <kborchers> right, but the issue i'm running into is that fraction stuff in 1-8-stable with FF6. tests always fail because FF supports fractions even if jQuery doesn't
+[07:04:22] <kborchers> for your tooltips, i don't believe position listens for the scroll event. i have always created a handler for that and applied position again on every scroll event. do you think position should do that for you? or am i misunderstanding your question?
+[07:08:36] <jzaefferer> well, the tooltip is at the correct position at body scrollTop 0
+[07:08:50] <jzaefferer> then I scroll down, hover the element again, and it shows up at the wrong position, too high
+[07:08:56] <jzaefferer> scrollTop too high
+[07:09:26] <jzaefferer> works fine in master, at least with my crippled reduced testcase
+[07:09:49] <jzaefferer> even while scrolling, tooltips scroll correctly along with its element
+[07:09:54] <jzaefferer> no need to reposition
+[07:10:22] <jzaefferer> which also works in my app, but its messed up when it positions again after scrollTop changed
+[07:10:47] <kborchers> hmmm, it should be taking scrollTop into account.
+[07:10:51] <jzaefferer> jquery.1.6.4 + latest position plugin doesn't help, so there must be something else
+[07:11:02] <kborchers> are you using Tooltip?
+[07:11:57] <kborchers> meaning the UI Tooltip and not just something that is acting as a "tooltip"
+[07:14:22] <jzaefferer> yeah, the ui tooltip
+[07:14:30] <jzaefferer> but a version from last year...
+[07:14:55] <jzaefferer> its even more weird: sometimes it actually positions correclty
+[07:14:59] <jzaefferer> *correctly
+[07:15:32] <kborchers> what the ....?
+[07:15:33] <jzaefferer> totally random
+[07:15:42] <kborchers> hmm
+[07:16:25] <kborchers> do you have the commit for the old tooltip that i can look at or is it just something local that was never in master?
+[07:17:44] <kborchers> does using the latest tooltip make no difference?
+[07:17:51] <jzaefferer> it should've been in master, would take some digging
+[07:18:08] <jzaefferer> tooltip changed quite a lot since then, so I'd have to migrate all of them
+[07:18:13] <jzaefferer> its used in a few other places as well
+[07:18:19] <kborchers> oh, ok
+[07:18:33] <jzaefferer> it still has the .css(top:0, left:0) stuff, that seems to be related
+[07:18:38] <jzaefferer> removing that makes it even worse
+[07:18:59] <jzaefferer> but maybe removing + new position helps
+[07:19:31] <jzaefferer> nope, more screw up
+[07:20:03] <kborchers> so old tooltip does use position ... in the same way? like
+[07:20:04] <kborchers> .position( $.extend({
+[07:20:04] <kborchers> 				of: target
+[07:20:04] <kborchers> 			}, this.options.position ) )
+[07:21:14] <jzaefferer> I think I found something
+[07:21:24] <jzaefferer> position breaks when the element is hidden, ye olde tooltip didn't take that into account
+[07:21:55] <jzaefferer> yeah, that seems to be the problem
+[07:22:21] <jzaefferer> that's what I get for using my own pre-alpha software in a project /o\
+[07:22:38] <jzaefferer> thanks for listening and digging along
+[07:22:47] <kborchers> no prob
+[07:23:18] <kborchers> you have any thoughts on that fraction/FF6/old JQuery thing? am i just confusing myself?
+[07:24:39] <jzaefferer> let me try again
+[07:24:59] <jzaefferer> so 1-8-stable is supporting older jQuery versions, therefore we care in that case
+[07:25:17] <jzaefferer> and it fails with FF6 (supports fractions) and jQuery-old (not supporting fractions)
+[07:25:35] <jzaefferer> is it just unit tests that fail or is it actually a practical problem?
+[07:26:21] <kborchers> from what i can tell, just units. the positions could be off by fractions too i guess since jQuery will round if any calculations need to happen (offsets or something)
+[07:31:29] <jzaefferer> so, I don't really care about passing all tests in 1-8-stable, we'll never get there anyway
+[07:31:44] <jzaefferer> so if the patch actually fixes something, we should land it
+[07:36:08] <kborchers> ok, well it does fix some positioning issues (1-off stuff) when rounding or not based on jQuery version so should I just merge into 1-8-stable and leave the unit tests out or do you want the units too even though they may fail in some browsers (maybe only FF)?
+[07:45:33] <kborchers> jzaefferer: i think i will uncomment the 5280 test since this fix makes that pass in old and current jQuery in all browsers i believe but inukshuk's fraction test fails in FF so I may leave that out. how's that sound?
+[07:45:52] <jzaefferer> sounds good
+[07:46:04] <kborchers> ok, PR coming soon
+[08:00:32] <kborchers> jzaefferer: ok what am i missing. i branched from the 1-8-stable branch, made my changes and pushed to my repo. now the PR has 91 commits going back to December 2010. is that normal? can you just pick my commit out of that or did i do something wrong? (i'm guessing i did something wrong)
+[08:32:26] <jzaefferer> yeah, 91 commits is wrong
+[08:32:47] <jzaefferer> how did you apply the changes?
+[08:33:02] <jzaefferer> merge your existing branch into the new target branch?
+[09:41:02] <kborchers> jzaefferer: i'm an idiot! took me forever to figure out i was trying to issue the PR against master instead of 1-8-stable :m  https://github.com/jquery/jquery-ui/pull/470
+[09:41:03] <socialhapy> ★ Pull request on jquery-ui by kborchers (38.119s ago): Position: Added a check for fraction support in element positions

@@ -1,0 +1,127 @@
+[09:02:26] <DaveMethvin> thanks!
+[09:02:33] <mikesherov> hi
+[09:02:51] <DaveMethvin> timmywil orkel jaubourg gibson042 rwaldron gnarf meetin time!
+[09:02:55] <DaveMethvin> hey mikesherov
+[09:03:01] <timmywil> ah!
+[09:03:04] <orkel> hi!
+[09:03:10] <gibson042> hola
+[09:03:11] <bot-t> (45 hours 50 mins ago) <mikesherov> tell gibson042 take a look at this, and let me know if you think Sizzle.contains should just do parentNode traversal always: http://jsperf.com/is-the-element-in-the-document
+[09:03:15] <rwaldron> Here!
+[09:03:20] <rwaldron> Also, just published: https://github.com/rwldrn/tc39-notes/tree/master/es6/2013-03
+[09:03:32] <rwaldron> jQuery on TC39: FOR THE WIN
+[09:03:39] <rwaldron> yehuda and I killed it
+[09:03:39] <DaveMethvin> oh boy, my bedtime reading is here
+[09:03:57] <DaveMethvin> yeah i saw a coupla tweets, sounded really good
+[09:04:41] <DaveMethvin> okay, i'm out at microsoft this week in a bunch of meetings so i have about half an hour
+[09:04:58] <DaveMethvin> put together an agenda
+[09:05:03] <timmywil> mikesherov: I'd like to see perf tests for deeply nested elements vs. native contains in Firefox and IE.
+[09:05:16] <DaveMethvin> yeah that was an interesting find mikesherov
+[09:05:29] <gibson042> agree
+[09:05:38] <mikesherov> oh, where did I put that
+[09:05:50] <DaveMethvin> i was saying i can kind of understand how a simple loop could be faster since compareDocumentPosition is having to answer a more complex question
+[09:06:01] <DaveMethvin> the link shoudl be in the irc logs mikesherov
+[09:06:13] <mikesherov> I didn't test for correctness: http://jsperf.com/is-the-element-in-the-document
+[09:06:18] <mikesherov> I was just fiddling
+[09:06:38] <DaveMethvin> i'd rather be fast than right! :D
+[09:06:41] <DaveMethvin> makes a great bumper sticker
+[09:06:46] <timmywil> We've seen V8 optimize loops like insane-face, but we haven't seen other browsers keep up
+[09:07:07] <DaveMethvin> for convenience https://docs.google.com/document/d/1MrLFvoxW7GMlH9KK-bwypn77cC98jUnz7sMW1rg_TP4/edit
+[09:07:17] <DaveMethvin> everyone okay with the schedule for 2.0 and 1.10 there?
+[09:07:23] <DaveMethvin> seems doable
+[09:07:38] <DaveMethvin> there are some PRs that need to be decided for both of those
+[09:08:13] <timmywil> do we need to call it stable? It's probably not always stable.
+[09:08:24] <DaveMethvin> haha we have to be optimistic!
+[09:08:26] <mikesherov> I see we finally caved on untrimmed HTML
+[09:08:37] <mikesherov> I'm happy about that
+[09:08:45] <DaveMethvin> only because i want to have script not execute by default
+[09:08:49] <DaveMethvin> it's the alternative solution
+[09:08:55] <mikesherov> right
+[09:08:59] <DaveMethvin> but it IS a big change
+[09:09:03] <DaveMethvin> potentially
+[09:09:08] <DaveMethvin> dunno how often people expect that
+[09:09:25] <DaveMethvin> but in retrospect i think that is a better solution
+[09:10:10] <DaveMethvin> so like i said in there, i'd like our default to be that any html injected is "inert" and doesn't run anything
+[09:10:18] <DaveMethvin> but it's too hard for us to do that right now
+[09:10:34] <DaveMethvin> since running scripts is just one way to trick html into doing stuff
+[09:10:49] <DaveMethvin> you could have an onload inline handler, or a meta refresh tags
+[09:11:23] <DaveMethvin> and ideally i'd like people to "declare" they really want that via parseHTML(...true)
+[09:11:37] <DaveMethvin> otherwise that kind of stuff is just XSS waiting to happen
+[09:11:48] <rwaldron> DaveMethvin I'm cool with the 2.0 schedule, but that "data() implementation" item is done
+[09:12:09] <DaveMethvin> rwaldron you mentioned going back to the blacklist for attaching data
+[09:12:17] <rwaldron> Oh right
+[09:12:22] <rwaldron> well
+[09:12:36] <rwaldron> so...
+[09:12:47] <rwaldron> that would be a false limitation
+[09:12:58] <DaveMethvin> yeah i am not a fan
+[09:13:05] <rwaldron> the new data implementation can handle all the things
+[09:13:19] <gibson042> it's not false; it's for correspondence with 1.x
+[09:13:21] <DaveMethvin> really i still don't have an answer as to why someone is trying to attach data to something that can't have data
+[09:13:43] <rwaldron> gibson042 right
+[09:13:46] <DaveMethvin> so either we give them an error or we swallow an error and do not do what they asked, right?
+[09:14:10] <DaveMethvin> either way they ain't gettin data on those elements
+[09:14:15] <rwaldron> DaveMethvin not sure what you mean by "can't have data"
+[09:14:21] <rwaldron> that's not a concept that exists in 2.0
+[09:14:28] <DaveMethvin> in 1.9 i meant
+[09:14:31] <rwaldron> right
+[09:14:49] <rwaldron> the only issue is the other way around
+[09:14:59] <rwaldron> if someone writes a plugin using 2.0
+[09:15:04] <rwaldron> and doesn't test against 1.9
+[09:15:14] <rwaldron> they may end up allowing for data on anything
+[09:15:15] <DaveMethvin> but you're setting expandos on elements in 2.0 now?
+[09:15:22] <rwaldron> and then someone will use conditional comments
+[09:15:31] <rwaldron> this is so corner case
+[09:16:00] <rwaldron> DaveMethvin yes, but the browsers that jQuery 2.0 supports have nothing against doing so
+[09:16:03] <rwaldron> on any element
+[09:16:06] <DaveMethvin> i thought expandos on activex broke for activex other than flash, even in IE9
+[09:16:17] <DaveMethvin> but i have no test case
+[09:16:24] <rwaldron> I defer to the tests
+[09:16:35] <rwaldron> I added tests for all of the elements we used to blacklist
+[09:16:36] <mikesherov> yeah, but specifically didn't test flash
+[09:16:50] <DaveMethvin> flash was the only one that allowed as i recall
+[09:17:03] <DaveMethvin> whether it allows expandos is up to the implementor of the activex control
+[09:17:08] <mikesherov> I rememeber DaveMethvin made a fix for flash for SOMETHING, and was all like "I'm not adding a flash file to jQuery's tests"...
+[09:17:19] <mikesherov> forget what the specifics were
+[09:17:30] <DaveMethvin> yeah that was about the lack of setAttribute
+[09:17:34] <rwaldron> DaveMethvin mikesherov https://github.com/jquery/jquery/blob/master/test/unit/data.js#L147-L175
+[09:17:52] <mikesherov> sweet
+[09:18:11] <DaveMethvin> well we will consider it fixed until proven otherwise
+[09:18:33] <DaveMethvin> i don't mind this diff between 1.x and 2.x as long as it works
+[09:18:41] <rwaldron> DaveMethvin ok, so we're not going back to blacklist?
+[09:18:44] <rwaldron> good
+[09:18:54] <rwaldron> Code written for 1.9 will not break
+[09:19:01] <rwaldron> which is the most important thing to me
+[09:19:07] <DaveMethvin> yeah i'm good with that
+[09:19:11] <DaveMethvin> how bout you gibson042
+[09:19:14] <rwaldron> gibson042 ^
+[09:19:17] <rwaldron> ha
+[09:19:18] <gibson042> works for me
+[09:19:21] <rwaldron> great
+[09:19:32] <rwaldron> then let's kill that item from the list :)
+[09:19:34] <gibson042> we'll need a note in the docs
+[09:20:44] <DaveMethvin> seems like we might want this in two places
+[09:21:43] <DaveMethvin> just a sec
+[09:24:41] <DaveMethvin> ok back
+[09:25:00] <orkel> if blacklist is not there we will have memory leaks on non-element nodes, right?
+[09:25:30] <DaveMethvin> oh, b/c we don't run them through cleanData?
+[09:25:45] <DaveMethvin> hmmmmm
+[09:26:06] <DaveMethvin> well we *could* run them through cleanData?
+[09:26:21] <orkel> cleanData takes only elements though getAll helper
+[09:26:31] <DaveMethvin> hoo boy
+[09:26:33] <orkel> which does not find non-elements nodes
+[09:26:41] <DaveMethvin> good catch orkel
+[09:26:45] <DaveMethvin> so rwaldron
+[09:26:57] <DaveMethvin> if we attach, we must detach
+[09:27:19] <rwaldron> orkel nice one
+[09:27:21] <DaveMethvin> embeds and objects aren't a problem
+[09:27:25] <rwaldron> I'll look at it now
+[09:27:27] <rwaldron> right
+[09:27:33] <rwaldron> just comment and text i presume
+[09:28:53] <DaveMethvin> we should never even get into a situation of attaching data to fragments
+[09:29:02] <DaveMethvin> and if someone tried it well screw them
+[09:29:23] <DaveMethvin> so i have to leave in a sec
+[09:29:59] <DaveMethvin> how about if I do the work listed there for migrate ... who's up for the other items?
+[09:30:15] <DaveMethvin> i wanted to go through the pull requests as well
+[09:30:32] <DaveMethvin> will any of you be around tonight?
+[09:31:36] <DaveMethvin> okay, gotta go ... anything you guys can do to knock down this list would be awesome!
+[09:31:38] <DaveMethvin> thanks
+[09:33:22] <timmywil> peace DaveMethvin

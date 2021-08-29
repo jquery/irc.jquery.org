@@ -1,0 +1,127 @@
+[08:18:02] <JamesMGreene> Heeeey danheberden
+[08:19:44] <JamesMGreene> danheberden: I was looking over `gith` and I see the all of the roadmap items you mentioned in the initial blog post about it don't appear to have corresponding issues/milestones on GitHub. Would you mind if I created them?
+[08:19:51] <JamesMGreene> (as issues, obviously)
+[08:26:04] <JamesMGreene> danheberden: I'll go ahead and do it... just wanted to check with you first if you were around.  If you don't want to tackle it that way, feel free to close them or whatever
+[08:35:14] <doesallmagic> Project jQuery Migrate Core 1.x build #71: STILL FAILING in 10 sec: http://swarm.jquery.org:8080/job/jQuery%20Migrate%20Core%201.x/71/
+[08:35:27] <doesallmagic2> Project jQuery Migrate Core 1.x build #70: STILL FAILING in 2.3 sec: http://jenkins.jquery.com/job/jQuery%20Migrate%20Core%201.x/70/
+[08:35:46] <DaveMethvin> AAAUGGHHH THEY'RE MULTIPLYING!
+[10:07:21] <m_gol> I was looking at the code of the American site about Polish visas
+[10:07:22] <m_gol> http://www.ustraveldocs.com/pl_pl/pl-loc-passportcollection.asp
+[10:07:33] <m_gol> and they have an interesting strategy of using jQuery
+[10:08:04] <m_gol> include jQuery 1.4.5, write some doc-ready code, then include jQuery... 1.2, write another doc-ready code... :D
+[10:08:15] <DaveMethvin> yeah
+[10:08:26] <DaveMethvin> two jqueryies are better than one i guess
+[10:08:30] <m_gol> I wonder how their 3rd block would look like :D
+[10:08:49] <m_gol> especially those older ones
+[10:08:53] <m_gol> more experienced :D
+[10:12:53] <m_gol> and the 2nd jQuery isn't even minified
+[11:58:31] <scott_gonzalez> You people either have crazy high resolutions, really small text, or both...
+[11:58:37] <scott_gonzalez> I can only see 105 characters in my editor.
+[11:59:13] <DaveMethvin> I'd be okay with 100 chars as an absolute max, with something shorter recommended
+[11:59:46] <scott_gonzalez> Yeah, I use 80 as the guide and 100 as the max.
+[11:59:54] <DaveMethvin> we can check for 100 with jshint
+[12:00:21] <m_gol> I'm fine with 100
+[12:01:52] <m_gol> as for the resolutions, I have 1680x1050 on an MBP and 1920x1080 on an external screen
+[12:06:16] <scott_gonzalez> I have 1280x800.
+[12:06:57] <DaveMethvin> 1600x900 here on a 14-inch screen
+[12:07:39] <scott_gonzalez> Yeah, I have a 13.3" screen.
+[12:10:07] <timmywil> 2560x1440. How about 1000 chars?
+[12:10:42] <DaveMethvin> let's just use the minified version and eliminate the middleman
+[12:11:10] <m_gol> :D
+[12:14:14] <m_gol> why do we check for computed display when hiding an element? I mean this in css.js, line 89:
+[12:14:14] <m_gol> data_priv.set( elem, "olddisplay", hidden ? display : jQuery.css(elem, "display") );
+[12:15:03] <m_gol> this can cause issues when adding classes during animation as pointed out in
+[12:15:09] <m_gol> ?13962
+[12:15:11] <bot-t> [#13962]  (new bug) - http://jqbug.com/13962
+[12:18:12] <DaveMethvin> m_gol we need to know the old value so we can set it back, right?
+[12:19:36] <m_gol> DaveMethvin: but the old specified value, right?
+[12:19:44] <m_gol> why do we need to remember the computed value?
+[12:19:59] <DaveMethvin> span { display: block } perhaps?
+[12:20:31] <m_gol> if the old specified value was '', we could just restore it and the value specified in <style> block should cascade
+[12:21:07] <DaveMethvin> this may relate to detached elements as well?
+[12:21:07] <m_gol> span { display: block } is a very evil example :D
+[12:21:39] <m_gol> detached elements don't have computed style so this shouldn't matter
+[12:22:14] <DaveMethvin> display: '' wouldn't reset a span { display: none } to visible tho
+[12:22:15] <m_gol> (span { display: block; } div { display: inline; } /* happy CSS, suckers! */)
+[12:23:01] <DaveMethvin> i think we're back to the lack of solid semantics for what .show() and .hide() exactly do
+[12:23:10] <m_gol> right
+[12:23:27] <m_gol> yet another reason to fix this mess ;)
+[12:23:30] <DaveMethvin> if .show() is an alias for .css("display", "") then it won't show things hidden in stylesheets
+[12:23:50] <m_gol> right
+[12:23:59] <DaveMethvin> and the problem with fixing it is that we will definitely break code ... we just don't know what at the moment
+[12:24:42] <m_gol> we could always treat elements hidden in stylesheets differently than those hidden by us though that'd be ugly :/
+[12:24:55] <DaveMethvin> as I understand it, .hide() is already flakey for detached elements
+[12:25:04] <DaveMethvin> there are bugs to that effect
+[12:25:18] <DaveMethvin> so if we said that you must only .hide() attached things we know the olddisplay
+[12:26:09] <DaveMethvin> which i think means we don't need defaultDisplay
+[12:27:30] <m_gol> there are actually two different cases, i.e. showing an element hidden in stylesheets & hiding an element not hidden in stylesheets
+[12:27:52] <DaveMethvin> oh right
+[12:27:56] <m_gol> so, I understand the current code now but I'd like to think of a better way
+[12:28:25] <m_gol> anyway, just using style.display would break at least one of those use cases and I guess we can't afford that ;)
+[12:28:32] <DaveMethvin> really, people should use classes for this :)
+[12:28:41] <m_gol> that's true
+[12:28:53] <m_gol> but if we go to the place where people use what they should... ;)
+[12:29:00] <m_gol> then we could use requestAnimationFrame in core
+[12:29:29] <m_gol> (esp. that it's been already unprefixed in Firefox, Chrome, IE, Opera Next & WebKit nightly)
+[12:30:01] <DaveMethvin> well maybe it's time to do that in 1.11/2.1 who knows
+[12:37:32] <m_gol> well, if we want to introduce breaking changes to animations it might be a good idea to do them all at once, fewer complaints of sort "you're breaking it so often!"
+[12:37:53] <m_gol> and it'd be nice to have rAF in jQuery if we can let ourselves to do that :)
+[12:38:20] <m_gol> of course we'd still need the non-rAF path for IE9 and older WebKits
+[12:38:46] <m_gol> btw, what's rwaldron's grudge against requestAnimationFrame?
+[12:39:10] <sizcommit> 01[13sizzle01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/STlT3A
+[12:39:10] <sizcommit> 13sizzle/06master 145f21da6 15Timmy Willison: Simplify XML checks. +0 bytes.
+[12:39:22] <DaveMethvin> oh his tweet? It's on window
+[12:39:45] <DaveMethvin> (I didn't get it either until he explained)
+[12:39:51] <rwaldron> m_gol I thought I replied
+[12:40:05] <rwaldron> I have no issue with what it does
+[12:40:54] <rwaldron> anyway, what DaveMethvin said
+[12:41:05] <rwaldron> window is a garbage dump
+[12:41:23] <DaveMethvin> and unfortunatley one shared with the user's js global variables
+[12:41:25] <m_gol> rwaldron: so how would you define it?
+[12:42:10] <m_gol> yeah, I don't like attaching global vars to window but it's too late to change that
+[12:42:33] <rwaldron> I also answered that
+[12:42:34] <rwaldron> https://gist.github.com/rwldrn/5646160
+[12:42:37] <m_gol> rwaldron: you replied but by directing me to your older tweets and I couldn't quickly find anything about that
+[12:43:19] <m_gol> k, I get it, thx
+[12:43:22] <DaveMethvin> and you thought jQuery could break things, imagine if browsers did some of these
+[12:43:59] <sizcommit> 01[13sizzle01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/tH0qvw
+[12:43:59] <sizcommit> 13sizzle/06master 1428f7974 15Timmy Willison: Update inline docs
+[12:46:07] <rwaldron> m_gol sorry about that :\
+[12:46:23] <rwaldron> DaveMethvin I don't mean for this to replace overnight
+[12:46:36] <rwaldron> something like that would be like "use this, it's better"
+[12:47:06] <rwaldron> and maybe in 10 years you'd see the end of setTimeout, setInterval, setImmediate & raF
+[12:47:26] <rwaldron> Also, I don't have enough bandwidth or patience to push the argument
+[12:47:34] <DaveMethvin> but in reality those guys will never remove stuff like that
+[12:47:49] <DaveMethvin> i will bet you that 10 years from now chrome will still accept //@ for sourcemaps
+[12:49:15] <m_gol> they still didn't add support for //#
+[12:49:31] <DaveMethvin> well not yet
+[12:49:42] <m_gol> funny thing, WebKit's already done that :)
+[12:50:29] <DaveMethvin> they'd better get to it by 1.11/2.1 or they won't work with our sourcemaps
+[12:51:05] <m_gol> https://code.google.com/p/chromium/issues/detail?id=239660
+[12:51:46] <m_gol> this might be enough motivation for them ;)
+[12:51:52] <m_gol> I hope they'll backport the change
+[13:04:15] <sizcommit> 01[13sizzle01] 15timmywil pushed 2 new commits to 06master: 02http://git.io/R1lIyQ
+[13:04:15] <sizcommit> 13sizzle/06master 147637181 15Timmy Willison: Remove internal isNative function. -10 bytes.
+[13:04:15] <sizcommit> 13sizzle/06master 140131887 15Oleg: Don't use frameElement property. Fixes #13980. Closes gh-214.
+[13:11:15] <jqcommit> 01[13jquery01] 15timmywil pushed 1 new commit to 061.x-master: 02http://git.io/jMd9UQ
+[13:11:15] <jqcommit> 13jquery/061.x-master 144ad18e0 15Timmy Willison: Update Sizzle. Avoid the use of frameElement. Fixes #13980.
+[13:11:32] <doesallmagic> Project jQuery 1.x Core build #175: STILL FAILING in 25 sec: http://swarm.jquery.org:8080/job/jQuery%201.x%20Core/175/
+[13:11:32] <doesallmagic> timmywillisn: Update Sizzle. Avoid the use of frameElement. Fixes #13980.
+[13:11:45] <jqcommit> 01[13jquery01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/stO9gw
+[13:11:45] <jqcommit> 13jquery/06master 146b46fde 15Timmy Willison: Update Sizzle. Avoid the use of frameElement. Fixes #13980.
+[13:20:44] <eddiemonge> what is the .mailmap file?
+[13:21:48] <scott_gonzalez> eddiemonge: It tells git how to fix author information.
+[13:23:36] <scott_gonzalez> You can read about it in `git help shortlog`
+[13:24:13] <eddiemonge> now twitter is down.
+[13:25:12] <eddiemonge> im not sure i like having my email addres in a file on a heavily used site like that. i mean its not rocket science to figure out my email address but it just seems to easy to go and harvest them all
+[13:25:39] <DaveMethvin> they are all in the commit logs, which are public as well
+[13:25:57] <DaveMethvin> and they only show up in .mailmap when people either screw up or change their emails
+[13:26:00] <DaveMethvin> or names
+[13:27:24] <m_gol> eddiemonge, DaveMethvin: and we're certainly not going to remove mails from merged commits :)
+[13:27:38] <m_gol> as it changes hashes and screws *everything*
+[13:28:16] <DaveMethvin> i only do that by mistake, and even then it's far too often
+[13:28:56] <eddiemonge> oh well. i guesss developer emails arent as popular anyway
+[14:21:59] <m_gol> DaveMethvin: http://bugs.jquery.com/ticket/13965#comment:6
+[14:22:12] <m_gol> that's weird, we have 3 different bevahiors again
+[16:21:14] <m_gol> DaveMethvin, you here?
+[20:25:20] <JamesMGreene> jzaefferer Krinkle|detached scott_gonzalez gnarf DaveMethvin rworth: Has anyone ever discussed a different name for the Testing subteam? Every time I mention that I'm a member, I have to explain that we don't "test jQuery" but rather create testing infrastructure

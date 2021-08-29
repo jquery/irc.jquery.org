@@ -1,0 +1,348 @@
+[06:13:10] <GoSox> For some reason I'm not setting, my script to process a particular form submission is running twice
+[06:13:33] <GoSox> it always runs twice. every time you submit, whether via submit button or hitting return in an input, it makes two identical http requests
+[06:13:41] <GoSox> this is the jquery https://jsfiddle.net/w19701rt/
+[06:14:38] <GoSox> line 22
+[06:17:05] <FilipNortic_> what's with line 22?
+[06:17:17] <GoSox> the http request always happens twice
+[06:17:44] <FilipNortic_> line 22 in you're fiddle sets some html
+[06:18:03] <GoSox> not on my screen
+[06:18:18] <GoSox> do you see the comment about HTTP happening twice on line 21?
+[06:18:37] <FilipNortic_> ahh right i hit tidy
+[06:20:53] <FilipNortic_> well there are some starange things in there but nothing that would cause double submit
+[06:21:07] <GoSox> yeah im not seeing anything either, its very strange
+[06:21:52] <FilipNortic_> you're sure that there's just one submitevent bound?
+[06:22:05] <GoSox> yeah
+[06:22:19] <GoSox> unless i include this .js file twice
+[06:22:29] <GoSox> i do not
+[06:28:11] <GoSox> ok it looks like the submit event handler only runs once
+[06:28:25] <GoSox> but somehow the http  request data handler is running twice
+[06:28:48] <FilipNortic_> the callback?
+[06:29:00] <GoSox> AHHHHH i think i see it
+[06:29:04] <GoSox> do you still have the fiddle open?
+[06:29:18] <FilipNortic_> yes
+[06:29:33] <GoSox> line 17 is causing 2 callbacks you think?
+[06:30:09] <GoSox> so the other animation and the http request itself is happening twice as two different simultaneous callbacks?
+[06:31:09] <FilipNortic_> 2 ajax requests you mean yeah maybe
+[06:31:51] <FilipNortic_> it's really wierd to pu an ajax request in a animation callback
+[06:32:52] <GoSox> the http request will often happen instanatly, but i want to slow down the rate a user can submit the form, so i animate, make the request, animate some more, the do a time delay, then 're-enable' the form so it can be submitted again
+[06:33:06] <GoSox> in the end it only takes a couple of seconds but it works well
+[06:33:29] <GoSox> and yup that fixed it
+[06:33:35] <GoSox> thats an odd bug
+[06:33:46] <GoSox> i hope i don't have that anywhere else in my code
+[06:35:13] <GoSox> i put so much effort into optimizing my code, and little do i know, i've been running the whole thing twice
+[06:36:32] <FilipNortic_> well syntax-wise it's not very readable you might wanan work on that a bit
+[06:37:05] <FilipNortic_> but then again we've seen way worse
+[06:37:08] <GoSox> what's the better way, everything needs to be chained together in call backs so that things run consequtively
+[06:42:47] <Cork> GoSox: have you had a look at $.when?
+[06:43:15] <Cork> if they can run simultaniously but need to all be done before you can process the result
+[06:43:24] <Cork> $.when is explicitly to handle that case
+[06:43:46] <GoSox> that doesn't sound like what i have going on
+[06:44:03] <GoSox> i have 'do an animation, when that's done, do some other stuff, when all that's done, do another animation'
+[06:44:56] <Cork> $("#request_result,#response_result") is the problem
+[06:45:10] <Cork> the .slideUp callback will be called once for each element
+[06:45:19] <GoSox> yup we already figured that out
+[06:45:37] <Cork> so use .promise() and $.when
+[06:45:56] <Cork> (instead of the callback argument)
+[06:45:56] <GoSox> i just used two separate .slideUp() calls, and only one has the callback
+[06:47:57] <Cork> GoSox: https://jsfiddle.net/w19701rt/2/
+[06:48:44] <Cork> .promise() does it by default so you don't even need $.when
+[06:49:49] <GoSox> but your 'new' way looks like it would do the same exact thing as the 'old' code? And if i put two IDs in the initial selector, won't it still do the done function twice?
+[06:50:08] <Cork> GoSox: check the console
+[06:50:23] <Cork> the difference is the promise is resolved when everything is done
+[06:50:29] <Cork> while the callback is for each element
+[06:50:50] <Cork> there are two divs so it has the same effect as if you used two ids
+[06:52:38] <GoSox> oh i see the difference now
+[06:52:54] <GoSox> i didn't realize even that would call the callback twice
+[06:53:13] <GoSox> i'm going to have to check all my pages to make sure i don't have any more double http requests, i bet i do
+[06:53:16] <Cork> GoSox: it will be called $('selector').length times
+[06:53:52] <Cork> GoSox: but here is a bit bigger example of the difference https://jsfiddle.net/w19701rt/4/
+[06:54:21] <Cork> promise gives you and array of the affected fields, while the inline callback is called once for each
+[06:54:55] <GoSox> interesting
+[06:55:08] <Cork> so it is a fairly easy fix
+[06:59:12] <GoSox> for now i'm going to stick with my method, i don't think there will be lots of cases of double callbacks, but i bet there are a few. but i might switch to these promises during the next big js update i do
+[06:59:40] <GoSox> i doubt there are a ton of places where i'm actually waiting for multiple things at once, this page has kind of an odd setup compared to most
+[06:59:47] <GoSox> but either way it's interesting
+[07:00:36] <GoSox> i found the problem because there was a php error, so i wrote some debugging info to a log file. i fixed the php problem, but i was getting double log entries the whole time :P
+[08:15:49] <Cypris> im sure this is probably a js question but if someone can help that'd be great. if i have a character such as the copyright symbol, is there way to convert that to &#169;?
+[10:39:37] <catbadger> hwy guys... I'm seeing something strange.. I'm using the latest v1 and trying to catch all mousedown events on the page and use it to restart a timer. my code is simple,  I don't understand why the click doesn't happen until the select is closed.
+[10:40:06] <catbadger> 		$(document).on('mouseup', function () { $this.stopTimedRedirect(); });
+[10:40:35] <catbadger> if a user clicks a select on the page, the select opens, and the timesr is not stopped until the select is closed.
+[10:40:38] <catbadger> anyone?
+[10:41:59] <catbadger> # frusstrated.
+[11:07:58] <syad80> hi, how can I get the text of a div that doesn't have an id, but has this   data-fieldname="cognome" , and inside the div there is a label with a text.  thanks
+[11:09:27] <shoky> syad80: $('div[data-fieldname="cognome"]')   if you need to be more specific you can add  .has('label') i guess
+[11:09:40] <syad80> ok let me try
+[11:10:35] <shoky> (and of course .text() to get the text)
+[11:11:28] <syad80> shoky:  thanks a lot.. it worked on first shot with .has('label')
+[11:12:33] <catbadger> solution to my issue was to bind the event in pure js.
+[11:12:45] <catbadger> yup removing jquery fixed it.
+[11:18:22] <syad80> shoky: just a problem, the div has the label, but also has other divs inside the main div parallel to the label. How can I only get the text of the label without the other divs?
+[11:20:51] <shoky> syad80: select the label
+[11:21:41] <shoky> $('div[...] label')  or  $('div[...]').find('label')
+[11:22:31] <syad80> ok yea, I prefer with find
+[11:22:33] <syad80> let me try
+[11:26:08] <syad80> shoky: thanks
+[11:31:56] <fakingfantastic> How come on Chrome, when i do $('body').html("<img src=\"https://www.google.com/images/branding/googlelogo/2x/googlelogo_color_272x92dp.png\”>”) a bunch of times, it doesn’t keep redownloading the images, but on Safari it keeps downloading the image and there is a very visable flicker?
+[12:43:18] <dimi1947> is this syntax correct:https://hastebin.com/oxipolocop.js
+[12:47:02] <robertmaxrees> dimi1947 https://jsfiddle.net/18yb2o1f/
+[12:50:31] <dimi1947> robertmaxrees:Do me a favor please,take a look at this fiddle https://jsfiddle.net/fiddlehunt/q4uy6p44/  JSpane line 66,click the edit button,add some inputs(by clicking the plus sign) and hit save and then look the console window...it outputs 8...why?)
+[12:54:59] <robertmaxrees> i don't get 8
+[12:55:22] <robertmaxrees> oh, after clicking once.
+[12:55:56] <robertmaxrees> and that's easy.
+[12:55:59] <robertmaxrees> you have 8 radio buttons.
+[12:56:58] <dimi1947> yes but with the code I should get the NON selected...which are 4....instead I get 8
+[12:57:39] <robertmaxrees> you're conflating radios with checkboxes :)
+[12:57:52] <dimi1947> hmmm
+[12:58:25] <dimi1947> in the fiddle I have radio OR checkboxes?
+[12:58:55] <robertmaxrees> well, actually.
+[12:58:56] <robertmaxrees> :checked
+[12:58:58] <robertmaxrees> not just checked.
+[12:59:04] <robertmaxrees> need the : in front - it's a psuedoclass.
+[12:59:15] <robertmaxrees> my bad.
+[12:59:25] <robertmaxrees> https://jsfiddle.net/robertmaxrees/6hd1b8mm/
+[13:00:34] <dimi1947> at last we are getting somewhere thanks,: was a little detail it did not cross my mind
+[13:00:55] <robertmaxrees> stuff like that is why i tend to use .filter() with functions
+[13:02:31] <dimi1947> there is onw problem yet though...
+[13:03:04] <robertmaxrees> ?
+[13:04:43] <dimi1947> As you see the radio buttons are separated in 4 groups...the 3 of them have a selection, I want to check how many groups HAVE NOT a selection...
+[13:07:35] <robertmaxrees> that's not really the question you want to ask :)
+[13:08:17] <robertmaxrees> wait sorry, misread.  i am way out of it this morning.
+[13:08:34] <robertmaxrees> okay, so you want to know if any groups don't have a selection, right?
+[13:08:50] <dimi1947> the number of it...
+[13:09:06] <dimi1947> it may be 1 or more...
+[13:09:08] <robertmaxrees> why do you need the number?
+[13:10:11] <dimi1947> I am just saying it this way so you can understand it better,I am just trying to be clear...I am interested if there are equal or more than 1
+[13:10:40] <robertmaxrees> what are you going to do with that information when you're done?
+[13:11:10] <robertmaxrees> check to make sure they're selected before letting the user click "save"?
+[13:12:55] <dimi1947> I just want to warn the user-when he hits save-that he/she has forgotten to make a selection(check one of the radio boxes)
+[13:13:40] <robertmaxrees> yeah, okay,.
+[13:13:41] <robertmaxrees> one sec.
+[13:15:26] <thykka> just one?
+[13:15:29] <thykka> or at least one?
+[13:15:35] <robertmaxrees> lolol
+[13:18:23] <dimi1947> at least one...for now
+[13:23:36] <robertmaxrees> so yeah.
+[13:23:41] <robertmaxrees> sorry - got pulled away by work.
+[13:23:48] <robertmaxrees> you're gonna want to do some filter action.
+[13:24:40] <robertmaxrees> https://jsfiddle.net/robertmaxrees/0x52bcfe/1/ this is one hacked-together way to do that.
+[13:27:20] <dimi1947> I had no idea it would be so complicated...
+[13:27:36] <robertmaxrees> it's not really complicated.
+[13:27:39] <robertmaxrees> just some nested filters.
+[13:27:52] <dimi1947> you are right...after all
+[13:28:23] <dimi1947> could we use the NOT operator and get the number of NOT selected?
+[13:29:05] <robertmaxrees> huh?
+[13:29:13] <robertmaxrees> you mean the :not() psuedo selector dealio?
+[13:29:20] <dimi1947> yes...
+[13:29:26] <dimi1947> what is the problem???
+[13:29:48] <robertmaxrees> that's not really an operator :) and i avoid selectors like that as much as possible.
+[13:31:52] <dimi1947> ok then...I will say another way...if I have 2 groups with non-selection each(as in your example)...what code modification would give me the number 2---meaning 2 groups with non-selection
+[13:32:44] <robertmaxrees> read the code :)
+[13:33:31] <dimi1947> GOT IT..just used !
+[13:34:07] <dimi1947> no it does not work after all...
+[13:34:11] <dimi1947> frustrated
+[13:34:27] <robertmaxrees> look at the filter./
+[13:34:41] <robertmaxrees> see where we get all inputs that are checked?
+[13:35:47] <dimi1947> sorry...but I am having trouble following you...
+[13:35:59] <robertmaxrees> groupHasCheckedBox
+[13:36:02] <robertmaxrees> look at that function.
+[13:37:09] <grapheti> https://i.imgur.com/XSzjB9C.jpg
+[13:37:44] <robertmaxrees> dimi1947 that function looks for all inputs in a group that are checked.
+[13:38:00] <robertmaxrees> notice how it has > 0 there?
+[13:38:26] <dimi1947> I am trying to think
+[13:39:09] <robertmaxrees> ./..
+[13:39:13] <robertmaxrees> do you see the > 0?
+[13:39:39] <dimi1947> I see it and I am trying to think how to change it so as to get the result I want
+[13:40:37] <robertmaxrees> right now that function returns true if there are any inputs what are checked.
+[13:40:52] <robertmaxrees> you want it to return false in that case.
+[13:40:54] <robertmaxrees> right?
+[13:41:08] <robertmaxrees> you want to know if the number of checked boxes === 0
+[13:41:20] <dimi1947> yes
+[13:41:35] <robertmaxrees> sooo what do you change?
+[13:42:54] <robertmaxrees> i literally just gave you the answer.
+[13:43:22] <dimi1947> i tried this length === 0; but it outputs 2 IN ANY CASE
+[13:43:57] <robertmaxrees> show me your updated fiddle.
+[13:44:41] <dimi1947> https://jsfiddle.net/fiddlehunt/95ph2h8j/11/
+[13:45:01] <robertmaxrees> ...
+[13:45:02] <robertmaxrees> heh
+[13:45:10] <robertmaxrees> return $(this).prop('checked)'); ?
+[13:45:14] <robertmaxrees> got an extra ) in there.
+[13:46:52] <dimi1947> can you fix it please...?
+[13:46:57] <robertmaxrees> wtf
+[13:47:04] <robertmaxrees> it's a single character duder.
+[13:47:14] <robertmaxrees> .prop('checked)');
+[13:47:24] <robertmaxrees> do you not see the extra ) after 'checked
+[13:48:41] <dimi1947> I did not noticed any ) missing
+[13:48:48] <robertmaxrees> i didn't say it was missing.
+[13:48:59] <robertmaxrees> you added an extra ) as apart of that .prop()
+[13:49:12] <robertmaxrees> .prop('checked)') is wrong.
+[13:49:19] <robertmaxrees> the property name is checked, not checked)
+[13:49:56] <dimi1947> now I am really confused....
+[13:50:29] <robertmaxrees> what is so confusing about that????
+[13:50:47] <dimi1947> just prepare a fiddle....
+[13:50:58] <robertmaxrees> duder
+[13:51:08] <robertmaxrees> i'm you should be able to delete a single character on your own.
+[13:51:25] <robertmaxrees> https://i.imgur.com/XuBUbnH.png
+[13:51:31] <robertmaxrees> do you not see this issue?>
+[13:52:24] <dimi1947> are you saying to delete ) after checked?
+[13:52:28] <robertmaxrees> YES
+[13:53:09] <dimi1947> I have allready tried that and the console outputs syntax error
+[13:53:21] <robertmaxrees> ...
+[13:53:30] <robertmaxrees> are you deleting the ) before the quote?
+[13:53:39] <robertmaxrees> the one the red arrow is pointing to in that picture?
+[13:53:53] <robertmaxrees> 'checked)' should be 'checked'
+[13:53:58] <robertmaxrees> do you see the difference there?
+[13:54:26] <dimi1947> give me a second
+[13:55:35] <dimi1947> that solved it...I CANNOT UNDERSTAND THOUGH HOW ) AFFECTED THE OUTCOME...ANYWAY THANKS FOR YOUR P A T I E N C E
+[13:55:46] <robertmaxrees> okay so.
+[13:55:52] <robertmaxrees> .prop() access properties on the node./
+[13:55:57] <robertmaxrees> the name of the property is checked
+[13:55:59] <robertmaxrees> not checked)
+[13:56:06] <thykka> checked) is not a valid selector
+[13:56:19] <robertmaxrees> thykka .prop() doesn't take selectors ;)
+[13:56:22] <thykka> right
+[13:56:47] <robertmaxrees> lol
+[13:57:01] <robertmaxrees> then why would you bring up selectors if we're not talking about them?
+[13:57:04] <robertmaxrees> ::confused::
+[13:57:27] <thykka> i missed that it was inside .prop()
+[13:57:28] <dimi1947> ... a little yes...
+[13:58:00] <robertmaxrees> dimi1947 huh?
+[13:58:20] <thykka> but dimi1947, computers aren't people; they cannot just ignore an extra character here and there at their leisure
+[13:58:27] <dimi1947> I have to re-read what you said
+[13:58:33] <thykka> your instructions must strictly conform to the syntax rules
+[13:59:01] <robertmaxrees> right.
+[13:59:09] <robertmaxrees> .prop() is accessing a property on the dom element.
+[13:59:46] <robertmaxrees> so you need to pass the explicit property name itself.
+[13:59:49] <dimi1947> ok I got that last one...
+[14:00:04] <robertmaxrees> think like with normal objects - foo.bar and foo.bar) are two different things.
+[14:00:26] <dimi1947> hmmm
+[14:00:53] <robertmaxrees> which means foo.prop('bar') and foo.prop('bar)') aren't the same, either.
+[14:31:43] <dimi1947> yes but in the fiddle that ) was black...meaning it was interpreted as a parentheses
+[14:31:55] <dimi1947> that is why I was confused...
+[14:35:03] <dimi1947> forget what I said...
+[14:35:41] <dimi1947> I just did not notice from the beginning some syntax details
+[16:46:10] <codecutter> i need to know when the cursor inside the textarea goes to the second line?
+[16:46:47] <robertmaxrees> sounds a little xy to me - why do you want that info?
+[16:47:09] <codecutter> i need to remove some css
+[16:47:39] <codecutter> when cursor goes to line 2
+[16:48:07] <taplar> what are you calling a "line"?
+[16:48:33] <robertmaxrees> https://stackoverflow.com/a/9185820/923919
+[16:48:46] <codecutter> end of line 1, rather
+[16:49:05] <robertmaxrees> codecutter same basic idea.
+[16:49:10] <taplar> but what are you calling a line?  only \n? not taking wrapping into account?
+[16:50:47] <codecutter> it has to include wrapping etc
+[16:51:19] <taplar> looks like the second answer in that s.o. takes soft wrap into account
+[16:51:22] <robertmaxrees> that's kind of a tough thing to figure out.  what does this css change actually do?
+[16:53:00] <codecutter> i have set textarea border radius to 50px, i need to reduce it as the texrarea increases (height) otherwise, part of the text disappears into the edges
+[16:55:18] <codecutter> let me get you a fiddle
+[16:58:45] <Robdgreat> that just made me think "you make a pretty good fiddle, boy, but give the devil his due"
+[16:58:51] * Robdgreat has problems
+[16:59:20] <taplar> play.  play a pretty good fiddle
+[16:59:30] <Robdgreat> you don't play a jsfiddle, do you
+[16:59:42] <taplar> ah
+[16:59:49] <Robdgreat> I know how the song goes
+[17:00:09] <Robdgreat> I guess running it is tantamount to playing it
+[17:00:44] <Robdgreat> it would be funny if the contest had been making fiddles
+[17:02:56] <robertmaxrees> codecutter why not refactor it a little and just setup a wrapping div with that border on it and use padding on the textarea to push it out far enough so it's not an issue?
+[17:03:02] <robertmaxrees> otherwise you're shifting around border radius which'll look kinda weird.
+[17:03:45] <Robdgreat> if you can pull it off smoothly it might be an interesting effect. I want to try this
+[17:04:19] <taplar> i think i'd rather have the radius set by default so that it doesn't obstruct the text and just not change it
+[17:04:25] <robertmaxrees> ^
+[17:04:43] <robertmaxrees> changing stuff like that during user interaction can be really distracting.
+[17:05:41] <codecutter> robertmaxrees: Actually the text is not moving to second line at all, because i have 'height' and 'line-height' set, so i need to remove those too once the text reaches the end (before scroll bars shows)  https://jsfiddle.net/apprentice_/fddb8ezx/1/
+[17:06:38] <robertmaxrees> yeah, this all feels really... overengineered almost.
+[17:10:29] <Robdgreat> robertmaxrees: in my use case it's purely for my amusement, not because I think it's a good idea
+[17:12:36] <robertmaxrees> lol
+[17:12:39] <robertmaxrees> that's fine.
+[17:13:17] <robertmaxrees> i'm just pointing it out because if i saw one of my coworkers doing this i'd be pointing out the same stuff.
+[17:13:58] <taplar> "What's the ROI on that, man?" :D
+[17:14:10] <taplar> or "Did the users ask for that?"
+[17:14:47] <robertmaxrees> hahahaha
+[17:15:00] <robertmaxrees> more like "why are you working so hard?"
+[17:15:38] <Robdgreat> maximize the work not done
+[17:16:27] <robertmaxrees> i mean, if there's a solution that gives you the particular end result that's simpler and easier to maintain...
+[17:19:23] <codecutter> well, any suggestions?
+[17:19:44] <taplar> Ask the uxers to do it
+[17:19:45] <robertmaxrees> i gave one earlier :)
+[17:20:00] <taplar> and go get a soda
+[17:20:02] <robertmaxrees> "codecutter why not refactor it a little and just setup a wrapping div with that border on it and use padding on the textarea to push it out far enough so it's not an issue?"
+[17:20:41] <codecutter> ok, let me try that
+[17:20:44] <robertmaxrees> alternatively, just change the radius so it's not an issue in the first place.
+[17:21:11] <codecutter> oh
+[17:21:19] <codecutter> your still refering to the old q
+[17:22:00] <codecutter> as i said, its not going to line 2 becuase of the height
+[17:22:00] <codecutter> so i need to remove the height tag once the cursor reaches end
+[17:22:18] <codecutter> height style*
+[17:22:29] <robertmaxrees> why are you setting the height statically in the first place?
+[17:23:24] <codecutter> aesthetic reasons
+[17:23:31] <codecutter> hang on
+[17:23:45] <codecutter> actually i have a specific need
+[17:24:16] <robertmaxrees> lemme rephrase: have you considered reworking your css so that the inpout actually grows in height correctly?
+[17:24:46] <codecutter> height is set to center placeholder text
+[17:24:54] <robertmaxrees> instead of hacking around that with JS?
+[17:25:27] <codecutter> i'm using this to increase the height (your thinking too far ahead) http://www.jacklmoore.com/autosize/
+[17:26:14] <codecutter> stop doing that lol
+[17:26:20] <robertmaxrees> i'm just thinking about using css to do most of this (shrug)
+[17:26:31] <codecutter> ok, nvm
+[17:26:40] * taplar is interested in how css would 'grow'
+[17:26:59] <codecutter> what do you mean grow?
+[17:27:42] <taplar> from robs previous statement i took it that there is a way that css could take into account the side of the textarea for it's rules
+[17:27:58] <taplar> unless i read that wrong
+[17:28:03] <codecutter> how can i tell when the text reaches the end of line (before scroll appears) was my initial question
+[17:28:06] <codecutter> and still is
+[17:28:54] <codecutter> robs likes to think 2 or 3 steps ahead
+[17:28:54] <codecutter> rob*
+[17:28:58] <codecutter> robert*
+[17:29:01] <codecutter> :)
+[17:29:02] <robertmaxrees> https://jsfiddle.net/9sd4dpqa/
+[17:29:11] <robertmaxrees> i'm not thinking ahead.
+[17:29:16] <robertmaxrees> i'm trying to solve the basic problem heh
+[17:30:21] <codecutter> i know how to use that lib
+[17:30:31] <robertmaxrees> i'm not saying you don't.
+[17:30:34] <codecutter> that was not what i asked
+[17:30:41] <codecutter> oh
+[17:30:55] <codecutter> what are you showing me with that jsfiddle?
+[17:31:23] <duch_kazatel> that was weird.
+[17:31:23] <duch_kazatel> that was weird.
+[17:31:23] <codecutter> maybe i missed something?
+[17:31:39] <codecutter> what was?
+[17:31:48] <robertmaxrees> wtf
+[17:32:15] <jak2000> hi friends
+[17:32:20] <jak2000> robertmaxrees!
+[17:32:30] <codecutter> 2:30:55]  <codecutter>	what are you showing me with that jsfiddle?
+[17:32:30] <codecutter> [22:31:02]  <codecutter>	maybe i missed something?
+[17:32:37] <codecutter> incase you missed it
+[17:36:57] <codecutter> maybe i can use char count, instead
+[17:37:09] <codecutter> i think that may work
+[17:42:37] <robertmaxrees> that was super weird.
+[17:45:13] <taplar> network probs?
+[17:45:41] <robertmaxrees> i got dropped, then every time i'd reconnected i'd get dropped again.
+[17:45:52] <robertmaxrees> had to restart my system, then my user account wouldn't let me log in.
+[17:45:56] <grapheti> bitcoin hackers are on to you
+[17:46:13] <robertmaxrees> hahaha
+[17:46:23] <grapheti> :D
+[19:33:29] <linurandy> hello to everyone i wanna add a input hidden to a form, i made that $("#form_add_activos").append('<tr><td><input type="hidden" id="1">1</input></td></tr>'); but didn't work
+[19:33:52] <robertmaxrees> do you get any errors?
+[19:34:12] <linurandy> robertmaxrees: nop
+[19:34:31] <linurandy> robertmaxrees: nothing in the console
+[19:35:01] <robertmaxrees> so define "didn't work" :)
+[19:36:15] <robertmaxrees> as a side note, <input type="hidden" id="1">1</input> i don't think this is what you want.
+[19:37:43] <linurandy> robertmaxrees: i wanna push the id of the object that i wanna update in a hidden field to then send via submit
+[19:38:18] <robertmaxrees> okay... so how do you know it's not working?
+[19:38:18] <robertmaxrees> i ask because https://jsfiddle.net/robertmaxrees/yrs3zaxk/
+[19:38:19] <robertmaxrees> which doesn't look like what you want.
+[19:39:16] <linurandy> robertmaxrees: when i see the source in the form doesn't appear the field
+[19:39:33] <robertmaxrees> are you using your developer tools to check the source?
+[19:39:40] <robertmaxrees> or the browser's "view source" option?
+[19:40:46] <linurandy> robertmaxrees: the chormium's developer tools
+[19:41:01] <robertmaxrees> try adding console.log($("[id=form_add_activos]").length);
+[19:41:06] <robertmaxrees> what do you get back in your console?
+[19:42:09] <linurandy> robertmaxrees: returned 1
+[19:42:58] <robertmaxrees> https://jsfiddle.net/robertmaxrees/yrs3zaxk/2/ what if you try something like this?
+[19:43:03] <robertmaxrees> what do you get in your console?
+[19:45:26] <robertmaxrees> sorry, i have no way of offering any real solutions because i don't have anything other than a line of js that seems to work.
+[19:45:38] <robertmaxrees> so this is all exploratory.  unless you can replicate the bug in a jsfiddle.
+[19:46:38] <linurandy> robertmaxrees: returned 10
+[19:46:48] <robertmaxrees> that's... a problem.
+[19:46:58] <robertmaxrees> but that means your code is functioning.
+[19:47:23] <robertmaxrees> the row IS getting added.  but you're repeating that ID multiple times - you can't do that.
+[19:48:16] <robertmaxrees> also: some browsers have issues with IDs that start with a number, but I'm going to guess that's not the issue here.

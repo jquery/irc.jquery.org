@@ -1,0 +1,214 @@
+[12:02:48] <jzaefferer> ?uiteam
+[12:02:48] <b-ot> arschmitz fnagel jzaefferer mikesherov rxaviers_ scott_gonzalez tjvantoll
+[12:03:02] <arschmitz> hi
+[12:03:19] <jzaefferer> We have at least one thing that needs actual discussion! https://docs.google.com/spreadsheets/d/1E4ieJTELlFeUo9ycooPTqWv0gtIt-44T-47Y2F_100U/edit#gid=1817844394
+[12:05:30] <jzaefferer> Not sure what happened to scott_gonzalez_
+[12:05:43] <scott_gonzalez_> I'm here. Just trying to figure out why I can't get my real nick.
+[12:05:52] <jzaefferer> arschmitz: any thoughts on making button's label option text-only?
+[12:06:00] <jzaefferer> per https://github.com/jquery/jquery-ui/pull/1632
+[12:06:07] <arschmitz> i have mixed feelings
+[12:06:34] <arschmitz> it could be pretty handy to pass in html for buttons
+[12:06:46] <arschmitz> to add things like images and what not or multiple icons etc
+[12:07:26] <arschmitz> but we tend to lean towards the defensive side on these things
+[12:07:46] <jzaefferer> Can we make it work so that initial HTML is kept intact, but anything set through the API (on create or through option calls) is dealt with as text?
+[12:08:04] <scott_gonzalez_> User-supplied button labels don't seem like a common thing.
+[12:08:12] <arschmitz> no i would not thnk so
+[12:08:15] <scott_gonzalez_> So the need to be defensive doesn't seem high.
+[12:08:36] <jzaefferer> arschmitz: we can't do that?
+[12:08:46] <arschmitz> i was agreeing with scott
+[12:08:51] <jzaefferer> oh
+[12:08:51] <arschmitz> just a sec im checking something
+[12:09:34] <arschmitz> jzaefferer: i dont see why we couldnt do that
+[12:10:07] <jzaefferer> Its a little more complicated, but shouldn't be too bad
+[12:10:26] <arschmitz> not really actually
+[12:10:48] <arschmitz> the label is only updated if its actually different then the original html
+[12:11:03] <arschmitz> and the update is in a function so that function just has to do the escaping
+[12:11:08] <jzaefferer> so if we assume that user-supplied labels are rare, it would also be a "rare" backwards incompatible change...
+[12:11:31] <jzaefferer> well, an escape html string is different than the html string
+[12:11:48] <arschmitz> well if we change it we more or less are saying this is a bug
+[12:11:56] <arschmitz> so backcompat is not a issue really
+[12:12:04] <jzaefferer> works for me
+[12:12:16] <jzaefferer> its not a feature, its a bug!
+[12:12:39] <jzaefferer> scott_gonzalez: what do you think?
+[12:12:41] <arschmitz> well if we change we are greeing its an xss vaularability
+[12:12:45] <jzaefferer> now that you got your name fixed :-)
+[12:12:54] <arschmitz> which is definitely a bug
+[12:14:23] <scott_gonzalez> User supplied labels and HTML labels are orthogonal.
+[12:14:52] <scott_gonzalez> By user supplied labels I meant taking user input to create the label.
+[12:15:13] <jzaefferer> so its okay to handle them differently?
+[12:15:17] <scott_gonzalez> Also, XSS vulnerabilities are not bugs.
+[12:15:51] <scott_gonzalez> In all of the XSS vulnerability tickets that have ever been reported against jQuery UI, I don't think a single one is actually a bug.
+[12:16:22] <scott_gonzalez> If our users don't escape their user's input, that's THEIR bug, not ours.
+[12:16:29] <arschmitz> true
+[12:16:52] <scott_gonzalez> In many cases, we acknowledge that third party content is likely to be run through our widgets.
+[12:17:04] <scott_gonzalez> And we limit to text instead of HTML to be safe by default.
+[12:17:05] <arschmitz> true
+[12:17:12] <arschmitz> like autocomplete or something
+[12:17:16] <scott_gonzalez> So the real question here is do we expect third party content in button labels.
+[12:17:20] <arschmitz> no
+[12:17:29] <arschmitz> i think that seems rare
+[12:17:43] <scott_gonzalez> Right, and that's why I think we shouldn't change button.
+[12:17:45] <jzaefferer> well, someone filed a ticket against dialog's closeText option, which is passed to button
+[12:17:46] <scott_gonzalez> We should just change dialog.
+[12:17:58] <scott_gonzalez> Sure, dialog should escape the values, just like autocomplete does.
+[12:18:07] <arschmitz> it seems even more rare for user supplied close text in a dialog
+[12:18:26] <jzaefferer> so let's fix dialog and tests for html markup for button?
+[12:18:40] <scott_gonzalez> Yes, but close text is supposed to be text.
+[12:18:47] <arschmitz> ah true
+[12:18:48] <jzaefferer> *add tests
+[12:18:53] <scott_gonzalez> Sounds good.
+[12:19:41] <jzaefferer> are we escaping html anywhere?
+[12:19:42] <arschmitz> oh something semi related
+[12:19:57] <arschmitz> if your using an input setting html label value wont work
+[12:20:03] <arschmitz> which button supports inputs
+[12:20:06] <jzaefferer> that is, what's the best way to escape closeText before passing it to button as the label option?
+[12:20:53] <scott_gonzalez> autocomplete
+[12:21:11] <scott_gonzalez> arschmitz: We already have limitations like that though, with icons.
+[12:21:29] <arschmitz> yeah i was more thinking we should mention this in the api perhaps
+[12:21:47] <scott_gonzalez> oh, sure
+[12:22:09] <jzaefferer> label: $( "<div>" ).text( this.options.closeText ).html() ?
+[12:22:10] <scott_gonzalez> "When using an input of type button, submit or reset, support is limited to plain text labels with no icons."
+[12:22:14] <scott_gonzalez> That's from the current docs.
+[12:22:24] <jzaefferer> or? label: $( "<div>" ).text( this.options.closeText ).text() ?
+[12:22:28] <scott_gonzalez> We should probably repeat that within the option descriptions.
+[12:22:29] <arschmitz> oh ok never mind then lol
+[12:22:40] <arschmitz> yes
+[12:23:00] <scott_gonzalez> .text(...).html()
+[12:23:16] <scott_gonzalez> Also, use an anchor, it saves two bytes :-)
+[12:23:35] <jzaefferer> $( "<a>" ).text( this.options.closeText ).html()
+[12:24:13] <scott_gonzalez> https://github.com/jquery/api.jqueryui.com/issues/282
+[12:24:17] <scott_gonzalez> yup
+[12:25:36] <jzaefferer> okay, I'll work on those
+[12:25:40] <scott_gonzalez> So I went through most of the button tickets yesterday.
+[12:25:46] <scott_gonzalez> http://bugs.jqueryui.com/ticket/8596 is still an issue.
+[12:26:04] <arschmitz> yeah i realized that was not in my list of bugs i tested
+[12:26:06] <scott_gonzalez> That's just a whacky bug. I'm not sure how to fix it.
+[12:26:27] <jzaefferer> IE9 and older?
+[12:26:40] <scott_gonzalez> I think just IE 9.
+[12:26:47] <jzaefferer> Component is ui.css-framework, that's probably why arschmitz missed it
+[12:26:47] <arschmitz> will 1.13 even support ie9 at this point
+[12:26:57] <arschmitz> jzaefferer: yup it is my list was button
+[12:27:19] <arschmitz> microsoft officially drops ie9 in jan
+[12:27:27] <arschmitz> along with 8
+[12:27:30] <scott_gonzalez> Oh...
+[12:27:33] <arschmitz> and essentially 10
+[12:27:36] <scott_gonzalez> So 1.12 won't support IE 9?
+[12:27:42] <scott_gonzalez> hmm...
+[12:27:59] <arschmitz> it will basicly be 11 and edge
+[12:28:01] <jzaefferer> you mean 1.13?
+[12:28:18] <scott_gonzalez> errr...yeah
+[12:28:31] <jzaefferer> well, I guess we can ignore this a few months more before closing it :p
+[12:28:41] <jzaefferer> its 3 years old already...
+[12:28:49] <arschmitz> its so edge case id rather not put in any effort for a dead browser
+[12:28:57] <jzaefferer> or just close it now
+[12:28:57] <scott_gonzalez> So let's just close as patches welcome.
+[12:29:25] <arschmitz> +1
+[12:30:41] <scott_gonzalez> We've got this one: http://bugs.jqueryui.com/ticket/8827
+[12:30:54] <scott_gonzalez> Controlgroup changed how the borders work though.
+[12:31:00] <scott_gonzalez> Not sure if that was intentional.
+[12:31:15] <scott_gonzalez> Before it was always 1px, so one of the controls didn't have a left or right border.
+[12:31:33] <scott_gonzalez> Now the controls always have all borders, so the border between two controls is doubled up.
+[12:31:43] <scott_gonzalez> Which effectively makes the bug irrelevant.
+[12:31:49] <scott_gonzalez> Is that what we want though?
+[12:31:52] <arschmitz> that was an intentional change
+[12:33:22] <arschmitz> it solves a whole pile of border issues
+[12:33:34] <scott_gonzalez> ok
+[12:33:45] <scott_gonzalez> Just wanted to make sure before closing the issue.
+[12:34:22] <scott_gonzalez> http://bugs.jqueryui.com/ticket/9475 still exists
+[12:35:06] <arschmitz> weird swear i fixed that one
+[12:35:10] <arschmitz> ill look at it again
+[12:35:51] <scott_gonzalez> ok
+[12:36:05] <scott_gonzalez> So other than all the accessibility tickets, that just leaves http://bugs.jqueryui.com/ticket/9973
+[12:36:16] <scott_gonzalez> Which I'm already working on: https://github.com/jquery/jquery-ui/pull/1631
+[12:36:44] <scott_gonzalez> Just need to write a test for it, which will be skipped in some browsers since we need native support for the form attribute for the test to work.
+[12:37:41] <jzaefferer> are you going to use QUnit.skip?
+[12:38:03] <scott_gonzalez> yeah
+[12:38:14] <scott_gonzalez> BTW, Windows Vista SP2 will still support IE 9.
+[12:38:40] <scott_gonzalez> Along with some other OSes that we probably don't care about, like Windows Server 2008.
+[12:38:42] <jzaefferer> are, you're using it in that draggable test, didn't show up in the PR
+[12:38:44] <arschmitz> is that out of standard support already
+[12:39:10] <scott_gonzalez> Vista SP2 is still supported.
+[12:39:12] <arschmitz> i thought John checked that in new york and they were all out of standard support and only in extended ( paid )
+[12:39:24] <scott_gonzalez> https://support.microsoft.com/en-us/gp/microsoft-internet-explorer
+[12:40:23] <arschmitz> scott_gonzalez: http://windows.microsoft.com/en-us/windows/lifecycle
+[12:40:25] <scott_gonzalez> Oh, it does say that mainstream support ended in April 10, 2012
+[12:40:45] <scott_gonzalez> But based on that, we're no longer supporting Windows 7 in 1.13 either.
+[12:40:49] <arschmitz> even windows 7 is dead in jan
+[12:40:56] <scott_gonzalez> Is that what we're going with?
+[12:40:59] <arschmitz> windows 7 is ie11 though
+[12:41:03] <arschmitz> so it odes that matter
+[12:41:11] <arschmitz> because thats still covered by current -1
+[12:41:33] <scott_gonzalez> ok
+[12:42:00] <arschmitz> seems like moral of story is ie can now be current - 1
+[12:42:08] <arschmitz> like the rest
+[12:42:24] <scott_gonzalez> yay
+[12:42:51] <scott_gonzalez> Is anyone interested in doing all the accessibility testing?
+[12:43:10] <scott_gonzalez> We should probably get someone like Colin, Hans, or Birkir to do some testing.
+[12:43:14] <scott_gonzalez> I can email them.
+[12:43:21] <scott_gonzalez> Anyone else I should include?
+[12:43:35] <jzaefferer> Is Birkir from IBM?
+[12:43:40] <scott_gonzalez> Deque
+[12:43:53] <jzaefferer> Anyone from IBM?
+[12:43:54] <scott_gonzalez> Though I met him before he worked there.
+[12:44:12] <scott_gonzalez> Yeah, I'll figure out who I should contact from IBM.
+[12:44:25] <scott_gonzalez> I think we have a few a11y contacts there.
+[12:44:53] <jzaefferer> sounds good
+[12:45:17] <jzaefferer> Both me and Alex did testing, but at least I haven't gone through the tickets
+[12:47:19] <scott_gonzalez> Spinner had some busted styles.
+[12:47:32] <scott_gonzalez> I fixed that in https://github.com/jquery/jquery-ui/pull/1629
+[12:47:42] <scott_gonzalez> Still an issue with spinner inside a vertical controlgroup: http://view.jqueryui.com/master/demos/controlgroup/default.html
+[12:48:20] <arschmitz> jzaefferer: thought you fixed those?
+[12:48:26] <arschmitz> when you were here?
+[12:48:49] <jzaefferer> I've fixed the issues with labels inside controlgroup
+[12:49:03] <jzaefferer> that just happened to be the label for a spinner, but I didn't notice any spinner issues
+[12:49:15] <arschmitz> scott_gonzalez: what this issue with the vertical one there?
+[12:49:23] <arschmitz> i dont see an issue
+[12:49:32] <scott_gonzalez> It's just the size of the text input.
+[12:49:40] <scott_gonzalez> Click inside and you'll see that the input goes behind the buttons.
+[12:49:45] <arschmitz> oh i see the highlight extends under
+[12:49:56] <arschmitz> i fixed that once
+[12:50:02] <arschmitz> its a pain
+[12:50:08] <arschmitz> but ill look again
+[12:51:07] <scott_gonzalez> What versions of android should we support?
+[12:51:14] <arschmitz> hrm
+[12:51:21] <jzaefferer> 5+ :p
+[12:51:21] <scott_gonzalez> 4+?
+[12:51:24] <scott_gonzalez> haha
+[12:51:29] <arschmitz> either 4+ or 4.4+
+[12:52:24] <scott_gonzalez> ok
+[12:52:32] <scott_gonzalez> Just wondering since we use calc()
+[12:52:41] <scott_gonzalez> And we've got a support comment around it.
+[12:53:05] <arschmitz> 4.4 for that
+[12:55:12] <jzaefferer> Felix isn't around and I haven't heard anything from him since the Dev Summit
+[12:55:21] <jzaefferer> So I guess we'll defer that one to next week
+[12:55:37] <jzaefferer> on that theme item, are there more details anywhere?
+[12:55:49] <jzaefferer> What fix does the icon sprite need?
+[12:56:37] <arschmitz> scott_gonzalez: i dont think that calc will actually matter on android
+[12:56:48] <arschmitz> since you have a virtual keyboard
+[12:57:03] <scott_gonzalez> The arrow is off by 1px.
+[12:57:07] <arschmitz> oh i guess you could still end up typing under buttons
+[12:57:13] <arschmitz> so never mind
+[12:57:41] <scott_gonzalez> If you remove the workaround in the stylesheet, you'll see the 1px error.
+[12:58:56] <scott_gonzalez> Got a fix for the controlgroup issue: https://github.com/jquery/jquery-ui/pull/1633
+[12:59:26] <arschmitz> looks good to me
+[12:59:27] <scott_gonzalez> I got 2.4em by taking the 2em that spinner normally has and adding the .2em on both sides that controlgroup adds.
+[12:59:41] <arschmitz> yeah that sounds good
+[13:01:28] <scott_gonzalez> jzaefferer: Were you going to work on the sprite?
+[13:01:40] <scott_gonzalez> I don't have photoshop on this laptop.
+[13:01:47] <jzaefferer> I'm not sure yet what to do there
+[13:02:04] <jzaefferer> can you file an issue?
+[13:03:14] <scott_gonzalez> sure
+[13:03:24] <scott_gonzalez> ui-icon-triangle-1-s is off by 1px horizontally in the sprite.
+[13:03:48] <scott_gonzalez> I'll file an issue with details and a screenshot.
+[13:03:53] <jzaefferer> so we need to fix the images?
+[13:04:03] <scott_gonzalez> That's the proper fix.
+[13:04:14] <scott_gonzalez> We *could* change our stylesheet to just be off by 1px.
+[13:04:30] <scott_gonzalez> Probably wouldn't cause any issues because of how much space there is around that icon.
+[13:04:45] <jzaefferer> seems less trouble
+[13:04:59] <scott_gonzalez> Ok, let's try that and see if anyone complains.
+[13:05:07] <jzaefferer> dunno how to edit those PNGs without messing up the transparency or whatever else there is to them...
+[13:05:10] <scott_gonzalez> I can send a PR for that.
+[13:05:28] <scott_gonzalez> I'm not sure that's a big issue now that we don't support IE 6 :-)
+[13:05:41] <jzaefferer> right
+[13:05:55] <scott_gonzalez> Ok, I guess that's all for today.
+[13:06:06] <scott_gonzalez> Time for dev leads...

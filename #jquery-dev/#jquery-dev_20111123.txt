@@ -1,0 +1,422 @@
+[05:24:59] <mikesherov> looking for opinions: https://github.com/jquery/jquery/pull/616/files#r248031
+[05:25:00] <socialhapy> ★ Pull request on jquery by mikesherov (12h, 43m ago): CSS fixes rollup: fixes #10796 and fixes #10639
+[05:43:32] <mikesherov> bot-t: help
+[05:43:32] <bot-t> Get FREE A++ HELP - http://workaround.org/getting-help-on-irc
+[05:50:00] <mikesherov> bot-t: commands
+[05:50:01] <bot-t> http://bot-t.com/docs/
+[05:52:33] <mikesherov> ?eval [1,2,3].forEach(function(item){ print(item); });
+[05:52:34] <bot-t> mikesherov: 123
+[05:52:40] <mikesherov> O.o
+[05:58:43] <gibson042> .
+[07:50:16] <bribroder> morning all!
+[07:50:31] <ajpiano> good morning
+[07:53:27] <ryanneufeld> morning
+[08:52:40] <mikesherov> scott_gonzalez: you here?
+[08:52:47] <scott_gonzalez> hey
+[08:53:20] <mikesherov> http://bugs.jqueryui.com/ticket/4671
+[08:53:35] <mikesherov> what's your take on this?
+[08:54:07] <mikesherov> or am I in the wrong chat room here?
+[08:54:54] <scott_gonzalez> should probably be in #jqueryui-dev
+[08:55:38] <mikesherov> ok, should I go over there?
+[08:55:42] <scott_gonzalez> I'm hoping to get rid of all the crazy event prevention code
+[08:55:56] <scott_gonzalez> and just change it so that focusing anything outside of the dialog moves focus back to the dialog
+[09:06:40] <rwaldron> timmywil yt?
+[09:07:26] <rwaldron> ?tell timmywil https://github.com/jquery/jquery/pull/615 can be closed - it is a duplicate of a won't fix ticket
+[09:07:27] <bot-t> rwaldron, Okay.
+[09:07:27] <socialhapy> ★ Pull request on jquery by gibson042 (19h, 24m ago): jQuery.extend preserves and extends target when deep === false. Fixes 10867.
+[09:13:42] <timmywil> rwaldron: maybe it can be discussed as an enhancement.  Does it cause any issues for the other signatures?
+[09:13:42] <bot-t> (6 mins 15 secs ago) <rwaldron> tell timmywil https://github.com/jquery/jquery/pull/615 can be closed - it is a duplicate of a won't fix ticket
+[09:13:43] <socialhapy> ★ Pull request on jquery by gibson042 (19h, 31m ago): jQuery.extend preserves and extends target when deep === false. Fixes 10867.
+[09:14:23] <timmywil> there's no need to use extend that way, unless a var that might end up being falsed was used to indicate deep when using extend
+[09:14:29] <timmywil> false*
+[09:17:55] <timmywil> the other ticket looks slighly different
+[09:19:26] <rwaldron> huh?
+[09:20:58] <rwaldron> duplicate in that they both seek to arbitrarily change jQuery.extend() where no change is needed, with regard to the left most argumen
+[09:21:12] <timmywil> the dupe is about checking === true instead of typeof.  It looks like passing false is treated the same as passing true, or am I wrong?
+[09:21:15] <rwaldron> I'll gladly add that clarification
+[09:21:25] <rwaldron> it would be
+[09:21:34] <rwaldron> initially
+[09:21:55] <rwaldron> but you have you look closely at how extend does "argument hockey"
+[09:23:00] <gibson042_> comment added explaining the difference
+[09:23:24] <gibson042_> I want support for $.extend(iCanHazDeep, defaults, options), which is currently unsupported
+[09:24:19] <gibson042_> but the code is there for it, just never reached because of "argument hockey" (great term btw)
+[09:24:33] <timmywil> so, let me get this straight.  passing false will be treated the same as $.extend({}, obj, obj) instead of $.extend(obj, obj)
+[09:24:38] <gibson042_> right
+[09:24:57] <gibson042_> because target = arguments[0] || {}
+[09:25:10] <timmywil> that sounds like a bug to me
+[09:25:22] <gibson042_> me too
+[09:25:26] <gibson042_> I reported it as such
+[09:25:58] <rwaldron> timmywil not a bug
+[09:26:20] <rwaldron> because there was never an expectation or behaviour attributed to passing "false"
+[09:26:52] <gibson042_> but shouldn't the signature be for (boolean, obj, ...) instead of (true, obj, ...) ?
+[09:27:05] <rwaldron> if we said "passing 'false' does X" and it did not do that or interfered with something else, then it would be a bug
+[09:27:28] <rwaldron> gibson042_ "many hands"
+[09:27:35] <timmywil> rwaldron: true, but it seems like a fair assumption that false could be passed and it would not change the behavior
+[09:27:47] <rwaldron> don't get me wrong... i think using "true" is stupid
+[09:28:06] <rwaldron> there shouldn't even BE a (boolean, obj, ...)
+[09:30:47] <timmywil> rwaldron: don't we need deep to recursively copy objects within objects?  or maybe that should be done all of the time
+[09:31:19] <gibson042_> it sure seems like one of #9994 #10867 should be addressed.... either change the check from "typeof" to "=== true" or change the assignment from "arguments[0] || {}" to "arguments[0]"
+[09:31:36] <timmywil> well, i agree with rwaldron that we shouldn't do the first one
+[09:31:52] <timmywil> if for no other reason than the perf hit
+[09:32:05] <gibson042_> wouldn't that be a perf improvement?
+[09:32:15] <timmywil> i think we tested it
+[09:32:57] <gibson042_> so " typeof val === 'boolean' " is faster than " val === true "? that doesn't make sense
+[09:33:49] <timmywil> no i suppose it doesn't, unless it changes some codepath
+[09:34:16] <gibson042_> but I prefer letting deep be true|false anyway, so it's moot for me
+[09:35:19] <timmywil> gibson042_: you tested all of the browsers?
+[09:36:09] <rwaldron> http://www.google.com/codesearch#search/&q=extend%5C(false&type=cs
+[09:36:15] <rwaldron> not too many matches...
+[09:36:34] <gibson042_> just the four I have access to (Chrome latest; IE8; Fx 4; Safari latest)
+[09:37:01] <gibson042_> rwaldron, you won't see extend(false,...), you'll see extend(blnDeep,...)
+[09:37:20] <rwaldron> fair enough
+[09:37:31] <rwaldron> i guess?
+[09:37:35] <rwaldron> seems contrived.
+[09:37:42] <timmywil> it is
+[09:37:46] <timmywil> but I don't think it would hurt
+[09:38:09] <timmywil> and we save 4 bytes ;)
+[09:38:42] <timmywil> rwaldron: 1.8-discuss?
+[09:38:44] <gibson042_> the problem isn't necessarily deep/shallow, it's that a new object is extended & returned instead of the expected arguments[1]
+[09:39:02] <timmywil> gibson042_: yea we understand
+[09:39:05] <gibson042_> k
+[09:39:36] <rwaldron> well, if i want to explicitly extend an existing object, i definitely control that before hand
+[09:39:48] <timmywil> i see rwaldron's point.  We often say that passing unexpected things will yield unexpected results, but in this case I'm ok with it
+[09:39:50] <rwaldron> and it will be the left most arg
+[09:40:39] <timmywil> it doesn't seem like a stretch to assume that if true can be passed, false can also be passed
+[09:40:44] <rwaldron> I'm curious about the use case that requires a runtime decision about extending an object or createing a new one?
+[09:41:03] <rwaldron> timmywil I'm pretty sure I've never tried to do that
+[09:41:09] <timmywil> me neither
+[09:41:20] <rwaldron> the docs are clear
+[09:41:44] <rwaldron> (btw, nave rules)
+[09:42:01] <rwaldron> (it solved my node 0.6.0 breakage problem with our build process)
+[09:42:15] <gibson042_> think casting/copying properties
+[09:42:16] <timmywil> i mean, if this required extra code, I'd say no way, but it makes sense to me and it's smaller.
+[09:42:30] <timmywil> and it's a perf microoptimization to remove || {}
+[09:42:37] <rwaldron> timmywil it actually results in 1byte
+[09:42:49] <gibson042_> e.g., Deferred.promise could be "return obj == null ? promise : jQuery.extend(false, obj, promise)"
+[09:43:19] <rwaldron> that's explicit, your argument doesn't hold
+[09:43:27] <rwaldron> "return obj == null ? promise : jQuery.extend(obj, promise)"
+[09:43:30] <gibson042_> fair enough
+[09:43:30] <rwaldron> does the same
+[09:43:34] <rwaldron> and i saved you bytes
+[09:43:58] <gibson042_> but what if obj === true ?
+[09:44:03] <timmywil> we could probably come up with some use case for really large objects
+[09:44:05] <gibson042_> it's a method parameter
+[09:45:55] <timmywil> to avoid massive recursion unless it's absolutely necessary
+[09:46:02] <timmywil> but it's an edge case for sure
+[09:48:56] <rwaldron> oh, a heads up...
+[09:49:23] <rwaldron> wrong channel!
+[09:49:28] <rwaldron> sorry
+[09:50:19] <timmywil> rwaldron: and yea, nave is rad
+[09:51:06] <rwaldron> hm...
+[09:51:24] <rwaldron> the test for 10867 is odd to me
+[09:52:44] <rwaldron> timmywil https://github.com/gibson042/jquery/blob/4d56bf75593fd9191484c354c726870ff5828cef/test/unit/core.js#L950-954
+[09:53:59] <timmywil> the strictEqual is probably unnecessary, but the ok makes sense to me.  Making sure it's extending deep3 rather than creating a new object.
+[09:54:43] <rwaldron> but the tests after that...?
+[09:55:00] <gibson042> strictEqual is just to confirm that the copy was shallow; it could easily be dropped though
+[09:56:11] <rwaldron> timmywil, console.log( deep3, deep4 ); after the ok() test
+[09:57:41] <rwaldron> deep3 lost all of its original properties
+[09:57:46] <rwaldron> http://gyazo.com/7cf3699206f87b3dbaf078787d468cf9.png
+[09:58:38] <timmywil> rwaldron: oh because bar isn't there?
+[09:58:48] <rwaldron> it's not extended, it's clobbered
+[09:58:52] <timmywil> that would because it's shallow
+[09:58:57] <timmywil> would be*
+[09:58:59] <gibson042> it only had foo, which got correctly overwritten by the shallow extend
+[10:01:02] <rwaldron> wow, that shows how long it's been since I've actually had a need for shallow copying
+[10:01:20] <rwaldron> also, protip: when home sick, dont triage to seriously.
+[10:01:30] <timmywil> aw, you're sick too?
+[10:01:35] <rwaldron> yeah bro
+[10:01:42] <timmywil> im getting over it finally
+[10:02:07] <rwaldron> just hit yesterday and i'm trying to fast forward it today
+[10:02:19] <rwaldron> so i can enjoy dinner tomorrow
+[10:02:30] <rwaldron> that's funny
+[10:02:54] <rwaldron> the survey about "class" extending behaviour i sent out two weeks ago
+[10:03:28] <rwaldron> I'm using it in a prepared argument for Ecma discussion
+[10:03:56] <timmywil> awesome
+[10:04:12] <rwaldron> because a mozilla intern seems to think that instances should modify their "class" constructor's own properties
+[10:04:14] <timmywil> yea, manipulating the class variable as well didn't make any sense to me
+[10:04:22] <rwaldron> as in... implicitly
+[10:04:48] <timmywil> learn2instantiate
+[10:04:55] <rwaldron> mostly because he wrote a shitty implementation of "class inheritance" and refuses to admit that it's borked
+[10:05:09] <rwaldron> right!
+[10:05:16] <rwaldron> "manipulating the class variable as well didn't make any sense to me"
+[10:05:25] <rwaldron> you probably wondered "why the  hell is he asking this?"
+[10:05:41] <timmywil> i figured it was for some esdiscuss thread
+[10:06:08] <rwaldron> https://github.com/Gozala/selfish/pull/1/files
+[10:06:09] <socialhapy> ★ Pull request on selfish by rwldrn (1w, 1d ago): Adds failing deep "extend/inherit" tests
+[10:07:09] <rwaldron> line 180-182 is where it becomes clear
+[10:08:10] <rwaldron> the modified properties of the instance, created from a "class" that inherited the properties is still somehow able to modify the original "class'" properties
+[10:08:35] <rwaldron> because they are all pointing at references, not copies
+[10:08:40] <rwaldron> anyway...
+[10:08:47] <rwaldron> that's where my head is at
+[10:10:47] <rwaldron> i'm re-reading the source for jQuery.extend
+[10:10:59] <rwaldron> and it's current form makes sense
+[10:11:09] <rwaldron> target = arguments[0] || {},
+[10:11:16] <rwaldron> will either be...
+[10:11:20] <rwaldron> target// true
+[10:11:22] <rwaldron> or
+[10:11:25] <rwaldron> target// {}
+[10:11:57] <rwaldron> so when it reaches https://github.com/jquery/jquery/blob/master/src/core.js#L311 a check like..
+[10:13:13] <rwaldron> if ( target ) {
+[10:13:20] <rwaldron> would be insufficient
+[10:15:38] <rwaldron> I can get behind the change in behaviour of allowing "false" to signal a shallow extend
+[10:21:52] <rwaldron> timmywil so... that previous stuff just got me thinking...
+[10:22:01] <rwaldron> and jQuery arrays aren't deep copied
+[10:22:08] <rwaldron> ever
+[10:22:16] <rwaldron> let me rephrase that
+[10:23:35] <rwaldron> jQuery.extend() doesn't ensure that copies of arrays made in deep copy mode are actually "copies" and not references
+[10:23:39] <rwaldron> but it looks like it should
+[10:23:43] <rwaldron> maybe my test is wrong
+[10:23:46] <rwaldron> i'll get back to you
+[10:24:18] <timmywil> kk
+[10:31:37] <rworth> So, I've been working on a migration script so docs XML can be stored in GitHub and published from there to api.jquery.com
+[10:31:48] <rworth> It's running now from my repo https://github.com/rdworth/jquery/tree/master/docs
+[10:32:08] <rworth> that has a commit hook to publish to http://li130-20.members.linode.com/
+[10:33:28] <timmywil> rworth: nice!
+[10:33:43] <rworth> timmywil: wanna test it out?
+[10:34:18] <timmywil> i would, but I'm pretty busy right now
+[10:34:22] <rworth> np
+[10:34:29] <rworth> rwaldron: let me know if/when you have a min
+[10:34:45] <rworth> rwaldron: also, this is the same thing I want to set up for popcorn
+[10:35:09] <rwaldron> rworth sure, i have a quick min
+[10:35:26] <rwaldron> as for popcorn, I think everyone thought you weren't interested anymore
+[10:35:31] <rworth> rwaldron: ok, I gave you commit access
+[10:35:37] <rwaldron> the students went ahead and wrote markdown docs
+[10:36:02] <rwaldron> what is "xml"?
+[10:36:06] <rworth> just busy is all. markdown is cool
+[10:36:34] <rwaldron> this is an incredible amount of work dude
+[10:39:55] <rworth> rwaldron: if you modify a file commit and push, you should see it on the server above within about 2-5sec
+[10:40:10] <rwaldron> nice
+[10:40:15] <rwaldron> i;ll give it spin later
+[10:40:20] <rworth> cool, thanks
+[10:40:20] <rwaldron> i'm home sick
+[10:40:25] <rwaldron> about to go eat soup
+[12:10:46] <ajpiano> little bit of self rigteousness to go with your turkey: http://bugs.jquery.com/ticket/6593#comment:28
+[12:43:21] <rwaldron> .
+[12:55:54] <rwaldron> ajpiano wow
+[12:56:00] <rwaldron> dig this...
+[12:56:00] <rwaldron> https://github.com/mythz/jquip/issues/8#issuecomment-2853501
+[12:56:01] <socialhapy> ★ Issue #8 on jquip, reported by rwldrn (1d, 18h ago): Remove "jQuery" variable name
+[12:57:05] <miketaylr> heh, "do you work for jQuery?"
+[12:57:15] <rwaldron> dude is a weirdo
+[15:51:33] <aaronmcadam> haha he missed the point completely
+[15:52:01] <Raynos> rwaldron it's sad that jQuery has users that wouldn't understand the difference :(
+[15:52:04] <aaronmcadam> chuckled at this part "I think you need to have a very low opinion of devs if you think that if they find an issue with jquip..."
+[15:52:25] <mikesherov> gibson042: you here?
+[15:52:55] <mikesherov> man, I can't believe how much people are talking about jquip
+[15:52:59] <aaronmcadam> Raynos: yes, it is, but jQuery is used by a whole shedload of people who barely know how to program never mind JS itself
+[15:53:03] <ajpiano> Raynos: it's sad that there are people who are lefthanded
+[15:53:20] <ajpiano> but there are bound to be people at every end of the spectrum when you have extraordinarily large adoption
+[15:53:41] <aaronmcadam> oh yes definately
+[15:53:43] <mikesherov> right, the fact that novices CAN use your library is a badge of fucking honor
+[15:53:52] <aaronmcadam> same thing is happening to node
+[15:54:05] <mikesherov> jquip is dishonest
+[15:54:12] <aaronmcadam> at full frontal couple weeks ago, there were loads of js guys who didn't really understand the server paradigms
+[15:54:28] <mikesherov> 90% of jQuery? it has document.ready as a plugin!
+[15:54:42] <aaronmcadam> wtf?
+[15:55:21] <aaronmcadam> hmm
+[15:55:22] <mikesherov> holy shit, the webkit src code is monolithic
+[15:55:41] <aaronmcadam> I think he's just run with a proof of concept when obvs there's a bit of planning involved
+[15:55:42] <mikesherov> the freaking layout tests are like 100MB so far
+[15:55:51] <mikesherov> No, it's fine to be a POC
+[15:55:51] <aaronmcadam> wow
+[15:55:56] <mikesherov> it's fine to be a discussion point
+[15:56:07] <aaronmcadam> uhuh
+[15:56:18] <aaronmcadam> is he advocating usage?
+[15:56:22] <mikesherov> That's cool that jquip is a discussion point, but my only point is that it's marketed as 90% of jQuery at 13% of the size
+[15:56:34] <aaronmcadam> right!
+[15:56:41] <mikesherov> when in fact it's 13% of jQuery at 13% of the size
+[15:56:45] <mikesherov> NOT 90%
+[15:56:47] <aaronmcadam> haha
+[15:56:56] <mikesherov> no css
+[15:56:57] <mikesherov> no ajax
+[15:57:01] <mikesherov> no events
+[15:57:07] <aaronmcadam> I think people who actually want to use a microlib would just use zepto or something else
+[15:57:21] <mikesherov> Sure
+[15:57:32] <mikesherov> again, it's fine to have jquip as a discussion point
+[15:57:34] <aaronmcadam> and those devs obviously know what they're doing
+[15:57:38] <mikesherov> but don't call it 90%
+[15:57:42] <ajpiano> i think that's all he intends for it to be
+[15:57:42] <aaronmcadam> sure
+[15:57:49] <gibson042> mikesherov: here
+[15:57:58] <aaronmcadam> yeah I think so too
+[15:57:59] <mikesherov> like, having modular jQuery is a worthy goal (maybe)
+[15:58:09] <mikesherov> ajpiano, I know
+[15:58:15] <aaronmcadam> I remember talk of modular jq ages ago tho
+[15:58:15] <mikesherov> but just don't call it 90%
+[15:58:21] <aaronmcadam> and then it was sorta left aside
+[15:58:25] <mikesherov> that's what everyone is reacting to
+[15:58:37] <mikesherov> if he said instead: it's a POC about modular jQuery, great!
+[15:58:44] <mikesherov> But all everyone is doing is complaining that it's BS
+[15:58:53] <aaronmcadam> ya gotta be pretty dumb to think that other 77% is IE fixes
+[15:58:59] <mikesherov> gibson042: did you see my comment on that github PR?
+[16:00:03] <gibson042> reading it now
+[16:00:39] <gibson042> but I think you misunderstood... that first ticket #9994 wasn't mine and I didn't know about it until today
+[16:00:57] <mikesherov> I see
+[16:01:16] <mikesherov> ok, so in that case, do you now understand why it's being closed?
+[16:01:48] <mikesherov> I mean, rwaldron can be a bit, I dunno, rough around the edges
+[16:02:00] <mikesherov> but he provides good feedback to changes
+[16:02:12] <mikesherov> you just gotta get past the rough edges
+[16:02:46] <mikesherov> basically, his concern is performance, and timmy's concern is that it's an unnecessary change to something undocumented
+[16:02:49] <gibson042> actually, I'm pretty sure it got reopened earlier today after discussion here with rwaldron and timmywil
+[16:02:58] <mikesherov> Oh, great then
+[16:03:03] <gibson042> but I definitely get the perspective of both
+[16:03:12] <gibson042> and want to seriously thank you for the guidance
+[16:03:50] <mikesherov> Basically, I just wanted to say that the opinions of the main contributors, while sometimes wrong, come from a place of experience that should at least be considered
+[16:04:11] <mikesherov> and so my main message to you was that you shouldn't (if you were) be discouraged
+[16:04:58] <gibson042> I appreciate that
+[16:05:09] <mikesherov> take the criticisms, and even if they are wrong, roll those into your thought process
+[16:05:19] <aaronmcadam> awesome advice mikesherov
+[16:05:45] <mikesherov> It took me a bit to understand that "fixing" wasn't always just make sure a unit test passed
+[16:05:53] <mikesherov> it has to also be small and fast, and styled properly, and even perfed sometimes
+[16:06:09] <mikesherov> PR's should be considered a starting point for discussion
+[16:06:40] <mikesherov> so maybe you're already there, but I just wanted to relate what I learned about open source, and if it hits home for you, take it
+[16:06:52] <mikesherov> if it doesn't apply, leave it
+[16:07:13] <gibson042> not at all, it's a lot of what I'm looking for
+[16:07:27] <mikesherov> yeah, me too. That's what I was also
+[16:07:37] <mikesherov> by the way, your 12.2em ticket
+[16:08:04] <mikesherov> they're going to want a perf on that, so I'm not rolling it up into my other changes just yet
+[16:08:12] <mikesherov> but have you looked into how to run perfs just yet?
+[16:08:26] <gibson042> I was just going to ask you for information on that
+[16:08:43] <mikesherov> right, so we all pretty much us jsperf.com
+[16:09:08] <mikesherov> it's a perf testing site created by mathias bynens
+[16:09:14] <Krinkle> isn't $('.inner').wrap('<div class="new" />'); harmful in older version of IE ? (for the same reason jQuery() must be passed well-formed html due to innerHTML not liking invalid html, especially in IE (modern browsers simply silently fix it)
+[16:09:16] <mikesherov> who might actually be lurking right now
+[16:09:22] <mikesherov> matjas: you here?
+[16:09:34] <Krinkle> I always thought so, but then I see it advertised as example on api.jq/wrap
+[16:09:59] <mikesherov> Krinkle, html is sanitized before wrapped
+[16:10:08] <ajpiano> Krinkle: why would it be problematic? jquery isn't gonna just do a straight innerHTML There at all
+[16:10:14] <acidjazz> hey all
+[16:10:40] <Krinkle> ajpiano: I followed the source code (or tried at least) afaik it does jQuery( html passed to wrap ) and use the first child of that collection as parent.
+[16:10:44] <mikesherov> gibson: if you need a good example for using jsperf.com... let me find it
+[16:10:50] <acidjazz> just out of curiosity can every1 quickly name their favorite editors? from vim to eclipse? curious about checking out any new ones people are using
+[16:11:00] <mikesherov> zend studio
+[16:11:03] <ajpiano> vim
+[16:11:21] <ajpiano> Krinkle: right, but jquery's gonna normalise that collection so it's a div beforehand..
+[16:11:24] <acidjazz> zend eh?
+[16:11:27] <acidjazz> thats still around?
+[16:11:38] <acidjazz> ajpiano: you use any particular scripts/colors/etc w/ your vim setup?
+[16:11:40] <mikesherov> it's built on eclipse
+[16:12:14] <mikesherov> gibson042: here's a good example: http://jsperf.com/cssprops/2
+[16:12:18] <Krinkle> ajpiano: "normalize" ? I'm not quite sure what that could do if the string is left as-is and nothing is done between string and innerHTML, IE would an empty collection
+[16:12:26] <mikesherov> basically, I make a build of jQuery, and upload it to my server
+[16:12:33] <mikesherov> and you can follow the example from there
+[16:12:53] <Krinkle> I'm not saying it's a bug in jquery, I'm saying the example should not advertise non well-formed html strings that fail in old IE
+[16:13:01] <ajpiano> acidjazz: https://github.com/gf3/dotfiles/blob/master/.vimrc https://github.com/gf3/dotfiles/tree/master/.vim
+[16:13:40] <acidjazz> cool yea my vimrc is pretty pimped out as well
+[16:13:49] <ajpiano> Krinkle: are you saying that $("<div class='foo' />") doesn't work properly in old IE?
+[16:13:59] <ajpiano> cause i'm pretty sure it does
+[16:14:01] <acidjazz> whats htis gf3
+[16:14:12] <mikesherov> gibson042: jsperf.com is open source on github as well, so you can contribute to that too :-)
+[16:14:31] <ajpiano> acidjazz: he's a good bro
+[16:14:38] <ajpiano> a+++ would be friends with again
+[16:14:50] <acidjazz> what is this though theres no readme
+[16:14:56] <acidjazz> oh his vim scripts?
+[16:15:14] <ajpiano> yea this is just his dotfiles which has some vim stuff in it, is what i'm saying i use
+[16:15:15] <mikesherov> Krinkle: var wrap = jQuery( html, this[0].ownerDocument ).eq(0).clone(true);
+[16:15:19] <Krinkle> ajpiano: Yes, I thought so. Had bug reports on mediawiki because of that many times. Same fix every time, made it well-formed and problem solved.
+[16:15:22] <ajpiano> anyhow we're pretty off topic for this chan acidjazz
+[16:15:33] <acidjazz> yea sorry but.. good stuff though:)
+[16:15:38] <acidjazz> gotta check out this molokai theme
+[16:15:39] <mikesherov> when html is passed to jQuery(), it's heavily sanitized
+[16:15:44] <ajpiano> acidjazz: yes, def quality of life improvement
+[16:15:49] <ajpiano> Krinkle: pretty sure that's not true
+[16:16:04] <ajpiano> jquery doesn't care if you pass $("<div>") or $("<div/>") or $("<div></div>")
+[16:16:17] <Krinkle> ajpiano: For single tags, no. But for more complex strings it does
+[16:16:23] <Krinkle> single tags go to createElement
+[16:16:48] <Krinkle> that's a diff. story
+[16:16:57] <ajpiano> i always thought $("<div id='foo'>") would work fine in that situation as well
+[16:18:32] <Krinkle> I've seen $() or anything indirectly to it (say $.fn.append) fail and had to patch them before deploying on Wikipedia (or fixing afterwards when yet another bug report came from an IE6 user about the next script that went online that forgot to properly use well-formed html)
+[16:18:47] <acidjazz> ajpiano: https://raw.github.com/nelstrom/vim-blackboard/master/colors/blackboard.vim is what i use
+[16:18:54] <acidjazz> supports 256 colors
+[16:19:40] <ajpiano> Krinkle: well it sounds like you should file a docs bug or an actual bug :/
+[16:20:26] <Krinkle> jQuery is fine, it passed to innerHTML and documents that it should be given well-formed html for fragments more than just a single tag.
+[16:20:45] <Krinkle> most docs are good, just this one looked wrong and someone is using that example against me in a discussion.
+[16:21:11] <Krinkle> how akward. "api.jquery.org/wrap says it's okay"
+[16:21:12] <ajpiano> acidjazz: nice, but i love molokai way more :p
+[16:21:35] <mikesherov> Krinkle, you're right
+[16:21:46] <Krinkle> I'm starting IE6 now, doubting myself.
+[16:21:48] <mikesherov> obviously
+[16:21:48] <ajpiano> Krinkle: can you file a bug on that for docs, and then someone more qualified than i can decide if that should actually be working as mentioned in the docs
+[16:22:19] <gibson042> mikesherov: does jsPerf have a sandbox, or is everything saved for all time?
+[16:22:19] <Krinkle> ajpiano: Yeah
+[16:22:36] <acidjazz> ajpiano: any particular plugins youd say are have to haves or favorites?
+[16:22:53] <ajpiano> gibson042: jsperf is built on top of https://github.com/bestiejs/benchmark.js
+[16:23:07] <Krinkle> gibson042: Ah, I had the same issue a few minutes ago. You can make a private perf though by keeping the checkbox ticked. but you still have to pick (and this reserve) a unique slug
+[16:23:08] <ajpiano> so you might be able to use that locally instead of doing jsperf
+[16:23:26] <mikesherov> gibson042: uncheck "published" in the add test interface
+[16:25:50] <mikesherov> can I get some feedback on: https://github.com/jquery/jquery/pull/616#r248031
+[16:25:52] <socialhapy> ★ Pull request on jquery by mikesherov (23h, 44m ago): CSS fixes rollup: fixes #10796 and fixes #10639
+[16:25:53] <mikesherov> anyone?
+[16:26:43] <mikesherov> I created a "awesome hack by Dean Edwards" for Chrome
+[16:29:10] <mikesherov> ugh, downloading the webkit source code from svn on mobile broadband is a major fail... it's been 3 train rides already
+[16:29:46] <ajpiano> not even webkit wants to change at jamaica
+[16:29:56] <mikesherov> LOL
+[16:32:24] <Krinkle> mikesherov: ajpiano : http://jsbin.com/ojujex/ looking good in modern browsers, right ? lets try IE6
+[16:32:49] <Krinkle> darn, my IE6 won't comem up
+[16:32:51] <mikesherov> to browserstack!
+[16:32:55] <Krinkle> right!
+[16:33:01] * Krinkle got an invite as well
+[16:33:06] <mikesherov> :-)
+[16:33:16] <Krinkle> probably because I'm in the jquery testing team.
+[16:33:34] <mikesherov> I got mine before I was official
+[16:33:44] <mikesherov> for those curious, if you want to test in other browsers, www.browserstack.com makes it dead simple
+[16:33:55] <Krinkle> never used it before, just activated my account
+[16:34:07] <Krinkle> 2 errors in IE7
+[16:34:09] <mikesherov> it's AWESOME
+[16:34:18] <Krinkle> wow, it just… works!
+[16:34:25] <Krinkle> (browserstack that is)
+[16:34:35] <mikesherov> yeah
+[16:34:38] <mikesherov> it's unbelievable
+[16:34:54] <mikesherov> I now need to pay though
+[16:34:59] <mikesherov> that makes me sad panda
+[16:35:05] <Krinkle> Object expected, syntax error. Hm.. not very descriptive, trying to confirm it's related to what I'm doing.
+[16:35:31] <mikesherov> That's why I like jsfiddle
+[16:35:37] <mikesherov> it comes with firebug built in
+[16:35:43] <mikesherov> firebug lite*
+[16:35:58] <Krinkle> oh but browser stack's Vms have awesome stuff for all browsers built in and enabled too
+[16:36:06] <Krinkle> first time I see a debugger in IE7
+[16:36:09] <Krinkle> does the job
+[16:36:27] <mikesherov> yeah
+[16:36:36] <mikesherov> browserstack machines have all the bells and whistles
+[16:36:42] <mikesherov> wait till you use the local tunnel
+[16:36:50] <mikesherov> it's insanely easy
+[16:37:17] <mikesherov> you're hitting a cloud machine that is locally tunneling back to your local webserver
+[16:37:31] <Krinkle> mikesherov: Are you having more luck with this (if you're doing something with that jsbin or it's code)
+[16:37:41] <mikesherov> No, no luck
+[16:37:55] <mikesherov> but having errors in IE7 is enough
+[16:38:01] <Krinkle> the IE7 debugger kinda dum, it says $(document).ready was called and it eventually did something wrong.
+[16:38:15] <mikesherov> 	$( '#status' ) 		.addClass( $ex.find( 'a' ).length ? 'good' : 'bad' );
+[16:38:20] <mikesherov> you have a new line there
+[16:38:36] <Krinkle> yes
+[16:38:41] <mikesherov> remove the new line and see what happens
+[16:39:08] <ajpiano> i'm not having any errors in ie7
+[16:39:14] <ajpiano> ie9's ie7
+[16:39:16] <mikesherov> oops, g2g
+[16:39:26] <mikesherov> fuck ie9's ie7
+[16:39:29] <mikesherov> it's a liar
+[16:39:37] <mikesherov> train's hitting the station
+[16:39:41] <mikesherov> g2g
+[16:39:48] <Krinkle> $(..)\n .do( .. ) \n .stuff(), works fine. didn't make a difference
+[16:40:19] <mikesherov> oh yeah, of course
+[16:40:22] <mikesherov> and it works in chrome anyway, so...
+[16:40:32] <mikesherov> so I'd say it's an IE7 bug
+[16:40:46] <Krinkle> well, not sure., if I change /> to ></a> it still fails
+[16:40:56] <Krinkle> looks like jsbin+ie7-browserstack don;t like
+[16:45:09] <Krinkle> http://jsfiddle.net/rzEsT/
+[16:45:17] <Krinkle> ops, wrong wnd
+[16:50:22] <Krinkle> seems like IE6 doesn't have a problem with it. Grmpf, will try again tomorrow when it's not 2 AM
+[16:50:37] <Krinkle> perhaps difference between jQuery 1.4 back then and 1.7 now, although I doubt it
+[17:07:54] <mikesherov> Krinkle: you still here?
+[17:22:52] <Krinkle> yeah
+[17:23:18] <Krinkle> mikesherov: you ?
+[17:23:26] <mikesherov> yup
+[17:23:36] <Krinkle> interesting
+[17:23:42] <mikesherov> I forgot to tell you, when a browserstack instance starts up
+[17:23:50] <mikesherov> sometimes you gotta refresh the page for it to work
+[17:25:57] <mikesherov> did you find anything else out about that bug?
+[17:26:05] <Krinkle> nope
+[17:26:09] <Krinkle> will tomorrow
+[17:26:18] <mikesherov> k
+[18:50:57] <mikesherov> How screwy is getComputedStyle() for margins? Open this jsfiddle in IE9, FF, Opera, Chrome. http://jsfiddle.net/u4F8m/9/ Hint: Chrome, Opera broken
+[22:49:43] <manoj> hi
+[22:50:00] <manoj> any one can solve my problem

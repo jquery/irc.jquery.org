@@ -1,0 +1,616 @@
+[04:03:16] <gibson042> .
+[04:31:33] <javex0> Hi, I am not sure if I found a bug, so I don't want to create a ticket without confirmation. If I run something like jQuery("input:valid") it works, but if I run jQuery("input:first:valid") it crashes. Is this intended? Or do I overlook something?
+[04:32:12] <javex0> Sorry, Browser is Firefox and I created a small test case: http://jsfiddle.net/UYEpz/2/
+[04:44:27] <gibson042> ?topic javex0
+[04:44:28] <bot-t> Topic: jQuery development chat. Support chat (using jQuery, writing plugins, or other inquiries) is at #jquery. Triage team: Unreviewed tickets at http://bugs.jquery.com/report/400 - Tickets Needing Review: http://bugs.jquery.com/report/405 - 1.8 Suggestion Box http://gul.ly/d72 | This channel is publicly logged to http://irc.jquery.com
+[06:18:54] <mikesherov> DaveMethvin: almost done modularizing offset. Just something to consider: attrFn in attributes is a potential minefield for users who are doing modular builds.
+[06:18:57] <socialhapy> ★ Tweet from jqueryui: jQuery UI 1.8.21 is out! http://t.co/cKu5ODn7 We're getting close to 1.9, so hang tight :-) ★ http://bit.ly/NIIsBh
+[06:23:17] <scott_gonzalez> mikesherov: We can fix that with $.attrFn = $.fn in outro.js :-)
+[06:26:42] <mikesherov> LOL
+[06:27:24] <mikesherov> scott_gonzalez: it's just that there are lots of dependencies baked into attrFn. I've written the tests to account. I'm just saying it's a mine field
+[06:28:23] <mikesherov> scott_gonzalez: $('<div/>', {offset: {top:1, left:1}, css:{paddingRight:1}, width: 10}); all depend on those respective modules
+[06:29:14] <mikesherov> DaveMethvin: scott_gonzalez: ^ I've worked around it in the tests. it's just something we need to warn about, as users may forget about that one
+[06:29:20] <scott_gonzalez> Is there a specifc reason that we don't just check $.fn though?
+[06:29:39] <DaveMethvin> scott_gonzalez: are you serious?
+[06:29:44] <scott_gonzalez> Yeah.
+[06:29:53] <scott_gonzalez> It definitely came up as a joke, but it seems reasonable.
+[06:30:05] <rwaldron> mikesherov great work on dimensions
+[06:30:06] <DaveMethvin> so if I define a plugin with the same name as an attribute, what happens?
+[06:30:07] <scott_gonzalez> I haven't actually thought it through though.
+[06:30:18] <rwaldron> you're never here when I wanna ^5
+[06:30:32] <scott_gonzalez> Is there anything in core that would cause problems?
+[06:30:37] <scott_gonzalez> Or any popular plugins?
+[06:30:49] <scott_gonzalez> I can check, but I wouldn't be surprised either way.
+[06:36:29] <DaveMethvin> actually, i think I am for replacing $.attrFn with $.fn, and then marking $(html, props) as archaic, warning people away from it, explaining the drawbacks and dependencies it causes, and saying we won't be inclined to fix bugs related to it.
+[06:36:59] <DaveMethvin> someone defined a plugin with a conflicting name? too bad, it's supposed to work that way
+[06:37:09] <scott_gonzalez> It is a bit crazy, I'll give you that.
+[06:37:55] <DaveMethvin> well the whole api is half-crazy already so if we declare it to be crazy and someone complains we can say "what did you expect from a crazy api?"
+[06:40:20] <scott_gonzalez> .is() vs is="" could be a problem is W3C decides on is="" for custom elements.
+[06:40:47] <DaveMethvin> not a problem at all, we said the api was crazy so you use it at your own risk
+[06:40:58] <scott_gonzalez> map for area
+[06:41:32] <DaveMethvin> but those conflicts go away if you avoid the api and use .attr() directly so i think it's okay
+[06:41:55] <scott_gonzalez> size for input
+[06:42:03] <DaveMethvin> it's more a question of whether we are breaking something already in the field
+[06:42:24] <DaveMethvin> and if we are, well, it's a crazy api anyway
+[06:42:44] <scott_gonzalez> I think that's it in core though.
+[06:43:11] <DaveMethvin> this is where google codesearch would come in handy
+[06:43:25] <DaveMethvin> i kind of doubt these are common caes
+[06:43:27] <DaveMethvin> cases
+[06:46:59] <scott_gonzalez> Well, is="" is hypothetical, size="" should be done with CSS anyway, and who the hell is generating areas?
+[06:50:19] <DaveMethvin> http://bugs.jquery.com/ticket/8482 this guy is :D
+[06:50:43] <mikesherov1> rwaldron: thanks
+[06:54:00] <scott_gonzalez> DaveMethvin: Well, at least the <area> already exists, he's not generating it in jQuery.
+[06:54:25] <DaveMethvin> true
+[06:54:31] <scott_gonzalez> Oh, you know what?
+[06:54:37] <scott_gonzalez> It's not even an attribute.
+[06:54:40] <scott_gonzalez> It's <map><area>
+[06:55:20] <scott_gonzalez> I guess you're more likely to run into collisions with UI
+[06:55:21] <DaveMethvin> oh true
+[06:55:32] <DaveMethvin> well that's YOUR problem :D
+[06:55:41] <DaveMethvin> or third party plugins
+[06:55:45] <scott_gonzalez> autocomplete="off" vs. .autocomplete()
+[06:56:12] <scott_gonzalez> Well, my assumption is that most third party plugin names don't collide with attribute names.
+[06:58:17] <DaveMethvin> i like doing it because it carries the whole thing to its extreme and avoids more special cases.  I think it makes $(html, props) more risky, but it's already a mess which is why I think we should not advise anyone to use it in large-scale code whether we do this or not.
+[07:18:34] <kswedberg> DaveMethvin: technically, it's $(html, attrs), not $(html, props), right?
+[07:18:53] <DaveMethvin> yep, that's one of the bugs :D
+[07:19:02] <DaveMethvin> but the docs say props
+[07:19:12] <kswedberg> oh. woops. :)
+[07:19:30] <DaveMethvin> well it also says any event can be named but it's only the events with shortcut names
+[07:19:51] <DaveMethvin> so there's a lot to be done there but i was waiting until we came to some concensus about it
+[07:20:01] <scott_gonzalez> DaveMethvin: Well if we add $.fn then you can { on: ... }
+[07:20:04] <kswedberg> gotcha
+[07:20:26] <DaveMethvin> right but that's using an api directly
+[07:20:30] <DaveMethvin> and GOD HELP YOU
+[07:20:35] <scott_gonzalez> :-P
+[07:23:49] <timmywil> hey, why not $( html, attr: {}, prop: {} )
+[07:24:26] <DaveMethvin> timmywil:  you mean $( html, attr: { prop: {}  })
+[07:24:28] <DaveMethvin> ?
+[07:24:45] <DaveMethvin> $( html, { prop: {}  })
+[07:24:48] <DaveMethvin> duh
+[07:24:53] <timmywil> yea that one
+[07:25:03] <DaveMethvin> that works if $.fn is used
+[07:25:25] <DaveMethvin> then we can wash our hands of the boolHook at some point I suppose
+[07:25:48] <timmywil> yea, then we just have attrFn for back compat attrs and switch to $.fn all the time
+[07:26:05] <DaveMethvin> do we need attrFn at all?
+[07:26:17] <DaveMethvin> oh you mean for boolHooky things?
+[07:27:16] <timmywil> no, I mean $( html, { 'class': 'blah' } ) would still need to work if we throw in $.fn
+[07:28:56] <DaveMethvin> well if there isn't a $.fn method we default to .attr(name, value)
+[07:30:21] <timmywil> true
+[07:30:35] <timmywil> yea, that eliminates the need for attrfn
+[07:33:05] <timmywil> but then people could do $( '<option/>', { prop: { selected: true } } );
+[07:33:27] <scott_gonzalez> yup
+[07:33:58] <timmywil> makes sense to me
+[08:20:27] <gibson042> .
+[09:06:18] <shady---> $( "#datepicker" ).datetimepicker({ dateFormat: "yy-mm-dd", minDate: new Date(2012, 4 - 1, 20, 0, 0, 0), maxDate: new Date(Now), <=== How would I make the date "Now"?
+[09:08:26] <ajpiano> shady---: new Date()
+[09:08:32] <ajpiano> shady---: this channel is not for support requests
+[09:08:40] <shady---> sorry.
+[09:08:41] <ajpiano> please use #jquery
+[09:09:09] <shady---> My mistake. I apologize.
+[11:32:01] <socialhapy> ★ Tweet from jquerymobile: Hackathon Recap: Migrating HTML5-based applications to Windows Phone overnight with Apache Cordova and jQuery Mobile - http://t.co/PtjL2rnh ★ http://bit.ly/LlRMgd
+[11:34:45] <ram9> I am curious about making a patch to jquery - .focus() doesn't work as expected on IE8 - it seems there is a convention to wrap a timeout around the call to get the browser to heed it. Wouldn't this be the kind of thing that would be helpful in jquery?
+[11:39:57] <mbutubuntu> hey guys ##javascript mvc is a closed channel where to ask about javascriptmvc?!
+[11:40:52] <snover> mbutubuntu: this channel is not for support requests. please read the topic.
+[11:42:23] <mbutubuntu> snover, I know but considering you're jquery developers, maybe you'd know where to ask for javascriptmvc (that is declared in the website "contains the best ideas in jQuery development")
+[11:43:00] <danheberden> mbutubuntu we're also in the support channel #jquery for just such purposes - alas, i'd ask in #canjs
+[11:44:14] <mbutubuntu> danheberden, ok, I apoligize
+[11:48:01] <danheberden> ben_alman pretty hot with the eSATA: http://www.macrumors.com/2012/06/05/belkin-upgrades-thunderbolt-express-dock-with-usb-3-0-and-esata-bumps-price-to-399-99/
+[11:48:58] <danheberden> oy, meant that for a different channel but still! YOU CAN SEE IT HERE TOO
+[12:34:04] <ben_alman> danheberden: but it's $300
+[12:34:08] <ben_alman> which is mental
+[12:34:26] <danheberden> snover was just complaining about that
+[12:34:35] <danheberden> actually $400
+[12:34:42] <ben_alman> stoopid
+[12:34:52] <danheberden> but better than the $1000 monitor imho
+[12:35:09] <snover> but just think for just twice as much you get A MONITOR TOO
+[12:35:19] <snover> it’s like the monitor is really only $500
+[12:35:19] <danheberden> but i already have a monitor
+[12:35:25] <snover> “only”
+[12:35:49] <danheberden> and this would let me do two displays, also
+[12:35:55] <danheberden> i *think*
+[12:36:13] <danheberden> but either way, just sharing it... in the wrong channel
+[12:38:22] <ben_alman> i really want a 30" monitor fwiw
+[12:53:36] <DaveMethvin> haha rwaldron, eat my dust!
+[12:54:11] <scott_gonzalez> oh man
+[12:54:19] <scott_gonzalez> I beat you both!
+[12:54:28] <scott_gonzalez> The funny thing is that neither of decided to close it.
+[12:55:05] <rwaldron> damn
+[12:55:08] <rwaldron> two in a row
+[12:55:09] <rwaldron> back to back
+[12:55:22] <rwaldron> scott_gonzalez yeah... I cleaned up that mess for you ;)
+[12:55:26] <rwaldron> <3
+[12:55:39] <scott_gonzalez> :-)
+[12:57:05] <DaveMethvin> your code is too slow, for it only does ONE MILLION ITERATIONS per second.
+[12:57:10] <danheberden> lol
+[12:57:38] <scott_gonzalez> Heh, did you notice that was super old? Chrome 11.
+[12:57:46] <scott_gonzalez> Current Chrome  was 10 million.
+[12:58:13] <DaveMethvin> STILL NOT FAST ENOUGH
+[12:58:14] <danheberden> i got 11 mil
+[12:58:21] <danheberden> i thinik we need to use literals
+[12:58:24] <danheberden> cuz that's like 200mil
+[12:58:32] <DaveMethvin> when you gotta split, you gotta SPLIT
+[12:58:35] <danheberden> that's 94% faster
+[12:58:43] <danheberden> WE COULD MAKE JQUERY 94% FASTER
+[12:58:53] <DaveMethvin> OMG
+[12:59:17] <danheberden> hee hee - but it's cool that he, like, did that work
+[12:59:23] <danheberden> like - cared enough to try to find ways to optimize
+[12:59:41] <danheberden> s/he/they
+[12:59:43] <danheberden>  /
+[12:59:45] <DaveMethvin> lexical scans for optimization are not effective though
+[12:59:58] <DaveMethvin> profiling tells you what is too slow
+[13:00:01] <danheberden> no, just sayin - nice when people at least try
+[13:00:07] <danheberden> i agree with ya
+[13:00:18] <DaveMethvin> yeah that's why i didn't close it, figured maybe he'd say , "yeah you're right, close this"
+[13:00:28] <DaveMethvin> so it wouldn't seem like i was being mean
+[13:00:33] <DaveMethvin> i let other people be mean for me
+[13:00:38] <danheberden> hahaha
+[13:00:47] <danheberden> rick "the closer" waldron
+[13:00:50] <DaveMethvin> RAMIREZ, BE MEAN
+[13:00:59] <rwaldron> :)
+[13:01:34] <DaveMethvin> that's what is great about "pending", you can ask a question like "are you fuckin crazy" and then it auto closes
+[13:10:06] <DaveMethvin> holy crap, latimes.com is using jQuery 1.3.2 & 1.6.1 plus prototype 1.6.0
+[13:11:40] <DaveMethvin> three libs on a page, is that a hat trick?
+[13:35:07] <corystal> I've got jquery nesting duplicate spans within each other... has anybody ever seen this sort of thing??
+[13:35:18] <corystal> jquery mobile
+[13:37:27] <corystal> where it should generate <span class="btn-inner"><span class="btn-txt">SOMETHING</span></span>
+[13:37:29] <corystal> it does <span class="btn-inner"><span class="btn-txt"><span class="btn-inner"><span class="btn-txt">SOMETHING</span></span></span></span>
+[13:38:07] <danzik17> corystal: you should ask in #jquerymobile - this is the jquery core development channel
+[13:38:58] <paul_irish> scott_gonzalez:
+[13:38:58] <paul_irish> so
+[13:39:15] <paul_irish> loking now i dont actually see a 1.8.20 email from you
+[13:40:57] <scott_gonzalez> April 30
+[13:41:58] <paul_irish> o.o
+[13:42:01] <paul_irish> dont see it
+[13:42:06] <paul_irish> resend zip to me?
+[13:43:35] <scott_gonzalez> http://temp.nemikor.com/jquery-ui-1.8.20-cdn.zip
+[13:43:40] <paul_irish> <3
+[14:06:50] <jqcommit> [jquery] rwldrn pushed 1 new commit to master: http://git.io/79dAPg
+[14:06:50] <jqcommit> [jquery/master] Fixe dimensions tests. No core code changes. Supplements #11856 - Mike Sherov
+[14:25:11] <Krinkle> jzaefferer: ping
+[14:25:11] <ircjsbot> Krinkle, you have one new message, from gnarf (2 days and 5 hours ago). Tell me if you want to read it (“read”).
+[14:25:21] <Krinkle> ircjsbot: read
+[14:25:21] <ircjsbot> Krinkle, from gnarf, 2 days and 5 hours ago: lets get together and talk about what I need to do to move testswarm to another machine
+[14:37:46] <jq-jenkins> Project jQuery Core build #112: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/112/
+[14:37:46] <jq-jenkins> waldron.rick: Fixe dimensions tests. No core code changes. Supplements #11856
+[14:39:40] <jqcommit> [jquery] rwldrn pushed 2 new commits to master: http://git.io/ZVUApg
+[14:39:40] <jqcommit> [jquery/master] Ensure both height and width port functions exist before attempting to run dimensions tests. - Rick Waldron
+[14:39:40] <jqcommit> [jquery/master] Rough draft of version=min test capabilities reintroduced. - Rick Waldron
+[14:45:16] <Krinkle> rwaldron: I'm willing to try and clean up that issue (#798) again, but only if you're around to review and merge it faster this time
+[14:45:21] <Krinkle> https://github.com/jquery/jquery/pull/798
+[14:45:22] <socialhapy> ★ Pull request on jquery by Krinkle (1w, 3d ago): Improved stability and clean up in test suite
+[14:45:59] <Krinkle> I know it passed fine as it was
+[14:46:02] <Krinkle> and there is a sizzle link in the first post ;-)
+[14:46:21] <rwaldron> Krinkle the problem was that you did that without consulting anyone
+[14:46:32] <rwaldron> and we already had a plan with a path forward :P
+[14:47:58] <Krinkle> and I take it that has very well known documentation that I happen to not be able to find?
+[14:50:54] <rwaldron> Krinkle the point is that we were already moving away from even using PHP
+[14:51:12] <rwaldron> the tests were going to change as part of thta move
+[14:51:14] <rwaldron> that*
+[14:51:15] <Krinkle> rwaldron: You clearly missed what it was about
+[14:51:25] <Krinkle> the PHP part is in no way significant in that PR
+[14:51:33] <Krinkle> to any degree
+[14:52:07] <rwaldron> I'm just using that as an example of one of the changes
+[14:52:23] <Krinkle> the point of that change was to un-soup the fixture mess that made it impossible to expand the test suite without breaking every single traversal test.
+[14:53:03] <Krinkle> anyway, if the plain move away from PHP  contains ideas for this, I'd be happy to see t hat.
+[14:53:09] <Krinkle> plan to*
+[14:53:35] <rwaldron> I explicitly removed references to the fixture container 2 years ago
+[14:53:36] <rwaldron> IIRC
+[14:53:56] <Krinkle> well then obviously that's not what I was changing.
+[14:54:12] <Krinkle> can we start over? I think we both miss what we are talking about.
+[14:54:17] <rwaldron> Sorry, by "explicit references" I mean selectors that use "#qunit-fixture"
+[14:54:33] <rwaldron> back when it was called "main"
+[14:54:39] <Krinkle> I noticed
+[14:54:41] <rwaldron> sure we can start over
+[14:54:53] <Krinkle> that was a fine improvement, 2 years ago. but there is still a lot to fix
+[14:55:15] <Krinkle> what I mean is random tests re-using random parts of the fixture making it more sensitive then a testicle (not my words)
+[14:55:39] <rwaldron> First of all, I'm reopening the PR
+[14:55:47] <rwaldron> I suspect you can rebase this
+[14:55:51] <rwaldron> and it will be fine
+[14:56:08] <Krinkle> I'll see what I can do
+[14:56:18] <rwaldron> as soon as it's updated, I will land it
+[14:56:42] <Krinkle> rwaldron: are there plans to remove the sizzle-test from the jquery-core test? (e.g. to have its own job ?)
+[14:57:02] <rwaldron> the set that is "imported" from the sizzle repo?
+[14:57:17] <rwaldron> That will always run with these tests
+[14:57:24] <rwaldron> hm.
+[14:58:54] <rwaldron> Krinkle this merges
+[14:58:58] <rwaldron> as-is
+[15:00:03] <danheberden> DaveMethvin rwaldron is the GCC stuff dead in the water now?
+[15:00:07] <Krinkle> rwaldron: it does?
+[15:00:09] <danheberden> or is that something people are still working rowards?
+[15:00:10] <Krinkle> interesting
+[15:00:13] <danheberden> *towards
+[15:00:17] <rwaldron> danheberden never speak of this
+[15:00:20] <Krinkle> rwaldron: so what was the close reason :D ?
+[15:00:21] <DaveMethvin> lol
+[15:00:22] <rwaldron> Krinkle yessir
+[15:00:28] <danheberden> rwaldron i'm speaking about it tomorrow
+[15:00:32] <danheberden> to a group of devs in podx
+[15:00:34] <danheberden> *pdx
+[15:00:35] <DaveMethvin> danheberden: we're hoping they will carry more of the load
+[15:00:39] <danheberden> so what would you like me to say
+[15:00:39] <DaveMethvin> but it isn't dead, really
+[15:00:54] <danheberden> so chad is still taking stabs at it
+[15:01:03] <DaveMethvin> more like, "if you want to help we'll be talking more about it soon"
+[15:01:18] <DaveMethvin> for 1.8 chad is going to rebase the branch he created
+[15:01:22] <DaveMethvin> and we'll keep it a branch
+[15:01:28] <danheberden> ok
+[15:01:34] <DaveMethvin> still need to get the grunt parts working again
+[15:01:54] <DaveMethvin> our modular build stuff is working pretty well though
+[15:02:14] <Krinkle> rwaldron: interesting
+[15:02:14] <DaveMethvin> the issue with using cc is that it only works well if everybody plays
+[15:02:28] <danheberden> DaveMethvin how do you feel about the work SlexAxton has done with AMD support on a modular level?
+[15:02:53] <DaveMethvin> i'm not opposed to coming up with an amd solution similar to what mobile did
+[15:03:11] <DaveMethvin> where the wrappers are removed before the monolithic file is built
+[15:03:27] <DaveMethvin> the modular build process will help amd as well
+[15:03:36] <DaveMethvin> since we're tryna remove cross dependencies
+[15:03:52] <DaveMethvin> and identify stuff like $(html, props) that cause props
+[15:03:54] <DaveMethvin> problems
+[15:04:06] <rwaldron> Krinkle I thought this was one thing trying to address many disparate things (I mean, it is) that were already address elsewhere
+[15:04:18] <danheberden> DaveMethvin sounds awesome
+[15:04:19] <rwaldron> Krinkle in the future, break up your PRs into smaller parts
+[15:04:23] <rwaldron> more focused
+[15:04:28] <rwaldron> this PR does A
+[15:04:33] <rwaldron> other does B
+[15:04:40] <rwaldron> never both A & B
+[15:04:49] <rwaldron> either way, this is going in
+[15:05:04] <Krinkle> rwaldron: I always try to follow that convention, and I believe I did so here. The reason it looks mixed is because it affects many parts of the code.
+[15:05:19] <Krinkle> There's a few minor fixed that I could've separated yes
+[15:05:21] <DaveMethvin> Krinkle: i am not sure why it had test fails, could have been my bad
+[15:05:22] <Krinkle> fixes*
+[15:05:30] <DaveMethvin> i just saw them and bailed :D
+[15:05:35] <rwaldron> DaveMethvin naw, there is definitely fails
+[15:05:44] <rwaldron> I'm just not there yet
+[15:05:50] <rwaldron> I think they are small fixes
+[15:05:56] <rwaldron> that can all be part of the same merge
+[15:06:07] <DaveMethvin> overall i was good with the changes ... yes the php stuff was in there but like you say not the focus of the cleanup
+[15:06:14] <Krinkle> rwaldron: are you doing this at the moment?
+[15:06:21] <rwaldron> Krinkle yes
+[15:06:25] <Krinkle> ok, cool
+[15:08:30] <rwaldron> shiiiit
+[15:08:41] <rwaldron> I really underestimated this
+[15:08:55] <rwaldron> Krinkle I'm not going to be able to resolve this
+[15:09:01] <rwaldron> it goes back to those selector tests
+[15:09:06] <rwaldron> the ones you mentions
+[15:09:09] <rwaldron> mentioned*
+[15:09:22] <rwaldron> DaveMethvin ^^
+[15:09:42] <Krinkle> rwaldron: did you apply the sizzle PR as well in your working copy?
+[15:09:44] <Krinkle> that should fix it
+[15:09:46] <Krinkle> it is required
+[15:09:55] <DaveMethvin> oh, that's my screw up too krinkle
+[15:10:00] <DaveMethvin> i bet
+[15:10:12] <DaveMethvin> sorry, gotta go
+[15:10:16] <rwaldron> pfft
+[15:10:41] <Krinkle> I don't like it but that is how the sizzle tests are designed - sizzle has a (old?) copy of jquery's test/index.html in the sizzle repo and the selector.js is written for that. and that is then loaded inside the jquery test
+[15:10:53] <Krinkle> a very fragile design I would like to get rid of., but that's for some other time
+[15:10:58] <rwaldron> dammit
+[15:11:01] <rwaldron> timmywil yt?
+[15:11:06] <rwaldron> I'm pawning this off on him
+[15:11:12] <rwaldron> he's holding it up now
+[15:11:20] <Krinkle> rwaldron: If you apply the sizzle pr to your sizzle checkout inside the jquery checkout it should work fine
+[15:11:51] <rwaldron> Krinkle I'm not going to interfere there
+[15:12:03] <rwaldron> timmywil is heading up that re-write
+[15:12:08] <rwaldron> and I dont want to cause him issues
+[15:12:12] <rwaldron> we'll get this in
+[15:12:16] <rwaldron> just not this moment
+[15:12:19] <rwaldron> I'm sorry :(
+[15:12:34] <rwaldron> I've commented on the Sizzle PR telling him he's blocking us now
+[15:12:49] <Krinkle> I understand we need to have both sides verified
+[15:13:12] <Krinkle> It would be nice if you could apply the sizzle to your local working copy now though, so you can post to the github PR that it passes the tests
+[15:13:26] <Krinkle> rwaldron: that would help :)
+[15:13:27] <rwaldron> Ok
+[15:13:29] <rwaldron> give me a minute
+[15:13:33] <rwaldron> I'll do that
+[15:13:40] <Krinkle> thx
+[15:14:25] <jqcommit> [jquery] rwldrn pushed 1 new commit to master: http://git.io/qTVZfQ
+[15:14:25] <jqcommit> [jquery/master] Conditionally run height/width in iframeTest - Rick Waldron
+[15:14:32] <rwaldron> Ok, here we go
+[15:18:11] <rwaldron> Cool, this looks good
+[15:19:22] <Krinkle> nice
+[15:20:15] <rwaldron> Ok, I've posted updates to both PRs
+[15:20:26] <rwaldron> indicating that I've confirmed their passing
+[15:20:36] <rwaldron> I need to go quick here
+[15:35:59] <Krinkle> rwaldron: thx
+[15:43:26] <jq-jenkins> Project jQuery Core build #113: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/113/
+[15:43:27] <jq-jenkins> * waldron.rick: Ensure both height and width port functions exist before attempting to run dimensions tests.
+[15:43:27] <jq-jenkins> * waldron.rick: Rough draft of version=min test capabilities reintroduced.
+[15:46:10] <Krinkle> rwaldron: is there something about the height and width methods recently?
+[15:46:16] <Krinkle> Why would they not exist
+[15:46:30] <Krinkle> and if not, is that a failure or an option?
+[15:57:40] <DaveMethvin> Krinkle: if you do a custom build you can exclude css or dimensions now
+[15:57:52] <DaveMethvin> in those cases .width() isn't available
+[15:58:14] <DaveMethvin> and you can sneak into .width() using $("<div>", {width: 100})
+[15:58:17] <Krinkle> the test suites match the modules, right?
+[15:58:21] <DaveMethvin> so there was a test case for that in core
+[15:59:11] <Krinkle> anyway, this works. there may be a cleaner way to fix that but that takes more code
+[15:59:32] <DaveMethvin> we have enough code already :D
+[16:00:55] <mikesherov> rwaldron: rebased those 2 PR's you asked for
+[16:01:09] <mikesherov> DaveMethvin: rwaldron: https://github.com/jquery/jquery/pull/813
+[16:01:10] <rwaldron> yeah
+[16:01:10] <socialhapy> ★ Pull request on jquery by mikesherov (19m, 8s ago): fixes #11865, modularize offsets
+[16:01:17] <rwaldron> get rid of those spaces
+[16:01:23] <rwaldron> and I'll land it
+[16:01:29] <rwaldron> eff it
+[16:01:31] <rwaldron> I'll do it.
+[16:01:46] <rwaldron> it makes way less sense to make you do it
+[16:03:36] <jqcommit> [jquery] rwldrn pushed 1 new commit to master: http://git.io/RToF2Q
+[16:03:36] <jqcommit> [jquery/master] Less letterSpacing .animate() fail in IE. Fixes #8627 - Mike Sherov
+[16:04:54] <DaveMethvin> rwaldron: protip, if  you edit the commit message to mention the pull request it will automagically close the pull
+[16:05:13] <DaveMethvin> you can do that with git commit --amend
+[16:05:14] <rwaldron> DaveMethvin just the (pro) tip
+[16:05:47] <rwaldron> I am editting the commit message
+[16:05:48] <mikesherov_> or you can just use pulley....
+[16:05:48] * mikesherov_ ducks
+[16:06:01] <rwaldron> mikesherov_ oh yeah? nope.
+[16:06:14] <rwaldron> brb
+[16:06:25] <rwaldron> i'm mid 11293
+[16:06:30] <rwaldron> will finish when i return
+[16:06:45] <DaveMethvin> i have to revisit pulley
+[16:07:13] <mikesherov_> pulley work fairly well now
+[16:07:17] <DaveMethvin> usually i want to touch up everything i land though, not sure pulley offers that flexibility
+[16:07:33] <mikesherov_> We have some enhancements that will do that by the 6/15 DaveMethvin
+[16:07:41] <mikesherov_> we're adding a review mode
+[16:07:48] <DaveMethvin> ah sweet
+[16:08:17] <mikesherov_> g2g, have a nice night guys
+[16:08:29] <DaveMethvin> cyl mikesherov_
+[16:08:32] <mikesherov_> 3 modules modularized! css next!
+[16:09:54] <ajpiano> he's turning the modules... INTO MODULES
+[16:12:44] <DaveMethvin> OH MY GOD IT'S FULL OF MODULES
+[16:16:53] <jq-jenkins> Project jQuery Core build #114: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/114/
+[16:16:54] <jq-jenkins> waldron.rick: Conditionally run height/width in iframeTest
+[16:21:18] <Krinkle> scott_gonzalez: Do you know if there is something that we expect will break jenkins?
+[16:21:21] <Krinkle> http://swarm.jquery.org/git/jquery/4dcd7dd324fe7362842ce805b05f88929655fc79/test/index.html?filter=ajax
+[16:21:25] <Krinkle> Object jQuery has no method 'ajaxSetup'
+[16:21:58] <Krinkle> same for the commits after that
+[16:22:14] <Krinkle> jquery is majorly broken in the last 10-20 commits
+[16:22:23] <Krinkle> browserstack is complaining even
+[16:23:59] <jzaefferer> hey Krinkle
+[16:24:06] <Krinkle> jzaefferer: Hi
+[16:24:13] <Krinkle> jQuery.* is not defined
+[16:24:14] <jzaefferer> looks like the constant FIRE crying caused an actual fire?
+[16:24:26] <Krinkle> I suspect the recent build changes
+[16:24:40] <Krinkle> I'm logging into swarm now to nuke some jobs
+[16:24:45] <jzaefferer> switch to jhp or something?
+[16:25:02] <Krinkle> I certainly hope that wasn't done yet?
+[16:25:08] <Krinkle> I mean the build changes
+[16:25:33] <jzaefferer> if there was never a succesful jQuery Core build, we might as well switch that off
+[16:25:41] <jzaefferer> I don't know what changed in the build
+[16:26:01] <Krinkle> no something changed recently
+[16:26:02] <jzaefferer> but apparently there's not enough connection between core commiters and swarm...
+[16:26:08] <Krinkle> look at testswarm, jenkins is related
+[16:27:33] <Krinkle> https://github.com/jquery/jquery/commit/7c23b77af2477417205fda9bde5208a81e57e40e broke it
+[16:27:33] <socialhapy> ★ Commit on jquery by rwldrn (2d, 6h ago): Strips IIFEs from modules; Always require built jQuery for tests.
+[16:27:50] <Krinkle> jzaefferer: I thought jenkins uses build?
+[16:27:52] <Krinkle> Oh wait
+[16:27:54] <Krinkle> dejavy
+[16:27:58] <Krinkle> dejavu
+[16:28:16] <jzaefferer> Jenkins just runs `grunt`, then `grunt testswarm`
+[16:28:20] <Krinkle> yeah
+[16:28:27] <jzaefferer> so if they changed stuff to require a build stuff, it must break
+[16:28:41] <Krinkle> yesno
+[16:29:01] <Krinkle> the url submitted to testswarm points to a different git clone of jquery
+[16:29:10] <Krinkle> I said this before somewhere, I don't recall where
+[16:29:52] <DaveMethvin> Krinkle:  like a totally different clone which isn't the same as the one that grunt built?
+[16:29:58] <Krinkle> Yep
+[16:29:59] <jzaefferer> so `grunt` outputs to `dist` folder, which doesn't help
+[16:30:17] <DaveMethvin> there is an option in grunt to copy elsewhere
+[16:30:20] <Krinkle> on swarm01 we have an independent ./git/ with sha1-named folders of each commit
+[16:30:21] <DaveMethvin> dunno if we could use that
+[16:30:31] <Krinkle> no
+[16:30:37] <jzaefferer> I've disabled the job until that is fixed
+[16:30:53] <Krinkle> we need to copy the entire dir elsewhere after the build (including the unit tests and data etc.)
+[16:30:54] <jzaefferer> well, I've disabled it. Can enable it again once its fixed
+[16:30:58] <Krinkle> or rather, build from a different dir
+[16:31:03] <Krinkle> jzaefferer: thx
+[16:32:22] <Krinkle> jzaefferer: This is why I'd like to implement feedback to github from jenkins. Other wise we keep running behind with a mop
+[16:32:47] <Krinkle> (only enabled once there is a passing build for a project, of course)
+[16:34:08] <DaveMethvin> Krinkle jzaefferer also sorry we're not more tuned in to the jenkins/swarm stuff, it's just been so long since we saw success it's hard to get serious about it being broken
+[16:34:22] <DaveMethvin> once we get a SUCCESS i think it will be easier
+[16:34:42] <DaveMethvin> but i *really* appreciate all the work you're putting in here
+[16:35:01] <Krinkle> aside from jq-jenkins if you looked at http://swarm.jquery.org/user/jquery a minute ago, you saw only grey after 7c23b77af2477417205fda9bde5208a81e57e40e
+[16:35:05] <Krinkle> (I deleted those now)
+[16:35:58] <Krinkle> also we no longer have time outs
+[16:36:01] <Krinkle> http://swarm.jquery.org/job/197
+[16:36:14] <Krinkle> all these are errors with messages (e.g. unit failures or exceptions thrown)
+[16:36:17] <Krinkle> so that should be fixable
+[16:36:23] <Krinkle> could be real issues you know..
+[16:36:32] <DaveMethvin> lol yeah i bet they are!
+[16:37:06] <Krinkle> such as "ERROR: 'toTheBone' is undefined" in IE9
+[16:37:22] <Krinkle> (an exception that aborted the entire test suite)
+[16:37:24] <Krinkle> http://swarm.jquery.org/index.php?action=runresults&run_id=2713&client_id=37501
+[16:38:22] <Krinkle> jquery ui and qunit are both passing now :)
+[16:38:37] <jzaefferer> its possible!
+[16:38:50] <DaveMethvin> oh yeah, in theory maybe :D
+[16:38:58] <jzaefferer> for UI we don't run certain tests on swarm, like the interactions, because the testsuites suck
+[16:39:17] <jzaefferer> its better to have green for things that are supposed to work than constant red due to some outliers
+[16:39:22] <DaveMethvin> is there a variable we can use to skip some tests?
+[16:39:33] <jzaefferer> kind of
+[16:39:55] <jzaefferer> https://github.com/jquery/jquery-ui/blob/master/tests/unit/draggable/draggable.html#L30
+[16:40:22] <jzaefferer> you can put that check into a file somewhere, make it a flag and exclude tests based on that
+[16:40:26] <jzaefferer> just to get to green once
+[16:40:38] <jzaefferer> its only temporary.....
+[16:41:03] <DaveMethvin> so basically just look for swarmURL in window.location.search
+[16:41:39] <jzaefferer> yeah
+[16:41:51] <Krinkle> I'd say just use QUnit.urlparams (or what it is called)
+[16:41:57] <Krinkle> or is that not possible?
+[16:42:11] <DaveMethvin> either should be doable
+[16:42:11] <jzaefferer> Krinkle: good idea, never tried that
+[16:42:27] <jzaefferer> but yeah, I know that it sucks to always get a failure (like the guy always crying FIRE)
+[16:42:28] <Krinkle> if ( QUnit.urlconfig.swarmURL )
+[16:42:30] <DaveMethvin> it seems like IE6 is just taking too damn long
+[16:42:41] <Krinkle> DaveMethvin: not anymore
+[16:42:50] <jzaefferer> for a long time there were lots of swarm/browserstack issues, but those are (mostly?) resolved now
+[16:43:06] <Krinkle> it is quick enough now to not have testswarm time out
+[16:43:10] <Krinkle> Jenkins is a different story though
+[16:43:19] <DaveMethvin> it's always something
+[16:46:07] <jzaefferer> DaveMethvin Krinkle: you can configure the timeout for Jenkins, directly in your grunt.js file
+[16:46:15] <jzaefferer> if 30 minutes aren't enough, increase it
+[16:46:27] <jzaefferer> once we kick out IE6, we can decrease it again...
+[16:46:34] <DaveMethvin> if 30 minutes aren't enough, we're in trouble :P
+[16:46:35] <jzaefferer> who cares about China anyway
+[16:47:04] <DaveMethvin> i wouldn't mind trimming down the test suite for ie6
+[16:47:16] <jzaefferer> well, first the build problem needs to get addressed
+[16:47:22] <DaveMethvin> right
+[16:47:36] <jzaefferer> gnarf is familiar with both core and the current process, would be good to get his help there
+[16:47:50] <jzaefferer> he wrote the current bash script that does the git cloning
+[16:48:04] <Krinkle> jzaefferer: that will be redundant
+[16:48:12] <Krinkle> but yes his expertise will be useful :)
+[16:48:40] <jzaefferer> redundant?
+[16:50:00] <jzaefferer> well, time for sleep
+[16:50:01] <jzaefferer> ttyl
+[16:51:04] <Krinkle> jzaefferer: hold on
+[16:51:05] <Krinkle> pm
+[17:07:11] <danheberden> jaubourg yt?
+[17:12:23] <danheberden> bot-t: tell jaubourg is this ticket going to actually happen? http://bugs.jquery.com/ticket/11010 or our own version of promise spec?
+[17:12:23] <bot-t> danheberden, Okay.
+[17:20:44] <jqcommit> [qunit] scottgonzalez pushed 1 new commit to master: http://git.io/uskdWg
+[17:20:44] <jqcommit> [qunit/master] Add config.requireExpects. Fixes #207 - Add option to require all tests to call expect(). - Scott González
+[17:24:36] <jq-jenkins> Project QUnit build #134: SUCCESS in 3 min 43 sec: http://swarm.jquery.org:8080/job/QUnit/134/
+[17:24:36] <jq-jenkins> Scott González: Add config.requireExpects. Fixes #207 - Add option to require all tests to call expect().
+[17:59:04] <DaveMethvin> config.requireExpects +1
+[19:30:44] <mikesherov> .
+[19:30:58] <mikesherov> DaveMethvin: got a sec?
+[19:31:22] <DaveMethvin> sure
+[19:31:47] <DaveMethvin> mikesherov:
+[19:32:03] <mikesherov> can you explain something to me: https://github.com/jquery/jquery/commit/5d25f78291c11ca26ce70281ee4ac81d1e3d8dd4#commitcomment-1426051
+[19:32:04] <socialhapy> ★ Commit on jquery by rwldrn (4h, 17m ago): Conditionally run height/width in iframeTest
+[19:32:29] <mikesherov> so, I'm not sure why that was necessary, unless there is something about testswarm I don't know
+[19:32:40] <mikesherov> that whole file is wrapped in the same conditional
+[19:32:54] <mikesherov> why is it needed inside the test itself?
+[19:33:49] <DaveMethvin> oh you mean the whole dimensions test shouldn't be running there?
+[19:33:57] <mikesherov> right
+[19:34:10] <mikesherov> https://github.com/jquery/jquery/blob/5d25f78291c11ca26ce70281ee4ac81d1e3d8dd4/test/unit/dimensions.js
+[19:34:32] <mikesherov> look at line 1, then at line 433
+[19:34:43] <DaveMethvin> then back to me ... i'm on a  horse
+[19:34:54] <DaveMethvin> yeah seems like it shoulda skipped the whole thing
+[19:34:54] <mikesherov> LOL
+[19:35:22] <DaveMethvin> i think the tests may be wonkiy
+[19:35:24] <mikesherov> so I'm not crazy or anything
+[19:35:39] <DaveMethvin> that's not relevant to the problem :D
+[19:36:11] <DaveMethvin> upstream there was some discussion of some probs jenkins/swarm is having with our new setup
+[19:36:18] <DaveMethvin> it's not using the built file for testing
+[19:36:21] <DaveMethvin> so it's dying
+[19:36:25] <mikesherov> yeah, and rick just wrote: https://github.com/jquery/jquery/commit/5d25f78291c11ca26ce70281ee4ac81d1e3d8dd4#commitcomment-1426074
+[19:36:26] <socialhapy> ★ Commit on jquery by rwldrn (4h, 22m ago): Conditionally run height/width in iframeTest
+[19:36:55] <DaveMethvin> well he's not here, must be mobile
+[19:37:07] <DaveMethvin> it doesn't make sense i agree
+[19:37:21] <DaveMethvin> the whole file fulla tests should have been skipped
+[19:37:39] <DaveMethvin> i suspect this is due to the jenkins/swarm issues so we should see if they can straighten those out
+[19:37:45] <DaveMethvin> so frustrating
+[19:38:03] <mikesherov> yeah
+[19:38:06] <DaveMethvin> so other than having broken unit tests and no jquery-git everything is fine
+[19:38:09] <DaveMethvin> :D
+[19:38:36] <DaveMethvin> i'll build a new jquery-git once we can see whether the tests are in decent shape
+[19:38:40] <mikesherov> like this should have been unnecessary as well: https://github.com/jquery/jquery/commit/f5d2bc4db14bba1621a2e1a4baf171acfc9add1a
+[19:38:41] <socialhapy> ★ Commit on jquery by rwldrn (4h, 59m ago): Ensure both height and width port functions exist before attempting to run dimensions tests.  Signed-off-by: Rick Waldron <waldron.rick@gmail.com>
+[19:39:11] <DaveMethvin> right, it's either both or neither
+[19:39:24] <DaveMethvin> we don't need to check for both of them
+[19:39:26] <mikesherov> right, I'm just nervous about moving forward here..
+[19:39:39] <mikesherov> Because I just modularized offset, and that's ready to go
+[19:39:43] <DaveMethvin> i think we need to figure out why it was breaking
+[19:39:46] <mikesherov> css will be done in next few hours
+[19:39:52] <DaveMethvin> i wonder if it was failing locally for rick
+[19:40:00] <DaveMethvin> i'll ask on the commit
+[19:40:05] <mikesherov> OK, thanks
+[19:40:30] <mikesherov> I'll just continue on my merry way, modularizing and breaking everything :-P
+[19:40:59] <DaveMethvin> full speed ahead!
+[19:41:18] <DaveMethvin> i've started the blog describing a lot of this
+[19:41:27] <DaveMethvin> although we still need to fix quite a bit of stuff
+[19:42:32] <mikesherov> what can I do to help, what's broken?
+[19:43:00] <DaveMethvin> i think we're waiting for krinkle and perhaps gnarf to take a look
+[19:43:15] <DaveMethvin> the shell scripts to copy the files need tweaking
+[19:43:24] <mikesherov> oh, build side, not source side
+[19:43:30] <DaveMethvin> right
+[19:43:56] <mikesherov> if you need color from me on the css/dimensions changes in 1.8, I'd be happy to throw out some words
+[19:44:31] <DaveMethvin> i'll send a link out soon to the blog draft and you guys can edit
+[19:48:24] <mikesherov> cool
+[19:49:21] <mikesherov> btw, offsets is ready to land, https://github.com/jquery/jquery/pull/813/files I'm going to build off of that branch for css.
+[19:49:22] <socialhapy> ★ Pull request on jquery by mikesherov (4h, 7m ago): fixes #11865, modularize offsets
+[19:55:26] <mikesherov> there he is
+[19:55:45] <mikesherov> rwaldron: that commit has me baffled
+[19:55:54] <mikesherov> I feel hoodwinked, bamboozled even
+[19:58:12] <rwaldron> it runs in a different frame
+[19:58:20] <rwaldron> different context
+[19:58:38] <rwaldron> testIframe is not a qunit function, so it's not queued
+[19:58:44] <rwaldron> (I'm just brainstorming)
+[19:59:07] <mikesherov> Sure
+[19:59:15] <mikesherov> I keep coming back to, it's inside a conditional
+[19:59:29] <mikesherov> it is literally impossible for that code to be executed
+[19:59:37] <mikesherov> made you built incorrectly?
+[19:59:41] <mikesherov> maybe*
+[20:00:20] <jqcommit> [jquery] rwldrn pushed 1 new commit to master: http://git.io/e1Zj5Q
+[20:00:20] <jqcommit> [jquery/master] Fixes two typos - Rick Waldron
+[20:00:35] <rwaldron> I'm not sure what to tell you
+[20:00:39] <mikesherov> it's also puzzling that you needed to change: if ( jQuery.fn.width ) => if ( jQuery.fn.width && jQuery.fn.height) ... it's either both or neither
+[20:00:57] <rwaldron> height was still coming up problematic
+[20:01:03] <rwaldron> I'm not making it up
+[20:01:08] <mikesherov> yeah, I believe you
+[20:01:15] <mikesherov> I'm just trying to get to the bottom of it
+[20:01:17] <rwaldron> I'll gladly remove bullshit crufty code
+[20:01:27] <mikesherov> I mean, we both know javascript... you're like a god at it
+[20:01:30] <rwaldron> TBH, it was annoying to bother with it in first place
+[20:01:34] <rwaldron> barely.
+[20:01:46] <mikesherov> A conditional is a conditional
+[20:01:51] <mikesherov> the code inside it doesn't run
+[20:01:53] <rwaldron> In most code
+[20:01:59] <rwaldron> but this is jQueyr test suite
+[20:02:02] <rwaldron> ack
+[20:02:05] <rwaldron> jQuery
+[20:02:13] <rwaldron> the land of brittle things
+[20:02:21] <mikesherov> I mean, unless QUnit parses source code
+[20:02:38] <mikesherov> and does some other bullshit
+[20:02:55] <mikesherov> But an if is an if
+[20:02:58] <rwaldron> QUnit does some bullshit, but not in that sense
+[20:03:06] <mikesherov> LOL
+[20:03:28] <mikesherov> I mean, the whole premise is that a conditional will prevent a test from queueing up
+[20:03:33] <mikesherov> and that MUST hold true
+[20:03:35] <rwaldron> yeah
+[20:03:41] <rwaldron> I hear ya
+[20:03:48] <mikesherov> or else, the whole approach is bonkers
+[20:04:53] <mikesherov> plus, maybe the fix was that you added expect(2) to the top
+[20:04:55] <mikesherov> https://github.com/jquery/jquery/commit/d487b06d93a576e66b81a0620207f083712268d1#L1R431
+[20:04:56] <socialhapy> ★ Commit on jquery by rwldrn (4m, 47s ago): Fixes two typos
+[20:05:03] <mikesherov> accidentally
+[20:05:26] <mikesherov> hrmph
+[20:05:38] <mikesherov> I'll just bug you to revisit it another time
+[20:05:47] <rwaldron> no, I wanna stomp this now
+[20:06:11] <rwaldron> I'm re-running in chrome incognito mode with a _fresh_ build -dimensions
+[20:06:19] <rwaldron> and its fine now
+[20:06:36] <rwaldron> your question about the build part got me thinking
+[20:06:39] <rwaldron> so...
+[20:06:46] <rwaldron> hooray?!
+[20:07:17] <mikesherov> yay!
+[20:07:26] <mikesherov> so these three commits should be reverted:
+[20:07:27] <mikesherov> https://github.com/jquery/jquery/commit/f5d2bc4db14bba1621a2e1a4baf171acfc9add1a
+[20:07:28] <socialhapy> ★ Commit on jquery by rwldrn (5h, 28m ago): Ensure both height and width port functions exist before attempting to run dimensions tests.  Signed-off-by: Rick Waldron <waldron.rick@gmail.com>
+[20:07:37] <mikesherov> https://github.com/jquery/jquery/commit/e680f36ca096090a6e699ce0eece5b3635a46f47
+[20:07:38] <socialhapy> ★ Commit on jquery by rwldrn (1d, 6h ago): Fix busted tests that relied on width in 2nd param to jQuery(), dimensions stays modular. (core, attributes, offset)  Signed-off-by: Rick Waldron <waldron.rick@gmail.com>
+[20:07:49] <mikesherov> oops, not that second one
+[20:08:03] <mikesherov> https://github.com/jquery/jquery/commit/5d25f78291c11ca26ce70281ee4ac81d1e3d8dd4
+[20:08:04] <socialhapy> ★ Commit on jquery by rwldrn (4h, 53m ago): Conditionally run height/width in iframeTest
+[20:08:36] <mikesherov> yeah, just these two: https://github.com/jquery/jquery/commit/f5d2bc4db14bba1621a2e1a4baf171acfc9add1a and https://github.com/jquery/jquery/commit/5d25f78291c11ca26ce70281ee4ac81d1e3d8dd4
+[20:08:37] <socialhapy> ★ Commit on jquery by rwldrn (5h, 29m ago): Ensure both height and width port functions exist before attempting to run dimensions tests.  Signed-off-by: Rick Waldron <waldron.rick@gmail.com>
+[20:09:09] <mikesherov> OK, phew
+[20:09:14] <mikesherov> I'll be able to sleep tonight
+[20:09:28] <mikesherov> no nightmares about the true nature of conditionals in javascript
+[20:10:21] <rwaldron> incoming...
+[20:10:27] <jqcommit> [jquery] rwldrn pushed 1 new commit to master: http://git.io/l6khAQ
+[20:10:27] <jqcommit> [jquery/master] Remove unnecessary haunted house guards. - Rick Waldron
+[20:10:55] <rwaldron> It didn't make sense to me, but I believed my eyes instead of my brain
+[20:11:05] <rwaldron> protip: dont do stuff at the end of the day
+[20:11:12] <rwaldron> 9am-3pm is good
+[20:11:19] <rwaldron> 3pm-8pm is bad
+[20:11:23] <mikesherov> LOL
+[20:11:25] <mikesherov> I feel ou
+[20:11:28] <rwaldron> 8pm-12pm is good
+[20:11:29] <mikesherov> I've been there
+[20:11:32] <rwaldron> err
+[20:11:34] <rwaldron> 12am
+[20:11:45] <rwaldron> Don't feed me after midnight
+[20:11:51] <rwaldron> or get me wet
+[20:12:00] <mikesherov> LOL
+[20:12:03] <rwaldron> :D
+[20:12:13] <mikesherov> OK, I gotta run... thanks for putting up with me. Gnight
+[20:12:28] <rwaldron> http://goinglast.net/wp-content/uploads/2012/02/Gremlins-1-703817.jpg
+[20:12:33] <rwaldron> My pleasure
+[20:12:43] <rwaldron> Good night mikesherov - thanks for keeping it real
+[20:12:44] <rwaldron> :)

@@ -1,0 +1,273 @@
+[09:01:19] <DaveMethvin> hey m_gol (or mgol :)
+[09:01:26] <mgol> mgol ;)
+[09:01:40] <DaveMethvin> trying out a new irc client?
+[09:01:52] <mgol> yeah, www
+[09:02:13] <DaveMethvin> wow you can do anything with a web page
+[09:02:53] <DaveMethvin> anybody else around? timmywil  maybe?
+[09:03:04] <timmywil> hi
+[09:03:15] <DaveMethvin> yay markelog !
+[09:03:33] <markelog> hey-hey
+[09:04:08] <DaveMethvin> so i don't have much for today, looks like people are working on stuff tho so that's great!
+[09:04:17] <DaveMethvin> i am behind on reviewing
+[09:04:22] <mgol> I have a discussion about data
+[09:04:30] <DaveMethvin> ok
+[09:04:34] <DaveMethvin> fire away
+[09:04:34] <mgol> in about 5 minutes, need to get to my desk ;)
+[09:04:37] <DaveMethvin> ok
+[09:05:22] <DaveMethvin> so markelog the rAF patch looked interesting, i feel the same way you do ... must be too good to be true!
+[09:05:54] <markelog> yeah
+[09:06:05] <markelog> but if it really works, it could be pretty cool
+[09:06:19] <markelog> but need someone to review this, to be sure
+[09:06:31] <DaveMethvin> we do need to be sure that any final state is still reached
+[09:07:00] <DaveMethvin> i haven't run through it all but i think that is what dcherman2 was saying
+[09:07:08] <markelog> it should if user come back to the page
+[09:07:27] <markelog> but unfortunately, i don't know how to test it
+[09:07:37] <markelog> since tab should not be visible
+[09:08:07] <markelog> probably you couldn't achive that even with selenium test
+[09:08:09] <DaveMethvin> we should be able to test with a test page though, right?
+[09:08:13] <DaveMethvin> manually
+[09:08:21] <DaveMethvin> yeah i don't know a way to automate that
+[09:08:23] <markelog> yep, that's how i have done it
+[09:09:11] <gibson0421> what is the current topic?
+[09:09:26] <markelog> https://github.com/jquery/jquery/pull/1578
+[09:09:37] <markelog> and mgol wants to talk about data
+[09:09:58] <m_gol> switched to tethering
+[09:10:15] <m_gol> .
+[09:10:46] <m_gol> I'm not blocked here
+[09:10:47] <m_gol> ok
+[09:10:51] <m_gol> so
+[09:10:52] <m_gol> about data()
+[09:10:56] <m_gol> can I start?
+[09:11:10] <DaveMethvin> yeah i think we're on to that
+[09:11:14] <markelog> wow, sounds serious :-)
+[09:11:17] <m_gol> ;)
+[09:11:19] <DaveMethvin> go ahead m_gol
+[09:11:29] <m_gol> not sure if everyone read our e-mail exchange
+[09:11:30] <m_gol> anyway
+[09:11:48] <m_gol> Angular currently does sth really nasty
+[09:12:08] <m_gol> since they support directives (sorta web components) that can replace the node on which they're defined
+[09:12:16] <m_gol> and they want to move all the data including event handler
+[09:12:17] <m_gol> s
+[09:12:21] <m_gol> like that: https://github.com/angular/angular.js/blob/3fb2d2ac3b2ac56dfbb70b9b383d26acc00f8f77/src/ng/compile.js#L1960
+[09:12:25] <m_gol> this is an ugly hack
+[09:12:42] <m_gol> since they're changing a low-level constant on a node so that it points to different data
+[09:12:50] <m_gol> & obviously it doesn't work with jQuery 2
+[09:13:03] <DaveMethvin> What low-level data gets attached to a directive before it becomes a real element?
+[09:13:18] <m_gol> a node can have a couple of directives attached
+[09:13:21] <m_gol> some may define event handlers
+[09:13:29] <m_gol> so they want to move them to the new node
+[09:13:31] <m_gol> but I've talked to Igor Minar & he agreed this was a bad idea, it won't be supported
+[09:13:34] <m_gol> in Angular 2
+[09:13:39] <m_gol> which is a rewrite
+[09:13:52] <m_gol> but it's still going to be supported in the upcoming 1.3 due to backwards compatiblity
+[09:14:01] <m_gol> bad decisions from the past, we know sth about that :P
+[09:14:02] <m_gol> anyway
+[09:14:14] <m_gol> Igor said it's ok for him to degrade performance here a little
+[09:14:17] <m_gol> since this is deprecated
+[09:14:36] <m_gol> so moving the data via newNode.data(oldNode.data()); newNode._data(oldNode._data());
+[09:14:40] <m_gol> will be acceptable
+[09:14:43] <m_gol> but it relies on _data
+[09:14:49] <m_gol> which rwaldron wants to remove
+[09:14:53] <m_gol> so there we go
+[09:15:25] <DaveMethvin> so if we support _data is Angular committed to dropping jqLite? or is this just to let people use jQuery2?
+[09:15:35] <m_gol> the Angular team would like to make Angular 1.3 compatible with jQuery 2, especially that it doesn't support IE8 so it seems weird to have to use jQuery 1 with it
+[09:15:40] <m_gol> the latter
+[09:15:52] <m_gol> jqLite is really small so it doesn't seem they'd drop it now
+[09:16:01] <m_gol> they implement a tiny subset of our API
+[09:16:25] <m_gol> and our custom compilation still doesn't allow to remove some utility methods that are not necessary IIRC
+[09:16:37] <gibson0421> presumably, they only care about event handlers, right?
+[09:16:43] <m_gol> but yeah, when Angular detects the presence of jQuery, it uses it for DOM manipulation instead of jqLite
+[09:17:07] <DaveMethvin> for their own uses i guess event data is all that gets set
+[09:17:26] <m_gol> they do set .data('$scope', sth) and some other things
+[09:17:32] <m_gol> but that doesn't matter, it's user data
+[09:17:40] <m_gol> is there anything besides event handlers in the private storage?
+[09:17:48] <DaveMethvin> show/hide
+[09:17:50] <markelog> olddisplay value
+[09:17:53] <DaveMethvin> animations
+[09:17:56] <DaveMethvin> ?
+[09:18:03] <gibson0421> checking the 1.x-master build, I see _data used for events, animations, and a globalEval flag for script elements
+[09:18:49] <m_gol> yeah, Angular has its own engine for animations
+[09:18:52] <DaveMethvin> i'm wondering what situations make jqlite much smaller than jquery2 custom builds
+[09:18:58] <timmywil> I'd like to preserve a way to view all events (immutably) on an element, but that's my only concern.
+[09:19:00] <m_gol> a lot of hacks around CSS transitions/animations :)
+[09:19:11] <m_gol> React duplicated Angular's API here as well
+[09:19:13] <gibson0421> that's where I'm going also, timmywil
+[09:19:21] <markelog> so they should care only about events and globalEval flag?
+[09:19:31] <m_gol> what's the globalEval flag btw?
+[09:19:33] <m_gol> :D
+[09:19:41] <DaveMethvin> injecting scripts
+[09:19:43] <gibson0421> exposing event data in particular may satisfy the request, regardless of *how* we store internal data
+[09:19:52] <DaveMethvin> to know whether we've run them or not when manip them later
+[09:20:10] <m_gol> k
+[09:20:18] <m_gol> I guess they only care about events
+[09:20:24] <DaveMethvin> yeah, we could even hang them on a different property on the element i suppose
+[09:20:38] <m_gol> this is one of 2 places where they'd use _data
+[09:20:53] <m_gol> (currently there's only one since this one place is handled using the mentioned hack with expando switching)
+[09:21:00] <m_gol> and it's the ngAnimate module
+[09:21:01] <gibson0421> I mean, it seems like they just want `$newEl.on( $oldEl.handlers() )`
+[09:21:14] <m_gol> to not trigger events with non-attached handlers
+[09:21:20] <timmywil> brb
+[09:21:23] <m_gol> I wrote about it in an e-mail
+[09:21:52] <m_gol> so this first place is deprecated but needed for another year (maybe less)
+[09:21:59] <m_gol> and the first is because DOM is slow
+[09:22:07] <m_gol> * the second is because DOM is slow
+[09:22:25] <markelog> ))
+[09:22:32] <DaveMethvin> agreed, the DOM is slow! :)
+[09:22:53] <DaveMethvin> so the main reason we introduced _data() was a namespace problem
+[09:23:09] <DaveMethvin> not because we were specifically trying to "hide" the data
+[09:23:28] <DaveMethvin> people were accidentally clobbering .data("events") for example
+[09:23:39] <m_gol> (this is the place where the list of registered handlers is used: https://github.com/angular/angular.js/blob/e9bc51cb0964ea682c1654919174dacebd09fcf6/src/ngAnimate/animate.js#L998-L1005)
+[09:24:12] <m_gol> (elementEvents is get via jQuery._data(node))
+[09:24:22] <gibson0421> I agree that the problem remains namespacing; obfuscation should not even be considered as a positive or negative as long as nothing leaks into .innerHTML
+[09:24:48] <markelog> but it also nice when jquery encapsulated all of it's internal things, so it would not show up and they could not remove them
+[09:25:15] <DaveMethvin> regardless of whether we "allow" it or not, it's being used by another popular piece of software
+[09:25:20] <m_gol> I get the "don't let people break events" thinking
+[09:25:23] <DaveMethvin> so we're kind of backed into a corner
+[09:25:31] <m_gol> but there are cases like these mentioned ones...
+[09:25:54] <m_gol> actually
+[09:25:57] <m_gol> as for not messing
+[09:26:02] <m_gol> they only use _data as a getter
+[09:26:02] <DaveMethvin> in this case they don't care about the internal structure of the data, just that the data is copied over
+[09:26:11] <m_gol> to see if there are attached handlers
+[09:26:21] <m_gol> so if it was made unsettable, it'd still work
+[09:26:40] <m_gol> ah, not, as a setter as well, to move the data, right
+[09:26:46] <m_gol> in the first case, this deprecated one
+[09:26:47] <DaveMethvin> :)
+[09:26:57] <gibson0421> but it could be moved via `.on`
+[09:27:14] <DaveMethvin> at much higher cost unforrunately
+[09:27:14] <m_gol> if they had access to handlers
+[09:27:20] <DaveMethvin> HOWEVER
+[09:27:21] <m_gol> that's true
+[09:27:22] <gibson0421> we don't need an internal data setter if the only thing they care about copying is events because events already have a setter
+[09:27:44] <DaveMethvin> gibson0421 is right in that all special events may not work unless you go through .on()
+[09:27:47] <gibson0421> it's exposing them that we don't have a good answer for at the moment
+[09:27:54] <DaveMethvin> because they have setup that may be skipped
+[09:28:01] <m_gol> hah, right
+[09:28:06] <gibson0421> which is why they beat their way in to begin with
+[09:28:25] <m_gol> right
+[09:28:27] <DaveMethvin> i dunno what the practical problems are that it creates
+[09:28:53] <DaveMethvin> that is, does it work with hoverIntent or our own mouseenter/leave events?
+[09:28:54] <m_gol> the moving handlers use case is deprecated so if it's a little slower, it's fine; if it becomes unbearably slow, it becomes a problem
+[09:29:26] <DaveMethvin> does that come into play with a repeater? obvs if you're doing it 200 times it's gonna be bad
+[09:29:38] <DaveMethvin> but if it's just one top-level thing, np
+[09:30:02] <m_gol> well, it depends where you use it ;)
+[09:30:17] <DaveMethvin> don't use it where it will be slow!
+[09:30:19] <DaveMethvin> ?cc
+[09:30:28] <m_gol> if sb makes a repeater iterate over directives with replace: true, it's going to be 200 of them
+[09:30:30] <DaveMethvin> CASE CLOASED
+[09:30:40] <m_gol> but I don't think that's a common use case ;)
+[09:31:05] <DaveMethvin> for non special-event cases, copying the raw data works
+[09:31:06] <m_gol> and it's not that porting the code to not replace elements is extremely hard in most cases
+[09:31:29] <DaveMethvin> it's just that it exists today and we'll break it :(
+[09:31:52] <m_gol> well, Angular 1.2 doesn't officially support jQuery 2
+[09:31:55] <m_gol> so it doesn't matter there
+[09:32:08] <m_gol> I'm just trying to make Angular 1.3 & jQuery 2 work together
+[09:32:16] <m_gol> and 1.3 is not released yet
+[09:32:17] <DaveMethvin> but even with 1.x any special events would break if someone did that
+[09:32:27] <m_gol> so it can have a couple of not huge breaking changes
+[09:32:29] <m_gol> yeah
+[09:32:30] <m_gol> right
+[09:33:16] <DaveMethvin> i don't have a big problem with puting _data() in 2.x ... people just have to know that it doesn't allow for the kind of shortcuts they think it does
+[09:33:28] <m_gol> I'll report that issue, it doesn't seem to be impossible to fix it in Angular 1.2 patch release
+[09:33:32] <m_gol> by degrading perf a little
+[09:33:47] <rwaldron> sorry, m_gol I was afk
+[09:33:54] <m_gol> we could make it a getter if getter weren't dead slow :P
+[09:33:54] * rwaldron reading back
+[09:34:01] <m_gol> * getters
+[09:35:14] <DaveMethvin> the thing here is that we have more to lose by not being compat with Angular 1.3 than is risked by adding jQuery._data to jQuery 2.x
+[09:35:18] <DaveMethvin> IMO at least
+[09:35:49] <DaveMethvin> and again it's really for Angular's back-compat, it doesn't really work properly but that's Angular's problem and they're fixing it in Angular2
+[09:36:13] <m_gol> yeah, it's just they don't want to go from supported to removed in one release
+[09:36:18] <m_gol> without deprecating it in 1.3
+[09:36:27] <DaveMethvin> we can identify with that :)
+[09:36:30] <m_gol> :)
+[09:36:32] <rwaldron> DaveMethvin just catching up... Angular needs _data to work w jQuery 2.x?
+[09:36:33] <rwaldron> we never removed it
+[09:36:49] <DaveMethvin> data_priv?
+[09:36:52] <m_gol> rwaldron: I know, I'm thinking about the future
+[09:37:14] <markelog> https://github.com/jquery/jquery/blob/master/src/data.js#L67
+[09:37:18] <DaveMethvin> we've talked as if we're removing it, and the internal refs are gone
+[09:37:22] <rwaldron> DaveMethvin yes, _data returns: data_priv.access( elem, name, data );
+[09:37:24] <m_gol> I mean, if it was removed in 2.2 they'd end up in a situation where they can upgrade from 2.1 to 1.12 but not to 2.2
+[09:37:37] <rwaldron> m_gol got it
+[09:37:52] <DaveMethvin> i think we should go back to using _data internally just so we can cherry-pick easily
+[09:39:09] <DaveMethvin> i wonder if we should document it to explain why you can't do what Angular did
+[09:39:25] <m_gol> :)
+[09:39:27] <DaveMethvin> for example, you can't copy events from one element to another by copying _data
+[09:39:34] <m_gol> right
+[09:39:38] <DaveMethvin> at least that works like 80% of the time
+[09:39:47] <DaveMethvin> but WE can't fix the 20% because you broke the rules
+[09:40:33] <DaveMethvin> its just that whenever we document something it seems to be open season on using it
+[09:41:03] <DaveMethvin> here i assume the angular guys read the code and it *seemed* like they could do what they did
+[09:41:45] <m_gol> I'll make sure they put sketchy cases through to me first :)
+[09:41:45] <DaveMethvin> so we can document "no you can't make assumptions about what jquery does with _data and it may change without notice" :)
+[09:42:26] <m_gol> ok but what about getting the events?
+[09:43:06] <m_gol> the first of these two cases is deprecated anyway but the second only checks if there is anything attached - that works fine today
+[09:43:32] <DaveMethvin> i'm not sure whether it works with the special events cases
+[09:43:46] <DaveMethvin> no, let me reword that
+[09:43:59] <DaveMethvin> i am pretty sure it doesn't work, even with the small number of internal special events cases
+[09:44:43] <DaveMethvin> let me find one
+[09:45:12] <DaveMethvin> https://github.com/jquery/jquery/blob/master/src/event.js#L733
+[09:45:20] <m_gol> what do you mean? can you do $(node).on(eventName, handler) and not have _data(node, 'events').eventName?
+[09:46:11] <m_gol> if you have _data(node, 'events').eventName without attaching a handler for eventName at node, it's fine, they'll just trigger an unneeded event
+[09:46:38] <m_gol> the problem is only if the event was attached and there's no trace of it at the private events storage for this node
+[09:47:20] <DaveMethvin> are these native events? If there's no handler attached then it wouldn't be triggered anyway
+[09:47:53] <m_gol> no, only custom events
+[09:47:57] <DaveMethvin> so these must be synthetic ones yeah
+[09:48:01] <m_gol> this line: https://github.com/angular/angular.js/blob/e9bc51cb0964ea682c1654919174dacebd09fcf6/src/ngAnimate/animate.js#L997
+[09:48:15] <DaveMethvin> oh right
+[09:49:00] <DaveMethvin> yeah as long as that's all they're doing, and not attaching any DOM events or special events it should "work"
+[09:49:12] * DaveMethvin shudders
+[09:49:38] <DaveMethvin> but if anyone else attached DOM events to the original node it wouldn't work
+[09:49:45] <DaveMethvin> to try and copy them over
+[09:49:50] <gibson0421> right
+[09:50:13] <DaveMethvin> so i think we're stuck with _data for backcompat
+[09:50:32] <DaveMethvin> which also means we might as well go back to it internally and make cp easy
+[09:51:27] <m_gol> (there's one more .data() issue with Angular if we have time...)
+[09:51:37] <DaveMethvin> WAT! sure :)
+[09:51:44] <m_gol> this one is for development mainly
+[09:52:04] <m_gol> they want to make sure they're not leaking memory
+[09:52:23] <m_gol> so with jQuery 1 they just check if jQuery.cache is empty after certain operations
+[09:52:37] <m_gol> this is not done in the source, only in tests
+[09:52:48] <m_gol> and you can easily introduce memory leaks so it's important
+[09:53:05] <m_gol> if you e.g. create a temporary node, attach data and then forget about it
+[09:53:11] <m_gol> the node will get gc'd but not it's data
+[09:53:19] <m_gol> so they want to check that
+[09:53:24] <DaveMethvin> it's only important in jQuery 1.x because of the way we do it with jQuery.cache
+[09:53:39] <DaveMethvin> with jQuery 2.x i don't think we leak do we?
+[09:53:57] <m_gol> if you attach data to a disconnected node and you lose reference to it, it won't get passed through jQuery.cleanData
+[09:54:02] <m_gol> and they have a leak then
+[09:54:10] <m_gol> at least until we have WeakMaps
+[09:54:20] <DaveMethvin> right but if we're attaching to the node it will also get cleaned
+[09:54:28] <m_gol> but then - still - there are special events with teardown hooks that wouldn't get invoked
+[09:54:34] <DaveMethvin> so we'll be landing something
+[09:54:43] <DaveMethvin> yes, special event hooks could be an issue
+[09:54:58] <m_gol> a much smaller issue but still :)
+[09:55:05] <m_gol> if you have 100s of nodes small can become big
+[09:55:07] <DaveMethvin> but it's decentralized ... not sure how to detect that
+[09:55:31] <DaveMethvin> jQuery.cache sucked except for this! :)
+[09:55:47] <m_gol> yeah, if it's attached to nodes and not a global storage, it's much harder to detect that...
+[09:56:22] <m_gol> but we do know when we do setup & teardown so it'd be possible to count it
+[09:56:31] <DaveMethvin> as in, if you're not going through jQuery to cause the leak we probably can't detect the leak
+[09:56:35] <m_gol> and it's not really needed for production
+[09:56:56] <m_gol> well, they can go through jQuery
+[09:56:57] <DaveMethvin> yes, you could see if the setup/teardown count was 0
+[09:57:09] <DaveMethvin> but we don't have a single place for that either
+[09:57:11] <m_gol> $('<div>'), attach some data, forget about the node
+[09:57:13] <gibson0421> the best way to test it is probably with dummy special events
+[09:57:17] <DaveMethvin> we'd need to centralize all that
+[09:57:23] <gibson0421> hook into setup and teardown
+[09:57:30] <DaveMethvin> i guess it would be in jquery.event.add/remove
+[09:58:03] <DaveMethvin> those angular guys, always worrying about testability :)
+[09:58:14] <m_gol> the dummy special events idea is kinda cool
+[09:58:32] <m_gol> it's for the tests only anyway so compat going forward is less important
+[09:58:55] <m_gol> Igor also said it might be useful to other projects to be able to detect leaks in a way like that
+[09:59:08] <m_gol> but yeah, we could go with special events
+[09:59:10] <DaveMethvin> its a good point tho m_gol, it would be good if there was some simple plugin or thing we could use for that
+[09:59:11] <m_gol> I suppose
+[09:59:30] <m_gol> the plugin could use special events ;)
+[09:59:37] <DaveMethvin> eventception!
+[09:59:49] <DaveMethvin> ok i have to run
+[10:00:06] <m_gol> k, great to talk about all that :)
+[10:00:09] <DaveMethvin> thanks guys!
+[10:00:15] <m_gol> thx

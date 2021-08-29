@@ -1,0 +1,95 @@
+[03:58:16] <XhmikosR> Hi, guys
+[03:58:37] <XhmikosR> so I'm trying to achieve the following but it's driving me crazy why everything is run at once
+[03:58:47] <XhmikosR>   grunt.registerTask('update-shrinkwrap', function () {
+[03:58:47] <XhmikosR>     grunt.task.run('exec:npmUpdate', 'exec:npmShrinkwrap');
+[03:58:47] <XhmikosR>     sh.mv('-f', 'npm-shrinkwrap.json', 'grunt/npm-shrinkwrap.json');
+[03:58:47] <XhmikosR>     grunt.log.writeln('File ' + dest.cyan + ' updated.');
+[03:58:47] <XhmikosR>   });
+[07:02:06] <XhmikosR> vladikoff: I'm gonna open a couple of PRs for gruntjs.com, so that we merge some of my stuff
+[12:31:20] <XhmikosR> vladikoff: ping
+[12:31:49] <vladikoff> XhmikosR, pong
+[12:32:25] <XhmikosR> vladikoff:  I've fixed all stuff I had noticed in my branch.
+[12:32:34] <vladikoff> XhmikosR, niiiice
+[12:32:39] <XhmikosR> About Travis, what do you think we should do so that we don't do it twice?
+[12:33:06] <vladikoff> XhmikosR, just alter the script part to run what doesn't run on post install?
+[12:33:57] <XhmikosR> at the moment only jshint, but I plan to add more like html validation
+[12:34:26] <vladikoff> XhmikosR, yeap so just change the test script part to run that, if postinstall fails it will fail the build anyway
+[12:35:04] <XhmikosR> doesn't seem so good. I mean I expect test to run tests...
+[12:35:18] <vladikoff> XhmikosR, you are overthinking it
+[12:35:50] <XhmikosR> I might, indeed
+[12:35:59] <XhmikosR> I'm used to doing npm test
+[12:36:10] <XhmikosR> oh well, let's leave it for now
+[12:36:15] <vladikoff> XhmikosR, yeap so let's just get that to run jshint, html validation and future tests
+[12:36:29] <XhmikosR> ok
+[12:36:30] <XhmikosR> https://travis-ci.org/gruntjs/gruntjs.com/jobs/118275978#L268
+[12:36:44] <XhmikosR> now this one (not the !==) is valid
+[12:36:45] <vladikoff> XhmikosR, let me check why it is running twice
+[12:37:15] <vladikoff> XhmikosR, ah I see
+[12:37:32] <vladikoff> XhmikosR, yeah `npm test` either should not build the project or check if it needs to build it
+[12:37:51] <XhmikosR> who deploys the site?
+[12:38:02] <vladikoff> XhmikosR, jQuery ops
+[12:38:06] <XhmikosR> I mean, if it's OK to remove the postInstall, perosnally I'd prefer that
+[12:38:26] <vladikoff> XhmikosR, ok we can explore that too
+[12:39:17] <XhmikosR> https://github.com/gruntjs/gruntjs.com/blob/b0d91e73081070e0bc239f2c559df359e7bc0bd8/grunt-plugins.js#L162
+[12:39:38] <XhmikosR> now, results in  the callback, which one is it?
+[12:39:51] <XhmikosR> I expect the local var
+[12:40:14] <vladikoff> XhmikosR, ah yea we can fix that up
+[12:40:36] <XhmikosR> can you do it now or should I do it?
+[12:40:48] <XhmikosR> also should I disable eqnull for now?
+[12:40:58] <vladikoff> XhmikosR, up to you, it is low on my priority list
+[12:41:16] <XhmikosR> although this seems reduntant to me if (!urlst || urlst == null || urlst === '') {
+[12:42:05] <XhmikosR> vladikoff: https://gist.github.com/XhmikosR/b8f443eec99f2e4cd508 about the redefinition
+[12:42:18] <vladikoff> XhmikosR, sure
+[12:42:29] <XhmikosR> so does that look ok to you?
+[12:45:21] <vladikoff> XhmikosR, yeap
+[12:45:35] <XhmikosR> all right, squashed it in my branch
+[12:46:06] <XhmikosR> now, we hit an issue with the custom achors code
+[12:46:31] <vladikoff> XhmikosR, oh?
+[12:46:37] <XhmikosR> see this for example  https://travis-ci.org/gruntjs/gruntjs.com/jobs/118280311
+[12:46:53] <XhmikosR> it's already broken, i.e. invalid html
+[12:47:33] <XhmikosR> and the reason I asked about your marked fork is "The “name” attribute is obsolete. Consider putting an “id” attribute on the nearest container instead."
+[12:47:43] <vladikoff> XhmikosR, yeap we can switch to that, i think links should still work with ID and the clip icon should also work
+[12:47:47] <vladikoff> might need a css tweak
+[12:47:56] <XhmikosR> name -> id will work IIRC
+[12:48:05] <XhmikosR> but where's that code>
+[12:49:41] <XhmikosR> I think marked inserts them
+[12:49:47] <vladikoff> XhmikosR, yeap sounds like it
+[12:51:07] <XhmikosR> so that would need to rebase your fork :/
+[12:52:01] <vladikoff> XhmikosR, or just fix the work
+[12:52:04] <vladikoff> XhmikosR , fork*
+[12:52:29] <XhmikosR> are those patches only grunt specific? Why didn't you upstream them?
+[12:53:08] <XhmikosR> I mean, the anchors issue is only in your fork. The name one should have been already fixed upstream
+[12:53:20] <vladikoff> XhmikosR, i dunno, no time to upstream
+[12:55:16] <vladikoff> XhmikosR, if I want a feature that is missing from a repo I can just fork it and fix it, I don't want to beg people to merge it and wait for it to get released
+[12:55:45] <XhmikosR> no idea what other changes there have been, but your fork is like 3 years old :p
+[12:55:51] <vladikoff> XhmikosR, and it works
+[12:55:52] <XhmikosR> the name fix is easy
+[12:56:00] <vladikoff> XhmikosR, grunt is 2 years old
+[12:56:06] <vladikoff> XhmikosR, the 0.4.5 release and it works
+[12:56:43] <vladikoff> XhmikosR, i don't understand the X years old arguments
+[12:56:59] <XhmikosR> I didn't say it doesn't work
+[12:57:33] <vladikoff> XhmikosR, yea i understand, sorry, it's nothing against you
+[12:57:42] <vladikoff> XhmikosR, people just keep telling me things are X years old everywhere
+[12:57:44] <vladikoff> hahaha
+[12:58:27] <vladikoff> XhmikosR, hope you understand
+[12:59:41] <XhmikosR> I understand, don't worry
+[12:59:50] <XhmikosR> who-uses-grunt#ink-http:-ink.sapo.pt
+[13:00:00] <XhmikosR> nice anchors :P
+[13:00:36] <XhmikosR> ok the a tag errors is when a header is a link
+[13:00:40] <vladikoff> XhmikosR, lol what is that
+[13:00:55] <XhmikosR> why don't we just switch to anchor.js?
+[13:01:10] <XhmikosR> is this only what your fork has?
+[13:02:00] <vladikoff> XhmikosR, i dunno, we made those anchors years ago
+[13:02:24] <XhmikosR> ok I will experiment another time and try to get rid of the fork if possible
+[13:02:33] <vladikoff> XhmikosR, sure
+[13:03:35] <vladikoff> XhmikosR, thanks for the plugin PRs by the way, those are also really useful
+[13:04:01] <XhmikosR> just trying to give back to a project I use daily :)
+[13:05:30] <XhmikosR> the `a` issue is this line https://github.com/chjj/marked/compare/master...vladikoff:master#diff-81ab0a5aa39b7a91951fc28d2d151496R836
+[13:05:37] <vladikoff> XhmikosR, if only everyone did that D:
+[13:28:08] <XhmikosR> vladikoff: I finised adding anchor.js. The problem is that it's on top of my branch, and 2) anchor.min.js will be included in all pages
+[13:29:10] <vladikoff> XhmikosR, yea that's no fun
+[13:29:40] <XhmikosR> let me check if this has been implemented upstream
+[13:30:30] <XhmikosR> nope
+[13:31:40] <XhmikosR> I'll give it another go with your fork. It might be simpler. I mean it should be `<a class="anchor"></a><a>TEXT</a>`
+[13:32:29] <XhmikosR> although anchor.js works much better, no weird IDs, it has the drawback we need to include its js
+[13:35:10] <XhmikosR> damn, it was much simpler

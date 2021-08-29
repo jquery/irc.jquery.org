@@ -1,0 +1,314 @@
+[09:12:54] <phishbot> :D
+[11:00:59] <todd_> hey everyone
+[11:01:03] <gseguin> hi
+[11:01:08] <todd_> jAuery Mobile team meeting starting now
+[11:01:09] <_nickel> 'allo!
+[11:01:18] <todd_> jQuery Mobile, that is :)
+[11:01:27] <todd_> hey gseguin and _nickel!
+[11:02:08] <todd_> been working with Tyler from Adobe on a skunkworks ThemeRoller tool. Coming along nicely
+[11:02:13] <todd_> hey scottjehl
+[11:02:22] <_nickel> nice
+[11:02:23] <scottjehl> hey!
+[11:02:39] <todd_> so scott has to leave in a few so he can start with where he's at
+[11:03:25] <scottjehl> ok
+[11:03:25] <gseguin> what's the agenda?
+[11:03:33] <scottjehl> so decoupled widgets landed yesterday
+[11:03:35] <todd_> i didn't post one, sorry
+[11:03:45] <todd_> figure we can check in on the big ticket items
+[11:03:53] <scottjehl> and wow that was a big change
+[11:03:57] <gseguin> ok
+[11:03:59] <todd_> and talk about beta scope/timing
+[11:04:03] <_nickel> scottjehl: big == really good
+[11:04:03] <gseguin> nice scottjehl !
+[11:04:18] <todd_> yeah the decoupled widget change is huge
+[11:04:20] <scottjehl> :) yeah, this one was pretty important
+[11:04:51] <scottjehl> so, the gist of the change is that many widgets used to be called specifically by the page plugin
+[11:05:18] <scottjehl> any time a page was created, the page plugin would look through its contents and enhance different roles as it found them
+[11:05:47] <scottjehl> this made all plugins required. as removing one would cause an error when page attempted to call it
+[11:06:19] <scottjehl> now, page does very little. it dispatches two events: pagebeforecreate and pagecreate
+[11:06:26] <scottjehl> adds a theme class
+[11:06:30] <scottjehl> and returns
+[11:06:47] <scottjehl> based on this, widgets can self-init by binding to one of these events
+[11:06:59] <scottjehl> so that's what most of the widgets do now
+[11:07:15] <scottjehl> to give you an idea of the change. here's the page plugin before the commit : https://github.com/jquery/jquery-mobile/blob/3deaa97c3a347a12dc1d076ec48c38ba11853bf3/js/jquery.mobile.page.js
+[11:07:27] <scottjehl> and here it is now: https://github.com/jquery/jquery-mobile/blob/2a6c7fc1b982c4308a0450a308f5a66a10e949cf/js/jquery.mobile.page.js
+[11:07:49] <gseguin> that's great!
+[11:08:06] <_nickel> hah!
+[11:08:10] <gseguin> now we need a bundle generator
+[11:08:11] <scottjehl> so, there's still some decoupling we can do, but this will set a nice precedent for custom widget development
+[11:08:26] <_nickel> I was going to suggest compare view but its pointless because its so different lol
+[11:08:43] <scottjehl> here's a sample self-initializing widget
+[11:08:44] <scottjehl> https://github.com/jquery/jquery-mobile/blob/3afef99719b6d0248e5dc348779d57ec5456cd7a/js/jquery.mobile.forms.checkboxradio.js
+[11:08:50] <todd_> yeah, hoping to get a simple builder together
+[11:08:57] <scottjehl> you can see line 17 defines the widget like before
+[11:09:14] <scottjehl> line 11 binds to pagecreate and finds what it needs, self-inits
+[11:09:28] <scottjehl> this is the pattern we'll want to recommend for custom widgets moving forward
+[11:09:34] <scottjehl> imo anyway :)
+[11:09:52] <scottjehl> one more thing: line 11 binds to an "enhance" event
+[11:09:57] <todd_> hotness
+[11:10:15] <scottjehl> that's for bulk-enhancing widgets by triggering an event on a parent of those widgets
+[11:10:37] <todd_> scott also landed a change to not require a page wrapper anymore
+[11:10:39] <scottjehl> so you could append a slag of markup to the page, trigger enhance on any parent of that content
+[11:11:12] <scottjehl> yep, that's another one. Page div is no longer required, which brings our required markup down to 0
+[11:11:21] <scottjehl> headers, footers, content = all optional
+[11:11:43] <_nickel> super nice
+[11:11:55] <scottjehl> we're hoping to begin advising that there are scenarios where iOS style headers and such make sense, but probably not as a default
+[11:12:27] <todd_> example: http://jsbin.com/equnaw/14/edit
+[11:12:29] <scottjehl> anyway, making the page div optional opens up some prettycool opportunities
+[11:12:40] <scottjehl> essentially, any page is jqm-ready
+[11:12:47] <scottjehl> hold a sec, I've got a fun demo
+[11:13:44] <scottjehl> so this kinda shows off how stable our navigation model has become...
+[11:14:09] <scottjehl> I made a bookmarklet that drops jQuery, jQM, and core/transitions CSS into a page
+[11:14:21] <scottjehl> you can essentially jQM-ify random sites
+[11:14:54] <scottjehl> go to http://filamentgroup.com
+[11:15:02] <scottjehl> run the following in the console:
+[11:15:04] <scottjehl> javascript:(function(doc, docElem){ function s(url, css, sc){ sc = doc.createElement( css ? "link" : "script");if(css){sc.rel = "stylesheet";} sc[css?"href":"src"] = url; docElem.insertBefore(sc,docElem.firstChild); return sc; } s("http://jquerymobile.com/test/themes/default/jquery.mobile.core.css", true ); s("http://jquerymobile.com/test/themes/default/jquery.mobile.transitions.css", true ); var jq =
+[11:15:04] <scottjehl> s("http://code.jquery.com/jquery-latest.min.js"); jq.onload = function(){ s( "http://code.jquery.com/mobile/latest/jquery.mobile.min.js"); }; })(document, document.documentElement );
+[11:15:11] <scottjehl> then click one of the nav links
+[11:15:13] <scottjehl> :)
+[11:15:34] <_nickel> scottjehl: not to derail, but I thought it might be neet to get the navigation into a jquery core supported plugin at some point
+[11:15:46] <_nickel> s/neet/neat/
+[11:15:48] <gseguin> very nice!
+[11:15:54] <scottjehl> did that work for you guys?
+[11:15:55] <scottjehl> heh
+[11:15:59] <scottjehl> you should see transitions
+[11:16:04] <todd_> it ajaxifies the links
+[11:16:05] <scottjehl> I had it working on all sorts of sites.
+[11:16:57] <scottjehl> pretty cool in that the barrier of entry is so low now
+[11:17:32] <_nickel> I think Kin will enjoy that
+[11:17:35] <scottjehl> basically, we can say... build a website how you already do. jQM will enhance it with faster ajax navigation, and pushState (soon at least :) )
+[11:17:45] <_nickel> so, very win
+[11:17:54] <scottjehl> ok so yeah, that's my update
+[11:18:01] <scottjehl> sorry to take so long
+[11:18:22] <todd_> so those will be in this week's blog post
+[11:18:36] <todd_> scott has a few other branches that are close to landing, but we're not quite there
+[11:19:25] <todd_> delayed auto init and the auto dom mgmt
+[11:19:33] <todd_> those will go next week
+[11:19:42] <_nickel> todd_: are those dependent on testing?
+[11:20:03] <scottjehl> auto init does yeah
+[11:20:10] <todd_> it would help us feel more confident about these
+[11:20:13] <scottjehl> I started a test but didn't finish it
+[11:20:14] <_nickel> scottjehl: ok so I'll add that to my task list for Tuesday
+[11:20:27] <scottjehl> I'll push what I've got
+[11:20:40] <todd_> also looking for thinking about edge cases on how the DOM mgmt could cause issues
+[11:20:45] <todd_> cool
+[11:20:47] <_nickel> scottjehl: is the branch name obvious?
+[11:20:49] <scottjehl> dom mgmt may have to wait
+[11:20:58] <todd_> yeah
+[11:21:12] <todd_> the last big ticket items are pushstate and new transitions
+[11:21:13] <scottjehl> we're seeing a bunch of issues where going "back" to a page that's been deleted doesn't quite act like it used to
+[11:21:26] <scottjehl> pushState is super close
+[11:21:37] <gseguin> transitions is pretty close I think
+[11:21:41] <scottjehl> works in iOS now. My main issue is it breaks TONS of tests
+[11:21:42] <todd_> _nickel - if you have time to dig into that after helping with init tests, that would be really helpful
+[11:21:47] <scottjehl> they're all hash-based
+[11:22:05] <_nickel> todd_: pushState or the dom mgmt?
+[11:22:10] <gseguin> they just won't work in Opera
+[11:22:14] <todd_> pushState
+[11:22:20] <_nickel> todd_: righto
+[11:22:37] <todd_> so that will need some test re-jiggering to land
+[11:22:49] <todd_> lots of test stuff i guess
+[11:23:00] <todd_> on transitions, gseguin
+[11:23:08] <gseguin> yes?
+[11:23:13] <scottjehl> gseguin: weren't we seeing some oddness even in iOS?
+[11:23:17] <todd_> they are looking good?
+[11:23:22] <scottjehl> I think it felt like the timing was off
+[11:23:27] <scottjehl> pages moving separately
+[11:23:31] <gseguin> yeah some flashing
+[11:23:31] <todd_> overlapping pages
+[11:23:41] <todd_> at least in iOS5
+[11:23:55] <gseguin> I have an iOS5 device now
+[11:24:07] <gseguin> so I can spend the rest of the day on this
+[11:24:07] <todd_> cool
+[11:24:15] <todd_> that would be great
+[11:25:00] <todd_> our baseline is: no regressions on webkit smoothness, at least some improvement on FF and Opera (something is better than nothing)
+[11:25:21] <todd_> what is the deal with opera at this point?
+[11:25:23] * _nickel longs for the day when we can test visual elements in an automated fashioin
+[11:25:25] <gseguin> Opera, no chance
+[11:25:54] <gseguin> until they fix their transition-property: transform
+[11:26:09] <todd_> that's the word from miketaylr
+[11:26:13] <todd_> right?
+[11:26:26] <gseguin> I think so, I mean he filed a bug
+[11:26:28] <scottjehl> I gots to roll out
+[11:26:35] * miketaylr reads up
+[11:26:40] <todd_> before, we tried using margin instead which made it better on opera but killed webkit, right?
+[11:26:40] <scottjehl> thanks everyone, I'll get a recap from Todd
+[11:26:50] <_nickel> scottjehl: thanks man! and bang up job.
+[11:26:51] <todd_> bye scott
+[11:26:55] <gseguin> and nimbu came up with the transition-property: margin
+[11:27:15] <todd_> right but that didn't fly on other platforms, right?
+[11:27:20] <gseguin> nope
+[11:27:37] <todd_> so the idea is we're back to using transition-property for webkit and ff
+[11:27:46] <miketaylr> so it's not possible to do -webkit-transition-property: transform; -o-transition-property: margin ?
+[11:27:47] <gseguin> so unless we introduce platform class, Opera won't get transitions
+[11:27:52] <miketaylr> hmm too many haxx
+[11:27:53] <todd_> for opera, should we not include prefixed rules until they patch this up?
+[11:28:43] <todd_> think you tried that gseguin, right?
+[11:29:14] <gseguin> well the problem is all the other browser will have margin set
+[11:29:25] <todd_> oh, right
+[11:29:27] <gseguin> so that doesn't fly either
+[11:29:40] <miketaylr> i guess, unless you hid those inside of -o-viewport {} or something
+[11:29:44] <gseguin> I haven't tested -o-transition-property: -o-margin
+[11:29:46] <miketaylr> but that would only work on mobile, not desktop
+[11:29:54] <miketaylr> -o-margin doesn't exist
+[11:29:59] <todd_> ah
+[11:30:01] <gseguin> would that work ?
+[11:30:04] <gseguin> hmm
+[11:30:05] <gseguin> ok
+[11:30:21] * gseguin is typing with a delay
+[11:30:25] <todd_> so miketaylr, we're open to any ideas on how to handle opera the best way here
+[11:30:31] <miketaylr> this has viewport stuff here: http://dev.opera.com/articles/view/an-introduction-to-meta-viewport-and-viewport/
+[11:30:44] <gseguin> I can try the -o-viewport thing
+[11:30:50] <todd_> worth a shot
+[11:30:56] <miketaylr> let me ask divya real quick
+[11:31:19] <todd_> k
+[11:31:33] <todd_> gseguin - what else have you been focusing on?
+[11:31:45] <gseguin> https://github.com/jquery/jquery-mobile/pull/2006
+[11:31:57] <gseguin> I need some of your eyes to validate
+[11:32:03] <todd_> i saw that. thanks for weighing in
+[11:32:08] <miketaylr> todd_: oh, re: the border-radius/bg stuff--the bug has been fixed. so next shipping version is good.
+[11:32:22] <todd_> great news!
+[11:32:35] <todd_> you guys are fast
+[11:32:39] <miketaylr> nimbu: would it make sense to do -webkit-transition-property: transform; -o-transition-property: margin, and then try to hide margin info inside of -o-viewport or something?
+[11:32:52] <todd_> wish microsoft has the same answer for me on IE9/Mango
+[11:33:01] <miketaylr> heh yeah
+[11:33:14] <todd_> their loss. web standards FTW
+[11:33:14] <nimbu> miketaylr: it seems such a hack though.
+[11:33:25] <gseguin> I know, we received our WP7 device, it's pretty disappointing
+[11:33:27] <miketaylr> nimbu: well, it is a hack
+[11:33:28] <miketaylr> :)
+[11:33:42] <nimbu> :)) but it seems dirty to me :P
+[11:33:48] <todd_> it's hackier than we've normally done to date
+[11:34:02] <miketaylr> well then, is the CSS WG member feels dirty, perhaps we shouldn't suggest it :P
+[11:34:06] <miketaylr> s/is/if/
+[11:34:09] <todd_> heh
+[11:34:16] <gseguin> :)
+[11:34:18] <nimbu> how about no transition at all for opera? would just a translate be okay?
+[11:34:28] <nimbu> i mean as long as it is not terribly slow.
+[11:34:48] <todd_> if it's a case that you will be landing a fix for this soon so it will play nice with the approach we're following, it may be best to just wait a bit
+[11:35:06] <nimbu> yeah i need to isolate the cuase.
+[11:35:08] <nimbu> cause even
+[11:35:36] <todd_> we were excited to get opera on board with this
+[11:35:38] <gseguin> ok, I'll remove the -o lines, we'll put them back when you guys are ready
+[11:35:38] <miketaylr> there was a little movement on the main transition/transform bug earlier today
+[11:35:44] <miketaylr> sounds good gseguin
+[11:35:46] <nimbu> yeah.
+[11:36:15] <gseguin> thanks for your help nimbu and miketaylr
+[11:36:23] <todd_> ok, so we keep it simple for now and just switch to transforms to webkit and FF, we'll add opera as soon as you get that sqaured
+[11:36:32] <miketaylr> sounds like a plan
+[11:36:40] <todd_> yeah, seriously. really appreciate the knowledge you all have
+[11:37:03] <miketaylr> if by knowledge you mean my ability to ask smarter people, you're welcome :)
+[11:37:15] <todd_> so gseguin - we just need to do some more testing and see if this isn't a step backwards
+[11:37:34] <todd_> hey, that's good by me. you have the direct line
+[11:37:42] <gseguin> what do you mean "a step backwards"?
+[11:37:57] <todd_> just chunkier on webkit than /test/
+[11:38:19] <gseguin> oh yeah yeah, I'll make that flashing disappear
+[11:38:22] <todd_> cool
+[11:38:41] <todd_> ok, so we need to figure out a plan on beta 2
+[11:38:57] <gseguin> I need you guys to ok that pull request I mentionned
+[11:39:19] <todd_> which one? 2006?
+[11:39:24] <gseguin> project707 summed up the changes in the last comment
+[11:39:32] <gseguin> yeah
+[11:39:46] <todd_> that looks like a slick feature.
+[11:39:51] <gseguin> just want to make sure I haven't missed something
+[11:40:05] <todd_> did you get a chance to test this and feel good about the code? API seems clean now
+[11:40:24] <gseguin> I actually wrote unit tests for it
+[11:40:30] <todd_> oh, awesome
+[11:40:33] <gseguin> it works well
+[11:40:53] <todd_> cool, then i say we land it. seems like it's had a lot of eyes on it
+[11:41:00] <gseguin> ok
+[11:41:56] <gseguin> I'll wait for his last commit and will land it
+[11:42:17] <todd_> cool, thanks!
+[11:42:47] <todd_> so at this point, we need to decide what do do about beta 2
+[11:42:48] <_nickel> gseguin: just a quick question, if we support the regex are the start and end filter types for convenience?
+[11:43:11] <_nickel> Johny come lately here
+[11:43:27] <_nickel> we can table this too if you want to talk about beta 2 todd_
+[11:43:38] <todd_> bug question is whether we push out beta 2 for another 2 weeks or so and try to get the last big pieces in (pushstate, delayed init, extensibility hook, etc.)
+[11:43:39] <gseguin> _nickel: that's what I was arguing with project707
+[11:43:49] <_nickel> gseguin: ok I'll go back and read everythig
+[11:43:58] <_nickel> todd_: feel free to proceed
+[11:43:59] <gseguin> the regex that he's using is just for trimming
+[11:44:03] <todd_> feel free to weight in for sure _nickel
+[11:44:03] <gseguin> not a filter per say
+[11:44:11] <todd_> on that ticket
+[11:44:43] <gseguin> absolutely, it would be great if you could review it _nickel
+[11:45:02] <_nickel> gseguin: cool, its on the todo list but if your comfortable with it and it needs landing don't wait on me
+[11:45:33] <gseguin> _nickel: it can wait a little I think
+[11:46:13] <gseguin> todd_: why don't we get beta 2 out and shortly after that beta 3?
+[11:46:43] <gseguin> I mean with the decoupled widgets and the other things that scott landed including the rollback of fastclick
+[11:47:09] <gseguin> we've got a bunch of features that could benefit our users
+[11:47:28] <gseguin> what holds us from releasing beta 2 sooner?
+[11:48:39] <_nickel> man I've been missing stuff, fastclick is out?
+[11:49:39] <gseguin> yeah, I think it was causing too many headaches
+[11:49:51] <gseguin> I haven't followed completely though
+[11:51:11] <todd_> yeah
+[11:51:21] <todd_> it was causign a bunch of issues, same as alpha 4
+[11:51:30] <todd_> missed/multi-clicks, etc
+[11:51:39] <todd_> don't you read the blog ;)
+[11:51:47] <todd_> i think i agree
+[11:51:50] <_nickel> if only I had the time :(
+[11:52:21] <todd_> maybe we should shoot for beta 2 min week and say we're going to add another beta to land some remaining big ticket items
+[11:52:58] <_nickel> are we evaluating anything that we really want to avoid wrt backwards compatability?
+[11:52:59] <todd_> we were going to go to RC next but there are some big things going in
+[11:53:04] <todd_> these need to be in betas
+[11:53:32] <todd_> _nickel - meaning breaking changes?
+[11:53:43] <_nickel> event namespacing is the only thing that comes to mind
+[11:53:50] <_nickel> decoupling
+[11:54:05] <_nickel> expectations about load order
+[11:54:16] <todd_> decoupling is all behind the scenes stuff, tho it makes the enhance feature possible
+[11:54:37] <todd_> yeah.
+[11:55:02] <todd_> we're doing a lot of cleanup, but we're adding small features, API improvements
+[11:55:09] <todd_> so those should be at beta
+[11:55:16] <todd_> that's why i think we need another
+[11:55:18] <_nickel> well in the case where we add a new event for the sake of decoupling and its not namespaced it could colide with user created events
+[11:55:22] <_nickel> ok
+[11:55:22] <todd_> these other items are important
+[11:55:28] <_nickel> I'll noodle
+[11:55:31] <todd_> i see
+[11:55:36] <todd_> k
+[11:55:43] <_nickel> totally contrived :D
+[11:55:52] <todd_> so bender, next week is your start?
+[11:55:58] <_nickel> YESSIR!
+[11:56:02] * _nickel is excited
+[11:56:11] <_nickel> one thing I have to do
+[11:56:16] <_nickel> is get hudson setup somewhere else
+[11:56:18] <_nickel> its still at originate
+[11:56:23] <todd_> ah, i see
+[11:56:26] <_nickel> and they are a gracious bunch but I should move it
+[11:56:36] <_nickel> also
+[11:56:42] <_nickel> we need to get testswarm setup
+[11:56:51] <todd_> maybe they will give you an extra few weeks so we can find a good home
+[11:56:53] <_nickel> at some point so I was wondering if I shouldn't just bite the bullet and do that
+[11:57:07] <_nickel> todd_: oh they're fine with it being there indefinitely
+[11:57:12] <todd_> let me know what i can do to help...connecting you with jQ people
+[11:57:20] <todd_> infrastructure, etc
+[11:57:24] <_nickel> but as a professional courtesy I should move it
+[11:57:30] <_nickel> todd_: I'll keep that in mind
+[11:57:36] <_nickel> so any opinions
+[11:57:36] <todd_> yeah
+[11:57:39] <_nickel> on the test swarm setup
+[11:57:46] <todd_> that would be cool
+[11:57:47] <gseguin> what does it require?
+[11:57:50] <_nickel> I told Jorn I'd help him with some of that stuff too
+[11:57:54] <_nickel> its a php web app
+[11:58:13] <_nickel> I don't think its hyper complex since I could build the same thing in ruby in a day or two
+[11:58:13] <todd_> i can ask around...maybe email me?
+[11:58:26] <todd_> so i can forward it
+[11:58:44] <_nickel> todd_: for sure, but as far as my priorities I figure I should knock out the two testing bits I have first?
+[11:58:51] <gseguin> are you looking for a hosting machine?
+[11:59:03] <_nickel> gseguin: should be able to handle that with adobe
+[11:59:09] <gseguin> ok
+[11:59:14] <todd_> yeah, help us get these things landed
+[11:59:31] <todd_> for sure
+[11:59:35] <_nickel> todd_: got it, and once I do I'll check back with you guys to make sure there isn't anything else more pressing
+[11:59:48] <_nickel> then I'll proceed with gettin the ci setup sorted
+[12:00:01] <todd_> sounds like a plan
+[12:00:07] <todd_> any other bizness?
+[12:00:08] <_nickel> hell yah
+[12:00:25] <todd_> alright all, think that's a wrap unless anyone has other Q's
+[12:00:25] <_nickel> not to my knowledge!
+[12:00:31] * _nickel cheers!
+[12:00:40] <todd_> thanks everyone! go team.
+[12:00:40] <gseguin> nothing here
+[12:00:48] * gseguin yay!
+[12:00:59] <gseguin> see you on -dev

@@ -1,0 +1,174 @@
+[11:02:54] <uGoMobi> hi all
+[11:03:07] <_|Nix|_> Hey!
+[11:03:21] <_|Nix|_> Sorry! Had a last minue question in -dev ... it can wait.
+[11:03:38] <_|Nix|_> minute
+[11:04:09] <uGoMobi> hey _|Nix|_
+[11:04:16] <arschmitz> hi
+[11:04:23] <_|Nix|_> arschmitz: Hey!
+[11:04:47] <_|Nix|_> Another edge-of-your-seat meeting this fine day!
+[11:04:59] <uGoMobi> hey arschmitz
+[11:05:08] <_|Nix|_> Queue action movie music.
+[11:05:12] <uGoMobi> gseguin can't make it
+[11:05:33] <uGoMobi> let's start
+[11:05:50] <uGoMobi> agenda/updates: https://docs.google.com/document/d/131Fon6iAwIOK3fNoa9E_k3_rCzTatRlGCjrpmHt_tD8/edit#
+[11:06:42] <uGoMobi> when we are done with 1.4 final I will make a new agenda spreadsheet document with tabs so we can use same doc every week
+[11:07:50] <uGoMobi> any issues reported after RC1 that warrant a RC2?
+[11:07:59] <arschmitz> i dont think so
+[11:08:08] <_|Nix|_> Not that I'm aware of.
+[11:08:33] <uGoMobi> ok great
+[11:08:36] <_|Nix|_> We only have that one regression where we don't emit listviewbeforefilter, but we've agreed that's no biggie.
+[11:08:48] <uGoMobi> yeah
+[11:09:03] <uGoMobi> so there are a few issues for which we already have or know the fix
+[11:09:34] <_|Nix|_> Yep. I've got https://github.com/jquery/jquery-mobile/issues/6683 and https://github.com/jquery/jquery-mobile/issues/6668 covered.
+[11:09:34] <b-ot> _|Nix|_: Issue #6683 by RHawkeyed (3h 33m ago): Growing CPU use and memory leak in columntoggle table refresh when using data-priority
+[11:09:38] <uGoMobi> I suggest we do a 1.4.1 two or three weeks after final
+[11:10:43] <_|Nix|_> WORKSFORME
+[11:10:52] <arschmitz> sounds good
+[11:11:23] <uGoMobi> arschmitz: re: https://github.com/jquery/jquery-mobile/issues/6148
+[11:11:25] <b-ot> uGoMobi: Issue #6148 by row1e (3mon 3w ago): Panel feature breaks down and die when scrolling fast in IOS 7
+[11:11:56] <arschmitz> yeah that one is an ugly fix but easy
+[11:12:07] <uGoMobi> I just realized that it also happens if you scroll diagonal to the right on a left panel
+[11:12:22] <arschmitz> yeah its any diagnol scroll
+[11:12:24] <uGoMobi> while we should only close the panel on a left swipe
+[11:12:44] <uGoMobi> but how can a diagonal scroll to the right trigger a swipeleft?
+[11:13:42] <arschmitz> it shouldnt
+[11:13:51] <arschmitz> i have not seen or reproduced that
+[11:14:44] <_|Nix|_> ... and only when there's animation ... ?
+[11:14:59] <arschmitz> ill look again did you see this in docs?
+[11:15:02] <uGoMobi> that's what the OP said but not what I noticed
+[11:15:15] <arschmitz> oh
+[11:15:17] <uGoMobi> arschmitz: yes, I tested with demos
+[11:15:36] <_|Nix|_> Does an open panel have all the same classes without animation as it does with animation?
+[11:15:49] <uGoMobi> "that's what the OP said but not what I noticed" << that was re _|Nix|_ his question
+[11:16:06] <uGoMobi> I can also reproduce when animate is set to false
+[11:16:16] <_|Nix|_> That is, when a panel is open, is the className of all its elements the same as if there had been no animation?
+[11:16:22] <arschmitz> uGoMobi: you can reproduce scroll not breakage correct?
+[11:16:23] <_|Nix|_> uGoMobi: Oh, well, there goes that idea.
+[11:16:31] <uGoMobi> the problem is that scroll often triggers a swipe on iOS
+[11:17:03] <arschmitz> uGoMobi: the closing on diagnol swipe is not a panel issue and cant be fixed currently
+[11:17:12] <uGoMobi> arschmitz: the problem always occurs when swipeClose is true
+[11:17:13] <arschmitz> this is an old ios issue we have documented
+[11:17:26] <arschmitz> the panel breaking is different
+[11:17:34] <uGoMobi> but when animate is set to false you can open the panel again after it accidently closed
+[11:17:51] <arschmitz> right that is just swipe on ios its always been that way
+[11:18:00] <uGoMobi> if animate is true you can't because complete isn't executed
+[11:18:00] <arschmitz> that is not a panel issue
+[11:18:07] <uGoMobi> right
+[11:18:32] <_|Nix|_> arschmitz: OK, so, if the breakage is related to whether animation is on or not, might we not be able to avoid breakage if we make sure that the classes of an open panel that was brought in via animation are the same as those of an open panel that was brought in without animation? Or are they already the same?
+[11:19:10] <_|Nix|_> Oh, I see ... complete is never called, eh?
+[11:19:15] <arschmitz> _|Nix|_: the problem is animation complete does not fire if your scrolling when it does
+[11:19:21] <uGoMobi> only difference is class ui-panel-animate
+[11:19:26] <_|Nix|_> Wow! I wonder if this is also a problem with popups ...
+[11:19:42] <arschmitz> so we need to add a timeout to cal the complete function if it does not happen on its own
+[11:19:45] <_|Nix|_> popups also rely on animationComplete ...
+[11:19:49] <uGoMobi> the problem is that we call complete on animationend
+[11:20:13] <arschmitz> and the only way you are likly to get this is if the animation completes before you stop scrolling
+[11:20:27] <arschmitz> because ios blocks js while scrolling
+[11:20:29] <_|Nix|_> Is there a (hacky?) way of retrieving the CSS value for how long the animation is supposed to take?
+[11:20:32] <uGoMobi> transitionend I mean
+[11:20:57] <arschmitz> _|Nix|_: not sure i can look into it
+[11:21:37] <_|Nix|_> WK (and Blink, too) suck when it comes to firing these events.
+[11:21:38] <arschmitz> _|Nix|_: thing is that only how long its supposed to take not how long it really does
+[11:22:06] <_|Nix|_> arschmitz: I know, but we can set the failsafe timer to fire at 2xsupposed_to_take
+[11:22:50] <arschmitz> yeah
+[11:22:55] <arschmitz> we can look into that
+[11:23:00] <arschmitz> pretty sure there is a way
+[11:23:09] <_|Nix|_> arschmitz: It's more complext than that, too, because, for each expected event, we need to set up a handler, and discard it if the event does arrive after the failsafe timer has already fired.
+[11:23:34] <_|Nix|_> arschmitz: So, we need to use a scoped variable and a global variable for each.
+[11:23:47] <_|Nix|_> arschmitz: and only if the two are equal is it the event we are looking for.
+[11:23:52] <_|Nix|_> arschmitz: I do that in popup.
+[11:23:58] <_|Nix|_> arschmitz: Sometimes it gets a stale event.
+[11:24:54] <uGoMobi> arschmitz: do you mind commenting on https://github.com/jquery/jquery-mobile/issues/6148
+[11:24:55] <b-ot> uGoMobi: Issue #6148 by row1e (3mon 3w ago): Panel feature breaks down and die when scrolling fast in IOS 7
+[11:25:09] <uGoMobi> just so people know the status / findings so far
+[11:25:26] <_|Nix|_> arschmitz: The problem is that, if complete never arrives, we'll have handlers hanging around uselessly, so perhaps we need to .off()
+[11:25:45] <_|Nix|_> arschmitz: Or transitionend or whatever.
+[11:26:22] <_|Nix|_> arschmitz: Either way, I think our .animationComplete() plugin needs a serious rework.
+[11:26:39] <arschmitz> sure
+[11:26:55] <arschmitz> to commenting that is
+[11:27:02] <uGoMobi> cool, thanks
+[11:27:25] <_|Nix|_> arschmitz: This figure-out-how-long-youre-supposed-to-wait thing is a nice-to-have, but not a must. Removing stale handlers is a must.
+[11:27:37] <uGoMobi> ok let's move on to the other things that need to be done before final release
+[11:27:48] <_|Nix|_> arschmitz: We've just been hit by a leak resulting from stale handlers.
+[11:27:58] <arschmitz> yup
+[11:28:40] <uGoMobi> _|Nix|_: awesome job on updating API docs!
+[11:28:48] <_|Nix|_> Thanks!
+[11:28:53] <_|Nix|_> Wondering about https://github.com/jquery/api.jquerymobile.com/issues/166
+[11:28:53] <b-ot> _|Nix|_: Issue #166 by arschmitz (1w 3d ago): document tabs widget
+[11:28:58] <_|Nix|_> Can we not copy that from UI?
+[11:29:15] <_|Nix|_> Or simply point to it?
+[11:29:15] <uGoMobi> _|Nix|_: that's on the agenda for next week in Amsterdam
+[11:29:18] <arschmitz> _|Nix|_: read the issue
+[11:29:27] <_|Nix|_> arschmitz: Sorry! Should've!
+[11:29:29] <arschmitz> we want a page that directs to ui
+[11:29:46] <arschmitz> so not to maintiain in two places
+[11:30:42] <_|Nix|_> arschmitz: Ummm ... is there a nice, friendly way to do an /actual/ redirect?
+[11:31:00] <arschmitz> no like a page that explains
+[11:31:08] <arschmitz> that this is a ui widget
+[11:31:11] <_|Nix|_> arschmitz: OK.
+[11:31:14] <arschmitz> and a link to it on ui
+[11:31:21] <_|Nix|_> Consider it done.
+[11:31:44] <uGoMobi> I will look into https://github.com/jquery/api.jquerymobile.com/issues/188#issuecomment-27127926
+[11:31:45] <arschmitz> oh and probably something about that it still works with data- options and role
+[11:31:45] <b-ot> uGoMobi: Issue #188 by uGoMobi (1w 2h ago): Panel option classes needs to be updated
+[11:32:18] <_|Nix|_> arschmitz: Oh, right.
+[11:32:36] <_|Nix|_> uGoMobi: Yeah, I need you guys to finish that one off.
+[11:32:53] <uGoMobi> np
+[11:33:21] <uGoMobi> arschmitz: did you have a change to work on demos?
+[11:33:48] <uGoMobi> https://github.com/jquery/jquery-mobile/issues?direction=desc&milestone=20&page=1&sort=updated&state=open
+[11:34:14] <uGoMobi> nested listview demo
+[11:34:17] <arschmitz> yes
+[11:34:22] <uGoMobi> and there were some issues with search
+[11:34:32] <uGoMobi> cool
+[11:34:39] <arschmitz> just finishing the demo and have changelong rebased onto master
+[11:34:46] <uGoMobi> awesome
+[11:34:46] <arschmitz> just need to look at that search issue
+[11:34:52] <uGoMobi> ok
+[11:35:14] <uGoMobi> I am still working on the ThemeRoller :(
+[11:35:38] <uGoMobi> I am making progress but it's not going fast
+[11:36:03] <uGoMobi> run into a lot of issues to make it work with both 1.4 *and* previous versions
+[11:37:13] <uGoMobi> and it doesn't help that I spend most of the day in bed because I feel sick :/
+[11:38:16] <arschmitz> oh no
+[11:38:18] <uGoMobi> when I am done with the ThemeRoller I need 2 or 3 days to get the new web site in shape, finish upgrade guide, and make a new homepage for the demos
+[11:38:51] <uGoMobi> yeah, bad timing :(
+[11:39:17] <uGoMobi> Monday and Tuesday we are together in Amsterdam
+[11:40:06] <uGoMobi> arschmitz and _|Nix|_ : you are both on vacation right after the in-person meeting, right?
+[11:40:09] <_|Nix|_> uGoMobi: Get well soon!
+[11:40:13] <_|Nix|_> uGoMobi: Yes.
+[11:40:15] <uGoMobi> thanks!
+[11:40:33] <_|Nix|_> uGoMobi: However, I think I will hold the web-ui-fw meeting, because of Hyunsook's offer to do listview.
+[11:40:33] <uGoMobi> scott_gonzalez will be on vacation too next week
+[11:40:42] <_|Nix|_> uGoMobi: ... assuming it will still be relevant.
+[11:40:48] <uGoMobi> _|Nix|_: ok
+[11:41:08] <uGoMobi> I want scott_gonzalez to be around when we release 1.4 final
+[11:41:17] <uGoMobi> because we will switch to new web site as well
+[11:41:24] <uGoMobi> and we need to swap the API docs
+[11:41:34] <_|Nix|_> uGoMobi: Is it possible that we won't be able to release because you can't get done with TR?
+[11:42:09] <_|Nix|_> uGoMobi: I mean, it would be awesome if we could push the "Big Green Button™" while we're all in the same room, but it's not absolutely necessary.
+[11:42:24] <uGoMobi> _|Nix|_: I am still trying to get everything ready by Sunday
+[11:42:24] <_|Nix|_> IMO, anyway ...
+[11:42:38] <uGoMobi> but I also have to work on blog post
+[11:43:09] <arschmitz> uGoMobi: i agree with _|Nix|_ its great if we can but dont kill your self over it!
+[11:43:09] <_|Nix|_> uGoMobi: That's what I mean. Don't kill yourself over getting it all done by Tuesday at the latest.
+[11:43:29] <_|Nix|_> arschmitz: Dang dude! Stop that!
+[11:43:46] <uGoMobi> and we just found out we need to do something with the blog setup
+[11:43:59] <uGoMobi> not sure if that's an easy fix or not
+[11:44:16] <uGoMobi> yeah, I know
+[11:44:29] <uGoMobi> so we have to see what's possible
+[11:44:52] <uGoMobi> we shouldn't use our time together in Amsterdam to work on stuff that we could also do on our own
+[11:45:26] <_|Nix|_> uGoMobi: Yeah. We can roadmap even if 1.4 isn't out. It's not like it's gonna fluctuate much before we release it.
+[11:45:46] <uGoMobi> yeah
+[11:45:48] <_|Nix|_> uGoMobi: And, barring some unlikely killer issue, it's poised to come out.
+[11:46:20] <uGoMobi> we do what we can
+[11:47:50] <_|Nix|_> Absolutely!
+[11:48:06] <uGoMobi> ok, anything else we need to discuss?
+[11:49:08] <uGoMobi> any questions from the community maybe?
+[11:49:45] <agcolom> sorry only just managed to get back... had two trains canceled!
+[11:50:05] <agcolom> will add my updates and will upload the minutes tomorrow...
+[11:50:08] <uGoMobi> glad you made it home agcolom
+[11:50:16] <uGoMobi> agcolom: ok thanks
+[11:50:25] <agcolom> lots of monsters in the street also now....
+[11:50:38] <uGoMobi> lol
+[11:50:43] <_|Nix|_> agcolom: Do I wanna know?
+[11:51:32] <uGoMobi> ok I think we are done here
+[11:51:35] <uGoMobi> thanks all!

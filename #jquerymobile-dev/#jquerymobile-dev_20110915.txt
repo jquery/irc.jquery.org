@@ -1,0 +1,567 @@
+[07:31:10] <toddparker> morning all
+[08:25:20] <_nickel> kinblas: you around?
+[08:37:11] <gnarf> hey guys - I'm working on tweaking .data() a bit in 1.7 core
+[08:37:33] <gnarf> just curious if theres anything special i need to do to unit test my change against mobile
+[08:49:13] <_nickel> gnarf: we do some stuff with our jqmData function in core but other than that we're pretty standard
+[08:49:33] <_nickel> gnarf: its like 20 loc if you want to take a gander
+[08:49:58] <_nickel> gnarf: we also have some custom selectors, but I doubt that would affect you
+[08:52:45] <gnarf> http://jqbug.com/p500 http://jqbug.com/p503
+[08:52:52] <gnarf> thats the pulls if u wanna look
+[08:55:25] <gnarf> so if i overwrite js/jquery.js with a built version and run the units
+[08:55:28] <gnarf> that should test right?
+[08:55:40] <_nickel> gnarf: yessir
+[08:56:00] <gnarf> hrm
+[08:56:01] <_nickel> gnarf: the whole test suite can be run from /test/unit/
+[08:56:03] <gnarf> seems i broke something
+[08:56:07] <_nickel> gnarf: not likely
+[08:56:16] <gnarf> jqmHasData method is working properly
+[08:56:20] <_nickel> that thing is fragile
+[08:56:21] <gnarf> is the failing test
+[08:56:33] <_nickel> ah
+[08:56:34] <_nickel> hmm
+[08:56:34] <gnarf> also radio button labels should update the active button class to last clicked and clear checked
+[08:56:50] <gnarf> im lookin at your source now
+[08:57:00] <_nickel> gnarf: I would run core
+[08:57:06] <_nickel> let me check the tests there
+[08:57:39] <_nickel> gnarf: if the tests at /test/unit/core/ work I think you'll be fine
+[08:57:42] <gnarf> umm
+[08:57:47] <_nickel> the test suite runner has some ... issues
+[08:58:06] <_nickel> better said
+[08:58:16] <_nickel> the tests themselves have some issues
+[08:58:22] <gseguin> 'morning all
+[08:58:23] <gnarf> heh
+[08:58:27] <gnarf> this is bugging me...
+[08:58:41] <gnarf> https://github.com/jquery/jquery-mobile/blob/master/js/jquery.mobile.core.js#L147
+[08:58:48] <gnarf> $.hasData doesn't take a second argument
+[08:58:59] <gnarf> that is just broken
+[08:59:02] <gnarf> in general
+[09:00:05] <_nickel> gnarf: we should probably remove that then
+[09:00:07] <gnarf> not sure what to do about that
+[09:00:10] <gnarf> do you use it?
+[09:00:22] <_nickel> not if it doesn't do anything :/
+[09:00:25] <gnarf> i see no reference to the function
+[09:00:27] <gnarf> in the code
+[09:00:38] <_nickel> gnarf:  to jqmHashData?
+[09:00:50] <gnarf> HasData but yeah
+[09:01:15] <_nickel> gnarf: we provide the namespaced data functions as an api to devs who are using the framework
+[09:01:18] <gnarf> http://cl.ly/2j313N1W20072V1Q1L1z
+[09:02:03] <gseguin> problem is jqmHasData is not namespaced
+[09:02:10] <_nickel> obviously
+[09:02:17] <_nickel> I think it was an oversite in the functions creation
+[09:02:34] <_nickel> *method's*
+[09:02:50] <gnarf> http://www.google.com/codesearch#search/&q=jqmHasData&p=6&sq=&type=cs finds no uses
+[09:02:58] <gnarf> just declaration
+[09:03:10] <gnarf> if you want to check for the presence of a key, its way easier just to retrieve it
+[09:03:12] <gnarf> :)
+[09:03:28] <gnarf> hasData just tells you if the element has ANY data
+[09:03:31] <gnarf> public or private
+[09:03:38] <_nickel> gnarf: right having looked at the docs I can tell
+[09:04:58] <gseguin> so there is very little risk removing the method
+[09:05:17] <_nickel> gseguin: gnarf: yah I think we can just take it out and update the docs.
+[09:05:24] <_nickel> gseguin: actually
+[09:05:31] <_nickel> lets just make it an aliase for now
+[09:05:35] <_nickel> I don't want to deal with more issues
+[09:05:40] <_nickel> *alias
+[09:05:55] <_nickel> $.jqmHasData = $.hasData;
+[09:06:02] <_nickel> and maybe a todo
+[09:06:04] <gseguin> hmm
+[09:06:10] <gseguin> not sure about that
+[09:06:15] <_nickel> although
+[09:06:19] <_nickel> I suppose now is the time to do it
+[09:06:29] * _nickel feels like jqm is already a 1.0 project :/
+[09:06:30] <gseguin> all the other jqm* functions imply namespace
+[09:06:43] <_nickel> gseguin: thats a good point
+[09:06:54] <gnarf> if anything, jqmHasData should check .data() for any jqm namespaced keys?
+[09:07:16] <_nickel> gseguin: let me test something
+[09:07:49] <gseguin> gnarf: right
+[09:08:09] <gnarf> which - in 1.7 i have a huge perf increase for .data() landing
+[09:08:21] <gseguin> or not be there at all
+[09:08:40] <nicovalencia> Hey guys, is there a way to refresh a button element yet? I feel like I've looked everywhere and can't find anything.
+[09:08:45] <gnarf> gseguin: not be there would be what i lean twoards
+[09:09:10] <_nickel> nicovalencia: I would ask in #jquerymobile
+[09:09:31] <_nickel> gnarf: I'm leaning towards supporting it, what's your reasoning?
+[09:09:58] <gnarf> _nickel: use case?
+[09:10:16] <_nickel> "Is this element a jqmElement"
+[09:10:21] <_nickel> used by jquery
+[09:10:27] <gnarf> hrm
+[09:10:29] <_nickel> *mobile
+[09:10:44] <gnarf> isn't there some better way than testing for the pressence of a jqm data ?
+[09:10:56] <_nickel> gnarf: classes? lol
+[09:11:02] <_nickel> I can't think of one off the top of my head
+[09:11:09] <_nickel> in fact
+[09:11:21] <_nickel> we've had long discussions on why we use data- vs aria roles
+[09:11:43] <_nickel> and the reasoning is because aria roles don't denote an element jqm roles/usable
+[09:11:50] <gnarf> if you were to write it... if ( !$.hasData( elem ) ) { return false; } then loop $(elem).data() looking for jqm keys i suppose
+[09:12:13] <_nickel> so the data attributes actually really do represent "jqm elements"
+[09:12:36] <_nickel> gnarf: yah I can't think of a quick way to do it other than looping
+[09:12:42] <gseguin> gnarf: s/\.data/.jqmData/
+[09:13:13] <gnarf> hrm
+[09:13:31] <_nickel> gseguin: it would be nice if :jqmData(*) worked the way I want it to :P
+[09:13:36] <gnarf> whats up with this data keys btw?
+[09:14:04] <gnarf> ahh allows you to namespace jqm
+[09:14:09] <gnarf> nify
+[09:14:11] <gseguin> _nickel: ?
+[09:14:40] <gnarf> $.fn.jqmData() seems wrong
+[09:14:49] <gnarf> at least with no arguments
+[09:15:05] <gseguin> gnarf: why?
+[09:15:19] <gnarf> it will just return .data() which includes more than your jqm namespaced properties
+[09:15:25] <gnarf> also it doesn't un-namespace them
+[09:15:48] <gseguin> gnarf: that is being fixed as we speak
+[09:16:00] <gnarf> so $.mobile.ns = "abc"; $elem.jqmData("hey", "there"); $elem.jqmData().hey
+[09:16:23] <gnarf> right?
+[09:16:29] <gnarf> that should work
+[09:17:07] <gnarf> then your jqmHasData can be $.hasData( elem ) && !$.isEmptyObject( $.jqmData( elem ) )
+[09:18:33] <gseguin> yep
+[09:19:00] <gnarf> converting the key might be a bitch if it ends in a -
+[09:19:33] <gnarf> still - it seems like a lot of work
+[09:20:02] <gseguin> I've got something that seems to be working
+[09:21:36] <gnarf> cool - i don't see any other big issues in the tests
+[09:22:12] <gnarf> http://gnarf.net/jquery-1.7-data.js if anyone else wants to test it
+[09:22:34] <gnarf> thats pull 500 / 503 from core tacked onto 1.6.4pre
+[09:24:23] <_nickel> kinblas_: https://gist.github.com/d433aa3b5a4c0506bba4
+[09:24:26] <_nickel> wonderful timing
+[09:25:21] <_nickel> gnarf: whats the reason for doing the prelim hasData
+[09:25:41] <gnarf> _nickel: $elem.data() always returns an object
+[09:25:45] <gnarf> it will create one
+[09:25:45] <_nickel> is there some magic there that makes it faster than just getting the jqmData
+[09:25:54] <gnarf> so if there isn't already an object
+[09:25:57] <gnarf> don't create it
+[09:26:05] <gnarf> don't make the expando
+[09:26:06] <_nickel> gnarf: hmm
+[09:26:06] <gnarf> etc
+[09:26:26] <_nickel> so jqmData will create the object and subsequent checks will fail
+[09:26:33] <_nickel> thats surprising
+[09:26:47] <_nickel> aww kin didn't like my patch :P
+[09:27:21] <gnarf> _nickel: yeah, calling $.fn.data() creates and returns {} if there wasn't already data
+[09:27:34] <_nickel> gnarf: good to know
+[09:27:42] * _nickel learns many things everyday
+[09:27:51] <kinblas_> _nickel: which patch?
+[09:28:04] <_nickel> kinblas: https://gist.github.com/d433aa3b5a4c0506bba4
+[09:28:20] <_nickel> is started futzing in your absence
+[09:28:42] <_nickel> without knowing a whole lot about the vevent innards
+[09:29:05] * gseguin is catching up
+[09:30:38] <kinblas> _nickel: that's the first I saw of that patch
+[09:30:57] <_nickel> kinblas: according the channel you popped in and out
+[09:31:09] <_nickel> I was just making a joke that the patch was so bad you left :)
+[09:31:44] * gseguin got the joke and smiled
+[09:31:49] <_nickel> interestingly the event.which for touch events is 0 eh?
+[09:31:51] <kinblas> _nickel: heh the things you miss when you get dropped
+[09:31:52] <_nickel> did not know that
+[09:32:11] <kinblas> _nickel: yeah I wrote a test case yesterday that I ran on the different browsres
+[09:32:14] <kinblas> browsers
+[09:32:26] <kinblas> if you click a particular mouse button
+[09:32:30] <kinblas> and drag your mouse
+[09:32:44] <kinblas> in some browsers the which for the move event is *always* 1
+[09:32:57] <kinblas> and in others they actually place the number of the button currently down
+[09:33:08] <_nickel> the "place" ??
+[09:33:16] <_nickel> misread
+[09:33:25] * kinblas rephrases
+[09:33:47] <kinblas> "and in others they actually set 'which' to the number of the button currently down
+[09:34:15] <_nickel> as in the onscreen button?
+[09:34:26] <_nickel> <button> ?
+[09:34:32] <kinblas> _nickel: mouse button
+[09:34:38] <_nickel> oh!
+[09:34:40] <_nickel> on a move event
+[09:34:48] * kinblas wonders if he's speaking a different language today
+[09:34:48] <_nickel> sigh
+[09:34:50] <kinblas> :-P
+[09:34:52] <_nickel> no
+[09:34:58] <_nickel> I've been really short on smarts this week
+[09:35:04] <_nickel> its been frustrating
+[09:35:19] <kinblas> welcome to the club
+[09:35:24] * _nickel scoffs
+[09:35:27] <_nickel> whatever guy
+[09:35:32] <_nickel> genius level
+[09:35:32] * kinblas suffers from lack-of-sleep and over-context-switching
+[09:35:43] <_nickel> I can sympathize with the lack of sleep
+[09:35:54] <_nickel> kinblas: anyway. thoughts on the patch?
+[09:36:09] <kinblas> looks a lot like what I had started a few months bak
+[09:36:10] <kinblas> back
+[09:36:12] <_nickel> gseguin: are you going to handle that jqmHasData issue?
+[09:36:20] <kinblas> that last .search
+[09:36:28] <kinblas> is that in the mouseEventCallback()?
+[09:36:35] <_nickel> createVirtualEvent
+[09:36:37] <_nickel> :(
+[09:36:47] <gseguin> _nickel: sure, while I'm touching the jqmData
+[09:36:51] <kinblas> _nickel: oh, then we're missing a spot
+[09:36:52] <kinblas> :-)
+[09:37:08] <_nickel> I'm so uneducated on the vevent stuff
+[09:37:44] <kinblas> _nickel: it's oh so easy ... I have a blog post on it that I never published, I can send it to you ... I have to write the docs for it anyways
+[09:38:01] <_nickel> I sense sarcasm
+[09:38:13] <_nickel> it looks complex
+[09:38:22] <gseguin> I didn't get much input on my email last night
+[09:38:42] <_nickel> gseguin: latest?
+[09:39:01] <gseguin> how do you guys fill about jqmData returning namespaced attr when calling .jqmData()
+[09:39:04] <gseguin> ?
+[09:39:13] <gseguin> s/fill/feel/
+[09:39:49] <_nickel> gseguin: well the tests expect it
+[09:39:58] <gseguin> yeah, that's one thing
+[09:40:09] <_nickel> I'm assuming that decision was concious
+[09:40:10] <gseguin> I think that's no the right behavior though
+[09:40:27] <_nickel> it does seem odd though
+[09:40:29] <gseguin> or a case of test written after the code
+[09:40:45] <kinblas> gseguin: I was on the fence, hence no reply ... the jqmData() function was really an internal short-cut method for us to avoid having to do string concats everywhere
+[09:40:47] <_nickel> gseguin: indeed
+[09:41:50] <gseguin> kinblas: what is wrong there is the inconsistency
+[09:42:19] <kinblas> gseguin: oh I know what you're talking about
+[09:43:45] <kinblas> just look at all that code for hiding the namespaces in the returned object :-)
+[09:44:45] * kinblas was referring to the suggested patch in that issue
+[09:45:11] <kinblas> gseguin: buttonMarkup is the only place that calls it like that right? jqmData() with no args
+[09:45:38] <gseguin> kinblas: yeah I took that patch as a base
+[09:45:49] <gseguin> correct
+[09:45:56] <gseguin> that I know of
+[09:46:01] <_nickel> gseguin: good on you for being friendly even if we don't use any of it :D
+[09:46:20] <_nickel> the patch that is
+[09:46:24] <kinblas> gseguin: I was just thinking lastnight, about the size of that patch as compared to the number jqmData("name") calls we'd have to make to actually fix the problem
+[09:47:13] <gseguin> but the behavior of .jqmData() is still wrong though
+[09:47:30] <kinblas> If we do take that patch ... we should just split that namespace stuff into a re-useable plugin so the jq community can take advantage of their own namespaced data
+[09:47:32] <gseguin> even if you work around it but using .jqmData("name")
+[09:47:39] <kinblas> rename it .nsData()
+[09:49:00] <kinblas> gseguin: I'm not saying we shouldn't do it .. just explaining my "on the fence-ness"
+[09:49:09] <kinblas> and my thought process lastnight
+[09:49:39] <gseguin> kinblas: thanks for explaining
+[09:49:56] <kinblas> gseguin: I think what was bugging me was this
+[09:50:05] <kinblas> we're oh so concerned about library size
+[09:50:35] <gseguin> I'm sure we can reduce that patch size
+[09:50:40] <kinblas> but we're going to add some sizeable chunk of code for a single call ... that we made ourselves
+[09:50:51] <kinblas> to save the 4 lines we could just make
+[09:50:57] <kinblas> to manually extract the props we want
+[09:51:19] <_nickel> gseguin: at this point I'm pretty sure I didn't end up on that email
+[09:51:30] <_nickel> gseguin: nevermind its in my adobe email
+[09:51:34] <_nickel> gads
+[09:51:41] <_nickel> I can't keep anything strait
+[09:51:48] <kinblas> _nickel: yeah we need to pick a set of emails and stick with it
+[09:52:00] <kinblas> when todd starts emails, it goes to my gmail
+[09:52:10] <kinblas> which I rarely check .. not sure how he got that email anyways
+[09:52:17] <gseguin> and it goes to my jive
+[09:52:19] <kinblas> so I miss things sometimes
+[09:52:48] <kinblas> _nickel: gseguin: so which emails should we use for you?
+[09:53:02] <_nickel> adobe
+[09:53:08] <_nickel> is my job now
+[09:53:12] <_nickel> *it's
+[09:53:15] <_nickel> :D
+[09:53:30] <gseguin> @gmail.com
+[09:53:36] <kinblas> ok
+[09:53:52] <gseguin> it forwards to jive anyway
+[09:54:05] <kinblas> for me everything gets funneled and filed at work ... though I like to think about contributing outside of work too ... use @adobe.com for me for now
+[09:54:21] <gseguin> but you're more I rarely check my jive email
+[09:54:32] <kinblas> lol
+[09:54:35] <kinblas> but you work there?
+[09:54:36] <kinblas> :-)
+[09:54:40] <gseguin> we use Jive instead
+[09:54:48] <kinblas> oh the actual product
+[09:54:52] <gseguin> the new way to business
+[09:54:56] <kinblas> lol
+[09:55:05] <kinblas> this message was brought to you by ...
+[09:55:15] * gseguin is done advertising
+[09:55:21] <kinblas> heh
+[09:55:31] <kinblas> gseguin: that stuff looks like fun to work on
+[09:55:40] <gseguin> indeed
+[09:56:17] <kinblas> gseguin: I meant to ask, is anyone commenting on issue 450 (yikes old bug) from Jive?
+[09:56:37] <kinblas> https://github.com/jquery/jquery-mobile/issues/450#issuecomment-2104508
+[09:56:37] <_nickel> kinblas: so you said to take a look at the mouseEventCallback but I'm failing to see why I should add the which value there?
+[09:56:53] <kinblas> _nickel: so the way it works is this
+[09:57:07] <kinblas> we register for *BOTH* touch and mouse events
+[09:57:23] <kinblas> we have to due to the fact that some devices have nubs/joysticks *AND* touch screens (ala BB Torch)
+[09:57:33] <kinblas> if we get a mouse event first
+[09:57:46] <kinblas> then the mouseEventCallback needs to dispatch the vEvents
+[09:58:01] <kinblas> if touch is fired first, then the mouseEventCallback is suppressed
+[09:58:05] <kinblas> so we don't dup vEvents
+[09:59:18] <_nickel> so puting it there makes sure the which is only added when its a mouse event then and not a touch event
+[10:00:27] <_nickel> kinblas: is it safe to rely on undefined > 1 you think?
+[10:00:29] <kinblas> putting it there ensures that on desktop we don't fire off vevents for the wrong mouse button
+[10:00:54] <kinblas> hmmm, they are not equivalent though
+[10:00:58] <_nickel> kinblas: ah! so you're saying don't trigger it if which is > 1
+[10:01:08] <kinblas> in my previous patch I was just doing !== 1 or === 1
+[10:01:12] <kinblas> I mean we know what we want
+[10:01:16] <kinblas> right?
+[10:01:16] <kinblas> :-)
+[10:01:18] <_nickel> correct
+[10:01:27] <_nickel> well
+[10:01:39] <_nickel> until someone comes along and decides 0 is as good as 1
+[10:01:39] <_nickel> lol
+[10:01:43] <kinblas> lol
+[10:01:54] <_nickel> it could happen!
+[10:01:55] <_nickel> lo
+[10:01:56] <_nickel> lol
+[10:01:57] <_nickel> ok
+[10:02:04] <kinblas> _nickel: actually zero makes sense
+[10:02:04] <_nickel> so I understand what you were driving at now
+[10:02:12] <_nickel> thats a good point
+[10:02:13] <kinblas> for a mousemove with no button down
+[10:02:24] <_nickel> oh I thought you meant 0 index
+[10:02:35] <kinblas> but as I mentioned earlier, testing shows browsers always fill in a 1 or in some cases the button that is down
+[10:02:49] <kinblas> _nickel: I meant event.which == 0
+[10:03:13] <kinblas> _nickel: I think I would've implemented it that way and then used bit masks
+[10:03:37] <kinblas> 1, 3, 7
+[10:03:45] <kinblas> so you can see if more than one button was down
+[10:03:46] <_nickel> kinblas: so we're assuming event.which == 0 is valid for triggering the vevent?
+[10:03:53] <_nickel> kinblas: makes sense
+[10:04:17] <kinblas> no it should only fire vmousedown, vmouseup, vclick when which == 1
+[10:04:34] <kinblas> the others we don't care about, they are implemented differently on the different browser platforms anyways
+[10:04:47] <_nickel> alright gimme one sec
+[10:05:25] <kinblas> _nickel: so basically, fire off the event if it's not mousedown, mouseup, or click, if it is one of those, only fire if which == 1
+[10:05:29] <_nickel> yah
+[10:05:36] <kinblas> I had used a quick lookup
+[10:05:42] <kinblas> to avoid the multiple checks
+[10:05:43] <_nickel> kinblas: are you sure people won't be expecting vclick from other mouse buttons though?
+[10:05:54] <kinblas> _nickel: hmmm
+[10:05:59] <kinblas> good point
+[10:06:03] <_nickel> your blog post doesn't make any mention of differentiating
+[10:06:16] <_nickel> so in that case its better to just supply the value where its not provided
+[10:06:21] <_nickel> as in my patch
+[10:06:25] <kinblas> hmmm ok
+[10:06:28] <kinblas> good points
+[10:14:07] <_nickel> kinblas: alright I'm going to pull in tests then?
+[10:14:31] <kinblas> _nickel: sure
+[10:14:43] <kinblas> _nickel: thanks for taking that bug
+[10:15:10] <kinblas> _nickel: I would've done it, but it's good to have someone other than me know that stuff ... sharin' the knowledge
+[10:15:23] <kinblas> _nickel: I'm focusing on the nave problems I'm seeing in the issues list
+[10:15:26] <kinblas> nav
+[10:15:56] <_nickel> kinblas: yah I like learning :D
+[10:27:55] <gseguin> hey kinblas, sorry that damn irssi client doesn't always auto-scroll
+[10:28:20] <kinblas> gseguin: eh?
+[10:28:25] * gseguin is catching up
+[10:28:53] <gseguin> kinblas: last line displayed was: < gseguin> indeed
+[10:30:20] <gseguin> kinblas: yes smeder (aka sam-meder) is a Jiver
+[10:30:54] <kinblas> gseguin: ok, is he good with the changes made?
+[10:31:16] <kinblas> gseguin: several folks chimed in each with their own little twist, it's hard to know when you can close the bug
+[10:31:20] <gseguin> yeah I ran it by him and he sees no obvious reason for it to not work
+[10:31:49] <gseguin> we won't upgrade until 1.0 though
+[10:31:58] <kinblas> gseguin: yeah understandable
+[10:32:28] <gseguin> I'm going to try to do an update just in my workspace to validate the "pagebeforechange" thing
+[10:32:44] <gseguin> next week, if I can make time for it
+[10:36:58] <kinblas> _nickel: btw, you made me laugh lastnight in regards to 2446
+[10:37:07] <kinblas> _nickel: no question where you stand eh?
+[10:37:11] <kinblas> :-)
+[10:37:56] <_nickel> kinblas: lol
+[10:38:11] <_nickel> I thought your contribution was conclusive so I closed the "bug"
+[10:38:16] <kinblas> "I got your case-insensitivity" right here
+[10:38:32] * _nickel shrugs
+[10:38:35] <_nickel> there are so many bugs
+[10:38:45] <_nickel> no time for bugs such as these I think eh?
+[10:38:48] <kinblas> _nickel: well, it mentioned that browsers consider the hostname to be case-insnsitive .. because domain lookups are case-insensitive
+[10:38:57] <kinblas> _nickel: yeah low priority
+[10:39:37] <kinblas> but I think it was a  valid issue ... just not super important ... folks typically don't flip flop with case like that because then it becomes a caching issue
+[10:47:26] <_nickel> kinblas: hmm you make a good point
+[10:48:18] <_nickel> the only counter argument I can come up with is misleading people as to how the web behaves with regards to urls
+[10:48:54] <_nickel> but according the doc you're right
+[10:48:56] <_nickel> re-opening
+[10:53:33] <gnarf> gseguin: you said someone was working on jqmData stuff already?
+[10:53:47] <gseguin> gnarf: I am
+[10:54:13] <gnarf> gseguin: cool, poke me if you get a pull/commit to look at - i'll happily review :)
+[10:54:30] <gnarf> taking any good excuse for me to start poking into mobile stuff at this point
+[10:54:32] <gseguin> sounds good
+[10:54:33] * gnarf smiles
+[10:54:47] <gseguin> :)
+[10:59:41] <_nickel> toddmparker: kinblas: gseguin: are we having our meeting today?
+[11:00:17] <gseguin> toddparker: ^^^
+[11:01:17] <toddparker>  yes
+[11:01:27] <toddparker> sorry guys, started catching up 10 minutes ago
+[11:01:30] <toddparker> didn't finish
+[11:01:38] <toddparker> chatty this morning!
+[11:01:40] <toddparker> ok
+[11:02:03] <toddparker> _nickel, gseguin , kinblas - starting now
+[11:18:48] <jqm-jenkins-bot> Project jqm-master build #46: STILL FAILING in 11 min: http://10.59.19.240:8080/job/jqm-master/46/
+[11:18:48] <jqm-jenkins-bot> * john.m.bender: prevent clicks on anything but the left mouse button, also adds the which value to the events when its undefined in the vmouse plugin
+[11:18:49] <jqm-jenkins-bot> * john.m.bender: test that middle click doesn't trigger a page change
+[11:18:49] <jqm-jenkins-bot> * john.m.bender: added event test to make sure the which was being defined on triggered events
+[12:05:48] <eddiemonge> im not a git expert so thats why i didnt really do anything with the repo
+[12:09:58] <toddparker> who is the best git person we can get to advise?
+[12:16:12] <eddiemonge> no idea. ill ask the jq peeps
+[12:18:30] <jqm-jenkins-bot> Project jqm-master build #47: STILL FAILING in 11 min: http://10.59.19.240:8080/job/jqm-master/47/
+[12:18:30] <jqm-jenkins-bot> * john.m.bender: suggestion from @jblas to save a bit of execution
+[12:18:31] <jqm-jenkins-bot> * john.m.bender: unmock which value for other tests
+[12:20:29] <eddiemonge> someone brave enough to try this: http://help.github.com/remove-sensitive-data/
+[12:23:55] <toddparker> GULP
+[12:24:15] <eddiemonge> miketaylr: you do it!
+[12:24:49] <miketaylr> haha
+[12:25:07] <eddiemonge> its your suggestion
+[12:25:09] <miketaylr> pretty sure i don't want to be the guy that broke jquery mobile
+[12:25:16] <eddiemonge> me neither
+[12:25:23] <eddiemonge> although i have done it a few times already
+[12:25:26] <miketaylr> there's also #git, if you're nervous
+[13:09:04] <gseguin> toddparker: about collapsibles
+[13:46:01] <eddiemonge> hm following http://help.github.com/remove-sensitive-data/ didnt really shrink the size of my repo
+[13:59:41] <toddparker> gseguin: yesssss
+[14:00:11] <gseguin> border class or no border class ?
+[14:00:13] <_nickel> toddparker: I think you we're looking for "yeeeeeeeees"
+[14:00:19] <_nickel> toddparker: you sound like a snake now!
+[14:00:28] <gseguin> :)
+[14:00:32] * _nickel is scared of toddparker and his parsle mouth
+[14:01:34] <gseguin> toddparker: given how many overrides are needed?
+[14:04:53] <kinblas> _nickel: you making harry potter references?
+[14:04:58] <_nickel> darn right
+[14:05:00] <_nickel> good movies
+[14:05:11] <gseguin> haven't seen any
+[14:37:26] <toddparker> sorry, call came up gseguin
+[14:37:42] <toddparker> _nickel: nerd
+[14:37:58] <_nickel> toddparker: indeed :D
+[14:38:14] <toddparker> I think that adding a bunch of new classes for each property will bloat the css too much
+[14:38:28] <toddparker> here you need the border color and bg color
+[14:38:40] <toddparker> and need to negate the bgimage and font-weight
+[14:38:49] <toddparker> seems fine to me
+[14:38:55] <toddparker> that's the beauty of css
+[14:39:45] <toddparker> oh, gseguin - were you going to prototype the removal of the button classes on the +/-
+[14:39:49] <toddparker> think it will look cleaner
+[14:42:57] <gseguin> toddparker: I'll do that in a few
+[14:46:57] <gseguin> _nickel: is there an issue for the jqmHasData problem we discussed about this morning?
+[14:47:08] <_nickel> gseguin: don't think so
+[14:47:17] <_nickel> gnarf just brought it up
+[14:47:29] <gseguin> ok
+[14:51:03] <kinblas> _nickel: I replied in 2217
+[14:51:38] <_nickel> kinblas: then we have to worry about updateing the jquery ui widget
+[14:52:01] <kinblas> _nickel: you don't think they would find value in that?
+[14:52:06] <_nickel> kinblas: I askeD!
+[14:52:11] <kinblas> and?
+[14:52:13] <_nickel> and it didn't sound like it
+[14:52:30] <kinblas> uh, hello, there's an obvious use case here
+[14:52:31] <kinblas> :-)
+[14:52:41] <kinblas> we're using it, our users are asking for it
+[14:52:51] <_nickel> sigh
+[14:52:58] <_nickel> kinblas: also
+[14:53:05] <_nickel> we'd then have to upgrade the ui widget
+[14:53:11] <_nickel> which could cause issues
+[14:53:16] <kinblas> ??
+[14:53:29] <kinblas> _nickel: don't we derive from widget?
+[14:53:34] <kinblas> derive from ui.widget
+[14:53:36] <_nickel> yes
+[14:53:42] <kinblas> why not do it in our layer?
+[14:53:49] <_nickel> you're saying move the _trigger( 'init' ) upstream right?
+[14:53:50] * kinblas checks
+[14:54:00] <kinblas> I'm saying in that line you pointed out
+[14:54:07] <kinblas> put the _trigger after the init() call
+[14:54:22] <kinblas> at that point we don't have to worry about folks defining their own _init
+[14:54:28] <_nickel> that means we have to manage upgrades when we want new versions of the ui widget
+[14:54:30] <kinblas> and we know the widget is rarin' to go
+[14:54:39] <kinblas> _nickel: not if we do it in our layer
+[14:54:47] <kinblas> hang on let me look at mobile.widget.js
+[14:54:50] <_nickel> kk
+[14:55:15] <kinblas> _nickel: yeah
+[14:55:24] <kinblas> we just have our own version of _createWidget in mobile.widget.js
+[14:55:28] <_nickel> ok
+[14:55:34] <kinblas> and place the "ready" or "init" whatever you want t ocall it
+[14:55:44] <_nickel> so monkey patch createWidget?
+[14:55:46] <kinblas> after it calls the base class _createWidget
+[14:55:56] <_nickel> could do that
+[14:55:58] <kinblas> _nickel: I prefer to think of it as deriving. :-P
+[14:56:01] <_nickel> lol
+[14:56:11] <_nickel> I hate doing that crap :(
+[14:56:16] <_nickel> but in this case you might be right
+[14:56:33] <kinblas> _nickel: still I don't see why we would get push back
+[14:56:39] <kinblas> I want to know when its ready
+[14:56:46] <kinblas> not when it's created but not initialized?
+[14:57:13] * kinblas wonders if its the number of event propagations that worries them
+[14:57:44] <_nickel> kinblas: lets do the createWidget and then see if we can get the _trigger init upstream for post 1.0?
+[14:58:08] <_nickel> since we'd have to upgrade the widget which makes me nervouse
+[14:58:10] <_nickel> -e
+[14:58:12] <kinblas> _nickel: ok, and can I vote for anything but "aftercreate" name?
+[14:58:22] <kinblas> :-D
+[14:58:23] <_nickel> _trigger( 'init' )
+[14:58:39] <_nickel> which was just the same as my #3 :D
+[14:58:56] <_nickel> and fits in with the actual ui widget lifecycle
+[15:13:48] <gnarf> gseguin: did you make an issue? :)
+[15:14:06] <gseguin> gnarf: I haven't
+[15:14:13] <gnarf> i'll go post one for ya
+[15:17:05] <gseguin> thanks
+[15:17:10] <gnarf> you know
+[15:17:12] <gnarf> thinking about it
+[15:17:21] <gnarf> .jqmData() is kinda not good
+[15:17:38] <gnarf> well not as good as .data() at least
+[15:17:50] <gnarf> you can edit the object you get back from .data()
+[15:18:03] <gnarf> and changes are reflected in the object in cache cuz its the same object
+[15:18:32] <gseguin> oh
+[15:18:59] <gseguin> yeah that's not going to work with jqmData
+[15:19:18] <gnarf> the question is then
+[15:19:29] <gnarf> is it even nessecary to get ALL of the jqm data at once?
+[15:19:42] <gnarf> if so, i suppose you could make it a "getter"
+[15:20:02] <gseguin> kinblas said he didn't think so
+[15:23:19] <kinblas> gseguin: I just meant that we're inflicting this on ourselves
+[15:23:27] <kinblas> :-)
+[15:23:34] <gnarf> https://github.com/jquery/jquery-mobile/issues/2455
+[15:23:43] <gseguin> kinblas: I know, I know
+[15:23:43] <gnarf> well
+[15:23:47] <kinblas> :-D
+[15:23:51] <kinblas> I'm not saying don't fix it
+[15:24:11] <gseguin> kinblas: I'm giving up on the .jqmData()
+[15:24:11] <kinblas> I should stop spewing my un-washed thoughts :-)
+[15:24:21] <gnarf> is it possible to store the "namespace" as a key in _data instead?
+[15:24:30] <gseguin> I'll fix buttonMarkuo
+[15:24:36] <gseguin> buttonMarkup
+[15:24:43] <gnarf> or are you trying to tackle keys from data-* attrs?
+[15:25:11] <gseguin> gnarf, I'm going to make .jqmData() return undefined
+[15:25:33] <gnarf> well, knowing how its used would help me understand its too :)
+[15:26:06] <gseguin> jqmData will be a getter/setter but not a getAll
+[15:26:34] <gseguin> and that's it
+[15:26:47] <gseguin> kinblas, _nickel: thoughts?
+[15:26:54] <gnarf> then i don't think you need hasData in your api
+[15:27:04] <gnarf> if you always have a key
+[15:27:16] <kinblas> gseguin: +1
+[15:27:23] <kinblas> for this round
+[15:27:41] <kinblas> I still think a namespaced data plugin would be useful
+[15:27:45] <kinblas> for us/folks
+[15:27:58] * gseguin agrees with kinblas 
+[15:28:06] <gnarf> the issue is namespacing the data being pulled from data-* right?
+[15:28:42] * gnarf is pretty deep in core .data() atm
+[15:28:49] <gnarf> its still all in my head
+[15:28:51] <gseguin> gnarf: jqmHasData is indeed going to go
+[15:29:21] <_nickel> gseguin: yah that sounds fair
+[15:29:28] <_nickel> doc it and call it good
+[15:29:58] <gseguin> alright!
+[15:38:46] <_nickel> toddparker: kinblas: gseguin: docs on the addition of pageinit are all thats left
+[15:39:02] <_nickel> will take some work though because we have to change some of the other stuff in there as well
+[15:39:05] <_nickel> its not just additive
+[16:14:10] <kinblas> _nickel: yo
+[16:18:03] <jqm-jenkins-bot> Project jqm-master build #48: STILL FAILING in 11 min: http://10.59.19.240:8080/job/jqm-master/48/
+[16:18:04] <jqm-jenkins-bot> * john.m.bender: whitespace fix for nav core tests
+[16:18:04] <jqm-jenkins-bot> * john.m.bender: add 'widgetinit' event for users to enhance widgets and markup post 'widgetcreate'
+[16:18:05] <jqm-jenkins-bot> * john.m.bender: init test for jqm using page widget
+[16:20:07] <gseguin> toddparker: http://ghislain.dyndns.biz/jqm/wip/tests/test_1899.html
+[16:20:27] <gseguin> toddparker: that's removing just the shadow
+[16:31:58] <_nickel> kinblas: yo
+[16:32:23] <kinblas> _nickel: nevermind I was going to ask you for naming advice
+[16:32:31] <_nickel> whoa nice
+[16:32:32] <kinblas> _nickel: I just went with doubleSlash
+[16:32:33] <_nickel> I've arrived
+[16:32:41] <kinblas> versus authorityStart
+[16:32:50] <kinblas> or authoritySeparator
+[16:33:02] <_nickel> fair enough
+[16:33:04] <kinblas> turns out there isn't a formal name for the double slash that starts off the authority in the URL
+[16:33:15] <_nickel> wierd
+[16:36:39] <kinblas> _nickel: man I don't know what happened to those 40+ URL tests I wrote
+[16:36:43] <kinblas> I thought I checked them in?
+[16:37:05] * kinblas hopes it wasn't just in some random local branch in a tree he deleted
+[16:43:48] <_nickel> kinblas: thats why we have history
+[16:43:50] <_nickel> if they got removed
+[16:44:24] <_nickel> kinblas: have you ack'd grepd around for them?
+[16:44:35] <kinblas> _nickel: yeah in the unit directory
+[16:44:50] <kinblas> _nickel: I'll find it ... I hope
+[16:44:53] <kinblas> I spent a night doing them
+[16:45:07] <kinblas> I thought I checked it in though
+[16:52:07] <_nickel> kinblas: when was that?
+[16:52:11] <_nickel> long time ago eh?
+[16:52:24] <kinblas> _nickel: when I did the nav refactoring
+[16:52:28] <kinblas> and landed the url parser
+[17:01:32] <_nickel> so a long time ago
+[17:01:36] <_nickel> thats not cool
+[17:01:47] <_nickel> I've monkeyed around in there I wonder if I did something untoward
+[17:02:00] <_nickel> kinblas: do you know where last they were?
+[17:02:32] <kinblas> _nickel: I believe they were in the navigation directory
+[17:02:32] <_nickel> kinblas: navigation_helpers?
+[17:02:38] <_nickel> kinblas: thats where I remember them
+[17:02:42] <kinblas> hmmm maybe?
+[17:02:43] <_nickel> and there's tests in there for that
+[17:02:51] <_nickel> theres a shit ton of them
+[17:02:55] <_nickel> to coin a phrose
+[17:03:00] <_nickel> *phrase
+[17:03:12] <_nickel> heading home
+[17:03:15] <_nickel> let me know if you don't find them
+[17:03:28] <kinblas> _nickel: ah whew
+[17:03:31] <kinblas> ok that's it
+[17:04:12] * kinblas feels better and can head home now
+[17:04:13] <kinblas> :-)
+[17:04:42] <kinblas> I just landed a change for the playbook that required an url parser change
+[17:05:01] <kinblas> _nickel: laters, I might be on tonight
+[17:17:54] <jqm-jenkins-bot> Project jqm-master build #49: STILL FAILING in 11 min: http://10.59.19.240:8080/job/jqm-master/49/
+[17:17:55] <jqm-jenkins-bot> * ghislain: Fix for issue #1361
+[17:17:55] <jqm-jenkins-bot> * jblas: Fix for issue 2050 - URL handling and PlayBook Webworks app

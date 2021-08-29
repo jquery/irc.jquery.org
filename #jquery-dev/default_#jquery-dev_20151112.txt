@@ -1,0 +1,82 @@
+[00:30:20] <sizcommit> [13sizzle] 15gibson042 opened issue #367: Publish a changelog in GitHub 02http://git.io/v8bTy
+[08:03:00] <m_gol> markelog: nice progress! :)
+[09:40:17] <jqcommit> [13jquery] 15Kiwka opened issue #2708: Not proper work of the :hidden/:visible selectors 02http://git.io/v8xIG
+[11:17:53] <jqcommit> [13jquery] 15timmywil opened issue #2709: Deferred: explore giving .then greater precedence over .promise 02http://git.io/v8xxr
+[11:28:03] <timmywil> gibson042: ping
+[11:28:08] <gibson042> yo
+[11:28:25] <timmywil> gibson042: sorry for not understanding. Isn't Promise.cast(arg) analogous to Promose.all([arg])?
+[11:28:42] <gibson042> no
+[11:28:52] <gibson042> `all` resolves to an array
+[11:29:41] <timmywil> Ah, so you'd get Promise.all([arg]).then(function(values) { Array.isArray(values) === true; })?
+[11:30:21] <gibson042> correct
+[11:30:38] <timmywil> In that case, it seems like we're still consistent because we always spread the array.
+[11:31:32] <timmywil> Or am I still missing something
+[11:33:09] <gibson042> hrm
+[11:33:19] <gibson042> there's a difference for context
+[11:33:44] <gibson042> and jQuery.when( v1, ..., vN ) is useless for other Promise implementations anyway
+[11:35:23] <gibson042> let me check something...
+[11:42:52] <gibson042> timmywil: it also matters with progress, for both context and arguments
+[11:43:31] <timmywil> you have an example somewhere?
+[11:44:06] <DaveMethvin> just posted on that issue on the ticket
+[11:44:21] <DaveMethvin> if you have a plain Deferred it will go through the .then case and not get progress
+[11:44:27] <DaveMethvin> but i think that's okay
+[11:44:49] <gibson042> DaveMethvin: are you sure it won't get progress? Our `then` covers that
+[11:45:11] <timmywil> But...a plain Deferred has .promise
+[11:45:12] <DaveMethvin> oh i missed the last arg
+[11:45:17] <DaveMethvin> sorry
+[11:45:31] <DaveMethvin> nevermind
+[11:46:35] <DaveMethvin> technically i think we're not supposed to call standard .then() with extra args right? i thought the promise/a suite has a check for that
+[11:47:09] <gibson042> timmywil: http://jsfiddle.net/608mu479/
+[11:48:58] <gibson042> DaveMethvin: amazingly enough, I don't think they do
+[11:49:16] <DaveMethvin> yeah i just looked and i can't find anything either gibson042 
+[11:49:32] <DaveMethvin> WE FOUND A LOOPHOLE
+[11:50:13] <gibson042> SHHHHHH
+[11:50:36] <gibson042> it was already hard enough to contort our way through A+ compatibility
+[11:51:24] <timmywil> heh
+[11:51:30] <gibson042> https://promisesaplus.com/#point-64 , AYFKM?
+[11:59:34] <timmywil> gibson042: the context being "A" permanently for double is weird.
+[12:00:19] <gibson042> that may be a Firebug issue
+[12:01:14] <gibson042> yeah, the native console is more accurate here
+[12:01:51] <gibson042> ...or not
+[12:02:04] <timmywil> blarg
+[12:03:17] <gibson042> ah, updateFunc immediately sets the context, and `.then` callbacks are asynchronous
+[12:04:12] <timmywil> ah yea, using the same contexts array
+[12:04:28] <gibson042> this is weird, but probably correct
+[12:04:56] <timmywil> perhaps we need a .slice in updateFunc
+[12:05:17] <gibson042> I think that would be bad, because then you don't have access to the true context object
+[12:05:52] <gibson042> but maybe that's what we want
+[12:06:14] <timmywil> We seem to lack tests for progress in .when :P
+[12:06:24] <timmywil> something I guess DaveMethvin pointed out
+[12:07:12] <timmywil> If we removed progress from .when, would we all be happier?
+[12:08:50] <DaveMethvin> back ... i think we should remove the current progress pass-thru and generate one progress notification for each resolved subordinate promise
+[12:09:01] <DaveMethvin> that makes any sort of thenable behave consistently
+[12:10:52] <timmywil> so, subordinate.then(...master.notify(..)?
+[12:13:30] <timmywil> I'll make a ticket for progress
+[12:15:49] <timmywil> This will need further thought
+[12:15:49] <jqcommit> [13jquery] 15timmywil opened issue #2710: $.when + progress 02http://git.io/v8p4z
+[12:16:23] <timmywil> But I think the current PR is a better starting point for such changes.
+[12:16:26] <gibson042> when + progress is definitely unpredicatble
+[12:16:32] <gibson042> agree with that, timmywil
+[12:16:50] <timmywil> DaveMethvin: would you like to own that progress ticket?
+[12:17:09] <DaveMethvin> sure!
+[12:17:14] <timmywil> If you have time, I think it's worth addressing for 3.0. when + progress is just broken right now.
+[12:17:23] <gibson042> up until shortly after the promise compatibility work, progress callbacks could return deferreds that would resolve the deferred on which progress was issued
+[12:18:18] <gibson042> it's much better now, but still very hard to reason about
+[12:19:08] <timmywil> It'll need tests that lay out what we expect for context and values. The context part is the most confusing to me.
+[12:19:47] <timmywil> Thanks for the examples, gibson042 
+[12:19:49] <gibson042> I would LOVE to drop the context notion entirely
+[12:20:25] <gibson042> I don't even remember how I hacked that into `.then`
+[12:21:11] <timmywil> yea, I'm a little confused as to why the context isn't just the corresponding deferreds.
+[12:21:39] <timmywil> The master deferred for $.when and the subordinates for within their callbacks.
+[12:21:41] <gibson042> I think I just made it so *With establishes context, and hoped that nobody used it
+[12:22:12] <gibson042> timmywil: because the subordinates could have been *With'd
+[12:23:16] <timmywil> ok, but that's preserved ya? I guess I'm more confused about the master deferred
+[12:25:45] <timmywil> First time I saw this === [ defer1, defer 2 ] in a when callback, I thought wtf. I have those in variables already.
+[12:26:41] <timmywil> anyway
+[15:07:40] <jqcommit> [13jquery] 15timmywil pushed 2 new commits to 06master: 02http://git.io/v8hPD
+[15:07:40] <jqcommit> 13jquery/06master 145f5aee3 15Timmy Willison: Release: use chalk instead of colors for terminal colors
+[15:07:40] <jqcommit> 13jquery/06master 148b65446 15Timmy Willison: Release: update authors
+[15:11:20] <jqcommit> [13jquery] 15timmywil opened pull request #2711: Release: push a custom slim build to the CDN (06master...06slim) 02http://git.io/v8h1n
+[20:36:37] <jqcommit> [13jquery] 15tmb-github opened issue #2712: JQuery 2.4.1 async problem 02http://git.io/v4e1R
+[21:41:59] <jqcommit> [13jquery] 15gibson042 closed issue #2712: JQuery 2.4.1 async problem 02http://git.io/v4e1R
+[21:48:36] <jqcommit> [13jquery] 15sculove opened pull request #2713: Effects: Don't expose jQuery.speed (06master...06removeUndocument) 02http://git.io/v4vTN

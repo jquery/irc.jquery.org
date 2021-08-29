@@ -1,0 +1,171 @@
+[05:45:16] <scott_gonzalez> DaveMethvin: you around?
+[05:45:23] <DaveMethvin> yep
+[05:45:28] <scott_gonzalez> http://bugs.jquery.com/ticket/8157#comment:15
+[05:45:51] <DaveMethvin> "dear diary ... " :)
+[05:46:02] <DaveMethvin> it seems very wrong to fire "focus" up the tree
+[05:46:03] <scott_gonzalez> maybe I should spend time submitting pull requests :-P
+[05:46:24] <scott_gonzalez> is that the problem?
+[05:46:47] <scott_gonzalez> you're focusing the same element you're listening to change on
+[05:46:59] <DaveMethvin> it's related somehow but i couldn't get the debugger working right
+[05:47:09] <DaveMethvin> if you just call the dom focus method it works fine
+[05:47:19] <scott_gonzalez> yeah, because it's already focused, there's nothing to do
+[05:47:20] <DaveMethvin> but if you call trigger("focus") then it doesn't work
+[05:48:14] <scott_gonzalez> the DOM element.focus() is probably: if ( this === document.activeElement) { return; } this.fireEvent( "focus" );
+[05:48:23] <scott_gonzalez> whatever that code would actually look like
+[05:48:47] <scott_gonzalez> there's probably also checks for whether the element actually is focusable
+[05:48:54] <DaveMethvin> yeah, and the way trigger(focus) works is to first fire all the jQuery focus handlers, then run the DOM method
+[05:48:59] <scott_gonzalez> yeah
+[05:49:06] <scott_gonzalez> but we know that's wrong in some cases
+[05:49:11] <scott_gonzalez> I don't think this has to do with bubbling
+[05:49:24] <DaveMethvin> well it seems like it's conceptually wrong in all cases :P
+[05:49:40] <scott_gonzalez> we can verify that with .triggerHandler(), right?
+[05:50:01] <DaveMethvin> that preventDefaults
+[05:50:06] <DaveMethvin> so it won't run the DOM method
+[05:50:13] <DaveMethvin> but it will run the handler
+[05:50:27] <DaveMethvin> so i think it may still break
+[05:50:47] <scott_gonzalez> but it also stops propagation
+[05:50:56] <DaveMethvin> oh how convenient i left my vm running
+[05:51:10] <scott_gonzalez> :-)
+[05:51:40] <DaveMethvin> yeah still broken with triggerhandler
+[05:52:48] <DaveMethvin> here is what I was planning
+[05:53:44] <DaveMethvin> for focus/blur I'll just run the method, which will trigger a focus/blur event if appropriate
+[05:53:51] <DaveMethvin> that is backwards of trigger today
+[05:54:28] <DaveMethvin> that should also automatically bubble a focusin/focusout event up the tree
+[05:54:31] <DaveMethvin> if it needs to
+[05:55:07] <DaveMethvin> but i only want to do that if the target element has a "focus" method
+[05:55:13] <DaveMethvin> otherwise it's not special cased
+[05:58:35] <scott_gonzalez> http://jsfiddle.net/vn4kX/3/
+[06:04:10] <scott_gonzalez> thoughts on that?
+[06:04:26] <scott_gonzalez> I realize it's a totally different direction than what you're thinking
+[06:04:35] <DaveMethvin> jsfiddle is slow
+[06:04:42] <scott_gonzalez> yeah, really
+[06:05:45] <DaveMethvin> right, that's the patch you put into UI ... it prevents the problem
+[06:05:56] <DaveMethvin> it still bothers me we're bubbling a non-bubbling event
+[06:06:56] <scott_gonzalez> well, even changing that won't fix the problem
+[06:07:04] <scott_gonzalez> since the event doesn't need to bubble for the bug to occur
+[06:07:16] <DaveMethvin> right, all i think we want to do for focus/blur is run the DOM method
+[06:07:21] <DaveMethvin> it will fire events
+[06:07:29] <DaveMethvin> and we'll run handlers as a result
+[06:07:33] <DaveMethvin> at least i think so
+[06:08:06] <DaveMethvin> if you re-focus a focused element, even IE ignores it
+[06:09:34] <scott_gonzalez> as long as the bug gets fixed and I can close the UI ticket :-)
+[06:10:14] <DaveMethvin> i'm gonna kill this one for sure
+[06:10:37] <DaveMethvin> if i could have gotten ie debugger to behave i think i would have fixed it
+[06:10:44] <DaveMethvin> but i wanted to make sure i understood it all
+[06:10:56] <DaveMethvin> and the darned debugger wasn't letting me set breakpoints
+[06:11:22] <DaveMethvin> i was almost desperate enough to sprinkle alerts in there
+[08:43:43] <sunsean> Devs, do you think jQuery 1.6.2 is now more stable than 1.5.2 was?
+[09:04:48] <scott_gonzalez> JohnResig: can you unmute #jquery-meeting?
+[10:42:40] <DaveMethvin> rwaldron: hiya, got a sec?
+[10:44:40] <rwaldron> DaveMethvin for you, i have two
+[10:44:54] <DaveMethvin> aww <3
+[10:45:18] <DaveMethvin> itsabout that patch for jquery.event.fix in the pullq
+[10:45:38] <DaveMethvin> sounds like he was less sure of it causing a reflow than in the bug ticket
+[10:45:59] <DaveMethvin> but i agree it's a good test case for your rewrite
+[10:46:13] <DaveMethvin> so how were you planning to organize that stuff?
+[10:46:44] <DaveMethvin> seems like you'll need some amount of fuzziness in matching event names
+[10:49:54] <rwaldron> DaveMethvin i was basically going to model it after the existing hook systems
+[10:50:05] <rwaldron> but i wanted to wait until you were done
+[10:50:15] <rwaldron> and see how event.js changed
+[10:50:26] <rwaldron> re aquaint myself with the lay of the land so to speak
+[10:51:04] <DaveMethvin> the good news is that i haven't changed jQuery.event.fix at all, so I don't think it should affect what you are doing
+[10:51:24] <rwaldron> oh, cool.
+[10:51:29] <DaveMethvin> I have a new branch event-1.7 where i tried to minimize the diffs and get the style right
+[10:51:38] <rwaldron> i'm really just trying to reduce the chais
+[10:51:40] <rwaldron> chaos*
+[10:52:00] <DaveMethvin> if you are just working in jQuery.event.fix i don't think we'll have merge issues
+[10:52:59] <DaveMethvin> so you could use the current master as a base if you want
+[10:53:42] <DaveMethvin> i prolly have another week until my stuff is totally solid, and from the notes of this weeks meeting it sounded like we wanted to push out 1.6.3 first
+[10:53:57] <DaveMethvin> so we'll need to work in branches for a while anyway
+[10:59:05] <rwaldron> ok, cool
+[11:03:13] <jqcommit> [jquery] timmywil pushed 1 new commit to master: https://github.com/jquery/jquery/commit/905e8920f9b2a895ed76693a74f34c0297cbcbfb
+[11:03:13] <jqcommit> [jquery/master] Landing pull request 453. Typo correction strictEquals=>strictEqual. Fixes #9964. - Rick Waldron
+[11:03:14] <socialhapy> http://bit.ly/qw0WqK rwldrn (1 minute ago) on jquery: Landing pull request 453. Typo correction strictEquals=>strictEqual. Fixes #9964.
+[11:03:14] <socialhapy> More Details:
+[11:03:14] <socialhapy>  - https://github.com/jquery/jquery/pull/453
+[11:03:14] <socialhapy>  - http://bugs.jquery.com/ticket/9964
+[11:06:38] <rwaldron> :)
+[14:29:53] <gnarf> hey - can anyone think of a way to detect if an item was positioned using top vs bottom, left vs right?
+[14:36:05] <ajpiano> haha gnarf i can't think of a way
+[14:36:12] <ajpiano> what, you don't think dude knows the answer :p
+[14:37:01] <gnarf> hrm
+[14:37:11] <gnarf> well, I'm trying to fix the slide effect in UI
+[14:37:29] <gnarf> and its kinda based on which of top/bottom left/right is used
+[14:37:29] <ajpiano> heh, i had a feeling
+[14:37:41] <gnarf> i want to use the same one
+[14:37:51] <gnarf> i was just testing if the bottom wasn't auto
+[14:37:58] <gnarf> which seems to work most places (cept FF)
+[14:38:14] <gnarf> FF seems to return an actual px value instead of auto
+[14:41:22] <gnarf> so at this point, it boils down to trying to reliably detect if bottom/right are non "auto"
+[14:42:38] <ajpiano> what if it's set but it's unreliable, like i did top: 25, bottom: 50;
+[14:43:06] <gnarf> which is used?
+[14:43:21] <gnarf> whichever is used, i need to update :)
+[14:45:39] <peol> gnarf: impossible to save the arg on the dom element?
+[14:46:04] <gnarf> peol: could be set via css, or whatever - its not an argument to the effect
+[14:46:16] <gnarf> its actually the scale not the slide effect btw
+[14:46:46] <peol> hm, computedStyle *should* work
+[14:46:56] <gnarf> on FF the computedStyle is a px value
+[14:47:04] <gnarf> everything else is "auto" when bottom is unset
+[14:47:11] <gnarf> or at least i think so
+[14:47:13] * gnarf checks swarm
+[14:48:15] <gnarf> well, of Chrome/ FF/ Safari / Opera
+[14:48:22] <gnarf> the only one that doesn't report "auto" is FF
+[14:49:19] <peol> gnarf: is this for the ui lib (do you have control over the css)?
+[14:49:50] <peol> gnarf: if so, try to set them explicitly, top:auto;bottom:auto;left:auto;right:auto;
+[14:50:02] <gnarf> peol: its ui effects, so zero css control
+[14:50:09] <peol> argh
+[14:50:15] <peol> all FF's?
+[14:54:27] <gnarf> peol: unknown - you can unit it
+[14:54:37] <gnarf> current FF for sure tho
+[14:54:45] <gnarf> https://github.com/jquery/jquery-ui/blob/master/ui/jquery.effects.scale.js#L121-122 thats what I'm trying to figure out
+[14:55:10] <gnarf> http://view.jqueryui.com/master/tests/unit/effects/effects.html
+[14:55:20] <gnarf> there are like 12 tests that fail in FF
+[14:55:34] <gnarf> those are the ones that are incorrectly detecting the "original" positioning to be bottom not top
+[14:56:22] <gnarf> we can pull the convo back into ui-dev --- was just asking here if anyone had any brilliant ideas for sneaking around those lines and cuz you have more people hanging out here :)
+[17:14:24] <rwaldron> jaubourg yt?
+[17:16:59] <jaubourg> rwaldron: ping
+[17:17:08] <rwaldron> dude
+[17:17:19] <rwaldron> i'm in hell
+[17:17:32] <jaubourg> wtf? what's going on?
+[17:17:54] <rwaldron> what kind of info can you share with me about mobile safari and CORS post requests?
+[17:18:09] <rwaldron> the shit works fine in regular safari
+[17:18:14] <jaubourg> zero, none, nada... what seems to be the problem?
+[17:18:15] <rwaldron> i'm not doing anything zany
+[17:18:21] <rwaldron> i dunnp
+[17:18:32] <rwaldron> i dont know yet
+[17:18:37] <rwaldron> this is so fucking frustrating
+[17:18:38] <rwaldron> :(
+[17:18:47] <rwaldron> maybe it's not jQuery.ajax at all
+[17:18:55] <jaubourg> got a snipper somewhere I can look at?
+[17:18:59] <jaubourg> snippet
+[17:19:05] <rwaldron> one sec
+[17:19:37] <rwaldron> actualy... unless you ahve an iphone, there wont be aproblem
+[17:19:45] <rwaldron> only an issue on mobile safari
+[17:20:49] <jaubourg> I can look at the code, add stuff in and then you can tell me what happens ;)
+[17:20:57] <jaubourg> binomial debugging
+[17:22:42] <rwaldron> i dont have access to the endpoint :(
+[17:23:11] <rwaldron> i need to just put this away i think
+[17:24:21] <jaubourg> :|
+[17:24:35] <rwaldron> this is also no help...
+[17:24:58] <rwaldron> apparently the mobile guys are disabling cross domain requests
+[17:25:04] <rwaldron> unless devs set a special flag
+[17:25:08] <rwaldron> werd
+[17:25:11] <rwaldron> weird
+[17:25:32] <jaubourg> jquery mobile devs?
+[17:25:43] <rwaldron> yes
+[17:26:03] <jaubourg> like they're setting support.cors to false?
+[17:31:02] <rwaldron> not sure, i can find out
+[17:32:06] <jaubourg> you can easily test for cors support with ( "withCredentials" in jQuery.ajaxSettings.xhr() )
+[17:32:23] <rwaldron> nope they're note
+[17:32:23] <jaubourg> if the value is lost or overriden in $.support.cors
+[17:32:24] <rwaldron> not*
+[17:32:32] <jaubourg> weird
+[17:32:34] <rwaldron> im not sure what the eff they're doing
+[17:32:36] <rwaldron> whatever
+[17:32:42] <rwaldron> turns out thats not my issue
+[17:32:51] <jaubourg> maybe you should try and contact scott about this?
+[17:32:55] <rwaldron> and i dont think that their switch even works
+[17:33:02] <rwaldron> because i had no idea about ti
+[17:33:12] <rwaldron> and i've been making cors requests for weeks
+[17:33:13] <rwaldron> ahahaha
+[17:33:22] <rwaldron> just doesnt work in stupid mobile safari

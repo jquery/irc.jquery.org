@@ -1,0 +1,181 @@
+[00:09:38] <doesallmagic2> Project jQuery UI - 1.8.x core build #691: STILL UNSTABLE in 13 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.8.x%20core/691/
+[05:05:18] <arschmitz> gabriel_schulhof: Ping
+[06:48:32] <gabriel_schulhof> arschmitz: What's up?
+[06:48:58] <arschmitz> gabriel_schulhof: so i added full backcompat for both data-enhance="false" and data-role="none"
+[06:49:07] <arschmitz> just through a custom initGenerator
+[06:51:27] <gabriel_schulhof> ... and I got bogged down in a nav load order issue when I removed json!../package.json from the dependencies for defaults ...
+[06:51:37] <gabriel_schulhof> ... as I was working on the boilerplate.
+[06:51:46] <gabriel_schulhof> I'm trying to figure out what's causing the problem.
+[06:52:13] <gabriel_schulhof> Also, in the process, I found that sometimes in the sequence tests we weren't running without pushState even though we should've been.
+[06:52:28] <arschmitz> gabriel_schulhof: there is one downside
+[06:52:35] <arschmitz> the init selector is bat shit crazy
+[06:53:09] <arschmitz> gabriel_schulhof: this is the one for button "input[type='button']:not( [data-role='none'], [data-enhance='false'] input[type='button']  ),  input[type='submit']:not( [data-role='none'], [data-enhance='false']  input[type='submit']  ),  input[type='reset']:not( [data-role='none'], [data-enhance='false']  input[type='reset']  ),  button:not( [data-role='none'], [data-enhance='false']  button  ),  [data-ro
+[06:53:09] <arschmitz> le='button']:not( [data-role='none'], [data-enhance='false']  [data-role='button']  )"
+[06:54:44] <gabriel_schulhof> ... and the Universe spontaneously collapses into a singularity.
+[06:55:21] <gabriel_schulhof> ... can this not be solved by passing through elements already selected for enhancement and filtering?
+[06:55:41] <gabriel_schulhof> NM ... you're probably already doing that.
+[06:57:05] <arschmitz> gabriel_schulhof: the problem is basicly you start with input[type='button'], input[type='submit'], input[type='reset'], button, [data-role='button']
+[06:57:38] <arschmitz> and then you have to add the not for data-role:none and data-enhance=false to each piece
+[06:58:01] <arschmitz> so it takes the original selector splits on ","
+[06:59:35] <arschmitz> and does selector + ":not( [data-" + $.mobile.ns + "role='none', [data-enhance='false'] " + selector + " )"
+[06:59:44] <arschmitz> gabriel_schulhof: and then puts those all back together
+[07:02:28] <gabriel_schulhof> arschmitz: It seems to me that we should be subsequently filtering the result of the selection, rather than attempting to modify the initSelector.
+[07:02:53] <arschmitz> gabriel_schulhof: that would require options on the enhancer
+[07:03:04] <arschmitz> and this is only for backcompat
+[07:04:06] <arschmitz> in 1.6 it would just be [data-ui-role='button']
+[07:04:41] <gabriel_schulhof> arschmitz: Right, but if, during the lifetime of 1.5, enhancement will be dreadfully slow because of these selectors, then that would be bad.
+[07:05:04] <arschmitz> $.mobileBackcompat = false 
+[07:07:03] <gabriel_schulhof> Well, OKOK, but the backcompat should be no worse than what we have now, otherwise it's effectively not a backcompat, and we're practically removing the old way without a deprecation period.
+[07:07:41] <gabriel_schulhof> arschmitz: I'm thinking: Can we not attach an extension point to $.fn.enhance that does the find()
+[07:07:44] <gabriel_schulhof> ?
+[07:08:00] <gabriel_schulhof> ... and then hook into that from the plugin?
+[07:08:02] <arschmitz> whats its use execpt by us for backcompat?
+[07:08:51] <gabriel_schulhof> Well, the best way to retrieve children from enhancement is not necessarily .find() ...
+[07:08:57] <gabriel_schulhof> s/from/for/
+[07:08:57] <arschmitz> enhacer is getting out of control with extension points
+[07:09:55] <arschmitz> its going to be worse then what we have now at this rate instead of 3 options we will have 10 extension points
+[07:10:17] <arschmitz> all of which need to be load order independant 
+[07:10:23] <gabriel_schulhof> Huh? 10 extension points?
+[07:11:58] <gabriel_schulhof> We currently have defaultFunction, hooks, and initGenerator, right?
+[07:11:59] <arschmitz> there is already, initGenerator, hooks, ns, the initselector on a widget, defaultFunction, the widgets getCreateOptions, you want to add now a custom find extension point
+[07:12:14] <arschmitz> this is getting out of control
+[07:13:29] <gabriel_schulhof> arschmitz: Still shorter than the oodles of code you'd have instantiating all the widgets in a sizable app.
+[07:13:44] <gabriel_schulhof> But, OKOK ... thinking about an alternative ...
+[07:13:51] <arschmitz> that does not make it a good idea
+[07:14:04] <arschmitz> to have an insane api on something under 100 lines long 
+[07:15:16] <gabriel_schulhof> arschmitz: I'm thinking ... maybe the API for the hooks should be elementsToEnhance = hooks[ index ]( elementsToEnhance );
+[07:15:39] <gabriel_schulhof> ... but I haven't looked at the code for the hooks yet - just wanna get the general idea across ...
+[07:16:07] <arschmitz> gabriel_schulhof: hooks is just an array
+[07:16:25] <arschmitz> of functions that get called as if they were the parent jquery function
+[07:18:02] <arschmitz> gabriel_schulhof: it has no concept of initselectors at all
+[07:18:24] <gabriel_schulhof> arschmitz: OK, I'm not seeing the version that actually has any hooks, I don't think.
+[07:18:50] <gabriel_schulhof> OK. Popup has one. Lemme see.
+[07:18:51] <arschmitz> gabriel_schulhof: look at theenhance function
+[07:19:03] <arschmitz> gabriel_schulhof: its like the first thing in the enhancer
+[07:19:08] <arschmitz> very top of the file
+[07:21:05] <gabriel_schulhof> Wait a sec ... this .jqmEnhanceable() ... doesn't that remove data-role="none"?
+[07:21:16] <arschmitz> we dont use that
+[07:21:21] <gabriel_schulhof> Well, popup does.
+[07:21:23] <arschmitz> that will be removed
+[07:21:54] <arschmitz> i just missed that
+[07:22:45] <gabriel_schulhof> OK. I really need to see the code involving the crazy selectors ...
+[07:23:28] <arschmitz> gabriel_schulhof: https://gist.github.com/arschmitz/73ab7a50d20952485ba2
+[07:25:39] <gabriel_schulhof> arschmitz: You can't split by , because you could have c:not(a,b),d,e and you only care about the toplevel ,s right?
+[07:25:49] <arschmitz> your right
+[07:25:56] <arschmitz> ill need to use a regex
+[07:26:09] <gabriel_schulhof> Hold on.
+[07:26:31] <gabriel_schulhof> There's a way of restricting scope on an unknown selector. I use it in web-ui-fw.
+[07:27:17] <gabriel_schulhof> newSelector = ":not(:not(" + oldSelector + ")):not([data-" + $.mobile.ns + "role='none'])";
+[07:27:33] <gabriel_schulhof> Basically, :not(:not()) acts like a bracket.
+[07:27:51] <gabriel_schulhof> So whatever's-in-the-bracket:not(restriction)
+[07:28:01] <gabriel_schulhof> It's probably super-expensive though.
+[07:28:11] <gabriel_schulhof> Though it's only two nots.
+[07:28:19] <arschmitz> have you tried the perf on that out of curiosity only because what your doing is selecting every element thats :not( ... ) to start
+[07:28:20] <gabriel_schulhof> Rather than one not per top-level or.
+[07:28:56] <arschmitz> which seems expensive
+[07:29:28] <gabriel_schulhof> No matter how you slice it, the best way to do this would be to inject a .filter() step between .find() and .widgetname()
+[07:29:58] <arschmitz> i just dont think that makes sense from an api stand point though it has no real use
+[07:30:08] <arschmitz> because in general why would you be doing this
+[07:30:20] <arschmitz> execpt to support our insane old api
+[07:33:19] <gabriel_schulhof> My original reason for doing :not(:not()) is that I was simply looking for a way of incapsulating an unknown selector. There's https://developer.mozilla.org/en-US/docs/Web/CSS/:any but that's not yet standard.
+[07:33:26] <gabriel_schulhof> That would be the real solution.
+[07:35:02] <arschmitz> gabriel_schulhof: http://jsperf.com/double-not-group
+[07:38:23] <gabriel_schulhof> arschmitz: Can sizzle be extended? Asking half-jokingly.
+[07:39:32] <gabriel_schulhof> arschmitz: Another thought: Given a root element and a large number of widgets, it becomes more efficient to run .find( "*" ) once and then .filter() on the resulting jQuery object for each widget than to .find() on the root element for each widget type.
+[07:40:14] <arschmitz> gabriel_schulhof: that may be a valid point not sure how it would help this though
+[07:41:03] <gabriel_schulhof> Oh! I know!
+[07:41:17] <gabriel_schulhof> We replace $.fn.find() for the duration of the .enhance() call.
+[07:41:36] <arschmitz> yeah lets not
+[07:41:38] <gabriel_schulhof> ... but for that we have to override the defaultFunction, not just provide a hook.
+[07:41:53] <arschmitz> yeah which is basicly saying lets make 2 enhancers
+[07:42:02] <arschmitz> and overide the entire first one for 1.5
+[07:44:02] <gabriel_schulhof> arschmitz: Well, we don't override. We chain up to it after we've wrapped $.fn.find(), and we unwrap $.fn.find() before we return.
+[07:44:16] <gabriel_schulhof> arschmitz: ... and the override only takes place if ( $.mobileBackcompat )
+[07:44:46] <gabriel_schulhof> So yeah, backcompat code is ugly. That's generally true.
+[07:45:35] <arschmitz> gabriel_schulhof: so double :not is faster
+[07:46:27] <gabriel_schulhof> We can't replace $.fn.find() anyway, because widget implementations may run $.fn.find() as well, and we can't distinguish one call from the other.
+[07:46:36] <arschmitz> yup
+[07:47:04] <arschmitz> gabriel_schulhof: https://gist.github.com/arschmitz/433ee125663a0714db41
+[07:47:15] <arschmitz> its about 40% faster in chrome
+[07:48:26] <gabriel_schulhof> Why does primarySelector need to appear again at the end of the return value?
+[07:49:04] <gabriel_schulhof> Children of data-enhance="false" need not be skipped.
+[07:49:26] <arschmitz> yes they do?
+[07:49:40] <arschmitz> thats the whole point of data enhance=false its skips thw whole container
+[07:50:22] <gabriel_schulhof> Wait a sec! Nononono ... that was behind a configuration flag because it's so expensive to enforce!
+[07:50:39] <gabriel_schulhof> Please tell me we deprecated that when we released 1.4 ...
+[07:50:46] <arschmitz> correct
+[07:51:00] <arschmitz> nope
+[07:51:06] <gabriel_schulhof> Ugh ...
+[07:51:49] <gabriel_schulhof> OKOK, but then the selector only takes that form if the global flag is set. Otherwise that latter part does not appear - pleeeease!
+[07:52:01] <arschmitz> yeah ill fix that
+[07:52:30] <gabriel_schulhof> This is going to be insanely slow ... *sigh* ... 
+[07:52:57] <arschmitz> we will have to see the impact
+[07:53:22] <arschmitz> we should do an additional cdn build
+[07:53:24] <arschmitz> jqm light
+[07:53:29] <arschmitz> leave out the backcompat
+[07:53:35] <arschmitz> and all the extra transitions
+[07:54:49] <arschmitz> all the jqm data stuff
+[07:55:03] <gabriel_schulhof> arschmitz: The sucky thing about one .find( "*" ) vs. many .find( initSelector ) calls is that the benefit of one vs. the other is highly application specific.
+[07:55:17] <arschmitz> yup
+[07:55:59] <arschmitz> like if some ones changss the generator to use ".widget-" + widgetName
+[07:56:03] <arschmitz> and thats it
+[07:56:14] <arschmitz> they would pay a huge penalty
+[07:56:43] <gabriel_schulhof> Yeah ...
+[07:57:01] <arschmitz> or really even if they just did $.mobileBackcompat = false
+[07:57:12] <arschmitz> to remove all the complex current default selectors
+[07:59:15] <jquicommit> [13jqueryui.com] 15jzaefferer opened pull request #107: Upgrade Guide: Adding WIP 1.12 upgrade guide (06master...061-12-upgrade-guide) 02http://git.io/jNve
+[07:59:32] <gabriel_schulhof> Well, I'm still not convinced that repeatedly traversing the DOM looking for a particular initSelector is faster than traversing the DOM once and subsequently filtering the resulting flat list of elements repeatedly, even if the initSelector is super-efficient. Only if the initSelector has some indexing on the native side - such as a class probably has ...
+[08:00:00] <arschmitz> gabriel_schulhof: test it
+[08:00:25] <gabriel_schulhof> OK.
+[08:04:17] <arschmitz> gabriel_schulhof: i think it would take a lot..... http://jsperf.com/container-selection
+[08:07:52] <gabriel_schulhof> Yeah ... looks like.
+[08:10:17] <gabriel_schulhof> arschmitz: Those are fast selectors, though ... [data-role] is probably slower.
+[08:10:52] <arschmitz> gabriel_schulhof: yeah but i needed something that there would be a lot of 
+[08:11:54] <gabriel_schulhof> I dunno ... if you hit getElementsByTagName() that's gonna be super-duper fast, and so not indicative of the penalty imposed by selecting by attribute.
+[08:12:19] <gabriel_schulhof> I'm actually modifying my own version to not select by class for the same reason.
+[08:12:39] <gabriel_schulhof> ... and conversely, this strongly hints at not using attributes for initSelectors.
+[08:12:59] <gabriel_schulhof> We should rather have people add classes to indicate what element should be what kind of widget.
+[08:14:16] <arschmitz> gabriel_schulhof: http://jsperf.com/container-selection
+[08:14:57] <arschmitz> you are right attributes make a different but not for using find( "*" )
+[08:15:44] <gabriel_schulhof> arschmitz: Wait a sec. .contents() is not recursive like .find()
+[08:15:56] <gabriel_schulhof> arschmitz: .contents() === ( .children() + non-element nodes )
+[08:16:02] <arschmitz> oh your right
+[08:16:12] <arschmitz> either way find( * ) is way slower
+[08:16:47] <gabriel_schulhof> Yeah, looks like.
+[08:18:23] <gabriel_schulhof> Oh, wait ... I remember one of our in-house Chrome devs saying that, on Chrome, iterating down the tree is super-slow, and iterating up the tree is even slower. The only fast one is .nextSibling.
+[08:19:16] <gabriel_schulhof> Which is weird, because that would make .find( "*" ) more appealing, not less O_o
+[08:20:03] <gabriel_schulhof> Anyway ... we're still stuck with those crazy selectors.
+[08:21:04] <arschmitz> gabriel_schulhof: your talking native not jquery + sizke
+[08:22:05] <arschmitz> gabriel_schulhof: your would have to look at how filter works vs other methods under the hood
+[08:22:20] <gabriel_schulhof> Yes, I would.
+[08:22:41] <gabriel_schulhof> Either way, seems like repeated find()ing is no worse for the wear.
+[08:23:24] <gabriel_schulhof> Wait-wait-wait! Iteration three: with crazy double-not selectors!
+[08:25:17] <gabriel_schulhof> Bet it's still faster to not .find( "*" ) :)
+[08:26:55] <gabriel_schulhof> Oh, wow! You know it's bad when ... given the above results, find * filter turns out to be faster! This is super, super bad!
+[08:26:58] <gabriel_schulhof> http://jsperf.com/container-selection/2
+[08:28:09] <gabriel_schulhof> arschmitz: Man, I dunno about the double-not. I don't think we should do it. It's just ... wow ... terrible is a picnic by comparison.
+[08:32:16] <gabriel_schulhof> arschmitz: ... and we have more than three widgets ...
+[08:35:26] <arschmitz> gabriel_schulhof: yes but 96% slower
+[08:35:35] <arschmitz> that would take a lot of widgets to make up i feel like
+[08:38:34] <gabriel_schulhof> What do you mean? If three double-nots can bring repeated find()ing, which is no worse for the wear, to its knees - i.e., into find * filter territory, then I can't imagine four double-nots, or, I dunno ... twelve double-nots. Is that what you meant?
+[08:40:44] <gabriel_schulhof> *sigh* ... this is frustrating - we have a perfectly performant way of doing this, namely to .filter() before we .widgetname(), but we can't do it that way, because the .filter() step is not generically useful, but only for our backcompat.
+[08:41:47] <gabriel_schulhof> ... and the other way, which is to essentially perform the .filter() step as part of the .find(), results in these insane selectors.
+[08:47:07] <gabriel_schulhof> arschmitz: https://github.com/arschmitz/jquery-mobile/blob/1.5-enhancer/js/widgets/popup.js#L75 ... this assumes that $.fn.enhance is defined.
+[08:47:35] <arschmitz> gabriel_schulhof: yup ill fix that
+[08:48:00] <gabriel_schulhof> arschmitz: Also, https://github.com/arschmitz/jquery-mobile/blob/1.5-enhancer/js/widgets/popup.js#L70-L72 was deprecated in 1.4, AFAIK, so that can be removed.
+[08:48:29] <gabriel_schulhof> ... and it has nothing to do with popup either, so if it remains, it needs to be a second enhancer hook. I hope it does not remain.
+[08:48:33] <arschmitz> gabriel_schulhof: i think your right ill double check
+[08:49:05] <gabriel_schulhof> arschmitz: http://jquerymobile.com/changelog/1.4.0/#theme-css
+[08:49:10] <gabriel_schulhof> It's there.
+[09:45:16] <jzaefferer> arschmitz: that multiline select check, do we need to add that in UI? 
+[09:45:31] <jzaefferer> is that part of making it possible for mobile to adopt selectmenu?
+[09:46:11] <arschmitz> jzaefferer: i woudl say so if we plan to support mobile devices
+[09:46:22] <arschmitz> its not reall about jquery mobile 
+[09:46:30] <arschmitz> its about properly supporting mobile devices
+[09:47:32] <arschmitz> jzaefferer: but to the question of what needs to be added for mobile adoption yeah we need some sort of native fall back mechanisim
+[09:47:50] <arschmitz> but i think unlike in mobile it should be scoped to mobile devices not all devices
+[09:48:19] <arschmitz> though if the mechanisim is there i guess why not allow it for style reasons you may want the ui looking button but not the overhead of the popup
+[09:53:16] <jquicommit> [13jquery-ui] 15jzaefferer opened pull request #1526: Selectmenu: Set default max-height (06master...06selectmenu-height) 02http://git.io/jNNM
+[10:19:00] <kapil21051> arschmitz: i write a test for multi inline select menu..if you can check whether its correct or not https://github.com/kapilgarg1996/jquery-mobile/commit/1c3693a444fbe85ae5171e3ce40c12e526f15b9e
+[10:21:03] <kapil21051> archmitz: so i can do a pr or add a commit in https://github.com/jquery/jquery-mobile/pull/8037
+[10:21:22] <kapil21051> i have run the test and its working perfectly

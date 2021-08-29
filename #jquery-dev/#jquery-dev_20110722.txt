@@ -1,0 +1,144 @@
+[05:46:33] <Flower21> Hi, i have a simple question. I want to add opacity to image when i mouse hover. I know how to do this only on the image i hover. But i want the opacity on all the image exept the one im hovering
+[05:46:57] <Flower21> $(this).stop().animate({ opacity: 0.0 }, 500);
+[05:47:09] <Flower21> is this something like $(*).stop().animate({ opacity: 1.0 }, 500);
+[05:47:33] <erichynds> Flower21: you'll probably have better luck asking in #jquery
+[05:47:41] <erichynds> this is the dev channel
+[05:48:12] <Flower21> ok, sry
+[05:48:16] <erichynds> and also, $("#container img").not(this).animate()
+[05:54:12] <Flower21> thanks erichynds
+[05:54:18] <erichynds> np
+[07:13:24] <rwaldron> timmywil hey dude
+[07:13:37] <rwaldron> I closed that workers ticket
+[07:13:47] <timmywil> rwaldron: ok
+[07:14:13] <timmywil> rwaldron: i haven't spent a lot of time with web workers
+[07:14:21] <rwaldron> I have months of code and research (effing spreadsheets) that maybe I'll publish one day
+[07:14:32] <rwaldron> i was obsessed with them
+[07:14:38] <timmywil> i'd be interested
+[07:14:48] <rwaldron> one of these days I'm going to re-write jQuery.Hive
+[07:14:58] <rwaldron> mostly because it's messy
+[07:15:21] <rwaldron> and reflects patterns and approaches that I thought were cool two years ago
+[07:16:25] <rwaldron> but anyway, its a jQuery "add-on" that provides a simplified (read: friendly) api for creating workers
+[07:16:41] <rwaldron> there are a number of issues with the OP's claim
+[07:16:52] <rwaldron> 1. spin up cost of workers is gross
+[07:17:25] <rwaldron> 2. it would be slower for single ajax requests
+[07:18:37] <timmywil> rwaldron: i'll take your word for it :)
+[07:19:40] <rwaldron> ie. GlobalScope [ postMessage() ] -> WorkerGlobalScope [ onmessage or addEventListener( message ...) ] -> XHR (request) (response) -> postMessage() -> GlobalScope  [ onmessage or addEventListener( message ...) ]  -> Ajax Handler on client?
+[07:19:52] <rwaldron> vs...
+[07:20:04] <rwaldron> XHR (request) (response)
+[07:20:08] <rwaldron> (current)
+[07:20:21] <rwaldron> if you had a system that was _polling_
+[07:21:15] <rwaldron> eg. open a worker, make xhr requests in a loop forever, on each response, postMessage() the results back to the client
+[07:21:21] <rwaldron> that's viable ^^
+[07:21:32] <rwaldron> but not a 24million websites use case
+[07:21:48] <rwaldron> also, we can't create _real_ workers in IE6, 7, 8
+[07:21:53] <rwaldron> oh, and 9
+[07:22:22] <rwaldron> because a real Worker is actually an OS level thread
+[07:22:37] <rwaldron> that's capable of being spun up over multiple cores
+[07:23:05] <rwaldron> eg. user A has a quad core, user B has dual core
+[07:23:43] <rwaldron> they both visit a website that makes use of a Renderer (ie. the window) + 2 Workers, so 3 processes in all
+[07:24:35] <rwaldron> For A: Core 1: Renderer; Core 2: Worker; Core 3: Worker
+[07:24:45] <rwaldron> For B: Core 1: Renderer; Core 2: Worker; Core 1: Worker
+[07:25:07] <rwaldron> so, thats the argument against those bogus "setTimeout" loops
+[07:25:29] <rwaldron> I'm very much opposed to those in every way imaginable
+[07:25:48] <rwaldron> So that was probably #3
+[07:27:32] <rwaldron> 4. jQuery will throw dom security exceptions when run in WorkerGlobalScope because `window` and `document` don't exist and jQuery explicitly refers to them
+[07:28:03] <timmywil> rwaldron: so you're opposed to the setTimeout loop?
+[07:28:36] <rwaldron> only when it's used in the context of being a "fake worker" or a "worker polyfill"
+[07:28:46] <timmywil> oh i see
+[07:28:54] <rwaldron> basically, it's like... you can't polyfill _real_ webgl
+[07:29:18] <rwaldron> the results are usually a bummer
+[07:29:26] <rwaldron> setTimeout loops are awesome
+[07:29:51] <timmywil> rwaldron: yea I was about to defend their use. :)
+[07:29:54] <rwaldron> Especially because I refuse to use "the exception eater" setInterval
+[07:30:13] <rwaldron> setTimeout loops are ggggreeeaaattt!
+[07:30:15] <rwaldron> :D
+[07:30:48] <rwaldron> before jQuery had deferreds I used them extensively for async task management in applications
+[07:30:57] <rwaldron> now I'm like... $.when()...
+[07:30:58] <rwaldron> :)
+[07:31:01] <rwaldron> yay
+[07:40:29] <rwaldron> secretrobotron pong
+[07:40:33] <rwaldron> whoops
+[07:40:36] <rwaldron> wrong channel
+[07:54:30] <jaubourg> heh
+[07:54:35] <jaubourg> hi timmy, rick
+[07:54:58] <jaubourg> October will be heavy... jqcon boston, french riviera conf, then paris games week
+[07:55:01] <jaubourg> wheeeeeeeeeeee
+[07:57:24] <jaubourg> also, just proposed a talk for http://wakanday.org/boston/
+[07:57:29] <jaubourg> since I'm in boston anyway
+[07:58:41] <jaubourg> timmywil, rwaldon: as for the ticket, I would actually have had implemented resolveWith using setTimeout(...,0) if ajax hadn't had synchronous requests
+[07:59:23] <rwaldron> jaubourg I was reading your ticket comments last night
+[07:59:25] <rwaldron> thats interesting
+[07:59:28] <rwaldron> re: resolveWith
+[07:59:32] <jaubourg> heh
+[07:59:37] <rwaldron> are there any implementations that work?
+[07:59:45] <jaubourg> that's how I implemented deferreds in node-plus
+[07:59:46] <rwaldron> or do they just ignor the ajax use case?
+[08:00:09] <jaubourg> well, deferred being used in a synchronous environment is an edge case
+[08:00:18] <rwaldron> gotcha
+[08:00:24] <jaubourg> we got it backwards in jQuery because we started from ajax
+[08:00:24] <rwaldron> hm
+[08:00:42] <jaubourg> with associated constraints
+[08:00:47] <rwaldron> can we do resolveWith with docs that say something about not using it with async false?
+[08:00:58] <rwaldron> (i'm sure you've already considered)
+[08:01:24] <jaubourg> would break synchronous ajax requests... which I'd love to see disapear but I don't see that happening anytime soon
+[08:02:09] <jaubourg> but synchronous ajax is a monstruosity, here, I said it
+[08:03:00] <Jon47> its not even ajax anymore is it
+[08:03:03] <Jon47> its just jax
+[08:03:07] <jaubourg> in 1.7, I removed the try/finally block in resolveWith... so an exception will dead-lock the deferred... which is then consistent across browsers
+[08:03:17] <jaubourg> Jon47: yep, it is
+[08:03:37] <jaubourg> whereas is should be aj
+[08:03:42] <jaubourg> ;)
+[08:03:47] <Jon47> lol
+[08:04:00] <Jon47> but ajax is the name of a sweet ancient greek warrior
+[08:04:12] <jaubourg> yeah, we like them classics ;)
+[08:07:58] <rwaldron> " synchronous ajax is a monstruosity, here, I said it" +9001
+[08:08:01] <rwaldron> jaubourg ^
+[08:09:45] <jaubourg> heh
+[09:09:57] <rwaldron> danheberden yt?
+[09:15:49] <rwaldron> ?tell danheberden i made you presents. https://github.com/danheberden/serializeObject/pulls
+[09:15:50] <bot-t> rwaldron, Okay.
+[10:22:15] <paul_irish> birthdays tomorrow: me, rwaldron and louisremi ! :D
+[10:25:10] <rwaldron> paul_irish :)
+[10:25:18] <rwaldron> louisremi as well? awesome
+[10:25:59] <louisremi> rwaldron as well? Oh, I feel less special now...
+[10:26:01] <louisremi> ;-)
+[10:26:12] <rwaldron> :P
+[10:26:14] <DaveMethvin> TIL paul_irish, rwaldron, and louisremi were born on the same day as Harry Potter (Daniel Radcliffe)
+[10:26:28] <rwaldron> ugh
+[10:26:50] <louisremi> The REAL Harry Poter is born in Spetember, isn't he?
+[10:26:58] <paul_irish> wow. impressive.
+[10:27:35] <DaveMethvin> louisremi: oh as in the story line? i have no idea...
+[12:33:45] <gnarf> what characters need to be escaped inside of the ' ' portion in css attrib selectors?
+[12:34:00] <gnarf> *[attr='in this portion']
+[12:34:36] <gnarf> so far, best i can tell only needs whatever quote you escaped
+[12:34:48] <gnarf> *used
+[12:43:20] <DaveMethvin> gnarf, technically it should be whatever the w3c says needs to be escaped ... are you testing the qSA path, Sizzle js path, or both?
+[12:43:29] <gnarf> both
+[12:43:46] <gnarf> i would assume sizzle conforms
+[12:43:47] <gnarf> :)
+[12:43:52] <DaveMethvin> hahahaha
+[12:43:54] <gnarf> and if not its a bug needing fixing
+[12:44:21] <DaveMethvin> i do know there are some chunker issues with sizzle
+[12:44:29] <DaveMethvin> like ] still breaks when quoted?
+[12:44:36] <gnarf> http://jsfiddle.net/gnarf/WBPFY/2/
+[12:44:50] <gnarf> thats back on jQ 1.3.2
+[12:45:16] <DaveMethvin> damn yer doin yer  homework
+[12:48:10] <gnarf> its for UI so
+[12:48:15] <DaveMethvin> http://www.w3.org/TR/CSS2/syndata.html#tokenization
+[12:48:32] <DaveMethvin> string1 and string2
+[12:49:20] <DaveMethvin> damn you can escape a real newline
+[12:49:34] <DaveMethvin> i just don't live dangerously enough
+[12:50:10] <DaveMethvin> looks to me that you don't need to escape much
+[12:51:18] <gnarf> yeah
+[12:51:31] <gnarf> seems just ' and " works
+[12:51:51] <gnarf> for that matter just ' if you know yer using '
+[12:52:02] <DaveMethvin> yep
+[17:10:55] <jqcommit> [jquery] jaubourg pushed 1 new commit to master: https://github.com/jquery/jquery/commit/e6a99fdb0ee9e0fd7552d5de8bc4acbe982e98b7
+[17:10:55] <jqcommit> [jquery/master] Fixes #9887: ajax now supports circular references into objects passed as context. Prefilter and transport developpers should add their own custom option into flatOptions when needed. Unit test added. - jaubourg
+[17:10:59] <socialhapy> http://bit.ly/ro6KG3 jaubourg (2 minutes ago) on jquery: Fixes #9887: ajax now supports circular references into objects passed as context. Prefilter and transport developpers should add their own custom option into flatOptions when needed. Unit test added.
+[17:39:56] <jqcommit> [jquery] jaubourg pushed 2 new commits to master: https://github.com/jquery/jquery/compare/e6a99fd...0ed9909
+[17:39:56] <jqcommit> [jquery/master] Makes sure that status -1 (used when an internal error occured) will not tag jqXHR.readyState as complete (4). - jaubourg
+[17:39:56] <jqcommit> [jquery/master] Fixes #9854: propagates native statusText onto jqXHR.statusText. statusText in callbacks is still normalized. Unit test added. - jaubourg
+[18:27:31] <jqcommit> [jquery] jaubourg pushed 1 new commit to master: https://github.com/jquery/jquery/commit/27291ff06ddb655f90a8d1eada71f7ac61499b12
+[18:27:31] <jqcommit> [jquery/master] Fixes #9255: xml parsing error in $.parseXML is now properly detected for all browsers. Unit test added. - jaubourg
+[18:27:33] <socialhapy> http://bit.ly/nquZ8I jaubourg (2 minutes ago) on jquery: Fixes #9255: xml parsing error in $.parseXML is now properly detected for all browsers. Unit test added.

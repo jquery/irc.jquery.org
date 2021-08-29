@@ -1,0 +1,73 @@
+[04:50:29] <m_gol> s5fs: ping
+[04:52:17] <arschmitz> m_gol: its a little prior to 5am fir him but theres a slim chance i could help lol
+[04:52:27] <arschmitz> fir/for
+[04:58:12] <m_gol> arschmitz: jq03 & swarm is down
+[04:58:32] <arschmitz> can you ssh in?
+[04:58:53] <arschmitz> m_gol: 
+[05:03:12] <m_gol> arschmitz: nope
+[05:03:18] <arschmitz> me either
+[05:03:20] <m_gol> arschmitz: I've sent an email to the infra group
+[05:03:45] <arschmitz> which means we have reached the limit of what i can do other then call or text s5fs ti wake him up
+[05:04:17] <m_gol> that's not terribly critical, I can wait until dawn ;)
+[05:04:23] <arschmitz> ok
+[05:04:42] <arschmitz> gnarf: might be up before him too its 8:00 for him
+[05:10:14] <scott_gonzalez> Though gnarf likes to sleep late and he's technically on vacation ;-)
+[05:11:25] <arschmitz> yeah thats why i said might lol
+[05:24:33] <m_gol> technically :P
+[05:52:13] <gnarf> i'm also not able to reach it, sent in a ticket to mt
+[07:15:28] <gnarf> m_gol: they say its back, and I can ssh in now
+[08:27:24] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/bb82bc848abd7cbdcc62e020a9209383af4eebd0
+[08:27:24] <jqcommit> 13infrastructure/06puppet-master 14bb82bc8 15Corey Frang: jquerymobile.com: Add redirect for gbs...
+[08:27:32] <jqcommit> [13infrastructure] 15gnarf merged 06puppet-master into 06puppet-stage: 02https://github.com/jquery/infrastructure/compare/af045d4ede4d...bb82bc848abd
+[09:27:03] <s5fs> arschmitz: gang, you are always welcome to call and wake me up
+[09:27:28] <s5fs> gnarf: okay so we had another server down at MT?
+[09:27:38] <arschmitz> s5fs: oh don't you worry i was ready to wake you right up lol
+[09:27:47] <arschmitz> s5fs: m_gol talked me out of it :-p
+[09:28:07] <s5fs> hahaha good deal, thanks m_gol!
+[09:37:05] <s5fs> our host said jq03/swarm was up but the CPU was pegged, they had to reboot but we have no root cause.
+[09:37:14] <s5fs> I'll review logs later today.
+[10:20:42] <m_gol> s5fs arschmitz: if jquery.com was down, a wake up call would be justified. ;) this was not critical
+[10:39:07] <s5fs> m_gol: haha, so true! anyways, don't be a stranger. I trust you have my phone number?
+[11:19:51] <scott_gonzalez> gnarf: ping
+[11:24:50] <gnarf> scott_gonzalez: semi afk
+[11:25:14] <scott_gonzalez> So I'm doing some testing and I can't seem to come up with a situation where base..head doesn't find every commit for a PR.
+[11:25:26] <gnarf> it should be good
+[11:25:32] <scott_gonzalez> I'm not really sure how git is able to figure out what that range means when history is destroyed, but it seems to work.
+[11:25:37] <gnarf> for a pr
+[11:25:44] <scott_gonzalez> Like I did a hard reset to kill commits and it worked.
+[11:25:49] <scott_gonzalez> I did a rebase to change SHAs and it worked.
+[11:25:55] <gnarf> yeah, because base..head no longer includes those shas
+[11:26:14] <scott_gonzalez> But base in the case of a rebase isn't even a SHA in the history at that point.
+[11:26:18] <scott_gonzalez> Check this out..
+[11:26:25] <gnarf> yeah of course 
+[11:26:27] <scott_gonzalez> https://github.com/scottgonzalez/temp-test/pull/6
+[11:26:31] <gnarf> you rebased it - all new shas
+[11:26:40] <scott_gonzalez> base for that shows up as HEAD of master.
+[11:26:45] <scott_gonzalez> Because it's a PR against master.
+[11:26:54] <scott_gonzalez> So base doesn't even exist in the line for this PR.
+[11:27:00] <gnarf> right
+[11:27:14] <scott_gonzalez> But base..head where base = HEAD of master and head = head of PR branch still produces the correct list of commits.
+[11:27:26] <gnarf> so what it does is rewind to the first shared parent
+[11:27:28] <scott_gonzalez> I guess git just walks the parents of base until it finds a common ancestor?
+[11:27:52] <m_gol> s5fs: you sent one in an email some time ago so yes :)
+[11:27:55] <gnarf> a..b walks from b and a back to shared ancestor then shows commits to reach b
+[11:28:11] <scott_gonzalez> So I can stop using the API to get the commits.
+[11:28:28] <gnarf> probably
+[11:28:32] <scott_gonzalez> And just use `payload.pull_request.base.sha`..`payload.pull_request.head.sha`
+[11:28:47] <scott_gonzalez> That simplifies this a bit.
+[11:28:57] <scott_gonzalez> And reduces the number of HTTP requests during validation.
+[11:29:09] <arschmitz> thats a bonus
+[11:30:11] <scott_gonzalez> Always have to throw out the first implementation, right? ;-)
+[11:30:18] <arschmitz> yup
+[11:33:19] <scott_gonzalez> I guess the problems that we were looking at were specific to Travis because you don't have access to the payload.
+[11:33:51] <scott_gonzalez> I guess I shouldn't conclude that a major bug being open for a year means that it's not a trivial fix  :-P
+[11:34:47] <scott_gonzalez> I'm gonna add this info directly to the notifier.
+[11:39:59] <arschmitz> scott_gonzalez: yeah i thought you knew that was specific to travis. They truncate at a certain number of commits the history. So if the pr included to many commits you didnt get them all
+[11:41:25] <arschmitz> scott_gonzalez: Gotta run an errand though be back later
+[11:42:01] <scott_gonzalez> arschmitz: That's not the problem I'm talking about.
+[11:42:12] <scott_gonzalez> Travis is supposed to provide the commit range in an env var, but they don't.
+[11:42:27] <scott_gonzalez> And the var being empty is a major problem for a lot of people.
+[11:42:50] <scott_gonzalez> And they've acknowledged the bug and said they can't really fix it.
+[11:43:05] <scott_gonzalez> Which now seems to be a lie.
+[11:43:06] <arschmitz> ohh sorry
+[11:43:40] <arschmitz> yeah that would appear to just be a lie and they dont want to deal with it

@@ -1,0 +1,111 @@
+[09:07:24] <kinblas> scottjehl: ping
+[09:07:31] <scottjehl> hey Kin
+[09:07:41] <scottjehl> was just about to hit you up actually
+[09:07:44] <kinblas> scottjehl: was just curious about your conversation with eddie yesterday
+[09:07:56] <kinblas> you guys kept mentioning link or href
+[09:08:08] <kinblas> regarding the URL bar dropping down on iOS
+[09:08:14] <kinblas> what do you mean link?
+[09:08:17] <scottjehl> yeah, disregard that
+[09:08:18] <scottjehl> not sure
+[09:08:22] <scottjehl> however
+[09:08:25] <kinblas> I thought it happens because we modify the URL
+[09:08:35] <kinblas> that is, we add the hash
+[09:08:38] <kinblas> so it drops down
+[09:08:50] <kinblas> any time we change pages
+[09:08:58] <scottjehl> I'm seeing that if we preventDefault on touchstart, after finding that we need to handle via ajax, we can prevent url bar every time
+[09:09:08] <scottjehl> ...I have this working locally
+[09:09:47] <kinblas> but doing a prevent default on touchstart kills mouse events?
+[09:09:58] <scottjehl> so in order to do it cleanly, I'm moving the "should we handle this click via ajax?" logic to an external function
+[09:10:40] <scottjehl> this is only for binding to real touchstart, and only preventing default if we're going to handle the click via ajax
+[09:11:31] <kinblas> so I guess what you're finding is that the dropping of the URL bar is tied to the default behavior of the click on a link?
+[09:11:37] <scottjehl> yep
+[09:12:01] <kinblas> and calling prevent default on the click doesn't prevent that eh
+[09:12:02] <kinblas> ?
+[09:12:39] <kinblas> I guess we're already doing that and it doesn't :-
+[09:12:42] <kinblas> :-
+[09:12:45] <kinblas> :-)
+[09:13:18] <scottjehl> right
+[09:13:19] <kinblas> anyways ... one other tidbit which I'm sure you remember is that the size of the document also factors into how the URL bar showing up behaves
+[09:13:49] <scottjehl> yep definitely. but this will prevent it from showing in the first place if we want
+[09:13:53] <kinblas> if the document is at least the size of the view, it overlays, if it's less than the view height it pushes the content down
+[09:13:53] <scottjehl> here's an isolated test case:
+[09:14:24] * kinblas wonders how the heck scott figured that out :-)
+[09:15:10] <scottjehl> http://jsbin.com/inuvi5/4
+[09:15:13] <scottjehl> http://jsbin.com/inuvi5/4/edit
+[09:15:30] <scottjehl> I set to out make an example that proves it's not possible to prevent
+[09:15:33] <scottjehl> that's how
+[09:15:43] <scottjehl> touchstart seemed like the logical place to start
+[09:15:50] <scottjehl> and voila. I was way wrong
+[09:15:52] <scottjehl> heh
+[09:15:58] <scottjehl> which is good :)
+[09:16:08] <kinblas> so we can change the hash as many times as we want and it won't drop down?
+[09:17:03] <scottjehl> yep
+[09:17:09] <scottjehl> we just need to catch it early
+[09:17:15] <scottjehl> ...making a branch now
+[09:23:18] * kinblas tries scott's jsbin url
+[09:23:26] <kinblas> scottjehl: yeah slick
+[09:23:51] <scottjehl> surprised. Frankly, I thought we tried this a long time ago
+[09:28:11] <scottjehl> finding that changePage alone shows the address bar due to its scrolling to top
+[09:28:22] <scottjehl> so that's the part I'm tinkering with right now
+[09:59:44] <kinblas> scottjehl: yeah we need to figure out how to disable that ... folks on the forums were asking how to disable that, and wanting to scroll to 1 versus 0, etc
+[09:59:55] <scottjehl> making progress on this!
+[10:00:15] <scottjehl> disabling scrolling to the spot you came from?
+[10:00:29] <scottjehl> ...I guess. (not thrilled about that option)
+[10:00:42] <scottjehl> I've got it quite smooth right now despite scrolling being enabled
+[10:02:53] <scottjehl> real quick update:
+[10:03:30] <scottjehl> simply adding touchstart to the click binding allows us to cancel the default address bar behavior on clicked links
+[10:04:25] <scottjehl> that's only part of the change
+[10:04:40] <scottjehl> but that prevents the default well. Then we've got changePage
+[10:07:36] <scottjehl> however, we still want to use click for the actual pagechange, since it does a good job of ensuring that the touchstart didn't result in some other behavior, like scrolling
+[10:09:11] <scottjehl> so... here's the full diff to get smooth transitions:
+[10:09:20] <scottjehl> kinblas you there?
+[10:25:33] <kinblas> scottjehl: yeah, sorry, I'm on my mac, but running irc on windows
+[10:26:00] <scottjehl> hey no worries. Actually, I'll hit you up in a few. I'm going to push these changes into a branch with a few commits to explain
+[10:26:16] <scottjehl> should be an hour or so and I'll have you check it out if that's cool
+[10:26:26] <kinblas> ok
+[10:26:29] <kinblas> so good news
+[10:26:31] <scottjehl> great news tho
+[10:26:38] <kinblas> I just finished testing  phonegap
+[10:26:48] <scottjehl> first change was adding a vclick binding with our click binding
+[10:26:48] <kinblas> the 2 use cases I mentioned in the meeting yesterday
+[10:26:52] <scottjehl> so now it's both
+[10:26:54] <scottjehl> here
+[10:26:58] <scottjehl> here's why
+[10:27:11] <kinblas> we had to split it to get things to work though didn't we?
+[10:27:24] <kinblas> to fix some problems we had with alpha 4
+[10:27:59] <scottjehl> bind to vclick to allow for early default prevention and changePage handling where touch events are supported.
+[10:27:59] <scottjehl> 	//Also prevents address bar from appearing by default on iOS.
+[10:27:59] <scottjehl> 	//still bind to click for real click handling of non-ajax links, even on touch-supporting devices
+[10:28:09] <scottjehl> we're binding to both
+[10:29:09] <kinblas> hmmm, we'll have to do some real testing on that ... therre were some touch/mouse event problems on different platforms that couldn't be addressed unless we allowed the click to happen
+[10:29:11] <scottjehl> if pagechange is handled, preventdefault will prevent the click event from ever happening, but even if it did occur, the transitioningqueue would kill it
+[10:29:56] <scottjehl> real click does happen still, if it's non-ajax
+[10:30:14] <scottjehl> agreed on the testing front though. just initial reports here :) but it's smooth as hell
+[10:30:19] <kinblas> I know it had to do with bugs when the touch event target doesn't match the mouse event target
+[10:30:54] <kinblas> Anyways regarding Phone Gap, I just tested without base and with base and things all work
+[10:30:59] <scottjehl> hm ok.
+[10:31:01] <scottjehl> oh awesome!
+[10:31:03] <scottjehl> great work
+[10:31:10] <kinblas> it's pretty nifty ... we can actually pull in pages from other domains
+[10:31:17] <scottjehl> rockin
+[10:31:25] <kinblas> I have a test that has a local app file, loads from webpro *AND* from jquerymobile.com
+[10:31:33] <kinblas> and it all resolves things properly
+[10:31:45] <kinblas> and you can get back to the internal pages too
+[10:31:56] <scottjehl> man, that's awesome
+[10:32:09] <kinblas> so the only thing I had to tweak
+[10:32:20] <kinblas> was the urlParser to account for that stupid phonegap on iOS bug
+[10:32:28] <kinblas> .. so things worked out of the box
+[10:32:58] <kinblas> ... the phonegap bug has to do with the fact that it inserts an extra slash before the file name in the URL path
+[10:38:13] <scottjehl> weird
+[14:26:24] <scottjehl> hey kinblas_
+[14:27:10] <scottjehl> looking through the change list for beta. I love that loadPage is exposed, but should transitionPages be exposed? Seems internal to changePage?
+[14:28:03] <gseguin> I just ran our css files through csslint, some interesting warnings we should address at some point
+[14:28:20] <scottjehl> yeah. cool tool
+[14:28:34] <scottjehl> I'd like to see more explanation around a lot of their rules
+[14:28:41] <scottjehl> "Heading elements (h1-h6) should have exactly one rule on a site. CSSLint warns if it finds more than one."
+[14:28:52] <scottjehl> not sure I understand that one
+[14:28:55] <scottjehl> for example
+[14:28:56] <gseguin> yeah, not too sure about the reason for that
+[14:28:58] <scottjehl> anyway, good call
+[14:29:20] <gseguin> post-beta1
+[20:57:52] <t2gs> hey anybody awake?

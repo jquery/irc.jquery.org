@@ -1,0 +1,778 @@
+[01:16:14] <LeGorille> hi there, I have a recursive function that does multiple ajax requests. is there a way to show a loader at first call and remove it once the process is finished ??
+[01:17:31] <Cork> LeGorille: you can use the ajaxSend event
+[01:17:40] <Cork> personally i would just do it directly in the function though
+[01:18:05] <LeGorille> yes but the loader is removed after the first request
+[01:18:24] <Cork> so just check if you're suppose to recurse
+[01:18:35] <Cork> and if you are just don't remove it
+[01:22:54] <LeGorille> how would I check that ??
+[01:23:00] <LeGorille> there is always a response
+[01:23:05] <Cork> jsfiddle the code
+[01:23:50] <LeGorille> ok one moment
+[01:30:05] <LeGorille> https://jsfiddle.net/kxdmekbk/
+[01:30:19] <LeGorille> I simplified the function
+[01:30:54] <Cork> uh, there's no recursion
+[01:31:34] <LeGorille> yes, the select field is triggered and call the on('change')
+[01:32:49] <LeGorille>  $('#mod' + index).trigger('change');
+[01:40:21] <Cork> LeGorille: so you would have to loop the sub_options and check for the indexes
+[01:40:39] <Cork> and if any of them are the same element the change event came from don't remove the loader
+[01:41:06] <Cork> a better option might be to not use events to recurs the loop
+[01:41:33] <Cork> wait
+[01:41:39] <Cork> no... where it the index comming from?
+[01:41:54] <ryanneufeld> the outer each
+[01:41:57] <Cork> ah, there
+[01:42:09] <Cork> well then you would have to check it on options not sub_options
+[01:42:25] <ryanneufeld> why are you triggering changes on option groups that weren't actually changed?
+[01:42:31] <Cork> btw you can use $.map to clean up sub_options
+[01:43:58] <Cork> LeGorille: also you're concutting html, that makes this code exposed to xss
+[01:44:05] <Cork> i would recommend building dom elements instead
+[01:44:11] <Cork> the code becomes cleaner and safer
+[01:45:05] <LeGorille> I am testing at this stage ... and I am not that good with javascript, really beginner
+[01:45:38] <LeGorille> ryanneufeld the fields that are triggered have other fields linked to them
+[01:45:47] <LeGorille> the logic is working
+[01:46:01] <LeGorille> I get the proper fields updated
+[01:46:56] <LeGorille> but I need to be able to remove the loader on last request
+[01:47:40] <Cork> LeGorille: https://jsfiddle.net/kxdmekbk/1/
+[01:47:51] <Cork> that should remove the xss problem
+[01:48:07] <Cork> (also why use data-value when options have a value attribute?=
+[01:48:08] <Cork> *)
+[01:49:51] <LeGorille> you are right, I only need the value attribute
+[01:51:18] <LeGorille> let me try your jsfiddle
+[01:51:29] <Cork> LeGorille: this should work somewhat https://jsfiddle.net/kxdmekbk/2/
+[01:52:29] <Cork> you most likely need to tweak it as it is just blind untested coding, but it should get you somewhat on the path
+[02:04:05] <LeGorille> text: option.Valeur  <<< what does this do ??
+[02:04:29] <Cork> it adds <option>text</option>
+[02:04:42] <LeGorille> I see
+[02:04:48] <Cork> but contrary to html it ensures that it is just text
+[02:04:56] <LeGorille> what if I want to add a string of data attributes
+[02:05:07] <Cork> you shouldn't
+[02:05:15] <Cork> you should add them as key: value pairs
+[02:05:23] <Cork> 'data-key': value
+[02:05:40] <LeGorille> ok
+[02:05:52] <LeGorille> thanks a lot man ... I will try that and let you know
+[02:48:39] <LeGorille> nope, it's not working
+[02:49:00] <LeGorille> activeCalls keeps incrementing and never goes < 1
+[02:49:20] <Cork> so the complete never gets called?
+[02:49:54] <Cork> that's weird
+[02:50:20] <LeGorille> that's right
+[02:50:45] <LeGorille> because the trigger happened before the complete I think
+[02:50:55] <Cork> doesn't matter
+[02:51:28] <Cork> after the trigger the complete should be executed
+[02:52:28] <Cork> LeGorille: the activeCalls is expected to increase, but not never decrease
+[02:52:41] <Cork> it should be the number of elements in options at most
+[02:52:59] <LeGorille> yes that right
+[02:53:07] <LeGorille> but the complete condition is < 1
+[02:53:13] <LeGorille> so it will never be met
+[02:53:31] <Cork> ya, it should be < 1 cause when the last update happens it should trickle down to 0
+[02:53:47] <Cork> else you have an unknown increase value
+[02:54:10] <Cork> and as the ajax call isn't conditional that shouldn't happen
+[02:54:26] <LeGorille> but all call returns options, otherwise they wont be called
+[02:54:32] <Cork> (line 9 increases and line 32 decreases)
+[02:54:44] <Cork> LeGorille: ya?
+[02:55:22] <Cork> that is what creates the recursion so that is expected
+[02:55:30] <LeGorille> I have a value return from the php script that determines whether a select has dependencies or not
+[02:55:34] <Cork> except you have to at some point stop sending new options
+[02:55:40] <Cork> or it will make ajax calls for ever
+[03:00:08] <LeGorille> you see when a select is populated, it determines whether to make a new call or not
+[03:00:18] <LeGorille> based on the return from the script
+[03:00:41] <Cork> ya?
+[03:00:49] <Cork> what shouldn't matter
+[03:01:09] <Cork> as that trigger the change event handler so it should count up the counter
+[03:01:18] <Cork> and when the ajax call completes it gets counted down
+[03:01:51] <LeGorille> I think it never get to complete:
+[03:02:04] <Cork> that can't happen
+[03:02:18] <Cork> complete is called when ever an ajax call ends, even if the server couldn't be found
+[03:03:09] <LeGorille> I see
+[03:03:42] <Cork> LeGorille: https://jsfiddle.net/37ayakwv/
+[03:04:01] <Cork> (.always is the modern way of writing complete:)
+[03:04:21] <Cork> and success: => .done
+[03:04:51] <LeGorille> let me jsfiddle what I did
+[03:07:01] <LeGorille> https://jsfiddle.net/hjf94rs6/
+[03:08:17] <Cork> hmm you want back to concuting html...
+[03:08:37] <LeGorille> no, I will change that later
+[03:08:45] <Cork> ah
+[03:08:48] <LeGorille> I just want to get this working first
+[03:08:52] <Cork> if (dependencies == 'yes') { <--
+[03:08:58] <Cork> this wasn't in the old fiddle
+[03:09:03] <Cork> and that will break thing
+[03:09:05] <Cork> +s
+[03:09:08] <LeGorille> no I removed to simplify
+[03:09:20] <Cork> you need to move line 8-10 down inside that if
+[03:10:02] <Cork> LeGorille: simplifying things are fine, you need to understand how that effects the code you add though
+[03:10:29] <LeGorille> yep :)))
+[03:10:36] <LeGorille> it is working now
+[03:10:56] <LeGorille> dude you rock
+[03:12:39] <LeGorille> may I pv you Cork ?
+[03:13:02] <Cork> why? (i'm working so preferably not)
+[03:13:21] <LeGorille> ok, I had a work proposition
+[03:13:36] <Cork> heh, i have work enough (and more) sorry :)
+[03:13:52] <LeGorille> :) ok man
+[03:13:59] <LeGorille> thanks a million
+[03:14:02] <Cork> np
+[03:27:45] <LeGorille> I have one last question
+[03:27:58] <LeGorille> how would you map a selected option ?
+[03:28:10] <Cork> map?
+[03:28:23] <LeGorille> yes like you showed me
+[03:28:46] <LeGorille> value: option.Valeur
+[03:29:04] <Cork> well value is just so you get <option value="something>
+[03:29:09] <Cork> *<option value="something">
+[03:29:21] <Cork> its the default way of setting a value for an option
+[03:29:37] <Cork> $('select').val() would give you that value
+[03:29:49] <LeGorille> and if I want to get <option selected="selected" value="something">
+[03:29:57] <LeGorille> based on a condition
+[03:30:03] <Cork> see previous comment :)
+[03:31:30] <LeGorille> hmm I don't get it :)
+[03:31:44] <LeGorille> bare with me
+[03:32:45] <LeGorille> see I have option.defautvalue, and based on it I need to set the selected option
+[03:32:57] <Cork> LeGorille: https://jsfiddle.net/gywcty2n/
+[03:33:36] <Cork> just do $(<select element>).val(option.defaultvalue);
+[03:34:04] <LeGorille> but I don't want the value
+[03:34:16] <Cork> that is setting it, not getting it
+[03:34:33] <Cork> so the opposite of what the fiddle does
+[03:34:44] <LeGorille> hmmm ok :)
+[03:34:51] <LeGorille> let me try that
+[03:38:46] <ace_me> I have a strange issue after I did added a custom validator http://pastie.org/10887463 the fields which are precedent to the group validation are not rendered as required when I submit the form
+[03:42:52] <ace_me> if I remove the code between line 9 and 14 is better but the group fields are not reset to valid if they were previously invalid and I submit the form again
+[03:54:52] <printForever> TypeError: $ is not a function $(document).ready(function() {
+[03:54:59] <printForever> it seems that jQuery is in strict mode
+[03:55:02] <printForever> or safe mode
+[03:55:14] <printForever> or whatevermode... so it's not recognizing regular $... statement
+[03:55:51] <printForever> how to go about that?
+[03:56:56] <Cork> printForever: you haven't loaded jquery
+[03:57:02] <Cork> that is what that error means
+[03:57:07] <printForever> Cork, I have :)
+[03:57:18] <Cork> then that line runs BEFORE you load it
+[03:57:22] <printForever> ( function($) {} ) ( jQuery ); solves the problem
+[03:57:36] <Cork> ah, you run jquery in compatibility mode
+[03:57:45] <printForever> thats the thing
+[03:57:49] <printForever> compatibility thingy
+[03:58:00] <Cork> printForever: you can just do jQuery(document).ready(function($) {}); if you like
+[03:58:12] <Cork> and not needing the extra wrapper
+[03:58:37] <Cork> function($) <-- note
+[03:58:45] <printForever> tnx
+[04:01:05] <LeGorille> ok now when I run the script my browser freezes
+[04:01:23] <Cork> you have an infinite loop somewhere
+[04:04:07] <LeGorille> but I simply changed the html part
+[04:04:10] <LeGorille> https://jsfiddle.net/tq5vmhrc/
+[04:04:33] <Cork> don't try to modify properties with attr
+[04:04:51] <Cork> LeGorille: looks like your following a guide for a really old jquery
+[04:05:04] <Cork> attr doesn't toggle disabled it hasn't since 1.5
+[04:05:08] <Cork> you need to use .prop
+[04:05:56] <LeGorille> you mean .prop('disabled', false)
+[04:06:03] <Cork> yes
+[04:06:23] <Cork> while we're at it:
+[04:06:23] <Cork> var data = { valeur: valeur, champs: champs, champslie: champslie };
+[04:06:32] <Cork> no need to manually build the param string
+[04:06:38] <Cork> just use an object and jquery will do it for you
+[04:07:56] <Cork> well can't say directly what is causing the infinite loop from that (as i can't run it)
+[04:08:11] <Cork> try commenting out line by line and see where it starts happening
+[04:09:09] <LeGorille> you see when the data is injected in the selected fields, the browser freezes, than on the second run it simply dies, I have to terminate task
+[04:10:56] <Cork> prob cause of the .trigger('change')
+[04:14:11] <LeGorille> right
+[07:14:13] <anli> How do I cancel onclick?
+[07:14:29] <anli> The handler is installed using $('input[alt="Ta bort"]').click
+[07:14:42] <anli> and the rest
+[07:25:51] <Cork> anli: off('click')
+[08:35:01] <moldy> when a checkbox is toggled, i want to run a handler and access the state of the checkbox inside the handler. what is the api to use here?
+[08:39:38] <sillyslux> $('input').on('change',function(e){console.log(e,this.checked)})
+[08:41:12] <moldy> sillyslux: i also need to run this when other elements on the page change
+[08:41:34] <moldy> sillyslux: so i am trying this: jQuery("#with_archive").prop(":checked"), but it always seems to be false
+[08:42:05] <sillyslux> fiddle?
+[08:42:16] <moldy> ah, the colon is too much
+[08:42:47] <moldy> .is(":checked"), but .prop("checked")
+[08:43:02] <sillyslux> i see
+[09:21:51] <orfeo> Hello folks!
+[09:22:57] <orfeo> I am facing a issue when a jQuery function using $ajax() function fails to update a div informing mail was send after a form submission as : https://gist.github.com/anonymous/554a1e5d1d80967df1d796871e7592d4
+[09:23:18] <orfeo> Could someone help me what could be possibly causing this problem please?
+[09:40:28] <sillyslux> put debugger; in line 17 and step through, if data.message is undefined your .html(alertBox) won't be executed, i suggest you try stepping through. then you can also write things like "$('#contact-form').find('.messages')" in the console and see what it evaluates to
+[09:41:29] <sillyslux> if $('#contact-form')[0].reset(); should somehow reset the value of the message, you'll also see that step happening while stepping through, so.. use the debugger
+[09:53:45] <jerit> any ideas to display text on a page, fade it out, display different text and repeat?
+[09:53:53] <jerit> coming up blank here
+[09:54:13] <Simbaclaws> hey everybody, I'm currently having some trouble with a website of mine. Basically I have a store that has products displayed in a catalog. But I need to change the height of each product to be the same. Now I can accomplish this with jquery but I'm also using some wordpress plugin that dynamically loads the page with an ajax call and I'm trying to use the jquery ajaxComplete to basically change css of the newly added dom elements. This seem
+[09:54:51] <Simbaclaws> the website can be found here: http://test.multidispo.com/page/1/?post_type=product&s#038;s
+[09:55:02] <Simbaclaws> and the jquery can be found here: http://pastebin.com/m6pjNsAA
+[09:55:23] <Simbaclaws> try to press the pagination buttons to go to the second page, don't mind the php error
+[09:55:51] <Simbaclaws> the first time you click that button it doesn't work as expected but if you press back to the first page and back to the second one it does work...
+[09:57:00] <Simbaclaws> I'm thinking I might need to add a delay or something?
+[10:01:01] <Simbaclaws> does anybody have an idea on what I might be doing wrong? I can't change the ajax request because it's in a wordpress plugin and I shouldn't hack that plugin because it will mess up with updates
+[10:01:07] <Simbaclaws> so I have to do it in jquery fully
+[10:07:52] <Simbaclaws> let me formulate my question differently: How can I call a function a few seconds after a ajax request in jquery
+[10:08:24] <Simbaclaws> so after ajaxComplete()
+[10:14:44] <AdamPDotty> jerit: two divs with css-animation in front of each other?
+[10:15:45] <jerit> I was thinking an array of text to display and then a loop that applies them to the div on a timer but I'm not sure how to do that
+[10:19:10] <sillyslux> Simbaclasws you could try like $.ajax('/url').then(function( data ) { setTimeout(function(){console.log(data)},5e3); });
+[10:19:48] <sillyslux> respectively .done/.fail
+[10:19:59] <Simbaclaws> eeerm not really sure what url I should put in there though? :S
+[10:20:02] <viewty> What exactly does $(function() { ... }); do please? :o
+[10:20:07] <sillyslux> what do you expect to happen?
+[10:20:12] <sillyslux> i don't see your problem
+[10:20:36] <Simbaclaws> well when you go to the website I expect all the displayed products to have the same height in the box
+[10:20:53] <Simbaclaws> but when I click on the next page, the first time.. It displays everything with a height of like 133px
+[10:20:57] <jerit> viewty got any more context for that question?
+[10:21:10] <Simbaclaws> but when you go back and go forth again you get the actual height that it should use
+[10:21:43] <Simbaclaws> so it seems to work only after the second time you go to that page
+[10:22:06] <viewty> jerit: I mean when it's not inside anything - looking at a js file, there's various vars being defined, various functions being defined, then there's that.
+[10:22:31] <sillyslux> viewty, show!
+[10:22:41] <viewty> jerit: It's not a variable, it's not a function that is used later, it's just there :o
+[10:22:44] <Simbaclaws> I can't access the actual ajax call because it's in a wordpress plugin and if I where to change that I couldn't update it
+[10:23:21] <jerit> viewty well, $ == JQuery so $(function () { }); creates a function in jquery
+[10:24:16] <sillyslux> oh now i see it
+[10:24:21] <Simbaclaws> you do? :)
+[10:24:43] <sillyslux> the height issue... i was blind at first
+[10:24:48] <Simbaclaws> yeah...
+[10:25:01] <Simbaclaws> I don't get why it doesn't work the first time but it does the second...
+[10:25:10] <Simbaclaws> also don't mind the php error I'll fix that later on
+[10:27:23] <Simbaclaws> I thought if I added a delay to it, it might be that the dom hasn't yet fully loaded all of the content after the first time that the ajax request is complete...
+[10:27:53] <Simbaclaws> like a 200 ms delay could be enough :S
+[10:28:10] <Simbaclaws> but I'm using ajaxComplete() because I can't adjust the actual ajax call
+[10:29:43] <Simbaclaws> even though when I go to my developer console and check network -> XHR it does display the full page correctly without the height adjustment
+[10:29:52] <Simbaclaws> at the preview
+[10:30:35] <viewty> jerit: Something like this https://jsfiddle.net/xc3zz54z/
+[10:31:29] <jerit> viewty looks like that's part of a jquery plugin
+[10:32:02] <viewty> ok thanks.
+[10:38:16] <arc_> Simbaclaws why are you setting the height with jquery instead of css
+[10:38:48] <Simbaclaws> because how would I be able to check which content would be the highest and then apply that rule to all the content blocks?
+[10:39:11] <arc_> what do you mean "which content would be the highest"
+[10:39:48] <Simbaclaws> ok so basically I'm checking which product is the highest in height and then adjust all the other products to have the same height so they'll all be displayed properly
+[10:40:04] <Simbaclaws> if there is a pure css solution please do tell
+[10:40:24] <arc_> you're probably better off changing the layout so you don't have to do that in the first place
+[10:40:40] <arc_> setting a timeout is a hacky solution
+[10:41:08] <Simbaclaws> it is, but I'm using a premade theme and I'm unsure how I could change the layout in such a way that it's being displayed properly
+[10:41:47] <Simbaclaws> I've tried changing it to table display with table row and cells, but this doesn't seem to work
+[10:41:55] <Simbaclaws> so I figured I'd just hack it with jquery
+[10:42:22] <arc_> first make sure all the thumbnails are the same aspect ratio
+[10:42:40] <Simbaclaws> yeah I know that... But my client doesn't have the correct dimensions -,-
+[10:43:05] <Simbaclaws> I'm building this webshop for a customer who can't deliver the right content for his pages
+[10:43:18] <arc_> : /
+[10:43:48] <Simbaclaws> so I'm trying to hack my way around it so I don't have to hear all the nagging about improper display, while it's clearly something to be done at his end...
+[10:45:07] <arc_> well you have the right idea then i guess
+[10:45:30] <Simbaclaws> I would say something like, setup rules for the amount of content to be put inside of it, like for example 3 lines for a title max, 250x300 dimensions or an aspect ratio of it so it can be cropped down, specific height for prices so that it stays on the same height etc...
+[10:46:01] <arc_> ya
+[10:46:28] <Simbaclaws> but since he can't comply with all of that I'll try to do it in a workaround and I've almost got it to work properly but for some reason it doesn't work the first time after the ajax call
+[10:47:18] <Simbaclaws> I'm thinking it might be that the content isn't yet properly loaded entirely before it starts adjusting the height the first time
+[10:47:21] <arc_> when i said you have the right idea, i meant you are right about why it isn't functioning as expected, and what you need to do to "fix" it
+[10:49:01] <Simbaclaws> well what would you want me to do? Keep on making it clear to my client that he has to comply with the rules or find a hacky solution so I don't have to deal with it anymore, because I'm really tired of hearing about it from him :S
+[10:49:03] <arc_> the other possible solution is to display the thumbnails in a square regardless of their shape and truncate the titles with an elipse
+[10:49:40] <Simbaclaws> what do you mean by truncating it with an elipse?
+[10:49:49] <Simbaclaws> like a hidden overflow or something
+[10:49:51] <Simbaclaws> ?
+[10:50:22] <arc_> "Bak, PS, A20+A14, 2-vaks, a-bak, 204x120x36mm, wit.ds.1.000st." -> "Bak, PS, A20+A14, 2-vaks, a-bak, ..."
+[10:50:44] <taplar> with hover over for the full text
+[10:50:53] <arc_> yes
+[10:51:24] <Simbaclaws> that might work indeed, however what about the price? should I give it a standard height? Because some products don't have a price and are simply used for informational purposes
+[10:51:44] <arc_> yes
+[10:52:21] <Simbaclaws> wait how am I supposed to do the images xD?
+[10:52:34] <Simbaclaws> he wants to have the border around the entire thing ....
+[10:55:16] <Simbaclaws> also I won't be able to use hovers on the mobile version so I gotta figure out a solution for that aswell
+[10:56:24] <taplar> wonder if you could do a tooltip on the title for it to work on mobile
+[10:56:36] <taplar> then they could tap it
+[10:56:36] <Simbaclaws> exactly
+[10:57:31] <Simbaclaws> plus there is also the issue of reviews, whenever a product has reviews on it it will add that to the product, I guess I'll have to create fixed heights inside of the products to fix it all
+[10:57:59] <Simbaclaws> although I don't think the html will be there for the reviews, it's injected if I'm not mistaken :S
+[10:58:14] <sillyslux> did you find out why the height isn't right on first try?
+[10:58:16] <Simbaclaws> I still think hacking it with jquery might be a better solution though
+[10:58:20] <Simbaclaws> nope I didn't
+[10:58:27] <arc_> https://jsfiddle.net/jtxceukp/
+[10:59:10] <sillyslux> i'd say it's because the images aren't yet loaded when your script determines the height
+[10:59:18] <Simbaclaws> yeah that's what I thought aswell
+[10:59:24] <Simbaclaws> or the content, either one of the two
+[10:59:36] <sillyslux> so you'd have to wait for all of them to be loaded and setTimeout won't help
+[10:59:43] <Simbaclaws> yup :S
+[10:59:49] <sillyslux> that would be unreliablle
+[11:00:05] <Simbaclaws> any ideas? I would appreciate them a lot :)
+[11:01:26] <arc_> i suppose on mobile you are showing everything in one column?
+[11:01:43] <Simbaclaws> 2 columns, but he wants to change that to a higher number like 3 or 4 :S
+[11:01:50] <arc_> rolleyes
+[11:03:23] <Simbaclaws> this is frustrating me too much right now I think I might delay my work...
+[11:03:45] <Simbaclaws> but I've been doing that for like a couple of weeks now already and it's not getting anywhere
+[11:04:07] <arc_> just figure out what the largest possible size is and set everything to that
+[11:04:56] <Simbaclaws> honestly I'm not quite sure how to find that out, I think he can make everything as long as possible, especially with the titles and such but I'll try
+[11:05:01] <Simbaclaws> truncation might work
+[11:05:42] <arc_> is he refusing to ever perpare his content in a way that makes sense
+[11:05:46] <Simbaclaws> oh and there also need to be another field that will be displayed for the amounts that you can buy so I'll have to add that aswell, still not quite figured out how to do that in woocommerce but whatever
+[11:06:13] <Simbaclaws> well not really refusing, but basically he's unable to get the right content and keeps complaining about it not looking correct :S
+[11:06:38] <Simbaclaws> he wants to have the right content and do it the right way but he can't find the correct pictures and such
+[11:07:01] <arc_> sounds like a reasonable client to be working with
+[11:07:21] <sillyslux> wow...
+[11:07:44] <Simbaclaws> we both want the same thing though
+[11:08:06] <sillyslux> i found https://github.com/desandro/imagesloaded but honestly, i'd suggest any other solution, this seems so hacky
+[11:08:21] <arc_> yes, but whose job it is to fix the problem is apparently up for debate
+[11:08:40] <Simbaclaws> yup... -,-
+[11:08:53] <Simbaclaws> we're not getting anywhere
+[11:09:42] <Simbaclaws> lol sillyslux, I could try... but what if it's not the images that are not on time but for example the titles and prices and such?
+[11:10:06] <arc_> the images should take longer than that
+[11:10:17] <Simbaclaws> true, good point
+[11:10:46] <Simbaclaws> so in other words, the second time it works because it's cached the images from the first time...
+[11:10:48] <sillyslux> Simbaclaws, put a  debugger statement in your code and examine further if you want, but i'm pretty sure it's the images
+[11:11:13] <sillyslux> yes, cached :)
+[11:11:27] <sillyslux> or :(
+[11:11:30] <Simbaclaws> I'll try using that library you've send me, see if it gets me anywhere.
+[11:12:23] <Simbaclaws> I'd put .imagesLoaded inside of the ajaxComplete function correct?
+[11:14:13] <sillyslux> yes
+[11:14:51] <Simbaclaws> I'll report back to tell you if it worked or not, if it does I'm finally done with all the complaining :) Doesn't look all that good but at least they're the same height
+[11:15:08] <Simbaclaws> it could be fixed way better but still...
+[11:15:31] <sillyslux> i still believe it's all wrong
+[11:15:38] <Simbaclaws> I do so too
+[11:16:07] <sillyslux> can't you do this with css/flexbox maybe? is support for old browsers a thing?
+[11:16:19] <Simbaclaws> what is flexbox?
+[11:16:31] <sillyslux> display:flexbox
+[11:17:01] <sillyslux> https://codepen.io/enxaneta/full/adLPwv/
+[11:17:32] <sillyslux> http://caniuse.com/#feat=flexbox
+[11:17:37] <Simbaclaws> hmm haven't heard of that before, I could give it a try :D
+[11:18:07] <Simbaclaws> doesn't work on older versions of ie? Not my problem, go download a newer browser
+[11:18:16] <sillyslux> ie10+
+[11:18:36] <Simbaclaws> yeah exactly, the older ones I'd like the neanderthal to disregard
+[11:18:49] <sillyslux> edge is fine
+[11:18:54] <Simbaclaws> jup
+[11:19:01] <Simbaclaws> ok nice, I'll give this a shot, thanks a lot! :
+[11:19:02] <Simbaclaws> :D
+[11:19:58] <sillyslux> good luck then
+[11:20:05] <Simbaclaws> thanks, I'm gonna need it
+[11:27:32] <Simbaclaws> I'm going to #css for help with my flexbox I'm not fully grasping the concept just yet
+[11:28:17] <taplar> it's aight
+[11:29:02] <taplar> maybe this might enlighten you some, possibly.  https://github.com/taplar/site-editor/blob/master/public/styles/flexbox.css
+[11:29:37] <codecutter> status: parsererror error: SyntaxError: Unexpected token < in JSON at position 0(…) http://pastebin.com/rUEzWt4Y
+[11:29:49] <Simbaclaws> what's the html that goes with it :S?
+[11:30:29] <taplar> comment out your dataType: "json" and try console.log the data to see what it is, or look at it in your network tab
+[11:30:57] <Simbaclaws> oh wait I think I've got it the way I wanted it to work
+[11:31:06] <taplar> also line 9 looks wrong
+[11:31:18] <taplar> ah, nvm, missed the bind
+[11:32:25] <codecutter> line 9 is fine, its a framework line
+[11:32:35] <taplar> Simbaclaws: essentially you put the display flex on the container, and the direction too
+[11:32:49] <taplar> then your children have the flex-grow on them to tell if they should grow or not
+[11:32:58] <taplar> depending on the # affects their ratio as well
+[11:33:31] <taplar> https://github.com/taplar/site-editor/blob/master/public/views/login.view
+[11:34:43] <Simbaclaws> so if I wanted to have multiple rows with ltr?
+[11:35:11] <taplar> hmm?
+[11:35:18] <Simbaclaws> oh flex-wrap should fix that
+[11:35:31] <codecutter> thats weird, data its seems to output an entire html page
+[11:35:52] <codecutter> console log*
+[11:36:01] <taplar> so that's why your getting the parse error
+[11:37:47] <codecutter> server is sending html, right?
+[11:37:54] <taplar> yup
+[11:38:05] <taplar> check your network tab.  what response code are you getting?
+[11:38:45] <taplar> you may have to open your network tab before you have the ajax run to see it
+[12:02:31] <Simbaclaws> sillyslux, I can't use flex to fix this problem, it has something to do with the inner element inside of the child of the flexbox, this one doesn't extend to the same height as it's parent but basically has the height of what's inside...
+[12:03:52] <cangelosx1> is it bad practice to use jquery to submit ajax post requests from an anchor or button element, without a form?
+[12:04:15] <taplar> nope
+[12:04:58] <cangelosx1> e.g. <button type="button" class="data-href" data-request="POST" data-route="/some/route/here">
+[12:05:08] <cangelosx1> or even a DELETE request?
+[12:05:21] <taplar> sure
+[12:05:49] <cangelosx1> This is a prompt dialog that asks user to confirm before deletion and I don't want to use a form just to do a simple delete request
+[12:06:16] <cangelosx1> alright, thanks
+[12:10:03] <Simbaclaws> how do I get the products in the following page to be the same height? I've tried table display, I've tried flexbox, I've even tried hacking the height with jquery in order to make them all as high as the highest, I just can't seem to do it :S help plox
+[12:10:16] <Simbaclaws> http://test.multidispo.com/?post_type=product&s=
+[12:10:27] <robertmaxrees> try #css Simbaclaws :)
+[12:10:32] <Simbaclaws> oh oops
+[12:10:35] <Simbaclaws> I thought it was here
+[12:10:37] <Simbaclaws> doh
+[13:51:57] <robertmaxrees> woooo
+[13:53:34] <taplar> :)
+[14:07:52] <Utils> What would be the best way to detect a change of a data attribute?
+[14:08:01] <robertmaxrees> You... don't?
+[14:08:30] <robertmaxrees> why do you think you need that?
+[14:09:57] <Utils> Well I found this circular progress bar: http://codepen.io/JLT93/pen/XKNxrY and currently the css is every 5% so .progress-5 .progress-10 .progress-15 and so on, ideally this would be every 1% but that's a lot of css classes so I thought having a bit of jquery hanle it would be preferred.
+[14:10:24] <Utils> so I'd have like a data-percent attribute, and that value would be changed then the small amount of javascript would detect this change and do what it needs to do?
+[14:10:41] <robertmaxrees> you cannot really detect data attribute changes.
+[14:10:44] <robertmaxrees> so that's kind of a problem.
+[14:12:58] <Utils> what do you suggest for this kind of thing then robertmaxrees ?
+[14:13:46] <robertmaxrees> any library that supports what you're looking for.
+[14:13:56] <robertmaxrees> (shrug) or generate the incremental classes if you really need them.
+[14:14:27] <robertmaxrees> or change the specific properties you need to change via js.
+[14:24:01] <mmmveggies> robertmaxrees: !! long time no see
+[14:24:03] <mmmveggies> hello
+[14:24:05] <robertmaxrees> hey hey
+[14:24:10] <bdmc> I am just starting to use an inherited installation of jqxDocking, and am confused.  I thought that I was adding a "window" to a particular "panel" in a particular order ( the last one in the column ), and it showed up in a completely different place.  What determines the order of placement in jqxDocking?
+[14:24:29] <robertmaxrees> got back from vacation earlier this week.
+[14:24:38] <mmmveggies> oo, where from?
+[14:24:50] <robertmaxrees> europe.  Paris, Florence, and Rome.
+[14:24:57] <mmmveggies> sounds amazing
+[14:25:08] <robertmaxrees> it was.
+[14:37:43] <raj> am I loading the libraries incorrectly or something? https://jsfiddle.net/fmf9m0L6/ I loaded jquery UI via the "javascript" gear icon. I even tried to load it the traditional way on the side using a CDN, still doesn't work: https://jsfiddle.net/fmf9m0L6/1/
+[14:38:59] <robertmaxrees> edge isn't guaranteed to be stable.
+[14:39:15] <robertmaxrees> and jquery 3 has some issues with jqui.
+[14:39:31] <raj> oh
+[14:39:33] <raj> thank you
+[14:40:23] <raj> looks even worse here: https://jsfiddle.net/fmf9m0L6/3/
+[14:40:27] <raj> that's with jquery 2.x
+[14:42:06] <robertmaxrees> you just trying to get a fiddle with jquery + jquery ui
+[14:42:19] <raj> yes
+[14:42:35] <robertmaxrees> https://jsfiddle.net/robertmaxrees/fmf9m0L6/4/
+[14:42:59] <raj> how'd you do it?
+[14:43:11] <robertmaxrees> have to drop to an older version of jquery
+[14:43:17] <raj> oh
+[14:43:21] <raj> thank you
+[14:53:06] <bdmc> Is jqxDocking very new or does nobody use it?  I have been hunting through the documentation, and doing Internet searches, and don't find anything very useful for my question.
+[14:53:46] <robertmaxrees> bdmc looks like kind of a specialty dealio.
+[14:54:04] <robertmaxrees> so you might get lucky, but I doubt you'll meet many people using it here.
+[14:58:30] <bdmc> robertmaxrees: I was hunting through the jQuery forums and found not a whisper.  However, when I did another search, I found that jqWidgets has a completely different forum space, and that one does seem to have a few conversations about jqxDocking.  I will hunt there.  Thanks.
+[14:58:50] <robertmaxrees> rad.  probably have more luck there :)
+[15:02:04] <raj> how do I do this without getting stuck in an endless loop? https://jsfiddle.net/fmf9m0L6/5/
+[15:02:38] <raj> crap, it didn't save, nm
+[15:05:44] <raj> how do I get the meter value animated back to 0 (over the same duration) without getting stuck in an endless loop?
+[15:05:59] <raj> https://jsfiddle.net/fmf9m0L6/6/
+[15:06:46] <robertmaxrees> https://jsfiddle.net/robertmaxrees/fmf9m0L6/7/
+[15:07:23] <raj> …back and forth without getting stuck in an endless loop
+[15:07:31] <robertmaxrees> that's not looping for me.
+[15:07:43] <raj> huh?
+[15:08:30] <robertmaxrees> https://jsfiddle.net/robertmaxrees/fmf9m0L6/7/
+[15:08:44] <robertmaxrees> this is not giving me an endless loop.
+[15:09:26] <raj> if I make meterUp a function and meterDown another function, and call each on their respective `complete` arguments, the page freezes
+[15:09:45] <robertmaxrees> lol
+[15:09:52] <robertmaxrees> right.
+[15:09:56] <robertmaxrees> so you do what i just showed you.
+[15:10:11] <raj> …I want it to cycle endlessly
+[15:10:31] <robertmaxrees> alright, back up.
+[15:10:39] <robertmaxrees> so you DO want it to go back and forth, but you don't want the page freeze.
+[15:10:41] <robertmaxrees> gotcha.
+[15:10:53] <raj> yes
+[15:10:54] <robertmaxrees> that was not immediately apparent from your original request.
+[15:10:59] <raj> my apologies
+[15:11:03] <robertmaxrees> mind showing that code in a bpaste?
+[15:12:14] <mikebald> If you're wanting it to loop endlessly why not use an animated image?
+[15:13:20] <mikebald> *loop endlessly without render-blocking
+[15:16:25] <raj> robertmaxrees, something like this: http://paste.ofcode.org/NbUcKTmdKaSqPNbJSiZCsw
+[15:16:42] <raj> mikebald, I need it to be exactly 5 seconds
+[15:16:45] <raj> up and 5 down
+[15:22:54] <robertmaxrees> can i ask what you're building, raj?
+[15:23:16] <raj> nm
+[15:23:24] <raj> looks like I got it working https://jsfiddle.net/fmf9m0L6/8/
+[15:23:33] <raj> robertmaxrees, just a meter for visual purposes
+[15:23:47] <robertmaxrees> lol that part is obvious.  what's it going to be used for?
+[15:24:07] <taplar> too bad you can't make it close from the lhs as well
+[15:24:31] <robertmaxrees> also, you can replace that final call with just meterUp();
+[15:24:33] <raj> robertmaxrees, to get participants to switch between tasks
+[15:24:48] <robertmaxrees> and now i'm more lost.  good luck I guess :)
+[15:26:25] <raj> it's for testing employee multi-tasking abilities
+[15:26:32] <raj> boring stuff, sorry
+[15:27:54] <raj> is there any way to just full screen the jsfiddle result? Or is there another site that allows my code to run on an otherwise empty page?
+[15:32:44] <taplar> https://jsfiddle.net/fmf9m0L6/10/
+[15:32:49] <taplar> ^raj
+[15:33:12] <sillyslux> https://jsfiddle.net/fmf9m0L6/11/
+[15:33:14] <sillyslux> :D
+[15:36:09] <raj> clever
+[15:36:55] <raj> sillyslux, yours actually requires precious seconds to debug, what were you thinking?
+[15:37:02] <raj> joking
+[15:37:03] <raj> thank you
+[15:37:04] <raj> both
+[15:37:07] <sillyslux> http://jsfiddle.net/fmf9m0L6/11/embedded/result/dark/
+[15:37:25] <raj> where can I put code like this and be full scren?
+[15:37:48] <sillyslux> ?
+[15:39:09] <raj> sillyslux, that dark one is great since it hides the "Result" tab
+[15:39:29] <raj> what property makes the meter color green?
+[15:41:34] <sillyslux> jquery-ui defaults i guess
+[15:41:44] <sillyslux> there's also http://blog.klipse.tech/javascript/2016/06/20/blog-javascript.html
+[15:41:55] <sillyslux> if you want to embed javascript snippets
+[15:42:56] <raj> I don't see any green property upon inspection
+[15:46:24] <raj> anyone?
+[15:47:49] <sillyslux> i see orange :D
+[15:48:19] <raj> I added that but then removed it
+[15:52:29] <sillyslux> it's a browser default
+[15:53:21] <raj> where's it changed?
+[15:55:19] <sillyslux> https://css-tricks.com/html5-progress-element/
+[16:06:26] <neredsenvy> https://dpaste.de/VGwv Why does this loop not delete one matching element ?
+[16:07:44] <robertmaxrees> why not filter instead?
+[16:09:20] <taplar> js may also have an issue with you trying to remove from the array while your iterating over it.  most languages do
+[16:09:25] <robertmaxrees> ^
+[16:09:32] <robertmaxrees> plus mutating data's funky.
+[16:12:19] <neredsenvy> how would I do this with filter
+[16:12:55] <neredsenvy> ah nevermind
+[16:12:58] <neredsenvy> will try filter
+[16:14:31] <neredsenvy> Actually no not sure : /
+[16:14:44] <robertmaxrees> so what are you trying to do?
+[16:15:06] <taplar> maybe https://jsfiddle.net/rq3a570r/
+[16:15:50] <neredsenvy> Well I have two arrays of objets A & B. I want to remove all objects from A which are in B.
+[16:16:06] <robertmaxrees> two separate arrays?
+[16:16:35] <neredsenvy> yes two separate arrays of objects
+[16:16:52] <robertmaxrees> easy.  one sec.
+[16:17:16] <taplar> from his snipplet it looks like they are two arrays of objects
+[16:17:28] <robertmaxrees> yeah, but the basic idea is trivial.
+[16:19:41] <robertmaxrees> https://jsfiddle.net/robertmaxrees/st39rrcv/
+[16:19:43] <robertmaxrees> so this is the basic idea.
+[16:20:06] <robertmaxrees> you'll probably need to do some kind of array.some() call instead of that indexOf(), but otherwise you should get the gist.
+[16:23:11] <taplar> https://jsfiddle.net/rq3a570r/1/
+[16:29:18] <neredsenvy> grr it wont filter it
+[16:29:21] <neredsenvy> not sure why
+[16:31:43] <neredsenvy> Inner filter returns true 3 times
+[16:31:57] <neredsenvy> so it should remove the 3 elements from success array but it dont : ((
+[16:32:02] <taplar> 'inner' filter?
+[16:32:08] <neredsenvy> yes
+[16:32:31] <taplar> both my example and roberts only had one filter with another method inside
+[16:32:53] <neredsenvy> Sorry I meant find*
+[16:33:23] <taplar> it should be noted that with filter, it's not going to override the original array
+[16:33:32] <taplar> if you want that to happen you will have to store it back on top of itself
+[16:33:35] <neredsenvy> returns true 3 times which !$scope.. makes a false which means element should be removed
+[16:33:46] <neredsenvy> ahh
+[16:33:47] <neredsenvy> kk
+[16:33:58] <taplar> array = array.filter(...)
+[16:35:02] <neredsenvy> yesss works
+[16:35:04] <neredsenvy> perfectlly
+[16:36:29] <neredsenvy> ty very much both
+[16:45:37] <darkling> Is jQUI 1.11.4 expected to work with jQ 2.2.4? I'm getting a dozen or so errors from the UI code.
+[16:46:28] <darkling> (Still, at least I'm getting 2.2.4 doing *something*, which 3.0.0 wasn't)
+[16:47:08] <taplar> jQUI says it works with 1.6+
+[16:47:17] <taplar> so you may have to have the 1.x version
+[16:47:47] <robertmaxrees> sorry was in a meeting.
+[16:48:17] * darkling tries that
+[16:48:28] <taplar> i dunno which 2.x corresponds to 1.6
+[16:50:07] <darkling> Nope, same errors with 1.12.4.
+[16:50:35] <taplar> can you show in a fiddle your issue?
+[16:50:51] <darkling> https://paste.fedoraproject.org/383872/46671504/
+[16:51:34] <taplar> right, can you reproduce it in jsfiddle?
+[16:54:37] <darkling> Hmm. How do I load jQUI in this?
+[16:54:53] <taplar> some versions of jQuery already have it there as a selectable
+[16:55:01] <robertmaxrees> https://jsfiddle.net/robertmaxrees/cb59hmdn/
+[16:58:20] <darkling> OK, but that only seems to give you the option of jQUI for one version of jQuery...
+[16:58:40] <robertmaxrees> the option's only there for specific versions.
+[16:58:52] <robertmaxrees> you could use the external resources on the left to load things manually instead if you want.
+[17:04:05] <darkling> Well, this is basically my setup: https://jsfiddle.net/guhrb97y/
+[17:04:26] <darkling> I'm getting errors simply loading the jQUI file.
+[17:04:36] <darkling> I don't know where to look for that in this environment.
+[17:04:44] <taplar> you can pop open your console
+[17:04:49] <robertmaxrees> i'm not getting any errors there fwiw.
+[17:04:52] <taplar> inspect the page or F12 i believe
+[17:04:59] <darkling> Yes, I pasted those errors earlier.
+[17:05:31] <taplar> so next question.  try putting your markup and script in the fiddle
+[17:06:40] <darkling> I don't have a script right now. I've removed it.
+[17:06:46] <blakespot> re
+[17:07:10] <darkling> I'm still getting errors in the console when loading the jQUI code.
+[17:07:43] <robertmaxrees> you mean the CSS errors?
+[17:09:13] <darkling> Well, they're reported as being in jquery-ui.
+[17:09:16] <robertmaxrees> the screenshot you posted reference some CSS stuff.  no js errors.
+[17:10:06] <blakespot> So, I have a series of divs that ares collapsing / expanding with info. I am watching a classname to track this; there is an event fired when the thing opens and when it closes. I want to change an icon out to reflect state on a SIBLING div when that happens. How can I back up to immediate parent, and then come down to find the sibling to access the icon to change? Possible?
+[17:10:28] <robertmaxrees> blakespot very easy.
+[17:10:38] <robertmaxrees> check out .closest() and .find()
+[17:10:38] <blakespot> hey robertmaxrees. yes?
+[17:10:46] <darkling> I haven't posted a screenshot. Do you mean the error log I pasted?
+[17:10:53] <blakespot> I tried closest and could not get it to work.
+[17:11:02] <robertmaxrees> darkling yeah sorry.
+[17:11:03] <robertmaxrees> out of it.
+[17:11:08] <robertmaxrees> blakespot show us what you tried.
+[17:12:01] <robertmaxrees> darkling none of the errors at https://paste.fedoraproject.org/383872/46671504/ are anything to be worried about.
+[17:12:07] <blakespot> jQuery(".purchase-item-detail-wrap").on("shown", function () { jQuery(".purchase-item-detail-wrap").closest(".pkg-caret").html("O"); });
+[17:12:13] <robertmaxrees> ...
+[17:12:14] <robertmaxrees> lol
+[17:12:16] <robertmaxrees> blakespot make a fiddle.
+[17:12:42] <taplar> uh, your doing a global lookup in the handler
+[17:12:45] <robertmaxrees> ^
+[17:12:52] <robertmaxrees> and i don't know what your markup looks like sooooo.
+[17:13:13] <darkling> robertmaxrees: Even line 17? That's actually what I'm trying to do...
+[17:13:17] <blakespot> pardon re: global lookup? I can make a fiddle, but I have the code functional on a page I can point to...
+[17:13:19] <taplar> fwiw, 'this' will reference the detail-wrap that was 'shown'
+[17:13:34] <darkling> Let me try to get that failing in the fiddle
+[17:13:39] <robertmaxrees> blakespot fiddles are always preferred because we can modify and more easily see the code.
+[17:14:05] <robertmaxrees> darkling TypeError: elt.datepicker is not a function would come from other code.  not just by including jq + jqui
+[17:15:14] <darkling> Sorry, I should have pointed out where I transitioned from trying to run my own code to just including the two files.
+[17:15:47] <darkling> I was assuming that the errors from including the js libs were actually important and the root cause of my actual problem.
+[17:16:00] <robertmaxrees> were those the errors from the css files?
+[17:16:14] <blakespot> The page is here: http://www.walterkaitz.org/tables-tickets-2016/ -- I will make a fiddle
+[17:16:18] <darkling> Yes.
+[17:16:33] <robertmaxrees> darkling yeah though shouldn't cause problems.
+[17:16:55] <taplar> blakespot: so you understand what a global lookup is, yes?
+[17:17:04] <darkling> It's been a long time since I ran any apparently production code that spews out random errors as a matter of course.
+[17:17:12] <darkling> I clearly need to run more Java apps. :)
+[17:17:23] <robertmaxrees> darkling jqui fills some gaps and does other things.
+[17:17:29] <robertmaxrees> css has no error handling mechanisms for you.
+[17:17:43] <robertmaxrees> so the css engine just ignores things it doesn't understand.
+[17:17:50] <darkling> Also, this fiddle is irritating. I can't middle-click to paste like I can with everything else. :(
+[17:18:27] <darkling> (Yes, ^C, ^V, but I'm not used to that)
+[17:18:35] <robertmaxrees> no idea what you're referring to but ok.
+[17:20:05] <darkling> Where should I go to find errors in this fiddle?
+[17:20:11] <robertmaxrees> your dev tools.
+[17:20:14] <robertmaxrees> in your browser.
+[17:20:45] <darkling> Oh, OK.
+[17:22:27] <blakespot> taplar: I'm afraid I am not certain what you mean re: global lookup.
+[17:22:28] <taplar> k
+[17:22:36] <blakespot> taplar: the fact that within the function I was looking at .classname vs this?
+[17:22:37] <robertmaxrees> blakespot when you do $('.someSelector') you're searching the entire page.
+[17:22:59] <taplar> ^ so if you only want to search within a given context, you have to do it differently
+[17:23:14] <robertmaxrees> needs to be in relation to $(this)
+[17:23:33] <blakespot> Ok, right. ok $(this) being what got me here, what triggered
+[17:23:41] <robertmaxrees> right.
+[17:23:47] <blakespot> gotcha
+[17:23:48] <taplar> or what it has bubbled up to
+[17:24:00] <robertmaxrees> whatever the target of the binding is.
+[17:24:38] <blakespot> So I have a sibling that is .pkg-caret -- and am now using : jQuery(this).closest(".pkg-caret").html("O");
+[17:24:51] <robertmaxrees> .closest() only goes through ancestors.
+[17:24:52] <blakespot> From what I read, it seems this would find a sibling to 'this'
+[17:24:55] <robertmaxrees> not subliings.
+[17:24:58] <robertmaxrees> *siblings
+[17:24:58] <blakespot> ah
+[17:25:14] <taplar> siblings(selector)
+[17:25:32] <taplar> provided it's a direct sibling
+[17:25:43] <taplar> if its a sibling of a parent, it's not a one step operation
+[17:25:45] <robertmaxrees> though I'd restructure the markup so the sibling you care about has a shared ancestor with the other thing.
+[17:27:32] <blakespot> What I am looking for is in fact the child of a child of a sibling...
+[17:27:34] <blakespot> looking at it
+[17:27:39] <robertmaxrees> right.
+[17:27:47] <bango2> http://jsfiddle.net/learner73/fc56928s/2/ this guy is putting html in his faux option tags via select2.  I'm trying to do the same, and its just displaying the html I write as a string
+[17:27:48] <robertmaxrees> restructure your markup some to make this easier.
+[17:28:28] <blakespot> If I can make it a direct sibling then it's workable?
+[17:28:32] <blakespot> the icon I want to change
+[17:28:33] <robertmaxrees> no.
+[17:28:34] <robertmaxrees> loln
+[17:28:40] <robertmaxrees> you're not listenning.
+[17:28:41] <robertmaxrees> make a fiddle :)
+[17:28:44] <robertmaxrees> let me show you.
+[17:28:57] <blakespot> ok
+[17:29:03] <blakespot> thanks
+[17:30:02] <taplar> bango2: watcha talkin about willis?
+[17:31:20] <bango2> taplar, here's mine compared to the one in the fiddle. you see his select2 dropdown menu has html injected into each "option"
+[17:31:22] <bango2> http://pastebin.com/x65aQUm2
+[17:31:46] <taplar> ah
+[17:31:51] <bango2> I'm trying to do that same thing, but I'm just getting things like "option 1<span...>
+[17:32:11] <robertmaxrees> why would you give us a working fiddle and not your broken one?
+[17:32:20] <taplar> well, he's using 'templateResult'
+[17:32:24] <taplar> your using 'formatResult'
+[17:32:26] <taplar> ?
+[17:32:52] <bango2> Good call. But I've tried both.  I'll try again just for the record, and make a fiddle
+[17:33:40] <darkling> Aaaaaah. I've found my problem.
+[17:34:10] <darkling> $("whatever") returns a list of DOM elements, not a list of jQuery items.
+[17:34:19] <robertmaxrees> in the chrome console?
+[17:34:36] <darkling> In jQuery.
+[17:34:40] <robertmaxrees> huh?
+[17:34:42] <taplar> so someone set $ = document.querySelectorAll ?
+[17:34:54] <robertmaxrees> the chrome console will do that, otherwise something is broken.
+[17:34:59] <darkling> https://jsfiddle.net/guhrb97y/3/
+[17:35:07] <darkling> That was my original code.
+[17:35:15] <bango2> formatResult is deprecated and doesn't function in select2 4.X
+[17:35:17] <darkling> Line 3 was the error.
+[17:35:21] <bango2> its now templateResult
+[17:35:23] <robertmaxrees> darkling lol
+[17:35:29] <taplar> no dude
+[17:35:34] <robertmaxrees> darkling you're confused - the element in .each() isn't wrapped in jquery.
+[17:35:35] <darkling> If I change elt on line 3 to $(elt), it works.
+[17:35:42] <bango2> maybe thats my problem
+[17:35:45] <robertmaxrees> .each() passes the raw dom node as the second arg.
+[17:35:50] <taplar> right cause ^
+[17:35:56] <robertmaxrees> so $() DOES still get you a jquery collection.
+[17:36:17] <robertmaxrees> but the second arg for the callback for $.fn.each is the raw dom node.
+[17:36:44] <darkling> Oh, so it's doing something unexpected, which is silently transforming the elements of the container I'm iterating over.
+[17:36:52] <robertmaxrees> not necessarily.
+[17:36:52] <taplar> it is expected
+[17:36:57] <darkling> Might be for you. :)
+[17:37:04] <taplar> and anyone who reads the api, :P
+[17:37:14] <robertmaxrees> [pretty consistent with the way the API was done for enumeration methods.
+[17:37:17] <darkling> I thought I _head_ read the API docs.
+[17:37:26] <darkling> s/head/had/
+[17:37:33] <robertmaxrees> https://api.jquery.com/each/#each-function - Type: Function( Integer index, Element element )
+[17:38:27] <taplar> but anyway, you don't have to do that
+[17:38:34] <taplar> datepicker() should do the each for you
+[17:38:34] <robertmaxrees> ^ :)
+[17:38:44] <darkling> I'm just generally grumpy. I'm not a web developer, I don't like doing UI work of any kind.
+[17:38:51] <darkling> Please don't try to make me feel better. :)
+[17:38:55] <robertmaxrees> uh.
+[17:38:57] <robertmaxrees> 'kay.
+[17:39:07] <robertmaxrees> we're trying to help you develop a better understnading ;)
+[17:39:08] <taplar> not trying to make you feel better.  pointing out a code smell
+[17:39:20] <taplar> datepicker() will do the each for you.  no need to do it yourself
+[17:39:38] <darkling> taplar: Sorry, I wasn't complaining about that.
+[17:39:45] <taplar> k, :)
+[17:39:48] <darkling> If that's a better idiom, I'm quite happy to use it.
+[17:41:19] <taplar> and personally i'd put a class on the input so you don't have to do the attribute selector
+[17:42:11] <taplar> class="datepicker" works and is also succinct
+[17:42:27] <blakespot> Building fiddle: https://jsfiddle.net/blakespot/o5nc3n7z/3/
+[17:42:38] <blakespot> external librariees I've added don't seem to be taking effect
+[17:42:51] <blakespot> URLS are correct - trying to figure out
+[17:43:07] <robertmaxrees> blakespot https failures.
+[17:43:10] <robertmaxrees> you don't need those anyway.
+[17:43:10] <blakespot> want to use bootstrap and bootstrap-collapse.js in the fiddle as this fires the events that I am keying on
+[17:43:12] <robertmaxrees> just include jquery.
+[17:43:37] <robertmaxrees> blakespot https://jsfiddle.net/robertmaxrees/o5nc3n7z/4/
+[17:43:44] <darkling> taplar: None of this is in the getting started guide, which was as far as I'd got before falling flat on my face.
+[17:43:59] <taplar> darkling: part of why we are here, :)
+[17:44:00] <darkling> Hence the primitive/weird idiom.
+[17:44:14] <taplar> and getting started guide?
+[17:44:18] <bango2> taplar, robertmaxrees heres the fiddle for my select2 https://jsfiddle.net/4zurr1un/1/
+[17:44:46] <darkling> http://learn.jquery.com/jquery-ui/getting-started/
+[17:45:00] <robertmaxrees> darkling did you also check out the jquery learning center?
+[17:45:18] <taplar> ah, well a lot of what we talked about would have been in the base learn.jquery.com, not especially the jquery-ui part
+[17:45:25] <taplar> iirc
+[17:45:27] <darkling> robertmaxrees: I've found it, yes.
+[17:45:37] <robertmaxrees> some of that's covered there, too.
+[17:45:57] <blakespot> Added jquery hosted at google and jquery.com -- no change
+[17:46:01] <blakespot> https should work
+[17:46:17] <robertmaxrees> blakespot just use jquery from the dropdown.
+[17:46:31] <robertmaxrees> https://jsfiddle.net/robertmaxrees/o5nc3n7z/4/ like this.
+[17:46:37] <robertmaxrees> you don't need the bootstrap for this.
+[17:46:38] <darkling> taplar: When you say "class="datepicker" works and is also succinct", do you mean that that on its own will automatically turn it into a datepicker,
+[17:47:01] <darkling> or just that it's a cleaner approach to selecting things to be turned into datepickers?
+[17:47:10] <taplar> no, but $('.datepicker').datepicker() is cleaner than an attribute selector
+[17:47:12] <darkling> (via $(".datepicker").datepicker();
+[17:47:17] <darkling> OK.
+[17:47:32] <darkling> I misunderstood you there.
+[17:47:39] <taplar> generally you want to select on tags, classes, or ids
+[17:47:40] <blakespot> What dropdown. I see  that feature in CodePen, but not here...
+[17:47:44] <taplar> avoid attributes
+[17:47:53] <robertmaxrees> blakespot click the "javascript" title in that box.
+[17:47:58] <robertmaxrees> "frameworks & extensions*
+[17:48:29] <blakespot> yes i see
+[17:48:31] <blakespot> ok
+[17:49:25] <blakespot> Anyway, the code targets the line 21 div and then I'm trying to change the icon on line 16
+[17:49:28] <blakespot> for what it's worth
+[17:50:03] <blakespot> without bootstrap-collapse, my event is not firing
+[17:50:20] <blakespot> so - not a very helpful fiddle, I fear
+[17:50:29] <robertmaxrees> it's enough.
+[17:50:48] <robertmaxrees> you could use "click" for now just to illustrate
+[17:50:57] <blakespot> ok
+[17:52:16] <taplar> bango2: you said there was a version of this that worked?
+[17:53:26] <robertmaxrees> so blakespot you notice how each toggleclick, purchase-item-underscore, and purchase-item-detail-wrap are all related to one another?
+[17:53:38] <darkling> OK, this appears to be working now.
+[17:53:47] <bango2> taplar this one works http://jsfiddle.net/learner73/fc56928s/2/
+[17:54:07] <darkling> Thanks for all the help in the face of brute ignorance and (I hope only slight) rudeness.
+[17:54:28] <robertmaxrees> it's all good :) gotta start somewhere.
+[17:54:36] <blakespot> robertmaxrees: they are siblings
+[17:54:38] <blakespot> it seems
+[17:54:46] <robertmaxrees> blakespot step away from that part.
+[17:55:32] <robertmaxrees> think in terms of how the data's related - each toggleclick has one corresponding purchase-item-underscore and purchase-item-detail-wrap
+[17:55:44] <robertmaxrees> there's an inherent relationship there.
+[17:56:23] <blakespot> Yes, I see that relation
+[17:56:31] <robertmaxrees> good. s
+[17:56:44] <robertmaxrees> so do the semanding thing - wrap each one of those groups on a div or other container.
+[17:56:47] <robertmaxrees> *semantic
+[17:57:42] <blakespot> ok, it's not yet clear to me what this will enable
+[17:57:53] <robertmaxrees> it'll make your DOM traversal 100000 times easier.
+[17:58:01] <taplar> bango2: not sure.  though i just noted that his is using a hidden input and yours is a select
+[17:58:15] <robertmaxrees> blakespot https://jsfiddle.net/robertmaxrees/o5nc3n7z/10/
+[17:58:21] <robertmaxrees> like... that's all you need.
+[17:58:53] <robertmaxrees> brb
+[17:59:00] <bango2> yes, mine is populated with options taplar. his is being passed in via his tags array. so fairly different setup we are using
+[17:59:18] <bango2> thanks for trying
+[17:59:19] <taplar> right, i'm thinking the fact that it is a select is what is boning you
+[18:00:04] <bango2> alright, maybe ill try it his way. or maybe its just the version difference.  like you said, hes using formatResult which is deprecated now
+[18:00:15] <bango2> to the point it doesnt even work for me on 4.x
+[18:00:25] <robertmaxrees> back
+[18:01:06] <bango2> thanks again. im out
+[18:01:16] <blakespot> robertmaxrees: ahhh --- trying it out
+[18:01:21] <blakespot> I understand it logically
+[18:01:23] <blakespot> looking at it
+[18:05:16] <blakespot> robertmaxrees: But I can't click on purchse-item-detail-wrap --- it's hidden
+[18:05:36] <robertmaxrees> not in all of them ;)
+[18:05:41] <taplar> i clicked on some of the text and it did it.  it seems like that element is a wrapper
+[18:05:53] <robertmaxrees> just uise the show event though
+[18:05:53] <blakespot> if we're doing a click function, then I must click on a different element , .purchase-item-title, say
+[18:05:59] <blakespot> Let me try the shown event
+[18:06:01] <blakespot> yea
+[18:06:05] <robertmaxrees> ....
+[18:06:13] <robertmaxrees> that was just for a PoC.
+[18:06:18] <robertmaxrees> brb meeting.
+[18:23:34] <blakespot> robertmaxrees: Thank you again. http://www.walterkaitz.org/tables-tickets-2016/
+[18:25:33] <robertmaxrees> everything working the way you wanted?
+[18:30:02] <taplar> whoo hoo, i think my landing page is less crappy, ^^
+[18:31:29] <taplar> wonder if i could find a sideways fleur-de-lis icon
+[21:43:09] <compact> http://pastebin.com/FudzWqqf <-- any idea why it won't add the class on the TR
+[22:21:15] <compact> ?
+[22:31:09] <LeGorille> Hi, How can set the selected option in this each
+[22:31:18] <LeGorille> https://jsfiddle.net/4L26u58y/
+[22:31:36] <LeGorille> based on option.default
+[22:32:35] <__eliot__> hi, I'm getting an "uncaught typeerror: illegal invocation" error which points to my $.ajax POST method here: https://dpaste.de/6HWg
+[22:32:41] <__eliot__> any idea why it's not working?
+[22:34:51] <__eliot__> ooo nvm got it
+[22:35:06] <__eliot__> was passing the html element of #social-id rather than the value
+[22:44:02] <LeGorille> anyone ?
+[23:12:22] <LeGorille> hey guys, can anyone help
+[23:12:35] <LeGorille> https://jsfiddle.net/4L26u58y/
+[23:13:00] <LeGorille> I need to add attribute selected to option when option.defaut = 1
+[23:46:29] <dmto> .attr('selected', 'selected');
+[23:48:06] <LeGorille> I need to set it after condition is met
+[23:48:16] <LeGorille> I posted a jsfiddle
+[23:48:28] <LeGorille> if you could please take a look at it

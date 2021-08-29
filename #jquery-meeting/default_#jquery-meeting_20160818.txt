@@ -1,0 +1,122 @@
+[12:00:19] <scott_gonzalez> ?pepteam
+[12:00:19] <b-ot> arschmitz bethge jdalton jrossi jrossi1 jrossi2 jrossi3 jrossi9billion M4rius scott_gonzalez snover
+[12:00:28] <bethge> Hi
+[12:00:55] <scott_gonzalez> hey
+[12:02:56] <arschmitz> hi
+[12:03:31] <scott_gonzalez> So I don't have much to say today. Been catching up from vacation.
+[12:04:10] <scott_gonzalez> Not much news from the PEWG either.
+[12:04:23] <arschmitz> yeah me either
+[12:04:45] <bethge> I was looking a bit into passive event listeners
+[12:04:53] <bethge> my ramblings ~> #pep
+[12:06:01] <arschmitz> so my understnading is we are not trying to block scrolling ever
+[12:06:20] <arschmitz> and pointer events never block scrolling normally
+[12:06:22] <bethge> buuut, touch-action: none
+[12:06:40] <arschmitz> we are not pollyfilling touch action
+[12:07:01] <arschmitz> we are polyfilling pointer events we dont claim any where im aware of to implment touch action it self
+[12:07:22] <bethge> we have some support with the attributes
+[12:07:35] <arschmitz> do we ever actually block scrolling?
+[12:07:42] <arschmitz> i didnt think we did
+[12:08:58] <scott_gonzalez> I think the point is that we're listening to other events, like touch.
+[12:09:21] <scott_gonzalez> And we want to have our listeners be passive.
+[12:09:26] <arschmitz> right
+[12:09:37] <arschmitz> the only reason we wouldnt want that
+[12:09:46] <arschmitz> would be if we WERE trying to polyfill touch-action
+[12:09:53] <arschmitz> and block scrolling which i dont think we are
+[12:10:04] <bethge> https://github.com/jquery/PEP/blob/master/src/touch.js#L277-L287
+[12:10:13] <bethge> --> 283
+[12:11:04] <arschmitz> oh your right
+[12:11:07] <bethge> don't we block, if it is not supposed to scroll? and it is only supposed to scroll, if the direction of the drag is correct, or touch-action=auto
+[12:11:12] <arschmitz> of course we have to do it there
+[12:11:26] <arschmitz> we wouldnt continue to get events if we didnt
+[12:11:42] <arschmitz> ok so we 100% cant do passive
+[12:11:55] <arschmitz> i was thinking about this all wrong
+[12:11:57] <scott_gonzalez> So this is for browsers that support touch, but not touch-action, correct?
+[12:12:02] <bethge> yeah
+[12:12:27] <scott_gonzalez> Is that limited to Safari today?
+[12:12:44] <arschmitz> well pointer is not shipping in chrome stable yet right?
+[12:12:44] <scott_gonzalez> oh, Firefox
+[12:12:50] <bethge> right, ff is flagged afaik
+[12:13:04] <arschmitz> its still behind a flag in chrome i thought
+[12:13:07] <scott_gonzalez> Chrome has touch-action in stable.
+[12:13:13] <scott_gonzalez> http://caniuse.com/#search=touch-action
+[12:13:31] <scott_gonzalez> Apparently current Safari does too.
+[12:13:39] <bethge> that is really misleading
+[12:13:45] <bethge> it is only mutation
+[12:14:10] <bethge> which disallows pinch to zoom
+[12:14:26] <arschmitz> and still allows scrolling
+[12:14:45] <arschmitz> its basicly just a fast click in safari
+[12:14:47] <arschmitz> nothing more
+[12:14:49] <bethge> right
+[12:15:04] <bethge> --> https://bugs.webkit.org/show_bug.cgi?id=133112 no update this year
+[12:15:31] <arschmitz> yeah :-(
+[12:18:56] <bethge> I will try to whip up a PR to use touch-action and passive event listeners if supported
+[12:19:22] <arschmitz> sounds good
+[12:19:59] <bethge> Btw. do we support inherting of touch-action?
+[12:20:21] <arschmitz> its in the spec it specificly does not inherit right?
+[12:20:50] <scott_gonzalez> Correct, they don't inherit.
+[12:22:14] <bethge> it does not inherit .... but it has some rules ... http://www.w3.org/TR/pointerevents/#the-touch-action-css-property
+[12:22:50] <bethge> It goes up the nearest ancestor with a default touch behaviour
+[12:23:12] <arschmitz> yes
+[12:23:19] <bethge> and checks if any elements from the the target to the ancestor with a default touch behaviour disallows it
+[12:23:34] <arschmitz> yup
+[12:24:26] <arschmitz> https://github.com/hammerjs/hammer-time/blob/master/hammer-time.js#L138-L147
+[12:24:27] <bethge> But, I guess we would stick to the html attribute on the element, and not consider such things, right?
+[12:24:45] <arschmitz> yes i think so
+[12:24:55] <arschmitz> until we switch to using the style attribute
+[12:26:48] <bethge> I remember from the last meeting (or the one before?). I was wondering, what would change from a PEP user's perspective?
+[12:27:16] <arschmitz> they would be setting a valid css property in the style attribte
+[12:27:25] <arschmitz> instead of an invalid attribute
+[12:27:34] <arschmitz> which would continue to work if you removed pep
+[12:27:43] <arschmitz> where as out attribute wouldnt
+[12:27:51] <bethge> Ah, cool
+[12:28:04] <bethge> What would that look like in code?
+[12:28:09] <arschmitz> closer to a polyfill then we are now
+[12:28:35] <arschmitz> <div touch-action="none"> vs <div style="touch-action:none">
+[12:29:42] <bethge> Ah, ok, thx!
+[12:30:05] <arschmitz> it use makes it valid markup that will work in pointer event supporting browsers without pep
+[12:30:40] <arschmitz> right now we copy the attribute to a stylesheet if there are native pointer events
+[12:31:00] <arschmitz> but in that case if you just remove pep your site will break
+[12:31:21] <bethge> Right, we can kick this part: https://github.com/jquery/PEP/blob/master/src/touch-action.js#L31-L45
+[12:31:26] <arschmitz> yup
+[12:31:56] <bethge> sweet
+[12:36:57] <scott_gonzalez> That entire file would go away, wouldn't it?
+[12:37:03] <arschmitz> yes
+[12:37:41] <arschmitz> i hadnt noticed there were line markers lol i meant the whole file
+[12:38:34] <bethge> :D
+[12:41:20] <scott_gonzalez> Is there anything else to discuss today?
+[12:41:49] <arschmitz> nothing from me
+[12:41:58] <bethge> all good
+[12:43:02] <scott_gonzalez> Thanks everyone.
+[14:06:02] <arschmitz> agcolom: apsdehal meeting time
+[14:06:13] <apsdehal> Hey
+[14:06:20] <arschmitz> no one else seems to be online
+[14:06:26] <apsdehal> Yeah
+[14:06:51] <arschmitz> well do you have anything?
+[14:07:06] <apsdehal> Yes, what should I go to next now?
+[14:07:21] <apsdehal> Hammer.js integration or Demos?
+[14:07:28] <arschmitz> well you wanted to work on hammer integration
+[14:07:30] <arschmitz> lol
+[14:07:42] <arschmitz> if there are demo issues try to take care of them
+[14:07:47] <arschmitz> beyond that start on hammer
+[14:07:50] <apsdehal> What is the state of alpha?
+[14:08:10] <arschmitz> none of the websites are deploying
+[14:08:14] <arschmitz> so that blocks us
+[14:08:20] <apsdehal> That is bad
+[14:08:23] <arschmitz> but beyond that still trying to finish logs
+[14:08:33] <apsdehal> Also I see there is a problem with download builder too
+[14:08:42] <arschmitz> themeroller you mean?
+[14:08:46] <arschmitz> or download builder too?
+[14:08:46] <apsdehal> yes
+[14:08:56] <apsdehal> Sorry, themeroller
+[14:09:14] <arschmitz> yeah i need to look into that but been in meetings all day
+[14:10:02] <apsdehal> Great, also I might not be able to attend meeting next week, as I would be in US then and might not have internet access, as I would have just reached there.
+[14:10:22] <arschmitz> yay i wanted to ask you when you were coming
+[14:10:47] <apsdehal> I will reach on 23rd, 7:30 PM EST
+[14:10:58] <arschmitz> execlent
+[14:11:39] <apsdehal> I will start looking into Hammer docs then
+[14:13:54] <apsdehal> that is all I have
+[14:14:04] <apsdehal> I have submitted the final evaluation
+[14:16:34] <arschmitz> awesome
+[14:16:36] <arschmitz> sounds good
+[14:16:43] <arschmitz> if thats all we will regroup next week
+[14:22:05] <apsdehal> Yes, thanks, Have a great weekend.

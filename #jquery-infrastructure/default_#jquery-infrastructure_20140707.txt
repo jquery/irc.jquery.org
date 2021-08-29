@@ -1,0 +1,75 @@
+[09:14:32] <jqcommit> [13infrastructure] 15mzgol opened issue #279: Testswarm-browserstack doesn't work 02https://github.com/jquery/infrastructure/issues/279
+[09:14:39] <m_gol> gnarf s5fs ryanneufeld: ping
+[09:14:48] <ryanneufeld> hi
+[09:15:32] <ryanneufeld> Krinkle: you around? I'm not as familiar with testswarm
+[09:15:40] <Krinkle> Hi
+[09:16:10] <m_gol> browsers are not scheduled for some reason
+[09:16:32] <m_gol> I reported the issue: https://github.com/jquery/infrastructure/issues/279
+[09:16:37] <Krinkle> Checking splunk https://splunk.jquery.com:8000/en-US/app/search/browserstack
+[09:17:05] <Krinkle> It started spiking about 11-12 hours ago
+[09:17:21] <Krinkle> empty error, useful
+[09:18:12] <m_gol> :)
+[09:18:57] <Krinkle> It seems "Amazon Kindle Fire 7 HD" has a spike at the same time
+[09:19:02] <Krinkle> 100s of timed out workers for it
+[09:19:07] <Krinkle> all stuck on the emulator's lock screen
+[09:19:26] <Krinkle> log in to a person account part of jQuery corp on browserstack and look at https://www.browserstack.com/automate/
+[09:20:15] <Krinkle> http://i.imgur.com/cLk0JQi.png
+[09:24:22] <m_gol> hah
+[09:24:40] <m_gol> but no browsers are currently fired from what I see
+[09:26:40] <Krinkle> Indeed
+[09:27:04] <m_gol> the last build I see to have problems scheduling browsers is from 2 days ago: http://swarm.jquery.org/job/3255
+[09:27:28] <m_gol> 3 days old Migrate build went fine: http://swarm.jquery.org/job/3253
+[09:28:08] <m_gol> hmm, that one's interesting: v
+[09:28:09] <m_gol> https://www.browserstack.com/automate/builds/9eac6d2af8b21a4b4d6581029011d85bbab3f74e/sessions/ef2578899c0c5c09e2296bba583bea3c65f01516#automate_button
+[09:33:58] <m_gol> perhaps we should notify BrowserStack; if it locks on login screen it doesn't seem like our issue
+[09:35:34] <Krinkle> Gonna add better logging in /tools/testswarm-br../src/testswarm-browserstack.js 
+[09:35:42] <Krinkle> Yep, already emailing
+[09:37:08] <m_gol> thx, Krinkle
+[10:00:12] <Krinkle> m_gol: Logs reveal lots of problem.
+[10:00:23] <Krinkle> Writing up a brief timeline now in the mail to browserstack with y'all on cc
+[10:00:29] <m_gol> ok, thx
+[10:16:42] <Krinkle> I found a potential cause
+[10:16:57] <Krinkle> m_gol: We have about a 100,000 spwans pending in the queue for Kindle Fire 7
+[10:16:58] <Krinkle> :D
+[10:17:30] <Krinkle> (actually just 200 right now it seems)
+[10:17:41] <Krinkle> Ran this on jq03 to kill them all
+[10:17:42] <Krinkle> $ node /tools/testswarm-browserstack/src/cli.js --config "/tools/testswarm-browserstack/config.json" --terminateAll 
+[10:17:58] <Krinkle> I noticed in the queue we are constantly spawning 2 of them
+[10:18:17] <Krinkle> Looks like the API allows us to spawn it, but it doesn't actually have a VM for it
+[10:18:25] <Krinkle> and in addition, it isn't reported back in the /workers list
+[10:18:29] <Krinkle> so we don't know it's in the queue
+[10:18:34] <Krinkle> and spawn more
+[10:18:39] <Krinkle> it was like that for a day or s
+[10:18:39] <Krinkle> o
+[10:18:58] <Krinkle> then today they finally scrapped it from the API so now the spawns are yielding errors instead of poppulating the queue
+[10:19:09] <Krinkle> we're still unable to spawn things because the queue is swamped with that other stuff
+[10:19:12] <Krinkle> should come back now
+[10:19:14] <Krinkle> will still email them
+[10:33:37] <Krinkle> m_gol: sent
+[10:33:54] <Krinkle> Looks like terminating the queue has allowed a few browsers to be spawned. Recent jobs have their tests run now
+[10:52:18] <ryanneufeld> Thanks for getting on it Krinkle
+[14:31:29] <nacin> DaveMethvin: hey
+[14:31:43] <DaveMethvin> hey nacin
+[14:31:51] <nacin> Trac 1.0 posed very little issues for us, functionality-wise.
+[14:31:54] <nacin> Our biggest challenge with it was that someone hit it with the hardest ugly stick known to mankind.
+[14:32:07] <nacin> We wrote our own stylesheet to remove every shadow, rounded corner, and ugly gradient possible.
+[14:32:17] <DaveMethvin> oh you've got to be lying, there's no way it can look uglier than we have today
+[14:32:23] <nacin> I AM NOT LYING
+[14:32:31] <nacin> don't joke about that
+[14:32:34] <nacin> it's that bad
+[14:32:50] <nacin> the ticket in which they created it is one of the most epic design by committee threads I have ever read
+[14:32:56] <DaveMethvin> well what css has wrought, css can relieve
+[14:34:11] <DaveMethvin> i am hoping that once we get 1.0 in place the other strangenesses we have encountered will go away
+[14:34:20] <DaveMethvin> the auth problem is a little trickier
+[14:34:33] <DaveMethvin> right now you can just put whatever into email and it will register you
+[14:34:41] <DaveMethvin> so we get spammers galore
+[14:35:28] <DaveMethvin> i guess we could just limit to github accounts or something, we don't get THAT many bug reports to begin with
+[14:35:39] <nacin> I know absolutely nothing about Trac's registration
+[14:35:46] <DaveMethvin> lucky
+[14:35:51] <nacin> we actually wrote our own interface to authenticate WordPress.org cookies
+[14:36:00] <nacin> before that, we used HTTP auth against our WordPress user tables
+[14:37:00] <DaveMethvin> if anything, using github for an auth provider would make sense and i suspect there's a trac module for it
+[14:38:53] <DaveMethvin> nacin: gnarf should be able to get you the info to get onto our bugs.jquery.com box
+[14:39:15] <DaveMethvin> i have to run but will bbl
+[16:27:29] <jqcommit> [13infrastructure] 15ryanneufeld closed issue #279: testswarm-browserstack not spawning workers 02https://github.com/jquery/infrastructure/issues/279
+[20:59:41] <s5fs> Hello friends, I'm back from NodeConf. Thanks for keeping things running in my absense :)

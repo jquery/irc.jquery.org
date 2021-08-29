@@ -1,0 +1,182 @@
+[08:27:37] <toddparker> morning all
+[08:45:56] <kinblas> toddparker: FYI navigation branch landed on master
+[08:58:24] <toddparker> kinblas - rokk
+[08:58:31] <toddparker> this is great
+[08:58:48] <toddparker> so what's next in your plan?
+[08:59:10] <toddparker> btw - scottjehl is working on reviewing some pull requests today
+[09:01:49] <StevenBlack> I'll bet kinblas is up for short-yardage plays for the next while, as opposed to long-bombs :-)
+[09:25:59] <toddparker> that sounds good to me
+[10:09:34] <kinblas> StevenBlack: word
+[10:09:41] <kinblas> sorry was in a meeting
+[10:10:07] <kinblas> next up is fixing our paths up, adding hooks for devs to manage them if need be
+[10:10:20] <kinblas> fixing paths is priority one though
+[10:10:30] <kinblas> that includes the dialog/nested list issues
+[10:12:26] <StevenBlack> Is there a jQuery Mobile meeting agenda document?
+[11:02:44] <gseguin> toddparker: is there a meeting today?
+[11:02:48] <toddparker> starting the meeting now
+[11:03:19] <gseguin> on #jquery-meeting, right?
+[11:03:28] <gseguin> alright
+[11:06:48] <toddparker> kinblas - come on over to the meeting
+[11:06:50] <toddparker> yep
+[11:06:55] <kinblas> I already said hola
+[11:06:56] <kinblas> :-)
+[11:34:14] <_nickel> kinblas: meeting started yet?
+[11:34:29] <kinblas> _nickel: ya mon
+[11:53:59] <toddparker> hokay, thanks again everyone
+[11:56:26] <kinblas> gseguin: what's the URL to your fiddle again? And the issue number?
+[11:56:32] <gseguin> let me find that
+[11:56:54] <gseguin> kinblas: http://jsfiddle.net/ghislain/ZMBtE/
+[11:56:55] * kinblas notes he's steppin' out to lunch in a few minutes so no rush
+[11:57:08] <kinblas> ok got it
+[11:57:41] <gseguin> let's do that after lunch but before 2pm if at all possible
+[11:58:02] <gseguin> I have a meeting afterward
+[11:58:06] <kinblas> oh ok so no 2 hour lunch today? :-P
+[11:58:21] <kinblas> ok I should be back by 1pm
+[11:58:33] <gseguin> nope, sorry  ;-)
+[11:58:45] <kinblas> I'm looking it over while I'm waiting for my co-horts to gather
+[11:58:55] <gseguin> k
+[11:59:06] <kinblas> so the only thing we're trying to do (the bottom line)
+[11:59:18] <kinblas> is figure out how to make each nested list dialog have a unique URL?
+[11:59:54] <gseguin> Pretty much
+[12:00:15] <kinblas> ... that is unique to the document? Or unique to the listview
+[12:00:20] <gseguin> I think one of the problem was that we were using the label to generate the id
+[12:00:34] <gseguin> so if you had 2 li with the same label
+[12:00:41] <gseguin> they would link to the same thing
+[12:01:16] <kinblas> yeah, in theory that's slick, but it has problems
+[12:01:24] <gseguin> unique to the page
+[12:01:25] <kinblas> collision being one
+[12:01:33] <kinblas> length and characters used another
+[13:07:06] <gseguin> kinblas: ping me when you're back
+[13:15:15] <kinblas> gseguin: ping
+[13:15:21] <gseguin> pong
+[13:15:38] <gseguin> good lunch?
+[13:15:51] <kinblas> heh
+[13:15:55] <kinblas> took a while
+[13:16:06] <gseguin> np
+[13:16:12] <kinblas> so I was thinking about the problem
+[13:16:30] <kinblas> the problem we have is that we need to be able to identify a specific list, on a specific page
+[13:16:36] <kinblas> showing a specific dialog
+[13:16:55] <kinblas> we can't use a global count because the user may have visited pages in an arbitrary order
+[13:17:36] <gseguin> why not?
+[13:17:53] <kinblas> if they visit pages C, D, then A
+[13:17:58] <gseguin> the id of a nested list will change only if it's position in the DOM changes
+[13:17:59] <kinblas> and each of those has nested lists on them
+[13:18:27] <kinblas> how are you going to find a specific list/dialog for A
+[13:18:29] <gseguin> in the fiddle the only reason the var is global if to make it accessible
+[13:18:40] <kinblas> oh I wasn't looking out your code yet
+[13:18:44] <kinblas> just thinking out loud here
+[13:18:46] <gseguin> but in my patch it was inside the listview closure
+[13:18:50] <gseguin> oh ok
+[13:19:36] <kinblas> oh actually your code has the same problem I'm talking about
+[13:19:51] <kinblas> let's say we have pages A, B, C, and D
+[13:19:57] <kinblas> and each have nested lists in them
+[13:20:37] <kinblas> the nextListId for a list in A will depend on when you visited it
+[13:20:40] <gseguin> by page you mean div data-role=page, right ?
+[13:20:47] <kinblas> yeah
+[13:21:10] <kinblas> I refer to the initial page as the "document"
+[13:21:14] <kinblas> to avoid confusion
+[13:21:26] <gseguin> thanks for clarifying
+[13:21:55] <gseguin> oh wait so these pages get instantiated only when becoming active?
+[13:22:20] <kinblas> they get instantiated the moment the .page() is called for content
+[13:22:36] <kinblas> when we load a page dynamically via ajax
+[13:22:50] <kinblas> enhancePage() gets called and in there, it calls .page on the content that was just loaded
+[13:23:08] <kinblas> when you load the document, the pages it contains are automatically enhanced
+[13:23:13] <kinblas> when document ready fires
+[13:24:07] <gseguin> so the problem is when you load a page dynamically
+[13:24:48] <kinblas> right, the ids placed on the lists will depend on what lists were previously created from the pages you've visited up to that point
+[13:24:56] <kinblas> so in a sense, I think you had it right originally
+[13:25:06] <kinblas> you need to have a count per-page
+[13:25:38] <gseguin> darn, where is that code?
+[13:25:39] <kinblas> so the unique-ness
+[13:25:50] <kinblas> it's in that pull-request you had earlier
+[13:26:05] <kinblas> it just needs to be fixed so that it isn't always using the same counter (-1) :-)
+[13:26:06] <gseguin> which I closed :)
+[13:26:15] <kinblas> you can still see closed pull requests
+[13:26:26] <gseguin> alright I'll retrieve it
+[13:27:16] <gseguin> I'll change the fiddle and will ping you
+[13:28:44] <kinblas> gseguin: before you do I just want to make sure we're on the same page
+[13:29:11] <kinblas> the idea is that the URL (location) bar always reflects the current page
+[13:29:18] <gseguin> sure
+[13:29:33] <gseguin> ok
+[13:29:34] <kinblas> since we have that, all we need to figure out is the correct dialog item in that page that was generated by the listview component
+[13:29:57] <kinblas> of course this won't work if visiting the same page gnerates different list content
+[13:30:37] <gseguin> yep
+[13:31:47] <gseguin> I'm still not sure what the difference will be between the current fiddle impl and using a hash to count the instances per page
+[13:37:06] <kinblas> I think what you had was close
+[13:39:15] <gseguin> let me dig it out and prepare another fiddle
+[13:39:20] <kinblas> gseguin: thinking about this more (sorry)
+[13:39:51] <gseguin> thanks for your help
+[13:39:58] <kinblas> what bugs me about the count thing is that if the developer shuffles the content in the page, it invalidates the count in the deep link
+[13:40:05] <kinblas> perhaps what we should say is this
+[13:40:13] <kinblas> if you want a reliable deep link
+[13:40:26] <kinblas> make sure your listview (the outer-most one) has an id on it
+[13:40:41] <kinblas> then the id of the sub-list dialogs is the concatenation of that id and a count
+[13:40:56] <kinblas> so if they ever shuffle the content around, we are still able to find the right list
+[13:41:00] <kinblas> dialog I meant
+[13:41:03] <kinblas> if there is no id
+[13:41:44] <gseguin> but if they shuffle the list items
+[13:41:53] <kinblas> yeah we're still screwed
+[13:41:57] <gseguin> then the deep link is invalid
+[13:42:10] <kinblas> unless we check to see if the list items have an id on them
+[13:42:19] <gseguin> so what we can say is if they want reliable deeplinks
+[13:42:23] <kinblas> the bottom line I guess is that there is no reliable way to do this
+[13:42:27] <gseguin> then then need to provide ids
+[13:42:28] <kinblas> unless you have identifiers
+[13:42:49] <gseguin> correct
+[13:42:51] <kinblas> but we don't want to require them ... it's painful to id every single
+[13:42:59] <kinblas> element in your list/page
+[13:43:10] <kinblas> so we need a fallback mechanism which is good enough
+[13:43:17] <kinblas> but not perfect
+[13:43:31] <gseguin> yeah yeah absolutely
+[13:44:03] <gseguin> I'm just saying we can tell devs that reliable deeplinks can only be obtained with ids at every level
+[13:44:14] <kinblas> yeah
+[13:44:20] <gseguin> otherwise the auto-id will depend on the layout
+[13:50:46] <scottjehl> if( window.blackberry && !window.WebKitPoint || window.operamini && Object.prototype.toString.call( window.operamini ) === "[object OperaMini]" ) OH HAI
+[13:50:55] <scottjehl> :)
+[13:54:46] <gseguin> scottjehl: what is the deal with opera mini?
+[13:57:47] <scottjehl> ajax navigation / transitions
+[13:58:16] <gseguin> oh ok
+[13:58:44] <scottjehl> unfortunately, BB 5 and some others dont' create history entries for hash changes
+[13:58:51] <scottjehl> and feature detecting that one isn't possible
+[13:59:01] <scottjehl> due to history.length stack limits, etc
+[14:08:42] <kinblas> scottjehl: ew first browser specific checks in the code eh?
+[14:11:12] <scottjehl> sorta. We had a flag or two for scrollTop support as well
+[14:11:20] <scottjehl> THE UNDETECTABLES
+[14:30:15] <_nickel> scottjehl: kinblas: tests fixed for init, it was just a variable that was removed without removing a reference to it in the teardown
+[14:30:31] <kinblas> doh
+[14:30:33] <kinblas> great!
+[14:30:38] <_nickel> :D
+[14:30:47] <kinblas> so that means we have one lonely broken test? (nested lists)?
+[14:31:07] <_nickel> correct
+[14:32:39] <_nickel> scottjehl: quick question
+[14:33:35] <_nickel> you also removed some tests that verify that the widgets are available at mobileinit
+[14:34:01] <_nickel> just wondering if we need those to prevent regressions
+[14:34:20] <scottjehl> umm
+[14:34:26] <scottjehl> which? sorry
+[15:08:01] <_nickel> scottjehl: in init
+[15:08:25] <_nickel> scottjehl: git log -p tests/unit/init/init_core.js
+[15:09:13] <_nickel> scottjehl:  git log -p tests/unit/init/init_core.js | grep mobileSelect -B2 -A2 | more
+[15:09:17] <_nickel> at the top
+[15:35:08] <scottjehl> oh crap I'm sorry
+[15:35:31] <scottjehl> I actually thought those were referencing this old var for selectMenu that was in global config
+[15:35:39] <scottjehl> now I see what you were testing
+[15:35:52] <scottjehl> sorry about that. seems obvious now :/
+[15:36:32] * kinblas strongly-dislikes writing docs/articles ... would rather be coding :-)
+[15:36:55] <kinblas> https://github.com/jquery/jquery-mobile/wiki/Refactor:-Navigation-Plan
+[15:37:00] <kinblas> still working on it
+[15:39:11] <scottjehl> this reads really well, Kin
+[15:39:14] <scottjehl> nice work
+[15:57:57] <kinblas> _nickel: scottjehl: FYI I'm going to blow away the navigation branch
+[15:58:09] <scottjehl> BOOOOOM
+[15:58:26] <scottjehl> we probably have some others to kill too
+[16:21:08] <_nickel> scottjehl: yo! no worries I've just been out of the loop and I was wondering if we had changed our config strategy
+[16:21:34] <scottjehl> heh nope my bad
+[16:21:47] <scottjehl> sooo let's see. how to bring those back...
+[16:37:42] <scottjehl> I gotta run. just fixed selects in FF mobile
+[16:37:43] <scottjehl> laters
+[16:49:36] <StevenBlack> =============
+[16:50:06] <StevenBlack> temp01: Can we get jQuery Mobile git commits to echo here?
+[17:04:41] <kinblas> gseguin: what is your email address?
+[17:05:39] <gseguin> ghislain@jivesoftware.com
+[17:05:46] <kinblas> thanks
+[17:06:02] <gseguin> @gmail.com works too

@@ -1,0 +1,337 @@
+[07:18:04] <noway421> Anyone here?
+[07:19:39] <m_gol> noway421, I don't fully understand what you did, I still see references to PHP scripts under your link
+[07:21:58] <noway421> i dont delete old php files, and i left old urls, so no unit tests still save.
+[07:22:00] <noway421> i dont delete old php files, and i left old urls, so no unit tests still same.
+[08:09:25] <paul_irish> gibson042: what do you think about a grunt build target that creates a file for the CDNs
+[08:09:55] <paul_irish> UI does this, and so the zip they hand over has all the correct filenames (no version numbers) which means we dont have that manual file rename step that just bit us
+[08:12:42] <noway421> For example, you make GET request to /test/data/json.php, but your query processes the node.js.
+[08:46:12] <m_gol> paul_irish, gibson042: I think we just should change our jQuery URLs so that files are named just jquery.js & jquery.min.js (e.g. no code.jquery.com/jquery-2.0.0.js but code.jquery.com/2.0.0/jquery.js), what do you think? It would match what other CDNs use and it would spare us renaming stuff
+[08:46:51] <m_gol> also, you might want to share your perspective on source map Google group, see the topic https://groups.google.com/forum/?fromgroups=#!topic/mozilla.dev.js-sourcemap/rIt4kvlC6GI
+[09:20:45] <gibson042> paul_irish, m_gol: I am in favor of both, but unfamiliar with the actual steps of generating a release file (particularly relevant for the grunt task)... sounds like we need input from DaveMethvin
+[09:21:57] <DaveMethvin> i just need to update /build/release.js to generate files for both the no-version name and version name paul_irish gibson042
+[09:22:15] <DaveMethvin> the jquery and MS CDNs need the numbered file
+[09:22:41] <DaveMethvin> but paul_irish we made a request that the spec be changed so that there would be a default of some kind
+[09:22:52] <DaveMethvin> so that people can freely rename without this happening
+[09:22:55] <DaveMethvin> we just need a convention
+[09:23:16] <DaveMethvin> like jquery-abc.min.js would have jquery-abc.min.map by default for example
+[09:23:28] <DaveMethvin> in the same locaion
+[09:23:31] <DaveMethvin> location*
+[09:26:30] <gibson042> it's tricky because the map and unminified file(s) reference each other
+[09:26:53] <DaveMethvin> which is why it's a perfect scenario for defaults
+[09:27:43] <gibson042> *minified, rather
+[09:28:27] <DaveMethvin> based on this issue and the other one with ie conditional comments, it's clear we're in the early days of sourcemaps and it hasn't been widely used in the web
+[09:28:41] <gibson042> for sure
+[09:29:17] <DaveMethvin> i shudder trying to explain to people they can't do something as simple as rename a file and map they got from our cdn without sourcemaps breaking
+[09:29:32] <DaveMethvin> and telling them to edit the file ... double-shudder
+[09:42:06] <scott_gonzalez> DaveMethvin rwaldron: What's the deal with dromaeo?
+[09:42:52] <DaveMethvin> scott_gonzalez i dunno ... siovene was putting together some tests based on benchmark.js and i talked to him about some issues last week
+[09:43:19] <DaveMethvin> he was originally gonna do something based on our qunit tests but it doesn't seem like a good approach
+[09:43:34] <scott_gonzalez> Oh, that reminds me: johnbender was asking about perf testing.
+[09:43:36] <DaveMethvin> better to create our own separate tests for perf
+[09:44:04] <DaveMethvin> so anyway, any specific reason for asking about dromaeo?
+[09:44:15] <scott_gonzalez> Should it be orphaned or is it in an unknown maintenance state?
+[09:44:27] <DaveMethvin> oh i definitely don't know that
+[09:44:32] <DaveMethvin> :D
+[09:44:59] <scott_gonzalez> Seems fairly dead.
+[09:45:21] <scott_gonzalez> It actually just seems like something that should move to John's account.
+[09:45:42] <DaveMethvin> yeah, rick forked it from somewhere didn't he?
+[09:45:46] <DaveMethvin> not showing that tho
+[09:46:38] <DaveMethvin> yeah https://github.com/jeresig/dromaeo
+[09:46:51] <scott_gonzalez> Oh, I guess from https://github.com/jeresig/dromaeo
+[09:47:05] <scott_gonzalez> rwaldron: Can we delete our fork?
+[09:47:23] <DaveMethvin> we can always re-fork, it doesn't look like we changed anything
+[09:47:53] <DaveMethvin> seems safe to delete
+[09:52:01] <blittle> I think there is a problem with core
+[09:52:04] <blittle> in the .data() method
+[09:52:25] <DaveMethvin> blittle ask about it on #jquery and get an opinion there
+[09:53:12] <blittle> k
+[09:53:14] <blittle> thx
+[09:53:40] <scott_gonzalez> DaveMethvin: It's a legit question.
+[09:54:00] <scott_gonzalez> Should elem.data( "a-b", "foo" ).data( "aB" ) return "foo"?
+[09:54:34] <DaveMethvin> if asked for by itself, i think it should
+[09:54:39] <scott_gonzalez> I actually think a ticket was filed recently.
+[09:54:50] <DaveMethvin> if groped from the data object it needs to be aB
+[09:55:08] <DaveMethvin> for consistency, always use camelCase
+[09:55:34] <DaveMethvin> http://www.learningjquery.com/2011/09/using-jquerys-data-apis
+[09:55:56] <scott_gonzalez> heh, in UI we always use hyphenated.
+[09:56:00] <DaveMethvin> 5 All data-* names are stored in camelCase in the jQuery data object, using W3C rules.
+[09:56:17] <DaveMethvin> So, data-caMEL-case becomes the camelCase property in the data object and should be accessed using .data("camelCase"). Because many people will use .data("camel-case") instead, we convert that to camelCase as well
+[09:56:28] <DaveMethvin> you are many people :D
+[09:57:19] <DaveMethvin> but if you say `var mydata = $(elem).data(); mydata["some-data"]` that will not work
+[09:57:35] <DaveMethvin> because its been camelized in the property already
+[09:57:45] <scott_gonzalez> Why do we do the camelization?
+[09:57:51] <scott_gonzalez> Is this dataset BS?
+[09:57:57] <DaveMethvin> because the w3c says so
+[09:58:11] <scott_gonzalez> http://www.w3.org/TR/html5/elements.html#embedding-custom-non-visible-data-with-the-data-attributes -> 404
+[09:58:24] <DaveMethvin> well they broke the link then
+[09:58:35] <scott_gonzalez> I hate the .data()/dataset "linking".
+[09:58:47] <scott_gonzalez> I wish .data() had no magic.
+[09:58:57] <DaveMethvin> so do i but people see .data() and IMMEDIATELY  they think data-
+[09:59:26] <DaveMethvin> so our half-ass solution means the other half of the ass comes to bite us, um, in the ass
+[09:59:33] <DaveMethvin> or something
+[10:00:02] <blittle> I agree...
+[10:00:10] <blittle> I have seen a lot of abnoxious stuff in .data()
+[10:00:17] <snover> it sucks that nobody raised this objection when the thing was added :)
+[10:00:29] <DaveMethvin> yeah i recall some troublemaker did
+[10:00:39] <DaveMethvin> wonder where that guy is now
+[10:00:41] <blittle> he was lynched? 
+[10:00:57] <DaveMethvin> still picking feathers out of his ear prolly
+[10:01:34] <DaveMethvin> well like that article says, it's unfortunate because we defined the .data() api before HTML defined the data- stuff
+[10:01:41] <DaveMethvin> so it could never really end well
+[10:46:25] <ben_alman> Krinkle: you use grunt-saucelabs ?
+[10:47:25] <Krinkle> ben_alman: I do not because I think its state it too poor right now.
+[10:47:33] <ben_alman> yeah i'm having issues with it
+[10:47:36] <Krinkle> But it has potential and I'm working on building on top of it
+[10:47:42] <Krinkle> see my pull request
+[10:47:45] <ben_alman> i saw
+[10:47:50] <ben_alman> i can't even get it to work :/
+[10:48:00] <ben_alman> [tiny-pubsub] Starting test for page (0) http://localhost:8000/test/tiny-pubsub.html
+[10:48:00] <ben_alman> [tiny-pubsub] Could not fetch page (0)http://localhost:8000/test/tiny-pubsub.html
+[10:48:01] <ben_alman> etc
+[10:48:08] <Krinkle> ben_alman: Works for me
+[10:48:13] <ben_alman> yeah i dunno
+[10:48:19] <ben_alman> no luck here
+[10:48:27] <Krinkle> I need a way to either inject a script before dom-ready with selenium, or qunit needs a way to retroactively get all events
+[10:48:34] <ben_alman> right
+[10:48:36] <Krinkle> though again it does work in its current state for me
+[10:48:45] <ben_alman> yeah i don't know what i'mdoing wrong
+[10:48:53] <ben_alman> i see the tests running in the saucelabes account pane
+[10:49:00] <DaveMethvin> Krinkle ben_alman i am actually doing a project where saucelabs added a function to do the early injection
+[10:49:09] <ben_alman> but nothing passes and i get that "Could not fetch page" error
+[10:49:13] <DaveMethvin> dunno if it's publicly availalbe
+[10:49:38] <DaveMethvin> ben_alman do you have the tunnel set up? 
+[10:49:47] <ben_alman> it says it is
+[10:50:17] <ben_alman> https://gist.github.com/cowboy/0af6e295ba0a606221d4
+[10:50:20] <ben_alman> that's my log
+[10:51:00] <DaveMethvin> > Succesfully connected to local server 127.0.0.1:49249 in 1ms
+[10:51:04] <Krinkle> ben_alman: I'd recommend applying my pull locally
+[10:51:18] <ben_alman> DaveMethvin: is that the port i need to use?
+[10:51:18] <Krinkle> though youll need to manaully inject a certain script in your tests for it to work
+[10:51:22] <Krinkle> (like for testswarm)
+[10:51:30] <ben_alman> wait, i have to modify my tests?
+[10:51:31] <Krinkle> from the inside before document ready (just add a <script>)
+[10:51:34] <DaveMethvin> ben_alman good question, not sure but it sounds like it may be
+[10:51:42] <ben_alman> this is confusing
+[10:51:54] <Krinkle> ben_alman: Well, for now, yes. Because there is no way to bind the events in time otherwise.
+[10:52:09] <ben_alman> ugh
+[10:52:10] <DaveMethvin> i've never used grunt-saucelabs so just reading that now
+[10:52:13] <Krinkle> selenium's inject() method on the Page object is too late. the page object isn't available until like window.onload or something,
+[10:52:20] <DaveMethvin> right
+[10:52:34] <Krinkle> if that was in time I would've just read the js file from disk and injected it at run time
+[10:52:34] <ben_alman> i really don't want to modify the test .html file
+[10:52:46] <Krinkle> ben_alman: I know, see the pull request for discussion on it
+[10:54:32] <ben_alman> i really want there to be a reasonable way for me to unit test a freakin plugin
+[10:54:39] <ben_alman> and right now, it's all so manual
+[10:55:01] <paul_irish> DaveMethvin: yah i support that convention being defined.
+[10:55:13] <DaveMethvin> yay!
+[10:55:22] <paul_irish> don't really care of its foo.min.js.map or foo.min.map 
+[10:55:46] <paul_irish> but +1 to setting it in the spec
+[10:55:50] <DaveMethvin> me neither paul_irish
+[10:57:44] <Krinkle> uh? how is map related? did I miss something
+[10:58:05] <DaveMethvin> no just catching up on something upthread
+[10:58:11] <Krinkle> ben_alman: I think I'll go and implement something in QUnit core to support retroactive event listening
+[10:58:30] <Krinkle> ben_alman: like $.Callbacks('memory') but with memory of all emissions
+[10:58:49] <Krinkle> and then I'll wrap that in a addReporter() method.
+[10:59:05] <ben_alman> holy crap "buster" is taking like 5 minutes to install
+[10:59:08] <Krinkle> So adding a reporter means you listen to certain qunit events and you always get all (regardless of when you started listening)
+[10:59:11] <ben_alman> SO MANY deps
+[10:59:22] <Krinkle> that way I can have selenium read the script no matter when, and it'll get everything and we're done.
+[10:59:26] <ben_alman> k
+[10:59:28] <DaveMethvin> i think it would be easier if saucelabs just let you jam in a script under <head> :P
+[10:59:46] <Krinkle> that'll make it so you can "just" do it with grunt-saucelabs, no changing of the test suite
+[11:00:06] <ben_alman> of they're setting up a tunnel they could also proxy and replace </head> with a <script src="urmom.js"></script></head>
+[11:00:15] <DaveMethvin> zackly
+[11:00:21] <Krinkle> I've considered that ben_alman
+[11:00:40] <Krinkle> ben_alman: Though slightly different. I've been thinking about setting up the proxy locally
+[11:00:51] <ben_alman> sure
+[11:00:55] <ben_alman> easy to do i guess
+[11:01:05] <ben_alman> sigh this is all so much more comlex than it ought to be
+[11:01:06] <ben_alman> :/
+[11:01:19] <Krinkle> but that won't be needed if  just support this in qunit
+[11:01:20] <DaveMethvin> preach it brother
+[11:01:29] <Krinkle> which I want to do anyway for other reasons
+[11:01:38] <Krinkle> Give it a month, and we'll be laughing at this.
+[11:01:39] <Krinkle> Promise :)
+[11:01:45] <ben_alman> ok lmk
+[11:01:50] <Krinkle> will do
+[11:01:51] <ben_alman> i'll just hold off and do something else
+[11:01:55] <ben_alman> until then
+[11:01:55] * Krinkle makes note
+[11:02:13] <Krinkle> i was surprised as well that there isn't anythign out there that just works (no matter how ugly)
+[11:21:55] <noway421> so guys, what about node-tests-server? what issues with combining it with testswarm?
+[11:28:22] <snover> anything that “just works” to do what krinkle
+[11:29:05] <Krinkle> snover: to cross-browser test a piece of javascript from e.g. travis-ci with saucelabs or browserstack.
+[11:29:31] <Krinkle> grunt-saucelabs is almost there, but not quite yet.
+[11:29:34] <snover> https://github.com/csnover/dojo2-teststack
+[11:29:37] <snover> once again
+[11:30:52] <Krinkle> something that works from github. on-demand (so it can run on-commit and on-pullrequest from travis-ci) and compatible with qunit.
+[11:31:24] <snover> it does that first part, and that second part, and that third part if you’d write an interface for it
+[11:31:52] <snover> it is actually on the schedule to write a qunit interface but we’re trying to actually put out a release by the end of the week
+[11:32:41] <snover> but we’ve had this conversation before and you decided that i was wrong so i’m just throwing it out there as a reminder and/or another opportunity to be told i am wrong :)
+[11:33:16] <Krinkle> snover: can it take a url as input or do the files need to be stored locally?
+[11:33:37] <Krinkle> how does it inject the javascript into the selenium vm in time?
+[11:34:01] <Krinkle> web driver selenium to be specific
+[11:34:10] <Krinkle> I've only been able to inject js after the dom is ready
+[11:34:20] <Krinkle> at which point tests are already running and you mess events.
+[11:34:41] <snover> so you are trying to test the dom ready event or something?
+[11:34:46] <Krinkle> No
+[11:35:06] <Krinkle> http://qunitjs.com/resources/example-index.html
+[11:35:11] <Krinkle> the tests start at dom ready
+[11:35:30] <Krinkle> if you inject code with web driver like QUnit.on('assert', fn) to get information you're too late
+[11:35:33] <snover> there are two ways it works. either you write a unit test module and that gets loaded and executed one the test runner is instructedt o start
+[11:35:34] <Krinkle> the tests already started.
+[11:36:04] <snover> well, the intern (sorry, this is the final name, dojo2-teststack is the work in progress name) runner has an ability to not start running the tests automatically…but so does qunit
+[11:36:23] <jqcommit> 01[13jquery.com01] 15scottgonzalez pushed 1 new commit to 06master: 02http://git.io/lGleTg
+[11:36:23] <jqcommit> 13jquery.com/06master 14ec67229 15Scott González: Added CONTRIBUTING.md.
+[11:36:31] <Krinkle> Yes but that means the test suite no longer works
+[11:36:34] <Krinkle> if you load it normally
+[11:36:39] <noway421> I read a little wiki testswarm, as I understand, testswarm is a proxy server between the web server with repository latest changes, and different browsers.
+[11:36:39] <noway421> So, at the current time, server can run php scripts if him ask for them and if they exists in repository.
+[11:36:39] <noway421> For node, I think you just need to configure proxy on some port, and run to this port node-tests-server (in the same way as you run `grunt`)
+[11:36:40] <Krinkle> so you need to maintain 2 html files
+[11:37:03] <snover> so
+[11:37:09] <snover> the way that intern works
+[11:37:15] <snover> it sets up a proxying server as noway421 says
+[11:37:28] <snover> you specify which reporter you want to load
+[11:37:34] <snover> and the reporter loads before any of the tests start running
+[11:37:39] <snover> so your reporter can hook up to stuff like that
+[11:37:41] <snover> no big deal
+[11:37:50] <Krinkle> noway421: testswarm is not relevant to the ajax test using php, and it isn't a proxy, it is in some way but not the way I thin you think.
+[11:37:59] <Krinkle> we just use it as a way to distribute qunit tests.
+[11:38:25] <Krinkle> snowI don't think what noway421 was to what you are saying.
+[11:38:32] <Krinkle> snover: ^
+[11:38:35] <snover> no, i was just describing the similarity
+[11:38:38] <snover> in that it starts a proxy
+[11:38:58] <Krinkle> ok
+[11:39:26] <snover> then the default reporter that is loaded into the client is one that reports results back to the test runner (CI service)
+[11:39:27] <Krinkle> snover: so the execution environment will not be at the url specified?
+[11:39:35] <snover> you can do that if you want
+[11:39:42] <Krinkle> well then it loads too late
+[11:39:44] <snover> those are considered functional tests
+[11:40:08] <Krinkle> I'm not saying it can't work, I'm just trying to learn what test-stack can and can't do.
+[11:40:37] <noway421> How ajax tests runs now? By jenkins?
+[11:40:51] <Krinkle> for example, MediaWiki needs to be installed first, some of the unit tests interact with the loader framework and the API. So the url at which it executes is important.
+[11:41:40] <snover> so ok, maybe I understand
+[11:41:45] <snover> you are loading qunit into the browser
+[11:41:47] <snover> and running the tests
+[11:41:48] <snover> from the browser
+[11:41:49] <snover> ?
+[11:42:10] <Krinkle> snover: anyhow, this is moot. I'll admit test-stack is nicer than I thought. But it remains true that we can't use it as is (not even if it has a qunit interface). We'll need to write some custom code
+[11:42:24] <Krinkle> and though that isn't a blocking problem, it won't get us anything we don't already have
+[11:42:32] <snover> automated code coverage analysis ? :)
+[11:42:40] <snover> I just want to make sure I understand your problem so I can help solve it
+[11:42:57] <Krinkle> snover: nice, but not something I'm looking for right now
+[11:43:38] <snover> you’re looking to be able to load a URL to a random web site and then perform tests against the page at that URL?
+[11:43:40] <Krinkle> note, you may want to talk to ben_alman instead who's working with a slightly different set of variables than I am.
+[11:44:01] <Krinkle> what I work on already works, what he's trying to do does not and test-stack could work in his case.
+[11:44:24] <snover> well, maybe you can tell him that, since I already did, and he ignored me :)
+[11:44:33] <ben_alman> yeah i want an out-of-the-box jquery plugin testing thingamabob
+[11:44:46] <ben_alman> i didn't ignore you snover, i looked @ it and asked a ton of questions
+[11:44:51] <ben_alman> it seemed cool
+[11:44:57] <ben_alman> i said it should be a node module
+[11:44:57] <ben_alman> etc
+[11:48:17] <snover> ok, sorry, that was not the right word. discounted my recommendation in lieu of something that was more familiar :)
+[11:48:45] <ben_alman> your solution is probably better
+[11:48:47] <ben_alman> link me again?
+[11:50:31] <snover> https://github.com/csnover/dojo2-teststack
+[11:50:36] <ben_alman> thx
+[11:50:38] <snover> it will be moving real soon now to a permanent home i swear
+[11:50:46] <snover> and then there will be npm registration
+[11:51:01] <ben_alman> yay
+[11:51:03] <ben_alman> +1
+[11:51:08] <snover> if my coworker who is responsible for finishing the remaining pull requests does not finish this week i will probably shoot myself
+[11:51:20] <ben_alman> no don't do that
+[11:51:31] <ben_alman> then everyone in irc will forget about dojo
+[11:51:36] <ben_alman> :P
+[11:53:53] <snover> I am pretty sure that won’t be the case soon, but that’s another ambitious project for another day :)
+[11:57:05] <noway421> Testswarm fetches tests from url, given in job. Why not give to testswarm url to node server? Maybe even spawn jobs from node?
+[12:00:16] <noway421> Now jobs spawns by jenkins, isnt it? Let Jenkins launches node.js with tests.
+[12:07:59] <Krinkle> noway421: I'm not sure I follow what you're talking about exactly or if you are indeed referring to the context we had yesterday.
+[12:08:13] <Krinkle> noway421: Jenkins builds whenever a commit is made in git
+[12:08:19] <Krinkle> noway421: It runs "grunt"
+[12:08:30] <Krinkle> and for some projects it also runs "grunt testswarm"
+[12:08:49] <Krinkle> which uses node-testswarm to submit a job to swarm.jquery.org/api.php and polll it until it is ready
+[12:09:07] <Krinkle> testswarm keeps it in the database, and distributes it to clients in the swarm from browserstack and/or saucelabs.
+[12:09:14] <noway421> Yep, yesterday context.
+[12:09:29] <Krinkle> from the internal javascript execution it listens until it is ready and submits results back to testswarm which then reports back to jenkins.
+[12:09:38] <noway421> So, why no start web-server on node with `grunt testswarm`?
+[12:10:00] <Krinkle> jenkins checks out the files from git and publishes them in /var/www/swarm/builds/<project>/<git hash>
+[12:10:29] <Krinkle> so the url it sends to testswarm, the url testswarm sends to browsers, the url to test/index.html is swarm.jquery.org/build/<project>/<git hash>/test/index.html
+[12:10:59] <Krinkle> the tests then request the scripts relatively to that and the ajax tests call some php scripts which works as expected since it is all running off apache.
+[12:11:32] <noway421> oh
+[12:12:07] <Krinkle> noway421: I'd expect that if I go to krinkle.localhost.dev/github/jquery/test/index.html the tests should pass, right?
+[12:12:22] <Krinkle> (for me that is)
+[12:12:46] <Krinkle> I guess we'll have to require a temporary node server for the entire jquery/ directory
+[12:13:12] <Krinkle> but that means it'll no longer work out of the box on a web server, it'll need a dedicated and very specific node server
+[12:13:29] <Krinkle> not just any node server but one that knows about the location of the ajax tests and serves custom responses to those
+[12:13:49] <Krinkle> and it'll need to find a free port because on Jenkins we'll run multiple of these concurrently
+[12:13:59] <Krinkle> since it'll have to create a new server as you say
+[12:14:07] <Krinkle> so all possible, but not trivial :)
+[12:14:16] <Krinkle> ... if we want to phase out php
+[12:15:08] <noway421> this is more complicated than i think. regular node server not suitable for this
+[12:15:41] <Krinkle> indeed, because it'll need to server .html, .css, .js and image files but also have specific end points for the custom ajax tests
+[12:15:44] <Krinkle> that's the whole point right?
+[12:16:16] <noway421> yes. 
+[12:16:18] <Krinkle> unless you want to set up the server to only do the ajax tests and serve the rest still from apache
+[12:16:26] <Krinkle> but then the test needs to know the url of the server
+[12:16:39] <Krinkle> which is variable
+[12:18:29] <noway421> hmm, there is an idea to perform js on demand. like regular cgi.
+[12:19:24] <noway421> but this is not efficient, of course
+[12:21:46] <noway421> ok then, let it be so.
+[12:23:20] <Krinkle> noway421: Actually, look for "jhp"
+[12:23:33] <Krinkle> its a php-like this for js
+[12:23:59] <Krinkle> it would allow for regular .js files to be served as static but parse <?jhp .. ?> tags
+[12:24:29] <Krinkle> or optionally blacklist .js for safety (just in case it might contain <?jhp) and reserver a different extension for jhp
+[12:24:44] <Krinkle> https://github.com/kasmura/jhp
+[12:24:54] <Krinkle> not sure if that's the one I remember, but it seems like it
+[12:25:08] <Krinkle> https://github.com/jaubourg/jhp
+[12:25:11] <Krinkle> that's the one
+[12:26:39] <noway421> ok. its seems to be like ejs without cache
+[12:29:11] <noway421> oh, wrong repo. 
+[12:44:29] <noway421> Package is based on module._compile(), so, it is possible to connect the modules on demand. In this case, the node server will act like mod_php. I'll try to do something on this.
+[15:12:56] <rwaldron> DaveMethvin ping
+[15:21:20] <DaveMethvin> sup rwaldron
+[15:21:50] <rwaldron> DaveMethvin http://bugs.jquery.com/ticket/13815#comment:2
+[15:21:59] <DaveMethvin> yep, saw that
+[15:22:13] <rwaldron> the fix is easy
+[15:22:31] <DaveMethvin> sure, np for 2.0.1
+[15:22:40] <rwaldron> but then "on(), namespaced events, cloned events" breaks
+[15:22:44] <rwaldron> it's the only one
+[15:22:56] <DaveMethvin> hmmm, wonder why
+[15:23:13] <rwaldron> this is the dependency on assignment that retains reference that I encountered
+[15:23:22] <rwaldron> and thought was weird enough to make a note of in the data comments
+[15:23:52] <DaveMethvin> oh when we clone data on an element, we copy the ref of the data and don't deep-copy the data
+[15:24:28] <rwaldron> right
+[15:24:36] <DaveMethvin> which has been that way forever
+[15:24:42] <rwaldron> so trying to deep clone then breaks more events tests
+[15:24:51] <DaveMethvin> lol rabbit hole
+[15:24:55] <rwaldron> then how the hell did this work in 1.9?
+[15:24:59] <rwaldron> rather 1.x
+[15:25:53] <DaveMethvin> not sure
+[15:25:56] <rwaldron> http://jsfiddle.net/rwaldron/uKtPs/
+[15:26:05] <DaveMethvin> the events data structure is basically reconstructed anyway
+[15:26:19] <DaveMethvin> since we have to rebind and process any special evnets
+[15:26:35] <rwaldron> yeah
+[15:26:46] <rwaldron> I'll come back to this later
+[15:26:52] <rwaldron> I have tests written
+[15:27:02] <rwaldron> just need to figure out how this can actually work
+[15:27:07] <rwaldron> when is 2.0.1?
+[15:27:15] <DaveMethvin> whenever we need it to be
+[15:27:21] <rwaldron> ok
+[15:27:25] <rwaldron> I'll ping later
+[15:27:27] <rwaldron> thanks
+[15:27:31] <DaveMethvin> ok
+[15:27:37] <DaveMethvin> have a good time at bocoupfest
+[15:27:40] <m_gol> whenever but after 1.10, right?
+[15:27:59] <DaveMethvin> probably since we said 1.10 next week
+[15:28:37] <DaveMethvin> since this is a 2.0-only thing it's not an issue of sync at  least
+[15:29:26] <m_gol> right
+[16:11:31] <jqcommit> [13jquery] 15sudhirkoneru opened pull request #1252: Update README.md (06master...06patch-1)  02http://git.io/M6Zupw
+[16:13:08] <jqcommit> [13jquery] 15sudhirkoneru opened pull request #1253: Update README.md (06master...06patch-2)  02http://git.io/BsyBbA
+[17:10:23] <jqcommit> [13jquery] 15sudhirkoneru opened pull request #1254: Update README.md (06master...06patch-3)  02http://git.io/i97MGw
+[17:13:58] <jdalton> hey
+[17:14:04] <jdalton> pinging repos that switched to zepto
+[17:14:08] <jdalton> to have em switch back
+[17:14:11] <jdalton> also interesting
+[17:14:12] <jdalton> http://www.codefessions.com/2012/08/performance-of-jquery-compatible-mobile.html
+[20:45:13] <erock_> hello

@@ -1,0 +1,839 @@
+[00:21:39] <sean`> leelu, you're in the wrong channel bro :-) try #jquery
+[05:40:57] <DaveMethvin> ?tell timmywill git bisect says this this is the prob with IE7 http://pastebin.com/LUNrLPZJ ... may be more than one prob tho
+[05:40:57] <bot-t> DaveMethvin, Okay.
+[06:02:21] <gnarf> DaveMethvin: I think I can fix that
+[06:02:43] <DaveMethvin> oh good!!
+[06:03:12] <DaveMethvin> so was that your pull, or timmy's?
+[06:03:14] <DaveMethvin> gnarf
+[06:03:19] <gnarf> https://github.com/jquery/jquery/commit/1878885fb7a09b65d95980a9b7dce2df2944e4f9
+[06:03:22] <gnarf> timmys
+[06:04:35] <gnarf> im wondering why its ie onlyt
+[06:04:54] <gnarf> but i'll have to wonder later...
+[06:05:02] * gnarf poofs
+[06:11:09] <timmywil> DaveMethvin: sorry i wasn't available yesterday.  worked 13 hours
+[06:11:29] <DaveMethvin> just put in a half-day, eh? :P
+[06:12:21] <timmywil> DaveMethvin: you do gnarf's pulls already?
+[06:12:35] <DaveMethvin> no we're trying to get the unit tests working in ie7 first
+[06:12:48] <DaveMethvin> not quite sure why so many things broke
+[06:13:04] <timmywil> uhohs
+[06:13:10] <DaveMethvin> and they were in different modules so i don't think they were all related
+[06:15:42] <timmywil> checking
+[06:17:23] <timmywil> DaveMethvin: IE8 and IE9 ok?
+[06:17:55] <DaveMethvin> lemme check to be sure on ie9, i've checked out so many versions i can't remember
+[06:18:24] <timmywil> ok, i see tests died in traversing: contents() and 2 fails in offset
+[06:18:42] <timmywil> is that what you see?
+[06:18:54] <timmywil> http://gyazo.com/bc2e08d657637cd0cc0432889daf080a
+[06:20:27] <DaveMethvin> timmywil: yes i see those
+[06:21:22] <DaveMethvin> ie9 has one fail, clone of an <object> tag
+[06:21:32] <DaveMethvin> and that one doesn't bother me tbh
+[06:24:53] <timmywil> ok, the fail in traversing happens on this line: jQuery( iFrameBody ).append("<div>init text</div>");
+[06:25:01] <timmywil> trying to append to an iframe
+[06:25:24] <DaveMethvin> is that a recent change?
+[06:25:33] <timmywil> that's what i'm checking
+[06:26:53] <DaveMethvin> IE is prolly upset that elements created under the parent doc are being appended to the iframe doc
+[06:27:12] <DaveMethvin> so this must be recent
+[06:27:55] <timmywil> huh, i didn't see the removal of closest( Array ). nice
+[06:28:15] <DaveMethvin> well, deprecation
+[06:28:26] <DaveMethvin> i hope nobody uses it
+[06:36:11] <timmywil> DaveMethvin: the html5 commit
+[06:36:25] <DaveMethvin> ugh
+[06:37:22] <timmywil> yea, uses the current document instead of the iframe doc
+[06:37:39] <timmywil> do we support injecting html5 into iframes? :P
+[06:38:15] <DaveMethvin> so why didn't this show up sooner i wonder, thought rwaldron had tested it on ie7
+[06:38:33] <rwaldron> ugh
+[06:38:35] <timmywil> not sure, i've reverted to the commit just before and it fails
+[06:38:43] <rwaldron> i tested on IE7
+[06:38:44] <timmywil> i mean passes
+[06:38:50] <DaveMethvin> so bizarre
+[06:38:57] <rwaldron> i tested everything
+[06:38:59] <DaveMethvin> does that get rid of the offset fail as well?
+[06:39:05] <rwaldron> many, many, many times
+[06:39:10] <rwaldron> on different machines
+[06:39:26] <DaveMethvin> yeah i know rwaldron and that's what is strange, i wonder if there's some interaction with another recent patch
+[06:39:34] <rwaldron> :(
+[06:39:35] <timmywil> DaveMethvin: i'm not sure if it's something between the html5 commit and master, but it's currently passing
+[06:39:57] <DaveMethvin> passing if  you just back out the html5 commit?
+[06:40:07] <timmywil> if i revert to right at the html5 commit, it does fail without further commits
+[06:40:18] <DaveMethvin> fail, or pass?
+[06:40:21] <timmywil> fail
+[06:40:24] <timmywil> right at
+[06:40:28] <DaveMethvin> ah ok
+[06:40:29] <timmywil> with the commit that is
+[06:41:23] <DaveMethvin> i have to walk the dog, he is looking at me with accident-prone eyes
+[06:41:32] <timmywil> heh
+[06:41:44] <DaveMethvin> i'll be back in about 20 minutes
+[06:42:22] <timmywil> rwaldron: this is in traversing btw, not manip
+[06:43:19] * rwaldron sighs
+[06:44:15] <rwaldron> timmywil i got bocoup to sign up for licenses to browserstack.com
+[06:44:33] <timmywil> nice
+[06:44:56] <rwaldron> anyway, it actually lets me test with IE9
+[06:45:06] <timmywil> rwaldron: so I'm thinking this has to do with which document is used to create the fragment
+[06:45:16] <timmywil> but that's just a preliminary guess at this point
+[06:45:28] <rwaldron> that's the first thing i thought when i came in to the channel and saw you guys talking
+[06:46:33] <rwaldron> does the test just hang for you?
+[06:46:41] <timmywil> not hang, just dies
+[06:46:57] <timmywil> right at line 465
+[06:47:02] <rwaldron> as in stops, dead
+[06:47:05] <timmywil> of unit/traversing.js
+[06:47:15] <timmywil> yea
+[06:47:26] <rwaldron> hm
+[06:47:49] <timmywil> we could check if the parent document of the element we're appending to is the same as the current document
+[06:48:45] <rwaldron> hm
+[06:49:39] <rwaldron> timmywil my line 465 is a blank line between the parentsUntil([String]) and next([String]) tests
+[06:49:47] <rwaldron> i just pulled master
+[06:49:57] <timmywil> oh, i've reverted to right at the commit
+[06:50:27] <timmywil> i'll just pull the rest
+[06:50:58] <timmywil> rwaldron: 549
+[06:51:05] <rwaldron> cool
+[06:51:40] <rwaldron> shit
+[06:51:45] <rwaldron> i have no idea
+[06:51:54] <rwaldron> i need to think about this
+[06:52:02] <rwaldron> but i have to go to the bathroom really bad
+[06:52:03] <rwaldron> hahahahah
+[06:52:07] <timmywil> lol, ok
+[06:52:08] <rwaldron> bbiaf
+[06:57:15] <timmywil> rwaldron: this fixes it http://gyazo.com/3a9cffc2dc5f7669f84528b0b04c4d11
+[06:57:33] <jzaefferer> a highlight and 300+ new messages… sup?
+[06:57:33] <timmywil> does that work for you?
+[06:58:48] <timmywil> jzaefferer: i wouldn't know. dave and rick are currently taking care of other "business"
+[07:00:22] <rwaldron> timmywil ok, so basically instead of creating a single reusable safe fragment
+[07:00:46] <timmywil> rwaldron: well, the reusable is still there for the majority of cases
+[07:00:51] <rwaldron> you're allowing to create a second based on context
+[07:00:52] <timmywil> this is just for other documents
+[07:01:02] <timmywil> yea, exactly
+[07:01:09] <rwaldron> yeah, i'm down with that
+[07:01:29] <rwaldron> but why the shit did this just appear?
+[07:01:44] <rwaldron> whatever
+[07:01:50] <rwaldron> does this solve the issue?
+[07:01:54] <timmywil> it does
+[07:02:05] <rwaldron> then I'm for it
+[07:02:12] <timmywil> kk
+[07:02:12] <rwaldron> you're my hero
+[07:03:37] <rwaldron> jzaefferer who is wwalser?
+[07:06:54] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/xMugcQ
+[07:06:54] <jqcommit> [jquery/master] Fixes a fail in unit/traversing. Use an iframe's document for creating the html5 fragment when necessary. - timmywil
+[07:07:00] <timmywil> ok, now just the offset fail
+[07:07:07] <jzaefferer> rwaldron: QUnit contributor
+[07:07:14] <jzaefferer> also former colleague of Scott
+[07:07:24] <rwaldron> cool
+[07:08:17] <rwaldron> was just curious
+[07:13:08] <timmywil> rwaldron: I don't know how this is also coming up now, but it seems the supportsFixedPosition commit…lol
+[07:13:18] <rwaldron> fuck.
+[07:13:33] <rwaldron> So... that's fairly understandable
+[07:13:43] <rwaldron> as it was developed in parallel with everything else
+[07:13:49] <timmywil> actually, hold on
+[07:13:52] <timmywil> the test was changed
+[07:13:57] <rwaldron> ?
+[07:14:34] <timmywil> equals( jQuery("body").offset().top, 1, "jQuery('#body').offset().top" );
+[07:14:34] <timmywil> 407
+[07:14:34] <timmywil> 	equals( jQuery("body").offset().left, 1, "jQuery('#body').offset().left" );
+[07:14:34] <timmywil> 404
+[07:14:34] <timmywil> 	equals( jQuery("body").offset().top, 0, "jQuery('#body').offset().top" );
+[07:14:35] <timmywil> 405
+[07:14:35] <timmywil> 	equals( jQuery("body").offset().left, 0, "jQuery('#body').offset().left" );
+[07:14:37] <timmywil> sry
+[07:14:41] <timmywil> floooood
+[07:15:09] <rwaldron> right
+[07:15:10] <timmywil> ie7 still gets a 1 for some reason
+[07:15:19] <DaveMethvin> bac
+[07:15:22] <DaveMethvin> back
+[07:15:37] <timmywil> DaveMethvin: traversing is all good, figuring out this offset fail
+[07:15:45] <rwaldron> the problem is that those tests are run in an iframe
+[07:15:59] <DaveMethvin> hmmm
+[07:16:04] <rwaldron> whereas supportsFixedPosition code is run on a body element
+[07:16:12] <timmywil> frameborder?
+[07:16:16] <rwaldron> (fake one)
+[07:16:24] <DaveMethvin> well, what changed? that's the question
+[07:16:36] <rwaldron> the 1ps difference no longer existed when moved the code
+[07:16:42] <rwaldron> so i updated the test
+[07:16:49] <rwaldron> but that was all passing
+[07:17:00] <DaveMethvin> so strange
+[07:17:05] <rwaldron> that code was also written about 2 months ago
+[07:17:08] <timmywil> so, we no longer run jQuery.offset.initialize in the iframe context
+[07:17:11] <rwaldron> no
+[07:17:49] <rwaldron> I was hyper sensitive about those two tickets
+[07:17:53] <rwaldron> with regard to testing
+[07:18:02] <rwaldron> many runs in every browser
+[07:22:44] <DaveMethvin> gotta do a meeting at 10:30, back around 11
+[07:24:57] <timmywil> rwaldron: so this body has a margin of 1px
+[07:25:24] <timmywil> maybe it should be 1 in all browsers?
+[07:29:37] <timmywil> ah, doesNotIncludeMarginInBodyOffset should be true in webkit
+[07:35:38] <rwaldron> er... is it coming up false?
+[07:36:47] <timmywil> yea, looks like bodyMarginTop was changed to use body.style instead of jQuery.css because jQuery.css isn't defined at this point
+[07:38:48] <rwaldron> right
+[07:39:06] <rwaldron> did I completely fuck this up...?
+[07:39:07] <timmywil> problem is, body.style.marginTop === "" in webkit
+[07:39:09] <timmywil> nah
+[07:39:13] <timmywil> we just need computed style
+[07:41:09] <rwaldron> I get the feeling you have a plan?
+[07:41:25] <timmywil> yup
+[07:41:33] <rwaldron> nice
+[07:46:16] <timmywil> actually, we don't need computed style for the test element, we just need some margin on the test element
+[08:06:03] <timmywil> rwaldron: woot
+[08:06:17] <timmywil> that was it, but we need the testElement to still be connected
+[08:10:24] <scott_gonzalez> timmywil: do you have access to the TestSwarm server?
+[08:10:34] <timmywil> i don't
+[08:10:42] <scott_gonzalez> JohnResig: you around?
+[08:10:57] <JohnResig> scott_gonzalez: hey
+[08:11:09] <scott_gonzalez> I think this commit is what broke TestSwarm: https://github.com/jquery/jquery/commit/e7a7cc8914cc1da17fd6fd14b370532d6f273069
+[08:11:25] <scott_gonzalez> can you check if the submodule is busted on the server?
+[08:16:02] <JohnResig> scott_gonzalez: nothing looks busted, as far as I can tell
+[08:16:09] <scott_gonzalez> hmm...
+[08:16:25] <scott_gonzalez> everything in /src/sizzle returns a 404 on swarm.jquery.org
+[08:16:53] <scott_gonzalez> for example
+[08:16:56] <scott_gonzalez> works: http://swarm.jquery.org/git/jquery/649823d/src/event.js
+[08:17:02] <scott_gonzalez> fails: http://swarm.jquery.org/git/jquery/649823d/src/sizzle/sizzle.js
+[08:17:43] <rwaldron> weird
+[08:17:51] <rwaldron> was it not built properly?
+[08:17:55] <JohnResig> scott_gonzalez: ah, there we go - seems like init wasn't run?
+[08:17:58] <rwaldron> because http://swarm.jquery.org/git/jquery/649823d/src/selector.js
+[08:18:00] <rwaldron> 404 ^
+[08:19:29] <scott_gonzalez> rwaldron: there is no /src/selector in jquery
+[08:20:29] <timmywil> scott_gonzalez: there is after a make
+[08:20:41] <rwaldron> scott_gonzalez yes
+[08:20:43] <scott_gonzalez> ah, ok
+[08:20:45] <rwaldron> whoops
+[08:20:52] <rwaldron> http://gyazo.com/e0242ef36ba98986f2a3832984d72385.png
+[08:20:56] <scott_gonzalez> I assume it requires sizzle in order to build it
+[08:21:01] <timmywil> right
+[08:21:09] <rwaldron> which is why i said "was it not built properly?"
+[08:21:26] <rwaldron> no sizzle means no selector.js is built
+[08:21:39] <rwaldron> which could be caused by "make" never being run
+[08:21:46] <scott_gonzalez> right, so the underlying problem is that the submodule isn't loaded
+[08:21:59] <rwaldron> which could also be caused by make never being run
+[08:22:20] <scott_gonzalez> I don't think TestSwarm uses a built version though
+[08:22:40] <scott_gonzalez> the unit tests load Sizzle directly
+[08:23:04] <scott_gonzalez> if you load up your local QUnit tests, you'll see that /src/selector.js is never used
+[08:24:29] <rwaldron> I was just noting that as additional evidence that make was never run
+[08:24:50] <rwaldron> the submodule needs to be init'ed and updated
+[08:25:00] * rwaldron shrugs
+[08:25:07] <scott_gonzalez> does anyone know why this used to work?
+[08:25:28] <scott_gonzalez> TestSwarm can't have been broken since you started using submodules
+[08:25:46] <rwaldron> it seems to me that some kind of initialization failed
+[08:25:52] <rwaldron> sorry, i don't know much more then that
+[08:26:15] <rwaldron> :\
+[08:27:05] <scott_gonzalez> heh, me neither :-P
+[08:27:09] <rwaldron> I really should though, I'mjust not sure where to begin
+[08:27:17] <scott_gonzalez> JohnResig: any ideas?
+[08:27:24] <rwaldron> maybe we can ask JohnResig to give us a tour this weekend
+[08:29:56] <scott_gonzalez> yeah, John and Jörn can show us all how everything works, so we can help fix all the brokenness
+[08:30:59] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/nxbhCg
+[08:30:59] <jqcommit> [jquery/master] Fixes IE7 test suite. Keep the testElement attached and set necessary styles on it to fix the offset with margin test. - timmywil
+[08:31:03] <timmywil> DaveMethvin, rwaldron : we're passing fully now
+[08:31:11] <rwaldron> :)
+[08:31:16] <rwaldron> thanks timmywil
+[08:32:06] <DaveMethvin> still on the phone
+[08:32:36] <DaveMethvin> got a lint fail on master when i make ... createSafeFragment
+[08:32:54] <timmywil> oh, heh
+[08:32:57] <rwaldron> that's annoying
+[08:33:16] <rwaldron> Dear Lint, It's hoisted. STFU. <3 Us
+[08:34:38] <rwaldron> timmywil how do you feel about...
+[08:34:39] <rwaldron> testElement.style.cssText = "position:static;top:0px;marginTop:1px";
+[08:35:13] <rwaldron> testElement.style.cssText = "position:static;top:0px;margin-top:1px";
+[08:35:17] <rwaldron> whoops
+[08:35:21] <timmywil> it has other styles
+[08:35:41] <rwaldron> you're right, it does
+[08:35:55] <rwaldron> i just sorta pulled that out of my ass anyway
+[08:36:01] <rwaldron> (not tested obvs)
+[08:36:08] <rwaldron> thanks for crushing my dreams
+[08:36:15] <timmywil> lol
+[08:36:18] <timmywil> yw
+[08:39:33] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/mMvx3g
+[08:39:33] <jqcommit> [jquery/master] Move createSafeFragment to the top to satisfy lint - timmywil
+[08:41:06] <timmywil> git cm --amend "Move createSafeFragment to the top to satisfy Dave 'the anal' Methvin"
+[08:41:28] <rwaldron> pppfffft
+[08:41:38] <timmywil> jk
+[08:41:57] <rwaldron> timmywil should i still hold off on updating to latest qunit?
+[08:42:34] <timmywil> for now, i think qunit will need an update first
+[08:43:52] <DaveMethvin> lol timmywil
+[08:44:21] <DaveMethvin> hey it's not me, it's lint, i just slavishly follow its instructions
+[08:45:07] <timmywil> and you use words like "slavishly"
+[08:45:15] <DaveMethvin> ok, so rwaldron timmywil it sounds like it's safe to start testing/landing some other stuff?
+[08:45:31] <timmywil> i'd say so
+[08:45:47] <timmywil> as long as they aren't commits from rwaldron, we're good. ;)
+[08:45:52] <DaveMethvin> lol, oooh
+[08:52:00] <gnarf> DaveMethvin: any luck?
+[08:52:39] <DaveMethvin> gnarf, on what?
+[08:52:49] <gnarf> ie7 :)
+[08:52:52] <gnarf> i just made it to the airport
+[08:52:57] <gnarf> was looking over the code on the way
+[08:53:09] <DaveMethvin> oh timmywil got it straightened out i think
+[08:53:09] <gnarf> it seems like it should clean up that stuff itself
+[08:53:14] <gnarf> awesome
+[08:53:24] <DaveMethvin> so now we're trying to break it again
+[08:53:30] <DaveMethvin> :P
+[08:53:37] <gnarf> kickass
+[08:53:41] <timmywil> yup, here comes gnarf
+[08:53:58] * gnarf puts on the super-villian outfit and preps to break IE7
+[08:56:02] <gnarf> anyone look at my pulls yet?
+[08:57:39] <timmywil> yea, i just ran 514 in ie6, looks good
+[08:59:46] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/V5wRFw
+[08:59:46] <jqcommit> [jquery/master] Landing pull request 514. 1.7 - queue refactoring to handle delay stop - Fixes #6150. - Corey Frang
+[09:01:48] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/wRxf4Q
+[09:01:48] <jqcommit> [jquery/master] Landing pull request 520. Unset the complete function just before calling it to avoid an exception creating a loop. Fixes #5684. - Corey Frang
+[09:04:48] <DaveMethvin> damn i keep having to rebase .. :)
+[09:06:48] <gnarf> all your rebase are belong to DaveMethvin
+[09:07:00] <danheberden> git commit -m "went to jail"
+[09:07:03] <danheberden> git pull --rebase
+[09:13:16] <DaveMethvin> er, is anyone else seeing ie7 fails in the toggle tests now? timmywil gnarf ? this wasn't happening before the last coupla commits
+[09:13:48] <gnarf> DaveMethvin: i thought toggle/stop/toggle tests were what was failing before....
+[09:13:53] <DaveMethvin> yeah they were
+[09:14:11] <DaveMethvin> but then timmywil sprinkled magic powder and they went away
+[09:14:22] <DaveMethvin> i got a complete successful run about 45 minutes ago
+[09:15:21] <timmywil> just a min, need to do something for work real quick
+[09:16:04] <DaveMethvin> np, my real work ppl think i am at lunch so i can actually get some jquery stuff done
+[09:26:06] <timmywil> ok, have a meeting. DaveMethvin: i ran effects in IE6 before pushing those pulls, but I'll check again when i get back
+[09:26:14] <DaveMethvin> k
+[09:26:36] <DaveMethvin> gnarf, did you say that it passed when you ran effects but not when you ran full tests?
+[09:27:00] <gnarf> DaveMethvin: when i was having those qunit problems yesh
+[09:27:17] <gnarf> it also seems to "pass" if the last test failed
+[09:27:19] <DaveMethvin> well then we are back to suspecting qunit
+[09:27:24] <gnarf> because if the test ran first it seemed alright
+[09:27:35] <gnarf> so it went on and never errored
+[09:27:48] <gnarf> so i needed to always run an additional pass across it if the first one passed
+[09:28:43] <DaveMethvin> man it's so frustrating to not be able to trust the unit tests like this
+[09:28:51] <DaveMethvin> i ran effects alone in ie7 and it's fine
+[09:29:11] <DaveMethvin> so for the beta at least I am okay with going ahead
+[09:30:39] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/fD9N4A
+[09:30:39] <jqcommit> [jquery/master] Expose jQuery.event.simulate for use by special event handlers. - Dave Methvin
+[09:33:38] <gnarf> scott_gonzalez: ^^^ :)
+[09:33:55] <scott_gonzalez> :-)
+[09:34:36] <DaveMethvin> scott_gonzalez: oh damn, messed up the commit message! :P
+[09:35:35] <scott_gonzalez> heh
+[10:00:58] <DaveMethvin> gnarf: you around?
+[10:01:07] <gnarf> yeah
+[10:01:14] <DaveMethvin> at the airport?
+[10:01:37] <gnarf> yup
+[10:01:47] <DaveMethvin> just looking for someone to ping some ideas off
+[10:01:58] <DaveMethvin> i was going to land pull 406
+[10:02:13] <DaveMethvin> but then i looked and wondered about whether we should be detecting boxModel that way
+[10:03:31] <DaveMethvin> that pull fixes a misdetection of boxModel if someone has padding/border on "*" or "div" in a stylesheet
+[10:03:47] <DaveMethvin> but then there is another bug regarding having border-box set for divs or * by default
+[10:04:45] <DaveMethvin> http://bugs.jquery.com/ticket/5520
+[10:08:37] <gnarf> hrm
+[10:08:44] <gnarf> i wish i understood what you were talking about
+[10:08:48] <gnarf> i might have an opinion then
+[10:08:51] <DaveMethvin> lol
+[10:09:03] <DaveMethvin> well why do you think i was asking you?
+[10:09:13] <DaveMethvin> because i am not sure what i am talking about
+[10:09:35] <gnarf> blind asking the blind
+[10:09:43] <DaveMethvin> looks like i will need to put together a good test case, damn i hate having to do work
+[10:09:51] <DaveMethvin> and actually understand the problem
+[10:09:51] <gnarf> heh
+[10:09:57] <gnarf> right...
+[10:10:36] <DaveMethvin> essentially, setting box-sizing: border-box on an element gives it a behavior like the old IE6/7 quirks mode
+[10:10:45] <DaveMethvin> where the width is the overall width including border and padding
+[10:10:56] <DaveMethvin> which is definitely more intuitive
+[10:10:57] <gnarf> yeah
+[10:11:11] <gnarf> but that totally messes with .width() ?
+[10:11:27] <DaveMethvin> i think it messes with several things
+[10:11:27] <gnarf> or are we just trying to detect support for it?
+[10:11:43] <DaveMethvin> 5520 is complaining about offset values
+[10:11:57] <gnarf> offset?
+[10:12:03] <DaveMethvin> yep
+[10:12:10] <gnarf> wtf
+[10:12:13] <DaveMethvin> top and left
+[10:13:18] <DaveMethvin> i'll figure it out, altho i will prolly wait until after we get the beta done
+[10:13:25] <gnarf> this guy said he fixed it
+[10:13:29] <gnarf> in the ticket
+[10:13:33] <gnarf> where's the pull
+[10:13:33] <gnarf> lol
+[10:13:43] <DaveMethvin> yeah but i am not sure it's very bulletproof
+[10:13:49] <DaveMethvin> basically he just hacked out boxModel
+[10:13:50] <gnarf> im gonna conserve this last 25 minutes of battery
+[10:13:54] <DaveMethvin> np
+[10:14:03] <DaveMethvin> cya later have a good flight
+[10:14:04] <gnarf> ?glwt
+[10:14:04] <bot-t> Good Luck With That
+[11:14:37] <rwaldron> i wish closing a ticket as duplicate automattically set the component and priority to the original ticket's value
+[11:16:46] <danheberden> maybe that could be modified?
+[11:25:50] <timmywil> DaveMethvin: any issues?
+[11:26:27] <timmywil> let's get out a beta
+[11:26:38] <DaveMethvin> yeah in the ie7 tests i'm still getting a fail in the toggle tests
+[11:26:46] <timmywil> still? ok
+[11:27:30] <DaveMethvin> timmywil: it works fine if you just run effects by itself
+[11:27:35] <DaveMethvin> but it fails if you run a full test
+[11:27:51] <timmywil> what's the fail?
+[11:28:03] <DaveMethvin> the leak in data
+[11:28:11] <DaveMethvin> which i thought was from qunit
+[11:28:19] <timmywil> does it have to do with a timer?
+[11:28:24] <DaveMethvin> seems to yeah
+[11:28:36] <timmywil> and you ran git submodule update?
+[11:28:38] <DaveMethvin> yep
+[11:28:42] <timmywil> hmmm
+[11:29:38] <DaveMethvin> i'm ok with the beta going with that problem, I suspect it's qunit
+[11:29:55] <DaveMethvin> and it if isn't we'll fix it post-beta
+[11:30:09] <DaveMethvin> i was going thru the pulls and tix to see if ther was anything more we could get in
+[11:31:09] <DaveMethvin> there are a couple of tix related to boxModel that seem to be related, but we can land them post-beta
+[11:31:21] <timmywil> well, I ran the full suite before gnarf's pulls and didn't get a fail so it may be that we didn't cover a data leak in the tests
+[11:31:22] <DaveMethvin> once we get to the rc tho we need to be totally hardass on adding anything more
+[11:31:34] <timmywil> but i doubt it's actually a jQuery problem
+[11:32:05] <DaveMethvin> let's look at open stuff in the 1.7 list
+[11:32:19] <timmywil> actually, i just got a full pass in IE7
+[11:32:33] <timmywil> with your commit as well
+[11:33:43] <DaveMethvin> ok, let me exit ie7 and clear the cache
+[11:34:27] <timmywil> maybe your ie7 is caching qunit?
+[11:35:58] <DaveMethvin> yeah i wondered
+[11:36:07] <DaveMethvin> gotta start that vm, i was in ie8
+[11:36:35] <timmywil> you use vmware/virtualbox/parallels?
+[11:37:13] <timmywil> just curious
+[11:37:17] <DaveMethvin> virtualbox
+[11:37:28] <DaveMethvin> i think my ie8 setup is hosed
+[11:37:34] <DaveMethvin> such a pain to get it setup again
+[11:37:53] <DaveMethvin> but ie7 is running now
+[11:37:58] <timmywil> yea i did virtualbox for a while. parallels was like a breath of fresh air.
+[11:38:23] <DaveMethvin> i'm on windows so it's either vmware or virtualbox or ms virtual px
+[11:38:24] <DaveMethvin> pc
+[11:39:10] <DaveMethvin> vbox sometimes stops one of my vms when i have two running because they hog so much memory
+[11:39:18] <DaveMethvin> so i only run one at a time
+[11:40:30] <timmywil> i think i'll just recommend a mac ;)
+[11:40:36] <DaveMethvin> man i'll never understand gzip
+[11:40:54] <DaveMethvin> the min file size goes up by 32 bytes but the zip goes down by 2
+[11:41:19] <timmywil> yea, it's been interesting
+[11:41:36] <DaveMethvin> nope, just saw the effects error flash by on ie7
+[11:42:09] <DaveMethvin> http://gyazo.com/911fa6934335a3c5f43ef6e3ec982dd6 timmywil
+[11:42:38] <DaveMethvin> that's the error we thought came from qunit, right?
+[11:43:10] <timmywil> how are we getting different results?
+[11:43:25] <DaveMethvin> i dunno
+[11:43:32] <DaveMethvin> let's compare qunits
+[11:43:58] <DaveMethvin> where is the hash for qunit?
+[11:44:47] <timmywil> i was just looking
+[11:44:55] <timmywil> i don't actually see anything
+[11:47:03] <timmywil> well that's an oversight
+[11:47:57] <DaveMethvin> bedb98636511a3b64f879f52945b5d0177a020a3 test/qunit (heads/master-68-gbedb986)
+[11:48:03] <DaveMethvin> thats my git submodule info
+[11:48:08] <timmywil> bedb98636511a3b64f879f52945b5d0177a020a3 test/qunit (heads/master-38-gbedb986)
+[11:48:11] <timmywil> yup
+[11:48:35] <timmywil> DaveMethvin: maybe do tools > delete browsing history as well
+[11:48:39] <DaveMethvin> yeah did that
+[11:48:47] <DaveMethvin> and restarted ie7 just to be sure
+[11:49:21] <DaveMethvin> and it definitely pulls new files, i create errors all the time :P
+[11:49:45] <timmywil> yea, if you did delete all, it's not a cache issue
+[11:49:51] <DaveMethvin> ok well if it's passing for you i will assume it's some strange qunit thing and not a bug in master
+[11:50:32] <timmywil> 7.0.5730.13
+[11:50:56] <DaveMethvin> where's that number?
+[11:51:03] <timmywil> Help > about ie
+[11:51:08] <DaveMethvin> oih
+[11:51:30] <DaveMethvin> yup, same
+[11:51:35] <timmywil> weird
+[11:52:10] <timmywil> our os's are different
+[11:52:14] <DaveMethvin> when i do a git status it shows qunit/ as untracked
+[11:52:17] <DaveMethvin> is that normal?
+[11:52:24] <timmywil> untracked?
+[11:52:28] <timmywil> no that's not normal
+[11:52:48] <DaveMethvin> it shows it as a submodule but shows the qunit/ dir as untracked
+[11:53:04] <timmywil> cd test/qunit
+[11:53:10] <timmywil> what branch is it on?
+[11:53:17] <DaveMethvin> oic, there is a jquery/qunit
+[11:53:26] <DaveMethvin> as well as the jquery/test/qunit that shoudl be there
+[11:53:46] <timmywil> weird
+[11:53:52] <timmywil> which one is the submodule?
+[11:54:06] <DaveMethvin> test/qunit as it should be
+[11:54:13] <DaveMethvin> not sure how the other one got there
+[11:54:20] <timmywil> yea that's strange
+[11:54:55] <timmywil> git reset --hard upstream/master
+[11:55:03] <timmywil> will reset the branch
+[11:55:05] <timmywil> if you want
+[11:55:16] <timmywil> i did it as well
+[11:56:58] <DaveMethvin> just for more grins, when you make what is the size of your gz file?
+[11:57:09] <DaveMethvin> mine is 33157
+[11:57:11] <timmywil> 33157
+[11:57:14] <timmywil> yup
+[11:57:57] <DaveMethvin> ok well i cleaned everything out and restarted ie7, just one more try
+[11:58:13] <DaveMethvin> what else needs to happen before beta?
+[11:58:32] <timmywil> with working 13 hours yesterday, I didn't get back to getText
+[11:58:37] <timmywil> but that's all i have
+[11:59:00] <DaveMethvin> i have the checklist of things to do after we build, between addy's post and what i wrote already plus the ticket list i think we're pretty close there
+[11:59:07] <timmywil> and I think we can call it a bugfix more than enhancement if we want ;)
+[11:59:14] <DaveMethvin> we don't need to notify the cdns since this is a beta
+[11:59:36] <DaveMethvin> yeah i think what is left is mostly small fixes, altho we need to get them in before the rc
+[11:59:55] <DaveMethvin> i'm not falling for the old "put it in after rc" one again :P
+[11:59:58] <timmywil> sure
+[12:01:01] <DaveMethvin> should docs#8498 be closed now?
+[12:01:03] <bot-t> [#8498] Animate Hooks (assigned feature) - http://jqbug.com/8498
+[12:01:38] <timmywil> oh, not yet
+[12:01:52] <timmywil> how do you feel about that one?
+[12:01:58] <timmywil> https://github.com/jquery/jquery/pull/513
+[12:03:07] <DaveMethvin> i don't know enough about the utility of the feature
+[12:03:39] <DaveMethvin> i know we've had a few requests for it, indirectly
+[12:03:56] <DaveMethvin> as in, "i tried to animate border:xxx and it doesn't work"
+[12:04:20] <DaveMethvin> and at some point i get tired of closing them with the same explanation :)
+[12:04:43] <timmywil> well, border is another issue
+[12:04:52] <DaveMethvin> but i'm always concerned about these ones that create a pattern for more requests
+[12:05:15] <timmywil> the border issue sounds to me like the backgroundPosition issue
+[12:05:28] <timmywil> this splits compound property animations into their respective sub-properties to fix some animate issues
+[12:05:33] <DaveMethvin> yeah i meant borderWidth
+[12:05:40] <DaveMethvin> or margin or padding
+[12:05:47] <timmywil> ah yea
+[12:05:48] <DaveMethvin> where they are all numbers but a group
+[12:06:20] <DaveMethvin> i dunno, how common is that really and how much pain is it for someone to do a little more typing?
+[12:06:32] <timmywil> that is my question
+[12:07:12] <DaveMethvin> i guess i'd rather see this as a plugin from that perspective, or perhaps wait until 1.8 when it can be tackled with a rewrite
+[12:08:08] <DaveMethvin> in stuff that I've written lately I've been doing a lot of the optional animations in css and either no .animate() or fallback to .animate()
+[12:08:27] <DaveMethvin> that seems like it will be more common as all browsers support css transitions
+[12:08:43] <timmywil> yup
+[12:08:57] <DaveMethvin> if that's the case maybe we don't want to gold-plate our animate implementation if it's not going to be used as much
+[12:09:11] <DaveMethvin> or, figure out how to integrate css animations into it
+[12:09:54] <timmywil> ok, so we agree to wait on this?
+[12:10:03] <DaveMethvin> yeah, i'd be good on that
+[12:10:41] <timmywil> scott_gonzalez: you are cc'd on this. was docs#8498 important to you in ui?
+[12:10:43] <bot-t> scott_gonzalez, [#8498] Animate Hooks (assigned feature) - http://jqbug.com/8498
+[12:11:19] <scott_gonzalez> yes
+[12:11:24] <scott_gonzalez> for class animation
+[12:11:41] <DaveMethvin> i'm kinda bummed that we are over on bytes, right now at 33157 vs 32032
+[12:12:01] <DaveMethvin> and i cut a LOT of bytes out of event
+[12:12:06] <timmywil> im also concerned about that
+[12:12:15] <timmywil> that's my major concern right now
+[12:13:13] <DaveMethvin> we added a lot of features and fixed over 100 bugs, but added more than 1k to the file size
+[12:13:52] <rwaldron> i was trying to reduce in events
+[12:14:00] <rwaldron> thought that caching " " would reduce
+[12:14:06] <rwaldron> somehow it did not
+[12:14:13] <rwaldron> in fact, the opposite
+[12:14:15] <DaveMethvin> gzip is strange that way, i was just saying
+[12:14:19] <rwaldron> yeah
+[12:14:44] <DaveMethvin> i changed that internal simulate() to jQuery.event.simulate() and it saved two bytes ... go figure
+[12:16:08] <scott_gonzalez> well, I don't know that I care about core having any of the hooks
+[12:16:11] <scott_gonzalez> just the ability to hook
+[12:16:33] <scott_gonzalez> so you could drop the changes to src/css.js
+[12:16:49] <scott_gonzalez> src/effects.js is what gives us the flexibility we want
+[12:17:10] <DaveMethvin> scott_gonzalez: that would be a good compromise
+[12:17:20] <scott_gonzalez> also if this is something that can land in a minor release, I don't care if it gets put on hold
+[12:17:27] <scott_gonzalez> we can't rely on it in UI yet anyway
+[12:17:44] <timmywil> ok, I think beta's fine to go without that for now
+[12:17:57] <DaveMethvin> yeah i am ok with that as well
+[12:18:01] <timmywil> brb
+[12:18:04] <DaveMethvin> i am not in a hurry to ship 1.7
+[12:18:17] <DaveMethvin> i don't think the world is waiting on it
+[12:19:08] <DaveMethvin> so scott_gonzalez if you were on a life raft with jQuery 1.6.4 and you only had room for 30k bytes, what would you throw overboard?
+[12:19:16] <scott_gonzalez> we can probably even do the expanding on our own before we call animate
+[12:19:25] <scott_gonzalez> ajax?
+[12:19:34] <DaveMethvin> don't you need it?
+[12:19:36] <scott_gonzalez> it'd give me room for like another 5 MB
+[12:19:41] <DaveMethvin> lol
+[12:19:43] <scott_gonzalez> :-P
+[12:19:53] <DaveMethvin> yeah the problem there is the interface
+[12:20:05] <DaveMethvin> i really wish that was broken  up
+[12:20:43] <DaveMethvin> injecting a script is different than calling xhr, and using the same interface harshes the abstraction
+[12:21:00] <scott_gonzalez> $.ajax is the worst API
+[12:21:19] <scott_gonzalez> it's the most poorly designed part of jQuery
+[12:21:23] <DaveMethvin> agreed
+[12:21:40] <scott_gonzalez> and regardless of how many bugs were fixed with the rewrite, the new API is worse
+[12:22:03] <DaveMethvin> it's just more complex, which does correlate with worse i guess
+[12:22:15] <rwaldron> funny
+[12:22:27] <rwaldron> i didnt have to change any of my existing code to be "more complex"
+[12:22:35] <rwaldron> or do you mean the internalz?
+[12:22:42] <scott_gonzalez> the exposed API is more complex
+[12:22:48] <scott_gonzalez> there are many more features
+[12:22:53] <scott_gonzalez> which makes reading docs harder
+[12:23:00] <scott_gonzalez> which makes learning the API harder
+[12:23:05] <scott_gonzalez> which makes using the API harder
+[12:23:53] <scott_gonzalez> when I was writing amplify.request I was very tempted to whitelist the options we expose because of how insane the API is
+[12:24:02] <DaveMethvin> I'd be happier if there were separate apis for script injection, jsonp, xhr, etc so the feature sets could reflect the underlying capabilities
+[12:24:13] <DaveMethvin> because many of the options don't make sense for specific reuests
+[12:25:09] <scott_gonzalez> also the fact that the callbacks and events aren't 1:1 is annoying
+[12:25:41] <DaveMethvin> well the whole ajax global events stuff should be taken into a field and shot
+[12:26:06] <DaveMethvin> did you know you dont' even need to have an element attached to the doc to fire a global event on it?
+[12:26:52] <DaveMethvin> but again it's not something jaubourg wanted, it was what he was dealt unfortunately
+[12:27:15] <DaveMethvin> i'd like to revisit all that for a future release and say those events only fire on document
+[12:28:19] <scott_gonzalez> moving them to document makes sense
+[12:28:26] <scott_gonzalez> it'll break a bunch of code though
+[12:28:40] <scott_gonzalez> the annoying part is that the parameters aren't the same as the related callbacks
+[12:29:13] <scott_gonzalez> just write a special event to bring back the old behavior :-P
+[12:29:22] <DaveMethvin> sure, as a plugin
+[12:29:43] <scott_gonzalez> i-like-to-abuse-events.js
+[12:30:14] <DaveMethvin> i like the way you think :)
+[12:31:12] <DaveMethvin> so scott_gonzalez you are deprecating and migrating left and right in UUI, have you gotten any bitchy feedback on the version-to-version changes you're making?
+[12:31:26] <scott_gonzalez> nope
+[12:31:39] <DaveMethvin> well maybe i just need a bigger set of balls then
+[12:31:45] <scott_gonzalez> 1.9 will actually have better support for the 1.8 API than any 1.8 release will
+[12:32:01] <scott_gonzalez> and 2.0 will completely drop the 1.8 API
+[12:32:04] <DaveMethvin> yeah but that's the overlap
+[12:32:05] <DaveMethvin> yeah
+[12:32:12] <scott_gonzalez> you should come to my talk on Sunday :-)
+[12:32:13] <DaveMethvin> THEN you'll hear the bitching
+[12:32:34] <scott_gonzalez> we're actually being really clever about it
+[12:32:46] <scott_gonzalez> 1.9 completely rips out the 1.8 API and builds the 2.0 API
+[12:32:53] <scott_gonzalez> then we rebuild the 1.8 API on top of the 2.0 API as extensions
+[12:32:58] <DaveMethvin> when is your talk? hopefully not opposite mine before lunch
+[12:33:02] <scott_gonzalez> and just include the extensions inside the plugin files
+[12:33:10] <DaveMethvin> but i like that approach
+[12:33:23] <scott_gonzalez> 10:15a
+[12:33:29] <scott_gonzalez> two spots before you, same room
+[12:33:29] <DaveMethvin> k, before mine
+[12:34:05] <DaveMethvin> i know we used to try compat plugins but inevitably ppl would not use them and then just complain
+[12:34:47] <scott_gonzalez> the reason we'll have better support for the 1.8 API in 1.9 is because we actually have a full test suite for the 1.8 and 2.0 APIs in 1.9
+[12:34:56] <scott_gonzalez> and we don't have full test suites in 1.8
+[12:35:10] <scott_gonzalez> we're also not releasing 1.9 with high bug counts
+[12:35:30] <scott_gonzalez> and any bug that gets fixed after we start changing the API doesn't get merged into 1-8-stable
+[12:36:03] <DaveMethvin> yeah we are down to only about 100 open bugs now in core which is amazing considering we had like 1500 a year ago
+[12:36:18] <DaveMethvin> and we're closing about 100 with 1.7
+[12:36:55] <DaveMethvin> but  yeah i want to see your talk, we need some good ideas and it seemed like you guys had a great migration plan
+[12:37:01] <scott_gonzalez> http://bugs.jqueryui.com/ticketgraph is constantly depressing
+[12:37:29] <scott_gonzalez> http://bugs.jqueryui.com/report/28
+[12:37:49] <DaveMethvin> it's just so hard to stay on top of it
+[12:38:15] <DaveMethvin> now that we have a few ppl and killed the backlog it's easier
+[12:38:25] <DaveMethvin> but it's also that ppl are always filing invalid bugs
+[12:38:35] <scott_gonzalez> the counts are a bit misleading in UI right now though
+[12:38:52] <scott_gonzalez> because we keep adding tickets to remove deprecated featuers
+[12:39:06] <scott_gonzalez> like that report says tabs has 28 open tickets
+[12:39:10] <DaveMethvin> ah yes, we closed a few like that as we landed 1.7 features
+[12:39:22] <scott_gonzalez> 14 of them are "delete the bottom half of the file as soon as we release 1.9"
+[12:39:27] <DaveMethvin> lol
+[12:39:39] <DaveMethvin> yeah but think of how good it will feel to close them all
+[12:39:47] <DaveMethvin> that's what it was like last week for us
+[12:39:47] <scott_gonzalez> and then a handful more are feature requests
+[12:41:02] <scott_gonzalez> oh yeah, we'll have a ton of tickets that we can close instantly
+[12:41:10] <scott_gonzalez> probably at least 50
+[12:41:21] <scott_gonzalez> by just deleted a bunch of code that's already split out
+[12:42:34] <DaveMethvin> try to guess when we released versions: http://bugs.jquery.com/ticketgraph?days=365
+[12:44:29] <scott_gonzalez> oh crap, you can set a number days?
+[12:44:44] <scott_gonzalez> that's an awesome graph
+[12:44:57] <scott_gonzalez> http://bugs.jqueryui.com/ticketgraph?days=365
+[12:45:13] <scott_gonzalez> try to guess when I file tickets for redesigns
+[12:45:44] <DaveMethvin> YER GOIN THE RONG WAY
+[12:45:55] <scott_gonzalez> this is scary: http://bugs.jqueryui.com/ticketgraph?days=1500
+[12:46:42] <DaveMethvin> yeah
+[12:53:22] <DaveMethvin> ok rwaldron gnarf timmywil i'm building  1.7b1, speak now or forever hold your peace (well until b2)
+[12:53:38] <rwaldron> DaveMethvin i'm adding in a build/* tool
+[12:53:47] <rwaldron> that will output character frequency
+[12:53:52] <rwaldron> ralphholzmann actually wrote it
+[12:54:11] <rwaldron> i just remembered, so i am deriving a reporting tool from it
+[12:54:21] <DaveMethvin> hearing no objection ...
+[12:54:25] <timmywil> DaveMethvin: sounds good
+[12:54:28] <timmywil> do eet
+[12:54:31] <rwaldron> we'll be able to look at jquery.min.js's caracters
+[12:54:38] <rwaldron> for possible gzip improvements
+[12:54:45] <rwaldron> by renaming internal vars
+[12:54:47] <rwaldron> :)
+[12:54:55] <rwaldron> once we know WHAT characters are best
+[12:55:02] <jqcommit> [jquery] dmethvin pushed 2 new commits to master: http://git.io/Jwwjfw
+[12:55:02] <jqcommit> [jquery/master] Tagging the 1.7b1 release. - Dave Methvin
+[12:55:02] <jqcommit> [jquery/master] Updating the source version to 1.7pre - Dave Methvin
+[12:55:12] <timmywil> yay!
+[12:55:38] <DaveMethvin> ok, http://code.jquery.com/jquery-1.7b1.js
+[12:56:00] <DaveMethvin> let me run the release notes and start on the blog
+[12:56:09] <timmywil> awesome, thanks dave
+[12:56:31] <DaveMethvin> no, thanks to you guys!
+[13:02:51] <rwaldron> :D
+[13:13:54] <DaveMethvin> addyosmani: hey!
+[13:14:07] <addyosmani> Heya DaveMethvin!
+[13:14:26] <DaveMethvin> we're on the verge of releasing beta1, and i wondered if I could just link to your post
+[13:14:30] <DaveMethvin> but i coulnt' find it
+[13:14:33] <addyosmani> lol
+[13:14:34] <addyosmani> one sec
+[13:14:34] <DaveMethvin> i saw it on G+
+[13:14:49] <addyosmani> here ya go
+[13:14:49] <addyosmani> https://plus.google.com/115133653231679625609/posts/9PcwuFgrSTs
+[13:15:16] <DaveMethvin> are you ok with the g+ link or would you prefer i link to your site somewhere?
+[13:15:43] <addyosmani> I don't mind :)
+[13:15:48] <addyosmani> g+ works if it works for you
+[13:15:52] <DaveMethvin> worksforme
+[13:16:01] <DaveMethvin> didn't know if you had it up elsewhere
+[13:16:09] <DaveMethvin> tons of thanks for writing that up
+[13:16:12] <DaveMethvin> saved me a bunch of time
+[13:16:13] <addyosmani> no worries!
+[13:19:39] <timmywil> DaveMethvin: http://jsperf.com/sizzle-gettext-bugfix-6863/3
+[13:19:44] <timmywil> think i have something
+[13:19:57] <timmywil> combines barber and the 3144 fix
+[13:20:30] <timmywil> 3144 is the label on jsperf for my latest
+[13:21:07] <timmywil> ok, now i changed it to "latest"
+[13:22:40] <timmywil> about a 500% perf improvement
+[13:22:42] <DaveMethvin> aaaawwwww yeahhhhh
+[13:22:49] <timmywil> with a bug fix
+[13:23:05] <timmywil> the perf improvement still applies to IE as well
+[13:23:09] <DaveMethvin> well good b/c if it was a feature we'd need beta 2 :P
+[13:23:11] <timmywil> also about 500%
+[13:23:36] <DaveMethvin> well that will be another happy story
+[13:24:04] <DaveMethvin> did you see addy's post? I am just adding some stuff about .on() and .off()
+[13:24:25] <rwaldron> DaveMethvin timmywil
+[13:24:25] <rwaldron> https://github.com/jquery/jquery/pull/523
+[13:24:27] <DaveMethvin> any other features/fixes you think should be mentioned in particular? we'll have the full bug list
+[13:24:28] <timmywil> you have a draft somewhere?
+[13:24:43] <DaveMethvin> let me put one up for  you guys to look at
+[13:24:53] <rwaldron> will give a list of character frequency
+[13:25:03] <timmywil> rwaldron: nice!
+[13:25:06] <rwaldron> which can be used to figure out gzip optimizations
+[13:27:09] <DaveMethvin> http://pastebin.com/Jh6mDNg5 rwaldron timmywil addyosmani if you have the chance
+[13:27:52] <addyosmani> can you easily diff pastebin entries?
+[13:28:00] <addyosmani> or would you like us to provide any suggestions in here?
+[13:28:27] <ajpiano> you can use fixee for diffing pastes
+[13:28:33] <addyosmani> mmmk
+[13:28:42] <DaveMethvin> yeah pastebin prolly not the best solution here
+[13:29:28] <rwaldron> "It's an lovely " => It's a lovely s
+[13:29:30] <timmywil> DaveMethvin: think you could mention the toggle animations change?
+[13:29:32] <rwaldron> -s
+[13:29:48] <addyosmani> correcting some of the little errors in another pastie
+[13:30:01] <DaveMethvin> yeah sorry gotta run for just a sec
+[13:30:03] <addyosmani> :)
+[13:30:26] <rwaldron> "releaseto" => "release to"
+[13:32:40] <addyosmani> http://pastebin.com/4c1BB0qB
+[13:32:51] <addyosmani> nice.
+[13:32:56] <addyosmani> it does support diffs now
+[13:33:08] <addyosmani> http://pastebin.com/diff.php?i=4c1BB0qB
+[13:36:09] <DaveMethvin> back
+[13:36:25] <DaveMethvin> sweet, thanks guys!
+[13:46:43] <sizcommit> [sizzle] timmywil pushed 1 new commit to master: http://git.io/0Z8mhg
+[13:46:43] <sizcommit> [sizzle/master] Use textContent and innerText where possible in Sizzle.getText + use nextSibling when traversing. Fixes jQuery bugs #3144, #6863. - timmywil
+[13:48:06] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/1TnHKw
+[13:48:06] <jqcommit> [jquery/master] Update Sizzle. Fixes #3144, #6863. - timmywil
+[14:01:44] <timmywil> DaveMethvin: ^^
+[14:02:03] <DaveMethvin> yay!
+[14:05:47] <timmywil> removeData maybe
+[14:05:58] <timmywil> oops
+[15:02:11] <DaveMethvin> okay, ready to post the blog entry for 1.7 beta ...
+[15:03:23] <DaveMethvin> addyosmani: let me know if you want an update for that link in the blog, i can do it whenever you want
+[15:03:34] <addyosmani> thanks DaveMethvin
+[15:03:42] <addyosmani> just wrapping it up now. I'll ping over a URL shortly :)
+[15:12:05] <DaveMethvin> ajpiano: can you tweet the new 1.7 beta blog post? http://blog.jquery.com/2011/09/28/jquery-1-7-beta-1-released/
+[15:16:08] <ajpiano> surely
+[15:22:12] <DaveMethvin> ajpiano: many thanks kind sir
+[15:23:24] <rwaldron> gnarf is here!
+[15:23:44] <ajpiano> omg hi gnarf
+[15:25:08] <rwaldron> ajpiano when do you get here?
+[15:25:17] <ajpiano> not till early sat, have  a wedding on fri
+[15:25:37] <rwaldron> wtf.
+[15:25:41] <rwaldron> ot ok
+[15:25:42] <rwaldron> not*
+[15:26:18] <ajpiano> sos having your wedding postponed by a hurricane
+[15:26:18] <ajpiano> :/
+[15:26:30] <rwaldron> yeah dude...
+[15:26:35] <rwaldron> blame hurricanes
+[15:27:47] <gnarf> hi ajpiano
+[15:30:33] <gnarf> ajpiano: y u not here? :)
+[15:30:49] <ajpiano> read up :D
+[15:52:23] <gnarf> ajpiano: lame
+[16:04:26] <DaveMethvin> gnarf: u landed!
+[16:04:38] <gnarf> DaveMethvin: that I did... the plane did not crash
+[16:04:58] <DaveMethvin> good to know
+[16:04:59] <gnarf> and now I'm at some meetup @ bocoup :) i'm gonna learn something about data visiualization
+[16:05:06] <DaveMethvin> and blah blah blah
+[16:05:23] <DaveMethvin> well my dog needs a walk so i'll be back later
+[18:36:05] <thomasdavis> bow
+[18:42:23] <DaveMethvin> .
+[19:21:43] <rwaldron> DaveMethvin yt?
+[19:21:52] <DaveMethvin> yup
+[19:21:59] <rwaldron> did you see my last PR?
+[19:22:13] <rwaldron> co-written by paul_irish and nlogax
+[19:22:17] <DaveMethvin> is this like asking about whether i got your email?
+[19:22:19] <DaveMethvin> yeah :P
+[19:22:27] <rwaldron> trims 16 bytes from gzipp'ed
+[19:22:42] <DaveMethvin> which seems good, as long as it's bulletproof
+[19:22:55] <rwaldron> well, you could've seen the email for it, but not bothered to review
+[19:22:58] <rwaldron> it is
+[19:23:02] <rwaldron> tight as a drum
+[19:23:30] <rwaldron> turns out netscape 6 was the last browser to actually need the lookup on document.defaultView
+[19:24:02] <DaveMethvin> oh no, we lose netscape compat! :P
+[19:24:36] <rwaldron> wtf is netscape?
+[19:24:43] <DaveMethvin> get off my lawn
+[19:24:49] <rwaldron> hahahaha
+[19:24:52] <rwaldron> :D
+[19:25:12] <DaveMethvin> i  haven't checked the tracker, any bugs yet?
+[19:25:29] <DaveMethvin> oh thats right, every one waits until 1.7 final
+[19:25:30] <rwaldron> nope
+[19:25:36] <rwaldron> no kidding
+[19:26:21] <DaveMethvin> so i guess we could land a few more things tomorrow
+[19:26:36] <rwaldron> what's the link to the source?
+[19:26:49] <DaveMethvin> you mean to the beta?
+[19:26:53] <rwaldron> yeah
+[19:27:00] <DaveMethvin> http://code.jquery.com/jquery-1.7b1.js
+[19:27:08] <rwaldron> oh snap
+[19:27:13] <rwaldron> i was missing the 1
+[19:31:54] <rwaldron> Alli has a piece of raw hide chew wedged between two teeth and cant get it out
+[19:32:00] <rwaldron> of course, she wont let me help either
+[19:32:30] <DaveMethvin> ouch
+[19:32:54] <DaveMethvin> time to invent doggie dental floss
+[19:37:01] <gf3> make millions
+[19:37:10] <gf3> why stop there?
+[19:37:20] <gf3> doggie braces, doggie head gear!
+[19:43:24] <rwaldron> anything "doggie" is a sure fire way to make millions
+[19:43:34] <rwaldron> because idiots like me and rose will always buy them
+[19:44:00] <rwaldron> DaveMethvin so, I've been retweed 3 times
+[19:44:03] <rwaldron> still no bugs!
+[19:44:14] <rwaldron> http://twitter.com/#!/rwaldron/status/119237844194697216
+[19:44:39] <DaveMethvin> if we had download stats we'd probably find that 1.7b1 has been downloaded like 8 times
+[19:44:43] <DaveMethvin> all by us
+[19:44:45] <rwaldron> ahahahaha
+[19:45:09] <DaveMethvin> and i have bad news for gf3: http://www.mypetsdentist.com/site/view/113680_Bracesorthodontics.pml
+[19:45:35] <gf3> DaveMethvin: omggggg
+[19:45:40] <rwaldron> so, wonder when we'll hve to start supporting Silk?
+[19:45:53] <gf3> yesterday
+[19:46:18] <rwaldron> f7u12
+[19:46:37] <DaveMethvin> i dunno if it's going to be that popular
+[19:47:01] <DaveMethvin> but what would we need to do?
+[19:47:09] <DaveMethvin> i am not too familiar with silk
+[19:47:19] <DaveMethvin> i do, however, have one of those windows 8 tablets
+[19:47:23] <DaveMethvin> they are kinda cool
+[19:47:45] <DaveMethvin> i was tryna decide whether to bring it to the conf or not
+[19:47:50] <rwaldron> do it
+[19:47:52] <rwaldron> i wanna see
+[19:47:55] <rwaldron> :)
+[19:48:06] <DaveMethvin> why not, it's not that heavy, sure
+[19:49:35] <ajpiano> DaveMethvin: any idea what i should do with a guy whose jquery ui slider stopped working on 1.7b1
+[19:49:58] <DaveMethvin> can he post as reduced a case as possible on the tracker?
+[19:50:07] <ajpiano> ui or core
+[19:50:10] <DaveMethvin> core
+[19:50:21] <ajpiano> ok
+[20:02:55] <justinbmeyer> Can anyone quickly summarize the changes to submit and change event bubbling?
+[20:04:17] <DaveMethvin> yeah, we used to try to simulate submit and change by using click/propertychange/etc
+[20:04:43] <DaveMethvin> now on the first bubbling event we see if it came from a form and attach a submit/change
+[20:04:59] <DaveMethvin> and when it fires we have the handler bubble it manually
+[20:05:09] <DaveMethvin> thats basically it
+[20:06:48] <DaveMethvin> justinbmeyer: since not all the ie stuff is unit-testable there are specific manual tests that i used for testing them
+[20:07:09] <justinbmeyer> yeah, I might have created those manual tests :-)
+[20:07:17] <justinbmeyer> at least if they were the ones from 1.5 years ago
+[20:07:20] <DaveMethvin> oh then thank you very much
+[20:07:26] <justinbmeyer> I am reading the release notes
+[20:07:46] <justinbmeyer> and just wanted to know the 'new way' it works
+[20:07:59] <DaveMethvin> yeah i have docs on my list of things to do
+[20:08:00] <justinbmeyer> From the blog post:
+[20:08:01] <justinbmeyer>  Event delivery performance has been greatly improved for them, but the biggest change is that we are using a different approach to fix their non-bubbling and broken form events.
+[20:08:08] <DaveMethvin> right
+[20:08:09] <justinbmeyer> what is this new approach
+[20:08:11] <justinbmeyer> ?
+[20:08:24] <DaveMethvin> right above^^
+[20:08:42] <justinbmeyer> oh, I guess I don't know what you mean then
+[20:08:48] <justinbmeyer> manual tests?
+[20:09:00] <DaveMethvin> we used to try to simulate submit and change by using click/propertychange/etc
+[20:09:07] <DaveMethvin> now on the first bubbling event we see if it came from a form and attach a submit/change
+[20:09:13] <DaveMethvin> and when it fires we have the handler bubble it manually
+[20:09:15] <justinbmeyer> ah
+[20:09:56] <DaveMethvin> the pro is that its a real change/submit event and fires at the "right" time
+[20:10:00] <justinbmeyer> yeah
+[20:10:08] <justinbmeyer> any bubbling event?
+[20:10:24] <justinbmeyer> you are constantly checking for nodeName === 'form' ?
+[20:10:30] <DaveMethvin> nah
+[20:10:40] <justinbmeyer> just the ones that would trigger a submit?
+[20:10:47] <justinbmeyer> (or change)
+[20:10:59] <DaveMethvin> it looks at click or keydown for submit
+[20:11:03] <DaveMethvin> those happen before submit
+[20:11:07] <justinbmeyer> yeah
+[20:11:33] <justinbmeyer> I worked a lot on the inital version of getting those events to work with .live
+[20:11:45] <justinbmeyer> just trying to see what I could have done better
+[20:11:52] <justinbmeyer> (or did wrong)
+[20:12:12] <DaveMethvin> nothing particularly wrong, just that trying to fake the event didnt' always work
+[20:12:21] <justinbmeyer> https://github.com/jquery/jquery/commit/a4cdbf09ee97471ec041d83ceb8f3feb9825b2a1
+[20:12:24] <justinbmeyer> is that the commit?
+[20:12:45] <DaveMethvin> yeah for submit
+[20:13:14] <justinbmeyer> cool
+[20:13:27] <DaveMethvin> i wish i knew you did the original, it would be great to have someone to brainstorm with
+[20:14:18] <DaveMethvin> i kept thinking, "there must be some reason this is gonna fail"
+[20:14:29] <DaveMethvin> but maybe i'm just a pessimist
+[20:15:19] <justinbmeyer> no, it's a good idea
+[20:15:57] <justinbmeyer> http://code.google.com/p/javascriptmvc/source/browse/branches/1_0/jmvc/plugins/controller/controller.js#286
+[20:16:06] <justinbmeyer> it used to be part of JMVC
+[20:16:12] <justinbmeyer> and I ported that to jQuery
+[20:16:30] <DaveMethvin> ah
+[20:16:40] <justinbmeyer> crazy to see how far jQuery has come in 3 years
+[20:17:12] <DaveMethvin> yeah i am hoping we can slowly migrate out some of the older apis and things, kind of like how jquery ui is doing
+[20:17:22] <DaveMethvin> everything has a constituency
+[20:17:49] <justinbmeyer> did you add on / off?
+[20:17:52] <DaveMethvin> yeah
+[20:17:56] <justinbmeyer> I love that
+[20:18:02] <DaveMethvin> me too
+[20:18:17] <justinbmeyer> I can remove a decent amount of branching in JMVC
+[20:18:37] <DaveMethvin> i noticed the same thing in backbone.js too
+[20:18:59] <DaveMethvin> you can pass null/undefined for the selector explicitly if  you want
+[20:19:11] <justinbmeyer> ah, bonus
+[20:20:32] <justinbmeyer> just have to go one tiny step further to $(el).on("li click, li mouseover", function(){ ... }) :=)
+[20:21:05] <DaveMethvin> you mvc guys :)
+[20:22:18] <justinbmeyer> ha, yeah, we crazy

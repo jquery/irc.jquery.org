@@ -1,0 +1,76 @@
+[00:58:46] <doesallmagic2> Project jQuery Core 1.x Weekly build #83: STILL UNSTABLE in 28 min: http://jenkins.jquery.com/job/jQuery%20Core%201.x%20Weekly/83/
+[04:07:46] <jqcommit> [13jquery] 15gibson042 opened pull request #1652: Manipulation: Break reference copies in cloned properties (061.x-master...0615104) 02http://git.io/Zu4cNg
+[06:40:34] <JamesMGreene> jzaefferer Krinkle|detached leobalter scott_gonzalez: Feedback on this comment would be much appreciated so I can finish the PR off https://github.com/jquery/qunit/pull/653#discussion_r17260617
+[06:42:27] <JamesMGreene> Those changes will be a bit trickier to detangle, so the sooner the better
+[06:52:43] <JamesMGreene> Lots of back-and-forth variable setting that won't work with it out-of-the-box, e.g. calling `QUnit.start()` during `QUnit.load()` would currently throw an exception by those rules because `QUnit.config.autostart === true`
+[06:59:33] <jqcommit> [13qunit] 15JamesMGreene labeled issue #659: Defer "begin" callback until  02http://git.io/wxFq9Q
+[07:00:00] <JamesMGreene> Fixed title: 'Defer "begin" callback until test run actually starts'
+[07:03:14] <JamesMGreene> Is everyone already en route to Chicago or something?  Feels like a ghost town in here the past few days :)
+[07:38:18] <jqcommit> [13qunit] 15JamesMGreene opened issue #660: Investigate removing `QUnit.config.autorun` 02http://git.io/o4otmw
+[08:12:16] <padolsey> Hi! Anyone know how to configure/add groups of user-agents to testswarm? (maybe on a per-job basis?)
+[08:23:22] <JamesMGreene> Krinkle would know :)
+[08:24:00] <Krinkle> padolsey: Hi
+[08:24:40] <Krinkle> padolsey: TestSwarm uses ua-parser library
+[08:24:42] <Krinkle> padolsey: https://github.com/jquery/testswarm/blob/master/config/sample-localSettings.json#L14-L25
+[08:25:14] <Krinkle> padolsey: 1) register the user agents there under a key, 2) add them to a group ("browserSet"), 3) an a per-job bases you decide which groups to run on
+[08:29:16] <padolsey> Krinkle: sweet, thanks!
+[08:31:19] <Krinkle> padolsey: Im assuming of course that you've already read https://github.com/jquery/testswarm#installation
+[08:34:33] <Krinkle> JamesMGreene: About the reporter stuff
+[08:34:52] <JamesMGreene> yessir>
+[08:34:53] <JamesMGreene> ?
+[08:34:59] <Krinkle> JamesMGreene: I'd like to see if we can combine the reporter format (mostly event names and format of data objects passed to the event handlers) with the test result format.
+[08:35:12] <Krinkle> e.g. suppose we use https://github.com/jquery/testswarm/wiki/TestResult-Format-Specifiation (I know, very outdated, just an example)
+[08:35:34] <Krinkle> it could be as simple as event=key, data=sub object
+[08:36:07] <Krinkle> e.g. event=group, data={ name, summary, time, groups, assertions }
+[08:36:22] <Krinkle> event=assertion, data={ name, source, time, status }
+[08:36:44] <Krinkle> I think test result format is as valuable, if not more valuable, to standardise on
+[08:36:56] <Krinkle> since that's what you'd want to export into a CI system.
+[08:37:27] <JamesMGreene> Hmm
+[08:37:48] <JamesMGreene> What do Source and Result objects look like?
+[08:38:03] <JamesMGreene> Also the Summary object would need some new properties
+[08:38:19] <Krinkle> I'm not saying we should use this, or even discuss it.
+[08:38:23] <Krinkle> I don't want to talk about it
+[08:38:26] <JamesMGreene> lol
+[08:38:31] <Krinkle> I mean the mere idea of combing the two
+[08:39:06] <Krinkle> so whatever object we standardise on for the reporter for each 'test' event or whatever, is what you'd then be able to build up into a larger object
+[08:39:29] <Krinkle> e.g. the object our reporter will expect in the overall 'complete'  event would be the test format, right?
+[08:39:47] <Krinkle> on-assert, on-test, on-group, on-allthethings
+[08:40:22] <JamesMGreene> Do you mean so the object structure would [mostly] match at all levels?
+[08:40:51] <Krinkle> I don't care much about the names of the events, or whether we'll have a start/end pair for each thing. My only interest is that the objects passsed to each event nest properly. E.g. if you listen for assertions, you can expect that the 'test' event will contain each assertion, and so on.
+[08:41:50] <Krinkle> so that on('test', function(Object) ) that Object.assertions there is just an array containing the data previously available via on('assertion'). No need to invent multiple formats at each level.
+[08:42:39] <JamesMGreene> So for the "done" event, it would contain a summary as well as ALL previous events from moduleDone (+ testDone + log), testDone (+ log), log?
+[08:43:04] <JamesMGreene> The nesting is my big question
+[08:43:53] <Krinkle> Well, yeah, except that from 'done' point of view, it's contains some new info that only 'done' has + alll info from moduleDone.
+[08:44:06] <Krinkle> modules naturally have all tests, and tests naturally have all assertions.
+[08:44:29] <Krinkle> My motivation is not that it should accumulate data
+[08:44:37] <JamesMGreene> Do we only include the nested version, or do we also flatten it all? e.g. deeply nested assertions appear in the nested object AND at the top-level in a singular combined array of every single assertion?
+[08:44:47] <Krinkle> But that we don't invent new formats at each level.
+[08:45:26] <Krinkle> If you want all assertions, listen for assertions ("log" in qunit) and that's your "flat" structure, right?
+[08:45:27] <JamesMGreene> I think it's doable but that essentially relies on suite/module/group and test being treated as a single data structure, right?
+[08:45:58] <Krinkle> Yes. Which makes sense given that there's no common structure between frameworks.
+[08:46:20] <JamesMGreene> I dunno, seems more common than you might think
+[08:46:30] <Krinkle> youd' just have a generic concept for something containing assertions and/or other instances of itself. e.g. a group can contain assertions and/or other groups. That's what Jasmine has, too.
+[08:46:53] <Krinkle> from a log perspective, "module" and "test" in QUnit are the same. Just arbitrary that we have 2.
+[08:47:59] <JamesMGreene> You sure about Jasmine?
+[08:48:04] <Krinkle> I don't think there's any semantic value to standardising the meaning of "module", "test" and "test suite" separately. Whether a framework supports teardown at each level or a name or some other feature is just internal details
+[08:48:06] <JamesMGreene> describe != it
+[08:48:07] <Krinkle> You can nest in jasmine, right?
+[08:48:23] <Krinkle> Right. One contains groups, the other can contain groups or assertinos.
+[08:48:25] <JamesMGreene> You can nest but there is still a different indicator for a test ("it") vs a suite ("describe")
+[08:48:59] <JamesMGreene> Not really
+[08:49:10] <JamesMGreene> Group can contain groups or tests, Test can only contain assertions
+[08:49:14] <Krinkle> it can be inside describe can be inside it can be inside describe
+[08:49:27] <Krinkle> That's what I meant
+[08:49:50] <JamesMGreene> Right, which is effectively infinitely nestable suites
+[08:49:58] <JamesMGreene> but a Test is still called out separately
+[08:50:37] <JamesMGreene> I don't disagree with you, though: especially in a BDD world, I see no reason why a "Test" concept is really needed vs just grouping asseritons
+[08:50:41] <JamesMGreene> assertions*
+[08:51:20] <JamesMGreene> Likely just as a logical division
+[08:55:27] <JamesMGreene> Oh, snover....
+[09:19:54] <JamesMGreene> gseguin: Have you ever volunteered for "Doors/Mics" duty before?
+[09:20:17] <gseguin> JamesMGreene: not officially
+[09:20:27] <gseguin> JamesMGreene: why?
+[09:21:00] <JamesMGreene> You and I have been selected to volunteer for that on Saturday at the same time.  I haven't done it before, so I was curious if you had
+[09:21:10] <JamesMGreene> But I'm sure someone will be around to show us the ropes :)
+[21:47:43] <JamesMGreene> D-E-A-D x_x
+[22:14:09] <Mahesh> any body knows how to use jquery mobile ui for the desktop application created using zend framework

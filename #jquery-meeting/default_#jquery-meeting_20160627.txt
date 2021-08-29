@@ -1,0 +1,190 @@
+[12:00:51] <DaveMethvin> m_gol markelog gibson042 jbedard et al ... time for a meeting! timmywil is on vacation
+[12:01:10] <DaveMethvin> agenda https://docs.google.com/document/d/1uhcW9_TlSwD8JnO1_HNnSYJAriTK9WYZ8uQNDvtAAhA/edit
+[12:01:31] <markelog> hey-hey
+[12:01:32] <m_gol> present
+[12:02:00] <jbedard> hey
+[12:02:11] <DaveMethvin> think i saw gibson042 too
+[12:02:16] <gibson042> you did
+[12:02:25] <DaveMethvin> nice turnout!
+[12:02:40] <DaveMethvin> so let's see
+[12:02:53] <DaveMethvin> kind of surprised more stuff hasn't broken
+[12:03:11] <DaveMethvin> and the stuff that did break i didn't expect to be the problem :)
+[12:03:45] <m_gol> I have one significant issue with jQuery 3.0.0 wrt. Angular
+[12:03:53] <DaveMethvin> fire away m_gol
+[12:04:26] <m_gol> this one
+[12:04:27] <m_gol> https://github.com/angular/angular.js/blob/v1.5.7/src/angular.suffix
+[12:04:51] <DaveMethvin> is that related to ready firing after load?
+[12:04:52] <m_gol> in its default, most often used execution mode the bootstrap process is wrapped in jQuery ready
+[12:04:59] <m_gol> and if any error happens it's silenced
+[12:05:10] <DaveMethvin> soooo
+[12:05:26] <DaveMethvin> that brings up the possibility of always using the no-deferred implementation
+[12:05:39] <DaveMethvin> rather than trying to "fix" deferred for this case
+[12:05:45] <DaveMethvin> thoughts?
+[12:06:10] <jbedard> the no-deferred ready implementation?
+[12:06:22] <DaveMethvin> yeah
+[12:06:49] <m_gol> I worry about it because I think the proposed $(fn, errorCallback) might not be enough
+[12:07:02] <m_gol> as there's a lot of code that wraps everything in $()
+[12:07:16] <DaveMethvin> the problem is the world of existing code, yeah
+[12:07:17] <m_gol> and users may be surprised by suddenly seeing no errors
+[12:07:32] <DaveMethvin> making ppl change the code is not ideal
+[12:07:36] <m_gol> and, as I found out now, it affects every Angular release so far
+[12:07:39] <DaveMethvin> their own*
+[12:08:23] <DaveMethvin> m_gol: right now you do get the "jQuery Deferred exception:" message tho, right?
+[12:08:26] <jbedard> is the problem not seeing the error or the fact that $(fn) won't throw (because its async)?
+[12:08:30] <DaveMethvin> unless it's a `throw new Error()`
+[12:08:42] <m_gol> it's basically that so no message
+[12:09:16] <m_gol> for example, if you try to inject a service but you forgot to declare a module dependency
+[12:09:29] <DaveMethvin> seems to me the easiest way to fix this would be to use the no-deferred impl
+[12:09:33] <m_gol> Angular internally creates an error with proper info and throws it
+[12:09:43] <DaveMethvin> However...
+[12:10:06] <DaveMethvin> switching to no-deferred doesn't fix the problem of load firing before ready code has run
+[12:10:15] <DaveMethvin> or trying to set a load handler in a ready
+[12:10:29] <DaveMethvin> that would need some other rix
+[12:10:31] <DaveMethvin> fix*
+[12:11:49] <jbedard> how about logging all un-.catch()-ed errors?
+[12:12:15] <DaveMethvin> we could also be Promise/A+ compliant if we logged all errors to the console, but
+[12:12:32] <DaveMethvin> the problem is by the time we get to the .catch() i think we've lost the error info haven't we?
+[12:12:42] <DaveMethvin> maybe gibson042 has better insight on thta
+[12:12:49] <gibson042> this isn't a Promise issue, is it?
+[12:12:56] <DaveMethvin> basically yes
+[12:13:18] <gibson042> oh, I thought we were talking about the no-Deferred jQuery.ready
+[12:13:33] <jbedard> I'm not too sure, but I believe angular now does what I mentioned
+[12:14:06] <DaveMethvin> "fixing" deferred to keep the error info long enough seems harder than switching to no-deferred imo :)
+[12:14:22] <m_gol> jbedard: it's possible this will be changed in Angular as it's kind of defeating the spirit of the standard
+[12:14:31] <gibson042> can someone summarize the issue with brief psuedocode?
+[12:14:39] <gibson042> sorry, I'm operating at about half capacity
+[12:14:52] <DaveMethvin> two issues intertwined here:
+[12:15:13] <m_gol> gibson042: (simplifying a little) Angular does $(angularInit()) and angularInit may throw with a message with plenty of useful info
+[12:15:13] <DaveMethvin> 1) .ready() code may not run before a window.onload handler
+[12:15:32] <m_gol> and now you get an empty broken page with no info at all
+[12:15:38] <DaveMethvin> 2) thrown errors in a ready handler are silently swallowed
+[12:17:02] <gibson042> so one complaint is our no-catch `readyList.then( fn );` in jQuery.fn.ready?
+[12:17:17] <gibson042> perhaps even the primary complaint
+[12:17:31] <DaveMethvin> oh yeah
+[12:17:39] <DaveMethvin> we could add a catch that logged anything?
+[12:17:48] <markelog> well, isn't that source of second issue?
+[12:17:57] <markelog> and first?
+[12:18:12] <DaveMethvin> the first issue is fallout of ready being async now
+[12:18:16] <gibson042> which could be addressed with something around unhandled exceptions
+[12:18:37] <markelog> because of `readyList.then( fn );`
+[12:18:39] <markelog> ?
+[12:19:02] <markelog> that is why it is "async"?
+[12:19:09] <gibson042> yes
+[12:19:17] <DaveMethvin> readyList.then(fn).catch(logit)
+[12:19:24] <m_gol> I think we should do that
+[12:19:36] <markelog> wouldn't help for "load" event
+[12:19:46] <DaveMethvin> right the order can still be wrong
+[12:19:49] <DaveMethvin> the scary thing is
+[12:19:55] <DaveMethvin> it can also be right
+[12:19:56] <markelog> it will be wrong, yeah
+[12:19:58] <DaveMethvin> :/
+[12:20:28] <DaveMethvin> i dunno if it's possible for it to be both on different loads of the same page but that could make it really hard to debug
+[12:20:35] <markelog> can we differentiate release of "DOMContentLoad" event and resolve of the promise?
+[12:20:52] <DaveMethvin> markelog: yeah i was wondering that
+[12:21:16] <markelog> i think we can and it shouldn't violate spec
+[12:21:22] <markelog> of promises
+[12:21:39] <DaveMethvin> but the problem is that if we guarantee async for ready and DOMContentLoaded fires, we'd need to potentially run it sync
+[12:21:57] <gibson042> meh
+[12:22:08] <gibson042> I think they should add a timeout to their load handler
+[12:22:15] <markelog> you mean after they fired?
+[12:22:21] <DaveMethvin> i had a similar solution in the ticket gibson042
+[12:22:22] <gibson042> if it depends upon ready code
+[12:22:31] <markelog> after someone attach those events after they fire?
+[12:23:02] <DaveMethvin> attaching a load handler in a ready handler has usually worked in the past, but...
+[12:23:07] <markelog> in that case, some of the execution will be async and some of them will sync?
+[12:23:23] <markelog> *will be
+[12:23:27] <DaveMethvin> in older versions we had a "in case you missed it" check to fire ready on DOMContentLoaded
+[12:24:22] <DaveMethvin> for DOMContentLoaded we're at the mercy of the browser, I don't think *we* should defer it ... the user could if their code depends on thta
+[12:24:25] <DaveMethvin> that*
+[12:24:30] <gibson042> agreed
+[12:25:03] <DaveMethvin> here's my take ... if there isn't a lot of code that depends on this, we just update the upgrade guide to give some info
+[12:25:13] <markelog> all and all they could use `jQuery.ready.then` if they really needed that
+[12:25:35] <DaveMethvin> yeah it's always about what we break and how easy it is to fix
+[12:26:14] <DaveMethvin> i wonder if we could have Migrate check for this case?
+[12:26:28] <DaveMethvin> if so that would make it easier to not change :)
+[12:27:05] <DaveMethvin> "if you're inside a ready handler and try to add a load event handler, Migrate yells"
+[12:27:17] <m_gol> more string-parsing magic? ;-)
+[12:27:46] <DaveMethvin> just hook the .on() code and look for elem=window type=load
+[12:28:08] <DaveMethvin> now as for whether we're in a ready handler ... ?
+[12:29:30] <m_gol> yeah, that's the hard part
+[12:29:51] <DaveMethvin> maybe inspect the ready deferrred somehow, of course that won't work for the no-deferred impl :/
+[12:30:01] <m_gol> we could set a flag at the beginning & reset at the end of the ready callback
+[12:30:11] <m_gol> and $(window).on('load', fn) would check this flag
+[12:30:14] <DaveMethvin> yeah
+[12:30:22] <m_gol> obviously it won't work if it's in another async operation
+[12:30:24] <m_gol> but that should be rare
+[12:30:27] <DaveMethvin> let me open a migrate ticket
+[12:31:07] <m_gol> as for the Angular issue - are we OK with changing jQuery.fn.ready to invoke `readyList.then( fn ).catch( logErrors )`?
+[12:31:11] <markelog> sorry, gotta go
+[12:31:15] <markelog> see ya
+[12:31:19] <m_gol> cu
+[12:31:22] <m_gol> markelog
+[12:31:36] <jbedard> m_gol: I think that's a good idea
+[12:31:47] <jbedard> I also gotta run now
+[12:31:51] <DaveMethvin> m_gol: yeah i think that's better than the proposed PR actually
+[12:31:53] <DaveMethvin> thanks jbedard
+[12:31:57] <m_gol> see you too then :-)
+[12:32:26] <m_gol> should we release sth like that in 3.0.1 or 3.1.0?
+[12:32:46] <DaveMethvin> yes
+[12:33:03] <DaveMethvin> esp if we are breaking all Angulars
+[12:33:59] <gibson042> something to capture there will be that the logging should also throw, otherwise we would break a more general unhandled rejections interface
+[12:34:26] <gibson042> which I wanted to do as a plugin, but didn't have the availability to work on
+[12:35:15] <DaveMethvin> so basically something like jQuery.readyException (bikeshed on name) that by default just rethrows the error?
+[12:35:34] <DaveMethvin> users could override that if they don't like it to throw
+[12:36:11] <m_gol> logs & rethrows
+[12:36:30] <m_gol> rethrowing is to keep the unhandled rejection unhandled, good point gibson042
+[12:36:54] <m_gol> I'm not sure if we need public API for that just yet
+[12:37:16] <gibson042> if we do have public API, the default could even be noop because it's accessible
+[12:38:17] <DaveMethvin> does someone have time to grab this?
+[12:38:18] <m_gol> it may be accessible but from Angular perspective it would have to either overwrite it which is invasive or leave it in a default state silencing all critical app errors. I don't like any of those solutions TBH
+[12:38:19] <gibson042> and then just readyList.then( fn ).catch( function( err ) { jQuery.readyException( err ); } );
+[12:38:41] <m_gol> I could work on that
+[12:38:47] <DaveMethvin> awesome
+[12:38:57] <DaveMethvin> i don't think that PR is headed in quite the right direction
+[12:39:09] <m_gol> so I'd be in favor of the code gibson042 posted but with the default being log & re-throw
+[12:39:17] <DaveMethvin> yeah
+[12:39:28] <m_gol> do we treat it as a feature or a bug fix? :-)
+[12:39:39] <DaveMethvin> whynotboth.gif :)
+[12:39:39] <gibson042> feature
+[12:40:02] <m_gol> ok, makes sense but I'd like to not wait 2 months for releasing it because of how it affects Angular
+[12:40:06] <DaveMethvin> basically it should ensure that we end up solving https://github.com/jquery/jquery/issues/3174
+[12:40:13] <DaveMethvin> as well
+[12:40:20] <m_gol> yup
+[12:40:21] <gibson042> we can release 3.1.0 that is identical to 3.0.0 except for this feature
+[12:40:39] <m_gol> and then rename milestones: 3.0.1 -> 3.1.1 & 3.1.0 -> 3.2.0
+[12:40:50] <gibson042> there's no requirement to have 3.0.1, or to include lots of improvements in a minor release
+[12:40:53] <m_gol> sure
+[12:41:07] <m_gol> I'll submit a PR on Wednesday
+[12:41:21] <DaveMethvin> looking at the other tickets they don't seem super urgent so yeah we could wait on them
+[12:42:21] <DaveMethvin> so another item
+[12:42:37] <DaveMethvin> would anyone object to me moving the wontfix items to the wiki on our own repo
+[12:42:46] <DaveMethvin> Seems like they belong there
+[12:43:04] <DaveMethvin> rather than in contribute since that applies to other projects too
+[12:43:21] <DaveMethvin> i can just leave a pointer on that page
+[12:43:31] <m_gol> makes sense
+[12:43:42] <gibson042> +1 from me
+[12:44:31] <DaveMethvin> anybody know where the codacy bot came from?
+[12:45:00] <DaveMethvin> i'm inclined to block it
+[12:45:05] <m_gol> yeah, no idea
+[12:45:16] <m_gol> and it's wrong at times, wanting us to use ES6 features
+[12:45:20] <DaveMethvin> just wanted to be sure none of us had turned it on
+[12:45:32] <m_gol> I haven't
+[12:46:10] <DaveMethvin> plus even when it's good advice (e.g. reduce complexity) we aren't going to refactor code just to get it to someone else's standards and shut up a random bot
+[12:46:24] <DaveMethvin> if the bot refactored the code for us and submitted a PR, MAYBE
+[12:46:25] <DaveMethvin> :)
+[12:47:15] <DaveMethvin> m_gol: on browser support I think we'd been informally saying we only changed on majors, any objections from anyone in making that formal?
+[12:47:49] <DaveMethvin> at this point if we need a jQuery 4 in a year to drop some browsers that's fine i think
+[12:47:50] <m_gol> I had the same position but I think markelog & gibson042 wanted sth else?
+[12:48:16] <DaveMethvin> since markelog left maybe we can defer to next week?
+[12:48:59] <m_gol> ok, hopefully timmy will be there as well then
+[12:49:03] <gibson042> I think there's no urgency, so waiting is fine with me
+[12:49:14] <DaveMethvin> m_gol: i did want your opinion on https://github.com/jquery/jquery-migrate/issues/198
+[12:49:33] <gibson042> I don't like coupling feature changes to browser support, but honestly I don't really have a better suggestion
+[12:50:16] <DaveMethvin> the worry i have with dropping a browser on a minor is just that it's hard for people to control their own supported browsers when we do that
+[12:50:32] <gibson042> that's true
+[12:50:56] <DaveMethvin> okay ... any other critical stuff for this week?
+[12:51:08] <m_gol> DaveMethvin: I'll look into that; there's no test case in the ticket
+[12:51:10] <gibson042> it's just awkward that (for example) getting standards-compliant promises means dropping old browsers
+[12:51:22] <m_gol> so I'll run the Angular test suite with jQuery+Migrate and see if sth fails
+[12:51:46] <DaveMethvin> we always seem to be faced with lots of unappetizing choices
+[12:51:59] <DaveMethvin> alrighty then, talk to  you guys later!

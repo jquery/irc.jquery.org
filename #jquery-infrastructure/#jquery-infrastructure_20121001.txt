@@ -1,0 +1,87 @@
+[12:14:33] <gnarf> clarkbox: lurkin?
+[12:15:28] <clarkbox> yo
+[12:16:24] <clarkbox> ping gnarf
+[12:17:05] <gnarf> hey
+[12:17:06] <gnarf> so
+[12:17:08] <gnarf> part 1
+[12:17:16] <gnarf> dealing with the "forwarder" in puppet
+[12:17:37] <gnarf> my suggestion would be to take https://github.com/jquery/infrastructure/blob/puppet-stage/manifests/nodes/default.pp#L23-29 and make it into just a class called jquery::splunk::forwarder
+[12:18:01] <gnarf> then include that from all the manifests other than the one that runs the receiver(or whatever you call that)
+[12:20:21] <gnarf> and make a jquery::splunk::receiver (or whatever) to include from the machine we make the receiver
+[12:20:52] <gnarf> so, what sort of memory/cpu requirements does the receiver need?
+[12:21:56] <gnarf> citadel doesn't run very much, and if splunk isn't gonna eat up > 1gig ram, its probably best to run it there
+[12:27:18] <clarkbox> ok sounds god
+[12:27:54] <clarkbox> requirements for a performant instance is… bigger is better.
+[12:28:14] <clarkbox> more ram would be nice. but it will run on anything
+[12:28:21] <clarkbox> searches and interaction will just be slow
+[12:28:44] <clarkbox> but performance is also CPU bound
+[12:29:01] <clarkbox> what are the specs on that box?
+[12:30:20] <clarkbox> btw receiver is correct. aka indexer
+[12:32:55] <clarkbox> to satisfy performance, we COULD have multiple receivers, in a cluster. but there is no need to go to that complexity if we have a capable single node.
+[12:33:28] <clarkbox> lets see how things go on citadel as is. then go from there if needed. things will prob be fine
+[12:33:53] <gnarf> clarkbox: agree, citadel only runs puppet and zabbix
+[12:34:10] <gnarf> although zabbix can be a bit of a hog, it generally wont be with this small and limited number of hosts
+[12:34:34] <gnarf> clarkbox: would it make sense to run a receiver on ps01 as well?
+[12:35:02] <gnarf> maybe point the staging boxes at the staging receiver ?
+[12:35:06] <clarkbox> yes, it would be good for uptime
+[12:35:19] <gnarf> staging data / live data could be "partitioned"
+[12:35:20] <gnarf> ?
+[12:35:30] <clarkbox> yes
+[12:35:37] <clarkbox> i was not aware of a staging citadel?
+[12:35:47] <gnarf> ps01.jquery.com
+[12:35:53] <clarkbox> oh ok
+[12:35:57] <gnarf> although it doesn't actually serve anything
+[12:36:05] <gnarf> currently
+[12:36:20] <gnarf> lets just make it all go at citadel
+[12:36:29] <gnarf> ps01 is just basically a testing box
+[12:36:37] <clarkbox> ya ill get things working in a simple fashion first
+[12:36:58] <clarkbox> then if we need to/want to we can bring up another receiver
+[12:39:24] <gnarf> clarkbox: also - your choice, we could just submodule the splunk module
+[12:39:37] <gnarf> clarkbox: also - can we handle the testswarm-browserstack move?
+[12:39:46] <clarkbox> that means to pull it in via git?
+[12:40:20] <clarkbox> well, id prefer to leave that where it lies. is there any benefit to moving it as long as i am around to maintain
+[12:40:21] <gnarf> clarkbox: yeah, look at .gitmodules
+[12:40:51] <gnarf> clarkbox: team authentication/creation
+[12:40:56] <clarkbox> sounds good. ill convert to class and pull in requirements from git
+[12:41:19] <clarkbox> but the trust that places in upstream source is a little unnerving?
+[12:41:35] <ryanneufeld> gnarf: welcome back
+[12:42:04] <gnarf> clarkbox: it points to a specific commit
+[12:42:05] <gnarf> so
+[12:42:08] <gnarf> like
+[12:42:11] <clarkbox> re TS-BS repo… if you can handle move its up to you
+[12:42:21] <clarkbox> oh ok cool
+[12:43:07] <clarkbox> or if you can't, ill do what i need to
+[12:43:44] <gnarf> clarkbox: I'm not sure of any specific reason for the move to github.com/jquery/testswarm-browserstack -- I think the >only< benefit is assigning teams to it so multiple people can push/admin the repo -- That, and not having to track you down some day if you aren't around to admin it :)
+[12:44:10] <gnarf> clarkbox: you need to move it to the jquery-temp orginization I created and added you to so that I can then move it to jquery/
+[12:45:49] <clarkbox> ok
+[12:47:45] <clarkbox> its just like… i am losing a piece of my resume. and its the only piece i really have in github. haha. how will recruiters ever know that i am 1337 without that ;)
+[12:48:21] <clarkbox> k i am out for a while. off to the DMV! ill move it over tonight.
+[12:54:02] <ryanneufeld> hey gnarf, where you been bro?
+[12:55:23] <gnarf> ryanneufeld: avoiding IRC for a bit, had fallen way behind
+[12:58:16] <gnarf> clarkbox: to move testswarm-browserstack to jquery/ it needs to move to jquery-temp first so i can have admin to move it into jquery/ (this is what github support suggested)
+[13:10:22] <gnarf> danheberden: i'm having a similar issue with "infra" table and knowing what to do (from #jquery-dev chat w/ ryanneufeld)
+[13:10:36] <gnarf> I mean, we have issues
+[13:10:43] <gnarf> I just wanna solve whatever we can
+[13:12:07] <ryanneufeld> yeah
+[13:17:23] <gnarf> trac is high on my list
+[13:17:28] <danheberden> aye
+[13:17:47] <gnarf> ajpiano: wtf is the "site build" table doing? :)
+[13:18:07] <ryanneufeld> gnarf: danheberden and i had the same question!
+[13:38:30] <ajpiano> what do you guys need done :)
+[13:38:55] <ajpiano> gnarf: the idea is that it's like, not-design aspects of the website rollout
+[13:39:03] <ajpiano> so really, anything that needs doing that isn't design oriented
+[13:39:29] <ajpiano> site build and infra are basically the "same table" i suppose
+[13:40:19] <ajpiano> but site is more specifically things that are user facing on jquery.com, i guess?
+[13:40:29] <ajpiano> if you think there's a better title for the table, that's fine
+[13:41:29] <ajpiano> danheberden: if you have a minute, is there any chance you can go through the table pages in the wiki
+[13:41:52] <ajpiano> and add whether it needs git/ **mp / node
+[13:42:06] <ajpiano> for some tables it may be optional
+[13:42:11] <ajpiano> and if so denote it?
+[13:42:12] <scott_gonzalez> gnarf: I think the script for download.jqueryui.com updates on stage is using root instead of jqadmin.
+[13:48:47] <danheberden> ajpiano: ya
+[13:49:20] <ajpiano> danke schön
+[13:50:29] <gnarf> scott_gonzalez: hrm
+[14:07:35] <gnarf> scott_gonzalez: don't think im gonna get to looking at that today
+[14:07:38] <gnarf> before i gotta run
+[14:07:42] <gnarf> will look at it tomorrow
+[15:59:33] <danheberden> ajpiano: is this what you're after? https://github.com/jquery/2012-dev-summit/wiki/Table-2:-Core-Bugs

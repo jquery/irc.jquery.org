@@ -1,0 +1,382 @@
+[09:04:58] <DaveMethvin> whoa
+[09:05:00] <DaveMethvin> sorry guys!
+[09:05:06] <DaveMethvin> i was in another world
+[09:05:29] <DaveMethvin> timmywil rwaldron gibson042 gnarf jaubourg
+[09:05:43] <DaveMethvin> did i miss anyone?
+[09:05:54] <DaveMethvin> mikesherov:
+[09:06:16] <DaveMethvin> okay so I did get a start on the agenda earlier
+[09:06:21] <DaveMethvin> https://docs.google.com/document/d/1MrLFvoxW7GMlH9KK-bwypn77cC98jUnz7sMW1rg_TP4/edit
+[09:06:23] <gnarf> yo
+[09:06:37] <mikesherov> .
+[09:06:45] <mikesherov> I wrote myself in
+[09:07:08] <DaveMethvin> ok, anyone else here?
+[09:07:19] <timmywil> hi
+[09:07:28] <gibson042> here
+[09:07:29] <DaveMethvin> if  you're not here, post something :D
+[09:07:50] <DaveMethvin> alrright, just need jaubourg to plop
+[09:07:56] <ajpiano> bout to hop away
+[09:08:04] <DaveMethvin> tanks for opening the chan ajpiano
+[09:08:14] <ajpiano> but if we do ticket triage before the conf
+[09:08:18] <ajpiano> what we will we do at it :p
+[09:08:34] <DaveMethvin> fix em!
+[09:08:50] <ajpiano> heh
+[09:08:57] <ajpiano> kind of obviates the need for a triage table
+[09:09:00] <ajpiano> but we can talk about it later
+[09:09:08] <DaveMethvin> oh  yeah, like we'll run out of bugs
+[09:09:10] <timmywil> there's always more triage
+[09:09:11] <DaveMethvin> in my dreams
+[09:09:12] <ajpiano> haha yeah
+[09:09:22] <gnarf> gibson042: yt?
+[09:09:23] <ajpiano> i realised that this was a very optimistic problem to have
+[09:09:30] <gibson042> yeah
+[09:09:42] <gnarf> gibson042: thoughts on just adding a "sane" loop counter ?
+[09:09:47] <rwaldron> here
+[09:09:51] <rwaldron> sorry, was moving car
+[09:09:51] <DaveMethvin> yeah, would that alone be enough?
+[09:09:53] <mikesherov> loop counter all the things
+[09:09:56] <gibson042> gnarf: I think I'm ok with it
+[09:10:03] <Wilto> Technically here, if you guys need me for anything.
+[09:10:06] <DaveMethvin> how many iters are enouhg?
+[09:10:25] <DaveMethvin> 43
+[09:10:38] <gibson042> it depends on how many doublings are required to get a nonzero result from .cur
+[09:10:54] <DaveMethvin> in some cases an infinite number no doubt :D
+[09:11:00] <gibson042> indeed
+[09:11:03] <gnarf> gibson042: have you by chance made like a "matrix" of scales / values to test with?
+[09:11:23] <gibson042> I have not
+[09:11:30] <mikesherov> So, originally, it only ever did 2 adjustments, right?
+[09:11:38] <mikesherov> and then we changed it to a loop for fitness, right?
+[09:11:48] <gibson042> right
+[09:11:56] <gnarf> pre 1.8 it just calculated based on the "final" value - or 1
+[09:11:59] <gnarf> it was bad
+[09:12:03] <gnarf> didn't even "adjust" :)
+[09:12:13] <gibson042> we can probably get away with 10 iterations
+[09:12:30] <gnarf> gibson042: i'd really kinda like to see a graph of it, I'll see if I can draw something up
+[09:12:47] <gnarf> because after like 3 iterations of that method, I assume we have a "close enough" approximation
+[09:12:48] <gibson042> once we have a nonzero number, convergence is fast (call it two steps)
+[09:13:28] <gnarf> so the issue is a small enough scale that causes 0 px values for low values?
+[09:13:33] <DaveMethvin> i don't know enough about it to know which cases are the pathological ones
+[09:13:45] <gnarf> thats kinda where I am right now too
+[09:13:49] <gibson042> imagine animating from 0.5em to 1% or something
+[09:14:03] <gibson042> or rather, 100%
+[09:14:14] <gnarf> well "from" is only ever in px right?
+[09:15:25] <gibson042> I don't think so... mikesherov, doesn't jQuery.css return the scalar portion of a unitful value?
+[09:15:49] <mikesherov> gibson, tries
+[09:16:07] <mikesherov> if the gCS version is %, it returns the percent unitless
+[09:16:44] <gibson042> so if from is 0.01em and unit is percent, the iteration starts by setting width to 0.01%
+[09:16:56] <mikesherov> right
+[09:17:16] <gnarf> hrm
+[09:17:32] <gibson042> and then we have to iterate until that 0.01 gets big enough to return nonzero from tween.cur
+[09:17:58] <gibson042> and *then* the scale division will find us the right number
+[09:18:07] <gnarf> this is that section of code i suggested we "just calculate based on "100" + unit" right?
+[09:18:14] <gibson042> right
+[09:18:52] <gibson042> but that proved problematic for em/ex/etc., though I don't remember how exactly
+[09:19:07] <gnarf> i believe we were afraid of a FOUSC
+[09:19:27] <gnarf> or rather flash of OVERLY styled content
+[09:19:32] <gnarf> like an 100em font-size
+[09:19:45] <DaveMethvin> yow
+[09:20:16] <gnarf> is the approximation method better, could we give it a saner "starting" point ?
+[09:20:45] <gibson042> only if we had some kind of approximation mapping between units
+[09:21:04] <gibson042> I'm liking an iteration limit more and more, though
+[09:21:23] <DaveMethvin> guaranteed to terminate
+[09:21:25] <gnarf> i guess im wondering if we need to make 10 reflows in a tight loop tho
+[09:21:27] <mikesherov> yes
+[09:21:30] <mikesherov> iteration limit
+[09:21:37] <gnarf> seems bad
+[09:21:43] <DaveMethvin> well 10 is the worst case
+[09:21:53] <DaveMethvin> like to know the common case
+[09:22:00] <DaveMethvin> if it's 1 most of the time, np
+[09:22:01] <gnarf> could some smart guessing make 2 be the worst case ?
+[09:22:12] <mikesherov> so, the thing really is that we animate in percents some times...
+[09:22:13] <gibson042> I doubt it
+[09:22:32] <mikesherov> if we only ever animated in pixels, this goes away, right?
+[09:23:08] <gnarf> yes
+[09:23:20] <gnarf> the issue is calculating a "start" value for a unit based animation
+[09:23:28] <mikesherov> for a unit that ISNT pixels
+[09:23:35] <mikesherov> because pixels are the highest fidelity
+[09:23:36] <gnarf> this needs to convert the "px" value from getComputedStyle into the same unit
+[09:23:57] <gnarf> it then animates using that unit
+[09:23:59] <mikesherov> which is silly too, because .css goes through great lengths to convert to pixels in the first place
+[09:24:29] <gibson042> yeah, but we want the final value to be what the user specified without a big jump at the end from converting from px
+[09:24:29] <DaveMethvin> in the test case, it's definitley that situation
+[09:24:39] <DaveMethvin> percentages all the way
+[09:24:50] <mikesherov> well, why would it be a jump?
+[09:24:57] <mikesherov> pixels are more accurate than percents
+[09:25:08] <gibson042> that's why
+[09:25:46] <mikesherov> but it's the "start" that's inaccurate, not the end, right?
+[09:25:55] <mikesherov> mayeb I'm thinking about it wrong
+[09:26:01] <DaveMethvin> yeah wouldn't the jump  be at the beginning?
+[09:26:06] <mikesherov> clearly, we should revisit this in 1.9 though
+[09:26:10] <gibson042> you're right
+[09:26:10] * gnarf hunts for the demo
+[09:26:20] <DaveMethvin> http://jsfiddle.net/KKmTD/5/
+[09:26:29] <DaveMethvin> that's the "hung in ff" one
+[09:26:53] <gibson042> thinking about it, this is probably from one of those "jump at start" tickets to begin with
+[09:27:40] <mikesherov> yes
+[09:27:50] <mikesherov> I remember looking at it and going
+[09:28:00] <mikesherov> oh, weird, it animates in the specified unit
+[09:28:12] <mikesherov> and it was the start that was screwy
+[09:28:49] <gnarf> i think it is the start issue
+[09:28:56] <gnarf> thats why we wrote this code
+[09:29:02] <gnarf> was to better approximate start
+[09:29:11] <gnarf> the problem was
+[09:29:16] <gnarf> it used to use "end" to approximate start
+[09:29:22] <mikesherov> right
+[09:29:25] <gnarf> so if you were animating to 1%
+[09:29:40] <gnarf> it said "oh - 1% = 2px"
+[09:30:12] <gnarf> multiply that error by 100 and it could get sillzy
+[09:30:30] <DaveMethvin> uglyz
+[09:30:41] <DaveMethvin> well, wat say we put in a loop-killa here that stops after 10 or so for 1.8.2
+[09:30:49] <DaveMethvin> or even fewer
+[09:31:08] <gnarf> when is 1.8.2 ?
+[09:31:19] <DaveMethvin> i would think a coupla weeks
+[09:31:36] <DaveMethvin> like i said in the mtg notes i really want it to be the last release before 1.9
+[09:31:54] <DaveMethvin> which means we shoudl be conservative here
+[09:32:00] <gnarf> here
+[09:32:00] <gnarf> http://bugs.jquery.com/ticket/7109
+[09:32:07] <DaveMethvin> i'd rather leave some non-critical bugs open than create new ones
+[09:32:28] <gnarf> http://jsfiddle.net/GVFah/5/ try this with 100
+[09:33:21] <gnarf> sure
+[09:33:27] <gnarf> its smelly tho
+[09:33:28] <gnarf> :)
+[09:33:33] <gnarf> i dunno why
+[09:33:38] <gnarf> feels crazy
+[09:33:58] <DaveMethvin> because it IS
+[09:34:55] <timmywil> brb
+[09:35:08] <timmywil> 1min
+[09:35:51] <DaveMethvin> gibson042: so can you summarize the sizzle pull?
+[09:36:11] <DaveMethvin> it must be good if it's worth +279 from you :D
+[09:36:20] <gibson042> lol
+[09:36:53] <gibson042> it lets :first/:gt/etc. match against entire sets, so those matchers get an input and return matching indexes
+[09:37:10] <gibson042> this lets things like :not(:first, :even) work
+[09:37:21] <DaveMethvin> just thinking we should hold this for 1.9 unless it fixes some major regression ... not sure how i'm defining major
+[09:37:28] <timmywil> gibson042: how does it affect other selectors
+[09:37:46] <gibson042> not in any intentional way ;)
+[09:37:49] <DaveMethvin> lol
+[09:38:09] <DaveMethvin> the cry of the regression maker ... "well the unit tests worked!"
+[09:38:15] <gibson042> :not becomes positional if and only if the contents require it
+[09:38:17] <timmywil> you seem to have switched back tokenize to use a String object again
+[09:38:25] <timmywil> :)
+[09:38:30] <gibson042> just to save bytes
+[09:38:37] <timmywil> kk
+[09:38:50] <gibson042> I really like .join("") instead of iteratively combining token.string
+[09:38:51] <timmywil> I mean, I'm fine with it
+[09:39:04] <DaveMethvin> with that many changes i think it would be good to hold until 1.9
+[09:39:30] <timmywil> DaveMethvin: well, it is a regression
+[09:39:48] <DaveMethvin> yeah i know ... but what are the odds we  have not created more?
+[09:39:55] <timmywil> If the perf lines up, we're probably looking at something more solid
+[09:39:57] <gibson042> it also changes the structure of what comes back from compile, since it must treat differently set matchers (the pseudo positionals) and element matchers (everything else)
+[09:40:17] <gibson042> and as a side benefit, caching is no longer dependent upon context
+[09:40:30] <DaveMethvin> that is good
+[09:40:33] <timmywil> that is nice
+[09:40:37] <DaveMethvin> and nice too
+[09:40:43] <timmywil> I'm not sure how you pulled that off
+[09:41:00] <gnarf> 🍰
+[09:41:22] <timmywil> gibson042: it still builds a matcher with a context in it doesn't it?
+[09:41:28] <gibson042> https://github.com/jquery/sizzle/pull/151/files#L0R1267
+[09:41:42] <gnarf> you selector guys are crazy
+[09:41:52] <DaveMethvin> okay, let me run thru the rest of this agenda and then we can circle back or take it to -dev
+[09:41:56] <gibson042> context is only needed at the root
+[09:41:59] <timmywil> oh i see
+[09:42:05] <gibson042> so we set it right before checking
+[09:42:10] <timmywil> you put back passing the context to the matcher
+[09:42:16] <DaveMethvin> timmywil the perf stuff looks really good, i want to play with it some more
+[09:42:21] <gibson042> right
+[09:42:22] <DaveMethvin> so glad that old stuff is gone
+[09:42:34] <timmywil> gibson042: yea i like that
+[09:42:50] <DaveMethvin> so how does everyone feel about another public call for features in 1.9?
+[09:42:54] <DaveMethvin> we didn't get much out of the last one
+[09:42:58] <DaveMethvin> might be a good pr move
+[09:43:10] <timmywil> DaveMethvin: I had a question I'd like to pose about that.
+[09:43:11] <DaveMethvin> but people usually want us to include their favorite plugin
+[09:43:13] <DaveMethvin> sure
+[09:43:15] <timmywil> the perf suite that is
+[09:43:23] <DaveMethvin> ga
+[09:43:25] <timmywil> I'm not sure how to approach a perf suite for jQuery core
+[09:43:30] <timmywil> it's not like sizzle
+[09:43:38] <timmywil> where I can do the same thing for a bunch of engines
+[09:43:57] <DaveMethvin> i defn think we could be comparing to ourselves over versions
+[09:44:05] <DaveMethvin> the old perf stuff did that
+[09:44:10] <gnarf> jenkins can collect perf info i think
+[09:44:12] <DaveMethvin> but it was lame benches
+[09:44:22] <timmywil> agreed, but the old benches weren't much
+[09:44:24] <timmywil> yea
+[09:44:25] <mikesherov> timmywil: updated https://github.com/jquery/sizzle/pull/149/files
+[09:44:29] <DaveMethvin> gnarf that would be a good first step
+[09:44:42] <gnarf> issue is running perf tests
+[09:45:01] <mikesherov> +1 for compare against old versions
+[09:45:12] <DaveMethvin> except for animation and ajax, tho, at least we'd have some perf numbers and potentially could see perf regressions
+[09:45:56] <timmywil> So, my first thought is that perf tests per module would be the most useful thing
+[09:46:07] <rwaldron> timmywil Dromeo
+[09:46:08] <timmywil> ajax perf tests probably look a lot different than event
+[09:46:32] <timmywil> phone
+[09:46:34] <rwaldron> timmywil it needs some love, but I have commit access to the original project
+[09:46:36] <DaveMethvin> yeah as long as we treat the numbers realistically i'm down with that ... for example. it's okay to make addclass 12% slower since it's rarely a bottleneck
+[09:46:40] <gnarf> is it possible to feed a qunit test to a benchmark ?
+[09:46:57] <DaveMethvin> gnarf: isn't that what timing our existing unit test could do?
+[09:47:10] <gnarf> too much variation in that i think
+[09:47:13] <timmywil> ok back
+[09:47:23] <gnarf> we would need some jsperf style benchmarks
+[09:47:35] <gnarf> our current units, some might apply as perf
+[09:47:39] <gnarf> but some would be wasteful
+[09:47:43] <rwaldron> gnarf timmywil DaveMethvin https://github.com/jeresig/dromaeo
+[09:47:44] <gnarf> or test the same thing
+[09:47:49] <rwaldron> I have commit access
+[09:47:55] <rwaldron> we should update this
+[09:48:47] <DaveMethvin> rwaldron: that looks good to me as a baseline
+[09:48:55] <rwaldron> right
+[09:48:56] <mikesherov> awesome
+[09:49:02] <gnarf> rwaldron: first up would be is it possible to get it to run without any interaction from the user
+[09:49:08] <rwaldron> 1. we need to update it for 2012-13
+[09:49:12] <gnarf> like - in browserstack
+[09:49:16] <rwaldron> 2. automate it
+[09:49:32] <rwaldron> 3. build out new, valuable tests
+[09:49:41] <mikesherov> easy as 1,2,3 :-P
+[09:49:53] <rwaldron> mikesherov for this team? absolutely
+[09:50:02] <timmywil> looks kinda similar to benchmarkjs
+[09:50:11] <mikesherov> yes, and we have jsperf.com and benchmark as examples
+[09:50:16] <rwaldron> timmywil this should be updated to actually _use_ benchmark.js
+[09:50:19] <rwaldron> but that's not what it is
+[09:50:28] <timmywil> ok, that would be good
+[09:50:34] <rwaldron> it's a series of tests for DOM selection, manipulation etc
+[09:50:53] <timmywil> well, I think we're good shape concerning selectors
+[09:51:16] <rwaldron> it benchmarks the performance of large tasks and many-operation tasks
+[09:51:28] <DaveMethvin> which we also want to do
+[09:51:35] <rwaldron> right
+[09:51:37] <DaveMethvin> altho i think their test doc is too small
+[09:51:45] <rwaldron> so i think this is a starting point
+[09:51:59] <rwaldron> DaveMethvin there are alot of things that we can update
+[09:52:10] <DaveMethvin> rwaldron: you want to take the lead on this?
+[09:52:14] <rwaldron> we should create dromaeo on github.com/jquery/
+[09:52:17] <rwaldron> and move the project there
+[09:52:22] <rwaldron> and give some commit access out
+[09:52:23] <gnarf> i could fork it
+[09:52:26] <rwaldron> sure
+[09:52:28] <DaveMethvin> yeah let's fork it
+[09:52:50] <DaveMethvin> okay i have to run in abt 10 min
+[09:52:52] <gnarf> lets double check with scott_gonzalez before we do that, he likes to get protective of adding a new repo :)
+[09:52:53] <rwaldron> gnarf DaveMethvin, mine is likely the most up-to-date
+[09:52:57] <DaveMethvin> so let's get thru the rest
+[09:53:14] <rwaldron> gnarf sure, but that's weird
+[09:53:51] <gnarf> rwaldron: we have dumb ideas of reasons to create repos sometimes ;)
+[09:53:56] <scott_gonzalez> gnarf: I have no objections to creating repos for actual projects.
+[09:53:59] <mikesherov> so, triage?
+[09:54:03] <DaveMethvin> we have about 150 open tix (thanks mikesherov)
+[09:54:25] <DaveMethvin> with 1.9 we should either fix them or declare defeat :D
+[09:54:25] <mikesherov> yeah, about 80 needs owners, and about 7 need priority
+[09:54:28] <rwaldron> scott_gonzalez awesome, can either you or DaveMethvin create dromaeo on /jquery/ at the end of the meeting?
+[09:54:38] <rwaldron> add me, gnarf, mikesherov timmywil
+[09:54:42] <DaveMethvin> yeah i can
+[09:54:43] <rwaldron> committers
+[09:54:45] <rwaldron> kthx <3
+[09:54:57] <mikesherov> nice
+[09:54:59] <DaveMethvin> many of the open ones are oldIE bugs
+[09:55:05] <DaveMethvin> we can fix them in 1.9 or say wontfix
+[09:55:15] <scott_gonzalez> Shouldn't we just move the existing repo?
+[09:55:16] <DaveMethvin> and of course 2.0 will throw them out
+[09:55:18] <gnarf> rwaldron: you want us to fork yours right?
+[09:55:19] <mikesherov> I'd love, honestly to fix the shit out of the oldIE ones for 1.9
+[09:55:33] <DaveMethvin> scott_gonzalez: i think rwaldron has a better repo
+[09:55:37] <rwaldron> gnarf no, I will push mine to the new project
+[09:55:37] <DaveMethvin> he's done some work on it
+[09:55:41] <mikesherov> just to say, "SEE WE SUPPORT IT"
+[09:55:41] <rwaldron> project repo*
+[09:55:49] <rwaldron> and we will work from /jquery/dromaeo
+[09:55:50] <DaveMethvin> mikesherov: that is my thought too
+[09:55:58] <gnarf> rwaldron: k
+[09:56:03] <DaveMethvin> if we thought it wasn't worth the bytes, well now we will do it
+[09:56:04] <scott_gonzalez> ok
+[09:56:09] <mikesherov> like, honestly, screw size and
+[09:56:19] <mikesherov> show the community what IE support TRULY costs
+[09:56:24] <mikesherov> and then rip it out for 2.0
+[09:56:28] <DaveMethvin> right
+[09:56:36] <DaveMethvin> at least that's a working theory for me too
+[09:56:42] <DaveMethvin> and some of them we may still have to punt
+[09:56:43] <mikesherov> right, might not be the best strategy
+[09:56:48] <mikesherov> but it's a coherent one :-)
+[09:57:09] <DaveMethvin> so i'd like to have an early beta in december for people to play with
+[09:57:16] <DaveMethvin> and really encourage ppl to try it out
+[09:57:29] <mikesherov> OK, so we're saying 1.8.2 and that's it for 1.8 line?
+[09:57:38] <DaveMethvin> that's what i hope
+[09:57:47] <DaveMethvin> i mean, 1.9 maybe mid-jan?
+[09:57:52] <mikesherov> The elephant in the room for me is… when can we start on 2.0?
+[09:57:53] <DaveMethvin> so it's not like it's an eternity
+[09:58:08] <rwaldron> mikesherov I've been tempted to create a 2.0 branch
+[09:58:10] <scott_gonzalez> rwaldron: https://github.com/jquery/dromaeo/
+[09:58:12] <DaveMethvin> i expected we'd do it in parallel with 1.9
+[09:58:15] <rwaldron> with en empty /src/ dir
+[09:58:16] <mikesherov> OK
+[09:58:20] <DaveMethvin> thanks scott_gonzalez!
+[09:58:22] <rwaldron> scott_gonzalez marvelous
+[09:58:43] <DaveMethvin> if 1.9 is mainly about ie fixes and removing deprecated stuff
+[09:58:52] <DaveMethvin> we'll be removing even more in 2.0
+[09:58:57] <mikesherov> Should we wait till 1.8.2 is out to begin gutting for 2.0?
+[09:59:03] <DaveMethvin> i think so
+[09:59:14] <DaveMethvin> and prolly chop out the 1.9 deprecated stuff before the branch
+[09:59:16] <mikesherov> fine, I'll tuck away my hatchet
+[09:59:27] <mikesherov> right, that makes sense
+[09:59:28] <DaveMethvin> put    down   the   knife
+[09:59:30] <scott_gonzalez> Don't branch for 2.0.
+[09:59:36] <scott_gonzalez> It'll be hell down the road.
+[09:59:39] <scott_gonzalez> You need to branch for 1.9.
+[09:59:45] <DaveMethvin> right, other way round
+[09:59:49] <mikesherov> sure
+[10:00:06] <DaveMethvin> both will be actively worked on
+[10:00:18] <DaveMethvin> so yeah, we'll try to get the common stuff first
+[10:00:19] <scott_gonzalez> As for when to fork, that's up to you with how much cherry-picking and double bug fixing you want to do.
+[10:00:29] <mikesherov> but the point is that we should remove the common deprecations before splitting
+[10:00:35] <DaveMethvin> right
+[10:00:37] <DaveMethvin> and common fixes
+[10:00:47] <DaveMethvin> that's why i'd like to do a triage day
+[10:00:51] <mikesherov> me too
+[10:00:53] <DaveMethvin> let's figure out what has to happen first
+[10:00:58] <rwaldron> gnarf mikesherov timmywil DaveMethvin https://github.com/jquery/dromaeo/ is ready to fork
+[10:01:12] <timmywil> thanks!
+[10:01:24] <DaveMethvin> when's everyone available? this week or next would be great
+[10:01:36] <scott_gonzalez> Yay, another repo to create AUTHORS.txt for :-)
+[10:01:38] <DaveMethvin> my schedule is flexible
+[10:01:44] <mikesherov> forked!
+[10:01:59] <scott_gonzalez> Also, let's update the copyright to be jQuery Foundation and other contributors.
+[10:02:26] <mikesherov> I can do…. tuesday night or thursday night this week starting at 7:15PM on train, and 8:00PM when I get home… EST
+[10:02:49] <mikesherov> I know that's tough for julian
+[10:03:13] <DaveMethvin> we could try to do some of this async
+[10:03:22] <gnarf> DaveMethvin: i need the rally
+[10:03:24] <gnarf> :)
+[10:03:33] <mikesherov> yeah, I like the rally too!
+[10:03:35] <DaveMethvin> yeah a meeting can be a motivator
+[10:03:53] <mikesherov> Personally, I've done what I can async
+[10:03:53] <DaveMethvin> Thursday evening works for me
+[10:04:04] <DaveMethvin> gives me some time to look at the tix and think a bit
+[10:04:56] <DaveMethvin> timmywil gibson042 would you be avail thursday evening?
+[10:05:15] <gibson042> yes
+[10:05:30] <timmywil> tentatively
+[10:05:59] <DaveMethvin> let's start it around 7:30 till whenever
+[10:06:11] <DaveMethvin> gnarf, good for  you too?
+[10:06:14] <mikesherov> OK, for first 15 minutes, I'll be an ircbot
+[10:06:20] <mikesherov> 8PM I can be video
+[10:06:28] <DaveMethvin> we'll save juicy bugs for you mikesherov
+[10:06:30] <gnarf> DaveMethvin: sure, send out a gcal invite?
+[10:06:35] <DaveMethvin> sure
+[10:06:43] <mikesherov> ooh, official!
+[10:06:54] <gnarf> it might correspond with my javascript meetup
+[10:06:56] <rwaldron> mikesherov DaveMethvin I'm in
+[10:07:12] <mikesherov> nice
+[10:07:16] <DaveMethvin> so where are you know rwaldron, ny?
+[10:07:18] <gnarf> nope, all good
+[10:07:21] <DaveMethvin> now
+[10:07:29] <rwaldron> DaveMethvin yes, in Brooklyn
+[10:07:32] <DaveMethvin> fully settled?
+[10:07:43] <rwaldron> Mostly, not fully
+[10:08:00] <rwaldron> still have a small amount of unpacking to do
+[10:08:17] <rwaldron> but mostly settled.
+[10:08:31] <DaveMethvin> (6 months later, rwaldron still living from cardboard boxes) :D
+[10:08:35] <DaveMethvin> okay, that looks good, i'll send the invite
+[10:08:44] <mikesherov> OK, great. Anything else?
+[10:09:28] <timmywil> everyone okay with using jQuery version numbers for Sizzle
+[10:09:52] <mikesherov> i.e. sizzle1.8?
+[10:10:03] <mikesherov> 1.8.2?
+[10:10:13] <DaveMethvin> yeah that is okay with me
+[10:10:14] <timmywil> ya
+[10:10:17] <mikesherov> +1
+[10:10:20] <DaveMethvin> thanks guys!
+[10:10:20] <mikesherov> makes sense
+[10:10:28] <timmywil> k cool

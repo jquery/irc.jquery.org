@@ -1,0 +1,99 @@
+[09:03:41] <johnbender> jzaefferer: I'm blocked in the meeting channel
+[09:03:55] <johnbender> nevermind :D
+[17:01:44] <jq-jenkins> Project jQuery Mobile Latest build #582: SUCCESS in 3 min 51 sec: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Latest/582/
+[17:08:09] <jq-jenkins> Project jQuery Mobile Latest build #583: SUCCESS in 3 min 51 sec: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Latest/583/
+[17:08:10] <jq-jenkins> sleepwalkergt: Changed not working: $.mobile.fallbackTransition.slideout = "none"
+[17:35:38] <jq-jenkins> Project jQuery Mobile Latest build #584: SUCCESS in 3 min 53 sec: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Latest/584/
+[18:35:46] <jq-jenkins> Project jQuery Mobile Latest build #585: SUCCESS in 4 min 0 sec: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Latest/585/
+[18:44:18] <scott_gonzalez> DaveMethvin, timmywil: ping
+[18:44:41] <DaveMethvin> sup?
+[18:44:43] <DaveMethvin> scott_gonzalez:
+[18:44:56] <scott_gonzalez> http://bugs.jqueryui.com/ticket/8142
+[18:45:12] <scott_gonzalez> Animating some props to negative values throws an error in IE.
+[18:45:34] <DaveMethvin> you mean, like props that shouldn't be negative? :P
+[18:45:35] <scott_gonzalez> That ticket lists all the props that need to be guarded.
+[18:45:43] <scott_gonzalez> Yeah :-)
+[18:45:47] <DaveMethvin> we already have a ticket on it
+[18:45:54] <scott_gonzalez> ok
+[18:46:00] <DaveMethvin> i am not a fan of making a whole list
+[18:46:20] <scott_gonzalez> We should. It'll be small.
+[18:46:27] <DaveMethvin> small?
+[18:46:33] <scott_gonzalez> MySQL server ran away.
+[18:46:51] <scott_gonzalez> Well, maybe not small...
+[18:47:02] <DaveMethvin> it's pretty big
+[18:47:20] <DaveMethvin> and even then we can't fix it completely ... border: 0 0 -1px 0
+[18:48:47] <DaveMethvin> scott_gonzalez: http://bugs.jquery.com/ticket/11415
+[18:49:17] <DaveMethvin> i left it open for discussion ... are there cases where you can't fix the values by limiting to 0?
+[18:49:41] <scott_gonzalez> Not that we're running into.
+[18:50:20] <scott_gonzalez> Could we just cover the props that .toggle() handles?
+[18:50:41] <DaveMethvin> is this mainly an animation thing?
+[18:51:07] <scott_gonzalez> Yeah. We're doing: paddingBottom: "toggle", etc.
+[18:51:21] <scott_gonzalez> So if someone uses an easing that falls below 0, we hit the error
+[18:51:30] <scott_gonzalez> Oh, I have an idea.
+[18:51:33] <scott_gonzalez> YOU CAN SAVE BYTES!
+[18:51:33] <DaveMethvin> oic
+[18:51:46] <DaveMethvin> if you say try/catch imma ...
+[18:52:06] <scott_gonzalez> https://github.com/jquery/jquery/blob/master/src/effects.js#L639
+[18:52:10] <DaveMethvin> you can see the suggested regexp is big and running all .css thru that would be bad
+[18:52:18] <scott_gonzalez> replace that array with fxAttrs
+[18:52:27] <scott_gonzalez> oh crap, you can't save bytes.
+[18:52:37] <DaveMethvin> lol
+[18:52:38] <scott_gonzalez> fxAttrs is multidimentional
+[18:53:07] <scott_gonzalez> Anyway, it's not too many bytes if you only handle the stuff in fxAttrs.
+[18:53:14] <scott_gonzalez> And that should cover most use cases.
+[18:53:20] <DaveMethvin> [].contat(fxAttrs)
+[18:53:32] <DaveMethvin> .concat)_
+[18:53:41] <DaveMethvin> damn typer problem thingy
+[18:54:20] <scott_gonzalez> yeah, that'd work (with apply)
+[18:54:32] <DaveMethvin> jQuery.each([].concat.apply(fxAttrs), function( i, prop ) {
+[18:54:55] <DaveMethvin> as long as those would be the only ones
+[18:54:56] <scott_gonzalez> you need a context, but yeah
+[18:55:27] <scott_gonzalez> https://github.com/jquery/jquery/blob/master/src/effects.js#L346
+[18:55:29] <DaveMethvin> i think that will work as the context
+[18:55:32] <scott_gonzalez> Maybe you can save bytes :-P
+[18:55:52] <scott_gonzalez> Well, that'd work as the context, but it wouldn't flatten it then.
+[18:56:10] <scott_gonzalez> It wouldn't be doing anything, since you'd be passing no args to concat :-P
+[18:56:37] <scott_gonzalez> Since we're already doing the concat, we can just store that off and use it later.
+[18:57:06] <scott_gonzalez> Nevermind, I'm seeing things...
+[18:57:16] <scott_gonzalez> That's clearly doing something different.
+[18:57:25] <DaveMethvin> yeah
+[18:57:35] <DaveMethvin> but anyway if it costs us very little i'm good with it
+[18:57:56] <scott_gonzalez> Actually, it's doing the same thing, just dynamically :-P
+[18:58:19] <DaveMethvin> well concat is definitely our friend
+[18:58:28] <scott_gonzalez> fxAttrs.concat.apply( [], fxAttrs );
+[18:58:34] <scott_gonzalez> That's what we want.
+[18:59:21] <DaveMethvin> yeah, the fxAttrs is just being used for its prototype at the front, kinda confusing :D
+[19:00:03] <DaveMethvin> or, [].concat(fxAttrs)
+[19:00:05] <scott_gonzalez> Yup.
+[19:00:35] <scott_gonzalez> Nope.
+[19:00:38] <scott_gonzalez> You need to .apply()
+[19:00:43] <DaveMethvin> why?
+[19:00:48] <scott_gonzalez> We need to be passing the internal arrays as the arguments.
+[19:01:15] <scott_gonzalez> We need the equivalent of [].concat( fxAttrs[0], fxAttrs[1], fxAttrs[2] )
+[19:01:29] <DaveMethvin> concat flattens its arg tho
+[19:01:56] <scott_gonzalez> But it doesn't flatten a single arg that is multi-demensional.
+[19:02:10] <scott_gonzalez> [].concat( [ [ "a" ] ] ) => [ [ "a" ] ]
+[19:02:40] <DaveMethvin> oh, RIGHT
+[19:04:16] <DaveMethvin> scott_gonzalez: that ticket lists several others but this won't fix them...you okay with that?
+[19:04:38] <scott_gonzalez> Yeah, I'm ok with that.
+[19:04:43] <DaveMethvin> i guess they could be added to fxAttrs but i don't know what the other code would do
+[19:04:48] <scott_gonzalez> Adding a comment to the core ticket now.
+[19:04:52] <scott_gonzalez> Trac is totally busted.
+[19:05:04] <DaveMethvin> yeah, it goes thru spells
+[19:05:15] <DaveMethvin> danheberden is gonna move to a new box
+[19:06:12] <DaveMethvin> ok, imma land this ... thanks scott_gonzalez
+[19:06:19] <scott_gonzalez> :-)
+[19:06:35] <DaveMethvin> i'll do a coupla test cases too
+[19:06:50] <scott_gonzalez> I'll still need to add border*Width in UI :-P
+[19:07:05] <scott_gonzalez> But I think it's fine if core only handles fxAttrs.
+[19:07:30] <scott_gonzalez> We've already decided that core won't fix all CSS props.
+[19:08:00] <scott_gonzalez> And there's an easy solution with custom steps.
+[19:32:21] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/ajxiCA
+[19:32:21] <jqcommit> [jquery/master] Fix #11415: Stop non-negative prop undershoot on animation. - Dave Methvin
+[19:34:37] <jq-jenkins> Project jQuery build #267: STILL FAILING in 2 min 6 sec: http://swarm.jquery.org:8080/job/jQuery/267/
+[19:34:38] <jq-jenkins> dave.methvin: Fix #11415: Stop non-negative prop undershoot on animation.
+[19:35:36] <jq-jenkins> Project jQuery Mobile Latest build #586: SUCCESS in 3 min 51 sec: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Latest/586/
+[20:35:57] <jq-jenkins> Project jQuery Mobile Latest build #587: SUCCESS in 4 min 12 sec: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Latest/587/
+[21:36:19] <jq-jenkins> Project jQuery Mobile Latest build #588: SUCCESS in 4 min 34 sec: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Latest/588/
+[22:35:53] <jq-jenkins> Project jQuery Mobile Latest build #589: SUCCESS in 4 min 7 sec: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Latest/589/
+[23:36:11] <jq-jenkins> Project jQuery Mobile Latest build #590: SUCCESS in 4 min 25 sec: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Latest/590/

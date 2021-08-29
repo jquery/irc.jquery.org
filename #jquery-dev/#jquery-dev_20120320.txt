@@ -1,0 +1,276 @@
+[04:57:26] <scott_gonzalez> ?tell krinkle I don't actually know who has access, but danheberden should know (and should probably have access).
+[04:57:27] <bot-t1> (5 hours 33 mins ago) <Krinkle> tell scott_gonzalez I figured as much, since it was still running MediaWiki 1.8 (2006!). But while it exists, I'd be happy to do a little cleaning up and keeping it up to date (assuming content is going to migrated from it in some way shape or form)
+[04:57:28] <bot-t1> scott_gonzalez, Okay.
+[09:18:56] <Krinkle> jzaefferer: Lemme know when you're back, wanna discuss https://github.com/jquery/testswarm/commit/f2da2db0ad8b90afcdda93696bbfe5496ab8a296 for a second
+[09:18:56] <bot-t> (4 hours 21 mins ago) <scott_gonzalez> tell krinkle I don't actually know who has access, but danheberden should know (and should probably have access).
+[09:18:56] <socialhapy> ★ Commit on testswarm by jzaefferer (6m, 2w ago): Fix job submission to accept GET and POST parameters for the state-argument. Make sure that the returned location is relative to the current resource, so that a client can append that to the URL of the instance
+[09:19:22] <Krinkle> danheberden: :) (regarding wiki access)
+[09:21:43] <jzaefferer> Krinkle: I'm here
+[09:22:05] <Krinkle> I'm trying to figure out what happened to addjob
+[09:22:08] <Krinkle> the HTML form version of it
+[09:22:24] <Krinkle> the html form is in content/addjob.php
+[09:22:36] <Krinkle> if there is a POST then the logic handles it and redirects early
+[09:22:51] <jzaefferer> I'm not sure, though that reminds me that I never actually used the form, always did submission from curl or via Jenkins
+[09:23:01] <Krinkle> otherwise it returned early so that ./content (included after ./logic) continous
+[09:23:06] <jzaefferer> so if I broke something, that might help to explain...
+[09:23:10] <Krinkle> Why did you change $_POST to $_REQUEST ?
+[09:23:40] <jzaefferer> Might be due to Jenkins sending GET instead of POST requests
+[09:23:47] <Krinkle> I understand it from the commit-msg but when it's a post request (e.g. from curl) then state=addjob can (or is) simply part of the query string
+[09:24:07] <Krinkle> Aha
+[09:24:10] <Krinkle> Hm..
+[09:24:18] <Krinkle> Well, I'm fine with removing the html form
+[09:24:32] <Krinkle> jzaefferer: Progress on the APi is going well so far
+[09:25:16] <jzaefferer> Krinkle: Once the API allows submissions, we could restore the form to only look for POST
+[09:25:22] <Krinkle> Right
+[09:25:39] <Krinkle> The plan so far is create a lightweight "RESTFULL" API, like 1/json/job/123 or 1/jsonp/user/jquery
+[09:25:42] <jzaefferer> The timing is about the same as my jenkins-testswarm updates at the time..
+[09:26:06] <Krinkle> OK, I'll leave it as is for now to avoid breakage
+[09:26:24] <jzaefferer> Oh how much I despise Java folder structures by now...
+[09:26:24] <Krinkle> version/format/action (option: /argument)
+[09:26:32] <jzaefferer> src/main/java/com/appendto/hudson/testswarm
+[09:26:35] <jzaefferer> fuuuuuu
+[09:26:37] <Krinkle> yeah
+[09:27:16] <Krinkle> jzaefferer: fun http://projects.haykranen.nl/java/
+[09:27:32] <jzaefferer> ah, yeah
+[09:27:34] <jzaefferer> urlConnection.setRequestMethod("HEAD");
+[09:27:40] <jzaefferer> not even doing a GET
+[09:27:45] <Krinkle> interesting
+[09:27:50] <jzaefferer> I'm pretty sure at the time I tried to change that to a POST and failed :/
+[09:28:40] <Krinkle> So for the API I'm planning to detect availability of PATHINFO so that the API can be called like api.php/1/json/getneeded
+[09:29:48] <jzaefferer> first part is the version?
+[09:29:53] <Krinkle> yeah
+[09:30:07] <jzaefferer> will that require more Rewrite rules?
+[09:30:16] <Krinkle> Not required
+[09:30:34] <Krinkle> It only requires rewrite rules if you want to get rid of 'api.php'
+[09:31:21] <Krinkle> like how /login becomes index.php?state=login, that requires a rewrite rule. But path info arguments to a php script are supported without rewrite rules
+[09:32:57] <Krinkle> jzaefferer: do you know if anything other than testswarm itself uses state=getjob or state=sendjob?
+[09:33:07] <jzaefferer> Krinkle: Do you have a comprehensive resource on rights management in mediawiki?
+[09:33:38] <jzaefferer> Regarding getjob/sendjob: I don't think so
+[09:33:42] <Krinkle> jzaefferer: well, there is me. I know it pretty well as I work on in every day inside out (mediawiki)
+[09:34:01] <Krinkle> but there is documentation for sure
+[09:34:35] <jzaefferer> Yeah, don't want to bother you with general questions before I dug a bit into the docs - though a place to start would be much appreciated
+[09:34:44] <Krinkle> however if you mean specifically for docs.jquery.com, then no because that runs an ancient version of mediawiki, I am not sure how things were back then. The rights system likely has been rewritten since then
+[09:35:37] <Krinkle> nope, has last been rewritten in mediawiki 1.5, jquery runs 1.8
+[09:36:17] <Krinkle> So basically MediaWiki works like this: Every user is in 1 or more groups. And in the LocalSettings.php you decide which group has which rights via $wgGroupPermissions
+[09:36:18] <Krinkle> https://www.mediawiki.org/wiki/Manual:$wgGroupPermissions
+[09:36:40] <Krinkle> and on the wiki itself via Special:UserRights you can add/remove a user from a group
+[09:37:08] <Krinkle> (only bureaucrat users can do that btw)
+[09:37:39] <Krinkle> because $wgGroupPermissions['bureaucrat']['userrights'] = true; by default
+[09:37:44] <jzaefferer> Okay, so no web interface editing group permissions
+[09:38:09] <Krinkle> well, the default groups should be more than enough for most wikis
+[09:38:32] <Krinkle> so you don't need to edit the group permissions, but add or remove a user to it, that you can do from the web interface
+[09:38:52] <Krinkle> anything in particular?
+[09:39:33] <jzaefferer> Restricting access to certain pages to just certain users is what I'm actually looking for
+[09:39:41] <jzaefferer> Not for docs.jquery.com (that's going away!)
+[09:39:46] <Krinkle> OK
+[09:39:55] <Krinkle> Well MediaWiki has page protection
+[09:40:31] <Krinkle> A user in the wikiadmin user group (or some other group that has the 'protect' user right), can protect an individual page against editing
+[09:40:31] <jzaefferer> That's just for editing? Or also for viewing?
+[09:40:38] <Krinkle> then only other wikiadmins can edit it
+[09:40:53] <jzaefferer> Any way to restrict viewing?
+[09:40:55] <Krinkle> MediaWiki does not support restricting view access in any way
+[09:41:17] <Krinkle> there are plugins that claim to do it, but if its sensitive, don't sue us if you lose your job :P
+[09:41:37] <jzaefferer> Haha
+[09:41:53] <Krinkle> MEdiaWiki does support restrict viewing of an entire wiki however, with a whitelist of certain pages
+[09:42:10] <Krinkle> For example https://office.wikimedia.org/
+[09:42:21] <Krinkle> that's a restricted wiki, and that's pure core functionality
+[09:42:28] <Krinkle> the home page and login is whitelisted
+[09:42:51] <Krinkle> but the other way around is not supported by default
+[09:43:01] <Krinkle> It's not very wiki either :)
+[09:43:36] <jzaefferer> All the plugins I can find are just patching mediawiki
+[09:43:40] <jzaefferer> That's not really an extension :/
+[09:44:04] <Krinkle> In general if you want to restrict viewing of a certain set of pages, don't put it on the wiki. Or set up a separate wiki for it
+[09:44:20] <Krinkle> e.g. internal-wiki.example.org and wiki.example.org
+[09:44:58] <Krinkle> the main problem with restricting some pages is due to the many ways to view a page
+[09:45:09] <Krinkle> diff views, history views, API, watchlist, recent changes.
+[09:45:20] <jzaefferer> Right..
+[09:45:33] <Krinkle> not to mention embedding and transcluding of pages in pages in pages in pages in pages etc.
+[09:45:50] <Krinkle> you know how nasty that is from the jquery docs wiki
+[09:45:56] <Krinkle> templates in templates in templates ..
+[09:46:10] <jzaefferer> I don't even want to think about those
+[09:46:46] <Krinkle> btw, back to testswarm
+[09:46:57] <Krinkle> if I visit just a plain ?state=addjob
+[09:46:57] <jzaefferer> Yeah
+[09:47:08] <Krinkle> without anything else
+[09:47:13] <Krinkle> I'm redirected to a new job page
+[09:47:25] <Krinkle> weird
+[09:47:35] <jzaefferer> ukay
+[09:47:37] <Krinkle> it creates a job out of nothing
+[09:47:38] <Krinkle> http://swarm.jquery.org/?state=addjob
+[09:47:45] <Krinkle> job 53
+[09:47:46] <Krinkle> 54
+[09:47:47] <Krinkle> oops
+[09:48:26] <jzaefferer> Krinkle: http://i2.kym-cdn.com/photos/images/newsfeed/000/234/137/5c4.jpg
+[09:48:37] <Krinkle> O_O
+[09:48:52] <Krinkle> LOL
+[09:49:45] <jzaefferer> Krinkle: Btw. we'll give this a try, at least it doesn't require patching: https://www.mediawiki.org/wiki/Extension:PrivatePageProtection
+[09:50:01] <Krinkle> Can you elaborate on what you're doing though?
+[09:50:24] <jzaefferer> Regarding mediawiki? Really not that important :-)
+[09:50:47] <Krinkle> well, you want to restrict read access. I wonder what you're hiding :P
+[11:28:50] <Krinkle> jzaefferer: wow, I really have to get used to git. I'm so used to svn as of lately due to MediaWiki (btw: Wikimedia is moving to git tomorrow). Now with testswarm
+[11:28:51] <Krinkle> ...
+[11:29:02] <Krinkle> it's happened to me at least 3 times now that I committed without adding first
+[11:29:11] <Krinkle> in svn you only have to 'svn add' for newly created files
+[11:29:28] <Krinkle> I like that I can change 2 files and 'add' only 1, but still needs getting use dot
+[11:29:29] <Krinkle> to*
+[11:32:34] <jzaefferer> yeah, takes some getting used to
+[11:32:52] <jzaefferer> though don't to `git add .` all the time, that's a really bad habit
+[11:33:05] <jzaefferer> `git commit -a` is fine, as that doesn't add new files
+[11:33:20] <jzaefferer> I'm mostly doing `git cm "commit message"`
+[11:33:38] <jzaefferer> [alias]\ncm = commit -am
+[11:37:57] <Krinkle> I don't do "git add ."
+[11:38:11] <Krinkle> so git commit -a, adds changed files?
+[11:38:19] <jzaefferer> I usually use that when intialzing a new repo
+[11:38:26] <jzaefferer> yeah
+[11:49:09] <socialhapy> ★ Tweet from jquery: We're heading back to the Bay Area! Announcing the 2012 San Francisco jQuery Conference! http://t.co/Q7wqn4VT http://t.co/hssGEXi8 ★ http://bit.ly/GBrUZ7
+[11:56:28] <Krinkle> jzaefferer: Finally, I've nailed testswarm issue #92.
+[11:56:46] <Krinkle> https://github.com/jquery/testswarm/commit/65404b6d4f14ecfe5ca99a4192614ae1eca17b76#commitcomment-1110061
+[11:56:47] <socialhapy> ★ Commit on testswarm by siemens (8m, 3w ago): Fix no icons rendering in jobstatus and on user page. This fixes Issue #13. It's based on a patch from parente (Peter Parente).
+[11:57:07] <Krinkle> -  $result = mysql_query("SELECT useragents.engine as engine, useragents.name as name, clients.os as os, DATE_FORMAT(clients.created, '%Y-%m-%dT%H:%i:%sZ') as since FROM users, clients, useragents WHERE clients.useragent_id=useragents.id AND DATE_ADD(clients.updated, INTERVAL 1 minute) > NOW() AND clients.user_id=users.id AND users.name='$search_user' ORDER BY useragents.engine, useragents.name;");
+[11:57:11] <Krinkle> +  $result = mysql_queryf("SELECT useragents.engine as engine, useragents.name as name, clients.os as os, DATE_FORMAT(clients.created, '%Y-%m-%dT%H:%i:%sZ') as since FROM users, clients, useragents WHERE clients.useragent_id=useragents.id AND DATE_ADD(clients.updated, INTERVAL 1 minute) > NOW() AND clients.user_id=users.id AND users.name=%s ORDER BY useragents.engine, useragents.name;", $search_user);
+[11:59:09] <jzaefferer> Krinkle: <3
+[12:36:45] <Krinkle> jzaefferer: Do you know which PHP version is on swarm.jquery.org ?
+[12:37:10] <Krinkle> I'd like to build a check in init.php of testswarm to require a certain version, but not sure what jquery actually runs
+[12:37:36] <Krinkle> if you have ftp or ssh access just write '<?php phpinfo(); ' > phpinfo.php
+[12:38:00] <Krinkle> into /var/www or wherever public_html is
+[12:49:01] <eddiemonge> i want to say 5.2.6 unless its been upgraded
+[12:51:16] <Krinkle-away> thx
+[12:53:03] <louisremi> The effects component is getting increasingly complex. How could anyone wish to rewrite it?
+[12:54:41] <louisremi> I've literally spent days looking at it and there's nothing I would dare to touch. I'm really curious to see what gnarf is preparing for 1.8
+[13:00:24] <gnarf> louisremi: its coming along very very slowly
+[13:00:42] <louisremi> gnarf: have you got a branch?
+[13:00:53] <gnarf> louisremi: only local, and non-functional
+[13:01:07] <gnarf> when i have something i want to share, i'll be sure to @ you on github
+[13:01:41] <louisremi> gnarf: thanks!
+[14:04:40] <johnbender> now I feel like a douche for submitting my own talk :(
+[14:06:11] <johnbender> not that I blame you guys for doing it this way, it's a good idea
+[14:06:21] * johnbender is mostly talking to himself
+[14:06:23] <ajpiano> johnbender: don't worry
+[14:06:31] <ajpiano> to me, the only thing that feels like a douche... is a shower!!!
+[14:06:32] <ajpiano> heyo
+[14:06:39] <johnbender> zing :D
+[14:06:57] <ajpiano> johnbender: frankly, i'm just hoping we get a few third-party proposals
+[14:07:07] <ajpiano> i'm still expecting mostly self-submissions
+[14:07:25] <johnbender> ajpiano: cool
+[14:07:41] <johnbender> we can all be douchey(d?) together
+[14:07:49] <johnbender> :D
+[14:08:24] <ajpiano> maybe we should have the conf tshirt be a polo ;)
+[14:08:40] <johnbender> many popped collars
+[14:08:45] <johnbender> brogramming
+[14:08:54] * johnbender is checking off the memes
+[14:23:32] <timmywil> rwaldron: submitting a talk for san fran?
+[14:28:00] <johnbender> ajpiano: talk submitted
+[14:28:04] <johnbender> hopefully it's not too out there :D
+[14:29:46] <ajpiano> OH SHI-
+[14:36:46] <rwaldron> timmywil yeah, i will
+[14:36:58] <timmywil> rwaldron: good!
+[14:37:01] <rwaldron> but hpefully ajpiano and I will do something together again
+[14:37:15] <timmywil> this is acceptable
+[15:58:11] <Krinkle> Anyone know if there is a repo for jquery prettyDate plugin? It used to be at googlecode/jqueryjs/plugins/prettydate long long ago
+[15:58:23] <Krinkle> the one blogged about here http://ejohn.org/blog/javascript-pretty-date/
+[15:58:37] <Krinkle> and added to googlecode here https://code.google.com/p/jqueryjs/source/browse/trunk/plugins/prettydate/jquery.prettydate.js?r=6366
+[15:58:48] <Krinkle> and removed here https://code.google.com/p/jqueryjs/source/detail?r=6587
+[16:45:52] <Krinkle> ?tell jzaefferer FYI: Made a big merge of a dozen commits from my fork to jquery/testwarm
+[16:45:53] <bot-t> Krinkle, Okay.
+[17:06:11] <mikesherov> danheberden: you here?
+[17:06:12] <bot-t1> (20 hours 10 mins ago) <gnarf> tell mikesherov I just want you to have a message this time -- <3
+[17:06:21] <mikesherov> HAHAHAHA
+[17:06:26] <mikesherov> nice gnarf
+[17:08:09] <ajpiano> mikesherov: my e-mails started again
+[17:08:11] <ajpiano> i don't know what you did
+[17:08:12] <ajpiano> but i like it
+[17:08:23] <mikesherov> I didn't do shit actually, all danheberden
+[17:08:46] <ajpiano> oh helly a
+[17:09:37] <mikesherov> I'm still figuring out how to beat up MySQL
+[17:09:45] <mikesherov> it needs slow query log turned on
+[17:09:58] <mikesherov> there are some serious unoptimized queries there
+[17:18:38] <DaveMethvin> hey mikesherov
+[17:19:01] <mikesherov> Hey DaveMethvin, I had a few questions
+[17:19:09] <DaveMethvin> fire away
+[17:19:11] <mikesherov> bugs.jquery.com is the only place that uses trac right?
+[17:19:22] <DaveMethvin> the only place for core
+[17:19:28] <DaveMethvin> there's a different install at jqueryui
+[17:19:52] <mikesherov> I mean, if I just disable #!html processing in the parser, will that effect tutorials or other pages on bugs.jquery.com?
+[17:20:07] <DaveMethvin> that would be a danheberden question
+[17:20:12] <mikesherov> http://docs.jquery.com/Tutorials
+[17:20:17] <DaveMethvin> i am not sure, maybe docs.jquery.com is there too
+[17:20:19] <mikesherov> like that doesn't use trac right?
+[17:20:30] <DaveMethvin> that uses a wiki i think
+[17:20:31] <mikesherov> hmmm
+[17:20:34] <mikesherov> trac wiki?
+[17:20:37] <mikesherov> grrr
+[17:20:52] <DaveMethvin> all the docs.jquery.com stuff is being migrated and discarded
+[17:21:00] <danheberden> yo - trac is only at bugs.jquery.com and bugs.jqueryui.com
+[17:21:05] <mikesherov> k
+[17:21:07] <mikesherov> awesome
+[17:21:13] <danheberden> same python lib, but diff installs at /var/www
+[17:21:22] <mikesherov> danheberden, if I know what to change in trac, how do I reboot it?
+[17:21:23] <danheberden> or wherever the hell it is
+[17:21:33] <DaveMethvin> so looks like the spammer has now taken williamk
+[17:21:48] <DaveMethvin> but at least we could tell since emails are back :P
+[17:21:48] <danheberden>  /etc/init.d/spawn-fcgi-process or something
+[17:21:55] <danheberden> restart/stop/start etc
+[17:22:11] <mikesherov> Do I need a restart after I modify a .py file?
+[17:22:19] <mikesherov> I never screwed around with trac in fcgi
+[17:22:21] <danheberden> i don't think so
+[17:22:30] <danheberden> but unsure
+[17:22:54] <danheberden> it's like any relationship i've had - anytime i think i got something figured out...;
+[17:23:24] <DaveMethvin> yeah i woke up with a trac install after a night of heavy drinking and had to chew my arm off once
+[17:23:47] <mikesherov> hs
+[17:23:53] <danheberden> these cold showers fully clothed scrubbing myself violently with a bar of soap are getting pretty normal now
+[17:24:07] <DaveMethvin> so true
+[17:24:09] <mikesherov> trac/wiki/formatter.py is the file needing change
+[17:24:38] <danheberden> you can't change it mikesherov - it has to want to change on its own
+[17:24:58] <danheberden> oh, wait </relationshipanalogy>
+[17:25:31] <mikesherov> def _html_processor(self, text):
+[17:25:50] <mikesherov> just put return '' on the next line
+[17:26:01] <mikesherov> but can't figure out how to get the change to stick
+[17:26:27] <danheberden> maybe try rebooting the service then? /etc/init.d/spawn-trac-yadayada restart
+[17:26:36] <mikesherov> k, trying
+[17:27:06] <danheberden> well, `sudo /etc....`
+[17:28:13] <mikesherov> here goes nothing:
+[17:28:22] <mikesherov> \/etc/init.d/spawn-fcgi-trac restart
+[17:28:42] <danheberden> IJOIJRO@IRH(*# JWO(JF(* UW(*OJO$#HINKJWPOI UR_()@IK<MJ<>HOW(F
+[17:28:55] <mikesherov> nope, nothing
+[17:29:23] <mikesherov> what's this: trac-bugs.jquery.com
+[17:29:32] <mikesherov> in etc/init.d
+[17:29:50] <danheberden> it's one someone made but it doesn't work :/
+[17:30:05] <mikesherov> hmmm, so
+[17:30:06] <danheberden> i had thought gnarf made it and that it just needed a tweak
+[17:30:18] <mikesherov> I know exactly where the change is, I don't know how to get it to stick
+[17:31:02] <danheberden> maybe the running fcgi processes are sticking?
+[17:31:05] <danheberden> like stop trac, kill those
+[17:31:10] <danheberden> start trac?
+[17:31:37] <mikesherov> sure
+[17:31:53] <DaveMethvin> well you KNOW that reboot would cure it, we're just tryna figure out what less drastic thing would do it too
+[17:31:57] <danheberden> also, are you restarting the webserver too?
+[17:33:23] <mikesherov> etc/init.d/spawn-fcgi-trac stop doesn't really do anything
+[17:34:04] <mikesherov> doesn't kill tracd nor fastcgi processes
+[17:34:23] <danheberden> why must it be confusing
+[17:34:33] <danheberden> i would think restarting the webserver would stop the processes?
+[17:34:40] <danheberden> but i know not the ways of the python
+[17:34:47] <mikesherov> command?
+[17:35:03] <danheberden> sudo /etc/init.d/nginx restart
+[17:36:07] <mikesherov> nope
+[17:36:17] <mikesherov> we need to restart tracd
+[17:36:35] <danheberden> gnarf any ideas on wtf we're doing wrong?
+[17:38:16] <mikesherov> be back in 10 mins
+[17:57:22] <mikesherov> back
+[17:57:32] <mikesherov> danheberden: still here?
+[17:57:45] <danheberden> mikesherov kind of
+[17:58:17] <mikesherov> OK, I'm going to kill tracd on the server manually, because that's what it looks like the trac-bugs.jquery.com attempts to do
+[17:58:49] <danheberden> ok
+[17:59:04] <danheberden> ps aux | grep -e '[t]rac'
+[18:06:16] <mikesherov> SUCCESS
+[18:06:21] <mikesherov> danheberden:
+[18:07:07] <mikesherov> So what I had to do was execute TWO init.d files
+[18:08:28] <mikesherov> danheberden: how do you want me to document what I did?
+[18:08:53] <danheberden> mikesherov can you add a wiki page on the infra repo?
+[18:09:21] <mikesherov> OK, will do... do I need to do anything to document the changes I made to trac itself?
+[18:09:44] <danheberden> if you want to mention it at least that's cool
+[18:09:54] <mikesherov> OK, will do
+[18:10:05] <danheberden> thank you mikesherov :)
+[18:10:11] <mikesherov> no problem
+[18:10:19] <mikesherov> I also want to still make some mysql changes
+[18:17:52] <mikesherov> danheberden: I'm just going to put a page on the main pages list titled: Trac
+[18:18:04] <danheberden> that's totes cool bro

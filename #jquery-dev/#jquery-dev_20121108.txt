@@ -1,0 +1,410 @@
+[05:25:06] <slikts> what's going on with the plugins.jquery.com site, when will it start accepting plugins?
+[05:50:46] <Guest51460> Hello
+[05:51:01] <Guest51460> I am trying to use test swarm to run tests on IE7
+[05:51:33] <Guest51460> in the attempt to do so I am getting error [TestSwarm] window.onerror: Invalid argument
+[05:51:38] <Guest51460> has anyone seen this issue
+[05:51:40] <Guest51460> ??
+[07:14:14] <scott_gonzalez> DaveMethvin: Just found a crazy bug.
+[07:14:37] <scott_gonzalez> Including jQuery on a page is breaking the layout in IE9 in IE7 mode.
+[07:14:55] <jqcommit> [jquery] gibson042 pushed 1 new commit to master: http://git.io/BZ4xFw
+[07:14:55] <jqcommit> jquery/master 517846a Richard Gibson: No ticket: speedup test suite. Close gh-1020.
+[07:18:31] <scott_gonzalez> It was something introduced in 1.7.
+[07:18:42] <scott_gonzalez> This should be fun to track down.
+[07:23:31] <scott_gonzalez> help? https://gist.github.com/4039440
+[07:26:16] <scott_gonzalez> DaveMethvin gibson042 gnarf mikesherov rwaldron sindresorhus timmywil: Any idea what I need to do to get a good build of jQuery between 1.6.4 and 1.7?
+[07:26:42] <scott_gonzalez> I don't care about lint failures, etc.
+[07:27:02] <scott_gonzalez> Is my best option to just manually concat?
+[07:28:39] <timmywil> scott_gonzalez: between 1.6.4 and 1.7?
+[07:28:43] <scott_gonzalez> yeah
+[07:28:50] <timmywil> particular commit?
+[07:28:56] <scott_gonzalez> I'm trying to bisect.
+[07:29:04] <timmywil> ah
+[07:29:06] <scott_gonzalez> Tracking down something that was introduced in 1.7.
+[07:29:55] <scott_gonzalez> First two commits that I landed on failed lint. Third failed on update_submodules :/
+[07:30:33] <scott_gonzalez> So I'm coming up on half way through the bisect with 0 builds, figured I'd just stop.
+[07:31:06] <scott_gonzalez> Interestingly I can't even build 1.7
+[07:31:29] <timmywil> git submodule update should be enough for the submodule
+[07:31:31] <timmywil> s
+[07:32:07] <timmywil> and I believe the build happens before lint so make should still do the job
+[07:32:10] <scott_gonzalez> jquery ((1.7) *) $ git submodule update
+[07:32:10] <scott_gonzalez> jquery ((1.7) *) $ s
+[07:32:10] <scott_gonzalez> ## HEAD (no branch)
+[07:32:10] <scott_gonzalez>  M src/sizzle
+[07:32:43] <scott_gonzalez> hmm...let me check if the builds were succeeding.
+[07:32:45] <timmywil> it won't remove untracked content
+[07:33:05] <timmywil> so it may say src/sizzle is modified but that's ok
+[07:33:22] <scott_gonzalez> Cool, you're right, the build is working even when lint fails.
+[07:33:23] <timmywil> as long as the content is untracked
+[07:33:40] <scott_gonzalez> Let me see if bisecting is working then.
+[07:33:43] <doesallmagic> Project jQuery Core build #493: FAILURE in 18 min: http://swarm.jquery.org:8080/job/jQuery%20Core/493/
+[07:33:44] <doesallmagic> richard.gibson: No ticket: speedup test suite. Close gh-1020.
+[07:34:26] <scott_gonzalez> Yup, this looks like it should work even with the failures.
+[07:34:27] <scott_gonzalez> Thanks.
+[07:34:32] <timmywil> cool, np
+[07:35:55] <scott_gonzalez> timmywil: What do I do here?
+[07:35:56] <scott_gonzalez> jquery ((005958b...) *|BISECTING) $ git submodule update
+[07:35:56] <scott_gonzalez> fatal: reference is not a tree: 3375f91f7c0503da1cd34ae9b6bbbd7be07bf64d
+[07:35:56] <scott_gonzalez> Unable to checkout '3375f91f7c0503da1cd34ae9b6bbbd7be07bf64d' in submodule path 'src/sizzle'
+[07:36:15] <scott_gonzalez> Just ignore and assume Sizzle isn't the problem I'm tracking down? :-P
+[07:36:32] <scott_gonzalez> Not sure how that would have happened, unless we force pushed and killed history.
+[07:36:39] <timmywil> hmm, strange the commit isn't there. maybe `git fetch` in src/sizzle?
+[07:37:12] <scott_gonzalez> Same error, `git fetch` inside src/sizzle didn't grab anything.
+[07:37:23] <timmywil> weird
+[07:38:00] <timmywil> I have that commit
+[07:38:25] <scott_gonzalez> strange
+[07:38:38] <scott_gonzalez> I just ran `make jquery`, we'll see if it at least runs.
+[07:39:05] <scott_gonzalez> Yeah, the built file is fine, though it's probalby using a newer version of Sizzle.
+[07:40:35] <timmywil> my remotes are different. I suppose the commit COULD be just on my origin. lemme check
+[07:41:47] <timmywil> shoot, no. where is this thing
+[07:43:34] * scott_gonzalez rolls eyes
+[07:43:46] <scott_gonzalez> I just did the full bisect and had my test file pointing at the CDN instead of my local build.
+[07:44:05] * timmywil lols
+[07:44:38] <scott_gonzalez> Time to start over...
+[07:49:56] <scott_gonzalez> Ohhh...it was timmywil
+[07:50:10] <scott_gonzalez> http://github.com/jquery/jquery/commit/93750cee36f0b2edc1afd2dad64d9306865a39b9
+[07:50:10] <socialhapy> ★ Commit on jquery by timmywil (1y, 1w ago): Run offset support tests at doc ready. Fixes #10613.
+[08:01:13] <scott_gonzalez> This is so frustrating, I can't reproduce this using jsfiddle or jsbin.
+[08:06:46] <timmywil> what's the bug?
+[08:06:58] <scott_gonzalez> I'm reducing the page as much as possible right now.
+[08:07:07] <timmywil> k
+[08:07:15] <scott_gonzalez> It seems like maybe the height of the body is shrinking to 0.
+[08:13:56] <scott_gonzalez> timmywil: http://dev-test.code.dev/bugs/jquery/layout-change-on-load.html
+[08:14:27] <timmywil> scott_gonzalez: http://cl.ly/image/1b023r02113S
+[08:14:44] <scott_gonzalez> ugh, copied my local URL
+[08:14:51] <scott_gonzalez> http://dev-test.nemikor.com/bugs/jquery/layout-change-on-load.html
+[08:16:00] <Krinkle> ben_alman: Can config be defined asynchronously in grunt?
+[08:16:05] <Krinkle> i.e. can I make it wait for something?>
+[08:16:25] <Krinkle> I figured I can call grunt.config.set from a callback, but it seems it doesn't wait for it
+[08:16:49] <Krinkle> I'm adding config.jshint.headChanged in a repo I'm working on, (to lint only changed files)
+[08:17:06] <Krinkle> and some custom task that needs data from an asynchronous source
+[08:19:08] <scott_gonzalez> timmywil: I reduced this from a UI bug: http://bugs.jqueryui.com/ticket/8786 The strange thing is that the bug wasn't triggered on load in the original test case.
+[08:22:07] <timmywil> scott_gonzalez: what should I see?
+[08:23:02] <timmywil> ah, the yellow bar truncated?
+[08:23:37] <scott_gonzalez> yup
+[08:23:57] <scott_gonzalez> If there's no other text on the page and there's no padding, it actually collapses to 0 height.
+[08:24:27] <scott_gonzalez> I'm not sure why I couldn't get this to happen in jsbin or jsfiddle.
+[08:24:42] <scott_gonzalez> I even turned off normalize CSS in fiddle.
+[08:26:34] <timmywil> ok, but the bug we fixed by moving the offset tests to document ready is probably higher priority. However, I've wanted to make all of our document ready support tests lazy.
+[08:27:39] <scott_gonzalez> Well, it'd be interesting to track down what from the test is causing the bug.
+[08:27:47] <timmywil> true nuff
+[08:29:08] <scott_gonzalez> It looks like that code has changed quite a bit since then.
+[08:29:32] <timmywil> yea, but doing work on the body since then hasn't changed
+[08:32:09] <scott_gonzalez> It looks like we don't set styles directly on the body anymore.
+[08:32:13] <scott_gonzalez> So that wasn't the problem.
+[08:32:31] <scott_gonzalez> I'll start ripping out individual tests and see if I can find it.
+[08:33:32] <timmywil> perhaps simply the act of appending elements to the body affects the height of the body
+[08:33:44] <timmywil> maybe
+[08:34:12] <scott_gonzalez> If I let it get to `body.insertBefore( container, body.firstChild );` it doesn't break.
+[08:34:26] <scott_gonzalez> (working from 1.8.2)
+[08:34:41] <scott_gonzalez> container.appendChild( div ); also isn't the cause.
+[08:36:16] <scott_gonzalez> HAHA
+[08:36:23] <scott_gonzalez> body.removeChild( container );
+[08:36:25] <scott_gonzalez> That's what breaks it.
+[08:36:40] <scott_gonzalez> Sounds like a cantfix.
+[08:37:21] <timmywil> what if you remove everything between appending container and removing it?
+[08:37:40] <timmywil> s/appending/inserting
+[08:37:48] <scott_gonzalez> body.style.zoom = 1; //fix
+[08:38:05] <timmywil> ah the magic zoom
+[08:38:40] <scott_gonzalez> Deleting everything between fixed it too.
+[08:40:41] <scott_gonzalez> Interesting, removing this line fixes it: isSupported = ( tds[ 0 ].offsetHeight === 0 );
+[08:41:22] <scott_gonzalez> hmm...well, if you delete that line and everythin below it.
+[08:41:28] <scott_gonzalez> Removing just that line the bug still exists.
+[08:41:36] <scott_gonzalez> There are probably a few lines that each individually cause it.
+[08:41:51] <scott_gonzalez> Is `body.style.zoom = 1` a legit fix?
+[08:42:10] <timmywil> what about removing container.style.zoom = 1?
+[08:42:31] <timmywil> I'm not even sure why that's there
+[08:43:04] <scott_gonzalez> Removing that doens't help.
+[08:43:30] <scott_gonzalez> Changing that line to `body.style.zoom = 1` fixes it.
+[08:43:42] <scott_gonzalez> So we can set it before or after removing the container.
+[08:44:27] <timmywil> I'm fine with that
+[08:45:22] <scott_gonzalez> Ok, I'll file a ticket and send a PR.
+[08:45:31] <scott_gonzalez> Thanks for helping track that down.
+[08:56:06] <scott_gonzalez> Ticket filed and PR sent.
+[08:59:58] <timmywil> scott_gonzalez: thanks!
+[11:32:24] <gnarf> so DaveMethvin rwaldron gibson042 mikesherov et all - I know we've been using our "one var" method for a very very long time --- I have to say I generally agree with the points ben_alman brings up in http://benalman.com/news/2012/05/multiple-var-statements-javascript/ - not sure if we are interested in making the switch, but I think it would be a little nicer
+[11:33:00] <gnarf> just wanted to get a sense from some people here about their opinion - timmywil also?
+[11:33:04] <gnarf> scott_gonzalez: ^^^
+[11:33:14] <mikesherov> one var is not a core rule
+[11:33:16] <gnarf> prolly gonna toss out an email on the topic
+[11:33:27] <mikesherov> we fail it regularly when it makes sense
+[11:33:47] <mikesherov> however, I like onevar because it removes the hoisting magic
+[11:34:03] <gnarf> latedef: true does that too :)
+[11:34:05] <gibson042> gzip likes one var
+[11:34:23] <gnarf> i still want all the vars at the top
+[11:34:37] <gnarf> i'm just suggesting s/,\n\t/;\nvar /
+[11:34:46] <gnarf> uglify compresses it
+[11:35:10] <gibson042> true
+[11:35:56] <mikesherov> gzip loves onevar because that's what uglify does anyway
+[11:36:27] <gnarf> I'm not suggesting that we change to defining vars wherever we want, but that we put all "var" at the top together but we use "var" on each line instead of a tab
+[11:36:28] <mikesherov> ben's suggestion is sane because it does what our style already does… enforces unassigned var delcarations at the top
+[11:36:47] <mikesherov> as long as we keep that, I don't care
+[11:37:02] <timmywil> I don't like latedef
+[11:37:12] <mikesherov> and actually, I think style discussions once a style is settled on are usually just opinion based
+[11:37:45] <gnarf> mikesherov: agree - it wont stop any of us from knowing what to do, but ben brings up some pretty decent usability arguments supporting using "var" on all var declarations
+[11:37:45] <mikesherov> Someone smarter than me once said "I don't care what the style is, as long as it's consistent!"
+[11:37:55] <gnarf> I'm also +1 there
+[11:38:11] <gibson042> I don't see the issues that ben_alman is raising in our code
+[11:39:08] <gnarf> ajpiano: do you have an opinion here?
+[11:39:50] <mikesherov> my opinion is that we have a perfectly fine style, and switching now just creates busy work and ruins "git blame"
+[11:40:00] <mikesherov> but it's a fun convo to have :-)
+[11:40:06] <ajpiano> i agree with mikesherov
+[11:40:32] <gnarf> gibson042: I guess I just see it as the style we (as a whole) decide to use propagates throughout the whole jQuery project sphere - For a lot of newer programmers, our teaching documentation will be the first thing they encouter - I'd prefer we taught better styles for their sake.
+[11:40:39] <timmywil> you know, we could follow both rules
+[11:41:13] <mikesherov> timmywil: explain?
+[11:41:20] <timmywil> var a, b, c, d; a = 1; b = 2; c = 3; d = 4;
+[11:41:37] <timmywil> not all on one line
+[11:41:43] <ajpiano> i have used one var for a long time myself, and see some of the wisdom in ben's post, but i don't think it would make sense for us to do a massive style overhaul to core at this point
+[11:41:46] <timmywil> basically rwaldron's suggestion
+[11:42:06] <gnarf> ajpiano: not an "overhaul" it's actually not in the style guide
+[11:42:13] <gnarf> just like, what style we encourage
+[11:42:31] <ajpiano> it's an overhaul in terms of a lot of lines would be touched
+[11:42:47] <gnarf> ricks idomatic has a reference suggesting using only one "var" per scope
+[11:43:11] <mikesherov> var per scope is a clarity thing from my perspective
+[11:43:31] <gnarf> agree - but managing that comma and semi is dangerous without a linter
+[11:43:45] <mikesherov> gnarf: and who doesn't use a linter?
+[11:43:56] <gnarf> I'd say 80% of our users
+[11:44:15] <mikesherov> if someone isn't linting, the advice I'd give them is "lint", instead of "oh, your coding style is dangerous considering you don't lint"
+[11:44:41] <gnarf> agree - but its more about the habbits they learn from looking at our docs and content and code
+[11:44:52] <gnarf> subtle thing
+[11:44:54] <gnarf> *shrug*
+[11:45:32] <mikesherov> gnarf: I get you
+[11:45:45] <gnarf> var a=1; var b=2; var c=3; seems easier for a "entry level" to manage
+[11:46:00] <timmywil> another point: we can't programmatically ensure vars are at the top with onevar off without turning on latedef
+[11:46:17] <mikesherov> timmywil: that is correct
+[11:46:26] <timmywil> which is bad
+[11:46:31] <mikesherov> but then again, shouldn't we be encouraging latedef true
+[11:46:35] <mikesherov> maybe it's bad
+[11:46:39] <gnarf> I can hassle anton about a flag for it
+[11:46:42] <mikesherov> IYO
+[11:46:46] <gnarf> I hate the function rules with latedef
+[11:46:56] <timmywil> ^^
+[11:47:01] <mikesherov> Sure, I get it
+[11:47:06] <gnarf> my code style gets yelled at every time by hint now
+[11:47:08] <gnarf> in the tests
+[11:47:15] <mikesherov> but you hating it doesn't mean it's bad :-)
+[11:47:22] <gnarf> agree
+[11:47:25] <gnarf> which is why i conform
+[11:47:27] <gnarf> and rethink
+[11:47:33] <timmywil> agreed, but there are legitimate use cases
+[11:47:34] <mikesherov> CONFORM TO THE BORG
+[11:47:38] <gnarf> it also seems to make more sense from a gzip compression standard too
+[11:48:00] <gnarf> groups a lot of function statements together
+[11:48:03] <mikesherov> timmywil: sure, I remember before JSHint hoisted prooperly
+[11:48:16] <mikesherov> and I was trying to get undef: true pushed through
+[11:48:25] <mikesherov> but it kept barfing at the jQuery latedef's
+[11:48:46] <mikesherov> gnarf: again, though, uglify should handle that I believe
+[11:48:56] <gnarf> i think it does actually
+[11:48:56] <mikesherov> and if it doesn't, someone needs to tell mishou!
+[11:49:16] <timmywil> most of the time, I'm fine with latedef, but I don't think it should be globally enforced
+[11:49:28] <gnarf> also, whats with the "don't create a function in a loop" hint?
+[11:49:41] <gnarf> don't tell me how to create functions hint! :)
+[11:49:43] <mikesherov> timmywil: sure, that's why it isn't :-)
+[11:49:51] <mikesherov> funcloop
+[11:49:58] <mikesherov> errr, loopfunc
+[11:49:58] <gnarf> makes writing a generator for a test annoying
+[11:50:16] <mikesherov> gnarf, if we have legit uses for loopfunc, it's an option
+[11:50:29] <mikesherov> no one says jQuery's jshint rules as the best
+[11:50:32] <gnarf> can i just /*jshint loopfunc:false*/ ?
+[11:50:42] <mikesherov> gnarf: you shouldn't
+[11:50:46] <mikesherov> at least per timmy
+[11:51:05] <mikesherov> a goal was to not have any conditional jshint in our code
+[11:51:11] <mikesherov> timmywil: right? ^
+[11:51:13] <gnarf> seems sane
+[11:51:32] <mikesherov> I had to do conditionally for jquery UI on the interactions, because they were fucked
+[11:52:00] <mikesherov> but in general, either we say something is fine or it isn't :-)… that's just my take
+[11:52:06] <gnarf> i mean, i found ways around it :)
+[11:52:29] <mikesherov> gnarf: but if you think loopfunc is fine, why not just ask the team, and add it.
+[11:52:43] <mikesherov> I mean, no one says the defaults for jshint are sane… you know?
+[11:53:57] <timmywil> technically, it's just a warning
+[11:53:58] <mikesherov> it's just meant to stop the error about not closing over loop vars and getting unexpected results
+[11:54:02] <pbramos> I was given criticism on a recent pull request because I didn't define an iterator for a for loop at the top of the function.  Thought that was kind of weird.
+[11:54:11] <timmywil> though I understand not wanting to see warning
+[11:54:13] <timmywil> s
+[11:54:31] <mikesherov> var nums = [];
+[11:54:31] <mikesherov> for (var i = 0; i < 10; i++) {
+[11:54:31] <gibson042> pbramos: that was to fit with our coding style
+[11:54:33] <mikesherov> nums[i] = function (j) {
+[11:54:34] <mikesherov> return i + j;
+[11:54:35] <mikesherov> };
+[11:54:36] <mikesherov> }
+[11:54:37] <mikesherov> nums[0](2); // Prints 12 instead of 2
+[11:54:45] <pbramos> gibson042
+[11:54:53] <mikesherov> pbramos: also, it helps compression
+[11:54:58] <pbramos> Ah
+[11:55:02] <mikesherov> thanks for the pull, btw, pbramos
+[11:55:20] <pbramos> I understand it's the coding style, I was just referncing the article posted earlier from Ben Alamn
+[11:55:33] <mikesherov> pbramos: understand, you also committed like every style violation we have :-)
+[11:55:44] <pbramos> no problem.  Thanks for the feedback.  Sorry I couldn't come up with a better solution ::)
+[11:55:52] <pbramos> hah woops :)
+[11:55:57] <mikesherov> http://docs.jquery.com/JQuery_Core_Style_Guidelines
+[11:56:10] <mikesherov> you should contribute another bug fix
+[11:56:11] <gibson042> we should probably add that to the style guide, but I can't come up with a way to do so that would still allow our occasional `if ( test ) { return; } var ...` patterns
+[11:56:14] <pbramos> I *swear* I reviewed that page before committing,
+[11:56:23] <pbramos> But it was late, and I am sick :P
+[11:56:25] <mikesherov> the one you picked was like the one timmywil and I have been avoiding for a while
+[11:57:03] <pbramos> I'll definitely be browsing through the issues tonight to see what's available
+[11:57:05] <mikesherov> gibson, agreed
+[11:58:12] <gnarf> oh hey timmywil
+[11:58:21] <timmywil> yo
+[11:58:39] <gnarf> can you take a look at this test: https://github.com/jquery/jquery/commit/c45f6095f2d58a9fefd6bc788e50140acc7cf0c4
+[11:58:40] <socialhapy> ★ Commit on jquery by Corey Frang (18h, 34m ago): Keep track of a hiding state for toggle based animations - Fixes #8685  Closes gh-1018
+[11:58:48] <mikesherov> pbramos: http://bugs.jquery.com/query?status=open&status=reopened&type=bug&group=component&report=1&order=priority
+[11:58:51] <gnarf> timmywil: i regressed on the toggle state in 1.8
+[11:59:06] <gnarf> timmywil: just wondering if that test summarizes the feature well enough for you
+[11:59:56] <pbramos> Sometimes I have a hard time telling what people are already working on
+[12:00:19] <gnarf> pbramos: if it's not assigned - ask in here
+[12:00:20] <gnarf> :)
+[12:00:25] <pbramos> Works for me.
+[12:00:33] <gnarf> if it is assigned, ping that person
+[12:00:41] <gnarf> maybe they'd be willing to step back on it
+[12:01:03] <pbramos> kk
+[12:02:07] <timmywil> gnarf: I don't see the regression
+[12:02:10] <gnarf> timmywil: https://github.com/jquery/jquery/blob/master/test/unit/effects.js#L1874-1916 (there was like one small modification for the height check on slideToggle
+[12:02:23] <gnarf> ?8685
+[12:02:26] <bot-t> [#8685] Animations should keep track of animation state in order to properly address stacked animations (closed enhancement: fixed in v1.8.3) - http://jqbug.com/8685
+[12:02:46] <gnarf> timmywil: http://jsfiddle.net/cz4XM/1/
+[12:02:55] <gnarf> compare to 1.7
+[12:03:16] <timmywil> oh I thought you were saying that commit caused a regression. yea, that looks great to me.
+[12:03:17] <gnarf> note that in 1.8 it never goes to the "show" version
+[12:03:34] <gnarf> nah, i just had fixed the regression, wondering if the test made sense
+[12:04:04] <timmywil> makes sense to me. Go for one/stop/go back to original/stop, yea?
+[12:04:15] <gnarf> yup
+[12:04:30] <timmywil> nice work
+[12:04:37] <gnarf> it should probably test one more actually
+[12:04:55] <gnarf> to ensure to get the toggle state went hide -> show -> hide
+[12:05:05] <gibson042> mikesherov gnarf timmywil: quick poll... fix or wontfix see ?12708
+[12:05:06] <bot-t> [#12708] properties hash ignored when attributes included in html (open bug) - http://jqbug.com/12708
+[12:05:22] <gibson042> because if fix, that'd be a good one for pbramos
+[12:05:35] <gnarf> gibson042: val: 'bar' work?
+[12:05:43] <timmywil> I'd say wontfix since setting type afterwards works fine now
+[12:05:54] <gibson042> DaveMethvin too if around
+[12:06:24] <gnarf> oh wait
+[12:06:35] <gnarf> seeing these things is crazy sometimes
+[12:06:41] <gibson042> amen brother
+[12:06:57] <timmywil> in other words, the docs are wrong when they say that this will fail: $("<input>", { type: "hidden" })
+[12:07:05] <gibson042> right
+[12:07:26] <gnarf> but should $("<input type='hidden'>", props) work?
+[12:07:29] <gibson042> but we explicitly regect $("<input type='hidden'/>", props)
+[12:07:32] <gibson042> *reject
+[12:07:38] <gibson042> it *can*
+[12:07:43] <gibson042> that's my question right now
+[12:08:05] <gnarf> seems like it should? why do we stop it?
+[12:08:15] <gibson042> historical reasons
+[12:08:23] <timmywil> because it's not considered simple, single element creation. The fix seems like it would be yet another codepath for something we don't actually want people to use in the first place.
+[12:08:42] <gnarf> but is it a new codepath or the removal of one?
+[12:09:19] <timmywil> it is a regression, sure, but I'm just saying I'm cool with it ;)
+[12:09:37] <timmywil> either way, we need to update the docs
+[12:10:21] <gnarf> https://github.com/jquery/api.jquery.com/issues ?
+[12:10:44] <gibson042> gnarf: to my knowledge, $( tagWithAttributes, props ) has always been invalid
+[12:10:56] <gibson042> but see ?12708 proposes to change that
+[12:10:57] <bot-t> [#12708] properties hash ignored when attributes included in html (open bug) - http://jqbug.com/12708
+[12:11:11] <gnarf> gibson042: do we need to write more code to support it?
+[12:11:25] <gnarf> or remove some check
+[12:11:26] <timmywil> gibson042: that is true, but setting type on an input was the exception
+[12:11:30] <gibson042> no, just a conditional tweak
+[12:12:03] <gnarf> pbramos: you getting any of this? :)
+[12:12:19] <pbramos> was in another window, let me review..
+[12:12:21] <gnarf> :+1: on that ticket then :)
+[12:12:41] <timmywil> this is the troublemaker: Unsupported in IE:
+[12:12:41] <timmywil> $('<input />', {
+[12:12:43] <timmywil>     type: 'text',
+[12:12:43] <timmywil>     name: 'test'
+[12:12:45] <timmywil> }).appendTo("body");
+[12:12:45] <timmywil> Supported workaround:
+[12:12:47] <timmywil> $('<input type="text" />').attr({
+[12:12:47] <timmywil>     name: 'test'
+[12:12:49] <timmywil> }).appendTo("body");
+[12:12:57] <gibson042> ick
+[12:12:57] <timmywil> the supported workaround for that one case was dropped
+[12:13:02] <gnarf> timmywil: we can remove that from the docs
+[12:13:16] <gnarf> lemme file a PR on api
+[12:13:36] <timmywil> so my vote would be to keep it dropped and change the docs
+[12:13:57] <timmywil> since 1.5, the former works in IE
+[12:15:13] <gibson042> pbramos: see ?4087 is another decent candidate
+[12:15:14] <bot-t> pbramos, [#4087]  (open bug) - http://jqbug.com/4087
+[12:16:10] <pbramos> Bookmarked those.
+[12:16:26] <gibson042> and maybe see ?9832
+[12:16:27] <bot-t> [#9832]  (open bug) - http://jqbug.com/9832
+[12:16:57] <timmywil> lol, I miss the days where tickets where Dave just assigned things to John
+[12:17:58] <timmywil> were*
+[12:19:45] <gnarf> timmywil: https://github.com/jquery/api.jquery.com/pull/172
+[12:19:46] <socialhapy> ★ Pull request on api.jquery.com by gnarf37 (41.691s ago): Remove bad advice
+[12:20:15] <timmywil> thanks gnarf
+[12:21:26] <jqcommit> [jquery] none pushed 3 new commits to master: http://git.io/SXJdtw
+[12:21:26] <jqcommit> jquery/master 31a19a8 Corey Frang: Rewriting unit test to be less sticky based on time issues
+[12:21:26] <jqcommit> jquery/master 8773067 Corey Frang: Unroll the ( || ) in the math - Fixes #12497 - Thanks @lukemella @curiousdannii - Closes gh-1019
+[12:21:26] <jqcommit> jquery/master 517846a Richard Gibson: No ticket: speedup test suite. Close gh-1020.
+[12:21:51] <scott_gonzalez> FWIW, my opinion on this is that most people will not think about the effects of their style choices and we're in a good position to encourage other people to avoid mistakes, even if they're not using a linter.
+[12:22:01] <timmywil> jqcommit: ?
+[12:22:12] <scott_gonzalez> I personally prefer multiple vars, but all of my projects use onevar because they all follow the jQuery standard.
+[12:22:32] <scott_gonzalez> Similarly, when I used to write PHP, I would just follow the PEAR coding standard.
+[12:22:46] <scott_gonzalez> It's easier to just follow an existing popular standard than to define your own...
+[12:22:49] <timmywil> multiple var has dangers too tho
+[12:23:14] <scott_gonzalez> When I write articles, I do multiple vars because I think it's easier on the reader.
+[12:24:05] <gnarf> timmywil: testing something
+[12:24:12] <gnarf> timmywil: there seems to be a new version of the commit bot
+[12:24:21] <gnarf> 05:18 jqcommit: [api.jquery.com] gnarf37 opened pull request #172: Remove bad advice (master...core-12708)  http://git.io/7_2Tjw
+[12:24:31] <gnarf> i want that for core
+[12:24:38] <gnarf> and others too
+[12:24:54] <gnarf> it also has colors
+[12:24:56] <timmywil> ah, I was afraid DaveMethvin did a merge commit again :)
+[12:28:23] <gnarf> sent a email to github support about it
+[12:28:30] <gnarf> cuz i can't see anything in the interface
+[12:28:37] <gnarf> it seems the old repos are stuck with the old bot
+[13:07:21] <scott_gonzalez> On my second bisect of the day! I think that's a record.
+[13:07:33] <scott_gonzalez> This time between 1.8.2 and master, so it's much easier :-)
+[13:10:38] <scott_gonzalez> https://github.com/jquery/jquery/commit/063ea024e945adbeefbf88578f8ba424ca8a0939#commitcomment-2124690 :-(
+[13:10:39] <socialhapy> ★ Github API: no commit found
+[13:17:05] <min|dvir|us-work> Is it possible to use an anonymous easing function?
+[13:18:33] <gnarf> min|dvir|us-work: no
+[13:18:53] <gnarf> min|dvir|us-work: but let me verify
+[13:19:05] <gnarf> i rememebr making a choice on that
+[13:19:10] <gnarf> might of cut it out to save size
+[13:19:26] <gnarf> as usually an easing function is standard
+[13:19:43] <min|dvir|us-work> The idea is we want to make a parameterized bezier easing function.
+[13:20:04] <min|dvir|us-work> So there would be a factory that generates an easing function for use in .animate().
+[13:20:59] <gnarf> you'll have to make a uuid for the func and define it on jQuery.easing and pass that uuid
+[13:21:10] <gnarf> https://github.com/jquery/jquery/blob/master/src/effects.js#L390
+[13:21:25] <gnarf> in 1.8 - i wouldn't suggest it
+[13:22:09] <gnarf> min|dvir|us-work: you could also use a 'step' function
+[13:22:17] <gnarf> min|dvir|us-work: and "linear" easing
+[13:22:31] <gnarf> min|dvir|us-work: https://github.com/jquery/jquery/blob/master/src/effects.js#L399
+[13:23:06] <min|dvir|us-work> gnarf: either way I'd have to give a name, right?
+[13:23:11] <gnarf> min|dvir|us-work: not with step
+[13:23:20] <gnarf> min|dvir|us-work: lemme make a fiddle example
+[13:26:51] <gnarf> min|dvir|us-work: http://jsfiddle.net/gnarf/Hwcqd/1/
+[13:28:31] <min|dvir|us-work> gnarf: haha, nice!
+[13:28:57] <mikesherov> Krinkle|detached: can we update the swarm to take Safari 5.0 out and add Safari 6.0 in? DaveMethvin: timmywil: thoughts?
+[13:29:12] <min|dvir|us-work> gnarf: thanks so much. :)
+[13:29:17] <gnarf> min|dvir|us-work: in the history of effects btw i think your the first to ask for an anon easing
+[13:29:37] <gnarf> oh also min|dvir|us-work remember that is for EVERY prop too
+[13:29:43] <gnarf> so check fx.prop, fx.elem, etc
+[13:29:50] <gnarf> lots of useful stuff on that fx. object
+[13:29:52] <timmywil> mikesherov: would be nice to leave in Safari 5.0
+[13:30:02] <gnarf> it's actually instanceof jQuery.Tween too
+[13:30:10] <gnarf> so you could add a proto function if you wanted
+[13:30:19] <mikesherov> timmywil: if a test breaks in Safari 5.0, do we fix it?
+[13:31:42] <gnarf> I'm out for a bit btw
+[13:31:47] <gnarf> catch you guys later
+[13:32:07] <timmywil> mikesherov: i guess it depends on it's impact on mobile
+[13:32:37] <mikesherov> sure, so I think iOS5 is Safari 5.1, right?
+[13:33:08] <timmywil> oh, you want to leave 5.1, sure
+[13:34:11] <mikesherov> right, 6.0 and 5.1
+[13:35:36] <mikesherov> brb
+[13:41:41] <min|dvir|us-work> gnarf: brilliant. http://jsfiddle.net/CTxVH/7/
+[13:46:18] <Eviltwin> Oh jeez, this exists: http://www.reddit.com/r/jquery
+[14:05:38] <scott_gonzalez> Can we just say fuck you the "multi-browser" assholes?
+[14:08:53] <ajpiano> why even dignify it with a response
+[14:10:48] <scott_gonzalez> Well, we already did: http://bugs.jquery.com/ticket/12569
+[14:10:54] <scott_gonzalez> And it fucked shit up :-(
+[14:11:25] <scott_gonzalez> Hence my angsty comment just now.
+[14:13:39] <scott_gonzalez> DaveMethvin: I will harass you every day until this is reverted :-P
+[15:42:53] <scott_gonzalez> danheberden DaveMethvin gnarf ryanneufeld: Trying to work on the CLA verification script, but it looks like the Google API requires a human: https://developers.google.com/google-apps/spreadsheets/#authorizing_requests
+[15:44:57] <scott_gonzalez> Why can't I just get the worksheet as JSON?
+[15:46:47] <scott_gonzalez> WTF? They've got a JSONP example and it doesn't even work: https://developers.google.com/gdata/samples/spreadsheet_sample
+[15:52:45] <ryanneufeld> wut?
+[15:52:45] <b-ot> To can create a great boom, Nintendo needs to create a poor boom to can counterattack again and impress all their nintendo fans.
+[15:54:21] <scott_gonzalez> Why is working with Google APIs always such a pain in the ass?
+[15:55:40] <ryanneufeld> scott_gonzalez: noturnal self contact
+[16:15:37] <scott_gonzalez> Ok, slowly making progress. I've at least got it in XML while I'm logged in.
+[16:37:34] <sindresorhus> paul_irish: ^ , did you ever start working on that?

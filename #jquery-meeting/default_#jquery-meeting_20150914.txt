@@ -1,0 +1,266 @@
+[09:01:57] <timmywil> DaveMethvin, markelog, m_gol, gibson042 meetingz
+[09:02:05] <markelog> hey-hey
+[09:02:31] <timmywil> hi
+[09:02:43] <timmywil> today I'll be listening to mumford
+[09:03:00] <timmywil> that kind of day
+[09:03:14] <m_gol> present
+[09:03:18] <markelog> should it be intimidating? :-)
+[09:03:56] <timmywil> first up, https://github.com/jquery/jquery/issues/2562
+[09:05:10] <timmywil> the inconsistency makes me lean towards returning []
+[09:05:46] <markelog> so when we return []?
+[09:05:48] <timmywil> although, i'm not sure [] makes sense for $( selectMultiple_noOptions ).val()
+[09:06:03] <timmywil> not that it would happen often
+[09:06:38] <markelog> oh, i see
+[09:06:39] <markelog> is that inconsistent?
+[09:06:49] <gibson042> I would want to return [] in that case too
+[09:07:08] <markelog> empty selection -> null, element without option -> []
+[09:07:10] <gibson042> multiple = true => return array instead of scalar
+[09:07:10] <markelog> right?
+[09:07:44] <m_gol> I agree with gibson042
+[09:07:48] <timmywil> yea, this is only in regards to multiple selects
+[09:07:54] <timmywil> $().val() still returns null
+[09:08:04] <timmywil> err, undefined
+[09:08:45] <timmywil> Does always returning [] have a big impact on our tests?
+[09:08:45] <markelog>  so empty array for disabled options
+[09:08:53] <timmywil> ^ that's already done
+[09:09:11] <markelog> no-no, i'm asking )
+[09:09:21] <markelog> not sure what is current behaviour
+[09:09:29] <timmywil> ah, then yes
+[09:10:34] <timmywil> hmm, actually http://jsbin.com/lucotefize/edit?html,js,console,output
+[09:10:40] <markelog> so we return three types of values?
+[09:10:47] <markelog> undef, null, and array
+[09:11:08] <timmywil> well, val() can return string too
+[09:11:24] <timmywil> and number
+[09:11:24] <markelog> right
+[09:11:45] <timmywil> and object?
+[09:11:50] <timmywil> :)
+[09:11:59] <markelog> )
+[09:12:09] <timmywil> I get null for disabled options
+[09:12:36] <gibson042> current behavior for select-multiple returns null when there are no selected options and otherwise a (possibly empty) array
+[09:12:45] <timmywil> duh, not a multiple
+[09:12:51] <gibson042> IMO, consistency would dictate always returning an array
+[09:13:13] <timmywil> right, that makes sense to me
+[09:13:30] <timmywil> I guess no options still falls under the no selected options blanket
+[09:13:52] <markelog> someone might expect to differentiate those situations on return value
+[09:14:25] <timmywil> they still can
+[09:14:35] <timmywil> $('select > option').length
+[09:15:24] <timmywil> so, anyone against returning empty array for select-multiple?
+[09:15:37] <markelog> +0
+[09:15:42] <gibson042> note that doing so breaks backcompat
+[09:15:51] <timmywil> yea
+[09:15:56] <gibson042> so if we do it, it's a 3.0 change
+[09:16:01] <timmywil> sure
+[09:17:19] <timmywil> but since it's limited to select-multiple, and given that you currently have to do val && val.length to check for a value, I'm not that concerned.
+[09:18:33] <timmywil> https://github.com/jquery/jquery/issues/2558
+[09:18:45] <timmywil> oh, I wanted DaveMethvin here for this one
+[09:18:45] <markelog> yeah, we would need to change docs too
+[09:18:53] <markelog> and migrate issue also
+[09:19:22] <timmywil> that's ok
+[09:20:17] <markelog> "The followup here is that everyone but IE seem to be doing this wrong, and have been doing it wrong forever."
+[09:20:31] <markelog> that is sad (
+[09:21:03] <m_gol> we could hack around a few events but since it concerns every single one then I agree doing it might end bad for us
+[09:21:18] <markelog> maybe we could talk to vendors about it?
+[09:21:28] <timmywil> I think Dave has recently
+[09:21:29] <m_gol> it's just that mouseenter is a little special due to its non-bubbling-but-firing-on-parents nature
+[09:21:57] <markelog> cool, what is the outcome?
+[09:22:08] <timmywil> https://github.com/jquery/jquery/issues/2558#issuecomment-138977708
+[09:22:48] <markelog> aaam
+[09:22:52] <timmywil> That's his conclusion after talking to some folks
+[09:22:53] <markelog> so he didn't?
+[09:22:53] <markelog> Reported:	2003-09-02
+[09:23:03] <timmywil> ?
+[09:23:17] <markelog> bug was reported then
+[09:23:28] <m_gol> that's why Dave wrote "forever"
+[09:23:39] <timmywil> Oh, I guess his conversations could have limited to spec folks
+[09:23:51] <markelog> m_gol: i was addressing "	I think Dave has recently"
+[09:24:02] <timmywil> but it sounds like he talked to someone at Microsoft at least
+[09:24:32] <timmywil> We could talk to Mozilla, but does that change the outcome of this ticket?
+[09:24:48] <markelog> maybe we could summoned someone?
+[09:24:52] <markelog> like Boris?
+[09:24:56] <m_gol> we'd have to switch our mouseover-based implementation to mouseenter in capture phase
+[09:25:03] <m_gol> and who knows how buggy that one is
+[09:25:06] <markelog> to the ticket discussion
+[09:25:13] <m_gol> also, we need to ship 3.0.0 one day ;)
+[09:25:37] <markelog> i guess we all agree that we can't do much about that ticket
+[09:25:50] <timmywil> hey, if anyone wants to explore mousenter + capture, they are welcome, but I predict it will cause more problems.
+[09:25:53] <markelog> but i'm saying it seems we should draw attention to this issue
+[09:27:16] <m_gol> sure, we should but this ticket is to be closed, right?
+[09:27:28] <timmywil> yes. We can still ping on a closed ticket.
+[09:27:29] <markelog> yeah
+[09:28:10] <timmywil> https://github.com/jquery/jquery/issues/2594
+[09:28:31] <timmywil> for this one, I agree with jaubourg
+[09:28:41] <m_gol> yeah, sounds reasonable
+[09:28:58] <markelog> will write to the bugzilla ticket
+[09:29:06] <timmywil> ah, thanks markelog
+[09:29:15] <markelog> +0 on 2594
+[09:29:20] <timmywil> ok, that was easy
+[09:29:31] <markelog> although
+[09:30:00] <markelog> this is vulnerability
+[09:30:07] <markelog> so we need to close it carefully
+[09:30:13] <markelog> with good explanation
+[09:30:27] <markelog> this guy, the ticket owner
+[09:30:40] <markelog> once created an issue in RoR
+[09:30:41] <markelog> repo
+[09:30:54] <timmywil> Ok, I just closed. It seems to me that jaubourg's explanation is sufficient, but would you like to add more?
+[09:30:54] <markelog> saying that they have a vulnerability
+[09:31:06] <markelog> they didn't believe it
+[09:31:06] <m_gol> are we talking about the same issue?
+[09:31:29] <m_gol> this was reported from a new account IMO
+[09:31:37] <markelog> oh shoot, i'm way off (
+[09:31:45] <markelog> slept for two hours today
+[09:31:46] <markelog> sorry
+[09:31:55] <markelog> it would be the next one
+[09:32:07] <timmywil> ah, gotcha
+[09:32:08] <markelog> so i will wait with the end of that story )
+[09:33:31] <m_gol> it does sound bad that it's so easy to make insecure requests via $.get
+[09:33:32] <timmywil> https://github.com/jquery/jquery/issues/2432
+[09:33:58] <timmywil> Ideally, I would change it so that all requests require the user to be explicit about executing scripts.
+[09:34:12] <timmywil> But I think we can limit it to cross domain without causing too much trouble.
+[09:34:21] <markelog> for the next release?
+[09:34:31] <timmywil> I don't know, too early?
+[09:34:42] <markelog> +0 all the way today )
+[09:34:43] <timmywil> maybe since we've already done an alpha
+[09:35:23] <timmywil> m_gol: what's your vote?
+[09:35:39] <m_gol> IMO it'd be good to shoot that footgun down
+[09:36:02] <timmywil> heh, I'm not sure what that means
+[09:36:14] <m_gol> that I'm +1 on fixing it ;)
+[09:36:20] <timmywil> haha, ok
+[09:36:26] <timmywil> I thought so, just making sure
+[09:37:06] <timmywil> I would still want to allow it, btw
+[09:37:13] <timmywil> but require the user be explicit
+[09:37:21] <m_gol> yeah, that sounds fine
+[09:37:22] <timmywil> somehow
+[09:37:25] <markelog> yeah, that is what i'm doing
+[09:37:28] <timmywil> ok
+[09:37:28] <markelog> in the pr
+[09:37:33] <markelog> so anyhow, the end of my story
+[09:37:37] <markelog> they didn't believe it
+[09:37:42] <markelog> the RoR ppl
+[09:37:50] <markelog> next day he commited the to the RoR repo, without having push privileges to it
+[09:37:56] <markelog> cause back then
+[09:37:59] <markelog> github was on RoR (maybe still is, dunno)
+[09:38:01] <timmywil> I'll leave it marked needs review to give jaubourg more time to rebut
+[09:38:02] <m_gol> lol
+[09:38:07] <markelog> and they had that problem )
+[09:38:57] <m_gol> it's still on RoR, easy to detect by having utf8=%E2%9C%93 in query string ;)
+[09:39:12] <markelog> ;)
+[09:39:25] <m_gol> (it appears if you search for sth)
+[09:39:31] <markelog> i heard they switch
+[09:39:38] <markelog> to scala
+[09:39:45] <markelog> i guess that is the back-end
+[09:40:08] <m_gol> I have one small TODO in my Android 2.3 PR (one test left to write), is it good otherwise for everyone?
+[09:40:11] <m_gol> https://github.com/jquery/jquery/pull/2581
+[09:40:58] <markelog> +1
+[09:41:06] <timmywil> yup
+[09:41:11] <m_gol> thx
+[09:41:20] <timmywil> https://github.com/jquery/jquery/pull/2575 also LGTM
+[09:41:21] <m_gol> btw, this is how an average Android 2.3 run on compat goes: http://swarm.jquery.org/job/1250
+[09:41:41] <timmywil> heh
+[09:41:47] <m_gol> we need to reserve an hour before releasing to keep restarting those jobs & make sure there are no new legitimate failures ;p
+[09:42:01] <timmywil> I'm sure running the basic tests will be much easier
+[09:42:04] <markelog> "Test Timed Out."
+[09:42:06] <markelog> hm
+[09:42:28] <m_gol> I have one idea, maybe that'll help
+[09:42:51] <timmywil> does the timeout need to be increased?
+[09:42:52] <markelog> i see you like to torture yourself )
+[09:42:56] <timmywil> ha
+[09:42:59] <m_gol> in my commit adding the basic test module I made it so that when you load basic no other test files are loaded
+[09:43:08] <m_gol> maybe we should just do it for every module
+[09:43:35] <m_gol> I mean, it's pretty useless to load all these tests files only to satisfy AMD when choosing any other module from the select box reloads the page anyway
+[09:43:57] <m_gol> I doubt it'll magically fix all the issues but maybe it'll fail a little less
+[09:44:18] <m_gol> markelog: no, I wanted to drop full support but since we're keeping it we have to be consistent in our suffering ;)
+[09:44:33] <timmywil> worth a shot
+[09:44:37] <markelog> "consistent in our suffering" - oh man )))
+[09:44:53] <timmywil> https://github.com/jquery/jquery/pull/2553 quick style question. to early return or not?
+[09:45:27] <m_gol> this code is short enough so I don't care too much; in general I agree, though
+[09:46:06] <timmywil> I don't want to standardize this, just curious
+[09:46:38] <timmywil> finally, I think we can go ahead and land https://github.com/jquery/jquery/pull/2499
+[09:46:46] <markelog> idiomatic suggest that style
+[09:47:01] <markelog> no one has a rule for it though
+[09:47:09] <m_gol> 2499 LGTM
+[09:47:09] <timmywil> ok
+[09:47:22] <markelog> yeah
+[09:48:21] <timmywil> The list of swarm failures serve as a weekly log. We don't really need to discuss them – unless someone wants to.
+[09:48:36] <m_gol> we need a new Sizzle release
+[09:48:40] <markelog> when new sizzle will come out?
+[09:48:42] <m_gol> I'd like to stop Edge from failing
+[09:48:46] <markelog> +1
+[09:48:49] <timmywil> gibson042 ?
+[09:48:53] <m_gol> it's fixed in Sizzle so we just need to release & bump it in jQuery
+[09:48:55] <markelog> i hate red
+[09:49:30] <timmywil> agreed. We can bug gibson042 to release.
+[09:49:58] <gibson042> :)
+[09:50:01] <timmywil> what's the solution for Chrome 45. Just normalize?
+[09:50:17] <m_gol> the Chrome bug is precision-related most likely
+[09:50:23] <timmywil> yea
+[09:50:28] <m_gol> I'll need to look closer but it'll be simple
+[09:50:32] <timmywil> ok
+[09:50:35] <m_gol> https://github.com/jquery/jquery/blob/fc87a5cd5b2d264dac713ac2d6406d87dd12e674/test/unit/event.js#L2728-L2750
+[09:50:40] <m_gol> this test is failing in IE8 only
+[09:50:48] <m_gol> I backported it from a PR against master
+[09:51:22] <m_gol> for some reason the expando is not set to undefined but disappears completely in IE8
+[09:51:37] <timmywil> oh yea
+[09:51:58] <timmywil> isn't there something about setting to undefined being the same as removal in certain cases in IE8?
+[09:52:00] <markelog> interesting
+[09:52:24] <markelog> that would really interesting
+[09:52:43] <markelog> don't remember such behaviour though
+[09:52:45] <timmywil> It's probably easy to figure out with some debugging.
+[09:53:08] <markelog> i'm sure it easy
+[09:53:09] <timmywil> what's this note about defaultDisplay?
+[09:53:13] <markelog> it is not a ie7
+[09:53:16] <markelog> or 6
+[09:53:19] <timmywil> oh, asking for more feedback?
+[09:53:27] <markelog> yeah
+[09:53:29] <markelog> remember
+[09:53:39] <markelog> we were supposed to write a letter
+[09:53:40] <timmywil> ok, I need to get on that. Thanks for the reminder.
+[09:54:01] <markelog> i think we would need to suggest to them use w3c logic
+[09:54:09] <timmywil> I'd like to include Dave on the Edge team discussions
+[09:54:13] <markelog> and detect focusin support
+[09:54:38] <markelog> before we used window.onfocusin
+[09:54:41] <markelog> but now
+[09:54:46] <markelog> they removed that property
+[09:54:48] <timmywil> right
+[09:55:05] <markelog> also iframe thing
+[09:55:22] <timmywil> yea, I'm familiar
+[09:55:44] <m_gol> the iframe thing is that one Edge failure that needs a Sizzle bump
+[09:56:02] <markelog> yeah, we fixed, but that behaviour
+[09:56:05] <markelog> is still wrong
+[09:56:06] <m_gol> right
+[09:56:09] <timmywil> yup
+[09:56:14] <timmywil> we'll talk to them
+[09:56:27] <timmywil> That's all. Thanks everybody!
+[09:56:29] <markelog> will you cc?
+[09:56:31] <markelog> me
+[09:56:37] <markelog> and the blog post?
+[09:56:37] <timmywil> sure
+[09:56:50] <timmywil> the blog post will go out to everybody before publish
+[09:57:08] <markelog> remember? we were talking about making a blog post for default display only
+[09:57:17] <timmywil> I remember
+[09:57:18] <markelog> and draw attention to it
+[09:57:25] <markelog> as much as possible
+[09:57:38] <timmywil> Just needed the reminder
+[09:57:44] <markelog> okay, good!
+[09:57:46] <m_gol> I have one more little thing
+[09:57:48] <markelog> thank you timmy
+[09:57:56] <markelog> btw
+[09:58:01] <timmywil> m_gol: sup
+[09:58:08] <m_gol> we currently have 45 issues open agains 3.0.0
+[09:58:21] <markelog> you want clear them out?
+[09:58:23] <m_gol> I think we should stop adding things to 3.0.0 before we consult them with a team
+[09:58:32] <m_gol> unless we have an immediate PR fixing it
+[09:58:38] <m_gol> or we'll never release
+[09:58:42] <timmywil> or you plan on fixing it yourself soon
+[09:58:46] <timmywil> good call
+[09:58:48] <m_gol> yup
+[09:58:50] <markelog> yeah
+[09:58:52] <m_gol> the behavior-breaking things are the most important
+[09:59:04] <timmywil> we should go ahead and have a milestone for 3.0.1
+[09:59:06] <markelog> they always are )
+[09:59:09] <m_gol> anything non-breaking and not a terrible bug should probably be deferred to 3.1.0 at this point
+[09:59:24] <timmywil> some minor things can be moved to 3.0.1 right now
+[09:59:34] <timmywil> or 3.1.0
+[09:59:36] <m_gol> yeah, if they don't change the API surface
+[09:59:52] <timmywil> ok, thanks all
+[09:59:55] <timmywil> see you
+[09:59:56] <m_gol> I guess we don't have lots of things that are not purely bug fixes and that are not breaking ;)

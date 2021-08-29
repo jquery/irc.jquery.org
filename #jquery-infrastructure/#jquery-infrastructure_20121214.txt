@@ -1,0 +1,87 @@
+[07:46:59] <gnarf> clarkbox: why isn't /var/log/ngincx/code.origin.jquery.com.access.log being indexed?
+[13:23:52] <Krinkle> gnarf: /var/log/* is auto indexed, but there is a blacklist pattern for things we have as special behaviour for 
+[13:23:59] <Krinkle> I suspect this one might match that pattern
+[13:24:18] <gnarf> the error log is being indexed
+[13:24:23] <gnarf> but the access isn't
+[13:24:36] <gnarf> i want to try to make some reports on the nginx logs for that domain
+[13:24:53] <gnarf> so - if you can fix it - YAY!
+[13:25:16] <gnarf> trying to reconcile everything wrong with code.jquery.com in one giant project ;)
+[13:25:50] <clarkbox> yes, there is a whitelist
+[13:25:56] <clarkbox> ill update to add that host
+[13:26:18] <clarkbox> and ill post a quick how to whitelist on the wiki
+[13:26:59] <clarkbox> at some point we may want to get some of this code in github, and do auto deploy
+[13:40:08] <clarkbox> k its in there
+[13:40:13] <clarkbox> https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20sourcetype%3Daccess_combined%20host%3D%22code.origin.jquery.com%22&earliest=-30d%40d&latest=now
+[13:40:36] <gnarf> thx clarkbox
+[13:41:31] <clarkbox> https://github.com/jquery/infrastructure/wiki/Splunk
+[13:41:51] <clarkbox> added whitelist instructions
+[13:44:54] <clarkbox> FYI here are the hosts we are currently indexing
+[13:44:56] <clarkbox> https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?s=%2FservicesNS%2Fnobody%2Fsearch%2Fsaved%2Fsearches%2FHosts%2520being%2520indexed
+[13:57:32] <clarkbox> once again - guess what response stats is most common…. %85 404's
+[13:57:46] <clarkbox> 200's only 1.8% of the time
+[14:33:09] <Krinkle> clarkbox: I'm not sure I understand that wiki page
+[14:33:20] <Krinkle> for things like php_fpm log we created, and mysql logs gnarf is working on
+[14:33:25] <Krinkle> that wouldn't need a separate app, right?
+[14:33:34] <Krinkle> they're ;var/log
+[14:34:22] <Krinkle> I vaguely recall the process we went through to get those indexed, this doesn't sound like it 
+[14:38:02] <clarkbox> it is
+[14:38:08] <clarkbox> you can put them under the same app
+[14:38:26] <clarkbox> at its simplest, an "app" is only a folder
+[14:39:31] <clarkbox> i guess the instructions could be updated, to say you could add a data input to an existing app
+[14:39:50] <clarkbox> but i like to keep things separate for the most part
+[14:40:35] <clarkbox> krinkle ^
+[14:42:11] <Krinkle> just want to avoid big directory structure and boilerplate crap in files if a simple one-line change suffices
+[14:43:33] <clarkbox> if you are adding a new data input that is server specific, you likely need a separate app
+[14:44:21] <clarkbox> because thats how the deployment server controls what server gets what input
+[14:44:27] <Krinkle> clarkbox: So: add new "deployment app" on the indexer called downloadbuilder
+[14:44:33] <Krinkle> I'm not sure what is the app
+[14:44:36] <Krinkle> "deployment-apps"
+[14:44:40] <Krinkle> or 'downloadbuilder"
+[14:44:43] <clarkbox> that was example
+[14:44:46] <Krinkle> I know
+[14:44:48] <clarkbox> download builder is the app
+[14:45:14] <clarkbox> it says: add new "deployment app" on the indexer called downloadbuilder
+[14:45:51] <Krinkle> I guess that's where English can be very ambiguous in casual sentences
+[14:46:18] <Krinkle> looking for an indexer called "downloadbuilder" and creating "deployment app"
+[14:46:39] <Krinkle> Create the app "downloadbuilder" in the "deployment-apps" category.
+[14:46:45] <Krinkle> or somethign
+[14:46:49] <Krinkle> (if that's what it means?)
+[14:48:44] <clarkbox> well i assume some level of understanding. splunk is a complex beast, and this page would be huge if i included all assumptions within
+[14:48:57] <clarkbox> if you follow those steps, you should be able to figure it out
+[14:49:07] <clarkbox> but if you want to make it more verbose, feel free to edit
+[14:49:45] <Krinkle> verbose and explicit are different things
+[14:50:02] <Krinkle> but yeah, I'll see how I can make it understandable for myself on first sight, as being a noob.
+[14:50:40] <Krinkle> clarkbox: what is the "default" by the way
+[14:51:00] <Krinkle> where deployment-apps is a category, downloadbuilder an app, default is .. ?
+[14:51:10] <clarkbox> default configuration
+[14:51:16] <clarkbox> as apposed to "local" configuration
+[14:51:26] <Krinkle> local to what?
+[14:51:33] <clarkbox> another splunk-ism that i realize now is not so obvious
+[14:51:52] <clarkbox> so - if you were to download an app, and wanted to modify its configuration
+[14:52:04] <Krinkle> I see
+[14:52:11] <clarkbox> you would modify/override settings in local
+[14:52:17] <Krinkle> yeah, I get it.
+[15:04:56] <Krinkle> clarkbox: https://github.com/jquery/infrastructure/wiki/Splunk
+[15:05:12] <Krinkle> clarkbox: review :)
+[15:05:15] <gnarf> clarkbox: it probably has something to do with the way the CDN caches 200 status requests, but doesn't cache 404s
+[15:05:50] <Krinkle> clarkbox: the section you wrote for web access logs suggests that other logs are also auto-indexed, but not entirely
+[15:05:57] <Krinkle> since there is a whitelist and/or blacklist 
+[15:06:04] <Krinkle> I think we can probably merge those 2 sections
+[15:06:28] <Krinkle> though not sure, I don't think we modified jquery_apache_props to index php-fpm
+[15:08:19] <clarkbox> no that section is specific to the way i have configured splunk 
+[15:09:13] <clarkbox> no other source will be filtered in that way
+[15:09:53] <clarkbox> gnarf: true dat
+[15:14:56] <clarkbox> edit look good krinkle
+[15:15:19] <Krinkle> clarkbox: I meant merge of "web access logs" and "other logs"
+[15:15:23] <Krinkle> (which is only TODO right now)
+[15:15:35] <Krinkle> right
+[15:15:45] <clarkbox> ya, we should enumerate all inputs we have configured
+[15:16:01] <Krinkle> could you document how we added php-fpm (also something with a stanza in a file somewhere)
+[15:16:12] <clarkbox> i think thats in /var/log
+[15:16:15] <Krinkle> yep
+[15:16:22] <Krinkle> but it wasn't autoindexed
+[15:16:25] <clarkbox> the *nix app monitors that directory
+[15:16:35] <Krinkle> if you say so :)
+[15:16:43] <clarkbox> not just everything though
+[15:17:03] <clarkbox> it has a set of regex's that controls what files/dir make it in
+[15:17:55] <clarkbox> so if you want to understand, or change the way that happens, you edit the local config of the *nix app

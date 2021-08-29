@@ -1,0 +1,185 @@
+[12:00:28] <scott_gonzalez> ?pepteam
+[12:00:28] <b-ot> arschmitz bethge jdalton jrossi jrossi1 jrossi2 jrossi3 jrossi9billion M4rius scott_gonzalez snover
+[12:00:54] <scott_gonzalez> bethge_ is on a train, so probably won't be joining today.
+[12:01:17] <scott_gonzalez> arschmitz is running late.
+[12:01:32] <scott_gonzalez> We'll wait till arschmitz shows up and see if bethge_ was able to get usable wifi on the train.
+[12:08:23] <arschmitz> hi
+[12:09:02] <scott_gonzalez> hey
+[12:09:15] <scott_gonzalez> So looks like bethge_ won't make it since he hasn't joined yet.
+[12:09:59] <scott_gonzalez> I've got my PR to address the documentation issue for how to build PEP: https://github.com/jquery/PEP/pull/296
+[12:10:22] <arschmitz> yeah lgtm
+[12:10:36] <scott_gonzalez> There's not really anything we need to discuss based on this week's PEWG call.
+[12:10:48] <scott_gonzalez> So I don't think we really need to have a meeting today.
+[12:12:22] <arschmitz> ok
+[14:00:42] <cogwurx> hello!
+[14:01:09] <arschmitz> cgack: apsdehal: agcolom: jasperdegroot: gabrielschulhof: meeting time
+[14:01:18] <arschmitz> cogwurx: hi
+[14:01:22] <jasperdegroot> hi
+[14:02:31] <apsdehal> hi
+[14:03:03] <apsdehal> https://docs.google.com/spreadsheets/d/11-mngR57h54cIOjGDE2Z6LjaiyRgDwlcvKUzZn2Fw6M/edit#gid=556728811
+[14:03:28] <arschmitz> just going to wait another couple mints if any one else shows up then we will get started
+[14:04:07] <cgack> Howdy
+[14:05:28] <arschmitz> ok lets get started
+[14:05:39] <arschmitz> we can start with the core breakages
+[14:06:07] <arschmitz> some of there require changes on our side and some were required in core
+[14:07:09] <arschmitz> DaveMethvin took care of the core changes and submitted a pr to mobile but it includes a bunch of things we already fixed and is on master
+[14:07:15] <gabrielschulhof> Hey!
+[14:07:19] <gabrielschulhof> Sorry I'm late!
+[14:07:33] <arschmitz> but i already have a branch of 1.5 which passes all tests so ill submit that as a PR
+[14:07:49] <apsdehal> Great!
+[14:08:16] <arschmitz> so that will make 1.5-dev green again
+[14:08:46] <arschmitz> they added support into core for the special props on touch events
+[14:08:58] <arschmitz> and removed access to the default props
+[14:09:07] <arschmitz> which broke mobile in a pile of places
+[14:09:34] <arschmitz> its a fairly simple fix on our side now that core is patched though
+[14:11:43] <arschmitz> gabrielschulhof: any update on selectmenu?
+[14:16:50] <gabrielschulhof> Hey, yeah ...
+[14:16:57] <gabrielschulhof> Working on it ...
+[14:17:02] <gabrielschulhof> Still not complete.
+[14:17:08] <gabrielschulhof> Got something on the listview though.
+[14:17:22] <gabrielschulhof> I realized that if the icon can be assumed to be out of sync, then so can the theme.
+[14:17:32] <gabrielschulhof> Basically, any attribute that is per-item.
+[14:17:44] <gabrielschulhof> ... and there are actually some things that are per link and per item.
+[14:18:03] <gabrielschulhof> So, there are three levels: anchor, item, listview.
+[14:18:18] <arschmitz> yeah listview is fairly complcated in that way
+[14:18:20] <gabrielschulhof> Where the anchor's value preceds the item's which precedes the listviews.
+[14:18:50] <gabrielschulhof> Basically, if on every refresh we cannot assume that those items which are already enhanced can be skipped then we never skip any items.
+[14:19:02] <gabrielschulhof> This, in turn would be a huge deterioration in performance.
+[14:19:04] <arschmitz> right
+[14:19:30] <arschmitz> im not sure if there is a way around that do you have any ideas?
+[14:20:04] <gabrielschulhof> We document that refresh() behaves that way for performance reasons and that after instantiation you're on your own wrt. updating the individual items.
+[14:20:09] <gabrielschulhof> The app knows what changed. We do not.
+[14:20:30] <gabrielschulhof> Of course, such complicated diff calculation is precisely what react.js does systematically.
+[14:20:42] <arschmitz> right but we are not react
+[14:20:54] <gabrielschulhof> I know, but here we are, trying to reinvent the wheel.
+[14:21:02] <arschmitz> not really
+[14:21:19] <arschmitz> we just document the refresh is not performant so use it sparingly
+[14:21:25] <arschmitz> and make sure we dont call it internally
+[14:21:33] <gabrielschulhof> I was thinking mutation observers, but I dunno where those are at standard/support/implementation/wide-spreadedness -wise.
+[14:21:42] <arschmitz> we cant
+[14:21:51] <arschmitz> they are android 4.4+
+[14:22:20] <gabrielschulhof> The thing is, if listview all of a sudden behaves poorly upon refresh, we're breaking what we were offering so far.
+[14:22:43] <gabrielschulhof> I'm fairly certain that it was understood that refresh touches only unenhanced items.
+[14:23:22] <gabrielschulhof> "Note that the refresh() method only affects new nodes appended to a list. This is done for performance reasons."
+[14:23:30] <gabrielschulhof> From the listview API docs.
+[14:24:10] <arschmitz> ok we can see if we get more complaints
+[14:24:14] <apsdehal> Then maybe we can again skip refreshing icons
+[14:24:28] <apsdehal> And close the issue saying performance reasons and point to docs
+[14:24:28] <arschmitz> but id actually be incliend to make refresh behave as it should
+[14:24:31] <arschmitz> and add another method
+[14:24:35] <arschmitz> addItems
+[14:24:38] <gabrielschulhof> Why not add a method that refreshes a collection of items.
+[14:24:40] <arschmitz> which is more performant
+[14:24:45] <gabrielschulhof> Wow :)
+[14:24:52] <gabrielschulhof> Talk about telepathy :)
+[14:25:01] <gabrielschulhof> Yeah ... definitely.
+[14:25:13] <arschmitz> otherwise refresh would be inconsistnet between widgets
+[14:25:32] <gabrielschulhof> myListview.append( myCollection ).listview( "addItems", myCollection )
+[14:25:37] <gabrielschulhof> ;
+[14:25:55] <gabrielschulhof> Yeah, I'm down with that.
+[14:26:03] <arschmitz> gabrielschulhof: yeah i think thats the correct approach
+[14:26:14] <arschmitz> you could make passing `mycollection` optional
+[14:26:25] <arschmitz> if you dont pass it does exactly as we do today and finds the items
+[14:26:50] <gabrielschulhof> Wait ... I don't get it ... how is that different from refresh()?
+[14:27:41] <gabrielschulhof> Wait a minute.
+[14:27:45] <gabrielschulhof> It's not addItems.
+[14:27:48] <gabrielschulhof> It's updateItems()
+[14:27:56] <arschmitz> @gabrielschulhof refresh should actually refrsh EVERY OPTION EVERY ITEM
+[14:27:57] <gabrielschulhof> Because if the icon changes, the item is already there, just changed.
+[14:28:19] <arschmitz> @gabrielschulhof im saying we should change current refresh
+[14:28:23] <gabrielschulhof> OK, but that breaks API with what we currently have documented.
+[14:28:28] <arschmitz> yes
+[14:28:36] <gabrielschulhof> ... which is bad.
+[14:28:39] <arschmitz> we can backcompat it
+[14:28:47] <arschmitz> its inconsistent with other widgets
+[14:28:55] <gabrielschulhof> OK, so move the sparing behaviour to backcompat and the aggressive behaviour to the front.
+[14:28:59] <arschmitz> eveyr other widget in ui and mobile refresh actually refreshes
+[14:29:12] <gabrielschulhof> Gotchae.
+[14:29:19] <arschmitz> yes and new method will be what you do if you care about performance
+[14:29:24] <gabrielschulhof> OK.
+[14:29:41] <arschmitz> if we allow passing a collection like you suggested as an optional param
+[14:29:50] <arschmitz> it can actually be more performant then today
+[14:30:05] <gabrielschulhof> Yes, because we needn't loop unnecessarily.
+[14:30:46] <gabrielschulhof> If, out of 1500 items three change, that's a lot of useless looping.
+[14:30:53] <arschmitz> yup
+[14:31:05] <gabrielschulhof> OK ... this is turning into a second widget review :)
+[14:31:09] <arschmitz> though i would say if your rendering a 1500 item list your doing it wrong
+[14:31:18] <gabrielschulhof> Yeah, true.
+[14:31:23] <gabrielschulhof> Still, even at 150 ...
+[14:31:35] <arschmitz> i generally tell people if your doing more then 20 your should add paging
+[14:31:54] <gabrielschulhof> True ...
+[14:32:22] <arschmitz> 100 is common though as a dropdown to show how many to show
+[14:32:23] <gabrielschulhof> Alright, so add method and let slip the dogs upon refresh().
+[14:32:30] <arschmitz> so we should generally optimize up to 100 items
+[14:33:02] <arschmitz> beyond 100 we should say your doing it wrong lol
+[14:34:07] <gabrielschulhof> Gotcha.
+[14:34:18] <arschmitz> but thats not really relevant
+[14:34:18] <gabrielschulhof> So, updateItems() actually does the sparing refresh() if no collection is given.
+[14:34:32] <gabrielschulhof> So, while the sparing behaviour of refresh() is deprecated, its code is actually not.
+[14:34:38] <arschmitz> right
+[14:36:07] <gabrielschulhof> https://github.com/jquery/jquery-mobile/issues/8334#issuecomment-224986740
+[14:36:39] <gabrielschulhof> Alright. Sounds like fun :)
+[14:36:47] <gabrielschulhof> I have my work cut out :)
+[14:36:55] <apsdehal> Meanwhile we are at listview: https://github.com/jquery/jquery-mobile/issues/8439 :)
+[14:37:16] <apsdehal> I found this while fixing google maps issue
+[14:37:51] <arschmitz> that would be one for jasperdegroot i think
+[14:37:57] <gabrielschulhof> Perhaps we should label that one as "your doing it wrong lol as well :)
+[14:38:05] <gabrielschulhof> s/lol/lol"/
+[14:38:05] <b-ot> Correction, <gabrielschulhof> Perhaps we should label that one as "your doing it wrong lol" as well :)
+[14:38:05] * jasperdegroot is looking
+[14:38:16] <arschmitz> nah large item counts make sense there
+[14:38:19] <arschmitz> for like a mail app
+[14:38:27] <gabrielschulhof> ... and a lazy person :)
+[14:38:31] <arschmitz> my current unread email count for "unimportant"
+[14:38:32] <gabrielschulhof> ... such as myself.
+[14:38:38] <arschmitz> 13,263
+[14:38:43] <apsdehal> ::o
+[14:38:43] <arschmitz> lol
+[14:38:52] <gabrielschulhof> Yeah, OK. True.
+[14:38:57] <arschmitz> so thats completely legit use case i think
+[14:39:04] <apsdehal> Issue count is down to 160
+[14:39:31] <gabrielschulhof> Yeah, getting alignment across like that is pretty tough.
+[14:40:10] <apsdehal> Now most of the issues left are either open by us or are very serious
+[14:40:14] <jasperdegroot> I think we can't really "fix" this
+[14:40:30] <arschmitz> jasperdegroot: i think we need a demo
+[14:40:31] <gabrielschulhof> This is a fundamental shortcoming of the DOM I think.
+[14:40:36] <jasperdegroot> but we can add a demo on how to adjust it
+[14:40:39] <jasperdegroot> exactly
+[14:40:43] <arschmitz> of adjusting the spacing for carat
+[14:41:03] <gabrielschulhof> jasperdegroot: What about doing it in refresh.
+[14:41:08] <jasperdegroot> you have to add more padding
+[14:41:09] <gabrielschulhof> In listview refresh()
+[14:41:12] <gabrielschulhof> Yeah.
+[14:41:34] <gabrielschulhof> Calculate how much we need, keep the value in a variable, and if you encounter a higher value, increase it.
+[14:41:46] <jasperdegroot> sure we can do with JS to see what is the width of the count bubble and then adjust the padding
+[14:41:53] <jasperdegroot> but I am not in favour of that
+[14:42:07] <jasperdegroot> from perf perspective
+[14:42:44] <apsdehal> jasperdegroot: Do you remember, how actually view.jquerymobile.com/1.5-dev/demos/map-list-toggle/ worked, because I am not able to reproduce the actual one in any tagged version.
+[14:42:57] <arschmitz> if we did something like that i would make it an extension
+[14:43:12] <jasperdegroot> arschmitz: yeah, that's also an option
+[14:43:19] <gabrielschulhof> TBH, you could make it a demo where you edit the contents of a style tag.
+[14:43:27] <arschmitz> likely not even an included extension but 3rd party
+[14:43:59] <gabrielschulhof> Then you wouldn't have to loop over all the items.
+[14:44:26] <jasperdegroot> apsdehal: this was a demo submitted by someone from the community. maybe we didn't review well and it was broken from the beginning
+[14:45:33] <apsdehal> yeah, i think same. I spent couple of hours to figure it out. Using new infoxbox. But it can't be brought to a state where it will work perfectly.
+[14:45:46] <apsdehal> There are many issues related to this one on Github.
+[14:45:54] <jasperdegroot> :(
+[14:47:26] <apsdehal> Clicking on the listview items doesn't really change the map center when used with new api
+[14:47:46] <apsdehal> Though, infobox markers do appear
+[14:47:59] <apsdehal> but click -> center is problematic
+[14:51:37] <apsdehal> So what should be do about this?
+[14:52:07] <apsdehal> Except that I confirmed https://github.com/jquery/jquery-mobile/issues/8140
+[14:54:16] <arschmitz> apsdehal: i would just update the demo to work and remove anything the does not
+[14:54:36] <apsdehal> Ok I would do that
+[14:55:13] <apsdehal> I also confirmed https://github.com/jquery/jquery-mobile/issues/8289
+[14:57:24] <arschmitz> ok looks like we are about out of time
+[14:57:28] <arschmitz> does anyone have anything else?
+[14:57:41] <apsdehal> No, that was all I had
+[14:57:46] <gabrielschulhof> Yeah, same here.
+[14:57:53] <arschmitz> ok
+[14:57:57] <arschmitz> see everyone next week
+[14:58:00] <arschmitz> and back on dev
+[14:58:00] <gabrielschulhof> L8R
+[14:58:05] <jasperdegroot> later all
+[14:58:06] <cogwurx> have a good one!
+[14:58:23] <apsdehal> later!

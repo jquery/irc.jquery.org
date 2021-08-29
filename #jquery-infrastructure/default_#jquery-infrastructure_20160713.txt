@@ -1,0 +1,41 @@
+[13:27:28] <s5fs> jzaefferer: I assume you are still working on the download-ui issues?
+[17:19:28] <jzaefferer> s5fs: I spent some time on it today, but kinda gave up at some point, to do paid work...
+[17:22:09] <s5fs> jzaefferer: I hear you, I took yesterday off in order to focus on the problem. where did you leave off? let's compare notes.
+[17:26:22] <jzaefferer> s5fs: I appreciate your effort!
+[17:26:32] <jzaefferer> there's https://github.com/jquery/download.jqueryui.com/issues/314
+[17:26:38] <s5fs> lol well by the time i start shipping PRs you know things are broken
+[17:26:49] <jzaefferer> and https://github.com/rxaviers/jquery-ui-themeroller/issues/4
+[17:26:57] <s5fs> apparently i'm not even a valid contributor!
+[17:27:02] <jzaefferer> there was also https://github.com/rxaviers/jquery-ui-themeroller/pull/3
+[17:27:24] <jzaefferer> I have the suspicion that the actual problem is something bigger, causing all these smaller issues to show up
+[17:27:37] <jzaefferer> like we're just addressing the symptoms, not the actual issue
+[17:27:56] <jzaefferer> but I don't know what the actual issue is, nor how to find it, since the logging in general is rather bad and provides so little context
+[17:28:11] <jzaefferer> there are some tests, but none that cover the issue
+[17:28:22] <jzaefferer> and since I don't know what the issue is, I don't know how to extend tests
+[17:28:38] <s5fs> there is a 'verbose mode' that I believe creates a separate log file, but then we have the fun task of correlating breakage in two files
+[17:29:06] <s5fs> jzaefferer: on the upside I believe I have fixed the puppet config so we can easily `vagrant up builder-01` and have a testable env
+[17:29:25] <s5fs> or maybe its just 'builder' i don't know, check the config.yml lol
+[17:31:59] <jzaefferer> `vagrant up builder-01` inside the infrastrucute repo?
+[17:32:10] <s5fs> yes
+[17:32:18] <s5fs> pull from puppet-master
+[17:32:25] <jzaefferer> okay, that's definitely much better than testing in production
+[17:32:47] <s5fs> smoke-test local and then push to prod asap because that's the only way
+[17:35:15] <s5fs> jzaefferer: also, this server is in a bad place because we started the migration puppet to ansible, but the ansible-managed server (staging machine) is stuck waiting for help verifying
+[17:35:32] <s5fs> gnarf knows more about where it is, but we should quickly move towards a new machine so we can manage it more easily.
+[17:35:54] <s5fs> case in point, current server is debian 7, no systemd, so we have to add more software to keep the services running. that's lame.
+[17:36:25] <jzaefferer> yeah
+[17:36:58] <jzaefferer> well, after several days of limited or no availability, if we finish the migration now, it won't look worse /o\
+[17:37:58] <s5fs> true!
+[17:38:12] <s5fs> i only hesitate to swap in a new server now because i don't want more variables
+[17:38:23] <s5fs> once we figure out the deal w/the software then we can get new server to host it
+[17:40:05] <jzaefferer> Its frustrating... people are behaving like entitled dicks, demanding that we fix a service that we provide for free, asap. And we've had 1.12 pre-releases live for months, without any issues like this
+[17:40:56] <jzaefferer> I think Rafael did a good job improving the build pipeline for 1.12, but since we've got some much baggage due to support for older versions, the codebase is pretty difficult to understand
+[17:41:21] <jzaefferer> I wonder if we could provide an older DB version under a different URL, so that we can rip out all the legacy support from the main app
+[17:41:44] <jzaefferer> if its only 1.12, the issue with mixing old versions with new component names will be gone
+[17:43:08] <s5fs> lol yeah people can be savages :)
+[17:43:35] <s5fs> we had builder issues for a few weeks now, I was asking for more info on the Issues but it's been sparse
+[17:43:46] <s5fs> and unfortunately following the links ppl provide doesn't always kill it
+[17:44:39] <s5fs> many of the failing modules are pretty optimistic and handle errors via try blocks, but that doesn't leave the consuming application in a good state, so i think the connection back to nginx gets hung until a timeout is reached, which drags performance way down
+[17:45:03] <s5fs> the 504s mean the node process is dead
+[17:45:26] <s5fs> the 502s likely mean the system is overwhelmed, probably waiting for failed connections to timeout
+[17:46:14] <s5fs> I don't fault anyone, bit-rot is real and many of these modules have been untouched for a long time.

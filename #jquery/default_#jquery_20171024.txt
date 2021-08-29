@@ -1,0 +1,382 @@
+[00:40:11] <Cork> sumyunseal: url parsing isn't built into jquery no, you need a lib for that
+[01:11:57] <juria_roberts> I have seen peopele retrying $.ajax call by calling this in error : $.ajax(this);   How do I retry for $.getJSON?
+[01:15:12] <Cork> juria_roberts: $.getJSON is just a wrapper around $.ajax, it works the same
+[01:15:35] <Cork> also the error property is an old way of defining callbacks
+[01:15:59] <Cork> $.ajax().fail(function() { $.ajax(this); }) is the current equiv
+[01:16:13] <Cork> and for getJSON $.getJSON().fail(function() { $.ajax(this); })
+[01:17:15] <juria_roberts> Cork: Will this work?  $.getJSON(path).fail($.getJSON(this)).always(successHandler);
+[01:17:36] <Cork> you can't give the return value no
+[01:17:51] <Cork> you need an anonymous function in .fail (same as you needed for error)
+[01:18:36] <juria_roberts> Cork: So this will work?  $.getJSON(path).fail(function () {$.getJSON(this) }).always(successHandler);   or do I need to call $.ajax(this) inside fail?
+[01:19:21] <Cork> you should use $.ajax else you will have to covert this to the value $.getJSON expects (so it can convert it back into what $.ajax expects again)
+[01:19:52] <Cork> like i said $.getJSON, $.get $.post is just small wrappers around $.ajax they don't do anything except set default values
+[01:20:28] <juria_roberts> Cork: Thanks got it...also had a doubt about always...will it be called when first try is successful and when the retry is successful?
+[01:20:51] <Cork> good question, not sure
+[01:21:04] <Cork> juria_roberts: https://github.com/jquery/jquery/blob/master/src/ajax.js#L824
+[01:21:27] <Cork> but i think it won't; but you will have to test that
+[01:21:54] <Cork> (and please report back)
+[01:22:36] <juria_roberts> Cork: I cant get it to go to fail
+[01:22:50] <Cork> juria_roberts: just have the server return a 500
+[01:22:54] <Cork> for example
+[01:23:08] <juria_roberts> Cork: server is not in my control
+[01:25:19] <Cork> juria_roberts: https://jsfiddle.net/6k4cb27n/
+[01:28:24] <juria_roberts> Cork: I guess it will work
+[01:29:04] <Cork> ya, you will have to handle the retriggering of the old callbacks though
+[01:29:10] <Cork> as those callbacks are lost
+[01:30:32] <juria_roberts> Cork: will this work?   $.getJSON(path).fail(function () {$.ajax(this) }).always(successHandler);
+[01:30:44] <Cork> it will make a second network call
+[01:30:56] <juria_roberts> Cork: why?
+[01:30:57] <Cork> but the always from the outer callback won't be fired
+[01:31:34] <Cork> juria_roberts: cause the $.ajax call doesn't have access to the callbacks bound to $.getJSON
+[01:31:58] <juria_roberts> ohh
+[01:32:15] <juria_roberts> How can I get around this?
+[01:32:51] <Cork> you would have to wrap the initial call so you can provide your own deferred object that you can reuse (as far as i know)
+[01:33:03] <Cork> i don't think there is a way to forward the callbacks in fail
+[01:33:58] <Cork> you can use the option property solution, but if the caller uses the modern deferred solution things will break
+[01:34:42] <juria_roberts> Cork: I think I might use $.ajax instead of $.getJSON
+[01:34:55] <Cork> juria_roberts: won't really change the situation much
+[01:35:26] <juria_roberts> Cork: I think if I do something like this it will work:  https://stackoverflow.com/questions/10024469/whats-the-best-way-to-retry-an-ajax-request-on-failure-using-jquery
+[01:35:55] <Cork> like i said ya, as long as the caller uses the old pre jquery 1.7 solution to add the callbacks
+[01:36:07] <Cork> if they use modern solutions the callback will be lost
+[01:36:54] <juria_roberts> Cork: I am using jquery 2.1
+[01:36:59] <Cork> doesn't matter
+[01:37:32] <Cork> $.ajax({ success: function() {} }) <-- the old pre jquery 1.7 way of adding a callback for when the request succeeded
+[01:37:53] <juria_roberts> Cork: whats the new way?
+[01:37:55] <Cork> $.ajax().done(function() {}) <-- the modern post jquery 1.7, this one will be lost
+[01:38:01] <juria_roberts> .done() ?
+[01:38:04] <juria_roberts> ohh
+[01:38:09] <Cork> .done().fail().always() <--
+[01:38:09] <juria_roberts> got it
+[01:38:12] <Cork> those will be lost
+[01:38:18] <juria_roberts> :(
+[01:39:17] <Cork> juria_roberts: you could try this plugin https://github.com/johnkpaul/jquery-ajax-retry
+[01:39:48] <Cork> it seams to do a decent work at not losing callbacks (from skimming the code)
+[01:39:55] <Cork> https://github.com/johnkpaul/jquery-ajax-retry/blob/master/dist/jquery.ajax-retry.js
+[01:40:11] <juria_roberts> Cork: I would prefer not using a plugin
+[01:40:18] <Cork> note! i have not used this lib my self, so no guarantees
+[01:40:27] <juria_roberts> I was reading up on Deferred...cant wrap my head around it
+[01:40:41] <Cork> juria_roberts: ya, well then you will have to implement something similar and that is a bit complex
+[01:41:04] <Cork> juria_roberts: deferred is an object a function can return where other parties can then add there callbacks
+[01:41:21] <Cork> and then when the function executes the chain those callbacks are executed
+[01:41:23] <juria_roberts> Cork: there has to be an easy way of doing this
+[01:41:29] <Cork> not really
+[01:41:57] <Cork> there are some easy ways that will break if you use all the features of jquery ajax
+[01:42:08] <Cork> (primarly the deferred callbacks)
+[01:42:32] <Cork> that plugin is only 83 lines with quite a bit of comments so...
+[01:42:50] <Cork> i really would recommend having a look at it
+[01:43:14] <Cork> alternatively don't retry calls, have the caller handler it by calling again if it fails
+[01:44:29] <juria_roberts> Cork: sorry can you explain in more detail
+[01:44:54] <Cork> the the original caller
+[01:45:12] <Cork> it should know what callbacks it has, just have it call again with the callbacks if the fail is fired
+[01:45:54] <Cork> but if you want to build it into $.ajax or $.getJSON you either have to forbid use of newer call syntax, or make a complex extension of $.ajax
+[01:46:51] <Cork> the reason you have to is that the deferred object isn't part of the ajaxSetup, so it isn't possible to forward it to the new call
+[01:46:52] <juria_roberts> Cork: do you mean this  $.getJSON(path).fail(function () { $.getJSON(path).done(successHandler)  }).done(successHandler);
+[01:47:13] <Cork> for example ya
+[01:47:30] <Cork> note it will only handle one failure though
+[01:47:37] <Cork> as the second call doesn't have a fail handler
+[01:48:22] <juria_roberts> Cork: I am fine with one failure and lack of fail handler....my problem is I need to chain this to another $.getJSON for a different file
+[01:49:06] <Cork> ya, you would have to make that call in the successHanlder function
+[01:49:25] <Cork> (if you didn't have to rewrap you could have used $.then)
+[01:49:35] <Cork> opps *$.when)
+[01:50:38] <juria_roberts> Cork: ohh so if my successHandler had this as the last line return $.getJSON(anotherPath); I could do this: $.getJSON(path).fail(function () { $.getJSON(path).done( }).done(successHandler).fail(function () { $.getJSON(path).done(successHandler2)  }).done(successHandler2);
+[01:51:07] <juria_roberts> Cork: oops let me do that again
+[01:51:19] <Cork> (use jsfiddle.net that is too much code for irc)
+[01:51:32] <juria_roberts> Cork: sure
+[01:54:33] <juria_roberts> Cork: Will this work  https://jsfiddle.net/dyysqeLn/    given that successHandler has this as the last line return $.getJSON(anotherPath);  ?
+[01:55:16] <Cork> juria_roberts: if you want it to request anotherPath only if the first one fails
+[01:55:59] <juria_roberts> Cork: I want it to request anotherPath if the first one succeeded on the first or second try
+[01:58:28] <Cork> juria_roberts: https://jsfiddle.net/dyysqeLn/1/
+[02:00:28] <juria_roberts> Cork: if there is a problem with the server wont it retry infinitely?
+[02:00:37] <Cork> yes
+[02:00:49] <Cork> you could have a simple counter for that
+[02:01:08] <Cork> or just unwrap it one step
+[02:01:13] <Cork> (or use a timer)
+[02:01:31] <juria_roberts> Cork: is there a reason for not retrying in second?
+[02:01:44] <Cork> not really, you just didn't ask for it
+[02:02:09] <juria_roberts> Cork: ohh I wanna retry on second one as well...just one retry for both
+[02:03:08] <juria_roberts> Cork: Is the last line of successHandler return $.getJSON(anotherPath)?
+[02:03:23] <Cork> https://jsfiddle.net/dyysqeLn/2/
+[02:03:46] <Cork> juria_roberts: no
+[02:04:33] <Cork> opps left uneeded declaration at the top
+[02:04:39] <Cork> https://jsfiddle.net/dyysqeLn/3/
+[02:05:23] <juria_roberts> Cork: looks great...is successHandler returning a promise?
+[02:05:35] <Cork> its just function names
+[02:05:42] <Cork> they don't need to return anything
+[02:06:06] <juria_roberts> Cork: can I call .done() just like that?
+[02:06:15] <Cork> not sure what you mean
+[02:06:28] <Cork> juria_roberts: https://jsfiddle.net/dyysqeLn/4/
+[02:07:18] <juria_roberts> Cork: i thought successHandler would need to return some kind of promise like return $.getJSON(path) in order to chain .done
+[02:07:26] <Cork> nope
+[02:07:34] <Cork> only if you use .then
+[02:07:47] <Cork> .done doesn't modify the deferred based on the return value
+[02:08:00] <juria_roberts> Cork: Wow didn't know that...how do you know so much?
+[02:08:13] <Cork> heh been using it for quite a while :)
+[02:08:50] <juria_roberts> Cork: Thanks a lot...really appreciate it...I will be using your solution
+[02:52:14] <Technodrome> Hi, I'm having a real hard time with some decision making
+[02:58:44] <undefined_bob> Technodrome: just ask your question and create a jsfiddle if needed
+[04:13:42] <SesMan> hello! is it possible that a .hover()/.on('hover') function is not called when the button on which it is attached is set to disabled in IE11 but not in Firefox and Chrome ?
+[04:17:41] <Woet> SesMan: show your test case on www.jsfiddle.net
+[04:19:19] <Cork> if i remember correctly is used to block hover on disabled replaced elements
+[04:19:32] <Cork> but haven't used it in ages so not sure anymore
+[04:38:17] <SesMan> Woet, https://jsfiddle.net/#&togetherjs=b7q8RDwpj8
+[04:38:50] <SesMan> it seems that I cannot reproduce the problem in jsfiddle :-/
+[04:39:07] <SesMan> the div does not display there either
+[04:39:19] <SesMan> while it does on FF, Chrome and doesn't on IE11
+[04:39:38] <Woet> SesMan: i mean, you didn't even load jQuery, that might be related.
+[04:40:07] <SesMan> jquery 1.12.4 is at the top of the list on the left.
+[04:40:20] <SesMan> above jquery-ui and the bootstrap's
+[04:40:37] <Woet> im not seeing it: https://s.woet.me/O30vkMtDRC.png
+[04:42:47] <SesMan> (oh great, I can't share my screenshot proving the contrary thanks to my company's stupid policy of banning image hosters)
+[04:43:06] <Woet> at least mine isn't banned
+[04:43:52] <SesMan> yeah, but your interface does not look like mine ...
+[04:44:01] <SesMan> so you're actually pointing a blank zone to me
+[04:44:01] <Woet> hm
+[04:46:34] <SesMan> ah, found one that is not blocked :p
+[04:46:40] <SesMan> (or so I hope)
+[06:13:15] <Robin___> Hello! :) Im trying to read an XML-file and assign some values to variables -> sTitle and sDate. It does get a match. But on line 26 they return blank: https://pastebin.com/WXGefLzc Thanks alot
+[06:17:21] <Woet> why XML when we have JSON?
+[06:18:05] <Robin___> Woet: I need to use XML-documents unfortunately :)
+[06:21:58] <Woet> if you say so
+[06:22:56] <shoky> Robin___: run the dialog stuff inside the ajax callback
+[06:23:19] <shoky> otherwise it will be executed *before* the ajax request completes
+[06:24:01] <Robin___> ahh
+[06:29:12] <Robin___> shoky: is it possible to show me how? it still complains :|
+[06:36:29] <Robin___> oh wait it works
+[06:37:32] <Robin___> thanks alot :D
+[08:02:42] <ozette> I noticed something.. I have a click event listener on a html class. when an element of the class is clicked, the event handler console.logs("something")
+[08:03:17] <ozette> but when I add a new element to the document with that class, the event handler doesn't apply. so clicking on it doesn't console.log anything
+[08:03:40] <Woet> ozette: and what is confusing about this?
+[08:03:47] <Woet> ozette: it cant bind to a non-existent element at the time.
+[08:03:53] <ozette> this is how it's supposed to be?
+[08:04:02] <Woet> ozette: it binds to all elements that exist at the time
+[08:04:17] <Woet> ozette: it doesn't travel in time to bind to future elements.
+[08:04:22] <ozette> why not on any new coming elements of the same class?
+[08:04:34] <ozette> as well
+[08:05:01] <ozette> so now i have to re-apply that listener every time i add a new element of said class
+[08:05:09] <Woet> correct.
+[08:05:13] <ozette> that feels weird
+[08:05:26] <Woet> in my timeline we don't have time travel yet, so it feels normal
+[08:05:33] <ozette> i wish it could see in the future
+[08:05:39] <Woet> dont we all
+[08:06:34] <MikeD_> i know i'm late here, but are we talking about time travel instead of event delegation?
+[08:06:45] <ozette> wouldnt listeners be better if it was a global definition, instead of on a per element basis
+[08:07:34] <ozette> new element gets added -> check global defs -> apply handler
+[08:07:59] <MikeD_> global might be too large, but if you have a parent (like a UL) that contains children... you can listen on the ul for events bubbling up from the li, even if the li get added after the parent listener is assigned
+[08:08:36] <MikeD_> that also has the nice effect of only registering a single listener/function rather than one function definition in memory _per element_
+[08:08:40] <Woet> ozette: what if the element doesn't get added by jQuery..?
+[08:08:59] <Cork> doesn't matter
+[08:09:04] <Cork> the dom bubbles the events
+[08:09:13] <Cork> so jquery just uses that
+[08:09:45] <Cork> basically, if you bind the event on a parent it will get all the events that happens on its children
+[08:09:52] <MikeD_> though i do like the idea of events propagating in time as well as up the dom :)
+[08:09:54] <Cork> then you just filter it based on event.target to find where it came from
+[08:09:59] <ozette> yea..
+[08:10:18] <ozette> ok so that's an idea..
+[08:10:24] <ozette> using the parent
+[08:10:47] <Cork> ozette: its build into jquery just do $(parent).on('click', 'selector for the children you want', function() {})
+[08:11:03] <Cork> and it will catch all existing and future elements
+[08:11:13] <ozette> ok makes sens, awesome
+[08:11:28] <Cork> ozette: if you want to read up on it https://learn.jquery.com/events/event-delegation/
+[08:11:38] <MikeD_> Cork++
+[08:11:45] <ozette> Thanks a lot :)
+[08:19:31] <Thothmes33> Hi
+[08:22:35] <ozette> this is awesome, i didn't really know about event delegation and selectors being possible in click()
+[08:29:12] <rjCousineau> Hello. I want to apply special css overflow scroll to my container div when the window is scrolled to the bottom.  I am spamming .removeClass('overflow-scroll') for all scroll events.. I'm pretty sure this is taxing, but I wasn't sure if theres a better way to accomplish attaching  a scroll event only when the scroll is all the way at the bottom
+[08:35:03] <rjCousineau> nm it seems that is the way to do it
+[09:09:39] <Neo1> hi guys!
+[09:09:52] <Neo1> I've noticed jQuery UI bad work with plugins?
+[09:11:05] <Neo1> jQuery UI modal dialog, it doesn't work with select2 normally and work good with choosen but in mobile version doesn't. I think need to create your own plugin for modal dialog?
+[09:12:00] <Neo1> googled in net and there also people complaining on bootstrab, It's prove still one time need use own framework? :)
+[09:17:42] <Neo1> who know good jQuery plugin for creating modal dialogs?
+[09:17:53] <Neo1> I need a few for test....
+[10:17:39] <ozette> I find myself using document.getElementById( id ) more and more, because $( selector ) returns a jQuery object which I can't use the way I'd like.. they're really two different things and it's as if jQuery can't find the id I pass at times
+[10:18:18] <ozette> document.getElementById( id ).files < returns a FileList
+[10:27:56] <shoky> you can always use .prop() on a jquery object e.g.  $().prop('files')   or:  $()[0].files
+[11:53:21] <meinhof> is answers in https://www.nytimes.com/crosswords/game/mini can be scraped?
+[12:52:17] <guideX> ugh, it's hard to build custom scrollbars
+[12:52:50] <guideX> everything is perfect until I get to the "last page" of my scrollbar, then if it's too small, it gets stuck heh
+[12:58:37] <robertmaxrees> heh
+[15:28:03] <juria_roberts> Whats the easiest way to prevent HTML Content Injection for $.html() ?
+[15:29:03] <MikeD_> if someone has access to $.html() then you can't prevent them from modifying your dom
+[15:29:27] <MikeD_> actually, if they have access to dev tools, they have access to your dom, so it doesn't matter whether it's $.html() or not
+[15:29:30] <robertmaxrees> ^ use .text() instead.  and make sure stuff is only coming from a source you trust.
+[15:30:22] <juria_roberts> I am basically taking the file name uploaded by the user and displaying it using $.html() so its coming from a source I can't trust
+[15:30:45] <robertmaxrees> why not .text()?
+[15:30:53] <robertmaxrees> and are you sanitizing that name server-side?
+[15:31:02] <juria_roberts> MikeD_: you are right...did not think about it
+[15:31:43] <juria_roberts> robertmaxrees: i didn't know about .text(). is it safer? No I am not sanitizing the name on the server
+[15:31:51] <MikeD_> :)  that's why you should treat all input from the client at the webserver as potentially containing griefer evil
+[15:31:54] <juria_roberts> its not going to the server
+[15:31:59] <robertmaxrees> huh?
+[15:32:06] <robertmaxrees> you said the user it uploading a file.
+[15:32:41] <juria_roberts> yes im not sending the file to server till user clicks submit. before that I am displaying the name
+[15:32:52] <robertmaxrees> then just use .text()
+[15:33:02] <juria_roberts> robertmaxrees: is it safer?
+[15:33:11] <robertmaxrees> it's not going to inject it as HTML.
+[15:33:15] <robertmaxrees> but back way up.
+[15:33:43] <robertmaxrees> you're trying to protect a user from having selected a file with a malicious filename?
+[15:34:36] <juria_roberts> I am trying to prevent the user from doing something malicious
+[15:34:43] <taplar> text() inserts the data to the page as a textNode
+[15:34:43] <robertmaxrees> erm.
+[15:34:48] <taplar> it will not render as html
+[15:34:59] <robertmaxrees> back up.
+[15:35:00] <robertmaxrees> lol
+[15:35:04] <juria_roberts> :)
+[15:35:11] <robertmaxrees> how is a user pwning themselves a problem?
+[15:35:21] <juria_roberts> taplar: that suits me
+[15:35:28] <robertmaxrees> they'd have to have a file with a malicious filename in the first palce
+[15:35:31] <robertmaxrees> *place
+[15:35:34] <juria_roberts> robertmaxrees: i heard they could do XSS or something
+[15:35:53] <robertmaxrees> juria_roberts that's only when it's displayed to someone else.
+[15:36:01] <robertmaxrees> otherwise it's just the user.
+[15:36:17] <robertmaxrees> nobody else is going to see that page at that point.
+[15:36:25] <juria_roberts> robertmaxrees: ohh I SEE
+[15:36:35] <robertmaxrees> still, just use .text()
+[15:36:44] <taplar> and so long as the user can't follow a link to the page and it auto load that field from the params
+[15:36:48] <juria_roberts> cool...Thank you!
+[15:36:56] <robertmaxrees> ^
+[15:37:03] <robertmaxrees> and then sanitize server-side on input and output.
+[15:37:30] <juria_roberts> robertmaxrees: is there a way to sanitize on the client?
+[15:38:05] <robertmaxrees> you could, but a user can trivially disable javascript and bypass that.
+[15:38:55] <juria_roberts> robertmaxrees: I see
+[15:38:57] <taplar> or use plugins to mess with the request
+[15:39:17] <taplar> or make a raw request with telnet
+[15:39:19] <taplar> etc
+[15:39:21] <robertmaxrees> ^^^
+[15:39:21] <juria_roberts> taplar: ohh
+[15:39:34] <robertmaxrees> the client is for convenience.  the server is for security.
+[15:39:44] <taplar> your server is your controlled environment
+[15:39:52] <juria_roberts> robertmaxrees: nice...I will use that line
+[15:39:54] <MikeD_> like most security related conversations, you have eventually have to ask yourself if 3 layers of tinfoil hat is enough
+[15:40:26] <robertmaxrees> ^
+[15:40:34] <taplar> just make sure not to ask a tinfoil representative if your number of layers is adequate or not.
+[15:40:54] * taplar thinks that joke makes sense
+[15:41:28] <juria_roberts> Thanks a lot everyone....I will use .text instead
+[15:42:53] <robertmaxrees> rad.
+[15:49:30] <MikeD_> the CMIO of our fortune 500 hospital management company explained it to me as "swiss cheese security"
+[15:49:49] <robertmaxrees> hah
+[15:49:56] <taplar> wut?
+[15:49:58] <MikeD_> since every layer of cheese has holes (as every security plan will inevitably have) the goal is to arrange the slices so the holes do not overlap
+[15:50:07] <taplar> ah
+[15:50:13] <robertmaxrees> multifaceted.
+[15:50:25] <MikeD_> i agreed that I can visualize the sandwich... but then suggested that ours is more cheese than meat.  :(
+[15:51:25] <taplar> you also have to ask, how many people want to eat the sandwich.  hospital data, pretty tasty sandwich
+[15:51:50] <MikeD_> yeah, that's some scary suff
+[15:51:58] <MikeD_> so is patient safety risk
+[15:52:21] <taplar> that's what i was referring to
+[15:52:27] <robertmaxrees> yes.
+[15:52:40] <MikeD_> i feel like the border security is someone else's problem, but the patient safety issues is everyone who writes a line of code
+[15:52:51] <robertmaxrees> ^^^
+[15:52:59] <robertmaxrees> big part of PCI compliance, too.
+[15:53:02] <MikeD_> oh, i thought you were referring to the identity information and $$$ risk
+[15:53:24] <taplar> all information about the patients
+[15:53:56] <MikeD_> heh, you mean we can't post that stuff to google webmaster dashboard?  :p
+[15:54:09] <taplar> i mean you can....... once
+[15:54:11] <robertmaxrees> D:
+[15:54:15] <MikeD_> haha
+[15:54:45] <taplar> lol, i responded with that the other day when someone made the comment about making a fireplace out of wood
+[16:02:47] <z1haze> I am getting a syntax error when trying to do .html(error.responseText) from an ajax call.. its pointing to some html in the response but why does it care about that.I I just want it to out the responsetext in the element
+[16:03:35] <z1haze> `Uncaught (in promise) SyntaxError: Unexpected identifier`
+[16:03:55] <z1haze> `$form.closest('#dialog-container').html(error.responseText);`
+[16:04:53] <taplar> does the response contain any script ?
+[16:05:15] <Woet> z1haze: show your test case on www.jsfiddle.net
+[16:07:01] <taplar> if responseText contains any javascript, that will execute once you perform html(...) and if that encounters an error it will look like the error came from the path that performed the html method
+[16:48:15] <MassDebates> oi taplar
+[16:48:18] <MassDebates> Quick question for ya
+[16:48:28] <taplar> sup
+[16:48:29] <MassDebates> document.querySelector('#r1-0 a.result__a').href <--- is this href... like, actually doing anything?
+[16:48:47] <taplar> href is a property on an <a> tag
+[16:48:53] <MassDebates> Right, will it grab it?
+[16:48:58] <MassDebates> or change it?
+[16:49:02] <taplar> sure, to both
+[16:49:02] <MassDebates> Or neither?
+[16:49:12] <MassDebates> As it is, though?
+[16:49:25] <taplar> no, .href would grab it, .href = 'blah' would change it
+[16:49:32] <MassDebates> Got it
+[16:50:00] <MassDebates> Thanks.
+[17:01:40] <z1haze> what could cause the context of a jquery object to go undefined?
+[17:02:05] <robertmaxrees> hrm?
+[17:02:10] <taplar> a non lookup generated object
+[17:02:19] <robertmaxrees> or binding '
+[17:02:20] <z1haze> I have a jquery form object, that im passing to a function that returns a promise, and in the resolve of the promise, i'm either passing back the same form I passed in, OR im passing in a new jquery form object of one that I've updated
+[17:02:25] <robertmaxrees> *binding 'this' incorrectly.
+[17:02:48] <taplar> so you're doing $(someDOMObject) ?
+[17:03:13] <z1haze> checkForExpired({form: $form}).then($form) => { console.log($form) // jquery object with length of 1, but context is undefined
+[17:03:30] <taplar> how was $form created?
+[17:03:58] <z1haze> inside a submit handler of the form var $form = $(this)
+[17:04:13] <z1haze> OR if the form had been updated, the promise returns a new jquery object of the form
+[17:04:24] <z1haze> $.ajax(opts.url).then((response) => {
+[17:04:24] <z1haze>                 const $form = $(response).find('form:first'); // inside of checkForExpired
+[17:04:40] <taplar> $(this) would definitely not have a context
+[17:04:50] <taplar> iirc find() may lose the context
+[17:05:00] <robertmaxrees> mind sharing the whole thing?
+[17:05:13] <z1haze> let ive got it kind ahacked up for testing let me put it back together
+[17:05:40] <z1haze> i may have just found one of my issues anyway
+[17:05:58] <z1haze>  const $form = $(response).find('form:first'); but thats not on the dom so of course that would be undefined
+[17:06:17] <robertmaxrees> except
+[17:06:22] <robertmaxrees> that would still return a jquery object.
+[17:06:27] <robertmaxrees> so it won't be undefined.
+[17:06:33] <z1haze> the context of it would
+[17:06:38] <taplar> yeah, but why does that matter?
+[17:07:06] <z1haze> because later on down the line i was doing $form.closest('#dialog-container').html(...
+[17:07:13] <taplar> you still can
+[17:07:16] <robertmaxrees> ^
+[17:07:18] <robertmaxrees> won't error.
+[17:07:19] <taplar> lol
+[17:07:20] <z1haze> how? its not the same
+[17:07:27] <taplar> closest recursively checks the parents
+[17:07:33] <taplar> which has nothing to do with the context
+[17:07:44] <z1haze> right, but the $form defined in the ajax response doesnt have a closest #dialog-container
+[17:07:46] <robertmaxrees> https://jsfiddle.net/robertmaxrees/n0j921b6/
+[17:07:51] <robertmaxrees> see how this isn't erroring?
+[17:08:00] <taplar> so then closest() would return an empty jquery object
+[17:08:22] <taplar> which really you shouldn't be doing that anyway
+[17:08:33] <taplar> there should only be one thing with that id
+[17:09:55] <jrcw> someone knows how to get rid of lines around my circle: https://jsfiddle.net/77n1wbLx/1/
+[17:10:28] <jrcw> overflow hidden seems not to hidden all :/
+[17:11:54] <robertmaxrees> wut
+[17:12:00] <robertmaxrees> nothing seems to happen in that fiddle.
+[17:12:50] <jrcw> when you drag it , it should move
+[17:13:11] <jrcw> it move for me, using chrome in win10
+[17:13:13] <robertmaxrees> i'm not seeing anything move >.>
+[17:13:30] <robertmaxrees> oh.  chrome only it looks like.
+[17:13:30] <jrcw> you need to hold and drag the circle
+[17:13:55] <robertmaxrees> i wasn't seing a circle in ff.
+[17:14:07] <taplar> i'm not seeing them in chrome
+[17:14:31] <robertmaxrees> also: you've got jquery in there twice.
+[17:15:20] <taplar> by circles, are you perhaps talking about seeing some animation stutter?
+[17:15:49] <robertmaxrees> https://i.imgur.com/U288QPD.png
+[17:16:18] <taplar> ?
+[17:16:24] <jrcw> what im looking for is that I want to see all background in my cirlce
+[17:16:47] <jrcw> like you have a lamp :)
+[17:17:02] <robertmaxrees> jrcw so what's the specific issue now?
+[17:17:09] <robertmaxrees> because i'm just seeing some bugged css.
+[17:17:38] <jrcw> there content not seems to stay in the circle
+[17:19:55] <robertmaxrees> https://codemyui.com/flashlight-mouse-pointer/ jrcw
+[17:20:55] <jrcw> robertmaxrees : wow thats what im looking for
+[17:20:59] <jrcw> thx :)
+[17:22:36] <taplar> i could see that being in some sort of mystery html game
+[17:23:12] <jrcw> taplar : haha, yeah just me fooling around with a game :P
+[17:23:51] <taplar> haloween game?
+[17:24:36] <taplar> if so, play around with giving it an irregular flicker, :D
+[17:27:42] <jrcw> taplar: that would been something :) but it might be xmas game if I have time
+[18:44:20] <zork_> hello anyone here
+[18:44:31] <taplar> nah
+[18:44:42] <taplar> anyone hasn't logged in in ages
+[18:44:49] <robertmaxrees> hahahaha
+[18:44:57] <zork_> ok cool can I post questions here?
+[18:45:03] <taplar> go for it
+[18:45:20] <zork_> ok i'm gonna get to work. i'll let you know if i need anything.
+[18:45:26] <taplar> lol
+[18:45:53] <robertmaxrees> hahahaha
+[18:45:56] <robertmaxrees> welp.
+[18:46:10] <taplar> i actually think that was pretty brilliant
+[19:06:02] <poboy> slurpies huh?  Welp, see ya later
+[19:07:17] <fiord> hey all
+[19:07:43] <taplar> hola
+[19:08:56] * taplar runs away from work
+[19:20:18] <Al_nz1> I am trying to work out when you click a data table "page" link - what the parameter being sent back is that relects the page you requested?
+[19:23:16] <Al_nz1> https://imgur.com/a/RZ0Ij
+[19:24:59] <guideX> any idea how to factor in the minimumTop? https://pastebin.com/raw/DD8GXFgH
+[19:25:37] <guideX> basically need help with this part var targetTop = ((maximumTop / pageCount) * page);
+[19:26:43] <guideX> goes to the bottom just fine, but not sure how to factor in the top

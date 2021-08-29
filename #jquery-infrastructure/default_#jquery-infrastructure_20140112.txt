@@ -1,0 +1,87 @@
+[09:30:33] <jqcommit> 01[13infrastructure01] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/519feb3eb9aee7fb35f32046583b8c8a005243ad
+[09:30:33] <jqcommit> 13infrastructure/06puppet-stage 14519feb3 15Corey Frang: removing builder for blog.jquery.com - repo was deleted
+[09:30:48] <jqcommit> 01[13infrastructure01] 15gnarf merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/e6ab1bfc91ae...519feb3eb9ae
+[09:37:45] <gnarf> scott_gonzalez yt?
+[09:37:56] <scott_gonzalez> gnarf: Heading out for lunch.
+[09:37:58] <scott_gonzalez> What's up?
+[09:38:21] <gnarf> scott_gonzalez: quick pm
+[15:46:34] <ryanneufeld> ping gnarf
+[16:39:40] <jqcommit> 01[13infrastructure01] 15ryanneufeld created 06wp-vm (+1 new commit): 02https://github.com/jquery/infrastructure/commit/93354b969fb2
+[16:39:40] <jqcommit> 13infrastructure/06wp-vm 1493354b9 15Ryan Neufeld: Initial commit of worpress vm config.
+[16:39:59] <ryanneufeld> gnarf, s5fs checkout the new branch ^^ it's still a wip but the VM should stand up
+[16:40:18] <ryanneufeld> I'm still figuring out why I'm only getting a blank screen instead of some content though
+[16:42:41] <gnarf> ryanneufeld: looking pretty sweet so far
+[16:43:00] <ryanneufeld> thanks, I could use some help at this point though
+[16:43:11] <ryanneufeld> I'm not familiar with nginx
+[16:44:15] <gnarf> it might be that "usercontribute.jquery.com" isn't setup in the wordpress sites.php or wahtever
+[16:44:29] <gnarf> you would be seeing an nginx error if it was an nginx error
+[16:44:45] <gnarf> can you try turning on the "print error" options in php?
+[16:44:53] <gnarf> and or look around in your nginx error logs
+[16:44:56] <gnarf> or php error logs
+[16:45:54] <ryanneufeld> well, nginx is getting the request
+[16:45:57] <ryanneufeld> so that's a good sign
+[16:47:07] <gnarf> so a bit about the setup
+[16:47:31] <gnarf> you should probably set the wp_stage prefix to "vagrant" 
+[16:47:41] <gnarf> I wonder if we couldn't set that somewhere more global 
+[16:47:47] <gnarf> maybe on the wordpress class
+[16:47:54] <ryanneufeld> where do I set that?
+[16:48:07] <gnarf> so many things do that $stage = $::envinronmet ? {} thing
+[16:48:15] <ryanneufeld> yeah
+[16:48:17] <ryanneufeld> I noticed that
+[16:48:30] <gnarf> might be easier to make it a variable on class{ "wordpress": "stage_prefix" => "stage."
+[16:48:34] <gnarf> or something
+[16:48:56] <ryanneufeld> infrastructure/modules/wordpress/templates/wp-config.php.erb
+[16:49:02] <ryanneufeld> does that get used?
+[16:49:17] <gnarf> yup
+[16:49:41] <gnarf> https://github.com/jquery/infrastructure/blob/puppet-master/modules/wordpress/manifests/init.pp#L27-L34
+[16:49:51] <ryanneufeld> I'm looking at that now
+[16:49:54] <ryanneufeld> hangout?
+[16:49:57] <gnarf> yeah
+[17:15:45] <gnarf> scott_gonzalez: ping
+[17:16:15] <gnarf> and or nacin - how can we know what directory is needed when wordpres xml-rpc is saying content/uploads/2014/01 (fresh new install)
+[17:19:17] <scott_gonzalez> I think that's wp_upload_dir, let me check.
+[17:20:48] <scott_gonzalez> gnarf: https://core.trac.wordpress.org/browser/tags/3.8/src/wp-includes/functions.php#L1563
+[17:21:07] <scott_gonzalez> What's the context?
+[17:23:19] <gnarf> we are setting up a new vagrant box
+[17:23:24] <gnarf> and it's complaining about write access
+[17:23:33] <gnarf> apparently this one is ending up in wordpress/content/uploads
+[17:23:48] <ryanneufeld> which seems a touch odd
+[17:50:25] <scott_gonzalez> This is the problem that we had a while ago.
+[17:50:37] <scott_gonzalez> Remember it cropped up out of nowhere and we couldn't figure out what was going on.
+[17:50:52] <scott_gonzalez> And you ended up just changing permissions in puppet.
+[17:51:10] <scott_gonzalez> We can set the upload_path option to use a different dir.
+[17:51:32] <scott_gonzalez> This is just a temp location, so we can really set it to anything that we want.
+[17:53:27] <gnarf> yes
+[17:53:31] <gnarf> can we make it
+[17:53:45] <gnarf>  /tmp in the site root
+[17:53:57] <gnarf> can we configure this via the wp_config.php nacin?
+[17:54:23] <gnarf> or even
+[17:54:25] <gnarf> uploads
+[17:54:31] <gnarf>  /var/www/uploads/
+[17:54:38] <gnarf>  /var/www/wordpress/uploads/ rather
+[17:55:03] <gnarf> oh lost nacin
+[17:55:04] <gnarf> damn
+[17:55:45] <scott_gonzalez> I think we can just `define( 'UPLOADS', '...' )`
+[17:57:16] <gnarf> hrm
+[17:58:03] <gnarf> cc ryanneufeld ^ we might want to add that to the wp-config template to specify a folder of `define( 'UPLOADS', 'uploads/' )` and make `var/www/wordpress/uploads`
+[17:58:10] <gnarf> assuming it works
+[17:58:31] <gnarf> will it override the database setting?
+[17:58:55] <gnarf> seems it will
+[18:00:03] <scott_gonzalez> Yeah, I think UPLOADS overrides everything.
+[18:05:28] <ryanneufeld> yeah, but is changing that gonna mess with anything in production now?
+[18:05:54] <ryanneufeld> scott_gonzalez: when I try to deploy jqueryui.com I get "Error: Mismatching versions. grunt-wordpress: 1.0.5; XML-RPC version: 1.0.7"
+[18:06:52] <ryanneufeld> hmm
+[18:06:53] <scott_gonzalez> ryanneufeld: No, it's just a temp dir for the upload to go into.
+[18:07:00] <ryanneufeld> seems the package.json is out of date
+[18:07:05] <ryanneufeld> oic
+[18:07:05] <scott_gonzalez> As soon as it's in there, we move it to the gw-resources folder.
+[18:07:11] <ryanneufeld> we can change that then sure
+[18:07:20] <scott_gonzalez> We use the built-in upload functions in WordPress.
+[18:07:33] <scott_gonzalez> But then we move it to the grunt-wordpress dir instead.
+[18:07:49] <scott_gonzalez> That's the only reason we have the temp dir step.
+[18:07:52] <ryanneufeld> ah
+[18:09:42] <ryanneufeld> so we want /var/www/uploads? or WP_CONTENT_DIR/uploads?
+[18:10:12] <ryanneufeld> the later being the simplest change
+[18:40:14] <s5fs> ryanneufeld: commits look good, thx for banging on this
+[21:42:45] <jqcommit> 01[13infrastructure01] 15ryanneufeld pushed 1 new commit to 06wp-vm: 02https://github.com/jquery/infrastructure/commit/41ec6c9b3b551efb7050d77de12c86c90fc39ba5
+[21:42:45] <jqcommit> 13infrastructure/06wp-vm 1441ec6c9 15Ryan Neufeld: Updating dependencies and wp configs

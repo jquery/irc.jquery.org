@@ -1,0 +1,439 @@
+[06:20:05] <timmywil> ben_alman: that's clever. The call to pop converts arguments to an array before passed to apply?
+[06:23:17] <timmywil> or is arguments still array-like when passed?  I imagine the call to pop would have the same effect as a slice, but in place.
+[06:36:29] <timmywil> no i guess not. I wonder how that doesn't hit problems then
+[06:59:11] <rwaldron> goodmorning
+[06:59:27] <timmywil> mornin rwaldron!
+[06:59:37] <rwaldron> i need some -dev advice
+[06:59:54] <rwaldron> I'm working out the implementation of event property hooks
+[07:00:22] <rwaldron> but I want some input w/r to "where" it should be
+[07:00:32] <rwaldron> jQuery.eventHooks is misleading
+[07:00:41] <rwaldron> jQuery.event.props is taken
+[07:00:51] <rwaldron> jQuery.eventPropHooks is absurd
+[07:01:30] <rwaldron> the first is consistent with other hooks
+[07:01:39] <rwaldron> but this isn't a straight forward "event hook"
+[07:02:09] <rwaldron> sadly, those were named jQuery.events.special
+[07:02:15] <rwaldron> so...
+[07:02:20] <rwaldron> timmywil any ideas?
+[07:03:09] <timmywil> hmm
+[07:05:10] <ateam260> hi guyes: my scrolling is not working properly http://pastie.org/2531799 - any ideas: http://l3t.tugraz.at/~mb/autoren.php
+[07:05:32] <ateam260> just want an author search, underline is working but the wrong scrolling position
+[07:06:26] <kborchers> ateam260: for support you should head over to #jquery
+[07:07:09] <timmywil> rwaldron: maybe jQuery.event.propHooks ?
+[07:07:47] <timmywil> idk
+[07:08:51] <ateam260> kborchers: a i see, i am there too, - but no constructive answers jet..;)
+[07:09:25] <rwaldron> timmywil wow weird
+[07:09:35] <rwaldron> i was in my editor typing
+[07:09:40] <rwaldron> this is what i was writing...
+[07:09:59] <rwaldron> jQuery.unamedEventPropApi = {}; // jQuery.event.propHooks???
+[07:10:06] <timmywil> ha
+[07:10:19] <timmywil> sounds like a winner
+[07:10:22] <rwaldron> so, i think that's a sign
+[07:10:29] <rwaldron> ok, are you around for a bit?
+[07:10:34] <timmywil> all day
+[07:10:47] <rwaldron> I'd like you to critique my working api draft stuff
+[07:11:25] <timmywil> ok, I can do that at lunch probably
+[07:19:07] <jaubourg> hey guys
+[07:21:21] <timmywil> hey there jaubourg :D
+[07:21:27] <jaubourg> :)
+[07:27:55] <gnarf> rwaldron: did we decide against .hooks ?
+[07:28:04] <gnarf> .hooks.eventProp
+[07:33:29] <rwaldron> gnarf it leads me down a weird naming path
+[07:33:54] <rwaldron> jQuery.hooks.events <-- likely would map to today's jQuery.event.special
+[07:34:16] <rwaldron> jQuery.hooks.events.props <-- would be seen as a special event
+[07:34:19] <rwaldron> :\
+[07:34:32] <rwaldron> jaubourg gnarf timmywil feedback?
+[07:34:33] <rwaldron> https://gist.github.com/dd6bbdcb3f9b22fbfba5
+[07:34:43] <rwaldron> It's for: http://bugs.jquery.com/ticket/8789
+[07:36:23] <jaubourg> jQuery.event.propHooks[ "*" ] <= fallback or working like prefilters in ajax (applied before specific hook)
+[07:37:27] <rwaldron> whatever is defined for * would be applied to all event objects
+[07:38:04] <rwaldron> danheberden ^^
+[07:38:07] <rwaldron> the gist
+[07:38:09] <jaubourg> before or after a more specific hook? Do you intend to support namespaces that way?
+[07:38:26] <rwaldron> good question
+[07:38:32] <rwaldron> hadn't thought about that
+[07:38:48] <rwaldron> i think an explicit hook should have the last say
+[07:38:52] <rwaldron> so like...
+[07:39:02] <jaubourg> yeah, me too, like prefilters in ajax
+[07:39:30] <rwaldron> jQuery.event.propHooks[ "*" ] , then any explicit matches, like...
+[07:39:35] <rwaldron> jQuery.event.propHooks[ "drop" ]
+[07:39:37] <rwaldron> or whatever
+[07:40:33] <timmywil> i like that
+[07:40:36] <danheberden> rwaldron i really like that
+[07:41:08] <timmywil> i also like the idea of consistency with the prefilter api
+[07:41:10] <rwaldron> jaubourg I update the gist with notes for that
+[07:41:19] <rwaldron> timmywil +1
+[07:41:43] <rwaldron> Ok, so some specifics...
+[07:42:05] <danheberden> rwaldron great job with that gist - i mean, it's really easy to understand what you're trying to accomplish, really good job
+[07:42:31] <rwaldron> I've made it so an eventType can have an object or a function definition... if it has an object, the property keys can be just "true" or a function
+[07:42:48] <rwaldron> "true" just copies as is (faster where you don't need to do anything more then copy)
+[07:43:07] <rwaldron> function obvs lets you process values first
+[07:43:13] <rwaldron> is this too much?
+[07:43:19] <rwaldron> thanks danheberden
+[07:44:36] <danheberden> rwaldron i think offering the option to have a speedier check, and checking for function/object would be negligible impact, isn't too much at all
+[07:45:35] <rwaldron> ok
+[07:47:31] <rwaldron> now, one thing I'm not sure how to approach is which events we'll limit the pageXY handling fix to
+[07:47:38] <rwaldron> click, mouse*, contextmenu
+[07:47:45] <aaronmcadam> oh hey danheberden just looking at your $.deferred slides, very well done sir, thank you!
+[07:48:00] <rwaldron> but what if people are relying on pageX/Y from other events and all of a sudden we cut em off
+[07:48:19] <rwaldron> I'm not sure which or for what reason, but it's possible
+[07:48:25] <rwaldron> jQuery users do dumb shit all the time
+[07:48:47] <rwaldron> jaubourg timmywil gnarf danheberden ^^
+[07:49:01] <aaronmcadam> hahaha
+[07:49:14] <aaronmcadam> very true
+[07:49:48] <gnarf> hrm
+[07:50:36] <danheberden> aaronmcadam thanks :) i'll be redoing them for jqsummit, so hopefully they'll be evn better
+[07:50:42] <aaronmcadam> nice
+[07:50:48] <timmywil> what is pageXY on a non-mouse event?
+[07:50:55] <aaronmcadam> would like to watch that conf
+[07:51:03] <aaronmcadam> but i'm on gmt/utc
+[07:51:03] <timmywil> i don't even know
+[07:51:14] <aaronmcadam> so it'd start at like 3pm my time
+[07:51:15] <danheberden> aaronmcadam: lots of energy drinks! :p
+[07:51:16] <aaronmcadam> awkward
+[07:51:26] <aaronmcadam> haha
+[07:51:33] <rwaldron> aaronmcadam and backrubs*
+[07:51:35] <danheberden> rwaldron is there a way to not 'cut them off' ?
+[07:51:38] <aaronmcadam> lol
+[07:51:55] <aaronmcadam> hey rwaldron are you still forking half of github?
+[07:51:57] <rwaldron> danheberden probably
+[07:52:03] <rwaldron> aaronmcadam always
+[07:52:08] <aaronmcadam> we need to make the case for a better favourite system
+[07:52:18] <rwaldron> only now I feel self-conscious about it, so thanks.
+[07:52:23] <rwaldron> :D
+[07:52:24] <aaronmcadam> hahaaa
+[07:52:32] <aaronmcadam> i've started doing it more n more cuz of u :D
+[07:53:11] <rwaldron> it's a weird habit
+[07:53:23] <rwaldron> but i never have issues with code F-ups
+[07:54:02] <rwaldron> fork -> clone -> add remote pointing to the original -> branch
+[07:54:14] <rwaldron> i can always get the most recent code from the author
+[07:54:32] <rwaldron> and i just like trying shit out
+[07:58:45] <aaronmcadam> ahh I was just gonna refer to the forker
+[07:58:47] <aaronmcadam> but yeah
+[07:58:54] <aaronmcadam> makes sense if u add remote to it and just update
+[07:59:17] <aaronmcadam> yeah man why not :)
+[07:59:24] <aaronmcadam> just jump in and play around
+[08:07:03] <jzaefferer> random event batching challenge:
+[08:07:05] <jzaefferer> if you run this:
+[08:07:06] <jzaefferer> $(window).one("a b", function(event) { console.log(event.type) }).trigger("a").trigger("b").trigger("a").trigger("b")
+[08:07:12] <jzaefferer> it logs both a and b once
+[08:07:37] <jzaefferer> is there a simple way to get only a (or b) logged? so whatever comes first, removes the other one?
+[08:07:45] <jzaefferer> as in, tweet sized?
+[08:08:38] <jzaefferer> to be more practical: $(window).bind("load popstate") <- how to run whatever is triggered first, and ignore the other one?
+[08:13:36] <erichynds> var events = "load popstate"; $(window).bind(events, function(){ $(this).unbind(events); });
+[08:13:36] <erichynds> ?
+[08:15:50] <gnarf> $(window).bind("a b", function omg(e){ console.log(e); $(this).unbind(omg); }).trigger("a").trigger("b").trigger("a").trigger("b"); ?
+[08:16:02] <gnarf> i dunno if that works tho
+[08:16:03] <gnarf> prolly not
+[08:17:30] <kswedberg> jzaefferer: $(window).bind('a b', function() { $(this).unbind('a').unbind('b'); }); ?
+[08:18:59] <kswedberg> so… $(window).bind('a b', function(e) { console.log(e.type); $(this).unbind('a').unbind('b'); }).trigger("a").trigger("b").trigger("a").trigger("b");
+[08:19:32] <gnarf> function once( fn ) { var f; return function() { f || fn.apply( this, arguments ); f=true; } } $(window).one("a b", once( console.log ) );
+[08:24:02] <gnarf> jzaefferer: http://jsfiddle.net/gnarf/X7zc9/
+[08:25:22] <kswedberg> jzaefferer: last one: $(window).bind('a.z b.z', function(e) { console.log(e.type); $(this).unbind('.z'); }).trigger("a").trigger("b").trigger("a").trigger("b")
+[08:25:50] <gnarf> $( window ).bind( "a.ns b.ns", function() { $(this).unbind(".ns"); console.log( arguments ); })
+[08:25:54] <gnarf> heh
+[08:25:59] <gnarf> kswedberg: same thought :)
+[08:26:38] <erichynds> this is quickly turning into another ben_alman plugin
+[08:32:28] <kswedberg> gnarf: ahaha! great minds, and all that.
+[08:34:42] <jzaefferer> thanks guys
+[08:34:52] <jzaefferer> I'll probably go with the namespace+unbind
+[09:22:42] <ben_alman> jaubourg, there?
+[09:22:43] <bot-t> (49 hours 20 mins ago) <miketaylr> tell ben_alman https://github.com/cowboy/jquery-postmessage/pull/3 pretty plz. ur plugin is breaking websites.
+[09:22:43] <socialhapy> ★ Pull request on jquery-postmessage by ryanseddon (2d, 14h ago): Opera sniff be gone!
+[09:24:44] <ben_alman> miketaylr, i'll look into it tomorrow, thanks
+[09:24:50] <ben_alman> in a training today
+[09:24:52] <miketaylr> np ben_alman
+[09:24:54] <miketaylr> whenever
+[09:24:59] <miketaylr> thanks
+[09:25:30] <ben_alman> bot-t, tell jaubourg is it possible for $.ajax to "honor" redirects? how does that work (if at all)?
+[09:25:30] <bot-t> ben_alman, Okay.
+[09:29:10] <jzaefferer> ben_alman: even more fun, following redirects on JSONP calls
+[09:29:26] <jzaefferer> or at least using CORS
+[09:29:26] <ben_alman> good times?
+[11:12:01] <DaveMethvin> .
+[11:12:01] <bot-t> (26 hours 8 mins ago) <danheberden> tell DaveMethvin can you also update the index.html page on the cdn when you add the latest jquery version under "all jquery versions" (or rather, add it to the deployment document) - thanks! hugs 'n kisses!
+[11:19:37] <rwaldron> i love when you have an idea, put it to action and the result reveals awesome things you didnt expect or initially think of
+[11:20:21] <DaveMethvin> rwaldron: like?
+[11:20:27] <DaveMethvin> howya doin btw?
+[11:20:28] <rwaldron> YAY
+[11:20:31] <rwaldron> DaveMethvin
+[11:20:33] <rwaldron> :D
+[11:20:43] <rwaldron> so like this...
+[11:21:05] <rwaldron> with th event props api
+[11:21:15] <rwaldron> I can shortcut to things i want to use frequently
+[11:21:16] <rwaldron> http://jsfiddle.net/rwaldron/s9EXK/
+[11:21:30] <rwaldron> see how i made "files" out of "event.dataTransfer.files"
+[11:22:06] <DaveMethvin> yeah, customize the event object
+[11:22:29] <DaveMethvin> can we also use it to avoid all the special case code in jQuery.event.fix as well>
+[11:22:41] <rwaldron> yeah, I noted that at the bottom of my PR
+[11:23:09] <rwaldron> and i included an example in my draft notes
+[11:23:09] <rwaldron> https://gist.github.com/dd6bbdcb3f9b22fbfba5
+[11:23:12] <rwaldron> DaveMethvin^
+[11:23:42] <DaveMethvin> it would be great to see the api used for that in 1.7 to be sure there aren't cases it should handle
+[11:23:52] <DaveMethvin> i ran into that with the special events api
+[11:24:29] <DaveMethvin> i got a really awesome windows 8 tablet here
+[11:25:20] <gnarf> Any reason this https://github.com/jquery/jquery/blob/master/src/offset.js#L128 doesn't use container.style.cssText = "position:absolute;top:0;left:0;margin:0;border:0;width:1px;height:1px;visibility:hidden"; ?
+[11:26:08] <rwaldron> DaveMethvin definitely
+[11:26:12] <rwaldron> thats what I want to do
+[11:26:13] <DaveMethvin> do the style guidelines apply within quotes :P
+[11:26:16] <jqcommit> [jquery] timmywil pushed 1 new commit to 1.7/combined: http://git.io/w9QrVg
+[11:26:16] <jqcommit> [jquery/1.7/combined] Check for property support in the boolHook before falling back to attribute node. Fixes #10278. - timmywil
+[11:26:26] <rwaldron> but I want a review of the code first
+[11:26:33] <gnarf> DaveMethvin: looking at the line just above it - i say no ;)
+[11:26:44] <rwaldron> before I start moving old jQuery.event.fix stuff into their own propHooks
+[11:26:50] <rwaldron> event.propHooks*
+[11:27:00] <DaveMethvin> rwaldron: sounds like a plan
+[11:27:14] <rwaldron> gnarf be careful
+[11:27:17] <DaveMethvin> does the option for either a fn or an object save code for lots of cases?
+[11:27:19] <rwaldron> i re-wrote that WHOLE thing
+[11:27:26] <rwaldron> for a 1.7 ticket
+[11:27:36] <rwaldron> thats actually not even in offset anymore
+[11:27:50] <rwaldron> gnarf!
+[11:27:56] <gnarf> rwaldron: I'm just curious about why it doesn't use .cssText
+[11:28:10] <rwaldron> dunno
+[11:28:21] <gnarf> does your new test use .cssText? :)
+[11:28:27] <rwaldron> nope
+[11:28:28] <rwaldron> https://github.com/jquery/jquery/pull/477
+[11:28:29] <socialhapy> ★ Pull request on jquery by rwldrn (2w, 1d ago): 1.7 jQuery.offset.supportsFixedPosition. Ticket #6809
+[11:28:32] <rwaldron> please review
+[11:28:34] <DaveMethvin> rwaldron: just tell gnarf it doesn't work in ie6, he'll believe you :P
+[11:28:34] <rwaldron> :)
+[11:28:48] <rwaldron> that might actualy be true
+[11:28:57] <rwaldron> one sec...
+[11:29:00] <DaveMethvin> always at least a 50/50 chance
+[11:29:29] <rwaldron> er
+[11:29:43] <rwaldron> that wont work i dont think
+[11:29:59] <gnarf> im pretty sure it works
+[11:30:03] <gnarf> its the method modernizr uses
+[11:30:10] <rwaldron> hm
+[11:30:28] <rwaldron> well, pull my branch and try it!
+[11:30:40] <rwaldron> if it orks i will merge yours into mine
+[11:30:55] <DaveMethvin> kind of low on battery, just wanted to drop in and see how things were going ... gotta go now
+[11:41:47] <gnarf> hrm
+[11:41:56] <gnarf> rwaldron: there are some test fails on that branch atm
+[11:42:57] <rwaldron> on my fixedPosition branch?
+[11:44:08] <gnarf> well a) strictEquals reference errors
+[11:44:38] <gnarf> changed to "strictEqual" then I see http://cl.ly/1g3i2N3v2Y2w0q0U1U1Y
+[11:44:52] <gnarf> the other failing test is the :focus selector
+[11:44:57] <gnarf> which i see failing a lot
+[11:46:11] <gnarf> also
+[11:46:13] <gnarf> not sure why
+[11:46:34] <gnarf> but everytime i try to run through the test suite in IE6 it bombs out on Running ajax: .ajax() - retry with jQuery.ajax( this )
+[11:46:52] <gnarf> anyone seen that before?
+[11:47:37] <timmywil> gnarf: the focus thing is normal. inputs can't be focus if the browser tab does not have focus
+[11:47:55] <gnarf> and rwaldron http://cl.ly/2h011Z2K3W3K3T053L1Z thats on your branch - only change was strictEqual -> strictEquals
+[11:47:56] <timmywil> gnarf: random ajax failures popping up is usually a sign that you don't have php running
+[11:47:59] <gnarf> timmywil: ahh- makes sense
+[11:48:13] <gnarf> timmywil: php works
+[11:48:31] <rwaldron> thum
+[11:48:31] <timmywil> are you using mamp?
+[11:48:34] <rwaldron> umm...
+[11:48:35] <timmywil> or wamp
+[11:48:37] <rwaldron> thats effing weird
+[11:48:46] <rwaldron> I've never seen that error
+[11:48:46] <gnarf> timmywil: I'm using apache2/mod_php
+[11:48:57] <rwaldron> I ran that branch on every browser over 3 different platforms
+[11:49:06] <rwaldron> because i wasn't 100% confident in it
+[11:49:14] <rwaldron> it sat waiting for me to make a PR for 2 months
+[11:49:33] <timmywil> that should work
+[11:49:44] <timmywil> idk then
+[11:50:02] <gnarf> timmywil: I run my localhost server off of a linux VM
+[11:50:19] <gnarf> rwaldron: i dunno - maybe its a sign that my ie6 VM is bad
+[11:50:27] <rwaldron> i dunno :(
+[11:52:48] <gnarf> https://github.com/gnarf37/jquery/tree/6809
+[11:54:06] <rwaldron> this passes sea-basses?
+[11:54:34] <gnarf> rwaldron: it doesn't add any new failures....
+[11:54:39] <rwaldron> <3333333333
+[11:54:41] <rwaldron> hahahahaha
+[11:55:30] <rwaldron> gnarf pulled and pushed
+[11:55:43] <rwaldron> https://github.com/jquery/jquery/pull/477
+[11:55:44] <socialhapy> ★ Pull request on jquery by rwldrn (2w, 2d ago): 1.7 jQuery.offset.supportsFixedPosition. Ticket #6809
+[11:56:25] <gnarf> cool!
+[11:56:40] <timmywil> so I introduced a bug we might be getting some tickets about. I don't know if it's serious enough to warrant a 1.6.5, but I'll tell you about it and you guys decide.
+[11:56:41] <gnarf> figure might as well save a function call right? :)
+[11:56:55] <timmywil> we've gotten 3 tickets so far.  it was introduced in 1.6.2.
+[11:57:34] <timmywil> I fixed an IE bug for html5 booleans.  Since they are not supported in IE, the boolHook was given some erroneous results.
+[11:58:33] <timmywil> problem is, I screwed up a case in non-IE browsers where if you have two radios and one has the checked attribute and you click the other one, both will return "checked" for .attr('checked')
+[11:59:04] <timmywil> because it fell back to checking for attribute presence if the property was not === true
+[11:59:46] <timmywil> I have a fix on the 1.7/combined branch (latest commit)
+[12:00:08] <rwaldron> let it ride until 1.7
+[12:00:12] <timmywil> https://github.com/jquery/jquery/commit/2931fa875f7520f87f79c6cff8b1a40d0b4d141a
+[12:00:14] <socialhapy> ★ Commit on jquery by timmywil (35m ago): Check for property support in the boolHook before falling back to attribute node. Fixes #10278.
+[12:00:14] <rwaldron> 1.6 is old hat
+[12:00:25] <rwaldron> people will be excited and looking to upgrade
+[12:00:28] <rwaldron> they like new numbers
+[12:00:38] <gnarf> timmywil: and its a bug in .attr('checked') which people should stop using anyway right?
+[12:00:40] <rwaldron> we'll have a better chance of clearing the issue that way
+[12:01:01] <timmywil> gnarf: certainly, but we just haven't officially deprecated it yet
+[12:01:10] <gnarf> does .prop( "checked" ) still work right?
+[12:01:13] <timmywil> yea
+[12:01:33] <timmywil> prop is fine
+[12:01:42] <timmywil> it's just this freaking hook
+[12:01:59] * gnarf hates the freakin hook
+[12:03:14] <gnarf> i think as long as you can say 'use .prop( "checked" ) its better anyway' in the response to the ticket I don't think it needs to warrant a .5
+[12:03:53] <rwaldron> I'm doing a "1.7" sneak peak tonight at Boston jQuery meetup
+[12:04:06] <rwaldron> timmywil ^^ tell me something awesome i can mention
+[12:04:09] <timmywil> wish I could come!
+[12:04:09] <rwaldron> gnarf
+[12:04:17] <timmywil> rwaldron: my toggle animations :)
+[12:04:34] <rwaldron> link?
+[12:04:42] <rwaldron> gnarf named queues is dope right?
+[12:04:46] <rwaldron> are*
+[12:04:58] <timmywil> https://github.com/jquery/jquery/commit/ad6f446e6d840f8d2028a83834fe1180e9c82f94
+[12:05:00] <socialhapy> ★ Commit on jquery by timmywil (1d, 18h ago): Animation state is tracked on toggled/stopped animations using the private data cache. Fixes #8685. See full commit message for more. Fixes #6641.- Example: http://jsfiddle.net/timmywil/gqZL5/24/- http://bugs.jquery.com/ticket/8685- Check the completed timer has not been removed already so other timers do not get accidentally removed. Fixes #6641.- Style edits, code reductions, 
+[12:05:01] <gnarf> rwaldron: yeah - its gonna clean up so much BS in ui.effects
+[12:05:10] <timmywil> the fiddle has what it does
+[12:05:12] <rwaldron> thats what I'm talking about
+[12:05:23] <rwaldron> gnarf can you write two aesome sentences?
+[12:05:33] <rwaldron> i wanna note who is doing this stuff as well
+[12:14:23] <gnarf> rwaldron: https://gist.github.com/fa8f918faa8a99be269d
+[12:14:43] <gnarf> look at the BS i had to do before
+[12:14:45] * gnarf grins
+[12:16:44] <gnarf> General idea - you can make a queue function that creates a second animation queue - running it - and then continue where you left off without worrying about stomping at the end of the default queue
+[12:24:28] <rwaldron> gnarf can you make me a snippet example?
+[12:27:11] <rwaldron> wait, i'll use your tests
+[12:27:16] <gnarf> rwaldron: https://gist.github.com/883dd808a9faa4a741c7 ?
+[12:27:26] <rwaldron> perfect
+[12:27:40] <gnarf> oops
+[12:27:42] <gnarf> one bug
+[12:29:07] <gnarf> https://gist.github.com/883dd808a9faa4a741c7
+[12:29:13] <gnarf> forgot to queue the "next" function :)
+[12:32:29] <timmywil> gnarf: also, don't you mean duration?
+[12:32:51] <gnarf> timmywil: fixed and noted
+[12:32:53] <gnarf> thx :)
+[12:33:06] <timmywil> np :D
+[12:34:33] <rwaldron> timmywil can i get a snippet example of using your toggle animations?
+[12:37:23] <timmywil> rwaldron: https://gist.github.com/1217550
+[12:37:28] <timmywil> how's that
+[12:38:32] <rwaldron> sassy
+[12:38:43] <timmywil> lol
+[12:39:16] <rwaldron> what else is good?
+[12:39:24] <rwaldron> i got html5 innerhtml/clone
+[12:39:39] <rwaldron> events is mega
+[12:39:43] <timmywil> yea, that's pretty hot
+[12:40:11] <timmywil> did you include the main shim or are we leaving that to modernizr and such
+[12:40:32] <timmywil> im fine with either
+[12:41:08] <rwaldron> so, if we include shimming, we're doomed
+[12:41:21] <rwaldron> jquery would be forced to load in the head
+[12:41:45] <rwaldron> we've just added support that says "i can make those elements work when you try to inject them"
+[12:41:51] <timmywil> also, jQuery.attr has been plugged into Sizzle.  I don't know how many care, but there was a major bug where $('[autofocus]') would never select anything in IE
+[12:42:01] <rwaldron> hm
+[12:42:06] <rwaldron> sure, why not
+[12:42:59] <timmywil> rwaldron: yea, that's better. didn't think about loading in head
+[12:43:15] <timmywil> just remembered the original request had it
+[12:44:00] <timmywil> rwaldron: did you include anything about jaubourg's $.Topic plugin?
+[12:44:06] <rwaldron> not yet
+[12:44:14] <rwaldron> if you want to whip something up
+[12:49:47] <timmywil> I'll try to if I get time tonight
+[12:50:07] <rwaldron> timmywil the talk is tonight
+[12:50:09] <rwaldron> no big deal
+[12:50:20] <timmywil> oh ha
+[12:53:50] <timmywil> well, there's .removeAttr( multiple ) and .removeData( multiple )  That's all I can think of right now
+[13:46:30] <gnarf> rwaldron: $.Topic is pretty much its own example of writing something awesome with $.Callbacks :)
+[13:47:50] <rwaldron> yeah, I'm seeing that
+[13:47:55] <rwaldron> here...
+[13:48:07] <rwaldron> http://code.bocoup.com/jquery1-7/
+[13:48:11] <rwaldron> gnarf timmywil ^
+[13:49:22] <gnarf> https://github.com/jquery/jquery/pull/496/ == http://jqbug.com/p496 ;)
+[13:49:23] <socialhapy> ★ Pull request on jquery by gnarf37 (2d, 6h ago): 1.7 animate: allow named queues to be used by animate - fixes #9280
+[13:50:55] <rwaldron> ohhh
+[13:50:58] <rwaldron> good call
+[13:52:28] <gnarf> if you got room for like 3 more lines of comments in that example: https://gist.github.com/883dd808a9faa4a741c7
+[13:52:40] <gnarf> added a note about being sure to start your custom queue when you fill it up :)
+[13:54:20] <justinbmeyer> has anyone suggested making .html, .append, et accept deferreds?
+[13:55:39] <justinbmeyer> $('#foo').append( $.get('/url',{},'text') )
+[14:00:20] <gnarf> justinbmeyer: hrm
+[14:01:35] <justinbmeyer> JMVC, already sort of does it with templates: $('#recipes').html('recipes.tmpl', $.get('/recipes.json','json') )
+[14:01:57] <justinbmeyer> where it will parallel load the template and the request
+[14:02:06] <justinbmeyer> and then when both are done, render the template with the data from the request
+[14:02:22] <justinbmeyer> it saves that annoying extra callback
+[14:06:12] <rwaldron> gnarf updated
+[14:06:52] <rwaldron> i'll be right back
+[14:07:50] <gnarf> justinbmeyer: yeah
+[14:07:50] <gnarf> justinbmeyer: it should be submitted for 1.8
+[14:07:50] <gnarf> justinbmeyer: might want to add .data() as well
+[14:07:52] <gnarf> although
+[14:08:40] <justinbmeyer> jQuery has some sort of 'ordering' mechanism now?
+[14:08:54] <gnarf> define?
+[14:08:56] <justinbmeyer> I think I remember readying this, but haven't used it
+[14:09:12] <gnarf> elements should always be returned in "document order"?
+[14:09:20] <justinbmeyer> sorry one sec
+[14:09:38] <justinbmeyer> I mean, the ability to write async calls one after the other
+[14:09:42] <justinbmeyer> that will get run one after the other
+[14:09:46] <justinbmeyer> some sort of internal queue
+[14:09:52] <gnarf> ?deferred.pipe
+[14:09:53] <bot-t> gnarf, deferred.pipe() - Utility method to filter and/or chain Deferreds. http://api.jquery.com/deferred.pipe/
+[14:10:07] <gnarf> like that?
+[14:10:16] <gnarf> oh
+[14:10:18] <gnarf> $.Callbacks
+[14:10:20] <justinbmeyer> I thought it was something on $.fn
+[14:10:30] <gnarf> has a "queue"
+[14:10:42] <gnarf> ?ajaxQueue
+[14:10:42] <bot-t> jQuery.ajaxQueue - A quick demonstration of a queue for ajax calls using jQuery.Deferred() jQuery.ajax() and .queue() - http://gnarf.net/2011/06/21/jquery-ajaxqueue/
+[14:10:47] <gnarf> i wrote something similar
+[14:10:55] <gnarf> if you're looking for inspiration :)
+[14:11:00] <justinbmeyer> so $('#foo').animate().animate() works ....
+[14:11:06] <gnarf> that always worked
+[14:11:19] <justinbmeyer> yeah, but I thought the internal mechanism changed
+[14:11:23] <gnarf> nope
+[14:11:27] <justinbmeyer> hmmm
+[14:11:30] <gnarf> not recently
+[14:11:36] <gnarf> not 1.7 afaik
+[14:11:40] <gnarf> oh
+[14:11:56] <gnarf> you might be talking about timmywil's fix for the "atomic clicky"
+[14:12:02] <gnarf> http://jsfiddle.net/timmywil/gqZL5/24/
+[14:12:07] <justinbmeyer> ok, I am basically looking for something to interface with that would allow $('#foo').html( DEF ).find('.foo')
+[14:12:08] <justinbmeyer> to work
+[14:12:18] <justinbmeyer> something to 'queue' that find
+[14:12:44] <gnarf> that literally "cant" happen
+[14:12:52] <gnarf> at least not if you want the results
+[14:13:00] <gnarf> unless you pipe deferred it
+[14:13:13] <gnarf> i assume DEF was a promise?
+[14:13:17] <justinbmeyer> yeah
+[14:13:29] <justinbmeyer> so all statements after .html() would get added to the queue
+[14:13:35] <justinbmeyer> maybe this was a talk I saw
+[14:13:41] <gnarf> hrm
+[14:13:46] <justinbmeyer> FuncUnit does something similar to this
+[14:13:55] <ajpiano> justinbmeyer: you talking about like, the whole "buffered jQuery" thing
+[14:14:00] <justinbmeyer> yeah
+[14:14:01] <ajpiano> that wycats was workin on
+[14:14:04] <ajpiano> with jQuery.sub ?
+[14:14:11] <gnarf> hrm
+[14:14:26] <gnarf> that actually sounds kinda doable
+[14:14:29] <justinbmeyer> possibly ... ok, so this isn't around .. yet?  Or maybe?
+[14:14:36] <justinbmeyer> or never
+[14:14:49] <ajpiano> i think there's something really scary about like, making every manipulation method accept a deferred and then magically queue everything after the method, if it was in fact passed a deferred
+[14:15:01] <justinbmeyer> well, it is scary
+[14:15:22] <justinbmeyer> but in an awesome sort of way
+[14:15:31] <gnarf> yeah
+[14:15:35] <gnarf> but i think its doable
+[14:15:40] <justinbmeyer> this is how FuncUnit does:  $('#foo').click().type('abc')
+[14:15:47] <justinbmeyer> it queues those commands
+[14:15:59] <justinbmeyer> once you do something async
+[14:16:06] <gnarf> hrm
+[14:16:34] <gnarf> i think you could get a ton of that functionality by just adding $( promise ).html( ... );
+[14:16:55] <justinbmeyer> what would promise to $() do?
+[14:16:58] <gnarf> if you put it on the "$.fn.each" that if the "promise" is a deferred, attach the each callback to it :)
+[14:17:04] <justinbmeyer> do you mean more like $( promise ).appendTo()
+[14:17:05] <justinbmeyer> ?
+[14:17:24] <gnarf> $( promise, promise ).each( fn ); = promise.done( fn );
+[14:17:39] <justinbmeyer> ah
+[14:18:02] <justinbmeyer> yeah, that's cool
+[14:18:17] <justinbmeyer> yeah, just having jQuery accept deferreds in some common places would be nice
+[14:19:07] <justinbmeyer> especially around helping 'making an ajax request, rendering it with a template, and sticking it in the dom' easier
+[14:31:14] <rwaldron> I doubt that $() will ever have another overload added to it
+[14:31:50] <rwaldron> the inside of $() is what I imagine the Ghostbusters ecto-containment unit to look like
+[14:37:44] <gnarf> nice metaphor
+[14:37:47] <gnarf> ++
+[14:37:57] <gnarf> don't cross the streams man
+[14:39:18] <gnarf> does anyone have a good jsperf template for setting up a speed test?
+[14:39:30] <gnarf> tween two versions?
+[14:39:49] <gnarf> of say .data()
+[14:46:51] <rwaldron> i had one
+[14:46:53] <rwaldron> ne sec
+[14:47:19] <rwaldron> gnarf edit this: http://jsperf.com/dommanip-is-a-sloth
+[14:47:30] <rwaldron> or rather, copy/paste?
+[15:00:30] <gnarf> seems i have a little work to do: http://jsperf.com/internal-data
+[15:04:22] <gnarf> its p496 + https://github.com/gnarf37/jquery/commit/5d86dad4b475b5ca5d44c522f41a007849ccf88b
+[15:04:23] <socialhapy> ★ Commit on jquery by gnarf37 (1d, 15h ago): data: set a flag in the private data cache to avoid having to scan attributes multiple times
+[18:42:01] <gnarf> does anyone have a good ie 6/7 for perf testing - mine runs so crappy its not even worth trying jsperf
+[21:16:15] <DesignerGuy> hello

@@ -1,0 +1,430 @@
+[06:23:17] <aaronmcadam> can I stop certain classes being applied by a plugin?
+[06:23:46] <aaronmcadam> I'm using a listview with nested collapsables and it's adding unwanted classes
+[08:30:10] <toddparker> hey all
+[08:45:03] <scottjehl> mornins
+[08:45:37] <scottjehl> now code woop http://filamentgroup.com/lab/jquery_mobile_pagination_plugin/
+[09:10:33] <gseguin> Good morning
+[09:48:11] <_nickel> kinblas: I agree that the binding shouldn't be there
+[09:48:28] <_nickel> kinblas: I agree that the binding shouldn't be there
+[09:48:30] <kinblas> _nickel: ok
+[09:48:34] <kinblas> _nickel: ok
+[09:48:40] <kinblas> :-)
+[09:48:58] <_nickel> kinblas: I'm not sure why my todo didn't make it into the notes
+[09:53:19] <_nickel> kinblas: so you want to do page ref counting huh?
+[09:54:07] <_nickel> kinblas: I think we should close that bug though
+[09:57:55] <kinblas> _nickel: it's a proven coding pattern :-)
+[09:59:54] <kinblas> heh, is 40 tabs open in a browser too many?
+[10:04:18] <kinblas> _nickel: regarding your replacestate sample
+[10:04:37] <kinblas> definitely looks like replacestate is pruning ... when according to the spec, only pushstate prunes
+[10:04:52] <kinblas> before filing a bug, I would rip out our hash monkey business
+[10:04:56] <_nickel> kinblas: yah I cleaned it up a ton and clarified my comments
+[10:05:07] <_nickel> kinblas: I can't really though
+[10:05:29] <_nickel> kinblas: thats what was driving me nuts yesterday
+[10:05:39] <_nickel> I couldnt reproduce with just the replacestate
+[10:05:49] <_nickel> doing it twice was necessary
+[10:06:12] <kinblas> I just commented out the call to onHashChange from the popstate callback
+[10:06:15] <kinblas> and I can still repro
+[10:06:28] <kinblas> it's the replaceState call
+[10:06:37] <_nickel> kinblas: right
+[10:06:40] <_nickel> ugh
+[10:06:43] <_nickel> trying it
+[10:06:56] <_nickel> not feeling super confident in my overall intelligence after yesterday
+[10:07:11] <kinblas> I also tried moving the replaceState into a timer so that it doesn't do any manipulation while in the midst of a popstate event
+[10:07:14] <kinblas> no dice there either
+[10:09:57] <_nickel> kinblas: so your recommendation is to remove the explicit call to onHashChange?
+[10:10:22] <kinblas> well, the less monkey business involved to prove there is  a bug, the more likely they will realize it's a bug on their end
+[10:10:39] <kinblas> and be willing to fix it
+[10:10:39] <_nickel> kinblas: I FULLY AGREE
+[10:10:51] <_nickel> I didn't want to add any of the crap
+[10:11:03] <kinblas> maybe the thing to do is
+[10:11:09] <kinblas> a simple
+[10:11:12] <kinblas> click on link
+[10:11:15] <kinblas> does a pushstate
+[10:11:18] <kinblas> back button
+[10:11:27] <kinblas> does replacestate on popstate event
+[10:11:31] <kinblas> does that repro the problem?
+[10:11:42] <_nickel> not sure I can try it out
+[10:12:08] <kinblas> under the hood it seems as if its replacing the state object, instead of updating it
+[10:12:49] <kinblas> the state object points to the next 'state', so if it is totally replaced, that pointer is gone with the original state object
+[10:13:04] <_nickel> kinblas: honestly I think I've run around this thing so many times I'm confused as to what is the state or actions are that case it
+[10:20:16] <_nickel> *ause it
+[10:20:18] <_nickel> *cause it
+[10:39:35] <scottjehl> hey
+[10:40:57] <kinblas> _nickel: here's a simple test case ... though things work properly
+[10:40:59] <kinblas> http://webpro.host.adobe.com/people/jblas/temp/popstate.html
+[10:41:29] <kinblas> you can use it to figure out the recipe to repro the bug
+[10:41:39] <scottjehl> kinblas that's the problem I ran into with http://jsbin.com/icixem/2/edit too
+[10:42:18] <scottjehl> worked as expected
+[10:42:58] <kinblas> hmmm, then I need to add a hash button
+[10:47:21] <kinblas> I think I see how to repro, but I need to see the pushstate jqm source
+[10:50:24] <kinblas> scottjehl: _nickel: It gets pruned any time you set the hash
+[10:50:59] <kinblas> whoops, was testing in FF .. damn minimal chrome
+[10:51:43] <kinblas> yeah, just tested in chrome too
+[10:51:51] <kinblas> anytime we set the hash
+[10:52:05] <kinblas> it kills any states
+[10:52:34] <scottjehl> it doesn't just add an entry?
+[10:53:31] <kinblas> hang on let me add something to my test case
+[10:58:57] <kinblas> scottjehl: _nickel: ok the exact cause of the pruning
+[10:59:07] <kinblas> is calling replace state with an URL that contains a hash
+[10:59:17] <kinblas> http://webpro.host.adobe.com/people/jblas/temp/popstate.html
+[10:59:21] <kinblas> using that test case
+[10:59:36] <_nickel> kinblas: agh!
+[10:59:36] <kinblas> simply push state, or add hash
+[10:59:41] <kinblas> hit the back button
+[10:59:47] <kinblas> then do a Replace Hash State
+[10:59:48] <_nickel> kinblas: yah I've boiled it down a bit further
+[10:59:57] <kinblas> no popstate involved
+[11:00:02] <_nickel> kinblas: does it do the same thing when the replaced url is relative?
+[11:01:35] <kinblas> _nickel: probably, why would that matter?
+[11:01:45] <kinblas> I think their thought process was this
+[11:01:56] <kinblas> hashes actually do cause a pruning
+[11:01:59] <_nickel> kinblas: that was what I was going to try next before we started the furniture re-arange and you jacked my koolaid :P
+[11:02:11] <kinblas> _nickel: sorry :-(
+[11:02:14] <_nickel> kinblas: hahah
+[11:02:18] <kinblas> was just trying to help ...
+[11:02:20] <_nickel> kinblas: joking completely
+[11:02:23] <kinblas> whew
+[11:02:26] <_nickel> I'm glad we have something concrete
+[11:02:31] * kinblas takes another sip of koolaid
+[11:03:16] <kinblas> for what its worth, the other browsers don't prune based don the URL used in the replacestate
+[11:03:28] <kinblas> so chrome is parsing the url and figuring out what to do
+[11:04:28] <_nickel> kinblas: when you say pruning you mean the history right?
+[11:04:53] <_nickel> so you're saying that in this case the hash is causing chrome to prune the history back to the current page
+[11:05:00] <kinblas> yeah any state *AFTER* the current one
+[11:05:06] <kinblas> and as you pointed out lastnight
+[11:05:31] <kinblas> chrome only prunes replacestate calls if you are on the initial state
+[11:05:45] <kinblas> it doesn't seem to do it if you are several states in
+[11:05:54] <_nickel> yah
+[11:06:19] <kinblas> in any case now we know it's replaceState with a hashURL ... on an initial state, prunes when it shouldn't
+[11:06:57] <_nickel> yep
+[11:07:10] <_nickel> jsbin is almost finished and I'll post to chromium dev
+[11:07:31] <kinblas> so I think for our needs
+[11:07:50] <kinblas> maybe the fix is to not set the hash in the state object when we are referring to the initial url
+[11:07:56] <kinblas> I think right now it always adds a hash
+[11:08:17] <_nickel> let me try that
+[11:08:24] <_nickel> just using the href for the replace state
+[11:08:31] <kinblas> yeah the original one
+[11:08:39] <_nickel> kinblas: actually thats what I do now :(
+[11:08:44] <_nickel> no hash
+[11:08:52] <_nickel> hmm
+[11:08:58] <_nickel> so
+[11:09:03] <_nickel> I've tried alot of things here
+[11:09:34] <_nickel> you're saying when we get back to the original href do a changePage then instead of letting the hashchange code do it for us?
+[11:12:20] <kinblas> _nickel: but I see this:
+[11:12:28] <kinblas> hash: location.hash || "#" + self.initialFilePath,
+[11:12:59] <kinblas> there is always a hash, at least in the state we pass around, and the replaceState call always adds the hash
+[11:13:35] <_nickel> kinblas: I have it using location.href locally if I haven't yet pushed it
+[11:13:51] <_nickel> kinblas: same problem
+[11:14:25] <_nickel> kinblas: 657f6b8c3f1a78a7488e3a920e4798aa38740415
+[11:14:29] <_nickel> changed there
+[11:14:56] * kinblas updates his branch source
+[11:15:21] <_nickel> kinblas: http://jsbin.com/urored/14/
+[11:17:50] <kinblas> _nickel: scottjehl: I'm trying to understand the need for the initial replaceState call
+[11:18:09] <_nickel> kinblas: we need a popstate call when going back to the original page
+[11:18:10] <scottjehl> heh. we reeeelly need to comment this thing
+[11:18:11] <kinblas> is it that the browser won't dispatch a popstate command unless either pushState or replaceState has been previously called?
+[11:18:22] <kinblas> s/command/event/
+[11:18:23] <_nickel> kinblas: exactly
+[11:18:39] <_nickel> there's no popstate in any browser on going back unless we do a replace state to start out
+[11:18:47] <_nickel> going back to the origin page that is
+[11:18:50] <_nickel> scottjehl: yes we do
+[11:18:57] <_nickel> scottjehl: I'll go through and anotate it all
+[11:20:11] <_nickel> scottjehl: kinblas: http://code.google.com/p/chromium/issues/detail?id=77205&q=pushstate&colspec=ID%20Stars%20Pri%20Area%20Feature%20Type%20Status%20Summary%20Modified%20Owner%20Mstone%20OS
+[11:20:20] <_nickel> not 100% sure its related but it might be
+[11:20:30] <kinblas> well we don't even need that initial replaceState to show them there is a bug
+[11:20:39] <kinblas> I just tried in chrome
+[11:20:59] <scottjehl> we need it for our own logic though, don't we?
+[11:21:11] <scottjehl> bug report aside
+[11:21:14] <_nickel> scottjehl: in my test we do
+[11:21:16] <kinblas> scottjehl: yeah we do, I'm just saying for the purposes of demonstrating the bug to them
+[11:21:20] <_nickel> err kinblas we
+[11:21:21] <_nickel> do
+[11:21:23] <scottjehl> sure good pt
+[11:21:30] <kinblas> it just complicates things for them
+[11:21:37] <kinblas> all that is needed to repro this bug is this:
+[11:21:39] <_nickel> kinblas: there's no popstate fired on going back to the origin then
+[11:21:41] <kinblas> set the location hash
+[11:21:47] <kinblas> hit the back button then call replaceState
+[11:21:51] <_nickel> in which case the replace state with a hash doesn't happen
+[11:21:51] <kinblas> that's all
+[11:22:13] <kinblas> _nickel: I know, I'm just sayin' the popstate thing is orthoganal
+[11:22:25] <kinblas> the bug is the pruning
+[11:23:09] <kinblas> replaceState is only supposed to replace the title and the url in the current state, not do any manipulation of the history stack
+[11:23:52] <kinblas> I'm just trying to boil it down to the basic steps ... the less confusing ... more spelled out for them ... the quicker the fix turnaround
+[11:23:57] <_nickel> kinblas: so if I go down two history entries and come back one and do a replace state with a hash that will demonstrate it?
+[11:24:27] <kinblas> steps:
+[11:24:37] <kinblas> on page load, do a location.hash = "anything"
+[11:24:40] <_nickel> we need to come back at least one to demonstrate so its either go out and come back to the origin or go out 2 and come back one
+[11:24:53] <_nickel> so thats the first history entry
+[11:25:08] <kinblas> _nickel: oh are you trying to write an auto-pilot example?
+[11:25:24] <_nickel> kinblas: no but its one link and the back button
+[11:35:07] <kinblas> _nickel: http://webpro.host.adobe.com/people/jblas/temp/replacestate-bug.html
+[11:35:34] <_nickel> kinblas: nice
+[11:36:24] <_nickel> kinblas: I was trying to minimize the total amount of code
+[11:36:39] <_nickel> kinblas: I'm worried they're going to spend time looking at the click handlers etc
+[11:36:59] <_nickel> although its a lot clearer than that code in my jsbin when taken together
+[11:37:00] <kinblas> eh, the click handlers are just a manual way of triggering the offending calls
+[11:37:29] <_nickel> kinblas: alright should we just link to that page then
+[11:37:41] <_nickel> kinblas: I'm spending way to much time on this retarded bug report :)
+[11:37:57] <kinblas> I guess just copy/paste into your jsbin
+[11:37:58] <_nickel> kinblas: its much more illustrative of the problem
+[11:38:00] <kinblas> and give them that url
+[11:38:17] <kinblas> we still need to figure out a way to get around the problem on our end
+[11:38:36] <kinblas> the only way I see is to prevent the hash on the initial history entry
+[11:39:01] <kinblas> if we can prevent the # in the replaceState() call during the rewrite
+[11:39:05] <kinblas> I think we can hide the bug
+[11:39:34] <kinblas> although your idea for calling changePage directly was interesting
+[11:39:51] <_nickel> I didn't have a lot of luck with that
+[11:39:56] <kinblas> in fact maybe that's what we should be doing?
+[11:40:00] <_nickel> though I didn't spend a massive amount of time on it
+[11:40:07] <kinblas> instead of triggering a manual hashchange
+[11:42:27] <_nickel> kinblas: whats ther version string of your chrome at about:version
+[11:42:46] <_nickel> I'm filing the bug
+[11:43:12] <kinblas> lol ... I'm checking and it decides I need to update
+[11:43:13] <_nickel> kinblas: my version is still 12 since I'm on linux so I want to make sure they know its still a problem on latest
+[11:43:24] <kinblas> well I'll have the latest in a few seconds
+[11:43:29] * kinblas has no choice
+[11:43:59] <kinblas> Is what the about dialog displays 13.0.782.112 m ... it's still upgrading to the new version
+[11:45:06] <_nickel> kinblas: is that the full string
+[11:45:24] <kinblas> _nickel: still a bug in the latest
+[11:45:34] <kinblas> it says
+[11:45:42] <kinblas> 13.0.782.215 m
+[11:45:45] <kinblas> Windows
+[11:46:04] <kinblas> Google Chrome is up to date (13.0.782.215)
+[11:47:26] <_nickel> kinblas: http://code.google.com/p/chromium/issues/detail?id=94125
+[11:47:27] <_nickel> away
+[11:47:30] <_nickel> now back to fixing this shit
+[11:47:32] <_nickel> ugh
+[11:47:35] <kinblas> heh
+[11:47:40] <kinblas> at least we know the exact cause
+[11:47:46] <kinblas> so we'll figure it out
+[11:47:47] <_nickel> kinblas: yah thanks
+[11:47:52] <kinblas> er ... you will :-P
+[11:47:54] <_nickel> driving me nuts
+[12:03:32] <scottjehl> sorry meeting back in a bit
+[12:12:01] <_nickel> kinblas: so puting changePage in the popstate results in new history entries
+[12:12:30] <kinblas> not if you don't update the hash
+[12:12:39] <kinblas> I think there's a config option you can pass in
+[12:12:49] <kinblas> {updateHash: false}
+[12:12:55] <_nickel> ah
+[12:21:21] <kinblas> _nickel: does the chromium bug base send email for updates/comments?
+[12:21:31] <kinblas> Or is there some setting I have to turn on for watching specific bugs?
+[12:22:00] <kinblas> oh nevermind, I guess you have to click the star
+[12:24:41] <_nickel> kinblas: ok I'm going to work on using changepage instead of the second replace state on popstate
+[12:25:38] <kinblas> werd
+[12:26:28] <_nickel> kinblas: scottjehl: this actually raised an interesting question in my mind last night
+[12:26:51] <_nickel> kinblas: scottjehl: is there a test suite out there for this type of behaviour even if its not cannon yet?
+[12:27:00] <_nickel> kinblas: scottjehl: example I'll give is the ruby spec
+[12:27:08] <_nickel> any implementation can run that to know how well they comply
+[12:27:56] <kinblas> _nickel: the w3c usually publishes those tests
+[12:27:59] <kinblas> w3.org
+[12:28:04] <kinblas> so if there are tests it would be there
+[12:28:10] <_nickel> kinblas: looking
+[12:28:31] <kinblas> they had tons of tests for selectors, etc last time I checked, not sure about pushState/replaceState.
+[12:28:45] <_nickel> alright I'll root around a bit
+[12:28:55] <_nickel> that seems like something I might enjoy contributing to on my freetime
+[12:39:05] <_nickel> kinblas: http://www.w3.org/html/wg/wiki/Testing
+[12:39:17] <_nickel> that would seem to suggest they are not accepting contributions from John bender
+[12:40:42] <kinblas> _nickel: ??
+[12:40:56] <kinblas> you can send them tests, you just can't report browser results
+[12:41:05] <kinblas> since they want official results from the vendors themselves
+[12:41:07] <_nickel> kinblas: ah! you are right
+[12:41:32] <_nickel> kinblas: http://www.w3.org/html/wg/wiki/Testing/Submission/
+[12:41:52] <kinblas> I think they need to test the impact of the various URL components
+[12:41:57] <kinblas> query, hash
+[12:42:07] <_nickel> on everything?
+[12:42:09] <kinblas> for replaceState that is
+[12:42:12] <_nickel> right
+[12:42:18] <_nickel> thats what I was thinking in this case
+[12:42:39] <_nickel> maybe I'll take a look later
+[12:43:20] <kinblas> _nickel: what the heck is mercurial?
+[12:43:24] <_nickel> kinblas: hg
+[12:43:30] <_nickel> distributed vcs like git
+[12:43:34] <_nickel> written in python
+[12:43:35] <kinblas> ah ok
+[12:43:37] <_nickel> pretty popular
+[12:43:45] <kinblas> so popular, i've never heard of it
+[12:43:53] <kinblas> heh
+[12:44:12] * kinblas climbs back into his silo
+[12:44:13] <_nickel> note the "pretty" qualifier for maximum ambiguity
+[12:45:15] * kinblas gets back to his own horror that is "transitions"
+[12:51:14] <kinblas> yes! figured out how to stop the flashing on the Xoom
+[12:51:31] <_nickel> kinblas: nice
+[12:52:16] <kinblas> _nickel: our transitions that only animate the 'from' page require a dummy translate on the 'to' page to force it through the same rendering pipeline.
+[12:52:20] * kinblas sighs
+[12:52:26] <kinblas> oldest trick in the book
+[12:52:34] <kinblas> can't believe I didn't do it earlier
+[12:53:22] <_nickel> I sincerely doubt that "adding a translate to the dom element to force it through the rendering pipeline" would be found anywhere in "the book" :D
+[12:53:39] <_nickel> kinblas: all the same, hell yah
+[13:49:50] <toddparker> kinblas - awesome news
+[13:49:53] <toddparker> you are a wizard
+[13:50:09] <toddparker> hey - should i do testing now?
+[13:50:16] <toddparker> lemme know guys
+[13:58:07] <toddparker> _nickel - I think I know the guy at the W3C in charge of that testing suite if you want an intro
+[13:58:22] <_nickel> toddparker: nice, I need to take a look
+[13:59:26] <_nickel> seems like a good place that I can help out and would save people the trouble we ran into :(
+[13:59:37] <_nickel> toddparker: I'll let you know if I decide to do anything about it
+[14:03:53] <toddparker> ok
+[14:04:02] <toddparker> i was trying to catch up
+[14:04:16] <toddparker> looks like you guys narrowed down the issue with pushstate in chrome?
+[14:04:28] <toddparker> there's hope for a fix?
+[14:04:59] <toddparker> i was saying that breaking the forward button in Chrome may be a small price to pay to have much better URLs
+[14:05:15] <toddparker> we can log that as an issue and work on fixing it after this lands
+[14:05:24] <toddparker> lord knows nothing is bug-free :)
+[14:05:55] <toddparker> i can test devices on any branch you guys want today or tomorrow
+[14:05:58] <_nickel> toddparker: yes and I have a semi working solution
+[14:05:58] <toddparker> lemme know
+[14:06:04] <toddparker> nice!
+[14:06:05] <_nickel> toddparker: will do
+[14:06:29] <_nickel> toddparker: there are some ugly bits to sort out
+[14:07:19] <toddparker> yeah?
+[14:07:44] <_nickel> toddparker: instead of changing the hash on popstate we can use changePage
+[14:08:06] <_nickel> something I tried earlier but gave up on, but kin pointed out you can disable hashchange using the changePage options
+[14:08:31] <_nickel> kinblas: so the changepage I have in place works except for the transitions
+[14:09:12] <_nickel> which I can specify at call time, but I'll have to grab from the urlHistory stack I think
+[14:09:16] <_nickel> anyway I'm working on it
+[14:09:22] <_nickel> we'll see if I come up with anything that doesn't suck
+[14:26:40] <_nickel> scottjehl: kinblas: spotted another bug
+[14:36:30] <_nickel> kinblas: so use the active.url when building a dialog hash key, but in the case where the dialog is loaded directly after the initial page load active.url is undefined
+[14:36:40] <_nickel> *so we use
+[14:36:51] <_nickel> this is a bug in master b2 btw
+[14:42:33] <gseguin> toddparker: ping
+[14:43:51] <toddparker> hey-o
+[14:44:00] <gseguin> hey, looking at https://github.com/jquery/jquery-mobile/issues/1847#issuecomment-1730598
+[14:44:01] <socialhapy> ★ Issue #1847 on jquery-mobile, reported by toddparker (2m, 1w ago): Forms in inset lists don't fill the horizontal space
+[14:44:36] <gseguin> I can reproduce on the simulator on jquerymobile.com
+[14:44:43] <gseguin> but not with latest
+[14:45:02] <gseguin> can you confirm with your iphone 4 iOS5 ?
+[14:59:41] <_nickel> kinblas: scottjehl: where are we setting the data-url?
+[15:00:08] <kinblas> in changePage
+[15:00:13] <kinblas> oh I meant loadPage
+[15:00:22] <kinblas> the callback for the ajax
+[15:00:58] <_nickel> thanks
+[15:12:55] <_nickel> gseguin: http://jquerymobile.com/test/docs/pages/page-dialogs.html
+[15:13:00] <_nickel> kin said you might have seen this
+[15:13:24] <toddparker> sorry guys
+[15:20:45] <scottjehl> kinblas hey sorry
+[15:20:59] <toddparker> gsegion - i should just look at /ltest/
+[15:21:01] <scottjehl> oh it was _nickel
+[15:21:05] <scottjehl> anyway, looks good
+[15:21:24] <kinblas> scottjehl: sorry about what? eh?
+[15:24:33] <scottjehl> woo confused sorry
+[15:24:35] <scottjehl> :)
+[15:25:04] <scottjehl> did you guys see this? http://filamentgroup.com/lab/jquery_mobile_pagination_plugin/
+[15:31:40] * kinblas loads scott's spiffy demo
+[15:31:54] <kinblas> ... on xoom just to be evil
+[15:32:04] <scottjehl> heh
+[15:32:32] <scottjehl> it tested okay on our 2.2. and 2.3 devices, but Android is as Android does
+[15:32:44] <scottjehl> it's super butter on iOS across the board
+[15:33:18] <kinblas> nice job
+[15:33:22] <kinblas> works nicely on xoom
+[15:34:15] <_nickel> scottjehl: kinblas: as I'm trying to get this working without the second replace state
+[15:34:22] <_nickel> do you guys want to land it as is?
+[15:34:55] <scottjehl> kinblas thanks!
+[15:35:05] <kinblas> _nickel: is there a config for shutting it off? :-)
+[15:35:07] <scottjehl> the HTML config is the part I'm most proud of
+[15:35:07] <toddparker> gseguin - the form inside an inset list on iOS 5 still has a bit more padding on the right which causes the slider and list/grid/gallery toggle to wrap but it does look a lot better.
+[15:35:29] <toddparker> if we can't easily/safely remove that last bit of padding, tehn let's not sweta it.
+[15:35:32] <_nickel> kinblas: not including it in the build :D
+[15:35:39] <toddparker> there are bigger fish to fry
+[15:35:53] <scottjehl> _nickel you're just trying to simplify? or solve a problem by removing that?
+[15:36:23] <_nickel> scottjehl: both
+[15:36:38] <_nickel> scottjehl: but the main win is the chrome issue being solved
+[15:36:55] <_nickel> scottjehl: though not having it mak another round trip through the hash stuff is nice too
+[15:37:11] <toddparker> so is this an optimization?
+[15:37:24] <_nickel> toddparker: no its a fix for the chrome forward button
+[15:37:24] <toddparker> i think the main thing left to do is to test this well
+[15:37:26] <_nickel> primarily
+[15:37:30] <toddparker> oh, ok
+[15:38:10] <_nickel> its actually working quite nicely with changepage, I just need to get the transition
+[15:38:39] <_nickel> toddparker: scottjehl: kinblas: I also just pushed a quick fix to master to a bug i noticed while testing this
+[15:48:21] <scottjehl> cool
+[15:48:33] <scottjehl> I gotta head out but we're testing pushstate a bit now
+[15:50:43] <_nickel> scottjehl: let me push my last mini optimization
+[15:50:56] <_nickel> scottjehl: before I began diving into the changePage
+[15:50:56] <scottjehl> k. can you give us a test url too for tomorrow?
+[15:51:08] <_nickel> hmm
+[15:51:20] <_nickel> kinblas: do you have an easy way to deploy a branch?
+[15:52:47] <_nickel> scottjehl: did we decide to bind to doc ready?
+[15:52:57] <_nickel> kinblas: would be interested in that
+[15:53:02] <kinblas> _nickel: sure, if you want a long-arse url
+[15:53:03] <kinblas> :-)
+[15:53:09] <kinblas> which branch?
+[15:53:12] <kinblas> pushstate?
+[15:53:14] <_nickel> yah
+[15:53:15] <kinblas> pushstate-external
+[15:53:20] <scottjehl> I think I was hoping you'd come up with a good answer to that :)
+[15:53:23] <_nickel> I need to push two quick changes
+[15:53:26] <_nickel> scottjehl: haha
+[15:53:31] <scottjehl> replacestate-external right?
+[15:53:32] <scottjehl> or no
+[15:53:37] <kinblas> _nickel: tell me when to update, and then I'll push it .. push it real good
+[15:53:39] <_nickel> kinblas: ^
+[15:53:43] <_nickel> kinblas: lol
+[15:53:52] <toddparker> i can do some testing tomorrow - just send me *short* URLs and platforms and i'll be on it
+[15:54:22] * scottjehl notes that that means bit.ly or goo.gl is involved
+[15:54:32] <scottjehl> :)
+[15:54:49] <kinblas> lol
+[15:54:52] <scottjehl> we just tested Playbook and oh well, not what we want
+[15:55:24] <scottjehl> it doesn't update the address bar at all during navigation, however, the history menu all works fine, and hitting refresh works as expected
+[15:56:03] <scottjehl> it's just that the address bar doesn't reflect the current url until you refresh it, or bookmark it apparently
+[15:56:12] <_nickel> scottjehl: ugh
+[15:56:16] <scottjehl> I think it's just a BB bug we'll need to file
+[15:56:21] <scottjehl> we have them on speeddial
+[15:56:40] <scottjehl> we should test any Operas that support this too
+[15:56:56] <scottjehl> last I checked it worked well
+[15:57:16] <_nickel> scottjehl: opera desktop was working fine after my fix
+[15:57:19] <scottjehl> Just tested android 2.3 here - worked awesome
+[15:57:20] <_nickel> the scoping fix
+[15:57:45] <scottjehl> great
+[15:58:17] <scottjehl> gotta run later!
+[15:58:20] <_nickel> scottjehl: alright I'm goin to leave it on doc ready
+[15:58:24] <_nickel> i'll talk to kin
+[15:58:27] <scottjehl> yep great
+[15:58:27] <_nickel> talk soon
+[15:58:29] <scottjehl> thanks!
+[15:59:42] <_nickel> kinblas: so I just pushed a couple tweaks and I think that ones fine to land
+[15:59:42] <kinblas> _nickel: that change I just picked up ... was that all?
+[15:59:50] <_nickel> I _just_ pushed it
+[15:59:58] <_nickel> kinblas: pull again
+[16:00:32] <kinblas> I just did *nada*
+[16:00:35] <kinblas> so I guess I got it
+[16:00:55] <kinblas> btw folks are talking that jobs sent in his resignation
+[16:02:18] <_nickel> its official
+[16:02:36] <_nickel> kinblas: is there a docready call at the bottom
+[16:02:37] <_nickel> ?
+[16:03:33] <kinblas> _nickel: bottom of pushstate.js?
+[16:03:39] <_nickel> kinblas: yes
+[16:04:03] <kinblas> no?
+[16:05:13] <kinblas> but I see your changes from your last commit in the file
+[16:05:36] <_nickel> kinblas: https://github.com/jquery/jquery-mobile/blob/7d68059dd6f21b90687c53f92db46066df89c603/js/jquery.mobile.navigation.pushstate.js#L95
+[16:06:59] <kinblas> _nickel: lol ... that doesn't look like the string "docready" to me
+[16:07:06] <kinblas> but yes I have that in what I'm pushing
+[16:07:07] <kinblas>  kinblas: https://github.com/jquery/jquery-mobile/blob/7d68059dd6f21b90687c53f92db46066df89c603/js/jquery.mobile.navigation.pushstate.js#L95
+[16:07:10] <kinblas> whoops
+[16:07:20] <kinblas> I meant:
+[16:07:21] <kinblas> http://bit.ly/qBpVqI
+[16:07:48] <_nickel> kinblas: huzzah
+[16:08:03] <_nickel> I need a break from replaceState :/
+[16:08:11] <kinblas> _nickel: so I guess that bit.ly url is what scottjehl needs
+[16:08:17] <kinblas> that's your branch on the outside
+[16:08:22] <_nickel> yassir
+[16:08:35] <kinblas> long url: http://webpro.host.adobe.com/people/jblas/jqm-pushstate/
+[16:08:58] * _nickel is feeling extremely stupid after spending too long on that bug
+[16:10:29] <kinblas> _nickel: so it works?
+[16:10:51] <_nickel> kinblas: the forward button?
+[16:10:51] <_nickel> no
+[16:10:56] <_nickel> well
+[16:10:57] <_nickel> actually
+[16:11:01] <_nickel> the forward button does work
+[16:11:03] <_nickel> but there are issues
+[16:11:06] <kinblas> w00t
+[16:11:19] <_nickel> the urlHistory stack gets long fast
+[16:11:34] <kinblas> hmmm, os it keeps pushing entries?
+[16:11:40] <_nickel> yah
+[16:11:42] <kinblas> ew
+[16:11:51] <_nickel> and we have to pull the transition out
+[16:12:05] <_nickel> so we could add a historyChange: false
+[16:12:13] * _nickel grimmaces
+[16:12:14] * kinblas is getting frustrated that his CSS from his minimal test case does not stop the flashing in jqm css
+[16:12:34] <_nickel> frustrations all around it appears

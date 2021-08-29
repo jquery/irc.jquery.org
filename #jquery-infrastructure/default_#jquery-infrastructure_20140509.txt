@@ -1,0 +1,93 @@
+[09:16:41] <jqcommit> [13infrastructure] 15Krinkle created 06rm-jqorg-updates (+1 new commit): 02https://github.com/jquery/infrastructure/commit/143782bb301d
+[09:16:41] <jqcommit> 13infrastructure/06rm-jqorg-updates 14143782b 15Timo Tijhof: jqueryorg: Remove /updates and /feed handlers from old-jquery-org...
+[09:16:50] <jqcommit> [13infrastructure] 15Krinkle opened pull request #267: jqueryorg: Remove /updates and /feed handlers from old-jquery-org (06puppet-master...06rm-jqorg-updates) 02https://github.com/jquery/infrastructure/pull/267
+[09:17:26] <Krinkle> arschmitz: gnarf: Could you maybe review ^ ?
+[09:18:03] <arschmitz> Krinkle: im not the guy for that im not good with nginx either
+[09:18:20] <gnarf> Krinkle: It should be good - you can push to puppet-stage and test on stage.jquery.org 
+[09:19:18] <jqcommit> [13infrastructure] 15Krinkle merged 06rm-jqorg-updates into 06puppet-stage: 02https://github.com/jquery/infrastructure/compare/d47513cb7961...143782bb301d
+[09:20:04] <gnarf> side note: https://github.com/jquery/infrastructure/pull/267/files#diff-6fee0731f5c158497ced79c8c84654b4R23 can just be removed
+[09:20:07] <gnarf> no need to ensure absent
+[09:20:14] <gnarf> that directory is ensured deleted every puppet run
+[09:21:12] <ryanneufeld> the nginx.d directory is deleted every puppet run?
+[09:21:26] <Krinkle> I fear race condition
+[09:21:36] <Krinkle> gnarf: Can I force a puppet run for stage?
+[09:21:45] <ryanneufeld> yes, you can
+[09:21:53] <ryanneufeld> sudo puppet agent -t
+[09:22:02] <ryanneufeld> but you have to log in to each server to run it
+[09:22:02] <Krinkle> hn.. stage.jquery.org -> jq01
+[09:22:15] <Krinkle> That's going to affect jquery.org
+[09:22:29] <gnarf> ryanneufeld: https://github.com/gnarf/puppetlabs-nginx/blob/master/manifests/config.pp#L63-L67
+[09:22:33] <Krinkle> Maybe I'm misunderstanding how we use stage
+[09:22:40] <gnarf> Krinkle: jq01.stage.jquery.org ?
+[09:22:45] <gnarf> Krinkle: jq01.stage.jquery.com rather ?
+[09:22:57] <ryanneufeld> so it purges the directory, only to recreate all the configs
+[09:23:03] <ryanneufeld> on each run?
+[09:23:06] <gnarf> ryanneufeld: but it actually doesn't
+[09:23:18] <gnarf> ryanneufeld: purge just implicitly deletes anything not still required by the config
+[09:23:27] <Krinkle> Oh, this is the host file thingy isn't it
+[09:23:28] <ryanneufeld> oic
+[09:23:31] <gnarf> so if you remove a file {} it gets deleted
+[09:23:37] <gnarf> Krinkle huh?
+[09:23:38] <ryanneufeld> handy
+[09:23:42] <gnarf> ;; ANSWER SECTION:
+[09:23:43] <gnarf> stage.jquery.org.	1800	IN	A	205.186.144.58
+[09:23:44] <Krinkle> I'm supposed to make it look like jquery.org locally so that it actually serves something
+[09:23:46] <gnarf> ;; ANSWER SECTION:
+[09:23:46] <gnarf> jquery.org.		3600	IN	A	70.32.120.34
+[09:23:52] <Krinkle> "Domain mapping issue. You have jquery-wp-content configured for stage.jquery.com. You tried to get jq01.stage.jquery.com"
+[09:23:57] <Krinkle> I can't test it there I guess
+[09:24:01] <gnarf> dude
+[09:24:07] <Krinkle> I'm behind..
+[09:24:16] <gnarf> jq01.stage is the stage server, jq01 is the real server
+[09:24:26] <gnarf> ssh into jq01.stage, run puppet, test on stage.jquery.org
+[09:24:52] <Krinkle> I guess jq01 just lies about its hostname then
+[09:24:54] <Krinkle> ah, right
+[09:24:59] <Krinkle> jq01.stage *
+[09:25:03] <Krinkle> yeah, differnet IP, I see it now
+[09:25:50] <Krinkle> nvm. didn't have my PS1 fix yet on stage. It identifies correctly now
+[09:27:50] <Krinkle> g2g
+[09:27:59] <gnarf> Krinkle: through another follow up commit on stage before you merge to remove that file{} block please
+[09:28:02] <gnarf> no need to comment it out
+[09:28:08] <gnarf> or ensure absent
+[09:28:19] <gnarf> Krinkle: and thanks for solving that one
+[09:29:50] <gnarf> hrm
+[09:30:01] <gnarf> i wonder if he's gonna finish merging that ;)
+[09:34:03] <ryanneufeld> haha, probally
+[09:34:05] <ryanneufeld> eventualy
+[10:36:21] <gnarf> sigh
+[10:36:35] <gnarf> I guess I'll clean it up
+[10:38:52] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/0fe0933f0bab9af50f6871b2d14af17a64da50f1
+[10:38:52] <jqcommit> 13infrastructure/06puppet-stage 140fe0933 15Corey Frang: removing useless file block
+[10:39:05] <jqcommit> [13infrastructure] 15gnarf closed pull request #267: jqueryorg: Remove /updates and /feed handlers from old-jquery-org (06puppet-master...06rm-jqorg-updates) 02https://github.com/jquery/infrastructure/pull/267
+[11:29:46] <Krinkle> gnarf: thx
+[11:30:21] <Krinkle> gnarf: Hm.. seems to have turned it into a 404. Redirect not working?
+[11:30:25] <Krinkle> https://jquery.com/updates
+[11:30:26] <Krinkle> https://jquery.com/updates/
+[11:30:29] <Krinkle> https://jquery.com/feed
+[11:30:30] <Krinkle> https://jquery.com/feed/
+[11:30:33] <Krinkle> oh, silly me
+[11:30:40] <Krinkle> .org
+[11:30:52] <Krinkle> great, works great
+[11:30:58] <Krinkle> interesting that the 404 on /feed is xml
+[11:31:28] <Krinkle> wordpress must've special cased for that on their end (or we're forcing an accept header for it on our end?)
+[11:46:58] <ryanneufeld> ping gnarf
+[11:47:22] <gnarf> ryanneufeld: yes?
+[11:47:36] <ryanneufeld> if you had to edit two lines in a file with puppet
+[11:47:40] <ryanneufeld> how would you do it?
+[11:47:42] <ryanneufeld> with SED?
+[11:47:44] <ryanneufeld> sed -r '/APACHE_RUN_(USER|GROUP)=(.*)/ s//APACHE_RUN_\1=metrolyr/g'
+[11:47:56] <ryanneufeld> is what I have for a sed command
+[11:48:11] <ryanneufeld> I could use file_line from the stdlib, but that will just add the lines
+[11:50:40] <ryanneufeld> augeas?
+[11:52:16] <gnarf> ryanneufeld: i'd use an exec sed/awk or if augeas had a lens, that
+[11:52:39] <ryanneufeld> hmm
+[11:52:46] <ryanneufeld> so it would need a specific lens for it
+[12:07:12] <gnarf> depends, if the file format is one of the "semi standard" ones - it might not need a lens
+[12:07:20] <gnarf> aug is kinda a weird tool
+[12:07:28] <gnarf> you can try opening the file in augtool
+[12:07:31] <gnarf> and play with it
+[12:07:40] <gnarf> compare the dumps of the pre/post edited file
+[14:35:16] <ryanneufeld> gnarf: thanks man, I ended up going with a sed exec, and a grep for unless
+[14:35:32] <gnarf> ^ done that a few times
+[14:35:33] <gnarf> :)
+[15:48:44] <ryanneufeld> works like a charm tho

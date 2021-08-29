@@ -1,0 +1,97 @@
+[05:55:33] <arschmitz> gabriel_schulhof: Ping!
+[06:17:59] <scott_gonzalez> arschmitz: Yes, that's public API.
+[06:56:23] <arschmitz> scott_gonzalez: that was just related to me investigating what i talked to you about in skype and in the core issue'
+[06:56:37] <arschmitz> thats breaks because we call offset in create
+[06:56:41] <arschmitz> and its disconnected
+[07:10:44] <gabriel_schulhof> arschmitz: What's up?
+[07:13:22] <gabriel_schulhof> arschmitz: I'm running through the tests now, and we have some offset issues in slider tooltip so far.
+[07:13:52] <arschmitz> gabriel_schulhof: which one undefined or throwing an error
+[07:15:22] <gabriel_schulhof> arschmitz: Currently I may have discovered that core is itself affected by the change in .offset() behaviour.
+[07:15:40] <gabriel_schulhof> If you call .offset( { left: x, top: y } ) on a disconnected element, it breaks.
+[07:15:43] <arschmitz> gabriel_schulhof: what do you mean
+[07:15:44] <arschmitz> yes
+[07:15:47] <arschmitz> it should 
+[07:15:52] <arschmitz> that was one of the changes
+[07:16:00] <gabriel_schulhof> OK, so that's intentional?
+[07:16:06] <gabriel_schulhof> Huh ...
+[07:16:08] <arschmitz> it does not work on hiudden or disconnected element
+[07:16:17] <gabriel_schulhof> I thought the getter didn't work.
+[07:16:22] <gabriel_schulhof> I guess the setter doesn't work either.
+[07:16:34] <arschmitz> gabriel_schulhof: what would you be setting?
+[07:16:38] <arschmitz> it cant have values
+[07:16:50] <gabriel_schulhof> Well, you can set the offset natively on disconnected elements/.
+[07:17:22] <arschmitz> gabriel_schulhof: you can comment on https://github.com/jquery/jquery/issues/2310#issuecomment-103312088
+[07:17:47] <arschmitz> but to me the fact that they are making the getter not work implies the setter wont either
+[07:18:39] <arschmitz> my comment is only about the getter
+[07:21:59] <gabriel_schulhof> Well, OK. The problem with the setter crashing is that you have to necessarily call the getter to find out your element is disconnected in order to avoid calling the setter.
+[07:22:09] <gabriel_schulhof> However, if your element is connected, you've just thrashed the DOM.
+[07:22:48] <gabriel_schulhof> ... unless you put the setter in a try block.
+[07:33:52] <gabriel_schulhof> This is a fundamental problem with the DOM - you are not informed as to when you're about to appear/disappear.
+[07:34:13] <arschmitz> true
+[07:37:13] <gabriel_schulhof> Anyway, for slider tooltip we fortunately have a this._popupVisible which we keep up-to-date in response to vmousedown/up, so that's cool.
+[07:37:35] <gabriel_schulhof> So far, so green.
+[07:42:33] <arschmitz> gabriel_schulhof: look at my comment
+[07:44:21] <gabriel_schulhof> arschmitz: Well, TBH, if you're doing offset() on a collection, they're all gonna end up overlapping in the same spot, but still, yeah ... rather breaks the convenience.
+[07:45:13] <arschmitz> gabriel_schulhof: they specifically support collections for the setter
+[07:46:19] <gabriel_schulhof> Right, right, but this renders that support rather useless.
+[07:46:25] <arschmitz> yup
+[07:47:05] <arschmitz> gabriel_schulhof: and its usefull if your trying to stack things
+[07:47:26] <arschmitz> i built a photo stack widget once that was draggable
+[07:47:36] <gabriel_schulhof> I don't get it. Native DOM supports assigning coordinates to hidden elements just fine. Why must our behaviour differ?
+[07:47:37] <arschmitz> and you could click a button to put all the photos back into a stack
+[07:48:12] <arschmitz> gabriel_schulhof: have to wait and see their response
+[07:48:31] <gabriel_schulhof> So calculating with coordinates results in nonsense if the element is hidden/disconnected - so what? That makes just as much sense as crashing.
+[07:49:02] <gabriel_schulhof> Must be my n00bness showing :)
+[07:49:40] <gabriel_schulhof> Anyhoo ... tests are looking good ...
+[07:49:49] <arschmitz> gabriel_schulhof: so im thinking about in the enhancer
+[07:50:01] <arschmitz> having it check for an id on the element
+[07:50:14] <arschmitz> and if there is one cache the options and roles
+[07:50:34] <arschmitz> so if you navigate away and then back it does not re do it each time
+[07:51:49] <gabriel_schulhof> Not bad, except now you have to keep the cache in sync with the instance level.
+[07:52:00] <gabriel_schulhof> ... unless you make this.options a reference to the item in cache.\
+[07:52:09] <arschmitz> gabriel_schulhof: no
+[07:52:23] <arschmitz> there would be $.enhancer._roleCache
+[07:52:27] <arschmitz> which would be an object
+[07:52:37] <arschmitz> the keys would be element ids
+[07:52:45] <arschmitz> and the values would be the array of string roles
+[07:53:02] <gabriel_schulhof> ... and for each role, the options, right?
+[07:53:04] <arschmitz> options would be essentially the same
+[07:53:18] <arschmitz> $.enhancer._optionCache
+[07:53:27] <arschmitz> and it would be and object with keys of ids
+[07:53:43] <gabriel_schulhof> Ummm ... markup can change as a result of a trip to the server.
+[07:53:45] <arschmitz> and values of a options object ( no filtering )
+[07:54:15] <gabriel_schulhof> ... or as a result of anything else for that matter.
+[07:54:22] <arschmitz> does not matter
+[07:54:28] <arschmitz> they are only ever checked ones
+[07:54:32] <arschmitz> cored caches .data calls
+[07:54:49] <arschmitz> attributes are only ever read into data on the first call
+[07:55:07] <gabriel_schulhof> Yes, but core keys on the element itself, not its ID.
+[07:55:12] <arschmitz> yes
+[07:55:16] <arschmitz> this is intentional
+[07:55:26] <arschmitz> the whole point is to speed up subsequent page loads
+[07:55:36] <gabriel_schulhof> A second element with the same ID may appear in the future, as long as the first element has first been detached and maybe even garbage-collected.
+[07:55:53] <arschmitz> yes
+[07:55:55] <gabriel_schulhof> I understand, but I believe this would result in incorrect behaviour.
+[07:56:06] <arschmitz> the whole point is this would be an option to improve performance
+[07:56:27] <arschmitz> if you want to re use id's and have theme represent different widgets / options turn of cacheing
+[07:56:34] <gabriel_schulhof> Oh, OK ... like that ... so, you make the commitment that you won't change the markup, and in return you get better performance.
+[07:56:39] <arschmitz> ( though i would say in general in mobile thats asking for problems
+[07:56:56] <arschmitz> because you never know what your first page is
+[07:57:00] <arschmitz> which is always chached
+[07:57:29] <gabriel_schulhof> Gotta go ... BB in about 6-7 hours - hopefully sooner.
+[07:57:32] <arschmitz> so you cant ever be sure unless you turn ajax nav off that it will ever go to the server when you click a given link
+[07:58:11] <arschmitz> so i would say counting on changing data-attributes is asking for trouble
+[07:58:15] <arschmitz> gabriel_schulhof: ok see you later
+[08:47:31] <jqmobilecommit> [13jquery-mobile] 15DavidVdd opened issue #8133: jqm 1.4.3 selectmenu-custom-filter dialog bug(also in 1.4.5) 02http://git.io/vTCS6
+[10:04:25] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof opened issue #8134: All: Test failures against core git 02http://git.io/vTWzv
+[10:09:14] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof opened pull request #8135: All: Make sure events are well-formed and offsets are valid (061.5-dev...068134-handle-core-induced-breakage) 02http://git.io/vTWaU
+[11:08:37] <gabriel_schulhof> http://research.microsoft.com/en-us/people/mickens/ToWashItAllAway.pdf
+[12:59:57] <rxaviers> jzaefferer, scott_gonzalez, arschmitz, I'm resuming DB support for 1.12 packages and I'm trying to remember where we were at there. I'm confused with the following
+[13:00:11] <rxaviers> Ah! nevermind
+[13:00:20] <rxaviers> just read something that clarified it. LOL
+[13:00:36] <rxaviers> that was quick and sorry for the trouble
+[20:08:23] <jquicommit> [13download.jqueryui.com] 15rxaviers 04force-pushed 06fix-178-n-255 from 144e08b36 to 147d47029: 02http://git.io/vT4Nr
+[20:08:23] <jquicommit> 13download.jqueryui.com/06fix-178-n-255 147da9eb4 15Rafael Xavier de Souza: Packer: Support building 1.12.0 package...
+[20:08:23] <jquicommit> 13download.jqueryui.com/06fix-178-n-255 14eac61e7 15Rafael Xavier de Souza: fixup! Packer: Support building 1.12.0 package
+[20:08:23] <jquicommit> 13download.jqueryui.com/06fix-178-n-255 144bf95a8 15Rafael Xavier de Souza: fixup! Packer: Support building 1.12.0 package
+[23:31:17] <doesallmagic2> Project jQuery UI - compat-git core build #890: STILL UNSTABLE in 30 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%20compat-git%20core/890/

@@ -1,0 +1,169 @@
+[01:02:16] <saebekassebil> Hi guys. So I've a button with href=#profile - What I'd like to be able to is to, if the user is not logged in, redirect to the #login page
+[01:02:52] <uGoMobi> saebekassebil: #jquery is the channel for support
+[01:03:08] <saebekassebil> @uGoMobi: Cheers
+[01:03:22] <uGoMobi> :)
+[01:53:02] <jqmobilecommit> [13jquery-mobile] 15lightsurge opened issue #6680: .listview('refresh') iterates over entire list?  02http://git.io/MS3BAw
+[02:52:15] <_|Nix|_> uGoMobi: Re: https://github.com/jquery/jquery-mobile/issues/6680: Shold we milestone that for 1.4.1?
+[02:52:15] <b-ot> _|Nix|_: Issue #6680 by lightsurge (59m 32s ago): .listview('refresh') iterates over entire list?
+[03:10:23] <uGoMobi> _|Nix|_: I wasn't sure yet what to do with it, because it is a regression.
+[03:10:54] <_|Nix|_> uGoMobi: Ooooh! Good poitn!
+[03:11:22] <uGoMobi> _|Nix|_: I am thinking about how we can fix it
+[03:11:29] <_|Nix|_> uGoMobi: Dang! What distinguishes new li nodes from old ones?
+[03:11:38] <uGoMobi> exactly
+[03:12:13] <_|Nix|_> uGoMobi: We would have to save the old nodes in a selector, and then iterate over this.element.children().not( this._oldNodes )
+[03:13:55] <uGoMobi> _|Nix|_: I think we need a build and a refresh method
+[03:14:08] <uGoMobi> but that's not something to land in 1.4.1
+[03:15:20] <_|Nix|_> uGoMobi: I wonder if _getChildrenByTagName is faster than .children( "li" )
+[03:18:01] <uGoMobi> _|Nix|_: we could save already enhanced nodes in a selector just when the refresh method is called, but call a new build method on create so we don't use .children() on create
+[03:18:46] <uGoMobi> _|Nix|_: I think we looked already into performance difference between the two before, but I don't remember the outcome :/
+[03:20:54] <_|Nix|_> uGoMobi: Our method is way faster - I just checked :)
+[03:21:10] <uGoMobi> _|Nix|_: ok cool
+[03:21:44] <_|Nix|_> uGoMobi: I think for now, to restore the old behaviour, it's enough if we stored the result of this._getChildrenByTagName() from the beginning of refresh.
+[03:22:05] <_|Nix|_> uGoMobi: Then, on subsequent refresh calls, check if the list exists, and if so, do .not()
+[03:22:19] <_|Nix|_> uGoMobi: So, this._getChildrenByTagName().not( this._oldList );
+[03:22:44] <_|Nix|_> uGoMobi: I mean, this /has been/ the 1.3.2 behaviour, right?
+[03:22:57] <uGoMobi> _|Nix|_: yes, something like that
+[03:24:22] <uGoMobi> _|Nix|_: OK, that's something we can land in the first maintenance release
+[03:24:38] <uGoMobi> _|Nix|_: although it's a regression it's not like things don't work
+[03:24:56] <_|Nix|_> Well, it could break the performance of many things, keeping people from using 1.4.0.
+[03:25:20] <_|Nix|_> Listviews, IIRC, are very, very important to us.
+[03:25:36] <uGoMobi> true
+[03:26:37] <_|Nix|_> uGoMobi: ... and I think doing a .not() at the top is not so bad, considering that we're not doing any DOM manip or selection anymore. We're simply subtracting.
+[03:27:17] <uGoMobi> _|Nix|_: but I think that building a list with 200 items like the OP is not a good idea for mobile anyway
+[03:27:38] <_|Nix|_> uGoMobi: Well, we still have to be able to accommodate that.
+[03:27:42] <_|Nix|_> uGoMobi: ... and it worked before.
+[03:28:39] <uGoMobi> _|Nix|_: yes, but in "normal" use cases the performance penalty will be less noticable
+[03:28:42] <_|Nix|_> uGoMobi: The problem is that we've had a means of avoiding unnecessary DOM manip which we've given up.
+[03:29:09] <_|Nix|_> uGoMobi: Well, at the very least, we will find out just how many people are relying on the current listview performance.
+[03:30:21] <_|Nix|_> uGoMobi: Hmmm ... the problem with keeping old items around is that, if you remove such an item, we won't know.
+[03:30:32] <_|Nix|_> uGoMobi: So our list of old items will simply keep on growing.
+[03:31:11] <_|Nix|_> uGoMobi: Perhaps having that ui-li class was not so bad, after all ...
+[03:32:22] <_|Nix|_> uGoMobi: Wait a sec! We are still checking for classes ...
+[03:32:26] <uGoMobi> _|Nix|_: not for dynamically updated lists but still most list will be static and those don't need that class
+[03:32:38] <_|Nix|_> if ( create || item[ 0 ].className.search( /\bui-li-static\b|\bui-li-divider\b/ ) < 0 )
+[03:33:05] <_|Nix|_> So, we only process an item if those classes are not found.
+[03:33:23] <uGoMobi> a[ 0 ].className.search( /\bui-btn\b/ ) < 0
+[03:33:50] <_|Nix|_> Wait ... what?
+[03:33:54] <_|Nix|_> What about static items?
+[03:34:01] <uGoMobi> _|Nix|_: right, except in case of static list itemts
+[03:34:05] <uGoMobi> :D
+[03:34:17] <uGoMobi> you say it while I type it :)
+[03:35:00] <_|Nix|_> I see ... our check does not include already-enhanced links.
+[03:35:16] <uGoMobi> _|Nix|_: what do you mean?
+[03:35:59] <uGoMobi> it's checks if the anchor inside the LI is already anhanced as button
+[03:36:28] <_|Nix|_> uGoMobi: Oh, OK. I see it now.
+[03:36:41] <uGoMobi> _|Nix|_: static list items get class ui-li-static
+[03:36:46] <_|Nix|_> uGoMobi: So we have these checks. So, WTF is the OP talking about?
+[03:37:34] <uGoMobi> so we can check if that's already there, looks like we don't do that now
+[03:37:53] <_|Nix|_> uGoMobi: We can check if what's already there?
+[03:38:08] <_|Nix|_> uGoMobi: We check for pre-enhanced static, pre-enhanced divider, and pre-enhanced link.
+[03:38:14] <_|Nix|_> uGoMobi: What are we missing?
+[03:39:37] <uGoMobi> _|Nix|_: sorry, I see it now
+[03:40:07] <uGoMobi> _|Nix|_: I thought we didn't check if the LI already has class ui-li-static
+[03:40:29] <_|Nix|_> uGoMobi: I think we're doing everything necessary.
+[03:40:44] <_|Nix|_> uGoMobi: The only thing we could improve is not to call getAttr so soon.
+[03:41:06] <_|Nix|_> uGoMobi: I mean, we can calculate the value for isDivider later.
+[03:41:12] <uGoMobi> actually I think it was me who added those checks, but I forgot I did that
+[05:01:23] <_|Nix|_> uGoMobi: Egads! In autodividers we're using list.children( "li" ) ...
+[05:01:45] <_|Nix|_> uGoMobi: autodividers definitely needs improvement.
+[05:34:27] <arschmitz_> uGoMobi: _|Nix|_: unless im mistaken ul and ol only valid children are li so doing children( "li" ) is no different then children() because if there is anything besides an li in there the markup is invalid
+[05:39:03] <arschmitz_> uGoMobi: _|Nix|_: and doing just children(); is MUCH faster http://jsperf.com/list-children
+[05:41:19] <uGoMobi> arschmitz_: morning
+[05:41:28] <uGoMobi> arschmitz_: you are right
+[05:41:47] <uGoMobi> arschmitz_: we used to use .find( "li" )
+[05:42:03] <uGoMobi> https://github.com/jquery/jquery-mobile/commit/b4cb21762d91a5f14c0920f5ef3de8d27d846269
+[05:42:03] <b-ot> uGoMobi: Gabriel Schulhof (2mon 4d ago): Listview and extensions: Simplifying extensibility with the introduction of the private methods _beforeListviewRefresh and _afterListviewRefresh that surround the listview refresh and can be overridden from extensions.  Listview autodividers: Use .children() instead of .find() to avoid affecting nested lists. Performance improvement: http://jsperf.com/improve-autodividers
+[05:42:20] <uGoMobi> maybe that was because of nested lists?
+[05:42:50] <arschmitz_> children( "li" ) on a list never makes sense
+[05:43:01] <uGoMobi> yeah true
+[05:43:45] <arschmitz_> for a nested list it will still hold true because the nest ul is a child of an li not the original ul
+[05:44:48] <arschmitz_> _|Nix|_: im guess we used fine before because we wanted to find nested elements
+[05:44:54] <arschmitz_> for the nested listviews
+[05:45:03] <arschmitz_> but these are gone so children is good enough
+[05:45:03] <uGoMobi> arschmitz_: that's what I meant
+[05:45:53] <arschmitz_> and in the find li is needed
+[05:46:00] <arschmitz_> but not in children
+[05:46:03] <uGoMobi> yup
+[05:46:09] <_|Nix|_> arschmitz_: OK.
+[05:46:14] <_|Nix|_> I guess we can use .children().
+[05:46:31] <_|Nix|_> The problem is not so much listview itself as autodividers.
+[05:48:00] <arschmitz_> _|Nix|_: i think autodividers has to go through whole list
+[05:48:14] <arschmitz_> you may have changed text on an item and thats why your refreshing
+[05:50:29] <_|Nix|_> u
+[05:50:34] <_|Nix|_> arschmitz_: Sorry!
+[05:50:51] <_|Nix|_> arschmitz_: That's true, however, it uses this.element.children( selector ), which is slow.
+[05:51:45] <_|Nix|_> arschmitz_: I wanna change it so that listview retrieves the list of children, then passes it to _beforeListviewRefresh() which may modify the list of children, taking care of any DOM additions/removals, then does the refresh, then does the same thing with _afterListviewRefresh()
+[05:51:53] <_|Nix|_> arschmitz: That way, you only retrieve the children once.
+[05:52:07] <arschmitz> _|Nix|_: makes sense
+[05:52:13] <_|Nix|_> arschmitz: ... and you can perform jQuery filters and whatnot on the already-retrieved children.
+[05:52:45] <_|Nix|_> arschmitz: No listview extension should this.element.children( selector ).
+[05:52:59] <_|Nix|_> arschmitz: Especially not from an extension to refresh.
+[05:54:05] <_|Nix|_> arschmitz: I've already gotten it working mostly, except I just realized that the list of children has to be kept in DOM order as you add/remove children, so you can't simply append new children (read: autogenerated dividers) to the end of the list, but you must insert them with .splice()
+[05:54:39] <_|Nix|_> arschmitz: So, I'm working to update the for loop inside autodividers to accommodate that.
+[06:12:53] <jquicommit> 01[13jquery-ui01] 15tjvantoll pushed 1 new commit to 06datepicker: 02http://git.io/0cfWsQ
+[06:12:54] <jquicommit> 13jquery-ui/06datepicker 14b59d4de 15TJ VanToll: Datepicker: Only apply the ui-state-focus class name to one cell....
+[06:17:46] <_|Nix|_> Hmmm I keep getting this when running grunt:
+[06:17:47] <_|Nix|_> Running "copy:demos.processed" (copy) task
+[06:17:47] <_|Nix|_> Warning: Error while processing "demos/listview-collapsible-item-indented/test.php" file. Use --force to continue.
+[06:18:05] <_|Nix|_> Oh, wait ... NM .
+[06:18:08] <_|Nix|_> My fault.
+[06:32:25] <agcolom> _|Nix|_: arschmitz: what time are you landing on sunday?
+[06:33:23] <arschmitz> agcolom: 6am
+[06:33:54] <agcolom> arschmitz: oh that's early! I guess you're not gaing to wait until 4pm ;-) 
+[06:34:05] <arschmitz> agcolom: yeah probably not :)
+[06:36:09] <_|Nix|_> agcolom: Lemme check ...
+[06:36:51] <_|Nix|_> agcolom: 18:15
+[06:37:05] <agcolom> ah! That's a bit too late :-( 
+[06:37:19] <agcolom> I'm landing at 4pm
+[06:39:18] <agcolom> I might have to travel to the hotel on my own then... :-(
+[06:44:17] <Krikke> so there's no way to programmatically open the soft-keyboard on android/ios?
+[06:57:17] <scott_gonzalez> Has anyone done any text to speech in JS?
+[07:13:50] <arschmitz> scott_gonzalez: iv seen stuff done with the google service mostly
+[07:23:39] <jquicommit> 01[13jquery-ui01] 15arschmitz created 06button (+1 new commit): 02http://git.io/QxzW0A
+[07:23:39] <jquicommit> 13jquery-ui/06button 14ca782fa 15Alexander Schmitz: Button: first pass at css only buttons
+[08:01:54] <scott_gonzalez> arschmitz: Is there a legitimate service or just people hijacking their translation service?
+[08:02:32] <scott_gonzalez> I tried using their translation service (just watched the network traffic), but it's pretty inconsistent about what it accepts as input.
+[08:03:04] <arschmitz> yeah iv just seen people using the translation service
+[08:24:56] <gseguin> mornin'
+[08:34:55] <jqmobilecommit> [13jquery-mobile] 15hanthomas opened issue #6681: Inline button text gets truncated in Chrome for Android  02http://git.io/ZcPEmw
+[09:32:16] <jquicommit> [13jquery-ui] 15arschmitz opened pull request #1126: Button: first pass at css only buttons (06master...06button)  02http://git.io/CcPcVA
+[10:01:13] <jzaefferer> rxaviers: I don't see mailing lists mentioned anywhere on http://cldr.unicode.org/ - is there a public archive? 
+[10:01:23] <jzaefferer> I found this, but that's not the one you mentioned: http://www.unicode.org/mail-arch/unicode-ml/y2013-m10/index.html
+[10:01:40] <rxaviers> Mark Davis informed us (per Scott email) of that list
+[10:01:50] <rxaviers> Im not sure whether it's public though
+[10:01:56] <jzaefferer> also this is rather useless: http://www.unicode.org/~ecartis/cldr-users/
+[10:02:21] <rxaviers> Let me check on the emails if there is any bottom mentioning that
+[10:13:31] <jzaefferer> okay
+[10:13:43] <jzaefferer> maybe you can ask about a public html archive
+[10:13:58] <jzaefferer> I don't really want to join another list, but it would be useful to read about the discussions that you have
+[10:20:15] <jqmobilecommit> [13jquery-mobile] 15Palestinian opened issue #6682: Filterable Widget - Select menu  02http://git.io/r0BqvQ
+[13:35:39] <jquicommit> [13jquery-ui] 15seth2011 closed pull request #1111: Slider: Add check isNaN for valPercent on _refreshValue(). (06master...06feature)  02http://git.io/StVONg
+[13:36:25] <jquicommit> 01[13jquery-ui01] 15fnagel pushed 1 new commit to 06selectmenu: 02http://git.io/I9uMhw
+[13:36:25] <jquicommit> 13jquery-ui/06selectmenu 14a6c5f58 15Felix Nagel: Selectmenu: follow-up to close menu on other element mousedown not on click
+[13:52:39] <fnagel> jzaefferer: ping
+[13:52:50] <jzaefferer> fnagel: pong
+[13:53:01] <fnagel> hey, about that menu styling :-D
+[13:53:27] <fnagel> do you remember that fiddle with much more spacing for each list item?
+[13:54:26] <jzaefferer> no
+[13:54:41] <fnagel> http://jsfiddle.net/qeeSC/5/ 
+[13:54:59] <fnagel> an example for a wiki comment asking for more sepration between items
+[13:55:18] <fnagel> we talked about that so I thought I should do this for menu in general
+[13:55:36] <jzaefferer> right
+[13:55:38] <fnagel> misunderstanding par exelance
+[13:56:32] <jzaefferer> I still don't know what community feedback scott_gonzalez was referring to - this is quite different: http://view.jqueryui.com/menu-style/demos/menu/default.html
+[13:57:28] <fnagel> perhaps we should wait until then before doing more work
+[15:09:07] <scott_gonzalez> jzaefferer fnagel: I don't remember where people were complaining about the current styling, but I remember it coming up a few times.
+[15:09:17] <scott_gonzalez> And the current styling has always seemed bad to me.
+[16:59:21] <Changsuk> uGoMobi: Hi~
+[17:00:00] <Changsuk> uGoMobi: My team saw #6680 issue on jQM GH.
+[17:02:17] <Changsuk> uGoMobi: As you can know there is refresh problem on runtime. You can check it from the test URL(http://hyunsook.github.io/jqm-debug/latest/listview-option-icon.html)
+[17:06:25] <Changsuk> uGoMobi: If you go that URL and click "Change carat-r to gear" button, the icons on each item isn't changed but the icon option value is changed properly.
+[17:07:44] <Changsuk> uGoMobi: refresh() doesn't seem to work.
+[17:08:46] <Changsuk> uGoMobi: so my team modified some codes for listview to be refreshed properly.
+[17:12:04] <Changsuk> uGoMobi: and my team is preparing to do a PR with the modification.
+[17:12:23] <Changsuk> uGoMobi: But Hyunsook is wondering about whether my team's PR might be duplicated with #6680 issue or not.
+[17:13:02] <Changsuk> uGoMobi: when you get my message, pls let me and Hyunsook know~ TIA~
+[21:42:45] <Changsuk> _|Nix|_: Hi~
+[21:44:01] <Changsuk> _|Nix|_: I suddenly have a meeting today afternoon so I can't join our meeting today. so If you can, could we put off today meeting to next week?
+[21:44:27] <Changsuk> _|Nix|_: #web-ui-fw meeting.
+[21:44:46] <Changsuk> _|Nix|_: I'm really sorry.

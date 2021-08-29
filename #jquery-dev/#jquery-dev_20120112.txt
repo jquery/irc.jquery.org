@@ -1,0 +1,168 @@
+[06:08:51] <gibson042> .
+[06:18:15] <gibson042> DaveMethvin: regarding https://github.com/jquery/jquery/pull/622, is there a way to update this branch to fix against @mikesherov's changes while still maintaining a clean/readable/sane history, or should I just abandon it and start a new one?
+[06:18:16] <socialhapy> ★ Pull request on jquery by gibson042 (1m, 5d ago): Fix #10931: Allow unit tests to work without web access.
+[06:18:47] <DaveMethvin> I'd probably start a new one
+[06:32:09] <danheberden> gnarf do you have a sec to look at the bugs.jquery.com box today?
+[06:54:54] <gnarf> danheberden: last i remember looking at it, it was something trac related and i scratched my head, but sure :)
+[06:55:38] <danheberden> it is :/
+[06:55:51] <danheberden> the server itself is running great
+[08:32:48] <gnarf> danheberden: i really have no clue
+[08:33:05] <gnarf> danheberden: there is like nothing on that box :)
+[08:33:49] <gnarf> seems that trac is eating all the cpu it can most of the time
+[08:34:19] <danheberden> it's like "mysql? buddy? I WILL LOVE YOU FOREVER AND EVER AND HUG YOU AND HOLD YOU AND NEVER LET YOU GO"
+[08:40:23] <gnarf> danheberden: can you force a backup image of that machine?
+[08:40:44] <gnarf>  really wanna try http://trac.edgewall.org/wiki/TracNginxRecipe -- using tracd behind nginx instead of fastcgi
+[08:41:02] <gnarf> the trac performance thing says that running it as a CGI is like the worst thing you can do for perf
+[08:41:27] <danheberden> gnarf but that wouldn't really affect the thread locking on mysql, would it?
+[08:41:46] <gnarf> i can't look on mysql
+[08:41:50] <gnarf> but it might
+[08:41:59] <gnarf> considering if tracd is using a single connection
+[08:42:03] <gnarf> it might be smarter about locking
+[08:44:06] <gnarf> with the CGI version it might be spawning up a new "lock" for each connection
+[08:46:55] <danheberden> interesting
+[09:06:39] <gnarf> trying this
+[09:10:16] <gnarf> throw some shit at bugs.jquery.com
+[09:11:20] <gnarf> danheberden: DaveMethvin timmywil - hell anyone whos awake
+[09:11:24] <gnarf> STRESS TEST TRAC PLEASE
+[09:11:38] <gnarf> ajpiano:
+[09:11:42] <DaveMethvin> your wish is my command gnarf danheberden
+[09:12:00] <DaveMethvin> already seems to be feeling better
+[09:12:01] <danheberden> goin goin
+[09:12:04] <DaveMethvin> HIT IT HARDER
+[09:12:47] <gnarf> this seems WAY MORE responsive than the fastcgi config
+[09:14:37] <DaveMethvin> yep, agreed
+[09:14:51] <DaveMethvin> if it's not fast, why do they call it fastcgi?
+[09:15:00] <gnarf> its still cgi
+[09:15:03] <gnarf> its faster than cgi
+[09:15:23] <gnarf> so this seems like the setup we want to use
+[09:15:29] <gnarf> lemme convert bugs.jqueryui.com over too
+[09:15:36] <DaveMethvin> yay!
+[09:15:37] <gnarf> and we can run on it for a day or two for testing
+[09:15:47] <danheberden> gnarf this definitely is helping
+[09:15:53] <danheberden> i think you were/are def onthe right trac
+[09:15:56] <DaveMethvin> thanks guys!
+[09:16:24] <danheberden> gnarf i'm convinced anything on apache is a huge pile of shit that should be burned and throwon away
+[09:16:38] <gnarf> it ws using nginx already
+[09:16:44] <danheberden> wat
+[09:16:58] <danheberden> what did you change?
+[09:17:08] <gnarf> i switched to using tracd instead of trac.fastcgi
+[09:17:35] <danheberden> wow
+[09:18:11] <gnarf> anyone remember the command for making an init.d script get added to the correct rc.d folders?
+[09:18:53] <danheberden> `update-rc.d command` ?
+[09:23:34] <gnarf> yup
+[09:24:35] <gnarf> okay, bugs.jqueryui.com is now running that too
+[09:25:59] <gnarf> we'll see if MySQL ever goes away
+[09:26:08] <gnarf> but this is like 10* speedier in my eyes
+[09:26:16] <danzik17> gnarf: it's actually not....painful....to run the reports now.  awesome.
+[09:26:47] <gnarf> yay google
+[09:27:03] <gnarf> ?g trac performance
+[09:27:04] <bot-t1> gnarf, TracPerformance � The Trac Project - http://trac.edgewall.org/wiki/TracPerformance
+[09:27:09] <gnarf> thats where this all started ;)
+[09:27:33] <gnarf> "The most obvious wrong thing to do here is installing Trac as a CGI script. Even for testing, there are better alternatives (tracd)."
+[09:30:43] <danheberden> i'm surprised it got installed that way
+[09:33:29] <gnarf> so just to make sure
+[09:33:40] <gnarf> i'd like to reboot that server to make sure everything starts up kosher
+[09:33:44] <gnarf> danheberden: agreed?
+[09:33:58] <danheberden> gnarf, make sure ssh is in rc.d
+[09:34:04] <danheberden> last time, it didn't reboot
+[09:34:07] <danheberden> *start
+[09:34:23] <danheberden> and i had to have (mt) start it
+[09:34:27] <danheberden> which took like 3 days
+[09:34:50] <gnarf> done
+[09:34:52] <gnarf> and it wasnt
+[09:34:53] <gnarf> :)
+[09:35:14] <gnarf> rebootin
+[09:35:56] <danheberden> yay for foresight!
+[09:36:55] <gnarf> im not sure wtf is "sleep 60" in the init script
+[09:37:01] <gnarf> but something is stalling for no good reason
+[09:37:21] <danheberden> their boxes take a bit to get toing
+[09:37:22] <danheberden> *going
+[09:46:33] <gnarf> danheberden: im not sure why that didn't start on startup
+[09:46:39] <gnarf> its totally in the rc.d
+[09:46:44] <gnarf> but *shrug*
+[09:46:59] <gnarf>  /etc/init.d/trac-bugs.jquery.com start
+[09:47:03] <gnarf>  /etc/init.d/trac-bugs.jqueryui.com start
+[09:47:05] <gnarf> worked
+[09:49:47] <gnarf> danheberden: if you peek in those init scripts, you'll see 3 instances of each, and then in the "upstream" & "proxy_pass" of the /etc/nginx/sites-enabled files
+[09:53:09] <gnarf> & I <3 this song: spotify:track:1WNCYgYy0xiDDBjjXr0ufn
+[09:53:10] <socialhapy> ★ Deadmau5 - Moar Ghosts 'n' Stuff (Popularity: ▮▮▮▮▮▮▯▯▯▯, N/A in SE) ★ http://spoti.fi/zCxMBw
+[09:57:51] <danheberden> gnarf and it's still not starting on boot?
+[09:58:02] <gnarf> danheberden: *shrug* not sure why
+[09:58:20] <gnarf> danheberden: also, i put the old nginx configs in /etc/nginx/sites-backup
+[09:58:31] <gnarf> in case we need to roll back for some ungodly reason
+[09:58:33] <danheberden> gnarf thanks :)
+[09:59:00] <gnarf> so like, we finally have snow... see ?weather
+[09:59:02] <bot-t> gnarf, Rockford, IL - Weather: Light snow, -6�C / 22�F
+[09:59:14] <gnarf> getting like 5" tonight i hear
+[09:59:25] <danheberden> we've had an awful winter for it
+[09:59:47] <gnarf> i kinda wanna call up my friend and see if there is a snowboarding excursion planned
+[10:01:26] <kborchers> gnarf: where u guys go? alpine? devil's head? elsewhere?
+[10:01:35] <gnarf> either/both
+[10:01:36] <gnarf> ;)
+[10:01:39] <gnarf> usually alpine
+[10:01:54] <gnarf> I'm horrible
+[10:01:58] <kborchers> me too :)
+[10:02:00] <gnarf> i can still barely stand on the damn thing
+[10:02:08] <gnarf> but i'm determined to get good at it
+[10:02:16] <kborchers> i've still only done skiis
+[10:02:24] <kborchers> want to snowboard this year hopefully
+[10:02:28] <gnarf> i like the board more
+[10:02:31] <gnarf> than ski
+[10:02:37] <kborchers> i think i would too
+[11:48:19] <tbranyen> hey mr jrburke can i bug ya in pm?
+[11:48:29] <jrburke> sure tbranyen
+[13:40:04] <DaveMethvin> kswedberg: great article on HTML5 video!  Is it possible the embedded YouTube issues were due to the video acceleration being on?
+[13:40:36] <kswedberg> Hey DaveMethvin, thanks!
+[13:42:06] <kswedberg> I don't think so about the hardware acceleration, because just removing the ?wmode=transparent made the video show up.
+[13:42:26] <kswedberg> ( thx fo the retweet, too. :-) )
+[13:42:31] <DaveMethvin> sure
+[13:42:34] <DaveMethvin> really good info
+[13:45:25] <kswedberg> there's one other thing I forgot to mention in the article … the H5BP .htaccess uses a newer Filter… COMPRESS directive that breaks video for me in Chrome
+[13:45:31] <kswedberg> DaveMethvin: ^^
+[13:45:52] <DaveMethvin> oh good info
+[13:46:05] <kswedberg> so I just use the DEFLATE for "Legacy versions of Apache"
+[13:51:12] <DaveMethvin> oh kswedberg, if you have IE9 and set it to IE8 mode, then close developer tools, it should stay in IE8 mode ... at least it seemed to do it for me
+[13:51:31] <kswedberg> oh, awesome. did not know that!
+[13:51:41] <DaveMethvin> that has bitten me before
+[13:51:49] <DaveMethvin> i thought it would go away when i closed tools
+[13:52:00] <kswedberg> heh. but in this case it's a feature!
+[13:52:06] <DaveMethvin> good old ie
+[13:53:28] <kswedberg> DaveMethvin: so does it even stay in compat mode after a page refresh?
+[13:53:40] <DaveMethvin> seemed to for me
+[13:53:44] <kswedberg> wow
+[13:53:51] <DaveMethvin> didn't go away until i exited and opened it again
+[13:55:03] <DaveMethvin> i have a test page: http://methvin.com/detect/compat.php
+[13:55:19] <DaveMethvin> kswedberg: you can go there ^ and try it
+[13:55:31] <kswedberg> cool. thx, DaveMethvin!
+[13:55:38] <DaveMethvin> even after you reload it says documentMode=8
+[13:57:10] <kswedberg> these are the kinds of things that are never built into estimates. :/ and clients seldom acknowledge the shit ton of work that goes into troubleshooting all this stuff.
+[13:58:15] <DaveMethvin> well now you are an expert so you can charge double! :P
+[13:58:20] <kswedberg> hehe
+[15:49:06] <eddiemonge> danheberden: you there?
+[15:50:23] <eddiemonge> how can i troubleshoot: Starting httpd: (98)Address already in use: make_sock: could not bind to address 0.0.0.0:80
+[15:50:23] <eddiemonge> no listening sockets available, shutting down
+[15:50:24] <eddiemonge> Unable to open logs
+[15:52:12] <eddiemonge> nevermind, got it
+[15:59:36] <mikesherov_> that's better
+[16:00:03] <eddiemonge> yeah it is
+[16:05:59] <mikesherov> that's actually better
+[16:06:49] <mikesherov> that's right, mikesherov_, it's your time to leave
+[16:15:51] <mikesherov> http://lwn.net/Articles/317154/ awesome article on "git bisect run"
+[16:16:08] <mikesherov> I'm using it to find out when each support test got into jQuery
+[16:58:05] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/pWGyPA
+[16:58:05] <jqcommit> [jquery/master] Fix #10006: Allow .show() to work on detached elements. - Oleg
+[17:05:28] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/56uMZQ
+[17:05:28] <jqcommit> [jquery/master] Fix #10931: Make unit tests work without web access. - Richard Gibson
+[17:18:35] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/F_oSBQ
+[17:18:35] <jqcommit> [jquery/master] Fix #10978: Let jQuery.param() accept non-native constructed objects. - Rick Waldron
+[17:37:06] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/yVWlxQ
+[17:37:06] <jqcommit> [jquery/master] Fix #11130: Don't neglect the data arg when event-map is passed. - Rick Waldron
+[18:28:54] <scott_gonzalez> Am I going crazy or is event.which not part of the DOM Events standard for MouseEvent? Is this really just some crazy legacy proprietary thing that has stuck around forever?
+[18:54:28] <gnarf> which is a jQuery thing i thought
+[18:55:20] <gnarf> scott_gonzalez: #whatwg ? :)
+[18:55:38] <scott_gonzalez> Oh, really? It's specific to jQuery?
+[18:55:45] <scott_gonzalez> That makes sense.
+[18:56:19] <scott_gonzalez> We just decided to hijack a KeyEvent prop? :-P
+[18:59:27] <scott_gonzalez> MS is using which for pointer events :-)
+[19:01:13] <scott_gonzalez> gnarf: It's not us, it's native
+[19:01:54] <scott_gonzalez> document.body.addEventListener( "mousedown", function( event ) { console.log( event.which ); }, false );

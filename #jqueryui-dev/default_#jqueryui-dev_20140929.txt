@@ -1,0 +1,105 @@
+[00:07:38] <doesallmagic2> Project jQuery UI - 1.8.x core build #612: STILL UNSTABLE in 11 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.8.x%20core/612/
+[03:54:21] <fnagel> Anyone aware of DNS issues regarding jqueryui.com? Some guy sent me an email regarding issues with resolving jqueryui.com to 64.207.181.142
+[04:06:54] <jquicommit> [13globalize] 15rxaviers labeled issue #319: Test Coverage: How to improve? 02http://git.io/_JtdwA
+[04:08:35] <jquicommit> [13globalize] 15rxaviers closed issue #315: Simplify node+npm example by using cldr-data module 02http://git.io/EMnC9A
+[04:11:27] <jquicommit> [13globalize] 15rxaviers closed issue #291: Docs: Alternative "Running the demo" for "Hello World (AMD + bower)" 02http://git.io/rET8qA
+[04:15:38] <jquicommit> [13globalize] 15rxaviers opened issue #320: Support for non-gregorian calendars 02http://git.io/nEV5ig
+[04:19:25] <arschmitz> fnagel: we are aware we have been under constant DDOS attacks for over a week and had to move the DNS last night i think its still propagating
+[05:10:57] <fnagel> Ahh ok, thanks for the info!
+[05:13:49] <jqmobilecommit> [13jquery-mobile] 15panda672 opened issue #7726: Fullscreen pages stop responding in iOS 8 after locking device 02http://git.io/YyTI_w
+[05:21:02] <jqmobilecommit> [13jquery-mobile] 15jaspermdegroot closed issue #7726: Fullscreen pages stop responding in iOS 8 after locking device 02http://git.io/YyTI_w
+[06:08:47] <gabriel_schulhof> arschmitz: Ping!
+[06:08:55] <arschmitz> gabriel_schulhof: Pong!
+[06:09:13] <gabriel_schulhof> arschmitz: A bit of a problem. When loading a page via Ajax, it seems the scripts in the head are being executed.
+[06:09:28] <gabriel_schulhof> I don't get why.
+[06:09:36] <gabriel_schulhof> I'm looking at https://github.com/jquery/jquery-mobile/issues/7725
+[06:10:07] <gabriel_schulhof> arschmitz: Go to http://babulina.go-nix.ca:8080/nix/jqm/7725/page1.html
+[06:10:12] <gabriel_schulhof> Click on page 2.
+[06:10:34] <gabriel_schulhof> In the console you'll find that it triggers mobileinit twice, and it runs initializePage twice.
+[06:11:41] <gabriel_schulhof> This is on master.
+[06:12:53] <gabriel_schulhof> arschmitz: FF displays a warning in the console: "Synchronous XMLHttpRequest on the main thread is deprecated because of its detrimental effects to the end user's experience. For more help http://xhr.spec.whatwg.org/"
+[06:13:09] <gabriel_schulhof> I don't believe we do sync XHR ...
+[06:22:07] <gabriel_schulhof> arschmitz: OK. I think that cuts right to the heart of the issue.
+[06:22:25] <gabriel_schulhof> It's the tabs. $.ajax gets called from the tabs widget.
+[06:26:08] <gabriel_schulhof> We need to update the base tag before enhancing the page.
+[06:26:24] <gabriel_schulhof> We've had an issue like this before.
+[06:29:44] <gabriel_schulhof> Found it. https://github.com/jquery/jquery-mobile/issues/7169
+[06:36:30] <gabriel_schulhof> arschmitz: OK, now I remember the whole shebang. The tabs widget checks location.hash and compares it to the link's href to determine whether it's a local link.
+[06:36:47] <gabriel_schulhof> For us this is bad, because we enhance the page before updating the href.
+[06:37:02] <gabriel_schulhof> ... and it would totally fail when there's no pushState.
+[06:37:13] <gabriel_schulhof> So, for mobile, we need to extend tabs.
+[06:37:45] <gabriel_schulhof> ... because we need to override _isLocal() - which, in ui-1-12 we can, because it contains a recent version of tabs, wherein _isLocal() is an extension point.
+[06:38:21] <gabriel_schulhof> arschmitz: Bottom line: We can't use the tabs widget as-is, because it's totally useless on Ajax-ed-in pages.
+[06:38:51] <arschmitz> gabriel_schulhof:  this is not new
+[06:38:58] <arschmitz> we have known this since febuary
+[06:39:07] <gabriel_schulhof> arschmitz: Right, but I've just re-discovered it :)
+[06:39:11] <arschmitz> ok
+[06:39:35] <gabriel_schulhof> arschmitz: The difference from February is that 1.5.0 is imminent, and https://github.com/jquery/jquery-mobile/issues/7169 is milestoned as 1.5.0.
+[06:39:39] <arschmitz> we couldnt do it until 1.5 because we were on an outdated tabs widget
+[06:39:46] <gabriel_schulhof> Yep.
+[06:39:57] <arschmitz> ok so what are you asking ?
+[06:40:02] <gabriel_schulhof> ... and now it looks like we need to ship an extension to the tabs widget to make it work with mobile.
+[06:40:13] <gabriel_schulhof> Shall I write an extension to the tabs widget?
+[06:40:29] <arschmitz> right we have known this for a long time we just had not made it to that point yet
+[06:40:33] <arschmitz> sure if you want
+[06:41:01] <gabriel_schulhof> Then how do we show things in download builder?
+[06:41:23] <gabriel_schulhof> Do we show the unaltered tabs widget + our extension that makes it work, or do we only show our extension?
+[06:41:55] <gabriel_schulhof> ... and we include the tabs widget via the 1.4.5 mechanism, which is a very small file js/widgets/tabs.js containing the extension.
+[06:42:29] <gabriel_schulhof> In ui-1-12, the tabs widget is included cleanly, straight from external/jquery-ui.
+[06:43:19] <gabriel_schulhof> I'm inclined to advertise the extension separately, and document that in the API docs.
+[07:53:42] <ldeluca> hi
+[07:53:59] <ldeluca> do i need to have my jquery fork "inside" my jquery-mobile directory?
+[07:54:24] <ldeluca> just getting started setting up my environment to explore jquery-mobile
+[07:54:27] <ldeluca> Error: Cannot find module 'jquery'
+[07:54:40] <ldeluca> when i run grunt
+[08:00:13] <ldeluca> nevermind, ran npm install and it must've grabbed it
+[08:12:19] <scott_gonzalez> ldeluca: Yeah, that's an node dependency managed via npm. You definitely should not have a fork of jquery inside your fork of jquery-mobile :-)
+[08:12:53] <ldeluca> it was a sibling but it wasn't finding it
+[08:12:58] <ldeluca> wasn't sure if there was some config step I missed
+[08:13:06] <ldeluca> but running npm install seems to fix the build error
+[08:16:31] <scott_gonzalez> Yeah, the jquery it was looking for is in jquery-mobile/node_modules/jquery
+[08:16:42] <scott_gonzalez> Which is installed by npm.
+[08:17:32] <ldeluca> thanks @scott_gonzalez
+[08:18:18] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof created 067169-extend-tabs-widget_isLocal (+3 new commits): 02http://git.io/6vBPcQ
+[08:18:18] <jqmobilecommit> 13jquery-mobile/067169-extend-tabs-widget_isLocal 14e4d7db6 15Gabriel Schulhof: Tabs: Override _isLocal() to account for Ajax nav...
+[08:18:18] <jqmobilecommit> 13jquery-mobile/067169-extend-tabs-widget_isLocal 146bfc716 15Gabriel Schulhof: Tabs: Use base tag for comparison
+[08:18:18] <jqmobilecommit> 13jquery-mobile/067169-extend-tabs-widget_isLocal 142157307 15Gabriel Schulhof: Tabs: Test _isLocal() override
+[08:21:34] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof opened pull request #7727: Tabs: Override _isLocal() to account for Ajax nav (06ui-1-12...067169-extend-tabs-widget_isLocal) 02http://git.io/fWu-cA
+[08:24:52] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof opened issue #336: Tabs: Document that extension is necessary for proper nav integration 02http://git.io/Q1bPFA
+[08:25:07] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof labeled issue #336: Tabs: Document that extension is necessary for proper nav integration 02http://git.io/Q1bPFA
+[08:25:17] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof unlabeled issue #336: Tabs: Document that extension is necessary for proper nav integration 02http://git.io/Q1bPFA
+[11:16:57] <scott_gonzalez> fnagel: When you rebase, start a new PR.
+[11:17:04] <scott_gonzalez> So we have a clean history for commenting on.
+[11:39:29] <jquicommit> [13jquery-ui] 15scottgonzalez pushed 1 new commit to 06master: 02http://git.io/Ie04SA
+[11:39:29] <jquicommit> 13jquery-ui/06master 14e3e5a9f 15Simen Bekkhus: Menu: Filter out non-items when typing...
+[11:42:29] <fnagel> scott_gonzalez: Ok, I will do that
+[11:42:34] <scott_gonzalez> thanks
+[11:44:34] <doesallmagic2> Yippee, build fixed!
+[11:44:35] <doesallmagic2> Project jQuery UI build #1462: FIXED in 5 min 20 sec: http://jenkins.jquery.com/job/jQuery%20UI/1462/
+[11:44:35] <doesallmagic2> Scott González: Menu: Filter out non-items when typing
+[12:37:44] <jqmobilecommit> [13jquery-mobile] 15jeremyhill-up closed issue #7106: When cordova.js is included in multiple HTML pages, jQuery Mobile 1.4 throws an error from cordova ("cordova.js included multiple times") if the second external page has the Tabs widget in it 02http://git.io/OXs_uQ
+[13:31:37] <jquicommit> [13jquery-ui] 15fnagel opened pull request #1351: Calendar rebase (2) (06master...06calendar-value-pr2) 02http://git.io/9ONrgA
+[13:31:55] <jquicommit> [13jquery-ui] 15fnagel closed pull request #1351: Calendar rebase (2) (06master...06calendar-value-pr2) 02http://git.io/9ONrgA
+[13:32:57] <jquicommit> [13jquery-ui] 15fnagel opened pull request #1352: Calendar rebase (2) (06datepicker...06calendar-value-pr2) 02http://git.io/yMXiUA
+[13:58:21] <jquicommit> [13globalize] 15rxaviers created 06fix-265-message-format (+1 new commit): 02http://git.io/CpDoNQ
+[13:58:21] <jquicommit> 13globalize/06fix-265-message-format 14f91cb09 15Rafael Xavier de Souza: Message: Support ICU MessageFormat using slexaxton/messageformat.js
+[14:01:06] <jquicommit> [13globalize] 15rxaviers opened pull request #321: Message: Support ICU MessageFormat using slexaxton/messageformat.js (06master...06fix-265-message-format) 02http://git.io/XVGjew
+[14:29:46] <ldeluca> anyone have a "device wall" to test issues on specific versions of android webview?
+[15:23:24] <scott_gonzalez> ldeluca: You probably want to talk to arschmitz.
+[15:26:11] <jquicommit> [13globalize] 15rxaviers pushed 1 new commit to 06fix-265-message-format: 02http://git.io/TiCJgA
+[15:26:11] <jquicommit> 13globalize/06fix-265-message-format 14ea48246 15Rafael Xavier de Souza: Message: Support ICU MessageFormat using slexaxton/messageformat.js...
+[16:15:45] <jquicommit> [13globalize] 15rxaviers pushed 1 new commit to 06fix-265-message-format: 02http://git.io/XFh0Kg
+[16:15:45] <jquicommit> 13globalize/06fix-265-message-format 1479c8a43 15Rafael Xavier de Souza: Message: Support ICU MessageFormat using slexaxton/messageformat.js...
+[17:45:10] <jqmobilecommit> [13jquery-mobile] 15chsivakumar opened issue #7728: Jquery Mobile not working in ios8 02http://git.io/QWC0Uw
+[18:57:14] <jqmobilecommit> [13jquery-mobile] 15arschmitz closed issue #7728: Jquery Mobile not working in ios8 02http://git.io/QWC0Uw
+[21:45:49] <jquicommit> [13globalize] 15raphamorim opened issue #322: Support format currency 02http://git.io/LeJ9sw
+[22:20:07] <jquicommit> [13globalize] 15800matbo opened issue #323: parseDate: incorrect result when parsing last day of month 02http://git.io/4EbJcA
+[22:42:50] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof created 06336-tabs-extension (+1 new commit): 02http://git.io/EbaXwA
+[22:42:51] <jqcommit> 13api.jquerymobile.com/06336-tabs-extension 14415f391 15Gabriel Schulhof: Tabs: Document extension...
+[23:18:59] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof 04force-pushed 06336-tabs-extension from 14415f391 to 149c885b8: 02http://git.io/U2vFoQ
+[23:19:00] <jqcommit> 13api.jquerymobile.com/06336-tabs-extension 142fdb1b2 15Scott González: Build: Upgrade to grunt-jquery-content 0.12.0...
+[23:19:00] <jqcommit> 13api.jquerymobile.com/06336-tabs-extension 14aafe0ac 15Scott González: Build: Upgrade to grunt-wordpress 1.1.0 and grunt-jquery-content 0.12.1...
+[23:19:01] <jqcommit> 13api.jquerymobile.com/06336-tabs-extension 149c885b8 15Gabriel Schulhof: Tabs: Document extension...
+[23:19:49] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof fast-forwarded 061-5 from 14b59d1ff to 14aafe0ac: 02http://git.io/vj8BCw
+[23:20:09] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof opened pull request #337: Tabs: Document extension (061-5...06336-tabs-extension) 02http://git.io/wh10iA
+[23:20:36] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof unlabeled issue #336: Tabs: Document that extension is necessary for proper nav integration 02http://git.io/Q1bPFA

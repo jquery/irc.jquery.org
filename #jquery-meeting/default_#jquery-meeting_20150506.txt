@@ -1,0 +1,386 @@
+[09:00:01] <scott_gonzalez> `uiteam
+[09:00:20] <scott_gonzalez> :-/
+[09:00:22] <scott_gonzalez> `uiteam
+[09:00:40] <fnagel> :-D
+[09:00:47] <scott_gonzalez> I think b-ot is busted.
+[09:01:33] <scott_gonzalez> fnagel jzaefferer mikesherov rxaviers
+[09:01:40] <scott_gonzalez> arschmitz
+[09:01:48] * rxaviers on stansby
+[09:01:49] <arschmitz> Hi
+[09:01:54] <rxaviers> standby*
+[09:01:58] <arschmitz> yeah didn't work for chassis yesterday either
+[09:02:14] <scott_gonzalez> So, button...
+[09:02:24] <jzaefferer> b-ot hates you all
+[09:02:58] <rxaviers> :P
+[09:02:59] <scott_gonzalez> Oh, you're here.
+[09:03:02] <scott_gonzalez> How long do you have?
+[09:03:25] <arschmitz> yeah i would say the reset is more important to discuss with jzaefferer at this point if we have time
+[09:03:32] <jzaefferer> let's do it!
+[09:03:41] <scott_gonzalez> Ok, so form reset handling.
+[09:04:00] <scott_gonzalez> The existing button widget has logic to listen to form resets and refresh the associated buttons automatically.
+[09:04:09] <scott_gonzalez> The new checkboxradio widget will have this logic as well.
+[09:04:17] <scott_gonzalez> We *should* have this logic in selectmenu, but we don't currently.
+[09:04:27] <scott_gonzalez> I filed a ticket for that the other day.
+[09:04:32] <arschmitz> scott_gonzalez: also the logic in button is not really correct
+[09:04:34] <scott_gonzalez> And arschmitz and I discussed some implementation.
+[09:04:51] <scott_gonzalez> So that we can abstract out the logic and keep this DRY.
+[09:05:00] <jzaefferer> and button won't need it anymore, right?
+[09:05:00] <scott_gonzalez> But that raises the question of how this would be implemented.
+[09:05:09] <arschmitz> jzaefferer: correct
+[09:05:12] <scott_gonzalez> Correct. Because buttons can't be reset.
+[09:05:28] <arschmitz> spinner does not need to reset anything either
+[09:05:32] <scott_gonzalez> It's in the current implementation because it handles checkboxes and radios.
+[09:05:37] <arschmitz> but textinputs will when we have them
+[09:05:52] <scott_gonzalez> So, there are three options.
+[09:05:56] <jzaefferer> is there more than "bind refresh() to reset event on _create, unbind on destroy()"?
+[09:06:12] <scott_gonzalez> 1) A mixin that use like $.widget( "my.widget", $.extend( myProto, myMixin ) );
+[09:06:24] <arschmitz> jzaefferer: well there is a bunch of logic around doing that right like we worked on in checkboxradio
+[09:06:25] <scott_gonzalez> 2) Utility methods that the widget uses.
+[09:06:37] <scott_gonzalez> 3) An actual widget.
+[09:07:00] <scott_gonzalez> I don't like the idea of #3 because it relies on inheritance.
+[09:07:08] <jzaefferer> arschmitz: wasn't that logic all about only binding one event per form per widget (not instance)? seems like that would still just hook into create and destroy
+[09:07:09] <scott_gonzalez> Which means a single chain.
+[09:07:39] <arschmitz> scott_gonzalez: i agree in mobile we did option 1
+[09:07:40] <scott_gonzalez> There are optimizations like never having to query for the widgets.
+[09:07:45] <arschmitz> https://github.com/jquery/jquery-mobile/blob/master/js/widgets/forms/reset.js
+[09:07:55] <arschmitz> thats not really the correct handling of reset
+[09:08:07] <arschmitz> but the idea is the same as far as how to add it to the widget
+[09:08:24] <jzaefferer> I've looked at that file, but without context of what $.mobile.behaviors is doing it doesn't tell me anything
+[09:08:45] <scott_gonzalez> It's just a group of methods that get mixed into the prototype.
+[09:08:57] <scott_gonzalez> So you still need to call the correct methods to initialize it.
+[09:09:04] <arschmitz> yup
+[09:09:10] <scott_gonzalez> As opposed to an extension that could handle that for you.
+[09:09:17] <arschmitz> right
+[09:09:30] <arschmitz> sorry thats 2 not 1
+[09:09:37] <scott_gonzalez> I suppose creating an extension is a fourth option.
+[09:09:48] <jzaefferer> I still don't know what the extension would look like
+[09:10:12] <arschmitz> it would have create and destory mehtods
+[09:10:21] <arschmitz> that set it up and called this._super()
+[09:10:27] <arschmitz> scott_gonzalez: right?
+[09:10:47] <scott_gonzalez> yes
+[09:11:03] <arschmitz> aside from that its the same as just adding methods like the mobile one
+[09:11:22] <scott_gonzalez> So here's an implementation directly inside selectmenu: https://gist.github.com/scottgonzalez/0d19d76dcb008eefec4a
+[09:12:36] <scott_gonzalez> So a mixin would provide something like _bindFormResetHandler() and _refreshFormTracking()
+[09:12:55] <scott_gonzalez> And the widget would need to call _bindFormResetHandler() from inside _create() and would need to call _refreshFormTracking() from inside refresh()
+[09:13:25] <scott_gonzalez> Or if they were just utilities, they'd work in a similar way, but they wouldn't be mixed into the prototype.
+[09:13:36] <scott_gonzalez> So they'd need to be passed the instance.
+[09:14:04] <arschmitz> i like the idea of either a mixin or an extension personally
+[09:15:07] <scott_gonzalez> Would it help if I put together implementations of each?
+[09:16:08] <jzaefferer> I don't get the blog inside refresh()
+[09:16:36] <jzaefferer> shouldn't that be in destroy() and unbind reset somewhere?
+[09:16:48] <jzaefferer> s/blog/blob
+[09:17:11] <scott_gonzalez> Oh, sorry, I was confused by the diff.
+[09:17:20] <scott_gonzalez> That's actually inside destroy()
+[09:17:20] <arschmitz> it is isnt it
+[09:17:24] <arschmitz> yeah
+[09:17:37] <scott_gonzalez> It's been a few days since I looked at this.
+[09:17:50] <arschmitz> the diff is deceiving too
+[09:17:55] <jzaefferer> still no off() in there
+[09:18:02] <scott_gonzalez> When I glanced at it again, I thought it was tracking if the input was moved to a different form.
+[09:18:12] <jzaefferer> I suppose that should go along with the removeData call?
+[09:18:18] <arschmitz> scott_gonzalez: yeah we talked about that but decided to ignore
+[09:18:29] <scott_gonzalez> Oh, yeah, that should be in the else condition.
+[09:18:48] <arschmitz> yeah it should check if any instances are left
+[09:18:54] <arschmitz> and call off if there are none
+[09:18:59] <scott_gonzalez> jzaefferer: Do you want me to make multiple implementations so you can see the difference?
+[09:19:02] <jzaefferer> So I like the idea of having a form-reset component that can be included if form resets matter, and won't be there otherwise
+[09:19:14] <scott_gonzalez> Yeah, it already does the length check.
+[09:19:18] <scott_gonzalez> Just missing the call to .off().
+[09:19:25] <jzaefferer> since AMD doesn't have a concept of optional dependencies, we need to somehow revert that
+[09:19:42] <scott_gonzalez> What do you mean?
+[09:19:47] <scott_gonzalez> The widget either requires this or it doesn't.
+[09:19:50] <scott_gonzalez> It's never optional.
+[09:19:58] <arschmitz> yeah selectmenu should ALWAYS have reset built in
+[09:20:08] <jzaefferer> why?
+[09:20:25] <scott_gonzalez> Because otherwise the widget is wrong after a form reset.
+[09:20:51] <scott_gonzalez> Same reason we have the logic for checkboxes and radios.
+[09:21:21] <arschmitz> the only reason we dont need to worry in like spinner is nothing we care about changes on reset
+[09:21:58] <jzaefferer> I assumed the motivation here was to make the reset handling optional, since its more of an edge case
+[09:22:13] <arschmitz> jzaefferer: i would not consider form reset an edge case?
+[09:22:19] <jzaefferer> is form reset still that common?
+[09:22:35] <arschmitz> im some usages yes
+[09:22:40] <scott_gonzalez> The motivation was avoiding duplication.
+[09:22:44] <arschmitz> like product filters
+[09:22:54] <arschmitz> but like scott_gonzalez that was the real motivation
+[09:23:40] <jzaefferer> okay, so let's prototype the two options that we prefer and see which one is better
+[09:23:45] <scott_gonzalez> ok
+[09:24:10] <scott_gonzalez> So, back to button.
+[09:24:19] <scott_gonzalez> It's ready for review, correct?
+[09:24:23] <arschmitz> Yes
+[09:24:39] <scott_gonzalez> Ok, I've got it on my todo list.
+[09:24:49] <arschmitz> jzaefferer:  and i went over everything execpt the chances i made in last few days after landing the labels and form and classes prs
+[09:24:54] <scott_gonzalez> Nothing that needs to be discussed, correct?
+[09:25:20] <arschmitz> i have one question i want to talk to you about but i dont think it needs big discussion right now
+[09:25:30] <scott_gonzalez> ok
+[09:25:54] <scott_gonzalez> I removed the link to the 1.9 git build on the CDN.
+[09:25:57] <scott_gonzalez> The file is still there.
+[09:26:05] <scott_gonzalez> I tried to check usage, but it didn't even show up in the list.
+[09:26:13] <scott_gonzalez> So I'm guessing it's not used :-P
+[09:26:52] <arschmitz> lol
+[09:27:36] <scott_gonzalez> I guess while we're talking about form stuff, we can jump ahead a bit.
+[09:27:48] <scott_gonzalez> .form(), .labels(), and $.ui.escapeSelector() all landed in master.
+[09:27:54] <scott_gonzalez> Only .labels() is public API.
+[09:28:12] <scott_gonzalez> So that's the only thing that gets documented in the changelog, upgrade guide, and API docs.
+[09:28:33] <scott_gonzalez> So that brings us to draggable/mouse focus handling.
+[09:28:34] <scott_gonzalez> http://bugs.jqueryui.com/ticket/12472
+[09:28:47] <scott_gonzalez> This bug came in and I thought it was a duplicate.
+[09:28:57] <scott_gonzalez> Turned out the fix for the previous bug was incomplete.
+[09:29:04] <scott_gonzalez> So I fixed that: https://github.com/jquery/jquery-ui/pull/1548
+[09:29:16] <scott_gonzalez> But the problem comes from mouse, so fixing it inside draggable isn't really that great.
+[09:29:23] <scott_gonzalez> There are details in the PR.
+[09:29:32] <scott_gonzalez> I'll give everyone a minute or two to read that.
+[09:31:41] <arschmitz> hmm thats tangled
+[09:32:54] <scott_gonzalez> I think we can just move all the fix logic into mouse.
+[09:33:10] <arschmitz> that seems like the right thing to do for sure
+[09:33:15] <scott_gonzalez> We know when we're causing the problem, so we know when to fix it.
+[09:33:37] <scott_gonzalez> So I think the real question is which cases do we want to write tests for?
+[09:34:23] <scott_gonzalez> We can also just decide to fix it in draggable for now.
+[09:34:33] <scott_gonzalez> And then fix it properly in the interaction rewrite.
+[09:34:52] <scott_gonzalez> Since it seems like nobody has ever filed the bug against a different interaction.
+[09:35:02] <arschmitz> as far as that i guess its a matter of how long each will take vs how big a problem this is
+[09:35:04] <scott_gonzalez> I guess the http://bugs.jqueryui.com/ticket/6642 does mention resizing though.
+[09:35:28] <scott_gonzalez> Let me see what kinds of tests we have for mouse right now.
+[09:35:38] <arschmitz> the draggable use case seems legit too
+[09:35:42] <scott_gonzalez> None!
+[09:35:44] <scott_gonzalez> wonderful
+[09:36:22] <scott_gonzalez> Well, I guess I can see how easily I can create reasonable mouse tests.
+[09:36:55] <scott_gonzalez> I wouldn't want to get too much into mouse-specific testing when we're about to switch to interaction though.
+[09:37:03] <arschmitz> yeah
+[09:37:51] <scott_gonzalez> Ok, I'll take a look at creating tests for mouse, and then I'll start with the use cases that have actually had bugs filed against them.
+[09:37:53] <arschmitz> i don't have much opinion on it really we should fix it i dont know how big a priority it is
+[09:38:02] <scott_gonzalez> And we can discuss again after that.
+[09:38:15] <arschmitz> sounds good to me
+[09:39:52] <scott_gonzalez> And once again, I have no update for selectmenu max-height.
+[09:40:25] <scott_gonzalez> I'll find some time to work with arschmitz like we discussed.
+[09:40:29] <scott_gonzalez> Anyone have anything else to discuss?
+[09:40:30] <arschmitz> maybe just worth mentioning we are looking into the idea of scroll ability indication in chassis
+[09:42:43] <scott_gonzalez> Do you have that link to the table example?
+[09:42:49] <arschmitz> just a sec
+[09:43:02] <arschmitz> http://view.css-chassis.com/table/demos/tables.html
+[09:43:11] <arschmitz> second one scrolls horizontally
+[09:43:21] <jzaefferer> scott_gonzalez: I would like to talk about interactions sometime soon
+[09:43:31] <scott_gonzalez> ok
+[09:43:40] <jzaefferer> probably interesting for Alex as well
+[09:43:51] <arschmitz> Yeah im free whenever pretty much
+[09:44:32] <jzaefferer> I'll get back to that
+[09:45:23] <arschmitz> as far as scroll ability i like the style on that table a lot its subtle but effective
+[09:45:41] <scott_gonzalez> Yeah, I like that styling.
+[09:46:01] <scott_gonzalez> Still trying to figure out my availability, but so far most times will work for me.
+[09:46:06] <arschmitz> our idea is we want to to find a way to use this genericly
+[09:46:21] <scott_gonzalez> Tomorrow's not so good though. I have another tattoo session.
+[09:46:30] <arschmitz> and also make it fall back to something usable still on ie8/9
+[09:47:06] <arschmitz> though as long as you dont hide the scollbar ie8/9 are still fine with that so not so big a deal i guess
+[09:47:20] <arschmitz> it just shows no shadow
+[09:47:46] <arschmitz> scott_gonzalez: oh before we finish i do have something important for checkboxradio
+[09:48:10] <arschmitz> scott_gonzalez: the issue that came up in the mobile meeting about multiple labels
+[09:48:52] <scott_gonzalez> Oh, yeah, you should post on WebAIM about it.
+[09:49:02] <arschmitz> ok
+[09:49:34] <arschmitz> i talked to dylan briefly about it a few months ago
+[09:50:10] <arschmitz> about the idea of multiple labels in general in this case so i should ping him too
+[09:50:32] <scott_gonzalez> yup
+[09:50:51] <scott_gonzalez> He'll see a post on WebAIM too.
+[09:51:05] <arschmitz> true
+[09:51:26] <arschmitz> so ill post on there about that
+[09:53:05] <scott_gonzalez> Ok, thanks everyone.
+[09:53:09] <scott_gonzalez> See you back in -dev.
+[10:02:08] <arthurvr> hey everybody
+[10:02:12] <agcolom> hey :-)
+[10:02:20] <arthurvr> `contentteam
+[10:02:35] <arthurvr> oh b-ot isn’t here
+[10:02:35] <arschmitz> b-ot: has been broken for a few days
+[10:02:44] <arschmitz> no hes here
+[10:02:49] <AurelioDeRosa> Hi everyone
+[10:02:49] <arschmitz> just not answering
+[10:03:05] <arthurvr> arschmitz: is there an open ticket somewhere?
+[10:03:09] <AurelioDeRosa> My connection is a bit bad today so I might not be able to attend the meeting
+[10:03:17] <AurelioDeRosa> sorry about that
+[10:03:18] <arschmitz> we dont control b-ot
+[10:03:25] <agcolom> AurelioDeRosa: no worries
+[10:03:54] <agcolom> Hi Everyone!
+[10:03:57] <agcolom> Agenda: https://docs.google.com/document/d/10BtIFF5R_djDCAtwJQiIxy3oOxdQeyrogWFoSvybFHA/edit#
+[10:04:06] <agcolom> Sorry firefighting here as well!
+[10:04:41] <agcolom> So I was wondering whether we should agree a priority i.e. deal with Issues or PRs first?
+[10:05:14] <agcolom> Progress: dealt with a few mobile API issues and contribute issues and PRs
+[10:05:50] <agcolom> I think we should try to address PRs fairly quickly where possible in order to encourage contributors
+[10:06:01] <arthurvr> To deal with issues we do need PRs ya know
+[10:06:12] <arthurvr> so no I don’t think we should really set a priority.
+[10:06:18] <agcolom> well, some issues we can deal with ourselves
+[10:07:13] <agcolom> I was wondering whether we should give ourselves some aims, i.e. when a PR is submitted by a contributor, we should aim to respond within 1 or 2 weeks max?
+[10:07:44] <arthurvr> I think it’s a good idea to try to get contributions from non-team move forward as quick as possible though.
+[10:07:45] <agcolom> What's the general idea?
+[10:07:57] <agcolom> yes, that's what I meant
+[10:08:23] <agcolom> Because I think if we don't, these contributors are less likely to contribute again
+[10:08:33] <arthurvr> is there a reason you thought about that, just wondering? I feel like we’re doing quite a good job on PRs and accepting contributions lately.
+[10:08:37] <arthurvr> but in general I do agree
+[10:09:09] <agcolom> Also if there are issues with their PR, it's difficult to get back to them and get them to fix it if we wait for too long
+[10:09:38] <agcolom> no particular reason, just thought it was good practice to get some aims for us
+[10:10:08] <agcolom> I agree we're doing quite a good job also, so I'm not saying it's an issue
+[10:10:31] <arthurvr> Don’t take me wrong, I’m :+1: on trying to handle those quicker.
+[10:10:34] <agcolom> Just so we have some common goals and aims, that's all
+[10:10:51] <agcolom> :-)
+[10:11:31] <agcolom> so this sounds ok? Agreed to address PRs from new contributors quickly (ideally 1-2 weeks)
+[10:12:06] <arthurvr> Not dealing with PRs is one of the main reasons we got into 350 issues hell last year so I’m :+1: :)
+[10:12:25] <agcolom> Cool :-)
+[10:12:45] <agcolom> regarding new foundation pages, Kris will push his chnges soon
+[10:12:56] <arthurvr> neat, thanks!
+[10:14:02] <agcolom> dealt with the push and deploy changes
+[10:14:14] <agcolom> still need to address https://github.com/jquery/contribute.jquery.org/issues/115
+[10:14:34] <agcolom> Hopefully next week. Time will be tight this week
+[10:14:41] <agcolom> (i.e. no time really)
+[10:16:26] <agcolom> And that's about it really for me. I'll speak to Kris about when to tweet about the blog post.
+[10:16:51] <arthurvr> FWIW I’ll be working on getting through v3 tickets this week.
+[10:16:54] <arthurvr> (for api.jquery.com)
+[10:16:55] <agcolom> There was again a lot of "noise" around the Foundation with the realease of Globalize so that was good
+[10:17:04] <agcolom> brilliant!
+[10:17:41] <agcolom> Also if the cdns are ready with latest release of core, we could possibly update teh api docs?
+[10:18:03] <arthurvr> well I was waiting till v3
+[10:18:16] <arthurvr> because I don’t want to get over all examples twice lol
+[10:18:26] <agcolom> sure, ok
+[10:18:45] <arthurvr> just because I’ll need to check if nothing breaks but don’t expect to much troubles.
+[10:18:49] <agcolom> I guess that's fine because core only has one version of docs
+[10:19:20] <arthurvr> oh I had 2 other things. We’ve got 5 more minutes?
+[10:19:26] <agcolom> sure :-)
+[10:20:02] <arthurvr> quick question: is one of you on windows? Regarding an open ticket about the jquery-wp-content setup for api sites.
+[10:20:25] <agcolom> nope
+[10:20:40] <arthurvr> https://github.com/jquery/api.jquery.com/pull/669. I’d just like somebody to verify it’s needed (I never used windows myself so I totally dunno)
+[10:21:04] <agcolom> I think DaveMethvin|away is on windows
+[10:21:16] <arthurvr> yeah but he never got the setup working at all lol :D
+[10:21:17] <agcolom> but I think he's away this week
+[10:21:21] <agcolom> true
+[10:21:45] <agcolom> is gabriel_schulhof on Windows?
+[10:22:54] <agcolom> arschmitz: Do you know if gabriel_schulhof is on Windows?
+[10:23:14] <arschmitz> agcolom: he has windows but normally uses linux
+[10:23:22] <agcolom> ah thanks
+[10:23:46] <agcolom> I guess he uses Linux for the api docs?
+[10:24:00] <arschmitz> i have windows machines
+[10:24:07] <arschmitz> i just dont use them other then for testing
+[10:24:39] <agcolom> right, arthurvr needs help checking through v3 tickets this week
+[10:24:47] <agcolom> https://github.com/jquery/api.jquery.com/pull/669
+[10:24:57] <agcolom> sorry pasted the wrong thing!
+[10:25:08] <agcolom> arthurvr needs help checking https://github.com/jquery/api.jquery.com/pull/669
+[10:26:12] <arschmitz> arthurvr: i can check that some time just remind me
+[10:26:29] <arthurvr> you rock arschmitz :)
+[10:27:01] <agcolom> totally! Thanks a lot arschmitz!
+[10:27:11] <arschmitz> arthurvr: i have a machine with basicly just git on it too so no chance of DaveMethvin|away case of maybe its there already
+[10:27:31] <arthurvr> so one more thing and then I think we can round up
+[10:27:38] <agcolom> cool
+[10:30:19] <arthurvr> This is kind of a strange ticket and I don’t really know how to respond any more: https://github.com/jquery/learn.jquery.com/pull/535. He’s opened a few PRs a while ago (one better than the other) but on no PR he responded with any updates. So I closed the PR due to inactivity and a few minutes later he was responding (after more than a half year of not doing so)
+[10:30:50] <arthurvr> I, after multiple chats with him on multiple tickets can’t get him to sign the CLA :/
+[10:31:00] <arthurvr> just interested what we than do normally?
+[10:31:01] <agcolom> oh, yes
+[10:31:24] <agcolom> ok
+[10:31:26] <arschmitz> arthurvr: there is nothing we can do aside from ask him to do a new pr
+[10:31:47] <arschmitz> arthurvr: i dont think this person knows how to use git locally so they have no way to fix the commits
+[10:31:56] <arthurvr> I remember us doing that on other tickets and it didn’t work out eighter :/
+[10:32:13] <arschmitz> that being said
+[10:32:25] <arthurvr> plus that every time we move a step forward he just gets inactive again (seen on many other tickets)
+[10:32:32] <arschmitz> these are trivial changes that are not copyrightable
+[10:32:56] <arthurvr> yes but the PR needs to be extended as well, with more likely non-trivial changes
+[10:33:10] <arschmitz> id like scott_gonzalez opinion here but i would say just close them and do the changes your self
+[10:33:18] <agcolom> I think scott_gonzalez landed some of his PRs in the past...
+[10:33:46] <arschmitz> otherwise we would have to record these as execptions in any sort of cla check
+[10:34:03] <arthurvr> yeah this thing https://github.com/jquery/learn.jquery.com/commit/59e510583cd3033bcbb6c05ea37fd0a930321d3a was landed
+[10:34:11] <agcolom> so he's signed the CLA but that doens;t match the git config right?
+[10:34:21] <arthurvr> which was actually trivial so I guess that why they landed it
+[10:34:22] <arschmitz> arthurvr: yeah that should not have been landed
+[10:34:43] <arschmitz> last i knew we wanted to avoid "trivial" execptions
+[10:34:50] <arthurvr> agcolom: from what I can tell, yes.
+[10:35:26] <arthurvr> is there any way we could expand jquerybot to deal with things like this lol
+[10:35:34] <arschmitz> agcolom: did you also talk with steve that we wanted to stop allowing "close enough" exceptions on names
+[10:35:42] <arschmitz> arthurvr: itshould not
+[10:35:48] <arschmitz> arthurvr: this should fail
+[10:36:07] <arthurvr> yes it should but we may want to give bot some way of complaining in a more clear way
+[10:36:09] <agcolom> So Steve said if there's no exact match, ask to sign again
+[10:36:33] <arthurvr> maybe commenting on the ticket as many other CLA bots do.
+[10:37:13] <arschmitz> arthurvr: oh
+[10:37:18] <arschmitz> arthurvr: the landed one is valid
+[10:37:29] <arschmitz> his config on that commit is correct
+[10:37:40] <agcolom> yes, becasue I think scott fixed it
+[10:37:44] <agcolom> when landing
+[10:38:16] <arthurvr> is that actually okay? just changing the git config? That would be a huge adventage in this kind of cases
+[10:38:20] <arschmitz> agcolom: no its write in the PR
+[10:38:48] <arschmitz> arthurvr: only if its very minor
+[10:38:49] <agcolom> oh?
+[10:39:01] <arthurvr> arschmitz: define ”very minor” :)
+[10:39:05] <arschmitz> like Alexander R Schmitz vs Alexander Schmitz
+[10:39:13] <arschmitz> with matching email
+[10:39:28] <agcolom> that's not exact match. we need exact match
+[10:39:40] <arthurvr> so Steve said names should exactly match but just updating it is okay? That seems strange isn’t it?
+[10:39:43] <arschmitz> agcolom: that was a case where we change it when commiting
+[10:39:57] <agcolom> no, he said to get them to sign again
+[10:40:00] <arschmitz> agcolom: thats what we have done in the past for "minor" cases
+[10:40:13] <arschmitz> my understanding was we were not to do this anymore
+[10:40:47] <arschmitz> so no to land trivial changes for something like this the only right way would be to redo the PR your self and ref the original PR
+[10:41:02] <agcolom> correct
+[10:41:08] <arschmitz> because the changes are non copyrightable you can do that
+[10:41:26] <arthurvr> argg but thanks for the info. Still which jquerybot could just drop a comment similar to what other CLA bots do.
+[10:41:31] <arschmitz> but determining whats "trivial" and not "copyrightable" can be non trivial it self
+[10:41:52] <arschmitz> arthurvr: whats wrong with the status?
+[10:42:19] <arthurvr> arschmitz: many people just tend to not look at it (or at least that’s how I feel)
+[10:42:22] <arschmitz> that the entire point of github oping up custom status. older cla bots do this only because status was not available at the time they were created
+[10:43:06] <arschmitz> avoid comment spam :-)
+[10:44:13] <arthurvr> I do think an actual comment people would quicker notice than a failure form a bot this way. Mainly because people receive emails and notifications for comments on PRs.
+[10:44:30] <arschmitz> you get notification if it fails too
+[10:44:47] <agcolom> I'll check with Steve, but my understanding was that we only can land what has a valid PR in all cases
+[10:44:55] <agcolom> valid CLA sorry
+[10:45:17] <arthurvr> do they? I’m not sure but people told me before that they didn’t get a notification/mail.
+[10:45:37] <arschmitz> i thought so i could be wrong
+[10:47:14] <arthurvr> anyways let’s round. I’ll just do a replace PR I guess. It took a little too long to get him to do all the things
+[10:47:45] <agcolom> Could he do this in Github for future PRs though?
+[10:48:16] <arthurvr> depends on his own github settings.
+[10:48:38] <agcolom> I mean using hte Github web interface
+[10:49:19] <arthurvr> yes if he’s possible to PR things from github depends on his own mail settings. (noreply emails should be off and the correct mail should be added)
+[10:49:43] <arthurvr> and his full name of course
+[10:50:28] <arschmitz> yes thats why i suggested asking them to just open a new pr them self
+[10:51:10] <arthurvr> well as long as he doesn’t update his github settings then, we’re not going to be any step forward.
+[10:51:52] <arthurvr> but worth giving it a try :) Will comment once again.
+[10:52:30] <agcolom> so we just need him to replace githubshrek with his name on his git config, right?
+[10:52:55] <arthurvr> yup
+[10:54:25] <arthurvr> and we’ve been trying to tell him that for nearly a year over multiple PRs :) That’s why I was getting a little frustrated by it.
+[10:55:00] <arschmitz> arthurvr: well that and then do a whole new PR with new commits from a new branch
+[10:55:44] <arthurvr> yea
+[10:55:48] <agcolom> is it  git config user.name "Billy Everyteen"
+[10:55:58] <agcolom> with the right name?
+[10:56:37] <agcolom> but then not if he works only via the github interface because the changes will not be pushed?
+[10:56:54] <arthurvr> agcolom: not if he wants to use the gh web interface :) That’s the command to change the config though that wouldn’t update the existing commit.
+[10:56:56] <arschmitz> he only seems to work from the github webui
+[10:57:11] <agcolom> yes, that's waht I thought also
+[10:57:25] <arschmitz> so he needs to set his public email address and name correctly
+[10:57:28] <arschmitz> thats what they use
+[10:57:41] <agcolom> ok, I'll see Steve and see whether in this case we could his username as his name...
+[10:57:45] <arschmitz> and then that wont update anything existing and there is no way to from the web ui
+[10:57:50] <arschmitz> so he will need to re do
+[10:57:57] <agcolom> and get him to sign with his username...
+[10:58:08] <agcolom> if that's acceptable...
+[10:58:12] <arschmitz> signing with a username wont work
+[10:58:15] <arschmitz> thats not a valid name
+[10:58:18] <arthurvr> arschmitz: or learn git lol
+[10:58:18] <agcolom> :-(
+[10:58:36] <arthurvr> yeah the name should match ”First Last” (at least contain two parts)
+[10:58:36] <arschmitz> arthurvr: yeah good luck he does not seem like he is interested in that from what i see
+[10:58:53] <arschmitz> arthurvr: we can make execptions for valid single part names ( and do )
+[10:58:54] <agcolom> ok... I'll look into this tomorrow and think of a way forward
+[10:59:20] <arthurvr> okay everybody :D Thankz
+[10:59:32] <arschmitz> also we have like 2 execptions for people who refuse to use a real name online and have like an "official" pseudonym
+[10:59:50] <arthurvr> tbh that github web UI is a pretty stupid thing IMHO.
+[10:59:58] <arthurvr> haha
+[10:59:59] <arschmitz> arthurvr: yeah i agree
+[11:00:44] <arthurvr> and hey except for the CLA the actual PR needs updates which he also does not seem to be willing to do lol
+[11:00:44] <agcolom> so I've added in the notes: Need a solution for contributors that use only the github web interface and have their username as name (i.e. the CLA will not match as we need a valid name and the name is not the username).
+[11:01:03] <arthurvr> yes, or at least more documentation for them
+[11:01:13] <agcolom> indeed.
+[11:01:15] <agcolom> good idea
+[11:01:40] <arthurvr> and IMHO we should disencourage its usage but that’s my opinion
+[11:02:01] <arschmitz> i certainly would not encourage it
+[11:02:39] <agcolom> ok. so we should improve the contribute docs
+[11:02:48] <agcolom> and find a way forward
+[11:02:56] <agcolom> I'll think about somethign tomorrow
+[11:03:14] <arthurvr> superb
+[11:03:15] <arthurvr> thanks
+[11:03:22] <agcolom> no problem :-)
+[11:03:30] <agcolom> anything else?
+[11:03:35] <arthurvr> nope not from me
+[11:03:51] <agcolom> ok, thanks everyone :-)
+[11:04:15] <agcolom> see you in #jquery-content
+[11:04:19] <arthurvr> bye
+[11:04:29] <agcolom> bye :-)

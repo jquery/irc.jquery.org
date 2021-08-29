@@ -1,0 +1,508 @@
+[06:46:24] <toddmparker> Good morning
+[06:46:33] <arschmitz> Morning
+[06:47:50] <_|Nix|_> Hey!
+[06:49:25] <_|Nix|_> toddmparker: I realized something re: #5113 (issues with getInheritedTheme): listview depends on buttonMarkup, so the buttonMarkup code is loaded before the listview code, which means the pagecreate hook which causes buttons to be enhanced is added before the hook that causes listviews to be enhanced.
+[06:49:51] <_|Nix|_> toddmparker: The problem with that is that, if a button is inside a list item, the list item will not yet be enhanced when the button gets enhanced.
+[06:50:17] <_|Nix|_> toddmparker: Thus, the button doesn't pick up a possible theme from the list item, because the list item has not yet added the appropriate classes.
+[06:51:07] <_|Nix|_> toddmparker: Looks like we can't simply enhance by hooking into pagecreate. We need to decide the order in which widgets in a page will be enhanced.
+[06:54:42] <_|Nix|_> toddmparker: I dunno if there are any other examples where widgets become misconfigured because they depend on properties of the widgets they are contained in, but if this is the only such case, then it might be as simple as looking at the value of the data-theme attribute of the parent widgets in addition to the ui-(bar|body|overlay)-[a-z] classes ...
+[06:55:32] <_|Nix|_> toddmparker: Of course, if a button ends up in a portion of a widget for which the theme is determined by the widget's data-something-theme attribute rather than its data-theme attribute, then this can turn into a quagmire.
+[06:55:32] <gseguin> toddmparker: unless there is something with higher priority, I'm going to do some maintenance on the builder today.
+[06:56:13] <gseguin> johnbender: ping
+[06:56:31] <_|Nix|_> toddmparker: Like, for example, a button inside a list divider. That should inherit the listview's data-divider-theme not its data-theme ...
+[06:57:39] <_|Nix|_> <naïve>It would be easiest if we did away with getInheritedTheme altogether and relied entirely on CSS inheritance.</naïve>
+[07:03:29] <toddmparker> could list view hook into the button markup create so the timing is clear _|Nix|_
+[07:04:19] <_|Nix|_> toddmparker: What do you mean by "hook into the button markup create"?
+[07:04:41] <toddmparker> let me grab scottjehl__
+[07:05:21] <jqmobilecommit> [jquery-mobile] uGoMobi pushed 1 new commit to new-docs: http://git.io/ddm56A
+[07:05:21] <jqmobilecommit> jquery-mobile/new-docs 3343d19 Jasper de Groot: New Docs & Demos - first pass
+[07:05:30] <toddmparker> gseguin: that would be cool, but I don't think it could work that way
+[07:05:42] <toddmparker> is agcolom here?
+[07:05:51] <_|Nix|_> toddmparker: It's not that simple. In the case of listview/buttonMarkup it's easier because buttons can be inside list items, but not vice versa. However, if both containment relationships are possible, we cannot simply solve this with having a correct order of pagecreate hooks.
+[07:06:10] <uGoMobi> hi all
+[07:06:35] <toddmparker> hey uGoMobi
+[07:06:56] <toddmparker> uGoMobi: scottjehl__ and I are working on the docs for the table stuff now
+[07:07:08] <toddmparker> trying to figure out a clear want o organize
+[07:07:24] <uGoMobi> toddmparker: I just pushed branch new-docs
+[07:07:36] <toddmparker> we have a table plugin that just handles a lot of common logistics between these two modes but it doesn't do much on it's own
+[07:07:40] <toddmparker> uGoMobi: awesome
+[07:08:01] <toddmparker> we then wrote the reflow and column chooser modes as extensions to table
+[07:10:30] <uGoMobi> the solution to show source code is wrapping the markup in <div data-demo-html="true">
+[07:10:44] <agcolom> toddmparker: Yes, I'm here...
+[07:10:46] <uGoMobi> if you want to include JS from the head ... add data-demo-js="true"
+[07:11:04] <uGoMobi> and to add the CSS from the head ... add data-demo-css="true"
+[07:12:05] <scottjehl__> heyo
+[07:12:15] <uGoMobi> branch preview http://jquerymobile.com/branches/new-docs/index.html
+[07:12:20] <uGoMobi> hi scottjehl__
+[07:12:26] <scottjehl__> how goes
+[07:13:11] <uGoMobi> was struggling with how we should organize new docs
+[07:13:20] <_|Nix|_> scottjehl__: Hey! So, what do you think about the problem with relying on the order in which pagecreate handlers that enhance content are hooked up when dealing with getInheritedTheme? (https://github.com/jquery/jquery-mobile/issues/5113#issuecomment-9979322)
+[07:21:39] <toddmparker> uGoMobi: I think we can keep it simple like this for now and focus on gathering examples
+[07:22:00] <toddmparker> I see the components and API going away
+[07:22:17] <toddmparker> think we may have an intro with basics and quick start
+[07:22:32] <toddmparker> a kitchen sink with a bunch of collections of components
+[07:22:44] <toddmparker> a demo section with more custom, composite demos
+[07:23:06] <toddmparker> and maybe a tests section with all the insane permutations test pages?
+[07:23:19] <toddmparker> that last bit may be hidden a bit tho
+[07:23:37] <toddmparker> i like starting flu width right now
+[07:23:40] <uGoMobi> toddmparker: I added comments/ideas on the pages in the new-docs branch
+[07:23:40] <toddmparker> full width
+[07:23:57] <uGoMobi> I agree we have to focus on gathering the demos
+[07:24:47] <toddmparker> were are those comments?
+[07:24:55] <arschmitz> I will have a few demos when your ready i have just been sitting on them waiting to see how everything was going to work
+[07:25:29] <uGoMobi> just in the pages themselves
+[07:25:50] <toddmparker> ok
+[07:25:51] <uGoMobi> was reorganizing everything and we need to clean up the markup anyway
+[07:25:55] <toddmparker> yeah
+[07:26:27] <uGoMobi> if everybody is happy with wrapping demo in <div data-demo-html="true"> and put JS and CSS in the head we can start making demo pages
+[07:26:35] <toddmparker> I wonder if we should just create a demos folder and start with a clean slate inside
+[07:26:47] <uGoMobi> yes
+[07:26:53] <uGoMobi> I created a demo folder
+[07:27:02] <toddmparker> uGoMobi: that convention sounds good to me
+[07:27:19] <uGoMobi> http://jquerymobile.com/branches/new-docs/ > browse demos
+[07:27:30] <toddmparker> you did, but the new demos homepage is the docs index
+[07:27:48] <uGoMobi> huh?
+[07:28:04] <toddmparker> jquery-mobile/index.html
+[07:29:14] <toddmparker> just thinking that we might want to keep docs/ for a little bit so if we took the demos/ folder you created and sort of pretended that will eventually be the new home, we can go from there
+[07:29:34] <toddmparker> with the index page now, we can't merge this into master for a long time
+[07:30:53] <toddmparker> that puts demos inside of docs and that is the part I think is tricky
+[07:31:05] <uGoMobi> ah ok
+[07:31:19] <toddmparker> it's also not clear what code is new and what is the old docs
+[07:31:50] <toddmparker> if we moved /demos/ up to be a sibling of /docs/
+[07:31:57] <toddmparker> we could just work on this in master
+[07:32:26] <toddmparker> at some point, the API docs will be done and we can delete /docs/ and point people only to demos
+[07:33:12] <toddmparker> I don't know if anyone has objections to working on this in master instead of a branch
+[07:34:00] <uGoMobi> so you want to wait we restyling until new API docs are live?
+[07:34:11] <uGoMobi> s/we/with/
+[07:35:22] <toddmparker> I want to connect with agcolom on that, seems like we're pretty close
+[07:35:47] <toddmparker> regardless, if we just had a new folder for demos, we ca work on a clean slate
+[07:36:31] <uGoMobi> sure I can add that master
+[07:36:40] <uGoMobi> to master
+[07:37:15] <agcolom> toddmparker: I'm here! Hi!
+[07:39:05] <agcolom> toddmparker: I agree that's a good idea: re " if we moved /demos/ up to be a sibling of /docs/"
+[07:39:32] <toddmparker> hey agcolom
+[07:39:37] <toddmparker> few things...
+[07:39:54] <toddmparker> 1. at this point, what % complete are the API docs?
+[07:40:41] <toddmparker> seems like all the 1.2 widget are done and most ultilities
+[07:40:57] <toddmparker> the nav model stuff seems like the biggest missing piece
+[07:41:34] <toddmparker> the reason I ask is I'd like to switch over to the new API sooner rather than later, ideally as part of 1.3
+[07:41:45] <toddmparker> so we can toss most of the older docs
+[07:41:57] <toddmparker> and just re-launch with some better demos in parallel
+[07:42:14] <agcolom> I think we're doing well with widgets but there are other things missing I think
+[07:42:45] <agcolom> I'd need help from more dev people who could say what else need documenting...
+[07:43:00] <toddmparker> what is the url again?
+[07:43:22] <agcolom> So if we agreed on a complete list then we'd know how much has been done and what else need doing
+[07:43:33] <agcolom> stage.api.jquerymobile.com
+[07:44:36] <agcolom> some of the widgets that were done by the contributors at teh summit are incomplete (some methods/options/events may be missing)
+[07:45:15] <agcolom> but that's just for 2 or 3 widgets
+[07:47:57] <toddmparker> ok
+[07:48:17] <toddmparker> I can double check, but we need a ajar nav section where we can document that stuff
+[07:48:58] <toddmparker> I can create some issues?
+[07:49:00] <agcolom> Also we may need to cover methods (did you see that comment in GitHub)
+[07:49:02] <agcolom> ?
+[07:49:22] <agcolom> toddmparker: yes, definitely creating issues would ensure traceability
+[07:50:03] <toddmparker> ok
+[07:50:25] <toddmparker> so all the event utilities are all lowercase while widget are mixed
+[07:50:34] <toddmparker> standardize?
+[07:50:38] <agcolom> yes!
+[07:51:25] <agcolom> I have been concentrating on the content, not the form, if that makes sense...
+[07:52:35] <agcolom> So yes, we need to have a discussion about naming...
+[07:54:24] <agcolom> toddmparker: also, although checkboxes and radio buttons are the same widget, currently I have them as 2 entries...
+[07:55:07] <agcolom> should they be merged into one called checkboxradio ?
+[07:56:34] <agcolom> I'll just quickly check with Scott G... but I guess if it is the api doc we have to be strict and use the exact widget name?
+[07:58:14] <toddmparker> yeah, i'd follow file names
+[07:58:20] <toddmparker> so one
+[07:58:34] <toddmparker> i added some issues and linked to pages we should document
+[08:00:28] <agcolom> toddmparker: perfect! Thanks a lot!
+[08:00:46] <uGoMobi> agcolom: other examples of this are: slider + flip-toggle, search input + text input, collapsible + collapsible set
+[08:00:57] <agcolom> I'm left a note for Scoot G on ui-dev channel also
+[08:01:31] <agcolom> Their widget name is capitalised on http://api.jqueryui.com/category/widgets/
+[08:01:41] <uGoMobi> agcolom: footer + header + content are all part of page.sections widget and there is a separate widget for fixed toolbars
+[08:02:37] <agcolom> uGoMobi: Could you also create issues for me please? (https://github.com/jquery/api.jquerymobile.com/)
+[08:03:00] <uGoMobi> agcolom: sure
+[08:03:22] <toddmparker> so _|Nix|_ uGoMobi and scottjehl__ - re: the theme inheritance stuff
+[08:03:23] <toddmparker> https://github.com/jquery/jquery-mobile/issues/5113
+[08:03:33] * _|Nix|_ is all ears
+[08:03:34] <agcolom> uGoMobi: Thank you
+[08:03:53] <_|Nix|_> errr, eyes ... ? O_o
+[08:04:06] <toddmparker> These sound like tricky issues that we may not want to spend a lot of time on if we think that we may want to simplify the inheritance stuff
+[08:04:30] <_|Nix|_> toddmparker: How would we go about simplifying it?
+[08:04:39] <toddmparker> so if none of these are straightforward, I think we should leave them open but push 'em out
+[08:05:04] <toddmparker> i think we're going to have to make a bigger, breaking change in a few releases
+[08:05:23] <_|Nix|_> toddmparker: Naïve though it may be, I was half serious when I said we should get rid of the getInheritedTheme altogether and use CSS exclusively.
+[08:05:26] <toddmparker> to simplify markup and styles and move away from stuff that may be too over-engineered
+[08:05:35] <toddmparker> like the theme inheritance stuff
+[08:06:01] <toddmparker> I think we will move in that direction, or at least make it less automagic
+[08:06:21] <toddmparker> so I think I'd rather not spend cycles on doing much here
+[08:06:30] <_|Nix|_> toddmparker: NP.
+[08:06:35] <toddmparker> any objections to untagging from 1.3?
+[08:06:41] <toddmparker> 1.2.1 rather :)
+[08:06:43] <_|Nix|_> Nay
+[08:07:47] <toddmparker> commented and adjusted the milestone/priority
+[08:08:37] <toddmparker> cool
+[08:08:43] <toddmparker> _|Nix|_: looking at this
+[08:08:44] <toddmparker> https://github.com/jquery/jquery-mobile/pull/5241
+[08:09:20] <_|Nix|_> toddmparker: By all means!
+[08:09:20] <toddmparker> looking good
+[08:09:42] <toddmparker> since this is a proper widget, it should have api style docs
+[08:09:53] <toddmparker> methods, options, events
+[08:10:07] <_|Nix|_> toddmparker: Yeah, but I wouldn't mind having everyone look at it, because it touches buttonMarkup ...
+[08:10:26] <_|Nix|_> toddmparker: Definitely. I need to learn how to write new-style API docs ...
+[08:10:32] <uGoMobi> no objections to untagging from 1.2.1 because it's not a blocker... simply set a theme :)
+[08:11:14] <toddmparker> true _|Nix|_ - be good to start doing that instead of writing old school api docs
+[08:11:21] <toddmparker> uGoMobi: exactly
+[08:11:49] <toddmparker> uGoMobi: do you have time to look at the PR?
+[08:11:55] <toddmparker> i'm just scanning through it
+[08:12:04] <toddmparker> if not, maybe gseguin or johnbender can
+[08:12:05] <uGoMobi> toddmparker: yes I have
+[08:12:10] <uGoMobi> time
+[08:12:10] <toddmparker> cool
+[08:12:14] <toddmparker> thanks!
+[08:12:32] <_|Nix|_> toddmparker: I'm mostly concerned about any blunders I may have accidentally committed inside buttonMarkup - I hope none.
+[08:12:34] <gseguin> which PR ?
+[08:12:42] <_|Nix|_> gseguin: #5241
+[08:12:45] <uGoMobi> toddmparker: when do we continue the discussion about how we proceed with the docs/demos?
+[08:12:46] <gseguin> k
+[08:13:53] <_|Nix|_> toddmparker: Note that this causes buttonMarkup and controlgroup to use ui-btn-corner-* instead of ui-corner-*, meaning that controlgroups will have the larger radii ...
+[08:14:08] <_|Nix|_> toddmparker: in turn meaning that the vertical controlgroups will look less like listviews.
+[08:14:43] <_|Nix|_> toddmparker: OTOH, they look more like buttons, which they are.
+[08:15:26] <_|Nix|_> toddmparker: It also introduces reference to ui-btn-corner-tl/tr/bl/br/left/top/right/bottom which were classes that were never used, but always present.
+[08:15:52] <_|Nix|_> s/were classes/are classes/
+[08:17:56] <jqmobilecommit> [jquery-mobile] uGoMobi pushed 2 new commits to new-docs: http://git.io/zRh6EA
+[08:17:56] <jqmobilecommit> jquery-mobile/new-docs 1c58205 Jasper de Groot: View source code - expand the first collapsible
+[08:17:56] <jqmobilecommit> jquery-mobile/new-docs 81f5a75 Jasper de Groot: Added demo template file
+[08:23:22] <jqmobilecommit> [jquery-mobile] toddparker pushed 1 new commit to tables: http://git.io/eMkj-g
+[08:23:22] <jqmobilecommit> jquery-mobile/tables a69ba14 toddparker: Edited the code in running text to be uppercase for TH, TD, ID for consistency
+[08:26:57] <jqmobilecommit> [jquery-mobile] toddparker pushed 1 new commit to tables: http://git.io/DMTNzg
+[08:26:57] <jqmobilecommit> jquery-mobile/tables 13b0482 toddparker: Fixed phone lightbox popups
+[08:33:09] <jqmobilecommit> [jquery-mobile] uGoMobi pushed 2 new commits to new-docs: http://git.io/tduB_w
+[08:33:09] <jqmobilecommit> jquery-mobile/new-docs f4bdcf6 Jasper de Groot: Update demo template title
+[08:33:09] <jqmobilecommit> jquery-mobile/new-docs 882b52f Jasper de Groot: Demos view source code: trigger resize on the popup when clicking on a collapsible
+[08:33:13] <_|Nix|_> agcolom: Can you give me a few starting hints about how to write API docs? I'd like to write the docs for the controlgroup widget the new way.
+[08:33:53] <agcolom> _|Nix|_: sure, it's just an XML file. If you take an existing one and modify it, I'll be fine :-)
+[08:34:30] <_|Nix|_> agcolom: Are they in a github repo?
+[08:34:40] <agcolom> yes
+[08:34:49] <agcolom> i'll give you a link...
+[08:35:03] <agcolom> https://github.com/jquery/api.jquerymobile.com/
+[08:35:14] <agcolom> then the widgets are in the entires folder
+[08:35:18] <agcolom> entries^
+[08:35:28] <_|Nix|_> agcolom: Nice!
+[08:35:31] <_|Nix|_> Thanks!
+[08:36:48] <toddmparker> _|Nix|_: I commented on that corner issue
+[08:36:55] <agcolom> pick a small one maybe like checkbox.... for your starting point...
+[08:37:04] <toddmparker> I think we need to stick with how it works now
+[08:37:29] <toddmparker> where we use the corner class (groups), not the button corner class on controlgroups
+[08:38:50] <_|Nix|_> toddmparker: It may not actually affect that many widgets, because in most places corner classes are still being added by hand.
+[08:39:01] <toddmparker> i see
+[08:39:18] <toddmparker> so which are affected?
+[08:39:42] <_|Nix|_> toddmparker: Only if you add corners via .buttonMarkup({corners: newValue}) will you get btn corners.
+[08:39:53] <_|Nix|_> toddmparker: Let me pull up the form kitchen sink side-by-side.
+[08:40:11] <_|Nix|_> toddmparker: For example, listviews still have normal corners.
+[08:40:15] <toddmparker> i see
+[08:40:40] <toddmparker> but do widgets call that?
+[08:41:00] <toddmparker> i may want to clean up the default theme for 1.3 anyway
+[08:41:08] <toddmparker> less rounded, less shadows
+[08:41:13] <toddmparker> brighter bg
+[08:42:31] <_|Nix|_> toddmparker: I think only controlgroup calls that, to address issue #3635.
+[08:43:14] <_|Nix|_> toddmparker: You shouldn't be adding classes by hand to something that was created using .buttonMarkup(), because if I call buttonMarkup() later to change the theme or the icon or something, it reenhances incorrectly.
+[08:44:10] <_|Nix|_> toddmparker: We may want to add a new buttonMarkup option, like "large-radius" or something and then it can add the right classes.
+[08:44:31] <_|Nix|_> toddmparker: Actually, this latter idea would be awesome, because it would allow anyone to use buttonMarkup to reenhance buttons.
+[08:44:54] <_|Nix|_> toddmparker: ... and you only need to pass a value for "large-radius" the first time around, and it would be remembered for all subsequent calls.
+[08:45:34] <_|Nix|_> toddmparker: So, with this new property in place, we can pretty much get rid of all instances where we add ui-corner-* classes to .buttonMarkup-based elements by hand.
+[08:47:04] <_|Nix|_> toddmparker: ... and looking at the form element gallery, only controlgroups look different now.
+[08:48:02] <toddmparker> can you post a full link?
+[08:48:12] <_|Nix|_> toddmparker: To the side-by-side?
+[08:48:34] <toddmparker> #3635
+[08:48:47] <_|Nix|_> toddmparker: https://github.com/jquery/jquery-mobile/issues/3635
+[08:48:48] <toddmparker> you have a side-by-side?
+[08:48:59] <_|Nix|_> toddmparker: I can publish one real quick ...
+[08:49:22] <_|Nix|_> toddmparker: Actually, there's a branch preview ...
+[08:49:48] <toddmparker> ok
+[08:50:03] <toddmparker> i'd like to see a few examples of widgets impacted
+[08:50:28] <_|Nix|_> toddmparker: Before: http://jquerymobile.com/test/docs/forms/forms-all.html ... After: http://jquerymobile.com/branches/button-markup-corners-can-be-string/docs/forms/forms-all.html
+[08:53:23] <_|Nix|_> agcolom: So, I need to have WordPress installed locally if I want to build the docs locally?
+[08:54:30] <agcolom> _|Nix|_: Not sure... Richard was on Skype with me to guide me to get my computer setup... So I'm not sure...
+[08:55:10] <_|Nix|_> agcolom: OK, well I ran grunt and it succeeded.
+[08:55:19] <agcolom> excellent :-)
+[08:58:01] <scottjehl__> hey sorry
+[08:58:03] <scottjehl__> what's up now
+[08:58:59] <toddmparker> _|Nix|_: can you do a quick rundown on the control group and button radii
+[08:59:04] <scottjehl__> confusion between corner rounding classes perhaps?
+[08:59:15] <Wilto> FG in the heezy.
+[08:59:19] <scottjehl__> we have container corner radii and button corner radii
+[08:59:23] <Wilto> (Fo’ reezy.)
+[08:59:24] <toddmparker> https://github.com/jquery/jquery-mobile/pull/5241
+[08:59:25] <scottjehl__> containers are larger
+[08:59:33] <scottjehl__> used in situations like controlgroups
+[09:00:09] <_|Nix|_> OK, here goes.
+[09:00:30] <_|Nix|_> When you call .buttonMarkup it adds ui-btn-corner-all.
+[09:00:43] <_|Nix|_> With the mods, it will add ui-btn-corner-*, not just ui-btn-corner-all
+[09:00:53] <_|Nix|_> Depending on the value of corners.
+[09:01:05] <_|Nix|_> ... but controlgroup was adding ui-corner-* by hand before.
+[09:02:02] <_|Nix|_> But if I keep the add-by-hand code, you can't modify the buttons inside a controlgroup via .buttonMarkup() even if the options you're trying to set have nothing to do with corners (such as shadow or theme or icon).
+[09:02:35] <_|Nix|_> You can't, because buttonMarkup is simple. It always (re)enhances /all/ options, not just those passed in.
+[09:02:56] <_|Nix|_> s/enhances/enhances based on/
+[09:03:13] <scottjehl__> buttonMarkup was mostly meant to be a utility for commonly-added button classes. I wouldn't recommend using it to modify an existing button
+[09:04:08] <scottjehl__> in many ways, control group had similar goals
+[09:04:34] <scottjehl__> not really a widget.. just a utility on top of button group that would fix corner classes set by buttonMarkup
+[09:04:59] <toddmparker> but if people add something to a controlgroup'ed thing, there is no way to refresh it now. is that the main issue?
+[09:05:09] <_|Nix|_> toddmparker: Yeah.
+[09:05:37] <_|Nix|_> toddmparker: I've modified buttonMarkup to gracefully handle the case of an already-enhanced button, updating its look based on the options passed in.
+[09:05:43] <_|Nix|_> scottjehl__: ^
+[09:05:43] <scottjehl__> now I'm left wondering if corner classes are all that great an idea in the first place. We do a lot of JS manip there, but it might be better handled with some slightly more sophisticated CSS
+[09:05:51] <uGoMobi> good example of this https://github.com/jquery/jquery-mobile/issues/3496#issuecomment-9963318
+[09:06:06] <uGoMobi> people don't understand that controlgroup is not a widget
+[09:06:43] <_|Nix|_> uGoMobi: But now it is, and it has a refresh method, so that bug is also fixed.
+[09:08:07] <toddmparker> scottjehl__: that issue sort of sums up the problem we're facing
+[09:08:19] <uGoMobi> _|Nix|_: I think we all agreed before to make controlgroup a widget, just have to see how we deal with the two different corner class groups
+[09:08:21] <_|Nix|_> The point is that in many places, buttonMarkup is called, but then corner classes are added by hand. Not only that, but the corner classes that are added are not the ones that buttonMarkup would have added.
+[09:08:24] <toddmparker> I agree that removing all the js corner classes would be ideal
+[09:08:34] <toddmparker> we can apply radii via straight css
+[09:08:46] <toddmparker> but then we lose them ability there
+[09:09:21] <toddmparker> that is the big tension - without a tool like sass, we need to use classes to make these things themable
+[09:09:38] <scottjehl__> yeah. it gets back to theming again.
+[09:10:02] <_|Nix|_> toddmparker: I think the solution is simple. Add a buttonMarkup option about which kinds of corners you wish to use.
+[09:10:04] <toddmparker> a lot of these problems are tied to that
+[09:10:17] <toddmparker> button or group?
+[09:10:23] <_|Nix|_> toddmparker: If our UI concept recognized two kinds of corners, then so be it.
+[09:10:29] <toddmparker> right.
+[09:10:30] <scottjehl__> I think we should move in the direction of not exposing these visual distinctions at all via options
+[09:10:36] <_|Nix|_> toddmparker: Yeah, like corner-style="button|group"
+[09:10:36] <scottjehl__> rather than exposing more
+[09:10:42] <toddmparker> if you can restore that, then this is an ok option for the near term
+[09:10:58] <Wilto> I’m with Scott.
+[09:11:11] <scottjehl__> also, using button within other widgets might be a problem in general
+[09:11:11] <toddmparker> scottjehl__: i think we need to have bigger re-think on all this
+[09:11:18] <toddmparker> but probably not now
+[09:11:38] <uGoMobi> we only use ui-btn-corner-all
+[09:11:43] <toddmparker> to make things lighter and more direct, we will have to change theming again
+[09:11:50] <scottjehl__> listview items aren't buttons. if we styled ui-li directly, we could do things like ui-li:first-child and such. No need for controlgroups
+[09:12:18] <toddmparker> right, but that would be another place where we'd lose re-usability and theming
+[09:12:28] <Wilto> In terms of being able to `refresh` controlgroups, moving more of this stuff to CSS would remove the need.
+[09:12:30] <toddmparker> not saying that's bad, but there's that tradeoff
+[09:12:35] <uGoMobi> not sure if we need an option only to give single buttons the correct radii
+[09:12:42] <toddmparker> we could directly style list views with simple css
+[09:13:19] <_|Nix|_> Wilto: That's what I was thinking too: The value of the radius of .ui-control-group .ui-btn-corner-tl could be made to coincide with the value inside .ui-corner-tl
+[09:13:38] <_|Nix|_> Wilto: And so, although you're applying ui-btn-corner-tl, the effect is that you get ui-corner-tl ...
+[09:13:40] <scottjehl__> yeah. I'm starting to wonder if the next round should get rid of generic theme classes entirely. Theme.css could be a layer that creates a skin by talking to widget classes directly
+[09:13:48] <_|Nix|_> Wilto: Because controlgroup is a special case.
+[09:14:14] <scottjehl__> anyway, if you want to expose buttonmarkup as a controlgroup option to fix this problem today, I think that's okay
+[09:14:14] <toddmparker> i don't think that works without moving to a css pre-compiler and using vaiables
+[09:14:30] <toddmparker> or you lose theming and are back to "inspect and edit the css"
+[09:14:56] <toddmparker> i think we will be making a lot of decisions now that we may need to undo with a bigger css re-write
+[09:15:11] <toddmparker> but i want these changes to be as solid as they can be given the current state
+[09:15:13] <scottjehl__> or more like review the HTML that this widget generates and write css against it
+[09:15:40] <toddmparker> having more direct css control would be better imho
+[09:15:48] <toddmparker> all these classes are hard to work with
+[09:16:18] <toddmparker> but the more we say "write css", the less useful the framework is for a big chunk of the audience
+[09:16:26] <toddmparker> who aren't designers and front end people
+[09:16:56] <toddmparker> but i'd like to seriously look at this before ui goes too far
+[09:16:58] <scottjehl__> I think the hard work is the cross-browser structural layout and behavior. We'll always provide that.
+[09:17:00] <_|Nix|_> toddmparker: Well, having one set of corner classes, and maybe a modifier class like .group-corners and .btn-corners would accomplish the same thing as the two complete sets of classes we have now.
+[09:17:20] <uGoMobi> _|Nix|_: why did you use of ui-btn-corner-x and not ui-corner-x?
+[09:17:27] <scottjehl__> one set of corner radii across a whole interface is very limiting
+[09:17:36] <toddmparker> think he's just asking about naming
+[09:17:54] <toddmparker> ui-btn-group-x
+[09:17:56] <_|Nix|_> uGoMobi: Because it's inconsistent to use ui-corner-* inside buttonMarkup.
+[09:19:26] <_|Nix|_> uGoMobi: I could've used ui-corner-tl,ui-corner-tr,...,ui-btn-corner-all at the top of buttonMarkup.js, but that's just totally inconsistent - although it would've made the controlgroup work, because the controlgroup is the only one that calls buttonMarkup with corners: <something other than true|false>
+[09:20:23] <_|Nix|_> Talking about https://github.com/jquery/jquery-mobile/commit/be1e8721fe1605b980db52e231968b719d3992eb#L0R12
+[09:20:38] <_|Nix|_> I mean, how inconsistent is that?
+[09:21:10] <uGoMobi> ok I get it
+[09:21:11] <toddmparker> the new class config would let you not write any of these theme classes
+[09:21:12] <_|Nix|_> Use ui-corners-* everywhere except in the case of "all", where you use ui-btn-corner-all ...
+[09:21:49] <toddmparker> corners and shadow should migrate from an option to a class config
+[09:22:02] <toddmparker> agenda: https://docs.google.com/document/d/1igqAXG0b7fA7sHP89sCsooJNs4QF1IjrTUWuoajU8JI/edit#
+[09:22:09] <toddmparker> for 2:00
+[09:24:53] <_|Nix|_> In the meantime, I think I'll add that corner-style option.
+[09:25:29] <_|Nix|_> It's the simplest solution, and until we do away with these options altogether, it'll give us the flexibility to always specify the right kinds of corners.
+[09:25:58] <arschmitz> _|Nix|_: got a quick question when you have a second
+[09:27:49] <_|Nix|_> arschmitz: Fire away ...
+[09:28:08] <arschmitz> ok remember the issue with the select in the fixed footer we were looking at at the summit
+[09:28:28] <arschmitz> but decided it wasent select it was click through
+[09:29:37] <arschmitz> The toolbar wasent doing anything crazy like jumping to the middle of the screen right on one device it didnt respond at all and the other triggered the error?
+[09:30:05] <_|Nix|_> I remember.
+[09:30:22] <toddmparker> this is obviously soul searching territory
+[09:31:59] <Wilto> Guys. I have an idea.
+[09:32:05] <Wilto> jQuery Mobile Team Vision Quest.
+[09:32:53] <arschmitz> _Nix|_: so no crazy footer jumping to the middle of screen right?
+[09:32:57] <ryanneufeld> I think I know where to get paote
+[09:33:02] <_|Nix|_> Wilto: It would have to be "tele-Vision Quest", since some of us can't be there in person.
+[09:33:24] <Wilto> Now we’re talkin’, ryanneufeld.
+[09:33:29] <_|Nix|_> arschmitz: I don't remember seeing something like that.
+[09:33:48] <_|Nix|_> arschmitz: All I remember is the 404 and the not-responding-to-clicks.
+[09:34:31] <arschmitz> _|Nix|_: ok i feel like im going crazy every time i try it now the toolbar jumps to the middle of the screen! so i thought maybe it was a change to latest and switched to 1.2 stable but it still does it!
+[09:35:37] <_|Nix|_> arschmitz: Wonderful ...
+[09:35:43] <_|Nix|_> :-S
+[09:37:43] <arschmitz> _|Nix|_: yeah im very confused. found it while testing my fiexedtoolbar extension thought it was that so went to check original fiddle on latest and now it happens everywhere its like im in the twilight zone!
+[09:38:45] <_|Nix|_> arschmitz: Welcome!
+[09:40:16] <arschmitz> _|Nix|_: well at least i guess ill be keeping good company ha ha
+[09:53:57] <jqmobilecommit> [jquery-mobile] gabrielschulhof pushed 2 new commits to button-markup-corners-can-be-string: http://git.io/lZfbEA
+[09:53:57] <jqmobilecommit> jquery-mobile/button-markup-corners-can-be-string aea5337 Gabriel Schulhof: [buttonMarkup] New option: cornerstyle - possible values "group" for ui-corner-* or anything else for ui-btn-corner-*
+[09:53:57] <jqmobilecommit> jquery-mobile/button-markup-corners-can-be-string 175811f Gabriel Schulhof: [controlgroup] Make use of new cornerstyle option to apply group-style corners rather than button-style corners
+[10:08:25] <_|Nix|_> OK, so I added the new option to https://github.com/jquery/jquery-mobile/pull/5241/ ...
+[10:46:33] <JasonDScott> Hey guys. I wont be able to make it to the meeting today cc: toddmparker
+[10:47:17] <toddmparker> ok JasonDScott
+[10:49:56] <toddmparker> reminder to fill this out - https://docs.google.com/document/d/1igqAXG0b7fA7sHP89sCsooJNs4QF1IjrTUWuoajU8JI/edit#
+[10:56:15] <jqmobilecommit> [jquery-mobile] uGoMobi pushed 3 new commits to new-docs: http://git.io/YLe7Hw
+[10:56:15] <jqmobilecommit> jquery-mobile/new-docs 094dd5a Jasper de Groot: Update demo template
+[10:56:15] <jqmobilecommit> jquery-mobile/new-docs 3e74de3 Jasper de Groot: cleanup popup demos
+[10:56:15] <jqmobilecommit> jquery-mobile/new-docs 895f8f0 Jasper de Groot: Added code highlighting to source code view
+[11:00:52] <agcolom> Hi! Is it meeting time?
+[11:01:02] <RWhitbeck> Indeed
+[11:01:31] <agcolom> Hi RWhitbeck :-)
+[11:01:54] <toddmparker> can someone underrate the meeting channel for me?
+[11:01:57] <RWhitbeck> what up agcolom
+[11:02:00] <toddmparker> having tech issues
+[11:02:43] <agcolom> toddmparker: sure, no pb
+[11:03:05] <johnbender> getting breakfast to eat whilst enjoying the meeting
+[11:03:39] <toddmparker> thanks
+[11:04:05] <toddmparker> still moderated
+[11:05:06] <RWhitbeck> I'd help if I knew how ;-)
+[11:06:37] <agcolom> maybe coming...
+[11:07:04] <gseguin>  alright we're in
+[11:47:43] <gseguin> johnbender: http://jquerymobile.com/branches/new-docs/docs/demos/popup-panel/index.html
+[12:17:36] <johnbender> gseguin: ooooooh
+[12:17:39] <johnbender> nice
+[12:17:41] <jqmobilecommit> [jquery-mobile] uGoMobi pushed 1 new commit to new-docs: http://git.io/_Yq-0w
+[12:17:41] <jqmobilecommit> jquery-mobile/new-docs 09f70fb Jasper de Groot: moved to syntax highlight code to docs CSS and JS files
+[12:20:38] <johnbender> _|Nix|_: uGoMobi: you guys around to discuss the button markup thing?
+[12:20:51] <johnbender> _|Nix|_: so lets get the solution out of the way
+[12:20:52] <uGoMobi> johnbender: sure
+[12:20:55] <_|Nix|_> johnbender: I'm here.
+[12:20:57] <johnbender> right now
+[12:21:01] <johnbender> in the PR you made
+[12:21:07] <johnbender> what does it do/support
+[12:21:52] <_|Nix|_> johnbender: finer granularity when you set corners via buttonMarkup
+[12:22:15] <_|Nix|_> johnbender: You can specify more values than just true (== all four corners) and false (== no corners at all).
+[12:22:33] <johnbender> _|Nix|_: what about the data-theme issue
+[12:22:41] <johnbender> https://github.com/jquery/jquery-mobile/issues/4317
+[12:22:45] <_|Nix|_> johnbender: ... and there's a new parameter (cornerstyle) which determines what kinds of corners you get.
+[12:23:06] <johnbender> _|Nix|_: uGoMobi: actually
+[12:23:15] <johnbender> I'm late for an appointment
+[12:23:16] <_|Nix|_> johnbender: That's actually #3637, but for widgets rather than just plain buttonMarkup.
+[12:23:18] <johnbender> just looked at the clock :(
+[12:23:26] <johnbender> will you guys be around in a bit?
+[12:23:42] <_|Nix|_> johnbender: OK. I'll take the opportunity to make my way home.
+[12:23:43] <uGoMobi> yeah I will be here couple more hours
+[12:23:48] <_|Nix|_> Me too.
+[13:06:40] <agcolom> hi, anyone around? (just need to ask a widget question)
+[13:06:51] <gseguin> here
+[13:06:55] <agcolom> Hi!
+[13:07:17] <gseguin> hey Anne
+[13:07:19] <agcolom> So I'm going to merge radio and checkboxes into checkboxradio
+[13:07:26] <agcolom> Hey Ghislain!
+[13:07:37] <gseguin> ok
+[13:07:49] <agcolom> In the docs, we had: $("input[type='radio']").checkboxradio({ mini: true });
+[13:08:17] <agcolom> but with the generated examples, we'll get $( ".selector" ).checkboxradio({ mini: true });
+[13:08:21] <agcolom> is this ok?
+[13:09:23] <gseguin> if your radio or checkbox has class "selector" on it yeah that works too
+[13:09:53] <agcolom> cool....
+[13:10:00] <agcolom> and the setter and getter...
+[13:10:11] <agcolom> let me just get the code again...
+[13:10:32] <agcolom> / getter
+[13:10:32] <agcolom> var mini = $( ".selector" ).checkboxradio( "option", "mini" );
+[13:10:32] <agcolom>  
+[13:10:33] <agcolom> // setter
+[13:10:33] <agcolom> $( ".selector" ).checkboxradio( "option", "mini", true );
+[13:10:44] <agcolom> are these both ok?
+[13:11:30] <gseguin> looks ok, lemme check
+[13:12:21] <gseguin> yep
+[13:12:50] <agcolom> great! thanks! That means I can add it everywhere for this widget...
+[13:13:15] <agcolom> I guess I'll still keep two parts: one for checkboxes and one for radios
+[13:13:49] <agcolom> (I'll add a <h2>Checkboxes</h2> checkbox text and examples
+[13:14:11] <agcolom> then <h2>Radio buttons</h2> radio button text and examples
+[13:14:38] <agcolom> but both under teh single checkboxradio widget entry
+[13:14:54] <agcolom> Good, at least I'm clear about this one :-)
+[13:15:55] <agcolom> Thank you very much :-)
+[13:16:28] <gseguin> you're very welcome
+[13:43:50] <arschmitz> uGoMobi: quick question
+[13:44:08] <uGoMobi> arschmitz: go ahead
+[13:44:40] <arschmitz> in my fix for programatic scrolling where i add and remove 1px of padding to body to cause a redraw
+[13:45:01] <arschmitz> do you see any issue in moving it to add and remove the padding to the active page instead?
+[13:45:43] <uGoMobi> arschmitz: do you have a link to the code for me?
+[13:46:02] <uGoMobi> to the fix I mean
+[13:46:16] <arschmitz> i dont but i can push it just a minute
+[13:48:22] <uGoMobi> arschmitz: sorry don't have quick answer for you, really need to see what is going on exactly
+[13:48:28] <arschmitz> no its fine
+[13:48:38] <arschmitz> i just hadent push back to github on it yet
+[13:48:43] <uGoMobi> we have the updatePagePadding function for example
+[13:48:52] <arschmitz> yeah tried that and didnt work
+[13:49:02] <arschmitz> dosent cause a change
+[13:49:55] <uGoMobi> I meant it might cause conflict with that function
+[13:50:01] <arschmitz> ahh
+[13:50:06] <arschmitz> just a sec im getting it
+[13:50:08] <uGoMobi> but depends on when the 1px padding is added/removed
+[13:50:14] <arschmitz> https://github.com/arschmitz/jquery-mobile/blob/workaround/js/widgets/fixedToolbar.workarounds.js
+[13:50:22] <uGoMobi> thanks
+[13:50:30] <arschmitz> https://github.com/arschmitz/jquery-mobile/blob/workaround/js/widgets/fixedToolbar.workarounds.js#L113
+[13:50:34] <arschmitz> easier lol
+[13:50:42] <RWhitbeck> Do we have a list of what planned for 1.3 posted anywhere?
+[13:50:53] <arschmitz> there is one in the wiki
+[13:51:15] <arschmitz> https://github.com/jquery/jquery-mobile/wiki/Roadmap
+[13:54:07] <arschmitz> uGoMobi: the reason for the change is that for some reason something in the jqm css makes it so using body dosent cause a full redraw and causes a reposition to middle of screen! using .ui-page-active works fine though
+[13:54:41] <RWhitbeck> arschmitz thanks…I kept looking at 1.next
+[13:55:01] <arschmitz> RWhitbeck: yeah its way down at the bottom of the wiki
+[13:55:31] <arschmitz> uGoMobi: i tried to figure out what is in the jqm css thats causing it but i couldnt
+[13:56:07] <uGoMobi> arschmitz: I have no idea either
+[13:56:40] <arschmitz> but i cant see where this would make any difference and it works fine
+[13:57:40] <uGoMobi> arschmitz: I am thinking about in what order we do things... has the class ui-page-active always been added when _triggerRedraw is called?
+[13:58:08] <arschmitz> yes
+[13:58:29] <arschmitz> _triggerRedraw is only trigger after a scroll that ends with the toolbar out of position
+[13:58:45] <uGoMobi> ah ok
+[13:58:58] <arschmitz> and it just adds and removes the 1 px
+[13:59:52] <uGoMobi> yeah I see the setTimeout 0 so I don't think this could cause conflicts
+[14:00:15] <arschmitz> cool i just wanted a second oppinion since i was making the change
+[14:00:51] <arschmitz> this morning i was testing all the jsbins from the issues against it to make sure everything was good and noticed this
+[14:00:55] <uGoMobi> sure np
+[14:01:22] <uGoMobi> I think it's safe to land it and then we do a lot of testing anyway
+[14:01:42] <arschmitz> since this is the first big thing iv done i want to make sure its going to work exactly how i intend lol
+[14:01:58] <arschmitz> dont want to break anything
+[14:02:02] <uGoMobi> haha
+[14:02:36] <uGoMobi> BTW - remember the 1px jitter fix that you tested on the dev summit?
+[14:02:43] <arschmitz> yea
+[14:02:53] <arschmitz> still seeing it?
+[14:02:54] <johnbender> uGoMobi: _|Nix|_: do you guys have a link to that PR
+[14:02:57] <johnbender> so I can take a look later
+[14:03:01] <uGoMobi> I think there are some regression from that fix I came up with :(
+[14:03:02] <johnbender> something came up :(
+[14:03:17] <arschmitz> bummer!
+[14:03:18] <uGoMobi> johnbender: https://github.com/jquery/jquery-mobile/pull/5241/files
+[14:04:51] <arschmitz> well if you need me to look at or test anything with it just let me know im happy to help
+[14:05:39] <johnbender> uGoMobi: _|Nix|_: cool, I'll comment tonight and we can discuss tomorrow
+[14:06:00] <uGoMobi> arschmitz: thanks... will let you know when I am going to look into it
+[14:06:09] <uGoMobi> johnbender: sure no problem
+[14:08:57] <_|Nix|_> OK.
+[14:16:18] <Wilto> friddin’ javascript
+[14:16:25] <Wilto> …“friggin’.”
+[14:22:19] <uGoMobi> Wilto: can you check that Basecamp post about cleaning up branches?
+[14:22:39] <uGoMobi> See if there any branches you want to keep and aren't mentioned yet
+[14:27:31] <Wilto> Oh, no, I got nothin’.
+[14:30:48] <uGoMobi> ok cool
+[14:30:51] <uGoMobi> thanks
+[14:35:52] <jqmobilecommit> [jquery-mobile] uGoMobi pushed 5 new commits to new-docs: http://git.io/HRK95A
+[14:35:52] <jqmobilecommit> jquery-mobile/new-docs 2a7f08e Jasper de Groot: Removed old syntax highlight files
+[14:35:52] <jqmobilecommit> jquery-mobile/new-docs 9323492 Jasper de Groot: Added rounded corners to source code view
+[14:35:52] <jqmobilecommit> jquery-mobile/new-docs 379a37f Jasper de Groot: Added comments
+[14:40:47] <toddmparker> rounded corners!
+[14:47:39] <uGoMobi> everybody happy :)
+[14:59:42] <agcolom> checkboxes and radio-buttons have been merged into checkboxradio (in the api docs)
+[15:08:44] <jqmobilecommit> [jquery-mobile] uGoMobi pushed 1 new commit to master: http://git.io/t257Fw
+[15:08:44] <jqmobilecommit> jquery-mobile/master f379050 Jasper de Groot: Added folder Demos including assets and demo template.
+[15:11:26] <toddmparker> nice work agcolom
+[15:16:53] <jqmobilecommit> [jquery-mobile] toddparker pushed 1 new commit to tables: http://git.io/rdbKcg
+[15:16:53] <jqmobilecommit> jquery-mobile/tables 95561e4 toddparker: Added more info to the tables page to explain the script setup
+[15:19:53] <jqmobilecommit> [jquery-mobile] toddparker pushed 1 new commit to tables: http://git.io/z4sBOA
+[15:19:53] <jqmobilecommit> jquery-mobile/tables cb0a2bd toddparker: Negated the text shadow on dark stacked headers
+[15:27:42] <jqmobilecommit> [jquery-mobile] toddparker pushed 1 new commit to tables: http://git.io/5pdlhw
+[15:27:42] <jqmobilecommit> jquery-mobile/tables 4409eaf toddparker: Phone comparison cleanup and comments
+[15:32:36] <doesallmagic> Project jQuery Mobile Phantom Master build #800: FAILURE in 19 min: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Phantom%20Master/800/
+[15:40:29] <uGoMobi> toddmparker: I don't think the failure has anything to do with the demos folder I added but you don't get to see that folder in the master branch preview either http://jquerymobile.com/test/demos/ :(
+[15:41:55] <gseguin> johnbender: ^^
+[15:42:40] <jqmobilecommit> [jquery-mobile] toddparker pushed 1 new commit to tables: http://git.io/OysNbA
+[15:42:40] <jqmobilecommit> jquery-mobile/tables 9ee5b05 toddparker: More cleanup to styles and docs for table demos
+[15:50:21] <jqmobilecommit> [jquery-mobile] uGoMobi pushed 2 new commits to master: http://git.io/6eOCkA
+[15:50:21] <jqmobilecommit> jquery-mobile/master 27032f1 Jasper de Groot: Disable Ajax on the homelink
+[15:50:21] <jqmobilecommit> jquery-mobile/master 4895716 Jasper de Groot: Added version to demo template footer
+[16:10:41] <doesallmagic> Yippie, build fixed!
+[16:10:42] <doesallmagic> Project jQuery Mobile Phantom Master build #801: FIXED in 19 min: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Phantom%20Master/801/
+[17:07:23] <johnbender> uGoMobi: gseguin|away yah it's the occasional failures we're seeing from the sequence tests

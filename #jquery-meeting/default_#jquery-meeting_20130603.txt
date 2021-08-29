@@ -1,0 +1,298 @@
+[09:02:26] <DaveMethvin> alright
+[09:02:39] <DaveMethvin> so who's here?
+[09:03:22] <DaveMethvin> timmywil gibson042 m_gol _orkel rwaldron gnarf
+[09:03:35] <_orkel> hi
+[09:03:36] <timmywil> yerp
+[09:03:46] <gibson042> present
+[09:03:53] <gnarf> hereish
+[09:03:55] <DaveMethvin> cool https://docs.google.com/document/d/1MrLFvoxW7GMlH9KK-bwypn77cC98jUnz7sMW1rg_TP4/edit
+[09:03:59] <timmywil> if you were wondering where I was past 2 weeks, I'm back from my honeymoon
+[09:04:06] <gnarf> timmywil: gratz!
+[09:04:16] <timmywil> thanks :D
+[09:04:20] <DaveMethvin> whoa, you look so much more married now
+[09:04:29] <DaveMethvin> where'd you go timmywil
+[09:04:35] <timmywil> bahamas
+[09:04:39] <DaveMethvin> niiiice
+[09:04:47] <m_gol> present!
+[09:04:59] <m_gol> gratz timmywil :)
+[09:05:03] <timmywil> beach was beautiful
+[09:05:32] <DaveMethvin> that's what all those jsconf guys were saying too
+[09:05:51] <DaveMethvin> but i'm sure you had more fun NOT talking about JS all week
+[09:06:15] <DaveMethvin> unless that's what you're into with your wife ... not judging mind you
+[09:06:42] <DaveMethvin> hokay ... let's get started
+[09:06:43] <timmywil> I didn't have my computer with me :)
+[09:07:03] <DaveMethvin> so a few tix have cropped up
+[09:07:05] <DaveMethvin> i listed them htere
+[09:07:13] <DaveMethvin> gibson042 got one alreayd
+[09:07:16] <DaveMethvin> already*
+[09:07:31] <DaveMethvin> the one with IE cross-frame has me worried we may need another quick release
+[09:07:50] <_orkel> :-(
+[09:08:04] <DaveMethvin> IE and frames are just a minefield
+[09:08:06] <DaveMethvin> even in newer ones
+[09:08:18] <_orkel> i'm investigating it right now
+[09:08:24] <DaveMethvin> ok cool
+[09:08:40] <DaveMethvin> it really just depends on how frequently we get tickets about it
+[09:08:41] <timmywil> btw, I can't imagine how firstChild could be something when lastChild is null
+[09:09:01] <DaveMethvin> i think it was that one was a text node and one wasnt
+[09:09:17] <DaveMethvin> nobody expects a text node, or the spanish inquisition
+[09:09:21] <timmywil> still a child right? should be picked up by either
+[09:09:21] <_orkel> this gist – https://gist.github.com/orkel/8f84caadb78b13ff780d explains it
+[09:09:51] <DaveMethvin> we expected a specific number of levels of wrappers
+[09:09:59] <DaveMethvin> and the hosed up html broke that
+[09:10:10] <timmywil> ah
+[09:10:20] <timmywil> ok
+[09:10:37] <_orkel> pretty bizarre case
+[09:10:59] <DaveMethvin> i think gibson042 makes a good point that this is bad input, it's just that if someone moves to 2.x they expect no exceptions and will immediately blame jquery
+[09:11:22] <DaveMethvin> is there a reason why we switched from first to last child _orkel?
+[09:11:49] <DaveMethvin> it's one char shorter :)
+[09:12:02] <timmywil> I'd prefer not to throw an error
+[09:12:20] <DaveMethvin> yeah even though the input is junk and there may still be cases that throw errors in both
+[09:13:26] <_orkel> oh, lastChild was needed for oldIE, firstChild is a bit obvious property to take, i mean when i start to count i begin from one
+[09:13:35] <DaveMethvin> alrighty
+[09:13:47] <_orkel> and it smaller by 3 bytes :-)
+[09:13:51] <m_gol> I begin with 0 :)
+[09:14:10] <_orkel> m_gol: :-)
+[09:14:31] <DaveMethvin> let's see if we can hold off on a new release until after Portland, but it will depend on how many dup tix we get about these
+[09:14:53] <m_gol> are them regressions?
+[09:15:10] <DaveMethvin> yes
+[09:15:14] <DaveMethvin> to some extent
+[09:15:22] <DaveMethvin> the garbage html one doens't bother me
+[09:15:34] <DaveMethvin> the cross frame one has been reported at least twice already
+[09:16:05] <DaveMethvin> the ie7 bug should be rarely reported given ie7 market share
+[09:16:44] <DaveMethvin> okay, so some Intel folks pinged me, they used their tool and say they've found some things we can do to increase perf
+[09:16:56] <DaveMethvin> so i'm waiting to hear back on exactly what those things are
+[09:17:19] <_orkel> how do they came to that conclusion?
+[09:17:25] <gnarf> DaveMethvin: sounds ominous :)
+[09:17:28] <DaveMethvin> they have a tool called VTune
+[09:17:32] <timmywil> we should probably fix the cross frame one soonish
+[09:17:47] <_orkel> i'm working on that
+[09:17:50] <DaveMethvin> there are certain practices that cause the JIT compilers to recompile their code
+[09:17:53] <DaveMethvin> for example
+[09:18:05] <DaveMethvin> if you add properties to an Array
+[09:18:20] <DaveMethvin> there's an optimized form where it only allows [n] indexing with a number
+[09:18:35] <DaveMethvin> but if you add a property it regresses to a generic property bag object
+[09:18:58] <m_gol> right
+[09:19:14] <m_gol> but I hope we don't plan to write everything in asm.js ;)
+[09:19:17] <DaveMethvin> if you use `new myObject()` and assign all the properties in the constructor function then it optimizes that
+[09:19:21] <_orkel> Array thing is perf decrease only in FF, and we used only twice, which is executed rarely
+[09:19:21] <DaveMethvin> lol
+[09:19:38] <DaveMethvin> yeah that's why i wanted to know where they saw this
+[09:19:52] <DaveMethvin> because it would only be worth a rewrite in a hot path
+[09:20:00] <DaveMethvin> and there aren't that many hot paths in jquery i think
+[09:20:01] <_orkel> btw i remember to telling you this :-)
+[09:20:10] <DaveMethvin> yes i think you did _orkel
+[09:20:25] <m_gol> I agree, especially that lots of optimisations would increase size
+[09:20:32] <m_gol> (like re-writing in asm.js :P)
+[09:20:35] <DaveMethvin> i would like to see profiling from them showing that it really causes problems
+[09:20:58] <DaveMethvin> some minor tweaks are okay but yeah rewriting in asm.js doesn't make sense i suspect
+[09:21:22] <DaveMethvin> one browser reflow is a lot more expensive than most of the stuff we do
+[09:21:53] <DaveMethvin> anyway, i had hoped we might meet with them while we're all in Portland, i think at least some of their group is there
+[09:21:58] <DaveMethvin> but we'll see
+[09:22:09] <m_gol> nice :)
+[09:22:22] <DaveMethvin> anyway i'll see if we can start a discussion for both teams to participate
+[09:22:23] <m_gol> the team meeting is June 12th, right?
+[09:22:33] <DaveMethvin> yup
+[09:22:40] <DaveMethvin> so speaking of that
+[09:23:00] <DaveMethvin> i made a list of some stuff we might want to break, um, tackle, for the next big release
+[09:23:23] <m_gol> :)
+[09:23:48] <DaveMethvin> the visible/hidden thing WILL break some code but it is an example of something that does cause reflows
+[09:23:48] <m_gol> I'm starting to hate CSSOM more & more
+[09:24:03] <m_gol> vide
+[09:24:04] <m_gol> ?13956
+[09:24:08] <bot-t> [#13956] .css('right') returns percentage value in Chrome (assigned bug) - http://jqbug.com/13956
+[09:24:44] <m_gol> what visible/hidden thing?
+[09:24:59] <DaveMethvin> right now, we consider an element to be hidden if its width/height are 0
+[09:25:12] <DaveMethvin> but to determine that we use offsetWidth/Height
+[09:25:23] <DaveMethvin> and asking for that causes a sync reflow
+[09:25:34] <m_gol> right
+[09:25:36] <DaveMethvin> whereas asking for display: doesn't
+[09:25:53] <DaveMethvin> supposedly the browsers are pretty smart about that
+[09:26:05] <DaveMethvin> they'll do the cascade but not the layout
+[09:26:27] <DaveMethvin> but our width/height==0 trick is from loooong ago
+[09:26:36] <m_gol> yeah, but we'd have to check it all the way up the DOM tree, right?
+[09:26:45] <DaveMethvin> well, that's the issue
+[09:26:59] <DaveMethvin> it changes the meaning of visible
+[09:27:16] <DaveMethvin> or means we need to go up the tree
+[09:27:27] <DaveMethvin> which still may be cheaper reflow-wise
+[09:28:09] <m_gol> yeah, I guess most hidden elements won't have deep sub-trees
+[09:28:28] <DaveMethvin> the thing is, width/height==0 has its own bugs
+[09:28:30] <m_gol> (unless you put a FB button inside a hidden element :P)
+[09:28:44] <DaveMethvin> like <br> tags have 0 height in chrome i believe
+[09:28:53] <DaveMethvin> there's an open ticket for it
+[09:29:24] <DaveMethvin> what bothers me about what we do today is that it's a VERY expensive operation and the users have no idea it can ruin performance
+[09:29:40] <m_gol> right
+[09:30:04] <DaveMethvin> i did a perf profile of some jQ Mobile code a while back and we were killing their startup perf with a .offsetHeight
+[09:30:28] <orkel> this table might of assistance https://developers.google.com/speed/images/reflow-chart.png
+[09:31:08] <DaveMethvin> great chart orkel
+[09:31:34] <DaveMethvin> notice display:none is basically free
+[09:32:04] <m_gol> It'd be nice to see it for newer browsers, too
+[09:32:19] <DaveMethvin> on that particular thing they're only going to get better
+[09:32:43] <DaveMethvin> as long as you're not asking for something related to dimensions they can usually defer it
+[09:33:10] <DaveMethvin> anyway that's not a complete list there but just some things it might be worth discussing
+[09:33:28] <DaveMethvin> feel free to think of others we can talk about
+[09:33:49] <DaveMethvin> and our outcome may not be to change code, but to document the expensive operations
+[09:34:02] <DaveMethvin> that would work too for some of these
+[09:34:25] <gnarf> DaveMethvin: re hidden
+[09:34:33] <gnarf> DaveMethvin: why not split the difference
+[09:34:42] <gnarf> check display first, on one element, then offset it
+[09:34:49] <DaveMethvin> i think we already do that gnarf
+[09:34:55] <gnarf> oh
+[09:35:11] <DaveMethvin> lemme check
+[09:35:20] <gnarf> though this actually creates a problem with width/height 0 elements not being "hidden" though
+[09:35:43] <gnarf> right?
+[09:35:54] <m_gol> I'd be probably for checking the display up the tree though I expect a couple of tickets saying jQuery got slower because they have to maintain DOM trees of height 1000
+[09:35:58] <gnarf> if we were to do the full tree walk, i still think we'd have to check for 0
+[09:36:12] <orkel> https://github.com/jquery/jquery/blob/master/src/css.js#L528
+[09:36:25] <m_gol> do we need to treat the 0-height elements as hidden, though?
+[09:36:33] <DaveMethvin> well that's the problem
+[09:36:43] <m_gol> orkel, you're fast :)
+[09:36:45] <gnarf> m_gol: im sure something in effects depends on that
+[09:36:55] <orkel> git grep rules :-)
+[09:36:59] <m_gol> yeah but if we rewrote that
+[09:37:10] <m_gol> to align better with the rest of the shift
+[09:37:19] <DaveMethvin> there was a shortcut check at one point i know
+[09:37:27] <DaveMethvin> but maybe we pulled it because it broke something
+[09:37:44] <gnarf> m_gol: i mean, someone, somewhere https://github.com/jquery/jquery/blob/master/src/css.js#L43-L48
+[09:37:49] <gnarf> oops
+[09:37:57] <m_gol> that's what I meant when I asked if we have to treat them like that
+[09:37:58] <gnarf> link was for DaveMethvin
+[09:38:15] <gnarf> m_gol: i think we do -- if someone is depending on a height: 0 to be treated as hidden
+[09:38:33] <DaveMethvin> but then we're back to that fuzzy defn of hidden
+[09:38:40] <DaveMethvin> is a <br> hidden if it has height of 0?
+[09:38:56] <m_gol> gnarf: the question is how much we can break in a major version bump
+[09:39:16] <m_gol> gnarf: and the <br> problem DaveMethvin mentioned etc.
+[09:39:28] <m_gol> I'm not sure how far we can get with not making this change
+[09:39:36] <gnarf> so effects uses this display: none https://github.com/jquery/jquery/blob/master/src/effects.js#L256
+[09:39:57] <DaveMethvin> and effects uses ONLY that, not the .offsetWidth hack
+[09:40:00] <gnarf> yup
+[09:40:06] <gnarf> so effects is in the clear
+[09:40:24] <gnarf> effects should also consider something shown in a hidden container to NOT be hidden
+[09:40:26] <DaveMethvin> we changed that recently didn't we gnarf?
+[09:40:31] <DaveMethvin> yes, exactly
+[09:40:42] <gnarf> should :hidden ?
+[09:40:50] <DaveMethvin> right now? yes :)
+[09:41:01] <gnarf> cuz at this point - we only talk about :hidden yeah?
+[09:41:26] <DaveMethvin> yeah it just gets confusing tho
+[09:41:36] <DaveMethvin> like if you say if something is visible then .hide() it
+[09:41:55] <DaveMethvin> but then if it's inside something not visible it won't be hidden when the parent is shown
+[09:42:17] <DaveMethvin> it's been that way since maybe 1.2.6 or so
+[09:42:20] <gnarf> DaveMethvin: actually, i think if you .hide() it
+[09:42:22] <gnarf> it works
+[09:42:29] <gnarf> but if you .hide(100) it, it doesn't ;)
+[09:42:41] <DaveMethvin> yeah effects is broken :)
+[09:42:43] * DaveMethvin runs
+[09:42:47] <m_gol> :)
+[09:43:01] <DaveMethvin> anyway
+[09:43:11] <DaveMethvin> a fun topic for discussion
+[09:43:15] <m_gol> yep :)
+[09:43:22] <m_gol> another thing is this CSSOM stuff
+[09:43:22] <DaveMethvin> perhaps we could do a long beta for this to see if it's feasible
+[09:43:25] <DaveMethvin> and what breaks
+[09:43:34] <gnarf> actually - https://github.com/jquery/jquery/blob/master/src/css.js#L85-L91
+[09:43:36] <DaveMethvin> and retreat if it's not
+[09:43:49] <gnarf> DaveMethvin: also uses isHidden() - so either way, .hide() adds display none
+[09:44:37] <orkel> we actually already had that discussion – https://github.com/jquery/jquery/pull/774
+[09:45:19] <DaveMethvin> lol yeah
+[09:45:59] <DaveMethvin> okay, so now on to the really serious stuff
+[09:46:05] <DaveMethvin> style guide
+[09:46:25] <m_gol> :)
+[09:46:28] <orkel> :-))
+[09:46:51] <DaveMethvin> if you look at the current style guide it doesn't specify several things we tend to do
+[09:46:53] <gibson042> I've gotta take off; sorry I couldn't participate much this time.... I hope to look over the replaceWith stuff in excruciating detail this week, though
+[09:47:02] <DaveMethvin> a? b: c  << wrong
+[09:47:08] <DaveMethvin> a ? b : c  << right
+[09:47:14] <DaveMethvin> but then again
+[09:47:23] <DaveMethvin> { test: true }
+[09:47:29] <DaveMethvin> why no space before THAT colon
+[09:47:42] <DaveMethvin> (i like it that way)
+[09:47:47] <m_gol> haha, true
+[09:48:01] <m_gol> but I'd say it's closer to commas and semi-colons
+[09:48:05] <m_gol> i.e. no space before
+[09:48:18] <m_gol> and the colon in a ? b : c is a different kind of construct
+[09:48:22] <DaveMethvin> yeah, it's just that commas and semicolons have no exceptions
+[09:48:40] <DaveMethvin> right, the ASCII value of the char doesn't determine the space rules :)
+[09:48:41] <gnarf> DaveMethvin: { objectProp: value } should be the rule
+[09:48:47] <m_gol> I'd say a ? b : c is an exception on its own ;)
+[09:48:50] <DaveMethvin> agreed
+[09:48:52] <gnarf> but then ? and : in the ternary context are operators
+[09:49:07] <DaveMethvin> that's exactly why i think () as grouping ops don't need spaces
+[09:49:09] <gnarf> so space on either side of the ?/: because you wouldn't write 5+ 2
+[09:49:29] <DaveMethvin> gnarf ... but i WOULD write x++
+[09:49:37] <gnarf> DaveMethvin: same
+[09:49:37] <DaveMethvin> again, ops
+[09:49:43] <DaveMethvin> or !thing
+[09:49:57] <m_gol> as for the spaces in inside brackets in expressions, I think we should have them
+[09:50:26] <DaveMethvin> you mean [ x ] vs [x] ?
+[09:50:27] <m_gol> maybe that's just me but having spaces in `if ( sth ) {}` and not having in `(true || false)` seems strange to me
+[09:50:44] <m_gol> no, I mean what I've just wrote :)
+[09:50:45] <DaveMethvin> but those are two very diff uses of ()
+[09:50:47] <m_gol> * written
+[09:50:57] <m_gol> well, sort of
+[09:51:16] <m_gol> they are required by syntax but they're also grouping
+[09:51:33] <DaveMethvin> if we have "grouping parens always need spaces on either side" that makes some of the conditionals very spacey
+[09:51:52] <m_gol> I mean, even if you could write `if a { sth; }`, you'd still write `if ( a || b ) { sth; }`
+[09:52:07] <m_gol> yeah, and `function ( )`
+[09:52:42] <m_gol> well, jQuery is the first project I contribute to that has such liberal spacing so I don't have much experience in it :)
+[09:53:03] <DaveMethvin> but the difference in spacing is more about the operation the character is performing I htink
+[09:53:20] <DaveMethvin> same with colons
+[09:53:31] <DaveMethvin> where sometimes it has a space and sometimes not
+[09:53:41] <DaveMethvin> but they are two different operations
+[09:53:46] * m_gol we have this in attributes.js:
+[09:53:48] <m_gol> if ( ( option.selected || i === index ) &&
+[09:53:48] <m_gol> 		// Don't return options that are disabled or in a disabled optgroup
+[09:53:48] <m_gol> 		( jQuery.support.optDisabled ? !option.disabled : option.getAttribute("disabled") === null ) &&
+[09:53:48] <m_gol> 		( !option.parentNode.disabled || !jQuery.nodeName( option.parentNode, "optgroup" ) ) ) {
+[09:55:32] <DaveMethvin> see to me the outer parens having space but the inner ones not would make that more readable
+[09:55:50] <DaveMethvin> although % tells me about matches anyway :)
+[09:56:37] <m_gol> so, we'd have things like:
+[09:56:37] <m_gol> if ( (option.selected || i === index) &&
+[09:56:37] <m_gol> / Don't return options that are disabled or in a disabled optgroup
+[09:56:37] <m_gol> (jQuery.support.optDisabled ? !option.disabled : option.getAttribute("disabled") === null) &&
+[09:56:37] <m_gol> (!option.parentNode.disabled || !jQuery.nodeName( option.parentNode, "optgroup" )) ) {
+[09:56:47] <m_gol> (look at the end)
+[09:57:01] <DaveMethvin> i've just never worked on a project with so much spaciness! the other one i'm working on i am having a hard time getting people to stop doing if(test){ with no spaces at all
+[09:57:09] <m_gol> :D
+[09:57:16] <m_gol> the same for me
+[09:57:44] <DaveMethvin> okay well perhaps we can move this forward with a pull req against the style guide
+[09:57:52] <DaveMethvin> at least it will give people something to shoot at
+[09:57:57] <DaveMethvin> i'll put something together
+[09:58:04] <m_gol> well, I like having a space after function, too
+[09:58:24] <m_gol> i.e. `function () {}` but `function sth() {}`
+[09:58:27] <scott_gonzalez> DaveMethvin: I almost pushed a change this morning.
+[09:58:44] <scott_gonzalez> "Liberal spacing in code." -> "Parentheses require spaces on both sides."
+[09:58:45] <m_gol> this would make those two visually more different
+[09:59:23] <DaveMethvin> "colons and question marks require spaces on both sides" won't work though
+[09:59:34] <DaveMethvin> and "curly braces should always be followed by a newline"
+[09:59:39] <DaveMethvin> we prob don't want that
+[09:59:46] <m_gol> scott_gonzalez: `fun ( a, b )`? I'd rather not
+[09:59:47] <DaveMethvin> although large objects we would
+[09:59:59] <scott_gonzalez> m_gol: Already covered explicitly.
+[10:00:02] <m_gol> k
+[10:00:34] <DaveMethvin> hey, we filled an hour exactly?
+[10:00:39] <DaveMethvin> anybody got anything else?
+[10:00:44] <scott_gonzalez> We should just start with general rules, like parens, braces, brackets, operators all require spaces on both sides.
+[10:00:55] <scott_gonzalez> colons for property labels don't have a preceding space.
+[10:01:05] <DaveMethvin> a [ i ] === 0
+[10:01:17] <DaveMethvin> a[ i ] == 0
+[10:01:19] <scott_gonzalez> Anything followed by a semicolon doesn't require a trailing space.
+[10:01:35] <scott_gonzalez> property accesses and function definitions/invocations don't havea  preceding space.
+[10:02:22] <DaveMethvin> i definitely think we need better guide than "liberal spacing"
+[10:02:32] <DaveMethvin> those are pretty good
+[10:02:48] <DaveMethvin> alright, let's wrap this baby up
+[10:02:51] <scott_gonzalez> We'd include the increment and decrement operators as exceptions as well.
+[10:02:58] <m_gol> DaveMethvin: as for other things, I'll just reiterate we should think of a more concrete handling of CSSOM weirdness, it keeps to bite us
+[10:03:15] <scott_gonzalez> I hate the long list of good and bad examples as the main way to determine what the rules are.
+[10:03:16] <m_gol> mikesherov isn't going to be at the conf, unfortunately
+[10:03:20] <scott_gonzalez> They should be clearly written out.
+[10:03:30] <m_gol> IIRC
+[10:03:39] <DaveMethvin> i guess some of you will be traveling next week? m_gol and orkel maybe?
+[10:03:44] <DaveMethvin> on monday
+[10:03:52] <m_gol> yep, I'm leaving on tuesday
+[10:04:12] <m_gol> 2 hours from Warsaw to Amsterdam and then "1 hour" from there to Portland :D
+[10:04:19] <DaveMethvin> one VERY LONG hour
+[10:04:27] <orkel> yeah, me too
+[10:04:42] <orkel> 16 hours or so for me
+[10:04:46] <orkel> :-)
+[10:04:58] <DaveMethvin> alright, looking forward to seeing you next week!
+[10:05:04] <DaveMethvin> talk to you in -dev
+[10:05:05] <orkel> me too

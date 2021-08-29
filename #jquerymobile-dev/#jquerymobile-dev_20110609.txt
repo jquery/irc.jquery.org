@@ -1,0 +1,132 @@
+[08:20:43] <kinblas> scottjehl: toddparker: I have 2 more navigation unit tests to fix, then its off to testing on the devices
+[08:21:37] <kinblas> I also added about 40+ unit tests regarding path resolution, and will probably add at least double that in the coming days
+[08:22:01] <kinblas> I meant 40 tests to the navigation unit test
+[08:55:47] <toddparker> wow, great kinblas
+[08:55:56] <toddparker> tell me when you need me to test
+[08:56:06] <toddparker> i charged up our devices this morning
+[08:56:14] <toddparker> thoughts on this pull? https://github.com/jquery/jquery-mobile/pull/1789
+[08:57:40] <toddparker> xss = bad
+[09:10:02] <eddiemonge> scottjehl, that one pull was a bit messy but i wasnt sure how to take out one of the changes after it was already committed and pushed
+[09:10:15] <eddiemonge> there was a separate pull for the grid refactor
+[09:18:55] <scottjehl> kinblas: sounds great!
+[09:19:36] <scottjehl> eddiemonge: cool! So grid refactor: does it fix any bugs or just clean & optimize the code a bit?
+[09:19:45] <scottjehl> (which is great btw, just wondering)
+[09:20:04] <eddiemonge> second part
+[09:20:19] <eddiemonge> even though it only seems to get used rarely
+[09:20:24] <eddiemonge> if it all
+[09:20:58] <scottjehl> yeah. I'm thinking that one can deprecate in favor of recommendations on responsive layouts
+[09:21:44] <scottjehl> so I started a branch to see how feasible it'd be to decouple every widget from the page plugin
+[09:21:57] <scottjehl> short story: it works well: https://github.com/jquery/jquery-mobile/commit/b62a51075946679194d6e92414969e978eec92ce
+[09:22:28] <eddiemonge> im actually kind of leary of my refactor so it would definitely need some double checking, especially since i wrote it at about 2 in the morning
+[09:22:44] <scottjehl> ok - we'll wait on it for post-beta
+[09:22:56] <scottjehl> then decide if that plugin's worth keeping anyway
+[09:23:26] <eddiemonge> oh thats awesome. then we could make a download builder for it like the new one for UI
+[09:23:33] <scottjehl> yep
+[09:24:05] <eddiemonge> i dont think it is. i think the code could be added to navbar since thats the only place its used and all it does is add classes to tables of data
+[09:27:20] <eddiemonge> im going through the rest of the php pages cleaning those up too
+[09:31:59] <eddiemonge> ok those are done.
+[09:34:15] <eddiemonge> i commented on the questions you had on my pulls as well
+[09:34:59] <scottjehl> ok cool thx
+[10:15:42] <toddparker> kinblas - i'm out for about 2-3 hours, can test when i'm back
+[10:15:50] <toddparker> scottjehl is here to help test too
+[10:15:58] <toddparker> sooner, if you need him
+[10:53:26] <scottjehl> building on earlier message. This will allow devs to append a slag of HTML and enhance its subcomponents https://github.com/jquery/jquery-mobile/commit/df92fbd591ac2ed5c3a8336b1bbef130d1bc0b25
+[10:54:07] <scottjehl> $( ...lots of markup ...).appendTo( myPage ).trigger( "enhance" );
+[11:03:27] <nicovalencia> hola amigos - so I came across some weirdness this morning - I'm hitting a tmpl script tag in a jQuery mobile app and it's making a random request for /#hash. It only happens on pages with a #hash set... does anyone know if this is intended behaviour? The tmpl script tag is already in the DOM...
+[11:08:42] <scottjehl> hmm. as in, the tmpl script is getting/setting the hash on its own?
+[11:22:54] <nicovalencia> It's getting the hash then making an ajax GET for /hash... It's really random but I'm pretty sure it's jQuery Mobile doing it.
+[11:23:17] <nicovalencia> .tmpl must be triggering some jQuery Mobile event - I don't even know where to look though.
+[11:27:32] <nicovalencia> I'm working on a jsbin to try to replicate the behaviour.
+[11:29:34] <nicovalencia> Hmm, I can't get it to work in jsbin.
+[11:30:00] <scottjehl> well jQM listens for hashchanges by default, and will request a page of the path in that hash if it doesn't already exist in the DOM
+[11:30:25] <scottjehl> you can turn off the ajax and hash listening, but then jQM's page transitions and such will be disabled
+[11:30:42] <nicovalencia> Right, the hash shouldn't be changing though - I'm just triggering tmpl.
+[11:31:03] <scottjehl> oh I see. So somehow that hash is being set but it's unclear how, huh?
+[11:31:11] <nicovalencia> $( '#template-id' ).tmpl( {} ); - grabs the page hash and makes a random GET for /hash.
+[11:31:39] <nicovalencia> Well it's not even being set - there aren't any problems with the hash - but something is sending out a random ajax request when tmpl is triggered.
+[11:31:58] <scottjehl> hmm
+[11:32:17] <scottjehl> are you calling $.mobile.changePage programmatically?
+[11:33:26] <nicovalencia> Yes, after the templating get's done - which I've been told is not the proper way to do it - I'm going to eventually throw the data to be templated into a global, change the page, THEN template it.
+[11:33:51] <nicovalencia> But, I've tried calling $( '#tmpl-id' ).tmpl( {} ); directly from the console, and it's triggering the random request.
+[11:35:27] <scottjehl> very odd
+[11:36:01] <scottjehl> I haven't done any integration with tmpl and jQM yet. I'm not aware of whether it includes ajax utilities in its internals either
+[11:37:24] <nicovalencia> Well the only example in Boris's docs that uses ajax, shows a separate ajax call that runs the templating on success.
+[11:37:39] <nicovalencia> That's what makes me think a jQuery Mobile event is getting triggered somehow.
+[11:39:29] <scottjehl> hmm. well, if the hash changes it'll definitely trigger an ajax request if that page doesn't already exist. You might make sure your new page's data-url matches the hash url you're changing to...
+[11:39:30] <scottjehl> hmm
+[11:40:41] <nicovalencia> That's the weirdest part - I can run tmpl directly in console without touching jqm and it's still making an odd request.
+[11:40:52] <scottjehl> oh!
+[11:41:10] <scottjehl> okay, well I guess that'd be a question for jquery plugins team
+[11:41:21] <scottjehl> maybe
+[11:41:33] <nicovalencia> Might be - I could hit up Boris and see if he's had that happen before.
+[11:41:34] <scottjehl> I'm not familiar with tmpl at all unfortunately
+[11:45:31] <nicovalencia> Alright - I'll keep digging. Thanks for the help scott!
+[12:36:01] <scottjehl> sorry to not have an answer for you :/
+[12:50:36] <nicovalencia> Ok I have one more quirky thing happening today - I'm injecting some markup into a page THEN calling changePage to that page. Sometimes the button on the page gets rendered, sometimes it doesn't.
+[12:51:23] <nicovalencia> The button is always in the page markup before the pageshow event is triggered, and I've also run $.mobile.activePage.trigger('pageshow') in console after the button fails to render - it triggers the show, but donsn't render the button.
+[12:51:51] <nicovalencia> Where do buttons, lists, etc get rendered? I'm assuming they are rendered on pageshow, or pagebeforeshow,e tc.
+[13:01:59] <nicovalencia> Looks like it's rendering on pagecreate - is there a way to 'refresh' everything on the page? I've used .listview('refresh') and the likes - do I have to target each 'role'd element and manuallly trigger a refresh on pageshow?
+[13:05:36] <scottjehl> so we're working on that now in the decoupled-widgets branch
+[13:06:38] <scottjehl> https://github.com/jquery/jquery-mobile/commit/df92fbd591ac2ed5c3a8336b1bbef130d1bc0b25
+[13:07:07] <scottjehl> currently, it's only for enhancing bulk amounts of new widgets, but widgets could also bind to a refresh event for what you're talking about
+[13:11:43] <nicovalencia> Cool, so I see the buttonMarkup core is subscribing to that enhance event - is that something already packaged into the latest mobile?
+[13:39:19] <toddparker> hey gseguin, is kinblas over at your office now?
+[13:39:37] <toddparker> thought today was your pow-wow
+[13:39:39] <gseguin> yes he is
+[13:39:47] <toddparker> ah, say hi for me
+[13:40:03] <toddparker> how's it going?
+[13:40:15] <gseguin> great
+[13:40:30] <toddparker> cool
+[13:41:00] <toddparker> can you ask kin if that nav stuff is ready for testing? should i wait until tomorrow?
+[13:42:13] <kinblas> I still need to fix 3 unit tests
+[13:42:23] <kinblas> everything else is green!
+[13:42:32] <kinblas> will do so in about an hour or s
+[13:42:38] <kinblas> I mean in a couple of hours
+[13:46:22] <toddparker> ok, so i'll plan on testing when i get in tomorrow
+[13:46:33] <toddparker> i just don't want to hold you up, that's all
+[13:46:47] <toddparker> i'd also like this to live in master for at least a day or two
+[13:46:57] <toddparker> in case bad things happen
+[13:47:28] <toddparker> ...not that they will. it's just a pretty core thing
+[13:50:14] <_nickel> toddparker: scottjehl: new team catchphrase for when Kin lands big commits "Kin is Win"
+[13:50:36] <_nickel> I'm contemplating finding someone with a good radio voice to record it and then he can set it up as a post commit hook
+[13:51:15] <_nickel> it would be cool to get that guy who does the hulu preamble
+[13:51:19] <scottjehl> glad to hear our efforts are going towards the important stuff
+[13:51:33] <_nickel> scottjehl: I am an efficiency expert
+[13:51:43] <scottjehl> :) Win Blas
+[13:51:48] <toddparker> \o/  kin is win  \o/
+[13:52:04] <toddparker> \oo/-   rokk horns
+[14:46:16] <gseguin> :)
+[18:32:27] <scottjehl> heyo
+[18:37:37] <eddiemonge> hi
+[19:05:27] <scottjehl> hey eddie
+[19:05:30] <scottjehl> kinblas: you around?
+[19:36:51] <scottjehl> hey _nickel
+[19:37:13] <_nickel> scottjehl: hey
+[19:38:20] <scottjehl> I've got a 10 liner here that seems to bring full pushState support on top of Kin's path changes. :)
+[19:38:33] <scottjehl> we'll have to test after the path stuff lands
+[19:41:06] <_nickel> scottjehl: nice!
+[19:44:17] <_nickel> scottjehl: is it in a branch somewhere I could look at I'm curious
+[19:45:01] <scottjehl> well i was wondering if that'd be odd since it builds on Kin's path fixes branch
+[19:45:05] <scottjehl> but I can send you a diff
+[19:45:07] <scottjehl> ?
+[19:49:03] <scottjehl> http://scottjehl.com/tmp/diff.html
+[19:49:10] <scottjehl> using replaceState
+[19:49:59] <scottjehl> so it sorta just sits on top of the nav as it is, and waits for a hashchange to bubble up and just replace it
+[19:50:11] <scottjehl> unless it's a dialog hash
+[19:50:23] <scottjehl> or a subpage like a nested list
+[19:54:52] <scottjehl> _nickel - I have to head out in a sec
+[19:55:15] <_nickel> scottjehl: you can just branch off kins branch if you want :D
+[19:55:17] <scottjehl> feel free to email with questions, but I'll probably drop it into a branch tomorrow once Kin's stuff lands
+[19:55:23] <_nickel> scottjehl: cool I'll check it out
+[19:55:34] <scottjehl> ok I'll do that then
+[19:55:36] <scottjehl> :)
+[20:03:57] <scottjehl> _nickel https://github.com/jquery/jquery-mobile/commit/32617ef1e48592397b7241fa09384a6bba8d90a3
+[20:04:10] <_nickel> scottjehl: man super simple eh?
+[20:04:14] <scottjehl> tested in chrome so far
+[20:04:32] <scottjehl> well, might not cover everything, but it seems to work well!
+[20:05:31] <scottjehl> most of the work for hash handling is needed for this too, so this is currently just sitting on top of that logic
+[20:06:51] <scottjehl> makes for nice dialog urls too:) pathgoeshere#&ui-state=dialog
+[20:07:02] <scottjehl> rather than fullpath after the #
+[20:09:47] <scottjehl> just pushed again to it - had a typo
+[20:14:43] <scottjehl> anyway, last was here https://github.com/jquery/jquery-mobile/commit/e4ca152f4f35f51d260b1700383b9474529542a1
+[20:14:49] <scottjehl> later on!

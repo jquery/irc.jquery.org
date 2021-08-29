@@ -1,0 +1,80 @@
+[02:41:19] <jqmobilecommit> [13jquery-mobile] 15weases opened issue #7593: Fixed Toolbar: Header positioning fails after orientationchange in fullscreen mode 02http://git.io/aU60QQ
+[04:12:16] <gabriel_schulhof> jasperdegroot: Ping!
+[04:15:29] <gabriel_schulhof> When anyone gets a chance: Can you please open http://jsbin.com/IFolanOW/539 in FF30, open the popup, and try scrolling? I'm getting that the list disappears when you start scrolling, and reappears about 3 seconds after you stop scrolling. Really weird!
+[04:15:44] <gabriel_schulhof> It doesn't always happens, but it sure is weird.
+[04:15:58] <gabriel_schulhof> I'm wondering if it's anything I do with the CSS.
+[04:16:14] <gabriel_schulhof> It seems like it should be a FF bug though.
+[04:17:08] <arschmitz> gabriel_schulhof: i dont see it
+[04:18:03] <gabriel_schulhof> arschmitz: OK. That's cool. Might just be my messed up video drivers.
+[04:18:24] <gabriel_schulhof> arschmitz: Whenever I suspend, I see my console is full of kernel crashes related to the video driver :(
+[04:18:52] <gabriel_schulhof> Optimus: A Recipe For Disaster™
+[04:21:18] <arschmitz> right
+[07:03:22] <jasperdegroot> gabriel_schulhof: yeah, must be your video driver... I don't see it either (FF31)
+[08:04:28] <gseguin> arschmitz: so I did work around that safari mobile bug
+[08:05:12] <arschmitz> gseguin: oh yeah by tracking all your handlers?
+[08:05:43] <gseguin> well... technically if you use vmouse you don't bind touch events yourself, right?
+[08:05:54] <arschmitz> gseguin: correct
+[08:06:06] <gseguin> so what I did is I added a protectIframes method in the specialEventObject
+[08:06:30] <gseguin> which unbinds the touch events on $document 
+[08:06:38] <arschmitz> cool
+[08:06:47] <gseguin> and listens for for focus/blur on the iframe
+[08:06:57] <arschmitz> gseguin: thats probably the best way i coul think of to do it
+[08:07:01] <gseguin> to re-bind them when you exit the iframe
+[08:07:23] <arschmitz> gseguin: i think that would be super heavy handed to do in the lib but perfect for that use case
+[08:07:34] <arschmitz> gseguin: you should publish the extension on github
+[08:07:43] <gseguin> it's not specific to my code so if you want me to issue a PR, let me know
+[08:07:50] <gseguin> yeah I'll put it in a gist
+[08:08:11] <arschmitz> yeah i would like to have it somewhere we can point people to
+[08:08:36] <arschmitz> because its deffinitly useful if you have to deal with iframes
+[08:09:04] <arschmitz> gseguin: also would be a good thing to add a demo for once you have it up somewhere
+[08:09:10] <arschmitz> maybe add a note to the api docs too
+[08:10:19] <gseguin> arschmitz: https://gist.github.com/gseguin/b7395bca357b316ed613
+[08:12:02] <arschmitz> gseguin: i wonder if there is a way we could achieve this via an extension? rather then have to copy all of vmouse
+[08:12:30] <gseguin> arschmitz: I'd be more than happy to do so if you have a way
+[08:12:49] <arschmitz> gseguin: im looking to see if i can figure out how to do that right now
+[08:14:49] <arschmitz> gseguin: ugh so vmouse was written to expose almost NOTHING lol
+[08:17:30] <gseguin> yup
+[08:17:45] <gseguin> that's why I had to modify it.
+[08:18:12] <gseguin> arschmitz: we could add a switch that disables that feature by default and check that in
+[08:18:39] <arschmitz> gseguin: yeah i think i might have found a way
+[08:19:45] <arschmitz> gseguin: we can loop through our bindings on $.event.special
+[08:20:07] <arschmitz> add your new method to each oh the vmouse objects
+[08:20:38] <gseguin> arschmitz: the other thing that I added is auto-protecting existing iframes
+[08:20:46] <gseguin> that would have to go then
+[08:20:56] <arschmitz> gseguin: then we just need to proxy the setup on each on to do the if statement to check
+[08:21:26] <arschmitz> so i think that would handle everything i see here you modified ( unless i missed something )
+[08:22:46] <gseguin> arschmitz: but how would I be able to bind/undbind the touch events ?
+[08:23:18] <arschmitz> gseguin: what do you mean?
+[08:23:45] <arschmitz> thats done in the protectiframes method isnt it?
+[08:23:48] <gseguin> the functions to bind/unbind are not publicly accessible
+[08:24:03] <arschmitz> oh shoot right
+[08:24:16] <gseguin> and these are something I added
+[08:24:18] <arschmitz> gseguin: we would just have to copy those
+[08:24:26] <arschmitz> they are small 
+[08:24:42] <gseguin> but they won't have access to the functions bound
+[08:24:49] <arschmitz> oh the bind and unbind functions you added?
+[08:24:57] <gseguin> yeah
+[08:24:57] <arschmitz> i see shoot
+[08:25:21] <arschmitz> hmmmm well heres what i think is best lets check if polymer will be ready for 1.5
+[08:25:37] <gseguin> arschmitz: I added these: https://gist.github.com/gseguin/b7395bca357b316ed613#file-jquery-mobile-vmouse-js-L331-L354
+[08:25:39] <arschmitz> if not ill make vmouse an object on .mobile to expose what we need to make an extension possible
+[08:25:47] <gseguin> to be able to write DRY code
+[08:25:59] <arschmitz> then we could make this a very simple extension
+[08:26:31] <arschmitz> or rather our jquery-pointer-events wrapper for it
+[08:26:40] <gseguin> arschmitz: that or we make it part of the vmouse code and disable it by default
+[08:27:09] <arschmitz> gseguin: maybe but i dont think i would want to do either for 1.4.4 
+[08:27:30] <arschmitz> gseguin: but if we still have vmouse for 1.5 i think we should do something
+[08:27:56] <gseguin> what's the rationale for not putting this in 1.4.4 ?
+[08:28:48] <gseguin> arschmitz: ^
+[08:31:35] <arschmitz> gseguin: because if we do anything i want to expose vmouse as an object and just allow this through extension 
+[08:31:53] <arschmitz> gseguin: and that big a change to vmouse seems a lot for a patch release
+[08:32:24] <arschmitz> gseguin: espically for something that has not been changed in almost 3 years 
+[08:32:41] <gseguin> arschmitz: so a simple patch for vmouse for 1.4.4 with the new feature disabled by default seems appropriate
+[08:32:44] <arschmitz> gseguin: i dont want to introduce bugs in a patch release
+[08:33:02] <gseguin> arschmitz: agreed that's why I would disable it by default
+[08:33:05] <arschmitz> gseguin: if you add it like that its a feature
+[08:33:11] <arschmitz> not a fix
+[08:33:25] <gseguin> arschmitz: hmm... not sure I agree
+[08:33:27] <arschmitz> gseguin: because it introduces new api
+[23:48:00] <gabriel_schulhof> arschmitz/window 3
+[23:48:03] <gabriel_schulhof> Sorry!

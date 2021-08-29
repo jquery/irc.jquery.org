@@ -1,0 +1,130 @@
+[06:36:21] <jqcommit> [13infrastructure] 15mzgol pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/02e1e6069b34ea45ed8fdbc7a7f5653559e854b9
+[06:36:21] <jqcommit> 13infrastructure/06puppet-stage 1402e1e60 15Michał Gołębiowski: TestSwarm: Add iOS 5.1 to the weekly jobs
+[06:36:34] <jqcommit> [13infrastructure] 15mzgol merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/8b45d9cab5cf...02e1e6069b34
+[07:55:14] <m_gol> ryanneufeld gnarf s5fs Krinkle|detached: ajax tests are failing again... http://swarm.jquery.org/job/2704. It's happening extremely often recently; it seems there's a new problem in our infrastructure
+[07:56:34] <m_gol> it looks kind of like an unstable connection between our code & infra but there are often periods where it happens all the time and there's time where there's no problem
+[08:08:48] <ryanneufeld> ping gnarf
+[08:10:24] <gnarf> so
+[08:10:32] <jqcommit> [13infrastructure] 15mzgol opened issue #255: IRC notifications don't fire 02https://github.com/jquery/infrastructure/issues/255
+[08:10:41] <gnarf> my gut reaction is: FOR THE LOVE OF GOD STOP USING sleep(10000) IN THE PHP
+[08:11:35] <gnarf> m_gol ^ / ryanneufeld - look at the slow php log
+[08:12:12] <m_gol> gnarf: ok, what can I use instead?
+[08:12:40] <ryanneufeld> what
+[08:12:47] <ryanneufeld> why are you using sleep 10000 ?
+[08:13:06] <ryanneufeld> are you attempting to force a timeout?
+[08:13:14] <gnarf> ryanneufeld: yup ;)
+[08:13:24] <ryanneufeld> then that would be a good way to do it
+[08:13:25] <gnarf> m_gol: i dunno -- we can look at a solution that uses http://wiki.nginx.org/HttpEchoModule#echo_sleep maybe?
+[08:13:39] <gnarf> basically - i think it's overloading the php fpm pool
+[08:13:44] <gnarf> too many "sleeping" php processes
+[08:13:52] <gnarf> there are only like 50-100 procs available for the pool
+[08:14:01] <ryanneufeld> ahhhh I see
+[08:14:05] <gnarf> but
+[08:14:11] <gnarf> something else could be messing it up
+[08:14:13] <ryanneufeld> so the nginx config would be a non-blocking version
+[08:14:22] <gnarf> also the builds. uses its own pool
+[08:14:31] <ryanneufeld> I feel like that would be a good thing to do then
+[08:14:37] <gnarf> so its definitely something in the php code inside one of the repos being tested that is "locking" php-fpm processes
+[08:14:42] <m_gol> this is the commit that introduced this file: https://github.com/jquery/jquery/commit/32b066d3805a48f8c8312562ed52a1b5910b1d85
+[08:14:58] <m_gol> and an associated PR: https://github.com/jquery/jquery/pull/1209
+[08:15:38] <ryanneufeld> m_gol: yeah, that looks like that would do it
+[08:15:40] <m_gol> but the idea is to have an iframe in a loading state for as long as a jQuery copy downloads, parses & starts executing ready code
+[08:16:16] <m_gol> here's the code: https://github.com/jquery/jquery/blob/master/test/data/core/dynamic_ready.html
+[08:16:28] <m_gol> the dont_return.php is the file with the long sleep value
+[08:16:42] <ryanneufeld> m_gol: the iframe would be async though
+[08:17:23] <m_gol> ryanneufeld: I'm not sure what you mean :)
+[08:17:34] <ryanneufeld> I'm not sure what you mean either
+[08:17:44] <ryanneufeld> like, what is this testing?
+[08:19:07] <ryanneufeld> refresh my memory m_gol, what does a settimeout with no delay do?
+[08:19:37] <m_gol> the test is to check that the ready event correctly fires in a jQuery copy if it's loaded after DOMContentLoaded but before load; that's what this iframe is for, to be before the load event
+[08:19:38] <gnarf> ryanneufeld: "nextTick"
+[08:19:41] <m_gol> timeout 0 is default
+[08:19:57] <m_gol> and everything is clamped to 4ms anyway
+[08:20:09] <m_gol> from the bottom
+[08:20:20] <ryanneufeld> how is that different than (function(){})() ?
+[08:20:28] <gnarf> ryanneufeld: not in the same event loop
+[08:20:29] <m_gol> it's async
+[08:20:34] <gnarf> aka "next tick"
+[08:20:44] <ryanneufeld> interesting, I couldn't find docs on that
+[08:21:36] <ryanneufeld> okay, so what is this test supposed to do? (I'm not very familiar with our test suite)
+[08:24:48] <m_gol> ryanneufeld: I've already written ;)
+[08:24:57] <m_gol> "the test is to check that the ready event correctly fires in a jQuery copy if it's loaded after DOMContentLoaded but before load; that's what this iframe is for, to be before the load event"
+[08:25:23] <ryanneufeld> I see
+[08:25:36] <ryanneufeld> I'm not proud to admit this, but I think this is beyond me
+[08:29:31] <m_gol> anyway, the main problem here is that we need sth stopping the page from loading completely for some time
+[08:29:39] <m_gol> that's what sleep(sth large) is for
+[08:30:35] <m_gol> and apparently this creates an infra problem and starves the PHP process pool or sth
+[08:30:40] <m_gol> any ideas, gnarf?
+[08:30:55] <ryanneufeld> the nginx config he suggested would be a good start
+[08:31:03] <ryanneufeld> gnarf: we could get that out to stage and test it?
+[08:31:23] <ryanneufeld> gnarf: on another note, is it possible to get ZNC to listen on 443/
+[08:31:24] <ryanneufeld> ?
+[08:31:34] <gnarf> ryanneufeld: as well - i don't think so
+[08:31:38] <gnarf> feel free to research
+[08:31:42] <gnarf> but i think it only listens on one port
+[08:31:49] <gnarf> if we can get it to listen to 2 i'd be happy to do it
+[08:32:06] <ryanneufeld> the online config allows you to add more ports
+[08:32:13] <ryanneufeld> but I can't add 443 
+[08:32:17] <ryanneufeld> cause it's <1024
+[08:32:44] <ryanneufeld> I just added 6667 as ssl just to test
+[08:35:29] <ryanneufeld> m_gol: which machine is serving the php file?
+[08:35:44] <m_gol> created an issue: https://github.com/jquery/infrastructure/issues/256
+[08:35:53] <m_gol> jenkins, I guess?
+[08:35:56] <jqcommit> [13infrastructure] 15mzgol opened issue #256: Figure out how to do sleep(sth large) on the server and not starve the PHP process pool 02https://github.com/jquery/infrastructure/issues/256
+[08:37:14] <m_gol> yup
+[08:37:14] <m_gol> http://builds.jenkins.jquery.com/jquery/be565d1cdbdcb66e42411a2d7aa7e89b1fd66c1f/test/data/core/dont_return.php
+[08:37:29] <m_gol> ryanneufeld ^^^
+[08:37:38] <ryanneufeld> ok
+[08:37:47] <ryanneufeld> lemme try setting up an endpoint for this
+[08:37:57] <ryanneufeld> we won't need the php file if this works
+[08:38:06] <ryanneufeld> I may have to bounce soon too
+[08:38:08] <m_gol> would be great, thanks :)
+[08:38:11] <ryanneufeld> first day at new job
+[08:38:14] <m_gol> sure
+[08:38:31] <ryanneufeld> oh... it's a new module
+[08:38:34] <ryanneufeld> shoot
+[08:38:38] <ryanneufeld> gnarf: you're up buddy
+[08:39:35] <m_gol> ryanneufeld: how to clean the PHP process pool?
+[08:39:43] <ryanneufeld> restart frpm
+[08:40:29] <m_gol> ryanneufeld: I don't see a process named like that
+[08:40:33] <ryanneufeld> m_gol: restarted it for you
+[08:40:37] <m_gol> k, thx
+[08:40:46] <ryanneufeld> sudo /etc/init.d/php5-fpm restart
+[08:42:47] <m_gol> thx
+[08:43:01] <m_gol> crap, I was used to setTimeout accepting time in ms
+[08:43:09] <m_gol> and kind-of assumed it's the same for PHP
+[08:43:24] <m_gol> I wanted to put 100s there, not 100 000s
+[08:43:40] <m_gol> that explains sth
+[08:43:54] <m_gol> no one complained during code review ;)
+[09:03:57] <m_gol> ryanneufeld gnarf: we don't actually need to sleep, we just need to have an endpoint that initializes the connection and never sends the response so that the browser thinks it's waiting for data
+[09:22:37] <gnarf> m_gol: thats basically "blocking" in php though
+[09:23:01] <gnarf> m_gol: short of developing our own node server to use for unit tests(which I'm still a fan of)
+[09:23:11] <gnarf> i don't see  solution
+[09:23:36] <gnarf> and/or just testing "mock ajax" results
+[09:23:50] <gnarf> but i think most of the team is against using a mocking ajax lib for ajax tests in jQuery
+[09:23:59] <gnarf> after all, we don't want to test the mock, we want to test the real thing
+[11:30:37] <m_gol> gnarf: maybe it'll be better now that I've changed the script to sleep for 100 seconds instead of 100 000 :P
+[11:30:59] <m_gol> 30h, lol
+[11:34:45] <ryanneufeld> hahahah
+[11:34:45] <ryanneufeld> yeah
+[11:34:47] <ryanneufeld> that'll do it
+[11:34:56] <ryanneufeld> sleep(5); should be enough
+[11:35:03] <ryanneufeld> you're using 3s for your other settimeout
+[11:35:10] <ryanneufeld> but sleep(10) shouldn't be a burden
+[11:35:16] <ryanneufeld> how often does it run?
+[13:42:15] <gnarf> once per browser per commit i think
+[14:08:07] <s5fs> gnarf: okay to push that redirect for brand straight to master?
+[14:35:31] <gnarf> s5fs: yeah
+[14:35:52] <gnarf> s5fs: though - push directly to both would be more appropriate
+[14:45:15] <jqcommit> [13infrastructure] 15aulvi pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/fd80c7e45814525b9a0f7980fe69eb8cd1911c3a
+[14:45:15] <jqcommit> 13infrastructure/06puppet-stage 14fd80c7e 15Adam Ulvi: Added redirect from brand.jquery.com -> brand.jquery.org.
+[14:45:45] <jqcommit> [13infrastructure] 15aulvi merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/02e1e6069b34...fd80c7e45814
+[15:03:35] <gnarf> s5fs: random infra task idea
+[15:03:57] <gnarf> s5fs: graph of # of php5-fpm processes on servers with php5-fpm :)
+[15:04:11] <gnarf> would be nice to see the impact of the change today regarding that sleep
+[15:10:52] <gnarf> s5fs: http://citadel.jquery.com/zabbix/history.php?action=showgraph&itemid=23742&sid=819b307e36f1ca6d
+[15:11:03] <gnarf> cc m_gol: http://citadel.jquery.com/zabbix/history.php?action=showgraph&itemid=23742&sid=819b307e36f1ca6d
+[15:11:40] <m_gol> now they should be dying after 100s, not 30h, should help ;)
+[15:13:12] <gnarf> m_gol: yeah - wish i had history on that graph
+[15:28:56] <s5fs> gnarf: haha, for sure
+[15:29:53] <s5fs> gnarf: did you just make that?

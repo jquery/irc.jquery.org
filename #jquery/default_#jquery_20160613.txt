@@ -1,0 +1,977 @@
+[02:01:42] <SimpleName> can I just use jquery not jquery-mobile to realize mobile-browser’s touch event
+[02:02:09] <Cork> SimpleName: you don't need either
+[02:02:13] <Cork> but yes
+[02:02:31] <SimpleName> bind tap event??
+[02:02:54] <Cork> ah, well ya tap is a fake jqm event
+[02:03:31] <Cork> but you can use touchstart
+[02:04:35] <SimpleName> touchstart? is it a jquery’s event?
+[02:05:10] <Cork> no it's a native browser event
+[02:05:34] <Cork> https://developer.mozilla.org/en-US/docs/Web/API/Touch_events/Using_Touch_Events
+[02:32:22] <abedo> hi, i need to prevent jquery from escaping special characters in .val() (i have a text coming from the DB, when trying to display it, jquery reads the newline and fires an error)
+[02:36:24] <abedo> https://dpaste.de/t5z5#L2 end of this line there is a new line..
+[03:41:30] <nullremains> how is `$('selector')` implemented in jquery? Does it call dom `querySelectorAll` and return a list or single item depending on length of returned node list?
+[03:41:47] <nullremains> or do something else entirely ;-)
+[03:41:52] <Cork> nullremains: something else
+[03:41:59] <Cork> $() always returns a jquery object
+[03:42:20] <Cork> and internally it does something close to querySelectorAll
+[03:42:26] <Cork> (though not exactly
+[03:44:01] <nullremains> k, thanks, trying to re-implement $ with javascript and dom.
+[03:44:21] <Cork> you can't fully do that
+[03:44:31] <nullremains> querySelectorAll is probably the way to go to approximate $
+[03:44:35] <Cork> ya
+[03:44:41] <Cork> what you lose is $().find()
+[03:45:03] <nullremains> oh, no, have that and then some
+[03:45:07] <nullremains> scala.js
+[03:45:22] <Cork> what i meant is with pure querySelectorAll
+[03:46:06] <Cork> cause .find requires to loop and merge old element lists
+[03:46:49] <nullremains> not sure I follow
+[03:47:09] <Cork> $('.class-selector').find('span')
+[03:47:20] <nullremains> if qsa returns a dom list I can just search through the returned list
+[03:47:29] <Cork> would be something like document.querySelectorAll('.class-selector').querySelectorAll('span')
+[03:47:38] <Cork> but querySelectorAll can't be used on an element list
+[03:47:46] <nullremains> how so?
+[03:47:51] <Cork> uh
+[03:48:06] <Cork> how else do you think you would find all the span children of all the found elements?
+[03:48:08] <nullremains> oh, I see
+[03:48:32] <Cork> the example was a bit convoluted
+[03:48:47] <nullremains> no, example is a good one
+[03:49:13] <nullremains> it should be possible to replicate that with qsa and `children` I would imagine
+[03:49:19] <Cork> but something like var container = $('.class-selector'); process(container) => function process(container) { container.find('span') }
+[03:49:33] <Cork> nullremains: no
+[03:49:39] <Cork> cause find doesn't look at children
+[03:49:57] <Cork> you would have to loop the element list make a qsa on each, and then merge the results
+[03:50:23] <Cork> as .find('span') finds children at any level, not just direct children
+[03:51:08] <nullremains> I mean, if qsa gives me a dom list, I can then filter the children, looking for spans
+[03:51:09] <Cork> nullremains: btw, if you just want that part of jquery you can have a look at sizzle.js (it is what jquery uses)
+[03:51:27] <Cork> nullremains: you're inverting what the query does
+[03:51:46] <Cork> $('.class-selector').find('span') is the same thing as $('.class-selector span')
+[03:52:07] <Cork> except the second one isn't an option if you only have a set of elements
+[03:52:40] <Cork> what you think of is $('.class-selector').filter('span')
+[03:52:42] <nullremains> does qsa not support '.selector1 .selector2'?
+[03:53:02] <nullremains> similarly for regex, supported by qsa?
+[03:53:02] <Cork> sure, but that requires you to pass strings
+[03:53:08] <Cork> if you have a set of elements
+[03:53:14] <Cork> you're in a different situation
+[03:53:21] <nullremains> sorry for the non-jquery questions, btw ;-)
+[03:53:30] <Cork> this is quite jquery related
+[03:53:45] <Cork> one min let me make a fiddle for you
+[03:54:11] <nullremains> right, on the fence, jquery is quite useful. Main issue in replacing jquery with plain js + dom is the lack of `animate`, `serialize`, and other nice-to-haves
+[03:55:09] <nullremains> the jquery replacement library story looks great until you realize that all the contenders seem to be in some state of bitrot.
+[03:55:49] <Cork> nullremains: https://jsfiddle.net/L6gokysk/
+[03:56:07] <nullremains> would love, for example, to have a drop in replacement for jquery's effects (scrollTo, slide, etc.)
+[03:56:20] <Cork> uh
+[03:56:32] <Cork> scrollTo is simple enough to do with native js
+[03:57:25] <Cork> nullremains: https://developer.mozilla.org/en-US/docs/Web/API/Window/scrollTo
+[03:57:30] <Cork> and https://developer.mozilla.org/en/docs/Web/API/Element/scrollIntoView
+[03:57:47] <nullremains> yeah, I want to scroll relative to body
+[03:57:55] <Cork> ok?
+[03:58:44] <nullremains> i.e. $('html, body').animate(...)
+[03:58:57] <Cork> well animate is another matter
+[03:59:03] <Cork> but scrollTo isn't hard
+[03:59:09] <Cork> (even with animation)
+[03:59:23] <nullremains> right, I'm talking about all of jquery's effects
+[04:00:07] <nullremains> not so trivial to replace in browser supported (read: non-roll your own hack) manner
+[04:00:21] <nullremains> for me at any rate
+[04:00:21] <Cork> well if you want all the bells and whistles of jquery... why not just use jquery?
+[04:00:54] <Cork> especially if you go with 2.x or 3.x
+[04:01:05] <Cork> then there isn't even any compatibility junk for old ie around
+[04:01:32] <nullremains> I probably will, biggest issue for me is the lack of type safety
+[04:01:45] <Cork> uh, you don't have type safety in js
+[04:01:47] <Cork> ever
+[04:01:49] <nullremains> in scala.js everything is typed except for the interface to js
+[04:01:52] <Cork> it is actually a feature of it
+[04:02:17] <nullremains> which means jquery is untyped
+[04:02:27] <Cork> ya, as it is written in js
+[04:02:31] <Cork> same as all other javascript libs
+[04:02:39] <nullremains> If I go straight dom then it's all typed
+[04:02:44] <Cork> no
+[04:02:47] <nullremains> yes
+[04:02:50] <Cork> cause it is still written in js
+[04:02:58] <nullremains> scala.js dom is typed
+[04:03:06] <nullremains> the whole thing
+[04:03:15] <Cork> then they are doing manual deep check into data tyles
+[04:03:18] <Cork> *types
+[04:03:22] <Cork> cause nothing in js is typed
+[04:03:29] <nullremains> no, they replicated dom API
+[04:03:36] <nullremains> thus, all typed
+[04:03:36] <Cork> but dom isn't typed either
+[04:03:43] <nullremains> in scala.js it is
+[04:03:45] <Cork> no
+[04:03:48] <nullremains> lol, yes
+[04:04:06] <Robdgreat> what a productive argument
+[04:04:14] <Cork> document.querySelector('input').value = 1; is valid
+[04:04:18] <Robdgreat> "no it isn't" "yes it is" "no it isn't" "yes it is"
+[04:04:23] <Cork> if it was typed is WOULDN'T be
+[04:04:33] <nullremains> the interface is typed
+[04:04:38] <Cork> sigh...
+[04:04:39] <Duikb00t> oO
+[04:04:48] <Cork> ok, dream on
+[04:06:48] <Robdgreat> Cork: here you go. Here's info nullremains couldn't be bothered sharing: https://www.scala-js.org/doc/interoperability/types.html
+[04:07:19] <Cork> so ya, like i said it adds a typed layer ontop of everything
+[04:07:25] <Cork> basically doing the same thing typescript does
+[04:07:31] <nullremains> sure, the interface is typed
+[04:07:40] <Robdgreat> well, since js isn't typed, that's all it can do
+[04:07:40] <Cork> no, it does manual type checking in code
+[04:07:47] <nullremains> well, blows TS out of the water but I'm obviously biased
+[04:07:55] <Cork> <_<'
+[04:08:03] <Cork> you need to get your fact straight...
+[04:09:02] <nullremains> Robdgreat: right, what you get back, all bets are off
+[04:09:09] <Cork> i hate js obfuscation libs, but typescript is the only one that has a leg to stand on as far as i've seen this far
+[04:09:26] <nullremains> so you have to wrap everything in `Option`
+[04:09:47] <Robdgreat> getting facts straight is hard. It's much more fun just to just spout unsubstantiated things
+[04:09:54] <nullremains> Cork: TS is definitely nice, and has large community
+[04:11:00] <Cork> nullremains: but leg to stand on i meant it actually adds something worth the while (not just making things look like another language)
+[04:11:06] <Cork> i'm still not a big fan of it
+[04:12:04] <nullremains> if you use clojure, haskell, ocaml, scala, etc. languages that allow you to write the *same* code on client and server, then TS doesn't look so interesting
+[04:12:26] <Cork> i don't want js any where near my servers
+[04:12:44] <nullremains> beats the hell out of coffeescript though (which I'm migrating away from)
+[04:13:05] <Cork> coffiescript is one of the silly "we want it to look like another language" junk ya
+[04:13:35] <Cork> it is basically the ruby on rails ppl wanting to write ruby like code for client side
+[04:34:36] <toddjenkins> what does jQuery(document).ready(function($) { mean?
+[04:34:46] <toddjenkins> what does that .ready mean, is that like a state?
+[04:35:14] <toddjenkins> i have that in a script that is working good but i've seen other options like that. do you need to make new documents for different state types like that or can you have multiple of those in the same document?
+[04:35:19] <toddjenkins> pardon the noobishness
+[04:35:44] <toddjenkins> just a sort of general overview or resources if anyone felt like rambling would be much appreciated though
+[04:36:27] <Uhkis> "when dom has been built"
+[04:36:53] <systemfault> toddjenkins: .ready means "Once the complete document has been parsed"
+[04:46:54] <toddjenkins> thanks guys. can you use that line more than once in a document?
+[04:49:59] <Uhkis> yes
+[05:02:22] <toddjenkins> thank you uhkis!
+[05:02:33] <toddjenkins> that's powerful
+[06:59:14] <Dorian-Grim> I got some strange sporadic behavior from IE with this http://pastebin.com/V1YCexa3
+[06:59:20] <Dorian-Grim> I am losing my mind with it
+[06:59:32] <Dorian-Grim> It's returning undefined index
+[06:59:44] <Dorian-Grim> Despite the fact that myVar always has a value
+[07:00:21] <Cork> undefined index?
+[07:00:25] <Cork> you mean from server side?
+[07:00:48] <Cork> (would help if you could paste the exact error message)
+[07:01:10] <Dorian-Grim> yes
+[07:01:15] <Dorian-Grim> sure Cork
+[07:01:48] <Cork> Dorian-Grim: if the error happens server side, check the raw post data ie sends you
+[07:01:59] <Cork> so you don't get encoding errors or something wonky like that
+[07:03:36] <Dorian-Grim> Notice: Undefined index: asd
+[07:04:02] <Dorian-Grim> Cork: I've been with the guys in php and javascript
+[07:04:11] <Dorian-Grim> I've been debugging this from morning
+[07:04:19] <Dorian-Grim> I can't get it solved
+[07:04:23] <Dorian-Grim> and only happens in IE
+[07:04:29] <Dorian-Grim> what should I tell you?
+[07:04:44] <Cork> Dorian-Grim: are the html in line 1-3 in a <form> tag?
+[07:04:59] <Dorian-Grim> yes Cork
+[07:05:15] <Cork> then i would strongly suggest you bind submit on the form and NOT click on the button
+[07:05:26] <Cork> see if that makes a difference
+[07:05:36] <Dorian-Grim> Can you please show me how to do that?
+[07:05:54] <Cork> $('form').on('submit, function(ev)
+[07:06:01] <Dorian-Grim> on it
+[07:06:04] <Cork> just replace $('#lol').click(function(ev)
+[07:06:17] <Cork> if you have an id for the form you might want to use that
+[07:07:26] <Dorian-Grim> 'submit' ?
+[07:07:35] <Cork> opps, yes
+[07:07:57] <Dorian-Grim> works in Chrome. Going to IE
+[07:08:30] <Dorian-Grim> same behavior Cork
+[07:08:35] <Dorian-Grim> undefined index
+[07:08:44] <Dorian-Grim> after I press a 2nd time, then it works
+[07:09:07] <Cork> hmm
+[07:09:22] <Cork> Dorian-Grim: is this code wrapped in other js?
+[07:09:38] <Cork> (i would suggest reproducing the problem in a jsfiddle.net)
+[07:09:48] <Dorian-Grim> Just $(document).ready(function() { });
+[07:10:00] <Cork> you mean the one that is on line 5?
+[07:10:05] <Cork> or another one=
+[07:10:06] <Cork> *?
+[07:10:10] <Dorian-Grim> yea
+[07:10:30] <Dorian-Grim> But jsfiddle hasn't got php :(
+[07:10:55] <Cork> well ya, firstly verify that the problem is actually ie not sending the data
+[07:11:08] <Cork> if you can verify that js does what it should you need to start looking at the php side
+[07:11:09] <Dorian-Grim> What do I do if it's that the case?
+[07:11:13] <Cork> separate the two problems
+[07:11:26] <Dorian-Grim> I'm lost
+[07:11:42] <Cork> Dorian-Grim: split the problems into as small parts as you can
+[07:11:47] <Cork> much easier to deal with
+[07:12:17] <Cork> if you make a jsfiddle with a working js+html
+[07:12:26] <Cork> we can use jsfiddles echo to test the post data
+[07:12:36] <Cork> if that works as it should, your problem isn't in js or html
+[07:12:51] <Cork> and you have to start looking what the php code does wrong
+[07:13:03] <Dorian-Grim> Cork: if I go to IE dev tools, network tab, request body, asd="my string"
+[07:13:29] <Cork> and the content-type header?
+[07:13:38] <Cork> www-form-encoded?
+[07:14:03] <Dorian-Grim> text/html
+[07:14:10] <Cork> in the request?
+[07:14:15] <Cork> (not the response)
+[07:15:25] <Dorian-Grim> Key	Value Content-Type	application/x-www-form-urlencoded; charset=UTF-8
+[07:15:39] <Cork> there you go
+[07:15:48] <Cork> ok, so ya, the problem is most definitely server side
+[07:16:05] <Dorian-Grim> So where to now?
+[07:16:18] <Cork> start debug logging the server code
+[07:16:27] <Cork> and see where it goes belly up
+[07:16:42] <Dorian-Grim> I use xamp -.-
+[07:17:07] <Cork> well if you can't debug it...
+[07:17:20] <Cork> there isn't much i can help you with there
+[07:17:34] <Cork> check in a channel for xampp and see if they can help
+[07:18:03] <Dorian-Grim> well php_error_log tells me the same things PHP Notice:  Undefined index: asd
+[07:18:20] <Cork> Dorian-Grim: well that is too little to go with
+[07:18:37] <Cork> the data is obviously going there so why is it getting lost?
+[07:18:52] <Cork> i suspect ua sniffing, but donno
+[07:19:07] <Dorian-Grim> ua what?
+[07:19:09] <Dorian-Grim> what is that?
+[07:19:12] <Cork> UserAgent
+[07:19:24] <Dorian-Grim> what does that do?
+[07:19:30] <Duikb00t> Suggestion how to pass from html : long and lat to a google maps file?
+[07:19:34] <Cork> basically the server sniffing what browser the request comes from and change it's behaviour based on the browser
+[07:19:44] <Duikb00t> More explenation needed? Yes ofcourse:
+[07:20:10] <Duikb00t> Well I have 1 page with 15 google maps on it ( 200px on 200px ) but all of them are dynamically loaded as posts ( from a db, don't know yet wordpress or not.. )
+[07:20:20] <Duikb00t> but ok i'll loop it and I will retrieve a longitude and latitude nice
+[07:20:32] <Duikb00t> What's the best way to set those ones up for google maps?
+[07:21:10] <Duikb00t> foreach $post as $p    ..., $p->long  $p->lat ... will be available on the template
+[07:21:16] <decx> the trick is to not have 15 separate maps
+[07:21:28] <decx> have one map where you can switch locations
+[07:21:54] <Duikb00t> decx You mean: 1 map init in js
+[07:21:54] <Dorian-Grim> How do I explain this to the guys in xampp? -.- they'll send me back to you
+[07:22:10] <Cork> Dorian-Grim: give them the raw request content from ie
+[07:22:22] <Cork> Dorian-Grim: if the browser sends the correct data they can't blame js
+[07:22:44] <Dorian-Grim> where is the raw request?
+[07:22:46] <Cork> give them the request headers and the request body
+[07:22:51] <Duikb00t> btw undefined index: This notice appears when you try to access an undefined index of an array.
+[07:23:17] <Cork> Duikb00t: ya, but it is in a third party server lib
+[07:23:19] <Dorian-Grim> I get it Cork
+[07:23:20] <Dorian-Grim> thanks
+[07:23:25] <Duikb00t> oh yes?
+[07:23:33] <Duikb00t> some node package no?
+[07:26:14] <Duikb00t> decx:  a while ago I did it like this: http://foundation.zurb.com/forum/posts/1957#comment_2791
+[07:30:17] <konrados> I was out of the office - Dorian-Grim - have you managed to solve the issue?
+[07:30:32] <Dorian-Grim> nope. I wen't on jquery
+[07:30:37] <Dorian-Grim> cork answered
+[07:30:41] <Dorian-Grim> you can read his replies
+[07:30:44] <Cork> konrados: we concluded the problem is not client side related
+[07:30:50] <Dorian-Grim> yea...
+[07:31:05] <Dorian-Grim> I
+[07:31:13] <Dorian-Grim> I'm on #xampp
+[07:31:17] <Cork> unless the ie straight out lies about what it sends to the server
+[07:31:18] <Dorian-Grim> But very few guys there
+[07:31:20] <Cork> but i doubt that
+[07:31:38] <konrados> Cork - thanks. Dorian-Grim - OK.
+[07:41:18] <Dorian-Grim> I'm thinking (while I wait for someone on #xampp to answer), maybe build a workaround...
+[07:41:33] <Dorian-Grim> since it's not working the 1st ajax call, but on the 2nd
+[07:42:00] <Dorian-Grim> Maybe do a "data processing", "finish", and in php have a ternary with isset()
+[07:48:20] <Dorian-Grim> I'm going for a so dumb workaround Cork konrados
+[07:48:26] <Dorian-Grim> sec... I'll show you
+[07:48:27] <Dorian-Grim> but I
+[07:48:31] <Dorian-Grim> but I'm desperate
+[07:48:31] <Dorian-Grim> ...
+[08:02:11] <konrados> Dorian-Grim - a "second" passed 0.5h ago :) I'm curious what you did :)
+[08:02:31] <Dorian-Grim> Working on it
+[08:02:42] <konrados> OK :)
+[08:28:41] <xenaxon> bagabontzilor
+[08:30:30] <Dorian-Grim> konrados: http://pastebin.com/UyFuxpDb
+[08:31:07] <Dorian-Grim> oh, and I forgot something
+[08:32:18] <Dorian-Grim> http://pastebin.com/pzL8vnzN
+[08:34:26] <zero85> heys guys, need help. i want to give a string to an object but want to escape "/" .escape() does not work, is there a way without writing my own function?
+[08:39:42] <Cork> zero85: you mean html entity escape?
+[08:39:54] <Cork> or what type of escape are you talking about?
+[08:41:04] <konrados> Dorian-Grim I'm not sure what you are trying to achieve :( Plus you didn't post everything (I can't see a form. Plus in the first file you apparently mixed js with php, without using <?php :)
+[08:41:07] <zero85> i have a object with "divid" : "blabla/blubb" now i want to access the div and select it with jQuery("this.divid") but because of the "/" in the string he throws n error =(
+[08:41:41] <Cork> hmm
+[08:42:21] <Cork> zero85: are you trying to store data in the id attribute?
+[08:42:44] <Cork> if you are you might be better of putting that in data- prefixed attributes
+[08:43:17] <zero85> no i have a id attribute in my object and know i want to select the div with the id from the object like jQuery("#blabla/blubb").dosomethingawesome()
+[08:43:20] <Cork> sure you can have any character in id's, but it will create hell for you
+[08:43:43] <Cork> zero85: ya, my point is you should avoid special characters in ids
+[08:43:56] <zero85> Cork i cant change the id attribute =(
+[08:44:17] <Cork> anyway in this case you can do .replace('/', '\\/')
+[08:44:18] <zero85> if i could, it would be the first thing i would do.
+[08:44:31] <zero85> Cork: does not work also =(
+[08:45:34] <Cork> with double \\ ?
+[08:45:43] <Cork> cause that should work fine https://jsfiddle.net/tp3vk67x/
+[08:46:03] <zero85> only works on the first / and it goes like \/ not \\/
+[08:46:19] <Cork> no
+[08:46:30] <Cork> \/ gets converted to / by the js parser
+[08:46:37] <Cork> so it doesn't get escaped at all
+[08:47:13] <Cork> the escaping need to get into the text data in the string
+[08:47:18] <Cork> so you need '\\/'
+[08:47:43] <zero85> if i do "bla/bla/bla" and then .replace('/,'\\/') the result is "bla\/bla/bla"
+[08:47:57] <Cork> uh...
+[08:49:19] <zero85> u see my problem? xD
+[08:49:30] <Cork> https://jsfiddle.net/tp3vk67x/1/
+[08:49:30] <obtuse> .replace('/,'\\\\/')
+[08:49:34] <Cork> not really :)
+[08:49:44] <obtuse> strange though to have slashes in an id
+[08:49:54] <Cork> you need to use regex to match all occurances in the string
+[08:50:41] <Cork> taplar: uncommon, but sadly not that strange
+[08:51:00] <taplar> people over loading the id, eh?
+[08:51:19] <Cork> no, more like some backends use the freedom html gives for what you may put in them
+[08:51:36] <Cork> and adds slash, space, pipe, < and > in them...
+[08:51:41] <Cork> (not to forget plus)
+[08:51:54] <Cork> anything is allowed in ids
+[08:52:17] <Cork> well
+[08:52:24] <Cork> i don't think linebreaks is allowed
+[08:53:08] <taplar> you mean an actual line break and not a \n?
+[08:53:18] <Cork> ya
+[08:53:47] <zero85> Cork does not work for me -.-
+[08:54:01] <Cork> zero85: update the fiddle with the none working example then
+[08:54:08] <sillyslux> ID and NAME tokens must begin with a letter ([A-Za-z]) and may be followed by any number of letters, digits ([0-9]), hyphens ("-"), underscores ("_"), colons (":"), and periods (".")
+[08:54:09] <zero85> my editor moans on \\\\
+[08:54:13] <Cork> cause that one mimiks your problem
+[08:54:19] <sillyslux> slashes are not allowed
+[08:54:21] <Cork> zero85: you don't need the extra \
+[08:54:27] <Cork> you need the regex solution in the link
+[08:54:44] <Cork> sillyslux: that is the old html4 spec
+[08:54:47] <sillyslux> to replace the slashes i'd try .replace(/\//g, 'nothing')
+[08:54:53] <Cork> sillyslux: html allows anything
+[08:55:14] <sillyslux> Cork, anything?? i don't think so...
+[08:55:40] <Cork> well close to
+[08:56:21] <zero85> Cork with the regex now al / are \/, is this ok for jquery/javascript?
+[08:56:27] <zero85> s/al/all
+[08:56:27] <b-ot> Correction, <zero85> Cork with the regex now all / are \/, is this ok for jquery/javascript?
+[08:56:32] <Cork> zero85: yes
+[08:56:54] <zero85> ok no i have to figure out why the selector does not work -.-
+[08:59:23] <sillyslux> Cork, looks like you're right, any characters are allowed but whitespace
+[08:59:37] <Cork> and white space is allowed by all browsers so...
+[09:00:20] <sillyslux> so even whitespace in id is supported then?
+[09:00:29] <Cork> sure
+[09:00:34] <sillyslux> :)
+[09:01:16] <Cork> css: #\#this-is\ a\ mad\ \>\ id\ \+ .do\ you\ agree {} <-- valid
+[09:02:15] <taplar> that hurts my soul
+[09:02:17] <sillyslux> so, i'd agree then
+[09:03:54] <Cork> opps
+[09:04:01] <Cork> heh i made the second part a class :P
+[09:04:32] <Cork> sillyslux, taplar: https://jsfiddle.net/ctyzk2o0/
+[09:04:33] <sillyslux> dot are allowed as well, aren't they?
+[09:04:38] <Dorian-Grim> konrados: I didn't include the php tags, correct.
+[09:04:40] <Cork> yup
+[09:04:50] <Cork> sillyslux: but i intended to make it clear it becomes impossible to read
+[09:04:58] <Cork> as it was actually an id followed by a class
+[09:05:10] <Cork> (no \ after +)
+[09:05:41] <Cork> so css: #\#this-is\ a\ mad\ \>\ id\ \+ .do.you.agree {} <-- valid
+[09:06:47] <Cork> i stumbled on this a few years back and made a ridiculous fiddle testing it
+[09:06:51] <Cork> lost the link though
+[09:08:22] <RenokK> That's...wierd. Painful. Hurting every single cell! Make it stop!
+[09:08:25] <Dorian-Grim> konrados: using a ternary in php, I am returning null if error occurs, then if in javascript null is found, let me submit again
+[09:08:35] <Cork> RenokK: my reaction too
+[09:11:11] <konrados> Dorian-Grim and what's the result?
+[09:11:37] <Dorian-Grim> result in the code, or literal result?
+[09:12:29] <jose3_> hello- is there a more efficient way to write this so i don't repeat the same code so much?
+[09:12:46] * Cork waits for the flood
+[09:12:49] <jose3_> https://gist.github.com/anonymous/46a5f073705902324cccb0c80b547b9b
+[09:12:50] <taplar> :D
+[09:13:03] <Cork> jose3_: yes
+[09:13:09] <Cork> jose3_: [].join('')
+[09:13:15] <Cork> puts the strings in an array
+[09:13:18] <Cork> and call append once
+[09:13:32] <jose3_> okay cool - ill check the api doc for it
+[09:13:33] <jose3_> thanks!
+[09:13:39] <Cork> jose3_: it isn't in the api dos
+[09:13:42] <Cork> *docs
+[09:13:45] <Cork> its pure js
+[09:14:04] <Cork> [ 'a', 'b', 'c' ].join('') => 'abc'
+[09:14:17] <Cork> https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Array/join
+[09:14:20] <sillyslux> document.querySelector('#/bla/blup') doesn't work though
+[09:14:38] <Cork> sillyslux: you need to escape the special characters
+[09:14:45] <Cork> that is what we where working on before
+[09:14:56] <Cork> document.querySelector('#\\/bla\\/blup') works
+[09:15:26] <sillyslux> oh document.querySelector('#bla\\/blup\\/bla') is goof
+[09:15:28] <sillyslux> d
+[09:15:37] <Cork> :)
+[09:16:12] <sillyslux> $('#bla\\/blup\\/bla') is ok too
+[09:16:42] <Cork> as it is the same thing ya
+[09:16:50] <Cork> well querySelectorAll but, ya
+[09:17:26] * sillyslux just pointing out the obvious
+[09:17:40] <sillyslux> chrrchrrchrr
+[09:17:47] <taplar> ?
+[09:18:06] <Cork> i don't think he likes the findings of his experiments :)
+[09:18:19] <Cork> i sure remember i didn't >_>
+[09:19:00] <taplar> i'm ambivalent, lol
+[09:19:06] * taplar frolics away for coffee
+[09:19:30] * sillyslux frolics back with tea
+[09:20:11] <taplar> sweet tea?
+[09:20:29] <sillyslux> very
+[09:20:35] <taplar> ^_^
+[09:20:40] <sillyslux> frolic... what a funny word
+[09:21:09] <taplar> and fun to use, :)
+[09:24:27] <taplar> btw jose3_, put a var in front of that contactRecord
+[09:24:51] <sillyslux> Cork, so dots in ids you'd have to address like this then? (in css that is) https://jsfiddle.net/ctyzk2o0/1/
+[09:24:56] <jose3_> I seeok
+[09:24:59] <jose3_> why?
+[09:25:09] <taplar> make it local to that function.
+[09:25:17] <taplar> you don't need it outside that function, do you?
+[09:25:21] <jose3_> okay- thanks
+[09:25:25] <Cork> sillyslux: no, the top one does it
+[09:25:30] <jose3_> no you are correct
+[09:25:40] <taplar> that way when the function ends, that variable will be gc'ed
+[09:25:42] <Cork> sillyslux: the mistake i did was i made the last part a class
+[09:25:54] <Cork> <div id=".do you agree"> => <div class="do you agree">
+[09:26:07] <Cork> and that doesn't work as space has a meaning in class
+[09:26:18] <sillyslux> ah ic
+[09:27:01] <Cork> but . and > + ~ and so on are just as valid in class as they are in ids
+[09:27:10] <Cork> (sadly)
+[09:27:48] <sillyslux> say what? :(
+[09:28:00] <sillyslux> ah i'll never need that!
+[09:28:38] <Cork> sillyslux: https://jsfiddle.net/ctyzk2o0/2/
+[09:28:48] <Cork> weee T_T
+[09:29:24] <sillyslux> mhh backslash escaped.. okay...
+[09:30:21] <Qantourisc> Trying to get jquery to send a valid POST request with the data equal to a JSON object, but it seems to send it only as HTTP url-format
+[09:30:50] <Cork> sillyslux: so make it even better: https://jsfiddle.net/ctyzk2o0/3/
+[09:30:59] <taplar> Qantourisc: hrow what your trying in a fiddle
+[09:31:03] <taplar> *throw
+[09:31:15] <Qantourisc> taplar: have a place I could send json-requests to ?
+[09:31:23] <taplar> just need to see your logic
+[09:31:51] <Qantourisc> taplar: It fits on 1 line: jQuery.data({ url: "/API/Log/Test", dataType: 'json', contentType: 'application/json', method:"POST", data: {0:0,1:1,"a":{b:'c'}}, success: function(a){ console.log(a);} });
+[09:32:11] <Cork> Qantourisc: you need to use JSON.stringify on the object
+[09:32:21] <Cork> else jquery will take it as param object
+[09:32:24] <Cork> and run $.param on it
+[09:32:57] <Cork> data: JSON.stringify({0:0,1:1,"a":{b:'c'}}) <--
+[09:33:15] <Qantourisc> I assumed it did this by default, I assumed wrong
+[09:33:23] <Cork> ya, it does params by default
+[09:34:04] <Qantourisc> i'm confused now json and param ?
+[09:34:31] <Cork> Qantourisc: key=val&key=val&key[index]=val <-- params
+[09:34:49] <Qantourisc> ow right, now i read it
+[09:35:00] <Qantourisc> well i mean I now understand what you mean
+[09:35:48] <Cork> the convertion of object into a string is done by jquery though $.param
+[09:35:57] <Cork> and this convertion isn't based on what contentType you set
+[09:36:09] <Cork> that is why it works as it works
+[09:49:38] <Qantourisc> somewhat related question: if firefox and javascript gets in an inf loop, it just keep alocating memory
+[09:49:47] <Qantourisc> and never has a "script stopped workin" message ...
+[09:51:33] <taplar> https://support.mozilla.org/en-US/kb/warning-unresponsive-script
+[09:51:37] <taplar> ?
+[09:51:46] <Qantourisc> taplar: that does NOT appear
+[09:52:02] <taplar> i know i've seen it before
+[09:52:13] <Qantourisc> ow
+[09:52:19] <Qantourisc> I disabled it once
+[09:52:23] <Qantourisc> why did I ever do that ? :/
+[10:15:35] <Cork> Qantourisc: check about:config?filter=dom.max_script_run_time
+[10:15:54] <Qantourisc> Cork: yes thank you taplar alreay helped me here, for soe reason I disabled it once
+[10:16:11] <Cork> ah the link, didn't check it's content :)
+[10:16:49] <Cork> but ya, that really really old execution block isn't the most intuitive
+[10:17:01] <Cork> though it is a nice help when things goes belly up :)
+[10:21:37] <Qantourisc> ok now set a server-side default for page-size :D, browsers don't like massive json data blocks :D
+[10:24:56] <Cork> Qantourisc: actually, browsers are quite good at it
+[10:25:17] <Qantourisc> Cork: ... ?
+[10:25:43] <Qantourisc> Cork: well ok, it actaully goes wrong when it tries to display it though
+[10:25:47] <Cork> Qantourisc: what normally costs is looping the content
+[10:25:49] <Qantourisc> (with templates)
+[10:25:57] <Cork> you don't want to display it all at once
+[10:26:12] <Cork> you need to progressively show/remove content to make it work
+[10:26:23] <Cork> the dom can't handle gigantic sets of dom elements
+[10:26:48] <Qantourisc> now have to figure out why the server-sided is not merging json in my function arguments :p
+[10:28:23] <Qantourisc> ok code just didn't run :D
+[10:30:25] <z1haze_work> I have an issue with my a slide on my homepage where the slide kinda flickers or disappears when manually changing slides: any ideas what can cause this? http://dev04-web-kendo.demandware.net/s/OLE/index
+[10:30:29] * Qantourisc hopes he is trough most of the bootstrapping face now
+[10:30:50] <Cork> z1haze_work: by slide you mean a slideshow?
+[10:30:56] <Cork> or a slider?
+[10:31:23] <z1haze_work> are they different things?
+[10:31:54] <Cork> an example of slider http://jqueryui.com/slider/
+[10:32:00] <z1haze_work> if you click/drag the slides left and right, the issue happens
+[10:32:00] <Qantourisc> works-for-me
+[10:32:07] <z1haze_work> i dont know why you are playing semantics lol
+[10:32:25] <Qantourisc> z1haze_work: or do you mean the "banding" ?
+[10:32:34] <Cork> an example of slideshow http://www.jssor.com/
+[10:32:54] <z1haze_work> using the click/touch to change slides, the slide disappears to white background until you remove the click fro mthe mouse
+[10:32:59] <z1haze_work> Cork: we get it man
+[10:33:02] <Qantourisc> z1haze_work: cannot reproduce / works-for-me
+[10:33:53] <z1haze_work> building a gif, sec.
+[10:34:07] <z1haze_work> what browser Qantourisc?
+[10:34:09] <Qantourisc> z1haze_work: you will have to more specific on brower and version I suspect, and potentially browser settings
+[10:34:11] <z1haze_work> https://gyazo.com/eedc29e98a68b6a7d11be218aee1cedd is my issue
+[10:34:18] <Qantourisc> z1haze_work: Firefox 46.0
+[10:34:36] <z1haze_work> ok thanks ill check on my ff, im on chrome currently, the ticket is for chrome and i think sarfari
+[10:34:48] * Qantourisc checkf chroms
+[10:36:25] <Qantourisc> z1haze_work: OMG *** popups
+[10:36:45] <z1haze_work> huh
+[10:36:50] <Qantourisc> my desire to help dropped a *** lot
+[10:37:04] <z1haze_work> what are you talking abouty
+[10:37:20] <Qantourisc> got some weird popup asking me if i was intrested in something
+[10:37:29] <Qantourisc> iirc your site
+[10:37:34] <Qantourisc> and your code
+[10:37:45] <z1haze_work> well it is an ecommerce website
+[10:37:57] <Qantourisc> you mean e-annoy ?
+[10:37:59] <z1haze_work> pretty typical
+[10:38:05] <z1haze_work> anyhow, if you see the animation i shared
+[10:38:25] <Qantourisc> if I get those, i'm like, pfff, lets check if I have another site first
+[10:38:26] <z1haze_work> you can see how it kinda flickers and disappears until i drag and let go of the mouse
+[10:38:35] <Qantourisc> try to move that stuff like to the side or so
+[10:38:49] <z1haze_work> i doubt you'll get it again if you click no thanks
+[10:38:50] <Qantourisc> so it's not a full-screen popup disrupting whatever you where doing/reading
+[10:39:01] <z1haze_work> lol
+[10:39:33] <z1haze_work> there's 1 modal on the page from bounce exchange or something, its a third party that does that, not me
+[10:39:42] <z1haze_work> not relavent to my issue here
+[10:40:02] <Qantourisc> third party ? ok closing the tab now
+[10:40:16] <z1haze_work> what is your deal
+[10:40:18] <z1haze_work> lol
+[10:40:30] <z1haze_work> strange folks in this channel today
+[10:40:50] <Qantourisc> I prefer not trying to help peaple while getting blasted with ads
+[10:41:44] <Qantourisc> All I can tell you so-far, it seems like it's unloading the image and loading it again only after it's fully in view,or disaplayed ?
+[10:41:58] <Qantourisc> maybe you hooked an image in a 1px box ?
+[10:42:08] <Qantourisc> as such it only renders when it's back in view ?
+[10:42:17] <z1haze_work> yes, you were 'blasted' by ads there was a single modal that popped up 1 time
+[10:42:25] <Qantourisc> 2 actaully
+[10:42:37] * Qantourisc doesn't recall the last time he had a popup
+[10:42:38] <z1haze_work> thats not the issue though, because it even flickers if i barely move it
+[10:42:46] <Qantourisc> flickers ?
+[10:42:46] <z1haze_work> 1 sec
+[10:42:48] <z1haze_work> yea
+[10:42:56] <Qantourisc> it just dissapaers here until it's done scrolling
+[10:43:12] <Qantourisc> problem seems to be: browser beeing smart
+[10:43:19] <z1haze_work> https://gyazo.com/46aad9ac8c076ba7ea4764457f44d6ea
+[10:43:54] <z1haze_work> its only on the first and last slide
+[10:43:58] <z1haze_work> it seems
+[10:44:09] <z1haze_work> nope nvm all of them
+[10:46:45] <mrchris> I have a fixed header on the page which displays over any text below it as you scroll down the page.  I replace the HTML contents of the main contents using ajax, but for a brief moment, say 2/10ths of a second, you can see the new div contents above the fixed header.  Does anyone know what's causing this?
+[11:11:54] <jose3_> Cork:
+[11:11:56] <jose3_> thanks
+[12:13:57] <z1haze_work> anyone know what causes a mobile keyboard/tablet keyboard to display when clicking in certain elements?
+[12:14:26] <z1haze_work> I have a select menu on a page that when i click it, i dont get a keyboard popup (which i expect) but then the same select in a modal, it makes the keyboard popup.. any ideas how to prevent this?
+[12:47:58] <badcss> Hi all. I am trying to use owl carousel on a WordPress site but for some reason the images are all showing at once: http://162.144.109.74/~boccardo/suites/133/
+[12:48:22] <badcss> I followed the github instructions exactly and there are no js errors in the console. Anyone have any ideas?
+[13:11:06] <z1haze_work> anyone know how to prevent mobile/tablet keyboard from opening on a select menu
+[13:29:46] <toddjenkins> Can image meta-data be called with javascript?
+[13:30:01] <toddjenkins> or does that need to be passed from server first somehow? <total noob
+[13:33:21] <taplar> i wonder if you can get image data with a head request
+[13:34:15] <Qantourisc> taplar: aslong as the server doesn't provide the entire thing and the data is listed at the head iirc yes
+[13:34:27] <Qantourisc> even at the back there are ways to request the end of a file
+[13:46:23] <danemacmillan> toddjenkins: There actually was an experimental JS library for getting EXIF metadata with JavaScript. Google--it's out there somewhere
+[13:46:36] <danemacmillan> It was pretty cool
+[13:47:15] <toddjenkins> That would be cool for sure. I don't know about using something experimental but figured there was a surefire way to do it, i'll google it though fo sho
+[13:47:28] <toddjenkins> seems like it would be an easy thing to do
+[13:47:33] <toddjenkins> *should
+[13:48:03] <toddjenkins> shucks, I guess this is almost more of a wordpress question, i asked there as well as here
+[13:48:30] <toddjenkins> thank you for the suggestion either way, gonna look into it
+[14:01:03] <jerit> first time I've ever seen this...
+[14:01:03] <jerit> Uncaught RangeError: Maximum call stack size exceeded
+[14:03:00] <jerit> here's what I'm doing http://pastebin.com/2JGSA6F3
+[14:08:54] <taplar> put a console.log at the start of that function and see how many times it is executing
+[14:10:58] <jerit> taplar, only once
+[14:11:44] <taplar> hmm, is it going into the if or the else part of your ajax success?
+[14:12:19] <jerit> :/ I used a .post so no actual success is there
+[14:12:35] <taplar> that callback method is your success
+[14:16:31] <jerit> okay its not getting into the if or else part
+[14:16:42] <jerit> it doesn't even seem to be completing the post
+[14:17:22] <taplar> alright so do you see the request in your network tab?
+[14:18:21] <jerit> nope
+[14:20:06] <taplar> ok, stick a console log right before the post request
+[14:24:11] <jerit> sec, I'm gonna update the paste
+[14:25:21] <jerit> taplar every console.log executes, then we get to the post and it errors http://pastebin.com/2JGSA6F3
+[14:26:14] <taplar> ok, so try taking the "json" off the post
+[14:26:43] <jerit> actually I had some things in invoice that weren't necessary anymore
+[14:26:49] <jerit> seems that was causing problems
+[15:04:07] <ReScO> Hey guys, i'm trying to keep a internal list of items that are in a list, which are parsed from json, i want to be able to push new items into the list at the top, and remove the one at the bottom by fading them, what is the best way to achieve this?
+[15:04:48] <taplar> so you want a fifo?
+[15:04:54] <ReScO> Yeah, visually
+[15:05:06] <taplar> pop() will remove the last one
+[15:05:14] <taplar> to put an element at the front i believe is shift()
+[15:05:28] <Ales> hey just reading jquery .each why do i have to pass 2 elements in function ? $( "li" ).each( function( index, element ){
+[15:05:28] <Ales>     console.log( $( this ).text() );
+[15:05:28] <Ales> });
+[15:05:34] <Ales> here is link https://learn.jquery.com/using-jquery-core/iterating/
+[15:05:38] <Ales> 2 parameters*
+[15:05:53] <taplar> Ales: you don't 'have' to
+[15:06:11] <taplar> if you don't need, or want them, you can reference 'this' instead of 'element'
+[15:06:34] <Ales> so i dont understand taplar please check link why is there when you iterater array .each and then function(index, value)
+[15:06:38] <ReScO> taplar, no clue how to maintain a list of items, and know which one is the first, and which one is the last
+[15:06:40] <Ales> and you never use index , so why need ?
+[15:06:56] <taplar> ReScO: one sec, apparently shift removes from the start...
+[15:07:19] <taplar> Ales: those arguments are provided in case you need them
+[15:07:20] <Ales> $.each( arr, function( index, value ){
+[15:07:20] <Ales>     sum += value;
+[15:07:20] <Ales> });
+[15:07:20] <Ales>  
+[15:07:31] <taplar> please stop pasting multiline code in the chat
+[15:07:36] <taplar> make a paste or fiddle
+[15:07:43] <Ales> taplar example without parameters?
+[15:07:49] <taplar> you just don't put them
+[15:08:04] <Ales> taplar so how do you do sum+=value
+[15:08:28] <taplar> you can use reduce
+[15:08:45] <taplar> https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Reduce
+[15:09:16] <Ales> taplar is learn.jquery.com good ?
+[15:09:25] <taplar> yup
+[15:09:36] <ReScO> taplar, basically, i have a db, where i'll query for the last 10 items, i want jQuery to check if there are new items and if there are, drop the last one and add it to the top
+[15:09:44] <Ales> should i start with learn.jquery.com or api.jquery.com taplar?
+[15:09:52] <taplar> learn first
+[15:09:56] <Ales> ok ty taplar
+[15:10:35] <ReScO> i'm returning JSON to jQuery, so the db part is down, just need to figure out how to structure the data and keeping the list nice and ordered
+[15:10:57] <taplar> well, how do you know if one is 'new' or not?
+[15:11:38] <Ales> taplar he could check for newest: object.length [length-1]
+[15:11:58] <Ales> if its true .. then it was added
+[15:12:26] <taplar> if there are 50 records, and he's displaying 10 already, and now he gets 10 more...
+[15:15:08] <taplar> ok, so unshift to put an element at the start
+[15:15:10] <taplar> https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/unshift
+[15:15:14] <taplar> pop to remove from the end
+[15:16:33] <ReScO> taplar, https://jsfiddle.net/Coffee2Code/hbuwL0d1/ this is what i currently have
+[15:17:33] <taplar> so i take it your then later going to do an ajax call to get more messages?
+[15:17:50] <ReScO> already doing that :)
+[15:18:07] <ReScO> data is being sent as a array of objects
+[15:18:11] <taplar> ok, so how do you know if a message is newer than what is being shown?
+[15:18:30] <ReScO> i don't, but i can manipulate the data in any way i want, what's the best way?
+[15:18:57] <taplar> my initial thoughts would be to associate a timestamp with the messages, such as perhaps a create timestamp
+[15:19:20] <taplar> then when you make your ajax call, you can give the latest timestamp to the endpoint and it can look for messages > the timestamp
+[15:20:42] <ReScO> The data is completely stripped from all information, including time
+[15:20:57] <taplar> i'm suggesting you include a time for this purpose
+[15:21:17] <taplar> otherwise determining 'new' is going to be hard/weird
+[15:21:35] <taplar> ./unpredictable
+[15:23:13] <taplar> or if you have something else that is incremental as messages are created, that could work to
+[15:23:17] <taplar> *too
+[16:07:38] <ReScO> taplar, there is an ID?
+[16:16:14] <emilkarl> Is there an event to listen to when selecting the already selected item in a select input. Like an "unchanged" event. Click does not trigger when doing this and change does not either.
+[16:16:27] <emilkarl> $('select').unchanged? :P
+[16:20:08] <taplar> click doesn't work?
+[16:21:18] <ReScO> taplar, there's a message ID
+[16:21:40] <taplar> ReScO: is it incremental?
+[16:21:46] <ReScO> yep
+[16:21:51] <taplar> so there ya go.
+[16:40:20] <thoraxe> so this is odd. https://jsfiddle.net/Lmse4jfo/ -- when I click the button, I get an error in the chrome console -- fqdn/[object%20Object] 404 (Not Found)
+[16:40:33] <thoraxe> so that makes it look like i'm not formatting the url correctly in the javascript
+[16:41:04] <thoraxe> but i'm not sure what could be wrong with: url: "/ws/demo/log/info"
+[16:41:20] <taplar> look at your network tab and see where it's trying to go to
+[16:41:57] <thoraxe> or do i not need to specify url with .get
+[16:42:01] <thoraxe> ah i bet i don't
+[16:42:07] <taplar> you do
+[16:42:23] <taplar> though it's the first argument
+[16:42:57] <taplar> https://jsfiddle.net/Lmse4jfo/1/
+[16:43:38] <thoraxe> taplar: no i meant specify it as in the key/value pairs
+[16:43:39] <taplar> https://jsfiddle.net/Lmse4jfo/2/ left a curly in there
+[16:43:59] <taplar> if you do want to give it with key value pairs, then use ajax()
+[16:44:03] <thoraxe> ya
+[16:44:06] <thoraxe> i see now
+[16:50:00] <bpatram> the latest jquery-ui version is 1.11.4 but the NPM package version is still at 1.10.5. is that intended?
+[16:57:33] <thoraxe> so maybe this is a dumb question, but i'm editing the javascript in the chrome browser and adding an alert, but when i click the button it doesn't seem to alert. i am guessing that's because the browser is not "reloading" the script when I edit it since it's $(document).ready ?
+[16:59:21] <taplar> you should be able to alter live code and inspect things with the browser's debugger
+[16:59:55] <taplar> http://fixingthesejquery.com/#slide4
+[17:14:28] <alegen> hello; i am trying to call setInterval inside $(...) and i get "jQuery.Deferred exception: setInverval is not defined"
+[17:14:50] <alegen> i remember this working perfectly fine in older versions of jquery... so what gives: /
+[17:14:53] <taplar> show us what your trying
+[17:16:13] <alegen> http://pastebin.com/2GzMVb8Q
+[17:16:30] <alegen> this is just a stupid example...
+[17:16:37] <alegen> but still, enough to show what i`m trying
+[17:16:44] <taplar> small 'c' on console
+[17:17:40] <taplar> also put a var in front of your 'rand' variable
+[17:18:39] <alegen> ok and ok, still same message :/
+[17:18:59] <taplar> oh, lol, typo
+[17:19:06] <taplar> 'InVerval'
+[17:19:34] <alegen> lol... i fail... badly :|
+[17:19:37] <alegen> thanks taplar
+[17:19:38] <taplar> :)
+[17:19:44] <Ales> taplar i dont understand why we need to type function after every call in jquery..?
+[17:19:59] <taplar> what'cha mean homes?
+[17:21:18] <Ales> whatever you call like each then you need to say function, or setInterval again function
+[17:21:47] <taplar> you don't have to, but those two things take a function as an input
+[17:21:57] <taplar> doing function(){} is just giving it an inline function
+[17:22:08] <taplar> you could just as easily give it a named function
+[17:22:39] <taplar> function someFunctionOfMine (element) { /* blah */ }   $.each(myArray, someFunctionOfMine);
+[17:23:14] <Ales> ok taplar.
+[17:26:42] <Ales> taplar how will this fill array ? i dont understand http://pastebin.com/sBpqPLpQ
+[17:26:57] <Ales> i understand with each and push but not this
+[17:27:48] <taplar> ok, so map takes all the elements that you give it and performs whatever translation you define with your function, and then collects all those in an array for you, returning it at the end
+[17:28:25] <taplar> it's the same as if you made an array yourself, did an each and pushed all those results, but you don't have to keep track of the array or any of that boiler plate
+[17:28:45] <Ales> i dont know taplar. so this selects all li elements then map function calls function and return this.id i dont understand
+[17:30:12] <taplar> so you understand that $('li') is selecting all the li right?
+[17:30:53] <Ales> ofc..
+[17:31:13] <Ales> does this.id calls element parameter right? could be replaced with element.id
+[17:31:33] <taplar> sure
+[17:31:43] <Ales> so what index? is index like [0][1]?
+[17:32:09] <taplar> it's the offset of the current element that's it processing in your result set
+[17:32:41] <Ales> so where it sais which array taplar we select?
+[17:33:06] <taplar> your operating off of $('li')
+[17:33:12] <taplar> so it's going to be on that result set
+[17:33:25] <Ales> i use this example now taplar http://pastebin.com/dp3jrBnY
+[17:33:42] <Ales> please explain me how it finds arr, if i dont specify it taplar
+[17:34:00] <taplar> which one?
+[17:34:11] <Ales> first one
+[17:34:16] <Ales> without arr specify
+[17:34:27] <taplar> $( 'li' ) is doing a dom lookup and finding all elements with that tagName
+[17:34:28] <Ales> how it finds which array
+[17:34:39] <taplar> it then operates on that result set, an array like structure
+[17:34:53] <Ales> so if in arr wouldnt be tagName this wouldnt work=
+[17:34:54] <Ales> ?
+[17:35:10] <taplar> it's not finding those things in arr
+[17:35:12] <taplar> those are not in the DOM
+[17:35:58] <Ales> taplar how it finds..?
+[17:36:09] <Ales> because .get()?
+[17:36:11] <taplar> you have your three li's at the top
+[17:36:18] <taplar> those three are in the DOM
+[17:36:35] <taplar> you understand what the DOM is right?
+[17:36:41] <Ales> yes taplar but i dont understand how it finds arr, what if i had arr1 arr2 arr3..?
+[17:37:00] <taplar> it doesn't find attr.  you're giving it attr in the second map
+[17:37:20] <taplar> $.map( array, callback )
+[17:37:34] <taplar> that version of map does not look up anything.  you tell it explicitly what to use
+[17:39:19] <Ales> not $.map..
+[17:39:24] <Ales> 1 up
+[17:39:39] <taplar> i know, but you asked how it 'finds arr'
+[17:39:42] <taplar> it doesn't
+[17:39:53] <Ales> so both statement needed taplar?
+[17:40:07] <taplar> both have a purpose, it all depends on what you need
+[17:40:34] <taplar> the first is for mapping elements you've found from the dom.  the second is for mapping a raw array, which you would not put in $()
+[17:41:08] <taplar> similar to $.parseJSON(someString)
+[17:41:16] <taplar> you wouldn't do $(someString).parseJSON()
+[17:41:28] <taplar> cause 'someString' is not representative of dom elements
+[17:41:56] <taplar> functions used with $.* are considered utility methods
+[17:42:05] <Ales> i really dont understand taplar lol i think im dumb
+[17:42:33] <taplar> ok, so $().map() and $.map() are not the same method
+[17:43:05] <Ales> $().map() calls on first load right ?
+[17:43:16] <taplar> in the first case, it looks up elements in the DOM.  it then performs map on those elements it finds.  You wouldn't do that with $.map cause you have to find them before you can use them
+[17:43:44] <taplar> with $.map() you already have your elements, you don't have to look them up, and they may not be dom elements, so it wouldn't make sense to use them in the other method
+[17:44:35] <Ales> so taplar if i dont have li ids in body i use $.map() to assign them through array?
+[17:45:09] <taplar> if you have a basic array which you want to map, you use $.map
+[17:45:25] <Ales> so $.map adds ids to some element in html..?
+[17:45:26] <taplar> if you have a jQuery object with selected elements, you use $.fn.map
+[17:45:34] <Ales> and it could also add classes
+[17:45:37] <taplar> it does whatever you tell it to with the function you give it
+[17:45:38] <Ales> whatever you have in array
+[17:46:19] <Ales> taplar i think $.map is more used, or not?
+[17:46:37] <taplar> dunno
+[17:46:48] <Ales> and in $.map case, why did we return first parameter value.id and not second one?
+[17:46:57] <Ales> in .map we returned second parameter element.id
+[17:49:03] <taplar> http://api.jquery.com/jQuery.map/
+[17:49:09] <taplar> http://api.jquery.com/map/
+[17:49:17] <taplar> they just have different order
+[17:49:25] <Ales> wow.. so much truble
+[17:50:16] <Ales> are those .map functions even being used in practice taplar?
+[17:50:24] <taplar> oh sure
+[17:50:46] <Ales> whats most important you would say taplar?
+[17:50:58] <mmmveggies> family is first, then god, then country
+[17:51:04] <taplar> mmmveggies: lol
+[17:51:10] <taplar> Ales: what do you mean most important?
+[17:51:12] <Ales> because i can use each instead map
+[17:51:19] <Ales> in jquery..whats most used
+[17:51:24] <Ales> for making website (frontend
+[17:51:28] <taplar> if your doing a translation, use map
+[17:51:40] <mmmveggies> .each doesn't create a new array... or it SHOULDNT, .map does
+[17:51:53] <taplar> that too
+[17:52:30] <taplar> if your manipulating an existing array, use each, or forEach().  if your translating, use map()
+[17:52:55] <Ales> ok now i think map is like a loop right? like .join
+[17:53:15] <taplar> it's like i said earlier.  map is just like an each but it handles the array business for you
+[17:53:28] <Ales> yes it itterates through all elements
+[17:53:56] <taplar> yes but when i say array business i mean the creation of the array for all the results
+[17:54:41] <Ales> kk now im reading .index() ethod should i skip this one or its useful?
+[17:55:00] <taplar> what are you trying to do?  it really all depends on that
+[17:55:29] <taplar> just looking at methods and asking if they are useful is kinda obscure, :)
+[17:55:47] <Ales> im learning. taplar for frontend
+[17:56:07] <taplar> then in that context, everything is potentially useful
+[17:56:20] <sillyslux> and useless
+[17:56:27] <taplar> sure
+[17:56:36] <sillyslux> Ales where are you reading that?
+[17:56:43] <Ales> learn.jquery.com sillyslux
+[17:58:20] <Ales> i finished reading jquery Core. now i will start with Events, looks more fun.....
+[17:58:38] <taplar> you have more patience than I sir, ^_^
+[17:58:57] <taplar> i'm more of a hands on guy
+[17:59:07] <Ales> lol taplar
+[17:59:15] <Ales> go to php channel and they say read manual read manual
+[17:59:23] <Ales> if you dont listen you get ignored or muted
+[17:59:30] <sillyslux> Ales you should also learn javascript which is the language you need to know if you want to use jquery
+[17:59:38] <Ales> sillyslux, i know js lol
+[17:59:49] <Ales> i already read about it, but jquery has simplier syntax
+[17:59:53] <Ales> js to much lines
+[17:59:57] <taplar> i'm not saying don't read learn.jquery.com
+[18:00:08] <taplar> i'm just saying i feel putting the things to use makes it stick more
+[18:00:10] <sillyslux> neither am i
+[18:00:25] <Ales> taplar i agree..... but i dont know any ideas to work
+[18:00:37] <taplar> got any hobbies?
+[18:00:48] <Ales> coding taplar
+[18:00:54] <taplar> heh, had a feeling
+[18:00:58] <taplar> any other hobbies?
+[18:01:01] <taplar> games?
+[18:01:18] <taplar> fan of pets?
+[18:01:20] <Ales> no  i code
+[18:01:35] <taplar> :o  you need a side thing dude, ;)
+[18:02:32] <taplar> really?  nothing?  no sports or stuff?
+[18:02:38] <Ales> but i am slow at realizing... i was diagnosed with brain damage when i was born
+[18:02:47] <sillyslux> taplar, you have a side thing?
+[18:03:00] <taplar> sure, i play games and i have a fan site for one of them
+[18:03:04] <sillyslux> it's irc lol
+[18:03:04] <taplar> and i'm in here, :D
+[18:03:13] <sillyslux> hehe
+[18:03:24] <Ales> its not like i have autism
+[18:03:27] <Ales> but doctors said
+[18:03:32] <Ales> i will have brain damage
+[18:03:36] <Ales> but nothing actually happened
+[18:03:46] <Ales> but as im growing i think i may have cuz i cant learn coding........
+[18:03:51] <sillyslux> when was that?
+[18:04:34] <Ales> im slow at it..
+[18:04:57] <Ales> coding is so hard for me
+[18:04:57] <taplar> no worries.  you can take however long you need.  all i'm saying is if you have a hobbie that you like to do, you could potentially make like a fan site for it.  figure out something you want to do for it, then figure out how you could use jquery to do that
+[18:05:03] <Ales> because im not gifted like you guys...
+[18:05:15] <Ales> i know taplar, but thats waste for me
+[18:05:20] <Ales> i learn coding.
+[18:05:30] <Ales> you guys gifted so you spent less time learning
+[18:06:09] <Ales> taplar link me your site
+[18:06:15] <taplar> taplar.com
+[18:06:22] <Ales> decent name.
+[18:06:25] <taplar> it's ugly.  you've been warned
+[18:06:28] <Ales> wtf is this?
+[18:06:37] <Ales> you learn on this lol?
+[18:06:45] <taplar> sure
+[18:06:45] <Ales> i'll give you a+ for inovative name
+[18:07:03] <Ales> give me domain lel
+[18:07:33] <sillyslux> Ales, where not gifted, we may have a little more self-esteem than you. everybody learns with his own pace and when he's anxious he considers himself slow.
+[18:07:57] <Ales> sillyslux, i want to learn faster..im slow and yes dont bs i learn 10+ hours a day
+[18:08:14] <Ales> its not fair . taplar give me your domain?
+[18:08:21] <Ales> you dont have much use of it lol.
+[18:08:21] <taplar> nope, mine, :D
+[18:08:46] <taplar> if all your going off of is the look, you still have much to learn, B-)
+[18:09:05] <Ales> you ever got any visitor on your site? alexa sais no data lol..
+[18:09:08] <Ales> i might be your first
+[18:09:17] <taplar> sure
+[18:09:39] <Ales> this design though,.
+[18:09:40] * sillyslux 2nd
+[18:09:55] <taplar> *shrug* it's clean and it's responsive for phones
+[18:09:58] <sillyslux> and the frontpage.. it's ugly
+[18:10:03] <taplar> yup
+[18:10:28] <Ales> wow i didnt know phbb isnt responsive
+[18:10:36] <Ales> lel?
+[18:10:40] <Ales> responsive?
+[18:10:40] <taplar> nope, it's not
+[18:10:43] <Ales> i click your forum
+[18:10:47] <taplar> the other two are
+[18:11:24] <sillyslux> Ales, that fanpage thing taplar just said, that's the way i think you should learn
+[18:11:33] <sillyslux> i do that too
+[18:11:45] <Ales> and black background you have is os bad for my eyes lmao
+[18:12:06] <taplar> i figure black won't drain a phone battery as fast
+[18:12:07] <Ales> you want your users to lose sight
+[18:12:08] <taplar> but just me
+[18:12:35] <sillyslux> it's not only about knowing there are some obscure functions, but you have to be experienced with all that and experience you'll only get by doing
+[18:13:12] <Ales> sillyslux. i think its waste of time i rather worok on projects
+[18:13:23] <sillyslux> do you have any projects?
+[18:13:30] <Ales> sillyslux, i doubt he got much experience with his webpage.
+[18:13:33] <Ales> and he knows a lot
+[18:13:35] <Ales> so please :)
+[18:13:47] <taplar> being the person that wrote it, i can say i did
+[18:13:50] <Ales> no sillyslux no ideas :)
+[18:13:55] <thoraxe> ok... taplar i'm looking at your presentation link. i'm in the sources tab in chrome, i've added a breakpoint to my function. i click the button and theoretically i should be "at" the breakpoint but it doesn't appear like anything has happened.
+[18:14:01] <Ales> taplar i make site like you have in 30 mins
+[18:14:08] <taplar> go for it
+[18:14:15] <Ales> give me ftp
+[18:14:30] <taplar> there are plenty of free hosting sites out there
+[18:14:41] <Ales> nah taplar, not wasting time give me ftp ill make in sub directory
+[18:14:46] <taplar> nope
+[18:14:52] <Ales> lel srsly?..
+[18:14:55] <Ales> what can i do?
+[18:14:58] <Ales> take backup and ur ok
+[18:15:15] <taplar> i don't know you dude.  not giving you access to my domain
+[18:15:28] <sillyslux> haha
+[18:15:35] <Ales> domain? only hosting
+[18:15:39] <sillyslux> Ales, try github-pages
+[18:15:40] <taplar> if your surprised by that, don't know what to say
+[18:15:44] <sillyslux> like me
+[18:15:55] <sillyslux> https://sillyslux.github.io/lapsed
+[18:16:10] <Ales> taplar please what gmaes you play sorry i cant read on ur page because bad colors
+[18:16:11] <taplar> thoraxe: then that would kinda lead to that the event isn't happening
+[18:16:23] <taplar> the fan site is for hiddenworld.com
+[18:16:32] <Ales> sillyslux, what laungange is that?
+[18:16:38] <taplar> why?
+[18:16:44] <taplar> oh, sorry
+[18:16:49] <thoraxe> taplar: which is odd, because before i added the breakpoint, the event definitely happened. i see the acess log for the app from the get request
+[18:16:58] <sillyslux> croatian, it's supposed to be an it events blog
+[18:17:03] <Ales> lelll
+[18:17:05] <Ales> u croatian?
+[18:17:09] <sillyslux> yes
+[18:17:11] <Ales> i hope croatia wins euro
+[18:17:26] <Ales> modric best
+[18:17:27] <sillyslux> uhmmm...
+[18:17:31] <sillyslux> me to?
+[18:17:45] <Ales> do you even watch euro?
+[18:17:47] <sillyslux> i'm not really into sport
+[18:17:48] <sillyslux> s
+[18:17:48] <Ales> btw im not croatian
+[18:17:54] <Ales> oaky
+[18:18:11] <thoraxe> in fact i even see the xhr request in the network tab
+[18:18:17] <sillyslux> i like coding more :)
+[18:18:38] <Ales> sillyslux, what you work on?
+[18:18:42] <thoraxe> ok, interesting.
+[18:18:57] <taplar> thoraxe: you said you added the breakpoint and now the ajax is not happening?
+[18:19:20] <thoraxe> taplar: no. i added the breakpojnt but the breakpoint is never entered
+[18:19:23] <thoraxe> but i think i see *why*
+[18:19:24] <thoraxe> https://jsfiddle.net/Lmse4jfo/3/
+[18:19:35] <thoraxe> i added the breakpoint inside the function(result)
+[18:19:57] <thoraxe> but that's the thing -- never hit the breakpoint. so i am guessing there's no result??
+[18:20:08] <thoraxe> but if you GET that URL directly (eg: curl) you get data back
+[18:20:08] <taplar> or your not getting success
+[18:20:13] <thoraxe> it's a 200...
+[18:20:24] <thoraxe> like, the network tab shows a 200 from the request... wouldn't that be success?
+[18:20:32] <thoraxe> or does jquery expect something very specific
+[18:20:47] <taplar> it depends, usually a 200 is success unless your trying to make jquery parse the result
+[18:20:50] <taplar> which it doesn't look like you are
+[18:21:04] <taplar> parse errors can make it error with a 200
+[18:21:15] <thoraxe> so, i'm wondering if this get syntax is right
+[18:21:17] <thoraxe> http://api.jquery.com/jQuery.get/
+[18:21:25] <thoraxe> url, data, success, datatype
+[18:21:37] <thoraxe> except that the .get we have crafted is: url, success
+[18:21:39] <taplar> look at the second example
+[18:22:04] <taplar> why did they put an alert() in the docs, -_-
+[18:22:39] <Ales> lel bad practice xD
+[18:22:44] <Ales> taplar buddy your domain expire tomorrow
+[18:22:46] <thoraxe> i dunno what to say here. the page definitely returns text
+[18:22:50] <Ales> i steal
+[18:22:56] <Ales> jk :)
+[18:23:15] <taplar> thoraxe: try putting a .always() on the end of your get() and see if it goes in that method
+[18:23:19] <thoraxe> curl blahblah -> Added a log statement of type INFO
+[18:25:59] <thoraxe> ok now back to fun with chrome
+[18:26:11] <taplar> https://jsfiddle.net/Lmse4jfo/4/
+[18:26:17] <thoraxe> so i made changes to the page in the "elements" tab
+[18:26:24] <thoraxe> but in the "sourceS" tab i can't get those changes to appear
+[18:26:30] <taplar> right, they wouldn't
+[18:26:40] <taplar> sources shows what was returned from the server
+[18:26:50] <taplar> elements tab reflects the dom
+[18:27:19] <thoraxe> so how could you make a change in the browser and then actually test it?
+[18:27:21] <thoraxe> (in chrome)
+[18:27:41] <taplar> debugger, or you can run commands in the console against the page
+[18:27:53] <taplar> and changing elements in the elements tab
+[18:28:00] <taplar> different options there
+[18:28:17] <taplar> personally i'm usually just changing the file and seeing how it fairs
+[18:29:08] <thoraxe> yeah unfortunately i don't have that luxury in this particular setup
+[18:29:25] <thoraxe> so i made the changes to the elements tab, click the button, and nothing
+[18:29:34] <thoraxe> so it appears that whatever changes i'm making in the browser aren't working
+[18:29:45] <fancy> Hey guys
+[18:30:21] <thoraxe> alright, i give up for the day.
+[18:30:30] <taplar> hold on, are you running that script in your console to change stuff?
+[18:32:57] <fancy> I have a collapsible bootstrap panel that I'm toggling using a button press event.
+[18:33:04] <fancy> The problem is that if you double click the button
+[18:33:28] <Ales> fancy use show and hide
+[18:34:22] <fancy> Ales, this is animated though
+[18:34:33] <fancy> it uses bootstraps data-toggle and data-target
+[18:34:44] <taplar> fancy: can you show us a fiddle of the issue?
+[18:34:49] <fancy> show and hide don't do the correct "things"
+[18:35:47] <fancy> No :( It has corporate dependencies that I can't share
+[18:36:03] <fancy> I'll come back on later and be better prepared to ask
+[18:36:19] <fancy> I'll write up an example using vanila bootstrap.
+[18:36:29] <fancy> Thanks anyways guys, I'll be back later
+[18:36:33] <taplar> k
+[18:37:56] <Ales> taplar ! why ignore me
+[18:38:01] <taplar> hmm?
+[18:38:08] <Ales> i like you :)
+[18:38:31] <taplar> cool, :)
+[18:39:03] <Ales> taplar, if we had same knowledge we could learn 2gether i need to hurry up with learning..any tips?
+[18:39:18] <taplar> a project, like i said, :)
+[18:39:56] <taplar> there's also some other stuff.  let me see if i can find it
+[18:40:47] <taplar> you could also try: http://try.jquery.com/
+[18:40:54] <taplar> bit more interactive i believe
+[18:41:04] <Ales> taplar i want to start use debugger for js should i use firefox or can i use chrome?
+[18:41:11] <Ales> thx taplar bookmarked
+[18:41:33] <taplar> either one should be fine.  others might have a preference
+[18:43:59] <thoraxe> taplar: i'm not running anything in the console. I was hoping to edit the html in the browser and then click the button and have the new javascript "work". but it doesn't appear that... works
+[18:44:20] <taplar> thoraxe: what do you mean edit the html?
+[18:44:25] <taplar> add new elements?
+[18:44:45] <thoraxe> taplar: the javascript is in a script block in the html file.
+[18:44:49] <thoraxe> as opposed to being in its own file
+[18:44:59] <taplar> no, not what i meant
+[18:45:16] <taplar> that binding is put against the element(s) it matches to when the page loads
+[18:45:31] <taplar> but you said your editing the html in the browser
+[18:46:34] <taplar> what edits are you doing?
+[18:46:57] <thoraxe> i am updating the javascript code in the script block.
+[18:47:05] <taplar> oh, yeah, that's not gonna work
+[18:47:17] <thoraxe> yeah, and that's unfortunate.
+[18:47:27] <taplar> if your trying to change that binding, you'd need to off() it first
+[18:47:33] <taplar> then rebind in the console
+[18:47:43] <thoraxe> yeah i'll just hack in jsfiddle with the remote url, that's probably faster.
+[18:47:59] <taplar> jsfiddle most likely can't hit that url
+[18:48:05] <taplar> cors and all
+[18:48:38] <taplar> where's your fiddle?
+[18:50:41] <taplar> https://jsfiddle.net/Lmse4jfo/5/
+[18:50:57] <taplar> added the off.  you should be able to take that, change it and pop it into your console to see your changes
+[18:53:54] <taplar> anyway, i'm going to go play in traffic.  catch you guys later
+[18:55:31] <Ales> taplar
+[18:55:34] <Ales> is slicing still a thing
+[20:13:45] <mmmveggies> if there was no slicing, how would you eat pizza or cake
+[20:18:07] <cannap> roll
+[20:21:42] <andrew9183> swallow
+[22:34:42] <SimpleName> is there a good city picker plugin
+[22:34:47] <SimpleName> like os style
+[23:40:00] <WhirledPress> I am not sure why my handler functions loadSuccess and loadError are not able to access the img variable defined in the same scope as the functions? https://jsfiddle.net/Whirl3d/8zVTR/20/
+[23:42:21] <WhirledPress> var img=$(sel); var loadSuccess=function (pimg) { //why can't I reference img here?};
+[23:45:11] * WhirledPress kicks a can down the street as a tumbleweave rolls by
+[23:55:05] <UniFreak> I find that $('#somethingwith[bracket]') can't select the element <input id="somethingwith[bracket]">; is this normal or a bug?
+[23:59:43] <WhirledPress> UniFreak, most likely not a bug. try escaping the brackets? $("#somethingwith\[bracket\]"); Not sure if it will work, but try it.

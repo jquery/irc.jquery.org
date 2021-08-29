@@ -1,0 +1,334 @@
+[08:57:52] <jzaefferer> QUnit/CI meeting starting soon - ping scott_gonzalez Krinkle DaveMethvin rwaldron gnarf
+[08:58:23] <DaveMethvin> i'm around
+[08:58:27] <rwaldron> here
+[09:02:41] <jzaefferer> okay, let's get started
+[09:03:02] <jzaefferer> apparently Krinkle isn't around once more, but there's some QUnit stuff to look at
+[09:03:09] <jzaefferer> agenda: http://bit.ly/qunitci 
+[09:04:13] <jzaefferer> scott_gonzalez and rwaldron already commented on https://github.com/jquery/qunit/pull/295 - so I closed that
+[09:04:32] <jzaefferer> didn't hear anything from the author again, so
+[09:04:50] <scott_gonzalez> seems good
+[09:04:56] <jzaefferer> this has a long history: https://github.com/jquery/qunit/pull/302
+[09:05:17] <jzaefferer> but all it changes now is make QUnit.expect() a getter
+[09:05:29] <johnbender> jzaefferer: estoy aqui
+[09:05:33] <jzaefferer> otherwise behaves exactly as before
+[09:05:35] <scott_gonzalez> +1
+[09:05:52] <jzaefferer> johnbender: je ne understand
+[09:05:55] <jzaefferer> pas
+[09:06:39] <jzaefferer> now gdocs broke for me
+[09:06:41] <jzaefferer> meh
+[09:06:49] <scott_gonzalez> haha
+[09:06:54] <johnbender> jzaefferer: I'm here
+[09:06:57] <jzaefferer> thanks google
+[09:07:00] <jzaefferer> anyway
+[09:07:00] <DaveMethvin> i've been having server issues where it can't save
+[09:07:01] <scott_gonzalez> https://github.com/jquery/qunit/pull/300 was next
+[09:07:07] <jzaefferer> yeah, that's kind of a mess
+[09:07:46] <jzaefferer> any idea why anyone would care what the assertion type is?
+[09:07:52] <jzaefferer> "The assertion-type provides information about the type of assertion that was violated. This is pretty useful when doing automated tests with PhantomJS and QUnit."
+[09:08:26] <johnbender> amazing profile picture
+[09:08:51] <DaveMethvin> but why do you need the unit tests to show that level of detail?
+[09:09:00] <rwaldron> That's insane to look at
+[09:09:01] <scott_gonzalez> Not really. Ask him why it's useful.
+[09:09:35] <scott_gonzalez> Also, this seems odd: https://github.com/jquery/qunit/pull/300/files#L0R418
+[09:09:48] <johnbender> I guess the idea is to provide more information about the test that failed
+[09:10:02] <jzaefferer> actually, his second bullet in the description kind of provides a usecase
+[09:10:18] <jzaefferer> where `QUnit.throws` never provides an "expected" prop
+[09:10:40] <jzaefferer> "We can expose this to the outside world so that we can check for specific assertion types when looking at the results
+[09:10:40] <jzaefferer> "
+[09:11:18] <jzaefferer> this seems more reasonable, and is a subset of 300: https://github.com/jquery/qunit/pull/299/files
+[09:11:20] <johnbender> I'm sure there are other cases where knowing the assertion has value too
+[09:11:23] <rwaldron> It might be useful, but the way it's implemented is insane
+[09:12:17] <johnbender> rwaldron: I haven't looked at it too closely, what is it that qualifies it as "insane"
+[09:12:37] <johnbender> I mean it seems odd to exten the QUnit object and there are some other niggles, but I wouldn't call it insane
+[09:12:45] <rwaldron> the completely unnecessary "bag of things that looks like constants"
+[09:13:13] <DaveMethvin> i just don't see the need for it ... 299 does seem more reasonable
+[09:13:22] <rwaldron> petty nit: they used the wrong type of indents.
+[09:13:32] <johnbender> rwaldron: yah I saw that too
+[09:13:41] <johnbender> rwaldron: what would you use in place of the "constants" for comparison
+[09:13:42] <jzaefferer> brb
+[09:13:42] <rwaldron> 299 is the same way
+[09:13:50] <johnbender> just he function ref?
+[09:13:53] <johnbender> *just the
+[09:14:24] <rwaldron> They aren't actually constants, they were just typed to look like them
+[09:14:26] * johnbender is learning
+[09:14:37] <rwaldron> so what is the point in even storing them?
+[09:14:49] <johnbender> canonical string comparison
+[09:14:56] <johnbender> granted it doesn't make much sense
+[09:14:57] <rwaldron> not if I can just change it
+[09:15:06] <johnbender> ... it's javascript
+[09:15:11] <johnbender> that's something of a given no?
+[09:15:11] <DaveMethvin> (tm)
+[09:15:46] <scott_gonzalez> I agree it's silly to add the types object.
+[09:15:58] <rwaldron> johnbender that doesn't mean anything. var o = { CONSTANT: "foo" }; Object.freeze(o)
+[09:16:25] <johnbender> denoting something as a canonical reference still has value
+[09:16:32] <rwaldron> no ES3 support, but that's 3 browsers
+[09:16:33] <johnbender> rwaldron: we've derailed
+[09:16:38] <rwaldron> yeah, agreed
+[09:17:15] <johnbender> I don't understand wtf 299 is doing so I'll defer
+[09:17:35] * johnbender is acting as though his opinion would/should matter in this case
+[09:18:36] <DaveMethvin> i dunno i guess it's a philosophy thing... i think of unit tests as the canary in the coal mine ... some people seem to be treating it like a coal miner emergency rescue program
+[09:18:47] <rwaldron> DaveMethvin I'm with you
+[09:18:58] <rwaldron> console.assert()
+[09:19:00] <scott_gonzalez> https://github.com/jquery/qunit/pull/299#issuecomment-7790589
+[09:19:30] <johnbender> DaveMethvin: a good test can tell you _exactly_ where the problem is
+[09:19:39] <rwaldron> scott_gonzalez +1 (if I'm going to support anything, it will be doing it less ridiculously)
+[09:19:51] <johnbender> so it's a canary with a lazer pointer :P
+[09:20:06] <rwaldron> johnbender i think writing a good test is up to me
+[09:20:08] <rwaldron> not qunit.
+[09:20:12] <DaveMethvin> yeah
+[09:20:20] <johnbender> totally agreed
+[09:20:46] <johnbender> responding more to Dave's assertion than pr
+[09:20:51] <johnbender> *than the pr
+[09:20:51] <rwaldron> word
+[09:21:06] <scott_gonzalez> I can understand what he wants out of 299, though it's not actually necessary, since the data is already available in other ways.
+[09:21:12] <scott_gonzalez> I don't really see the value in 300.
+[09:21:21] <johnbender> DaveMethvin: I say that while realizing that the entirety of the mobile test suite is at the user interaction level :/
+[09:22:16] <jzaefferer> scott_gonzalez: 299 would actually simplify for example the phantomjs script, where the moduleStart and testStart callbacks are used solely to store the module and test name
+[09:22:57] <scott_gonzalez> jzaefferer: Sure, it makes sense. I just think the implementation is bad.
+[09:24:27] <scott_gonzalez> Oh, I see what's going on.
+[09:24:35] <scott_gonzalez> Not enough context in the diffs.
+[09:24:38] <jzaefferer> oh?
+[09:24:40] <johnbender> scott_gonzalez: ^
+[09:24:48] <scott_gonzalez> It's duplicated because ok() doesn't go through push().
+[09:26:13] <jzaefferer> any thoughts on https://github.com/jquery/qunit/pull/293 ?
+[09:26:49] <jzaefferer> or https://github.com/jquery/qunit/issues/304
+[09:27:08] <johnbender> jzaefferer: 293 - maybe he wants per test tweaks? I don't know
+[09:27:45] <DaveMethvin> if i were reading unit tests, i'd prefer to see the common test setup done explicitly
+[09:27:45] <scott_gonzalez> 293 could potentially be interesting
+[09:27:59] <scott_gonzalez> Maybe things like data generators? I think that would need to live a level higher though.
+[09:28:08] <jzaefferer> data generators?
+[09:28:22] <jzaefferer> he's passing the Test object QUnit uses internally to organize stuff
+[09:28:26] <scott_gonzalez> +1 on 304
+[09:28:40] <scott_gonzalez> jzaefferer: oh...umm...yeah, what's the use case on that?
+[09:29:03] <johnbender> scott_gonzalez: for 304 there seems to be two issues
+[09:29:08] <johnbender> knowing the test results
+[09:29:14] <johnbender> (header color?)
+[09:29:21] <johnbender> and knowing where the first failed test is
+[09:29:24] <johnbender> right?
+[09:29:41] <DaveMethvin> I'm +1 on scrolling to the top on success and to the first failed test otherwise (not using jQuery of course :)
+[09:29:50] <scott_gonzalez> Well, it's one general issue: All useful info is at the top.
+[09:30:05] <johnbender> scott_gonzalez: save for a failed test below the "fold"
+[09:30:14] <DaveMethvin> i guess you can always hide failed tests while you're at the top
+[09:30:21] <DaveMethvin> so the top is the place to be
+[09:30:29] <DaveMethvin> "I want to be on top!"
+[09:30:33] <scott_gonzalez> I don't like the idea of scrolling to first failed, but that may just be me.
+[09:30:44] <DaveMethvin> yeah i flip-flopped on that
+[09:30:47] <scott_gonzalez> I'd rather know that 20/300 failed than know that X is the first failure.
+[09:30:48] <johnbender> DaveMethvin: do you mean hiding successful tests?
+[09:30:59] <scott_gonzalez> I'd much rather check the box to hide passed tests.
+[09:31:00] <DaveMethvin> yeah that's what i meant
+[09:31:05] <johnbender> I'm just wondering if we could push it all to the top
+[09:31:06] <johnbender> like DaveMethvin said
+[09:31:18] <johnbender> though that's extra work
+[09:31:32] <scott_gonzalez> We should not move test results.
+[09:31:38] <jzaefferer> always setting scrollTop to zero seems fine, except when the browser actually restored a previous scroll position?
+[09:31:47] <DaveMethvin> hiding successful tests gets you to the right place
+[09:32:02] <DaveMethvin> go to the top
+[09:32:06] <johnbender> scott_gonzalez: you mean we shouldn't reorder them?
+[09:32:22] <DaveMethvin> yeah, don't reorder the display for sure
+[09:32:28] <DaveMethvin> that is gonna get confusing
+[09:32:29] <scott_gonzalez> johnbender: Yeah, when you said "if we could push it all to the top" did you mean shift failed tests up?
+[09:32:47] <johnbender> scott_gonzalez: yes, but only by hiding the successful tests
+[09:32:53] <johnbender> adding a toggle maybe
+[09:32:57] * johnbender is spitballing
+[09:33:00] <DaveMethvin> which it has
+[09:33:04] <jzaefferer> johnbender: that's a feature
+[09:33:10] * johnbender is ashamed
+[09:33:11] <scott_gonzalez> So you're saying auto-toggle on failure?
+[09:33:18] <jzaefferer> or not?
+[09:33:18] <DaveMethvin> don't need that
+[09:33:23] <scott_gonzalez> Or did you just not know about the existing feature?
+[09:33:41] <johnbender> scott_gonzalez: I think that was Dave's suggestion which seems sane to me
+[09:33:49] <johnbender> but that might be jarring for exisitng users
+[09:34:04] <jzaefferer> like us?
+[09:34:07] <DaveMethvin> we sometimes have tests that fail and affect the subsequent test, it would be a nightmare if the display got reordered
+[09:34:12] <scott_gonzalez> Right, the checkbox for that is at the top.
+[09:34:18] <DaveMethvin> i think we should keep it simple
+[09:34:22] <johnbender> agreed
+[09:34:24] <DaveMethvin> scroll to the top at the end
+[09:34:29] <DaveMethvin> let the user click the checkies
+[09:34:29] <scott_gonzalez> So just scrolling to the top and doing nothing else, is the best behavior.
+[09:34:39] * johnbender agrees
+[09:35:35] <jzaefferer> I think I'm going to close this: https://github.com/jquery/qunit/issues/291
+[09:35:40] <jzaefferer> unless anyone objects
+[09:35:57] <scott_gonzalez> Please close
+[09:36:07] <scott_gonzalez> In fact, please close it repeatedly :-P
+[09:36:10] <jzaefferer> haha
+[09:36:17] <jzaefferer> one more issue: https://github.com/jquery/qunit/issues/279
+[09:37:02] <scott_gonzalez> Seems reasonable.
+[09:37:09] <DaveMethvin> yeah
+[09:37:12] <jzaefferer> scott_gonzalez: https://github.com/jquery/qunit/issues/291
+[09:37:20] <scott_gonzalez> haha
+[09:37:42] <jzaefferer> reasonable, yeah, but I don't really want to figure out how to implement it...
+[09:37:52] <DaveMethvin> deepStrictEqualIncludingPrototypeChain
+[09:38:43] <DaveMethvin> i can see how you might want that in some cases, so it's not crazy
+[09:38:44] <johnbender> object.constructor ?
+[09:38:49] <jzaefferer> oh, another PR: https://github.com/jquery/qunit/pull/289
+[09:39:33] <scott_gonzalez> jzaefferer: It's just jsDump needing to show the constructor for objects.
+[09:39:45] <johnbender> type equality for object literals is something of a nightmare isn't it?
+[09:40:23] <scott_gonzalez> Is obj.constructor.name supported in all browsers?
+[09:40:32] <scott_gonzalez> I guess really just is fn.name supported?
+[09:40:40] <johnbender> scott_gonzalez: I guess that was the nature of the "?" at the end
+[09:40:42] <jzaefferer> johnbender: not really, the issue is just about bad feedback, its testing it correctly
+[09:41:36] <DaveMethvin> gotta run, i'll be in -dev later
+[09:41:45] <scott_gonzalez> meh
+[09:41:53] <jzaefferer> is this reasonable? https://github.com/jquery/qunit/pull/289#issuecomment-7511633
+[09:42:07] <johnbender> jzaefferer: deepEqual works on property values correct?
+[09:42:17] <jzaefferer> johnbender: yeah
+[09:42:27] <jzaefferer> Attending: Scott, Dave, John, Rick, Jörn - am I missing someone?
+[09:42:28] <johnbender> jzaefferer: property values are not property types
+[09:42:59] <jzaefferer> johnbender: right, but it makes strict comparisons
+[09:43:00] <johnbender> things can have the same type but different values
+[09:43:01] <jzaefferer> or something
+[09:43:05] <jzaefferer> I didn't wrote QUnit.equiv
+[09:43:17] <jzaefferer> that french guy did /o\
+[09:43:19] <scott_gonzalez> It checks constructors and prototypes as well.
+[09:43:22] <jzaefferer> *didn't write
+[09:43:33] <jzaefferer> ——> https://github.com/jquery/qunit/pull/289#issuecomment-7511633
+[09:44:01] <scott_gonzalez> Seems fine.
+[09:44:13] <scott_gonzalez> I still liked my idea for the conditional :-P
+[09:45:08] <jzaefferer> right
+[09:45:27] <jzaefferer> well, that's about it. From here I've got a bunch of stuff to work through
+[09:46:28] <jzaefferer> thanks guys
+[09:46:39] <johnbender> jzaefferer: thanks for all your hard work!
+[09:46:54] <johnbender> jzaefferer: and also for taking the time to come find me :(
+[09:46:58] * johnbender is sorry
+[09:48:44] <jzaefferer> heh, no problem
+[09:48:51] <jzaefferer> but you could just stay here ;)
+[09:48:53] <jzaefferer> aaanyway
+[09:48:56] <jzaefferer> closing the curtain
+[09:49:07] <jzaefferer> hush!
+[11:02:56] <johnbender> heyo
+[11:03:00] <johnbender> alright
+[11:03:01] <gseguin> The jQuery Mobile weekly team meeting is going to start
+[11:03:02] <_|Nix|_> Pong!
+[11:03:06] <johnbender> lets keep this thing short and sweet
+[11:03:11] <johnbender> I'll report some status to todd
+[11:03:14] <johnbender> agh
+[11:03:16] <johnbender> front door
+[11:03:17] <johnbender> one sec
+[11:04:04] <Wilto> Reporting in.
+[11:04:05] <uGoMobi> hi
+[11:04:38] <Wilto> First item of business: bahn mi is the best kind of sandwich. That is all.
+[11:05:39] <gseguin> alright, shall we?
+[11:05:55] <uGoMobi> sure
+[11:06:08] <gseguin> go ahead
+[11:06:20] <uGoMobi> me?
+[11:06:23] <uGoMobi> ok
+[11:06:28] <gseguin> yeah you uGoMobi
+[11:06:36] <uGoMobi> I have no updates this week
+[11:06:50] <uGoMobi> had some hardwear trouble, so haven't done much
+[11:07:06] <uGoMobi> hardware
+[11:07:18] <johnbender> back
+[11:07:30] <johnbender> recording no updates from uGoMobi
+[11:08:01] <gseguin> ok, I'll go then
+[11:08:14] <gseguin> Fixed an issue in the builder
+[11:08:14] <uGoMobi> I am back in business by tomorrow and join the popup fun
+[11:08:52] <johnbender> uGoMobi: got it
+[11:08:53] <gseguin> pinged gnarf as we need to get started on the node.js setup since joyent is discontinuing their no.de machines
+[11:08:56] <johnbender> gseguin: anything else
+[11:09:00] <johnbender> gseguin: right
+[11:09:09] <johnbender> maybe that would be a good time for him to try out the vagrant setup
+[11:09:13] <johnbender> gnarf: are you around?
+[11:09:23] <johnbender> gseguin: that way you could both work on it
+[11:09:26] <gnarf> yes, but on a call
+[11:09:32] <johnbender> gnarf: kk
+[11:09:35] <gnarf> also, very busy with day job today
+[11:09:47] <gnarf> gseguin: i think had already put up some info on an issue in infrastructure
+[11:09:55] <gnarf> and I'll try to get it at least staged today
+[11:09:56] <johnbender> gnarf: when do you think you'll have time to get a node node running
+[11:09:57] <gseguin> it's not yet high priority anyway
+[11:10:02] <gnarf> or tomorrow
+[11:10:07] <gseguin> yes there is a ticket open with the how-to
+[11:10:07] <johnbender> gnarf: k, no rush it seems
+[11:10:15] <gnarf> johnbender: mon/wed/fri are usually my work on jQuery days
+[11:10:27] <johnbender> gnarf: I'm just checking somethings on the vagrant setup but I believe it's mostly ready
+[11:10:27] <gseguin> next Wed then
+[11:10:37] <johnbender> noted
+[11:10:39] <johnbender> gseguin: anything else?
+[11:10:54] <gseguin> that's it I'm available for popup issues
+[11:10:59] <gseguin> if needed
+[11:11:06] <johnbender> gseguin: that would be great if you could help with that todya
+[11:11:11] <johnbender> I have a presentation at 2:30
+[11:11:18] <johnbender> _|Nix|_: update?
+[11:11:26] <_|Nix|_> re ...
+[11:11:31] <_|Nix|_> Sure ...
+[11:11:36] <_|Nix|_> What else: popup.
+[11:11:39] <johnbender> lol
+[11:11:40] <_|Nix|_> So, two issues.
+[11:11:43] <uGoMobi> :)
+[11:11:51] <_|Nix|_> Scrolling on Windoze and Hangage on Android 4.0
+[11:12:14] <johnbender> Wilto: any additions?
+[11:12:35] <_|Nix|_> Hangage can be worked around by letting the vclick-on-screen event bubble up to document and eating it there, but that may have nasty side effects.
+[11:12:39] <Wilto> Both issues, it should be recognized, “suck.”
+[11:12:40] <_|Nix|_> No good solutions on the scrolling.
+[11:12:46] <gseguin> _|Nix|_: does it have to be 4.0, not 4.0.3 ?
+[11:13:04] <_|Nix|_> gseguin: It happens on a 4.0 VM and, it seems, on some devices.
+[11:13:27] <gseguin> I could not reproduce on my 4.0.3 VM
+[11:13:35] <_|Nix|_> gseguin: Not others though, because I had a colleague check out the input method focus issue after I landed the fix and he never had any trouble dismissing popups.
+[11:13:39] <Wilto> 4.0.4 here, and I’m seeing it.
+[11:13:40] <johnbender> _|Nix|_: hmm, if that fix works maybe having gseguin think it though would be valuable
+[11:13:51] <Wilto> 4.0.4 Galaxy Nexus.
+[11:14:04] <_|Nix|_> johnbender: Which fix? The bubble-up-to-document fix?
+[11:14:05] <johnbender> _|Nix|_: anything else before we move on to Wilto?
+[11:14:07] <johnbender> _|Nix|_: yes
+[11:14:15] <_|Nix|_> Just one thing ...
+[11:14:45] <_|Nix|_> responsive-carousel inside listview + swipeleft and swiperight handler === swipe-to-reveal ...
+[11:15:00] <Wilto> Oh yeah, good call.
+[11:15:06] <_|Nix|_> And more, since a carousel can have any number of levels.
+[11:15:18] <_|Nix|_> That's it.
+[11:15:29] <johnbender> _|Nix|_: that's a suggestion for the roadmap carousel?
+[11:15:31] <_|Nix|_> I tried the carousel, looks good.
+[11:15:32] <Wilto> I got an update on the swipe-to-reveal business, too.
+[11:15:48] <johnbender> ahh
+[11:15:51] <_|Nix|_> johnbender: Sure ... let's spin it like that :)
+[11:16:09] <johnbender> _|Nix|_: Wilto: I'll let you guys update the basecamp message I'm sending out with more detail
+[11:16:16] <johnbender> Wilto: go ahead with your update
+[11:16:44] <_|Nix|_> johnbender: Might need some help with that - haven't used basecamp much.
+[11:17:15] <Wilto> Nothin’ much to report here. Been working with _|Nix|_ on the previously-mentioned Android 4.0.x and WP issues.
+[11:17:38] <johnbender> _|Nix|_: you'll get an email (or you should) which you can respond to
+[11:17:43] <johnbender> Wilto: kk
+[11:17:56] <Wilto> I also made some solid progress on the “swipe to reveal” thing, which was then kicked over to Scott Jehl. I think he’s gonna make a special guest appearance in here to discuss it.
+[11:18:10] <Wilto> It’s pretty far along, last I saw.
+[11:18:23] <johnbender> where did that land in the roadmap
+[11:18:27] <johnbender> is that 1.3?
+[11:18:33] <johnbender> along with the "fetchlink"
+[11:18:39] <Wilto> I think that was the plan.
+[11:18:45] <johnbender> sounds good
+[11:18:57] <johnbender> what _|Nix|_ said raised a red flag in my head though
+[11:19:06] <johnbender> using list views to autogenerate content has been something of a nightmare
+[11:19:11] <johnbender> proceed with caution
+[11:19:29] <johnbender> is agcolom around?
+[11:19:29] <Wilto> Just enhancement time, you mean?
+[11:19:39] <johnbender> Wilto: no, just managing dependent content
+[11:19:40] <johnbender> that is
+[11:19:51] <Wilto> Oh, oh. Yeah, I get you.
+[11:19:51] <johnbender> generating new elements to manage from a single list
+[11:19:58] <uGoMobi> johnbender: agcolom mentioned she couldn't make it today
+[11:20:00] <gseguin> agcolom is off today
+[11:20:00] <johnbender> in the current case list items -> pages :/
+[11:20:05] <johnbender> cool
+[11:20:09] <johnbender> that's what I figured
+[11:20:14] <johnbender> anyone else from the team?
+[11:20:18] <johnbender> aside from me
+[11:20:50] <johnbender> in my case
+[11:21:10] <johnbender> I knocked of 2 criticals, and 2 highs
+[11:21:12] <johnbender> (issues)
+[11:21:23] <johnbender> and I'm waiting to hear back on another
+[11:21:39] <Wilto> jQM Employee of the Month!
+[11:21:40] <johnbender> also I spent some time this week getting the jquery infra in vagrant
+[11:21:57] <johnbender> so hopefully we can contribute more readily where necessary
+[11:22:03] <johnbender> case in point: gseguin + node
+[11:22:07] <johnbender> anyhow that's it for me
+[11:22:21] <johnbender> anyone from the community want to chime in with requests, thoughts, or donations?
+[11:22:24] <gseguin> you need to school me on that
+[11:22:36] <johnbender> gseguin: once I get it sorted with gnarf I will
+[11:22:44] * johnbender slams his gavel
+[11:22:48] <johnbender> meeting ajourned
+[11:22:55] <johnbender> expect a basecampe email shortly
+[11:23:10] <johnbender> please respond with more detail for Todd where necessary
+[11:23:10] <johnbender> it'll be terse
+[11:23:13] <gseguin> see yall on -dev after lunch
+[11:23:43] <_|Nix|_> L8Rz
+[11:23:49] <uGoMobi> later
+[11:24:16] <Wilto> Later, guys.

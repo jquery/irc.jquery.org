@@ -1,0 +1,184 @@
+[02:21:08] <doesallmagic> Project jQuery UI - git core build #354: STILL FAILING in 5 min 58 sec: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%20git%20core/354/
+[03:06:41] <doesallmagic> Project jQuery UI 1-9-stable - git core build #141: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%201-9-stable%20-%20git%20core/141/
+[03:22:33] <doesallmagic> Project jQuery UI - 1.6.x core build #249: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.6.x%20core/249/
+[03:37:45] <doesallmagic> Project jQuery UI - 1.7.x core build #251: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.7.x%20core/251/
+[03:52:56] <doesallmagic> Project jQuery UI - 1.8.x core build #226: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.8.x%20core/226/
+[05:40:39] <scott_gonzalez> HAHAHAHA
+[05:40:55] <scott_gonzalez> The Drupal ticket to remove jQuery UI from Drupal core got bumped from 8.x to 9.x
+[05:41:16] <scott_gonzalez> So we got them to add two components from jQuery UI for their upcoming 8.x release.
+[05:41:26] <scott_gonzalez> And they kept this ticket open and set the milestone for the next release.
+[05:41:30] <scott_gonzalez> How does that even make sense?
+[05:42:13] <scott_gonzalez> Heh, last three modifications:
+[05:42:29] <scott_gonzalez> closed: won't fix (we're actually using it in core now)
+[05:42:37] <scott_gonzalez> reopened, bumped to 9.x
+[05:42:56] <scott_gonzalez> kept open, 9.x removed, set to "postponed"
+[06:02:08] <kborchers> wat?
+[06:02:08] <b-ot> kborchers: I used it in my website and that occured a necessity to me.
+[06:05:32] <mikesherov> scott_gonzalez: I figured out why we want to handle removal from DOM during drag (or more accurately, before stop) for draggable
+[06:06:26] <mikesherov> if you remove the element from the DOM on a drop callback, that occurs before the stop event, and then stop is never called.
+[06:07:04] <scott_gonzalez> mikesherov: But it happens in the same event loop. It should be easy to handle, right?
+[06:07:11] <scott_gonzalez> Easier than during a drag or during start.
+[06:07:32] <mikesherov> Well, it happens in separate plugins: droppable and then draggable
+[06:07:45] <mikesherov> I'd imagine it's actually easier to handle the generic case for draggable
+[06:08:23] <mikesherov> I guess my question is… what's expected behavior here?
+[06:08:29] <mikesherov> should "stop" even fire?
+[06:08:32] <mikesherov> My gut is yes
+[06:08:50] <mikesherov> I don't know what the principle of least surprise would say though
+[06:09:04] <mikesherov> and I ask because this IS something we're going to care about for the rewrite
+[06:09:49] <scott_gonzalez> Yeah, I think we want stop to fire.
+[06:10:00] <scott_gonzalez> Although, if the element is removed, it's not too useful.
+[06:10:12] <scott_gonzalez> You won't get bubbling or anything.
+[06:10:39] <mikesherov> sure, but I could imagine people just wanting to know it fired
+[06:10:45] <scott_gonzalez> yeah
+[06:10:51] <scott_gonzalez> I think it should fire.
+[06:11:05] <scott_gonzalez> I can just foresee some code breaking if it's using delegated events.
+[06:11:14] <mikesherov> right
+[06:11:47] <mikesherov> OK, so if I can generalize the solution so that it fires stop and does revert no matter when it's removed, is that sufficient, or do you want to specifically not open that can of worms?
+[06:12:55] <scott_gonzalez> I'd like to know what that involves. It seems like it opens us up to having to write lots of hacks in the future.
+[06:12:59] <mikesherov> because my gut says just hijack the destroy to defer until after stop, and call it a day
+[06:13:07] <mikesherov> that's a fair request:
+[06:13:45] <mikesherov> in destroy, instead of destroying immediately, we check to see if the draggable is still in drag state. If it's in drag state, set a flag and return immediately.
+[06:14:01] <mikesherov> then, on stop, we check for that flag being set, and if so, call destroy
+[06:14:55] <mikesherov> again, that *seems* like it would be a general solution to the problem, and may even end up less hacky
+[06:15:10] <scott_gonzalez> If it ends up being that clean, I think it's ok.
+[06:15:36] <mikesherov> OK, I'll open a pull for that, so you can make the call instead of me just landing directly
+[06:15:58] <scott_gonzalez> ok
+[06:22:59] <doesallmagic> Project jQuery UI build #1041: STILL FAILING in 0.34 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/1041/
+[06:23:11] <jquicommit> 01[13jquery-ui01] 15mikesherov pushed 2 new commits to 06master: 02http://git.io/RATgAQ
+[06:23:11] <jquicommit> 13jquery-ui/06master 14e9faec9 15Mike Sherov: Draggable Tests: Test that removing an element on drop doesn't cause a draggable error. Fixes #9159 - Draggable Tests: Write test case for #8269
+[06:23:11] <jquicommit> 13jquery-ui/06master 1438f93c4 15Mike Sherov: Draggable Tests: Minor style fixes and removing unnecessary setup and teardown for core tests.
+[07:56:06] <scott_gonzalez> Huh, I've never heard of `table-layout: fixed` before.
+[07:59:43] <tj_vantoll> It's pretty useful.
+[09:45:17] <_zoggy_> isnt fixed where it tells the dom not to calculate the table widths after the first row
+[09:45:45] <_zoggy_> its much faster but only can/should be used in really specific scenarios (all rows have same data lengths)
+[09:46:26] <_zoggy_> yeah it is, okay
+[09:48:30] <_zoggy_> https://github.com/Mottie/tablesorter/issues/72#issuecomment-7160167
+[09:48:30] <b-ot> _zoggy_: Issue #72 by AnthonyM1229 (10mon 1w ago): appendToTable is very slow in IE9+...any way to speed up the script?
+[09:49:02] <_zoggy_> forgot where i found that info from, but anyways its rarely used 
+[10:06:04] <joaomamede> Hey I'm having an issue with jquery ui datepicker localization and Rails. If I'd use the default one ( $.datepicker.regional[''] ) date picker would choose the last localization version that it is inserted (any other language file, e.g. french).
+[10:09:10] <joaomamede> Any other localization config is working ok
+[10:26:35] <scott_gonzalez> joaomamede: It's working fine for me.
+[10:26:44] <scott_gonzalez> Please provide a reduced test case using jsfiddle or jsbin showing the problem.
+[10:31:10] <joaomamede> Unfortunately I can't because I'm using sprockets to inject the localization files
+[10:34:40] <scott_gonzalez> rxaviers: https://github.com/jquery/jquery-wp-content/commit/b654b317a9bfdede41b49dd33edd5f2cc2d4c700
+[10:34:40] <b-ot> scott_gonzalez: Scott González (5m 46s ago): Add styles for tables. Fixes #222.
+[10:35:03] <scott_gonzalez> Going through every site was fun :-P
+[10:35:29] <rxaviers> cool
+[10:35:33] <rxaviers> :)
+[10:36:26] <karolyi_> hi, i extended the original jqueryui-selectable to be able to select while scrolling, and i'd like to offer the code to the community. where do i post it?
+[10:36:28] <rxaviers> Good to go now? Good to publish the blog post?
+[10:36:45] <scott_gonzalez> Did you update all the stats?
+[10:37:11] <scott_gonzalez> Nope.
+[10:38:34] <rxaviers> scott, post stats are from original writting..
+[10:39:12] <scott_gonzalez> Right, so it doesn't really make sense to publish a post that starts "We just surpassed the millionth download" when we're at 1.6M
+[10:39:52] <rxaviers> certainly
+[10:40:00] <scott_gonzalez> We should add this graph: http://cl.ly/image/2k2L0C00230z
+[10:40:58] <rxaviers> it's a nice graph even showing the downloads decreased over time
+[10:41:41] <rxaviers> or perhaps it's a seasonal thing (last quarter vs. first)
+[10:42:07] <rxaviers> thanks for updating the styles
+[10:43:51] <scott_gonzalez> Let me know when you've got the post updated and I'll do another review so we can finally get this out :-)
+[10:43:59] <scott_gonzalez> Sorry it took so long :-/
+[10:44:00] <rxaviers> I will work on getting the numbers up-to-date. The tough part is: most of the percentages I've actually got going deep into the data and doing some manual calcs
+[10:44:24] <rxaviers> :/
+[10:44:26] <rxaviers> no problem 
+[10:44:31] <rxaviers> sure I will let you know
+[10:44:38] <scott_gonzalez> I'm not sure you need all those percentages.
+[10:44:42] <scott_gonzalez> Most users will just glance over them.
+[10:45:07] <scott_gonzalez> Especially as the list gets longer, like component selections <2%
+[10:45:54] <scott_gonzalez> The paragraph before the table is more interesting than the table itself.
+[10:46:38] <scott_gonzalez> Perhaps just add another sentence like "Other interesting customizations include everything except effects at X%, UI core only at X%, etc.
+[10:46:57] <scott_gonzalez> And only show 2 or 3 of the ones that are interesting combinations.
+[10:56:11] <agcolom> scott_gonzalez: Hey! I have found my jquery-wp-content
+[10:56:16] <agcolom> (folder)
+[10:56:45] <scott_gonzalez> agcolom: `git pull` and you should get updated styles.
+[10:56:46] <agcolom> can I just do git pull?
+[10:56:54] <agcolom> great thanks!
+[10:56:55] <scott_gonzalez> yup
+[10:58:21] <agcolom> it worked!!!!! 
+[10:58:27] <agcolom> all fixed!
+[10:58:34] <agcolom> Thx ;-)
+[11:07:02] <joaomamede> @scott_gonzalez I'm using something like http://jqueryui.com/datepicker/#localization but instead of the scripts on the html I'm using sprockets
+[11:08:04] <scott_gonzalez> joaomamede: That page is working fine for me if I set it back to "".
+[11:08:43] <doesallmagic> Project jQuery UI build #1042: STILL FAILING in 0.44 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/1042/
+[11:08:57] <jquicommit> 01[13jquery-ui01] 15scottgonzalez pushed 1 new commit to 06master: 02http://git.io/0_TdkQ
+[11:08:57] <jquicommit> 13jquery-ui/06master 148ad8cea 15Scott González: Datepicker demo (localization): Add English as an option.
+[11:09:35] <joaomamede> Yup that example works great
+[11:10:16] <joaomamede> not sure what's happening with my app… I'm even doing something like this: if (I18n.locale === 'en') $.datepicker.regional['']
+[11:10:38] <joaomamede> but it always grabs the latest localization file
+[11:10:43] <scott_gonzalez> If all you have is: `$.datepicker.regional['']` that's not going to do anything.
+[11:10:48] <scott_gonzalez> That's just a property lookup.
+[11:11:10] <scott_gonzalez> joaomamede: Please ask for help on the forums or Stack Overflow.
+[11:11:59] <scott_gonzalez> or in #jquery
+[11:16:58] <joaomamede> scott_gonzalez: I'm setting that on $.datepicker.setDefaults($.datepicker.regional['']);
+[11:44:58] <jquicommit> 01[13jquery-ui01] 15scottgonzalez pushed 2 new commits to 06master: 02http://git.io/Izyq_w
+[11:44:58] <jquicommit> 13jquery-ui/06master 14a4fabd2 15Scott González: Whitespace.
+[11:44:58] <jquicommit> 13jquery-ui/06master 14a9e1755 15Scott González: Build: Use globals instead of predef for JSHint.
+[11:54:41] <doesallmagic> Project jQuery UI build #1043: STILL FAILING in 7 min 17 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/1043/
+[11:54:42] <doesallmagic> * Mike Sherov: Draggable Tests: Test that removing an element on drop doesn't cause a draggable error. Fixes #9159 - Draggable Tests: Write test case for #8269
+[11:54:42] <doesallmagic> * Mike Sherov: Draggable Tests: Minor style fixes and removing unnecessary setup and teardown for core tests.
+[11:54:43] <doesallmagic> * Scott González: Datepicker demo (localization): Add English as an option.
+[11:54:43] <doesallmagic> * Scott González: Whitespace.
+[11:54:44] <doesallmagic> * Scott González: Build: Use globals instead of predef for JSHint.
+[12:53:36] <agcolom> scott_gonzalez: hi, do you have a minute?
+[12:53:46] <scott_gonzalez> yeah
+[12:54:07] <agcolom> the SO MANY inline styles is because of the iframes!
+[12:54:34] <agcolom> because I specify the size of the iframe which always depends on the individual example
+[12:54:49] <agcolom> to optimize the size
+[12:55:13] <agcolom> (sorry that is such poor English!)
+[12:57:05] <scott_gonzalez> I guess you want iframes so that site styles don't affect them?
+[12:57:33] <scott_gonzalez> I'm seeing 190 HTTP requests from http://api.jquerymobile.com/button/ which is kinda crazy.
+[12:57:43] <agcolom> the iframes is because I need to load JQM 
+[12:57:58] <agcolom> yes, I agree it is totally crazy, Buttons is the worst one
+[12:58:36] <agcolom> I was thinking of merging some examples to have less iframes, because each iframe loads all the libraries!
+[13:00:10] <agcolom> it would be better not to have iframes, but the examples need JQM and I have no idea how to produce examples in our current site without them...
+[13:00:12] <scott_gonzalez> If the inline styles are just for iframes, I guess you can leave them.
+[13:00:21] <scott_gonzalez> But these pages do seem a bit heavy.
+[13:00:27] <agcolom> I agree.
+[13:00:40] <scott_gonzalez> Well, you can easily include jquerymobile on api.jquerymobile.com
+[13:01:13] <scott_gonzalez> But you'll have site styles affecting the demos.
+[13:01:26] <agcolom> or JQM affecting the site
+[13:01:51] <agcolom> (i.e. buttons, and all form elements would get enhanced...)
+[13:05:48] <_zoggy_> does iframes break browsers cache ?
+[13:06:00] <_zoggy_> caching ability
+[13:07:24] <agcolom> _zoggy_: no idea... I just have tons of them on the api.jquerymobile.com site...
+[13:07:43] <agcolom> I can improve the situation by merging some examples.... 
+[13:08:07] <scott_gonzalez> No, the browser still caches it.
+[13:08:28] <agcolom> scott_gonzalez: if you have suggestions for improvement or ways to improve the situation, please let me know :-)
+[13:08:47] <scott_gonzalez> But even with the cache 200 requests isn't fast.
+[13:09:01] <_zoggy_> use varnish ?
+[13:09:37] <_zoggy_> Varnish Cache is a web application accelerator also known as a caching HTTP reverse proxy. You install it in front of any server that speaks HTTP and configure it to cache the contents. Varnish Cache is really, really fast. It typically speeds up delivery with a factor of 300 - 1000x, depending on your architecture. A high level overview of what Varnish does can be seen in the video 
+[13:09:38] <_zoggy_> attached to this web page.
+[13:11:50] <_zoggy_> https://www.varnish-cache.org/about
+[13:14:13] <scott_gonzalez> I don't think the problem is number of requests, it's number of iframes.
+[13:15:19] <scott_gonzalez> Creating a document takes time.
+[13:15:56] <scott_gonzalez> At least that's my theory.
+[13:15:59] <tj_vantoll> You could lazy load / initialize the iframes.
+[13:16:42] <scott_gonzalez> http://cl.ly/image/1f3J2E1Y1X1s
+[13:16:52] <scott_gonzalez> You'll see that every request is served from cache and takes 0ms.
+[13:17:02] <scott_gonzalez> But the timeline keeps moving.
+[13:17:08] <tj_vantoll> I agree with that theory because even http://api.jquerymobile.com/button/ is only 500 ish KB.
+[13:17:08] <scott_gonzalez> There's about 5s of 0ms requests.
+[13:18:38] <tj_vantoll> <iframe data-src="http://the-real-path"></iframe> then after DOMContentLoaded start putting the actual src on them.
+[13:19:14] <tj_vantoll> Or something like that.  Or use less iframes.
+[13:19:51] <scott_gonzalez> I think just having the iframes is what takes the time.
+[13:20:10] <scott_gonzalez> It'd have to be something like <div data-src="...">
+[13:20:23] <scott_gonzalez> And then generate the iframes.
+[13:20:35] <tj_vantoll> I actually like the iframes on api.jquerymobile.com, they're pretty useful.
+[13:20:35] <tj_vantoll> And yeah.  That was my lazy, lazy loading example.
+[13:21:40] <scott_gonzalez> That buttons page just gets pounded though.
+[13:21:43] <tj_vantoll> You could get as crazy as you wanted.  You could queue them up and wait for the load events to fire after you create them so the browser is only making X at a time.
+[13:21:51] <scott_gonzalez> I can't even interact with it at all for a few seconds.
+[13:22:01] <scott_gonzalez> And the favicon blinks like crazy.
+[13:23:04] <agcolom> maybe I could reduce the number of iframes.... the pages with less iframes seem ok? 
+[13:23:17] <scott_gonzalez> Oh, you know what might be causing the timeline shifts?
+[13:23:24] <scott_gonzalez> The startup time of jQuery Mobile.
+[13:23:59] <scott_gonzalez> Yeah, the dialog page loads much faster.
+[13:26:00] <tj_vantoll> iframes are great for creating isolated demos, but you could probably eliminate some of them for the really simple examples.  Just have jQuery mobile loaded on the API pages.  That or lazy load them.
+[13:27:03] <scott_gonzalez> Looking at the buttons page, there are a lot of iframes that can be combined.
+[13:30:48] <agcolom> scott_gonzalez: yes, that was my plan :-) (merge some of the button iframes)
+[13:34:17] <agcolom> ok, so how about I open an issue to merge the iframes that can be merged... allocate to me, and that's my next task... 
+[13:38:04] <scott_gonzalez> agcolom: That sounds good. It does seem like it's probably limited to the button page.
+[13:38:48] <agcolom> yes, button has 40+ iframes which I am not proud of (Now I want to hide in a cave ;-) )
+[13:38:52] <agcolom> scott_gonzalez: ^
+[13:39:03] <scott_gonzalez> haha
+[13:39:48] <agcolom> so I am desperate to reduce the number of iframes... as soon as I get the time... so will be done by the end of the 3rd week of April...

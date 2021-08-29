@@ -1,0 +1,78 @@
+[13:58:00] <ryanneufeld> gnarf: you there?
+[13:59:35] <ryanneufeld> johnbender: ?
+[15:28:34] <johnbender> ryanneufeld: yar
+[15:28:35] <johnbender> what's up
+[15:28:55] <ryanneufeld> was gonna ask you about passing in hostnames to vagrant
+[15:29:47] <ryanneufeld> so that I can pass them into the puppet confs. But now I'm trying to figure out why some htaccess rules I have in place aren't working with a vm
+[15:30:48] <ryanneufeld> seems it's working, but not on any subdirectories... which is odd
+[15:31:27] <johnbender> ryanneufeld: so I set the hostname manually from the config
+[15:31:40] <johnbender> ryanneufeld: you are aware of that?
+[15:31:48] <ryanneufeld> Yeah, the config.yam;
+[15:31:51] <johnbender> cool
+[15:31:51] <ryanneufeld> *yaml
+[15:32:02] * johnbender stomach grumbles
+[15:32:06] <ryanneufeld> I'm trying to figure out how to do that without the config.yaml
+[15:32:26] <johnbender> ryanneufeld: ah I have no idea
+[15:32:33] <johnbender> ryanneufeld: the config is run based on the hostname :)
+[15:32:46] <ryanneufeld> k
+[15:32:52] <johnbender> ryanneufeld: that's how puppet knows what to do for a given node
+[15:33:16] <johnbender> which is why doing the initial setup for  vagrant was so easy
+[15:33:33] <johnbender> I just set the hostname based on which node was used in the vagrant command and voila
+[15:34:04] <johnbender> ryanneufeld: based on that it seems like you would need to find another way to designate which puppet config is run on which node
+[15:34:13] <johnbender> in which case you could set it via puppet
+[15:34:46] <ryanneufeld> looking at the Vagrantfile
+[15:34:48] <ryanneufeld> I see   yml_config[:vms].each do |name, settings|
+[15:35:14] <ryanneufeld> so it seems to iterate over those, and load the one you've asked for
+[15:35:57] <ryanneufeld> I don't see where it's getting the vm name you've passed, like the jq02.stage in the vagrant file
+[15:37:35] <ryanneufeld> johnbender: is it the config.vm.define(name) ?
+[15:52:04] <johnbender> ryanneufeld: that _defines_ the vm
+[15:52:06] <johnbender> based on the config
+[15:52:12] <johnbender> the command just makes use of the definition
+[15:52:31] <johnbender> if you were to do it without the config file, it would just be a bunch of individual vm config blocks
+[15:52:37] <johnbender> it's just meta programming of a sort
+[15:52:52] <johnbender> ryanneufeld: and yes
+[15:52:59] <johnbender> config.vm.define(name)
+[15:53:02] * johnbender is double checking
+[15:54:21] <johnbender> ryanneufeld: so the name is parameter to the define method
+[15:54:36] <johnbender> as is the block (reads clojure) that takes care of the config
+[15:57:56] * ryanneufeld should probably learn some ruby
+[15:59:33] <johnbender> ryanneufeld: the do |vm_config| ... end
+[15:59:53] <johnbender> is equivelant to config.vm.defind("name", function( vm_config ){ ... }
+[15:59:57] <johnbender> );
+[16:00:09] <johnbender> if Vagrant was writting in js
+[16:00:23] <ryanneufeld> so when I run `vargant up jq02.stage`  jq02.stage is the key for the yaml array
+[16:00:29] <johnbender> nope
+[16:00:36] <ryanneufeld> no?
+[16:00:41] <ryanneufeld> now I'm really confused
+[16:00:45] <johnbender> the config actually contains _all_ and entry for all of those
+[16:00:53] <johnbender> err
+[16:00:54] <johnbender> lol
+[16:01:06] <johnbender> the config actually contains an entry for each of the nodes
+[16:01:12] <ryanneufeld> yes
+[16:01:14] <johnbender> the command just tells vagrant to only use part of that config
+[16:01:18] <ryanneufeld> right
+[16:01:24] <ryanneufeld> so how does it know?
+[16:01:26] <johnbender> so jq02.stage never reaches the config
+[16:01:45] <johnbender> ryanneufeld: the config contains a vm config for each entry in the yaml file
+[16:01:51] <ryanneufeld> I got that part
+[16:02:15] <johnbender> so Vagrant _always_ knows about _all_ of the possible vms in the infrastructure setup
+[16:02:18] <johnbender> the command
+[16:02:23] <johnbender> vagrant up jq02.stage
+[16:02:48] <johnbender> tells it to ignore  the other stuff and just create a vm for that specific nodes config
+[16:03:00] <johnbender> if you do
+[16:03:02] <johnbender> vagrant up
+[16:03:08] <johnbender> it'll create _all_ of the vms
+[16:03:30] <ryanneufeld> I see
+[16:03:45] <johnbender> so that loop
+[16:03:49] <johnbender> over the list in the yaml
+[16:04:11] <johnbender> creates a vm config for each and every entry
+[16:04:26] <johnbender>   yml_config[:vms].each do |name, settings| ... end
+[16:04:43] <johnbender> so each iteration is a new name (hostname) and collection of other settings
+[16:04:43] <ryanneufeld> okay, so that line is the loop
+[16:04:54] <ryanneufeld> right, so where is the test for the name?
+[16:05:07] <johnbender> config.vm.define( name ) do |vm_config| ... end
+[16:05:11] <johnbender> ryanneufeld: it's inside vagrant
+[16:05:14] <johnbender> brb
+[16:05:16] <ryanneufeld> ah
+[16:05:17] <ryanneufeld> k
+[16:41:28] <ryanneufeld> Thanks johnbender, I'll have to play with it some more it seems :)

@@ -1,0 +1,283 @@
+[00:17:23] <doesallmagic2> Project jQuery UI - 1.8.x core build #637: STILL UNSTABLE in 21 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.8.x%20core/637/
+[04:17:00] <gabriel_schulhof> arschmitz: Ping!
+[04:20:36] <arschmitz> gabriel_schulhof: pong!
+[04:20:43] <gabriel_schulhof> arschmitz: Hey!
+[04:21:19] <arschmitz> gabriel_schulhof: morning
+[04:21:20] <gabriel_schulhof> arschmitz: A small problem with widget.backcompat.js: $.mobile.widget is deprecated, so we can't store things under it, like $.mobile.widget.backcompat.
+[04:22:16] <arschmitz> gabriel_schulhof: the widget is deprecated not the memory location
+[04:22:33] <gabriel_schulhof> arschmitz: Oh, so what will $.mobile.widget contain? {}?
+[04:22:47] <arschmitz> gabriel_schulhof: but i wouldnt work on anything classes related
+[04:22:59] <gabriel_schulhof> arschmitz: Yeah, I saw your discussion with scott_gonzalez.
+[04:23:12] <arschmitz> gabriel_schulhof: im about 75% done 
+[04:23:20] <gabriel_schulhof> arschmitz: I've fixed all the tests, except init.
+[04:23:21] <arschmitz> gabriel_schulhof: but its a full from scratch re-write
+[04:23:25] <gabriel_schulhof> Wow!
+[04:23:49] <arschmitz> yeah it even replaces the original commits
+[04:24:11] <gabriel_schulhof> Still needs buy-in for _elementsFromClassKey() though, no?
+[04:24:13] <arschmitz> gabriel_schulhof: because there is no longer any need for a _classes method if you have _addClass and _removeClass
+[04:24:15] <arschmitz> no
+[04:24:22] <arschmitz> gabriel_schulhof: there is no widget buy in at all
+[04:25:26] <arschmitz> the widget factory automaticly stores and tracks everything internally because you pass elements to _add/_removeClass
+[04:26:02] <gabriel_schulhof> Oooh, that's bad. What about when you remove elements?
+[04:26:12] <gabriel_schulhof> Like, if you remove menu items and create new ones?
+[04:26:24] <gabriel_schulhof> A reference will remain internally in the factory.
+[04:26:29] <arschmitz> what about it the widget factory when you call destroy will clean up
+[04:26:45] <arschmitz> just like _on and _off work
+[04:27:00] <gabriel_schulhof> Yes, but during the lifetime of the widget the references will pile up.
+[04:27:10] <arschmitz> possible
+[04:27:15] <arschmitz> but event ones can too
+[04:27:27] <gabriel_schulhof> Yes, but with events you can delegate.
+[04:28:02] <arschmitz> gabriel_schulhof: I really dont think this is an issue considdering we were allready storing refrences
+[04:28:46] <arschmitz> there are cases we could store a few more refrences then before
+[04:28:54] <arschmitz> but that will generally not be the case
+[04:29:24] <gabriel_schulhof> arschmitz: I dunno ... we were actually performing selectors at some places in _elementsFromClassKey()
+[04:29:27] <arschmitz> gabriel_schulhof: and the amount of logic and LOC its saves are SUBSTANTIAL
+[04:29:37] <arschmitz> gabriel_schulhof: yes mostly just for icons
+[04:29:40] <gabriel_schulhof> Yeah, that's probably the overriding concern.
+[04:30:03] <arschmitz> gabriel_schulhof: it also means autoDestroy will likely make sense now
+[04:30:13] <arschmitz> and will actually SAVE LOC rather then add
+[04:30:35] <gabriel_schulhof> arschmitz: Doesn't core trigger a remove event when stuff is removed from the DOM? If so, we can bind to that to keep our references clean.
+[04:30:55] <arschmitz> yes it already happens for destory
+[04:31:25] <gabriel_schulhof> arschmitz: Right, and now we can use it for parts of the widget as well as the widget itself.
+[04:31:44] <arschmitz> gabriel_schulhof: maybe but since we dont do it for events i doubt we will for this
+[04:31:46] <gabriel_schulhof> arschmitz: ... in fact, the same could be used for references stored because of _on() and _off()
+[04:32:22] <arschmitz> im just not sure its worth it
+[04:32:28] <gabriel_schulhof> arschmitz: OK, but, like I said, events are less likely to leak references, because a sane implementation will attach via delegation on a parent that is not constantly added/removed.
+[04:33:20] <gabriel_schulhof> arschmitz: I just can't help but think of large listviews in this case.
+[04:33:54] <gabriel_schulhof> arschmitz: The items have key ui-listview-item, so all <li>s will end up having a reference inside the factory.
+[04:34:46] <arschmitz> gabriel_schulhof: well we could also make listview clean up its refrences anytime refresh is called
+[04:35:18] <gabriel_schulhof> arschmitz: Will there be an API in the factory for cleaning up references? Is the storage for references part of the factory API?
+[04:35:30] <arschmitz> on refresh you could just clear out any existing ui-listview-item references and replace it. it would be 2 lines
+[04:35:56] <gabriel_schulhof> Yeah, that's cool!
+[04:35:59] <arschmitz> gabriel_schulhof: well just like bindings its a public object
+[04:36:58] <gabriel_schulhof> Yeah, I think we should do that.
+[04:37:05] <arschmitz> gabriel_schulhof: the implementation stores them in an object in the for "classes-key": $()
+[04:37:19] <arschmitz> and the object is created on the instance before create
+[04:37:39] <gabriel_schulhof> Wait a sec ... you mean, like this[ "ui-listview-item" ]?
+[04:37:42] <arschmitz> gabriel_schulhof: and only populated as things are actually passed to _add/_removeClass
+[04:37:52] <arschmitz> no
+[04:38:13] <arschmitz> like this.classObject[ "ui-listview-item" ]
+[04:38:33] <gabriel_schulhof> Oh, OK.
+[04:39:03] <arschmitz> this.classObject is created along with the other things like bindings hoverable etc before create
+[04:39:20] <arschmitz> but is just an empty object to start
+[04:39:45] <gabriel_schulhof> ... so you could use this.classObject to actually store references instead of things like this.titleBar, and then classObject would always be up-to-date, and you wouldn't have two references. Of course, it looks a lot less legible.
+[04:40:26] <arschmitz> yeah im not sure how that is as an api
+[04:40:37] <arschmitz> right now the sig is pretty simple 
+[04:41:09] <arschmitz> _addClass( elements, keys, extraclasses );
+[04:41:10] <gabriel_schulhof> arschmitz: Well, I already make it a point to use this._ui.<element> in widgets, so all parts of the widget are stored in this._ui. Using this.classObject is not that different.
+[04:41:47] <arschmitz> gabriel_schulhof: and you can omit the first param and it defaults to this.element
+[04:42:09] <arschmitz> gabriel_schulhof: well there is nothing stopping you from using it through out the widget
+[04:42:15] <arschmitz> but i dont think it should be required
+[04:42:30] <gabriel_schulhof> arschmitz: Funny. You might end up with this._addClass( this.classObject[ "ui-widget-element" ], "ui-widget-element", "ui-helper-something" );
+[04:43:06] <arschmitz> the only place anything like that happens is in the factory in setOption
+[04:43:31] <arschmitz> so far anyway i have a couple widgets left
+[04:43:51] <gabriel_schulhof> arschmitz: Yes, but only because all widgets currently duplicate the contents of this.classObject[ "ui-widget-element" ] with this.someWidgetElement.
+[04:44:20] <gabriel_schulhof> Sounds cool, overall!
+[04:45:07] <gabriel_schulhof> ... and the code reduction is definitely worth it!
+[04:45:38] <arschmitz> gabriel_schulhof: and no buy in
+[04:46:01] <arschmitz> and i like the API of having an _addClass and _removeClass
+[04:46:12] <gabriel_schulhof> Definitely.
+[04:46:37] <arschmitz> gabriel_schulhof: so did you see that i implemented multiple page containers
+[04:47:24] <gabriel_schulhof> So, you need to call _addClass() for all keys your widget supports before _setOption can work for a given key, right?
+[04:47:47] <gabriel_schulhof> Otherwise this.classObject[ thatKey ] will be empty.
+[04:48:27] <gabriel_schulhof> We need to be careful with this. We need to make sure classObject is properly initialized during _create().
+[04:49:02] <gabriel_schulhof> Normally this should be trivial, because you end up calling this._addClass() during _create(), but still.
+[04:49:50] <gabriel_schulhof> Actually, it's especially relevant in the case of our widgets which may be pre-rendered, because in that case you add/remove no classes, but simply assign the various parts of the widget to the corresponding internal variables, and that's it.
+[04:50:27] <gabriel_schulhof> Now you have to assign the various parts not only to the corresponding internal variables, but also to this.classesObject[ "ui-widget-element" ].
+[04:52:06] <gabriel_schulhof> arschmitz: Anyway, so now we have https://github.com/jquery/jquery-mobile/blob/ui-1-12/js/widget.js#L40-L41
+[04:52:12] <gabriel_schulhof> arschmitz: Should I change that to {}?
+[04:52:32] <gabriel_schulhof> arschmitz: Haven't seen your multiple page container implementation yet.
+[04:52:54] <arschmitz> gabriel_schulhof: that whole file will go away so it wont go there
+[04:53:26] <arschmitz> because the _getCreateOptions bit will be in the autoInit module
+[04:53:54] <gabriel_schulhof> OK, so where will we define $.mobile.widget? Alternatively, where shall we put $.mobile.widget.backcompat?
+[04:54:02] <arschmitz> gabriel_schulhof: there is one major problem we need to figure out 
+[04:54:43] <gabriel_schulhof> What's that?
+[04:55:48] <arschmitz> gabriel_schulhof: any time we use it ( like in backcompat ) we should just do $.mobile.widget = $.mobile.widget || {};
+[04:55:53] <arschmitz> so the issue...
+[04:56:03] <arschmitz> lets say you have 3 containers
+[04:56:10] <arschmitz> a, b, and c
+[04:56:34] <arschmitz> each has 2 pages a-1 and a-2, b-1 and b-2 etc
+[04:56:54] <arschmitz> so you navigate each one from -1 to -2
+[04:56:58] <arschmitz> in order
+[04:57:07] <arschmitz> each step creates a history entry
+[04:57:26] <arschmitz> then you change a back to a-1
+[04:58:07] <scott_gonzalez> arschmitz gabriel_schulhof: I didn't read the entire conversation, but the memory "leak" concern is legit.
+[04:58:19] <scott_gonzalez> However, we're already handling this on a per-widget basis for events.
+[04:58:43] <arschmitz> so the sequence is a-1=>a-2,b-1=>b2,c-1=>c-2,a-1=>a-2
+[04:58:44] <scott_gonzalez> So we may want to just abstract that part to handle classes as well.
+[04:59:02] <gabriel_schulhof> scott_gonzalez: Are there places where you can't delegate and /have/ to attach to elements which are volatile relative to the lifetime of the entire widget?
+[04:59:14] <arschmitz> scott_gonzalez: yeah per widget is what i suggested
+[04:59:20] <gabriel_schulhof> arschmitz: Yeah. Browser history is not designed for this.
+[04:59:27] <scott_gonzalez> See https://github.com/jquery/jquery-ui/blob/master/ui/tabs.js#L465
+[05:00:06] <scott_gonzalez> gabriel_schulhof: Sure, tab panels are an example.
+[05:00:12] <scott_gonzalez> They can literally exist anywhere.
+[05:00:16] <scott_gonzalez> And tabs can nest.
+[05:00:20] <scott_gonzalez> So it's not possible to delegate.
+[05:00:58] <gabriel_schulhof> scott_gonzalez: Why are we not listening for core's remove event like we are for this.element? I think core triggers an event if you remove from the DOM with .remove().
+[05:01:26] <scott_gonzalez> Core does not do that. The widget factory does.
+[05:01:29] <scott_gonzalez> And it doesn't bubble.
+[05:01:50] <scott_gonzalez> That event is also not public API.
+[05:02:08] <scott_gonzalez> So we can't tell third party widget developers to use it as a way to handle classes.
+[05:02:36] <gabriel_schulhof> scott_gonzalez: If we used it ourselves, the updating of the references for both events and classes would be confined to the widget factory.
+[05:04:53] <gabriel_schulhof> arschmitz: I suppose the question we gotta ask ourselves is whether we wanna impose our own history abstraction on top of the browser's or whether we want to make it obvious that, while we do offer more flexibility in our navigation, we're still bound by the browser's limitations.
+[05:05:46] <scott_gonzalez> gabriel_schulhof: Oh, you meant bind to remove inside _addClass()
+[05:05:53] <gabriel_schulhof> Yes.
+[05:06:31] <scott_gonzalez> The elements don't necessarily need to be removed for them to no longer be part of the widget.
+[05:06:58] <scott_gonzalez> They can be moved in the DOM or some reference to them can be broken.
+[05:07:20] <scott_gonzalez> In the tabs example, you can remove just the tab itself and then the widget needs to clean up for the previously associated panel.
+[05:07:58] <scott_gonzalez> Listening for remove inside _addClass() was definitely a good thought though. And it'd likely work in 90% of the cases.
+[05:08:19] <scott_gonzalez> Though it may be fairly heavy on something like dynamic menus.
+[05:09:37] <gabriel_schulhof> scott_gonzalez: this._off() looks like a good way of cleaning up the reference for events, because it unbinds the handler at the same time. Perhaps we need this._track()/_untrack() or something if we abstract for both classes and events.
+[05:10:07] <gabriel_schulhof> scott_gonzalez: ... because neither ._addClass() nor ._removeClass() conveys the idea of removing the reference.
+[05:10:34] <gabriel_schulhof> ... nor can you remove a reference in case of either, because, well, you're not saying "stop tracking this element".
+[05:10:39] <scott_gonzalez> The reference is an implementation detail though, so we don't need to convey it explicitly.
+[05:11:20] <gabriel_schulhof> scott_gonzalez: Yes, but we may need to provide an API that removes the reference, one called explicitly by widget implementations, because the need to remove the reference may be widget-specific.
+[05:12:01] <arschmitz> gabriel_schulhof: refrences are store in an object based on class keys in the widget you can add and remove as you see fit from the collection its storing
+[05:12:03] <gabriel_schulhof> I dunno ... this._stopTrackingClass( element )
+[05:12:04] <scott_gonzalez> We never code for theoreticals. You have to provide a scenario where that would need to happen.
+[05:12:23] <gabriel_schulhof> scott_gonzalez: Listview items.
+[05:12:25] <arschmitz> so in your original example of a dynamic listview
+[05:12:42] <arschmitz> you can just in refresh clean up the refrences to whats currently there
+[05:12:45] <arschmitz> its two lines
+[05:12:46] <gabriel_schulhof> arschmitz: Right, but does this.classObject then become part of the API?
+[05:13:31] <gabriel_schulhof> arschmitz: After all, IINM the place where references are stored for the purposes of this._on() and this._off() is not public API.
+[05:14:35] <scott_gonzalez> gabriel_schulhof: No, you wouldn't interact with the property directly ever.
+[05:15:09] <scott_gonzalez> We would provide an API for the cleanup. But it likely can't be just a generic _untrack() that handles multiple things.
+[05:15:14] <arschmitz> gabriel_schulhof: well technically no widget property is public api we only document events, methods, and options
+[05:15:28] <scott_gonzalez> arschmitz: That's not true.
+[05:15:35] <scott_gonzalez> this.element, this.options, etc.
+[05:15:38] <gabriel_schulhof> Right.
+[05:15:40] <arschmitz> oh right the widget factory has a bunch
+[05:16:13] <gabriel_schulhof> OKOK. So we're gonna do a third method in addition to this._addClass() and this._removeClass(), right?
+[05:18:38] <arschmitz> I need to run for a bit ill catch up when i get back
+[05:19:08] <gabriel_schulhof> arschmitz: Right, and most of them are effectively read-only. Like, sure, you can assign something to this.element, but c'mon. Kinda the same for this.options, actually, because you modify values via _setOptions(), and very rarely via direct assignment.
+[05:19:17] <gabriel_schulhof> arschmitz: K.
+[05:23:18] <Omar-> hi arschmitz and gabriel_schulhof
+[05:24:18] <gabriel_schulhof> Omar-: Hey! Saw your message. Definitely, file an issue!
+[05:24:59] <Omar-> gabriel_schulhof thanks! I'm double checking it
+[05:25:24] <Omar-> http://jsbin.com/pomeze if you run this in Safari, you'll notice that it is firing twice
+[05:39:02] <jqmobilecommit> [13jquery-mobile] 15billmarrs opened issue #7853: special character in URL causes hang 02http://git.io/zNWdSw
+[05:45:17] <jqmobilecommit> [13jquery-mobile] 15agcolom opened pull request #7854: Gruntfile: Added missing space (06master...06fixSpaceIssue) 02http://git.io/Lvf9mQ
+[06:00:10] <jqmobilecommit> [13jquery-mobile] 15Palestinian opened issue #7855: scrollstop & scrollstart multiple firing - Safari iOS 8  02http://git.io/HWRpUw
+[06:47:51] <scott_gonzalez> tj_vantoll: ping
+[06:54:55] <tj_vantoll> scott_gonzalez: hey
+[06:55:45] <scott_gonzalez> https://github.com/jquery/jquery-ui/pull/1371#issuecomment-62177669
+[06:55:58] <scott_gonzalez> Can you think of a reason valueAsDate() wouldn't be available for calendar?
+[06:58:00] <tj_vantoll> *thinking*
+[06:58:17] <scott_gonzalez> Doesn't make sense to have value() but not valueAsDate()
+[06:58:41] <tj_vantoll> Yeah I can't think of anything. Calendar has a value option and you should be able to get/set with both methods.
+[06:58:55] <scott_gonzalez> Oh, maybe the value option is always forced to a date object?
+[06:58:57] <tj_vantoll> Maybe calendar is being confused with datepicker.
+[06:59:24] <tj_vantoll> Ah so you could just use option() to set with a Date.
+[06:59:24] <scott_gonzalez> I'd think we'd want to keep the method even if it's duplicative.
+[06:59:41] <tj_vantoll> Agreed. It'd be consistent.
+[06:59:48] <scott_gonzalez> yeah
+[07:01:03] <scott_gonzalez> Ok, I left a comment on the PR.
+[07:01:13] <gabriel_schulhof> OK ... this is super weird ... my Internet connection is totally broken, but my IRC still works. Can you guys see what I'm writing?
+[07:01:23] <tj_vantoll> gabriel_schulhof: yes
+[07:01:33] <gabriel_schulhof> tj_vantoll: Thanks! I'm officially stumped!
+[07:01:40] <scott_gonzalez> gabriel_schulhof: Whenever I've had weird stuff like that, it's been DNS issues.
+[07:02:41] <gabriel_schulhof> scott_gonzalez: Can you look up a google IP for me? I'm curious if I ping it directly whether I get a response.
+[07:02:52] <scott_gonzalez> 74.125.228.110
+[07:02:55] <gabriel_schulhof> Thanks!
+[07:03:18] <gabriel_schulhof> scott_gonzalez: So, here's the kicker: Total timeout on that.
+[07:03:22] <scott_gonzalez> weird
+[07:03:45] <gabriel_schulhof> It's like, existing sessions are good, but new ones can wait.
+[07:10:17] <gabriel_schulhof> "17:10:00 CTCP PING reply from NickServ: 16.773 seconds"
+[07:10:26] <gabriel_schulhof> :)
+[07:32:46] <arschmitz> gabriel_schulhof: what ever happened to 50/Mb/s being a "right" of every citizen in Finland lol ?
+[07:34:09] <gabriel_schulhof> arschmitz: Tell me about it. I'm sure I have a legitimate complaint.
+[07:34:41] <gabriel_schulhof> arschmitz: They told me they had torn down a local substation and that they'd rebuild it by the end of the year.
+[07:34:54] <gabriel_schulhof> arschmitz: Something tells me it has to do with the 4G rollout though.
+[09:01:05] <jquicommit> [13jquery-ui] 15arschmitz created 06add-remove-class (+1 new commit): 02http://git.io/WDTCFw
+[09:01:05] <jquicommit> 13jquery-ui/06add-remove-class 14fa5cbaf 15Alexander Schmitz: All: Example of _addClass _removeClass implementation
+[09:01:42] <jquicommit> [13jquery-ui] 15arschmitz opened pull request #1392: All: Example of _addClass _removeClass implementation (06master...06add-remove-class) 02http://git.io/2WuUfA
+[09:02:33] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof 04deleted 06ui-1-12-test-fixes-2 at 14da1b316: 02http://git.io/yHYYWQ
+[09:02:48] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof 04force-pushed 06ui-1-12-test-fixes from 14b7a280d to 14168169a: 02http://git.io/20KptA
+[09:02:48] <jqmobilecommit> 13jquery-mobile/06ui-1-12-test-fixes 14eb9dcae 15Gabriel Schulhof: Widget: De-lint theme and backcompat code
+[09:02:48] <jqmobilecommit> 13jquery-mobile/06ui-1-12-test-fixes 149e594c0 15Gabriel Schulhof: All: Fix AMD dependencies
+[09:02:48] <jqmobilecommit> 13jquery-mobile/06ui-1-12-test-fixes 14926271f 15Gabriel Schulhof: Tests: Remove references to buttonMarkup
+[09:05:47] <gabriel_schulhof> arschmitz: For after the meeting: https://github.com/jquery/jquery-mobile/pull/7738 fixes the tests on ui-1-12.
+[09:06:19] <doesallmagic2> Project jQuery UI build #1500: UNSTABLE in 5 min 28 sec: http://jenkins.jquery.com/job/jQuery%20UI/1500/
+[09:06:19] <doesallmagic2> rxaviers: Build: Fix typo
+[09:06:49] <arschmitz> ok cool
+[09:07:16] <arschmitz> button is like horribly out of date with all this classes uproar
+[09:09:27] <gabriel_schulhof> arschmitz: That's fine. I can always catch the tests up to changes. In fact, if any module we grab from UI breaks our tests, that'll point us to which tests to remove.
+[09:50:17] <agcolom> arschmitz: hi alex, just checking... it's thanksgiving tomorrow... so I was wondering whether we will have a meeting or not?
+[09:50:38] <scott_gonzalez> Be thankful that there is no meeting :-P
+[09:51:14] <arschmitz> lol
+[09:51:19] <arschmitz> yeah no meeting
+[09:52:47] <Omar-> hi everyone
+[09:52:56] <Omar-> hi arschmitz
+[09:53:55] <arschmitz> Omar-: sorry busy in meetings
+[09:54:43] <Omar-> sorry
+[10:12:57] <agcolom> arschmitz: scott_gonzalez: I am and will be thankful for un undisturbed dinner ;-) Have a great Thanksgiving tomorrow :-)
+[10:13:09] <scott_gonzalez> Thanks :-)
+[10:13:20] <scott_gonzalez> Enjoy your undistrubed dinner :-P
+[10:16:01] <agcolom> Thanks, I will :-)
+[12:11:13] <mikesherov> scott_gonzalez: you there?
+[12:12:06] <scott_gonzalez> yup
+[12:12:45] <mikesherov> I was wondering how far we wanted to go re: AMD in the effects rewrite
+[12:12:55] <mikesherov> for example, take puff
+[12:13:23] <mikesherov> it requires "jquery", "./effect", and "./effect-scale"
+[12:13:49] <mikesherov> but only defines $ as a parameter to the call back
+[12:14:47] <scott_gonzalez> Unless you have a suggestion for a sane export of each effect, I think it's fine to just say effects only work through the jQuery export.
+[12:15:01] <mikesherov> all the effects do export
+[12:15:02] <scott_gonzalez> For widgets we export the constructor, which is useful.
+[12:15:16] <mikesherov> I was wondering if I should be doing : `}(function( $, effects, scale ) {` instead and actually using them instead
+[12:15:41] <mikesherov> basically, inside the effect definition: `$.effects.setMode` -> `effects.setMode`
+[12:15:56] <scott_gonzalez> We don't use them inside the widgets, so I wouldn't worry about it.
+[12:16:21] <mikesherov> `$.effects.effect.scale.call( this, options, done );` -> `scale.call( this, options, done );`
+[12:16:31] <scott_gonzalez> You can do it if you want.
+[12:16:37] <mikesherov> OK, we can always address later
+[12:16:52] <mikesherov> thanks for the ear
+[12:16:53] <scott_gonzalez> I don't think anyone on the team would object to either usage.
+[12:17:07] <mikesherov> OK
+[12:17:33] <scott_gonzalez> If we weren't tied to the jQuery export by design, I'd say using the exports would be important.
+[12:17:42] <scott_gonzalez> But we are, and that will likely never change.
+[12:17:47] <mikesherov> right
+[12:18:12] <mikesherov> I just like using the deps directly instead of relying on the knowledge that they are dangling off of $
+[12:18:22] <mikesherov> I'll make that change later, *maybe*
+[12:41:04] <mikesherov> scott_gonzalez: one more thing
+[12:41:06] <mikesherov> for scale
+[12:41:13] <mikesherov> it says "percent" is required
+[12:41:50] <mikesherov> but then the code is like "don't worry, if you put nothing in, we'll assume 0 if you're hiding and 100 if you're toggling"
+[12:42:12] <mikesherov> we want to maintain that behavior?
+[12:42:47] <scott_gonzalez> I guess.
+[12:42:52] <mikesherov> OK
+[12:43:28] <mikesherov> it's just weird if you specify .toggle("scale", { percent: 100 });
+[12:43:40] <mikesherov> I'll just make it work
+[12:43:51] <mikesherov> but there are so many weird concern cases with scale and size
+[12:44:03] <mikesherov> now I know why they were mysteriosuly missing from the demos
+[12:44:15] <mikesherov> from the toggle/show/hide
+[12:47:40] <scott_gonzalez> heh
+[13:27:01] <mikesherov> scott_gonzalez: OK, losing my mind a bit
+[13:27:07] <scott_gonzalez> OH NO!
+[13:27:11] <mikesherov> if I "show" size
+[13:27:34] <mikesherov> .show("size", { to: { width: 280, height: 185 } });
+[13:28:06] <mikesherov> what do you expect to happen?
+[13:30:23] <mikesherov> the current demos so "from zero" to grow to 280 / 185
+[13:30:48] <mikesherov> I would expect it to go "from 2880 * 185 " to the original size
+[13:31:02] <mikesherov> so that way "toggle show" is the same as "show"
+[13:31:21] <mikesherov> size is the only effect currently where "show" is different from "toggle show"
+[13:31:43] <mikesherov> and the crux of the rewrite was to remove "toggle" as a thing an effect writer needs to consider
+[13:32:12] <mikesherov> they just only ever think about symetrical show / hide functionality
+[13:33:20] <mikesherov> scott_gonzalez: ^
+[13:34:53] <scott_gonzalez> Seems strange to say "to x*y" and then start from there.
+[13:35:09] <scott_gonzalez> But if it makes sense in the toggle show case, then it should make sense in the show case.
+[13:35:24] <mikesherov> well because like think about it
+[13:35:28] <mikesherov> you have an element on the page
+[13:35:49] <mikesherov> and you say .toggle("size", to: { 1, 1});
+[13:36:03] <mikesherov> that goes to 1,1 and then hides
+[13:36:39] <mikesherov> saying .toggle("size": {1, 1}) again goes from 1,1 to the original
+[13:37:14] <scott_gonzalez> I think it's only strange because the key is "to"
+[13:37:22] <mikesherov> right
+[13:37:26] <scott_gonzalez> But it sounds right.
+[13:37:36] <mikesherov> scale behaves the same
+[13:37:51] <mikesherov> except the idea for scale is that it's really 1/scale in the show case
+[13:38:08] <mikesherov> so idea that for show it should be called "from"
+[13:38:36] <mikesherov> is like saying for show, scale should be called "inverse scale"
+[13:38:49] <mikesherov> anyway
+[13:39:17] <mikesherov> I think that's what I'm going to leave it as
+[13:39:23] <scott_gonzalez> ok
+[13:39:26] <mikesherov> no magic "from zero" behavior for size

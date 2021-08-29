@@ -1,0 +1,130 @@
+[05:48:30] <scott_gonzalez> s5fs: hmm....I really don't want GitHub specific data in there.
+[05:48:40] <scott_gonzalez> GitHub is just one service that we support.
+[05:48:55] <scott_gonzalez> It happens to be the only one that we support right now, but everything was specifically designed to allow multiple services.
+[07:23:52] <scott_gonzalez> gnarf: Let me know when you have time to go through the GitHub teams.
+[10:13:51] <s5fs> scott_gonzalez: understood. another option would be to store a 'last updated' timestamp, this is more generic and should work in a similar fashion.
+[10:15:00] <s5fs> scott_gonzalez: so i've got some code ready for your review, want me to shoot you a pr? i made some pretty naive assumptions about the pluginsdb.plugins data, but I haven't seen the real data so I don't know what to expect.
+[10:15:20] <scott_gonzalez> Yeah, send a PR.
+[10:15:34] <scott_gonzalez> You can use the test script to generate data :-)
+[10:17:12] <scott_gonzalez> s5fs: Would the last updated timestamp be an actual timestamp or would you be storing the etag?
+[10:17:50] <s5fs> scott_gonzalez: actual date/timestamp
+[10:18:25] <s5fs> scott_gonzalez: relevant http://developer.github.com/v3/#conditional-requests
+[10:18:58] <scott_gonzalez> interesting
+[10:19:07] <scott_gonzalez> I think I'm ok with that.
+[10:20:42] <s5fs> okay i'll send this pr but mainly just for review. i forgot to add the auth business and will slap that in tonight. mainly i just want to make sure i haven't gone off the reservation.
+[10:22:55] <s5fs> I welcome all feedback, questions, odd looks, etc.
+[10:44:03] <scott_gonzalez> s5fs: I did a first pass through it.
+[10:45:09] <s5fs> scott_gonzalez: I await your list of changes :)
+[10:49:31] <s5fs> scott_gonzalez: all reasonable, will fix. thanks!
+[10:49:59] <scott_gonzalez> No problem. Thank you!
+[10:50:27] <scott_gonzalez> So you decided to go with cron vs. a long running script?
+[10:50:48] <scott_gonzalez> It seemed like the script was build to be a long running process (shutdown hook plus interval)
+[10:50:55] <scott_gonzalez> But in your description you said it'd run via cron.
+[10:51:22] <s5fs> scott_gonzalez: yeah. I don't know how many plugins we have, so I'm waffling on the approach.
+[10:51:59] <scott_gonzalez> assume thousands
+[10:52:46] <s5fs> right now i'm using setinterval to pop one off one record every second, which means we can process 3600 plugins/hour, well under the limit of 5k.
+[10:52:53] <scott_gonzalez> So if we went with a super throttled approach of 1 plugin per minute.
+[10:53:02] <scott_gonzalez> We'd be able to process 1.5k per day.
+[10:53:06] <scott_gonzalez> Which would be pretty good.
+[10:53:18] <s5fs> why throttle it so much?
+[10:53:42] <scott_gonzalez> That was just to get an idea of a super throttled approach.
+[10:53:51] <scott_gonzalez> We certainly don't need to update each plugin more than once per day.
+[10:53:56] <s5fs> if we're using conditional requests we could probably process all plugins within an hour (since i doubt most change)
+[10:54:19] <scott_gonzalez> Sure, the logic could be:
+[10:54:27] <scott_gonzalez> get stats
+[10:54:37] <scott_gonzalez> if 304, advance to next plugin
+[10:54:46] <scott_gonzalez> if 200, wait 1 minute then advance to next plugin
+[10:54:59] <scott_gonzalez> Assuming every plugin changes every day, that'd put us at 1.5k per day
+[10:55:07] <scott_gonzalez> If every other plugin changes per day, that's 3k per day.
+[10:55:24] <scott_gonzalez> Assuming we have 5k plugins (seems a bit high, but a reasonable number to get to).
+[10:55:35] <s5fs> how do you wish to implement the 'wait'?
+[10:55:40] <scott_gonzalez> setTimeout()
+[10:55:44] <s5fs> okay
+[10:55:47] <scott_gonzalez> It's just setInterval() that's really bad.
+[10:56:00] <scott_gonzalez> Here's what happens:
+[10:56:08] <scott_gonzalez> setInterval( task, 1000 )
+[10:56:20] <scott_gonzalez> Assuming task takes 200ms, we've got an 800ms idle time.
+[10:56:33] <scott_gonzalez> Everything seems great.
+[10:56:46] <scott_gonzalez> But then GitHub gets overwhelmed (happens all the time).
+[10:56:59] <scott_gonzalez> All of a sudden our HTTP requests are slow and task tasks 1300ms.
+[10:57:12] <scott_gonzalez> s/tasks/takes/
+[10:57:18] <s5fs> ..following..
+[10:57:31] <scott_gonzalez> Now you've got #1 starting at 1000, #2 starting as 2000, #3 starting at 3000
+[10:57:55] <scott_gonzalez> But #1 doesn't finish until 2300 and #2 doesn't finish until 3300 and #3 doesn't finish until 4300
+[10:58:11] <s5fs> oh, they stack up behind each other? yeah thats no good.
+[10:58:12] <scott_gonzalez> So you'd end up with task #2, #3, and #4 all running simultaneously.
+[10:58:16] <scott_gonzalez> And that just builds and builds.
+[10:58:17] <s5fs> well i'm okay with that
+[10:58:24] <scott_gonzalez> And it could be from anything.
+[10:58:35] <scott_gonzalez> Slow HTTP requests, other processes on the server hogging resources, et.
+[10:58:55] <scott_gonzalez> So a setTimeout() at the end of the task ensures the time between tasks.
+[10:59:00] <s5fs> okay, so with setTimeout, i'd call that after the first request completes, yes?
+[10:59:05] <scott_gonzalez> yup
+[10:59:08] <s5fs> well, huh
+[10:59:12] <s5fs> that's not really my intention tbh
+[10:59:32] <s5fs> what i'm looking to do is limit the # of requests per hour against GH, not against our resources (right or wrong, that was my approach)
+[10:59:50] <s5fs> so as long as I'm generating 3600 requests/hr i don't really care in what order they are processed, how long they take, etc.
+[10:59:54] <s5fs> so
+[11:00:15] <scott_gonzalez> Well, you can't accurately throttle that with setInterval().
+[11:00:19] <scott_gonzalez> Because the requests will just queue.
+[11:00:31] <scott_gonzalez> And you could have 10k requests queued. Then the problem goes away.
+[11:00:35] <s5fs> it seems that with using setTimeout, my total # of requests per hour is dependent on how quicky gh processes the request, yes? so if gh is slow, i may only process 3300/hr, is that right?
+[11:00:36] <scott_gonzalez> And you blast through 10k requests in a few minutes.
+[11:00:46] <s5fs> ah..
+[11:00:53] <scott_gonzalez> Think about what happens when you load a web page that has 100 images on it.
+[11:01:00] <scott_gonzalez> They just queue and load X in parallel.
+[11:01:18] <s5fs> well, in a cron process I figured we'd have a lock file to prevent the script from running twice
+[11:02:59] <s5fs> scott_gonzalez: anyways, i'll make the changes as suggested :) i agree with the setTimeout approach
+[11:03:31] <scott_gonzalez> I think if we throttle to 1 request per minute and do a long running script, we'd get pretty good results.
+[11:03:51] <scott_gonzalez> I had originally thought this would run through cron and just do X per run.
+[11:04:19] <s5fs> scott_gonzalez: yeah, I think wer're going to end up with a cron script too, makes sense
+[11:04:25] <scott_gonzalez> As slow as 1 per minute seems, it'd actually be pretty close to real time for how often plugins do get updated.
+[11:04:42] <s5fs> haha!
+[11:05:06] <scott_gonzalez> Actually, assuming most plugins won't change very often, we might want to put a timeout even on 304.
+[11:05:17] <scott_gonzalez> Something like 10 seconds for 304 and 60 seconds for 200.
+[11:05:24] <s5fs> okay cool i'll bang this out tonight when i get home. i took the day off yesterday and poked at those scripts, read a bunch of your code, etc. i hadn't played with some of the modules you used so I dorked with them too.
+[11:05:34] <scott_gonzalez> Just so that we're not hammering our server if everything is 304ing.
+[11:05:55] <s5fs> i'm going to pass on the 304 business for now, just to get it up and running. i'll extend the plugins table later after i get a better feel for who all is using it.
+[11:06:03] <scott_gonzalez> Well it's great having an extra set of hands on this project :-)
+[11:06:06] <s5fs> with out rate of fire it's really just a 'nice to have'
+[11:06:16] <scott_gonzalez> Yeah, that's a good point.
+[11:06:42] <s5fs> scott_gonzalez: i'm happy to help, truly. i feel like i've been sandbagging for the past few weeks but in reality i'm just trying to re-balance life with my new responsibilities (conferences and jquery).
+[11:07:00] <scott_gonzalez> Let me see if I can get a count of plugins from the production site.
+[11:07:03] <s5fs> anyways i gtg to a meeting, back in a few. thanks for your feedback!
+[11:07:08] <s5fs> awesome, that would be great
+[11:09:59] <scott_gonzalez> s5fs: 1258
+[11:10:55] <scott_gonzalez> So right now we can do all plugins in a day at 1 per minute :-)
+[11:58:27] <s5fs> scott_gonzalez: okay cool, that's awesome! we can always tune the script up later to be more efficient.
+[11:58:51] <scott_gonzalez> yup
+[11:59:04] <s5fs> okay, so far the script will query pluginsdb, hit gh, and then update pluginsdb. what process updates wordpress proper? should we call that at the end of the processing?
+[12:00:50] <scott_gonzalez> Yeah, you'll want to update WordPress as you get the stats.
+[12:02:03] <scott_gonzalez> We have /lib/wordpress.js
+[12:02:30] <scott_gonzalez> You can call wordpress.getPostForPlugin( pluginName, callback )
+[12:02:55] <s5fs> scott_gonzalez: okay will do
+[12:02:57] <scott_gonzalez> That'll give you an object with all the WordPress post info.
+[12:03:06] <scott_gonzalez> The most important thing being post.id.
+[12:03:36] <scott_gonzalez> You can see how to update the metadata here: https://github.com/jquery/plugins.jquery.com/blob/master/scripts/wordpress-update.js#L154-L159
+[12:03:36] <s5fs> okay i'll have to read thru that script more closely
+[12:03:59] <scott_gonzalez> You'll probably want to move https://github.com/jquery/plugins.jquery.com/blob/master/scripts/wordpress-update.js#L66-L81 into lib/wordpress
+[12:04:07] <scott_gonzalez> That script is a bit crazy.
+[12:04:15] <scott_gonzalez> It does a LOT of work.
+[12:04:25] <scott_gonzalez> It's pretty dense.
+[12:05:47] <s5fs> yeah, there's a lot going on. i hadn't used Step before so I played with that over the weekend to ensure I understood your program flow.
+[12:06:34] <s5fs> gotta love node and the myriad of modules to address flow control concerns
+[12:10:47] <scott_gonzalez> I liked Step at the time, but I've decided that its cleverness is actually a drawback.
+[12:11:45] <scott_gonzalez> It normalizes between sync and async functions.
+[12:12:01] <scott_gonzalez> So if you return a value, it uses the return value.
+[12:12:14] <scott_gonzalez> If you don't, then it expects you to invoke this().
+[12:12:41] <scott_gonzalez> And I always do things like return asyncFn( param1, callback );
+[12:12:58] <scott_gonzalez> But if asyncFn has a return value, then Step thinks it was a sync function.
+[12:13:13] <scott_gonzalez> This actually caused a huge bug in the plugins site that was super hard to track down.
+[12:13:57] <scott_gonzalez> I really like the API though, with the grouping and parallel processing.
+[12:14:53] <scott_gonzalez> Tim was going to release a new version that didn't have the sync return value handling, but he never did.
+[12:17:27] <scott_gonzalez> There was discussion here: https://gist.github.com/creationix/1524578
+[12:17:49] <scott_gonzalez> In his first comment, he talks about this.pass() and how it makes Step.fn() useful.
+[12:18:24] <scott_gonzalez> That idea came from me :-) https://gist.github.com/scottgonzalez/1502051
+[12:19:49] <scott_gonzalez> You'll see a lot of `this.parallel()( null, something )` in the plugins site.
+[12:20:07] <scott_gonzalez> Which is what this.keep/pass() would do.
+[12:37:27] <s5fs> yeah, i saw the this.parallel() biz for sure
+[12:37:37] <s5fs> its pretty neat
+[14:37:54] <ryanneufeld> danheberden: HAPPY HAPPY

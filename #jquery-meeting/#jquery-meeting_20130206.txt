@@ -1,0 +1,138 @@
+[09:01:06] <scott_gonzalez> gnarf jzaefferer kborchers mikesherov petersendidit rxaviers tj_vantoll
+[09:01:14] <rxaviers> hi
+[09:01:23] <tj_vantoll> yo
+[09:02:46] <scott_gonzalez> Looks like we're missing a bunch of people :-/
+[09:02:59] <scott_gonzalez> Well, let's get started with download builder updates.
+[09:03:31] <scott_gonzalez> rxaviers added the missing progressbar overlay image to custom themes.
+[09:03:44] <scott_gonzalez> He pointed out that I need to regenerate the quick download though.
+[09:03:48] <scott_gonzalez> I'll do that today.
+[09:03:52] <rxaviers> thks
+[09:04:05] <scott_gonzalez> I hadn't even thought of that when I posted the issue.
+[09:04:27] <rxaviers> as you guys know, we're generating the images on the same server and we're stable so far.
+[09:04:46] <scott_gonzalez> So the cache is working well?
+[09:04:57] <rxaviers> it is. load is pretty low
+[09:04:57] <scott_gonzalez> We still need to handle a crash in the middle of writing a cache file, right?
+[09:05:09] <rxaviers> and cache size was about 300MB last time I saw
+[09:05:14] <rxaviers> that's correct
+[09:06:00] <scott_gonzalez> cool
+[09:06:16] <rxaviers> since that's a gnarf change, I'll wait for him to check that
+[09:06:32] <scott_gonzalez> ok
+[09:06:34] <gnarf> sorry
+[09:07:22] <rxaviers> scott_gonzalez, when you and jzaefferer have some time, please just give your feedback. I've made some changes to the post draft.
+[09:07:40] <rxaviers> (blog post about DB)
+[09:08:00] <scott_gonzalez> rxaviers: ok, it's starred in my inbox :-P
+[09:08:05] <rxaviers> :)
+[09:08:11] <gnarf> I would think we could just cache a days worth in ram
+[09:08:17] <gnarf> skip the files
+[09:08:19] <scott_gonzalez> Unfortunately it's like 15 messages down. I get way to much mail.
+[09:08:27] <gnarf> any objections on that?
+[09:08:28] <scott_gonzalez> s/to/too/
+[09:08:36] <scott_gonzalez> gnarf: That's fine with me.
+[09:09:07] <scott_gonzalez> I'd do rolling 24 hours, not 24 hours from first gen.
+[09:09:11] <gnarf> rxaviers: ?
+[09:09:16] <gnarf> scott_gonzalez: i was gonna put a .expires
+[09:09:33] <gnarf> and an hourly cron to delete
+[09:09:43] <gnarf> or setIntervl
+[09:09:48] <gnarf> timeout loop
+[09:09:48] <rxaviers> sorry, I was checking its size now
+[09:09:49] <rxaviers> 429M	tmp/cache/
+[09:09:51] <gnarf> whatevers best
+[09:09:57] <scott_gonzalez> Use setTimeout().
+[09:10:12] <rxaviers> it seems it wont go much far
+[09:10:17] <scott_gonzalez> If you're going to batch, make sure you limit the batch size or process async.
+[09:10:51] <scott_gonzalez> You don't want a long running loop to block.
+[09:11:15] <gnarf> long running? if ( time > cache[i].expires ) delete cache[i] ?
+[09:11:22] <gnarf> you think that needs to be asynced?
+[09:11:46] <gnarf> feels like even looping over 1000 cache objects that should be fast
+[09:12:06] <scott_gonzalez> Do we know what the size of the cache is though?
+[09:12:39] <gnarf> 86k items right now
+[09:12:40] <rxaviers> 429M tmp/cache ?
+[09:13:15] <rxaviers> ah ok never mind, size of the cache array
+[09:13:28] <gnarf> 6k on day 1
+[09:13:37] <gnarf> 14k on day 2
+[09:14:23] <gnarf> i could delete em all
+[09:14:25] <gnarf> and measure in an hour
+[09:16:03] <gnarf> i honestly don't think it'd be greater than 10,000 items.  for ( i in cache ) if ( time > cache[i].expires ) delete cache[i]
+[09:16:48] <gnarf> would that amount to a substantial amount of time to block?
+[09:17:08] <rxaviers> where is that going to run? on every request?
+[09:17:13] <gnarf> once an hour
+[09:17:15] <rxaviers> or in a setTimout block
+[09:17:16] <rxaviers> ok
+[09:18:05] <gnarf> im gonna rm * the cache right now
+[09:18:06] <rxaviers> well gnarf, caching it in memory ang gc this way seems fine to me..
+[09:18:09] <gnarf> and measure it
+[09:19:03] <rxaviers> you can use filename as key (i)
+[09:19:23] <scott_gonzalez> Ok, yeah, this is super fast.
+[09:19:38] <gnarf> rxaviers: that was my plan
+[09:19:42] <rxaviers> cool
+[09:20:01] <scott_gonzalez> I just ran a test with 6,000 items, half of them expired, each with 1k of data stored in the object.
+[09:20:04] <gnarf> hell
+[09:20:12] <scott_gonzalez> Runs in <10ms on my laptop.
+[09:20:22] <gnarf> i'll make it logger.log the cache size too
+[09:20:56] <scott_gonzalez> Now you'll need a conditional :-P
+[09:21:18] <scott_gonzalez> if ( time > cache[i].expires ) { delete cache[i]; } else { count++; }
+[09:21:42] <gnarf> nah, count em all
+[09:21:54] <gnarf> count deleted
+[09:21:59] <gnarf> two inc ops
+[09:22:06] <scott_gonzalez> ok
+[09:22:42] <scott_gonzalez> Ok, moving on...
+[09:22:49] <scott_gonzalez> gnarf filed an issue for an instance method: http://bugs.jqueryui.com/ticket/9030
+[09:22:55] <scott_gonzalez> There's an accompanying PR too.
+[09:23:03] <scott_gonzalez> We plan on landing this in 1.11.0.
+[09:23:25] <scott_gonzalez> But related to this, someone filed a bug about the :data selector and falsey values.
+[09:23:25] <scott_gonzalez> http://bugs.jqueryui.com/ticket/9053
+[09:23:50] <scott_gonzalez> I never intended for :data to work on falsey values.
+[09:24:02] <scott_gonzalez> But I'd like to just deprecate it with the introduction of the instance method.
+[09:24:12] <scott_gonzalez> This is just a hold over from the UI 1.0 days.
+[09:25:05] <scott_gonzalez> Well, it's a generalization I made from the custom selectors in old UI.
+[09:25:51] <scott_gonzalez> The widget-specific selectors still exist.
+[09:26:11] <scott_gonzalez> Oh, I'm starting to remember why we need :data
+[09:26:43] <scott_gonzalez> We use it for elem.is( ":data(ui-resizable)" )
+[09:26:59] <scott_gonzalez> Because elem.is( ":ui-resizable" ) will fail if the resizable plugin isn't loaded.
+[09:28:06] <scott_gonzalez> Looks like we only use it for .is(), so we can just as easily use !!elem.data( "..." )
+[09:29:04] <scott_gonzalez> We can also expose a new method that specifically checks for a widget instance.
+[09:29:13] <scott_gonzalez> Like elem.isWidget( "ui-resizable" )
+[09:29:33] <scott_gonzalez> To go along with the move away from publicly using .data()
+[09:30:01] <scott_gonzalez> Or we can just replace :data with :widget :-P
+[09:30:29] <tj_vantoll> Choices :)
+[09:31:06] <scott_gonzalez> Heh, yeah, I did not expect to be listing out a million choices when I put this on the agenda.
+[09:31:38] <scott_gonzalez> Ok, I'll just update :data for now, and we can figure out if we want to remove it later.
+[09:33:01] <scott_gonzalez> Ticket triage is still good.
+[09:33:07] <scott_gonzalez> Tickets keep rolling in, but our count isn't going up :-)
+[09:33:33] <scott_gonzalez> We've got a few tricky CSS bugs.
+[09:33:53] <scott_gonzalez> http://bugs.jqueryui.com/ticket/8977
+[09:34:00] <scott_gonzalez> accordion in IE7 with overflow.
+[09:34:16] <tj_vantoll> The tabs one is crazy.
+[09:34:29] <scott_gonzalez> I'm not sure there's anything we can do about this.
+[09:34:43] <scott_gonzalez> I know that we have users who put other icons in the headers, and rely on the relative positioning like we do.
+[09:35:09] <scott_gonzalez> Yeah, the tabs bug is annoying: http://bugs.jqueryui.com/ticket/9059
+[09:35:29] <scott_gonzalez> It's amazing how many issues IE has with elements just not being as wide as they're supposed to be.
+[09:35:56] <scott_gonzalez> Most of the time these get closed as wontfix/cantfix because they require doing something that we shouldn't be doing in the framework.
+[09:36:23] <scott_gonzalez> That tabs bug is especially strange because using .ui-widget fixes it, but creating another class with font rules didn't seem to fix it.
+[09:36:57] <tj_vantoll> Yeah.
+[09:37:23] <tj_vantoll> The bug doesn't happen when IE9 and IE10 simulate IE7 so debugging through BrowserStack is a bit crazy too.
+[09:39:15] <scott_gonzalez> I'll see if I can sucker someone into sinking a few hours into these :-P
+[09:39:28] <scott_gonzalez> This Opera bug is tricky: http://bugs.jqueryui.com/ticket/9002
+[09:39:41] <scott_gonzalez> It's a rounding error on Opera's part.
+[09:40:14] <scott_gonzalez> It looks like they round down both button heights, which in some cases causes the 1px gap.
+[09:40:33] <scott_gonzalez> But increasing the height to 55% makes the bottom button overlap the top button way too much at larger sizes.
+[09:40:38] <tj_vantoll> Ugh.  We have at least one other Opera rounding bug out there too.
+[09:40:57] <scott_gonzalez> And if we only adjust the height of one button, then the arrows don't line up properly.
+[09:41:02] <scott_gonzalez> Not sure what we should do about that.
+[09:41:09] <scott_gonzalez> Maybe yell loudly at Opera?
+[09:41:41] <tj_vantoll> Probably file a bug with Opera and close as wontfix.
+[09:42:30] <tj_vantoll> What is "correct" when it comes to rounding is pretty gray area though, so dunno.  But I don't think we can do much about it.
+[09:43:04] <scott_gonzalez> I just pined Mike Taylor in #jquery-dev.
+[09:43:09] <scott_gonzalez> I'll see what he says.
+[09:43:12] <tj_vantoll> http://bugs.jqueryui.com/ticket/7903
+[09:43:17] <tj_vantoll> Related
+[09:46:30] <scott_gonzalez> Ok, well that brings us to the 1.10.1 release.
+[09:47:05] <scott_gonzalez> We had our first ever PR for updating the version of core :-)
+[09:47:22] <scott_gonzalez> I was kind of surprised that it was done properly.
+[09:47:31] <gnarf> where is it?
+[09:47:32] <gnarf> :)
+[09:47:40] <gnarf> i'll go add some emoji bling to the comments
+[09:48:32] <scott_gonzalez> https://github.com/jquery/jquery-ui/pull/908
+[09:48:32] <b-ot> scott_gonzalez: Pull request #908 by bmcustodio (1d 8h 45m 15s): Updating 'jQuery' to 1.9.1.
+[09:50:13] <scott_gonzalez> I think I want to aim for beginning of next week for the release.
+[09:53:23] <scott_gonzalez> I guess that's it. See everyone back in -dev.

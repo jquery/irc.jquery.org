@@ -1,0 +1,92 @@
+[04:29:10] <jqcommit> [13jquery] 15orkel opened pull request #1277: [No ticket] Simplification of jQuery#contents (06master...06contents)  02http://git.io/BCYq8w
+[06:39:19] <gibson042> .
+[06:47:17] <jqcommit> [13jquery] 15gibson042 opened pull request #1278: Fix #13937: Correctly scope .finish() following multi-element .animate() (06master...0613937)  02http://git.io/3upjSg
+[06:49:00] <jqcommit> [13jquery] 15gibson042 opened pull request #1279: Fix #13937: Correctly scope .finish() following multi-element .animate() (061.x-master...0613937)  02http://git.io/NKcwMg
+[11:57:19] * JamesMGreene shudders as he writes VBScript for a home project
+[16:56:34] <jqcommit> 01[13jquery01] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/TXV8pA
+[16:56:34] <jqcommit> 13jquery/06master 1426980c6 15Richard Gibson: Fix #13939: Same-unit relative animations...
+[16:57:07] <jqcommit> 01[13jquery01] 15gibson042 pushed 1 new commit to 061.x-master: 02http://git.io/-LMcuQ
+[16:57:07] <jqcommit> 13jquery/061.x-master 1400231d5 15Richard Gibson: Fix #13939: Same-unit relative animations
+[17:57:23] <gnarf> gibson042: you here?
+[17:57:29] <gnarf> looking at that finish pull
+[17:57:35] <gnarf> what causes this bug?
+[17:58:00] <gibson042> gnarf: animating multiple elements, and then .finish()ing a subset of them
+[17:58:04] <gnarf> sure
+[17:58:11] <gnarf> but whats funky in the old code
+[17:58:27] <gnarf> why do you need to look for one that already started?
+[17:58:35] <gnarf> etc
+[17:59:18] <gibson042> the old code had all animations share a function, and each overwrote the `.finish` property when they began
+[17:59:34] <gnarf> oh
+[17:59:45] <gnarf> doAnimation.finish
+[17:59:49] <gibson042> yep
+[18:04:10] <gnarf> hrm
+[18:08:46] <gnarf> gibson042: do you remember if it was finish that added hooks.cur to queue?
+[18:10:31] <gnarf> https://github.com/gnarf37/jquery/compare/jquery:1.x-master...finish-fix
+[18:10:38] <gnarf> gibson042: we might be able to cut out hooks.cur
+[18:11:51] <gibson042> ah, now we're talkin'
+[18:13:04] <gnarf> https://github.com/jquery/jquery/pull/1118
+[18:13:18] <gnarf> yeah
+[18:13:21] <gnarf> added by finish
+[18:15:24] <gibson042> I thought it went back farther, but there it is
+[18:16:59] <gnarf> gibson042: https://github.com/gibson042/jquery/pull/1
+[18:18:04] <gnarf> gibson042: only -27
+[18:18:05] <gnarf> but
+[18:18:11] <gnarf> ;)
+[18:18:11] <gibson042> no, that's great
+[18:18:18] <gibson042> and looks much better to boot
+[18:18:28] <gibson042> thanks a ton
+[18:18:47] <gnarf> i think that nets us -7 yeah?
+[18:19:49] <gibson042> yes; I do believe so
+[18:20:01] <gibson042> :D
+[18:20:23] <gnarf> oooh
+[18:20:30] <gnarf>    raw     gz Compared to last run                                             
+[18:20:30] <gnarf>    -12     -4 dist/jquery.js                                                   
+[18:20:30] <gnarf>    -17     -9 dist/jquery.min.js  
+[18:20:33] <gnarf> -9 even
+[18:22:07] <gnarf> you should pick up those two commits on your fork, update the pr and land it
+[18:22:08] <gnarf> :)
+[18:22:16] <gibson042> that's the plan :)
+[18:22:29] <gibson042> thanks again
+[18:24:08] <gnarf> sok
+[18:24:14] <gnarf> got my sunday activity on github
+[18:24:17] <gnarf> those are rare ;)
+[18:31:35] <gnarf> eh
+[18:31:37] <gnarf> failed us a unit
+[18:31:47] <gibson042> yeah; https://github.com/gibson042/jquery/blob/9227ef0ecb3c147b50b07d2ad0d998928fbe22e7/test/unit/effects.js#L2096
+[18:31:49] <gnarf> effects: .finish() calls finish of custom queue functions (1, 2, 3)
+[18:32:07] <gibson042> a missing finish call in there somewhere
+[18:32:11] <gnarf> nope
+[18:32:18] <gnarf> so
+[18:32:19] <gnarf> hey
+[18:32:33] <gnarf> move that to queueTester( next, hooks ) { hooks.finish = 
+[18:32:38] <gnarf> also
+[18:33:01] <gnarf> should call the one in progress inside the hooks
+[18:33:06] <gnarf> and 2 of the fn.finish()
+[18:33:36] <gnarf> and let DaveMethvin|away take a look at it
+[18:33:41] <gnarf> i don't think we ever documented these
+[18:36:27] <gnarf> gibson042: https://github.com/gnarf37/jquery/commit/78878eab44fb19cf53c16594183f7a3692dd6f64
+[18:36:34] <gnarf> cherry-pick if you like
+[18:39:26] <gibson042> yeah, that's ringing bells
+[18:40:21] <gnarf> pretty sure this was just undocumented :)
+[18:42:51] <gnarf> though thinking about it it should probably call (hooks.finish || hooks.stop || $.noop)(); here: https://github.com/gibson042/jquery/pull/1/files#L0R578
+[18:43:41] <gnarf> and yeah, only stop if finish doesn't exist
+[18:44:04] <gnarf> i wonder 
+[18:44:09] <gnarf> if stop.true() might be enough
+[18:44:12] <gnarf> stop(true)
+[18:45:31] <gibson042> will that actually be applicable?
+[18:45:51] <gibson042> I don't remember the details of populating hooks
+[18:49:33] <gnarf> so 
+[18:49:44] <gnarf> the hook doesn't actually do anything once its the one running
+[18:55:03] <gnarf> gibson042: https://github.com/gnarf37/jquery/commit/1626145
+[18:55:53] <gnarf> now it's -13 total
+[18:56:13] <gnarf> you should just reset --hard 1626145 on your branch :)
+[18:56:17] <gnarf> get rid of that merge commit
+[18:56:35] <gibson042> lol
+[18:56:39] <gibson042> fair enough :)
+[18:56:57] <gnarf> seems better this way
+[18:56:58] <gnarf> yeah?
+[18:58:45] <gibson042> very much so
+[19:00:22] <gibson042> so queueable.finish was never documented, right?
+[19:21:39] <gnarf> i dont think so
+[20:28:20] <gnarf> gibson042: heh, solved a bug i didn't know we had
+[20:29:01] <gibson042> now I *know* it's the right fix :)

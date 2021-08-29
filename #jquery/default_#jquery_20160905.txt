@@ -1,0 +1,391 @@
+[02:42:26] <sacrebleu> what causes an $.ajax to stall
+[02:42:39] <systemfault> The server.
+[02:42:56] <sacrebleu> possible reasons?
+[02:43:02] <systemfault> Could be anything.
+[02:43:27] <systemfault> There are so many ways a web server can fail... logic error, db is down.. etc
+[02:46:11] <Cork> slow sql query, server overloaded, a sleep line in the code... :)
+[02:46:25] <Cork> (the last one has bit me a few times...)
+[02:46:27] <sacrebleu> sleep(1)?
+[02:46:32] <Cork> ya
+[02:46:36] <sacrebleu> why is that horrible
+[02:46:41] <sacrebleu> it is only 1 second
+[02:46:58] <Cork> cause it normally don't belong there
+[02:47:22] <sacrebleu> what if i dont want to spam a database
+[02:47:23] <Cork> i took over a project a long time ago where the old developer used sleep server times to delay actions client side
+[02:47:43] <Cork> sacrebleu: store the last request from the user in a session
+[02:47:50] <Cork> and if it is closer then x
+[02:47:58] <Cork> refuse with a backoff http response
+[02:49:01] <Cork> (status 429)
+[02:49:42] <Deusdeorum> Cork what should one use instead of a sleep action?
+[02:49:56] <Cork> i just said what to use...
+[02:50:02] <Deusdeorum> ops, sorry
+[02:50:37] <Cork> don't forget to handle the response client side
+[02:50:43] <sacrebleu> its a realtime deata thing
+[02:50:49] <sacrebleu> i have to wait
+[02:50:52] <sacrebleu> this sucks
+[02:51:03] <Cork> you have to wait cause of what?
+[02:51:34] <sacrebleu> your ajax request -> ajax request tells db what it wants <- secondary process reads DB, processes, gives response -> ajax request needs result of response to provide back to you
+[02:51:55] <Cork> sacrebleu: that doesn't mean a sleep is needed
+[02:52:04] <Cork> it just needs to wait for the second process to respond
+[02:52:06] <sacrebleu> I have to wait until the response is available
+[02:52:19] <sacrebleu> and hnow would I do that since they dont talk except through a db
+[02:52:31] <sacrebleu> i would have to repeatedly request the db find me the record in a certain state, eh?
+[02:52:32] <Cork> depends on how to talk with the other process
+[02:52:36] <sacrebleu> to do that i would need a while
+[02:52:47] <sacrebleu> to do a while that implies spamming
+[02:52:53] <Cork> if you make a http call, the second process shouldn't close the connection before it has the data
+[02:52:55] <sacrebleu> spamming has to be slowed down with a sleep
+[02:53:11] <Cork> no
+[02:53:22] <Cork> sorry, sleep isn't the only and not the correct solution
+[02:53:35] <sacrebleu> Cork this all stems from the fact that I cannot use an AJAX request to talk to a secondary computer because of CORS and there is no real way to get out of the CORS thing in this special case
+[02:53:56] <Cork> sacrebleu: there is webrtc
+[02:54:09] <Cork> if that is what you meant with computer
+[02:54:13] <Cork> if you meant a different domain
+[02:54:32] <Cork> then you should prob just cache the response
+[02:54:45] <Cork> so you don't have to hit the endpoint for every request
+[02:54:55] <Cork> memcached ftw :)
+[02:55:06] <sacrebleu> gross
+[02:55:12] <Cork> uh...
+[02:55:18] <Cork> no sleep is gross
+[02:55:18] <sacrebleu> webrtc
+[02:55:21] <Cork> ya
+[02:55:26] <sacrebleu> why i'm just asking "to wait a second"
+[02:55:36] <yabbah> This has notging with jquery todo .. but dont have any other channel to ask in. What can be wrong if everything work great with a textfield in chrome/ff .. but in IE I cant see when I typing ?
+[02:55:39] <Cork> and my point is you shouldn't do that
+[02:55:47] <sacrebleu> well what's wrong with it? tell me why
+[02:56:04] <Cork> cause it makes things slower then it has to be
+[02:56:13] <Cork> and it adds artificial delays
+[02:56:16] <Cork> for no reason
+[02:56:23] <Cork> if you build it correctly you don't have to
+[02:57:15] <sacrebleu> if I do this: lynx http://backtooriginalcomputerdomain/ it works, but if I do file_get_contents(http://backtooriginacomkputerdomain) in php, I get failures
+[02:57:23] <Cork> from what i've seen this far, in web browser client server code sleep is always lazy coding
+[02:57:38] <sacrebleu> forget about that for a second i have to backtrack
+[02:58:13] <sacrebleu> i wrote something that goes out to a computer and gets requests in php, packages them up for the ajax request that triggers it.  this worked fine, then performance degraded.
+[02:58:15] <Cork> (and i've been doing this for a decade)
+[02:58:42] <sacrebleu> in different networking configurations, it failed altogether -- yet when i originally wrote it it worked very well
+[02:59:01] <Cork> prob cause you wrote it on a local machine
+[02:59:08] <sacrebleu> i dont understand
+[02:59:22] <Cork> with a constant, predictable low network response time
+[02:59:38] <Cork> when the time goes up, your assumption about how long the response will take broke
+[02:59:45] <Cork> aka. your code is racy
+[03:00:00] <sacrebleu> its a LAN
+[03:00:05] <Cork> doesn't matter
+[03:00:29] <sacrebleu> nets been around for 50 years no one solved this?
+[03:00:30] <Cork> qos, server load, database load cpu load...
+[03:00:37] <Cork> can still cause it to take more them then you assume
+[03:00:39] <sacrebleu> it doens't even use a database
+[03:00:56] <sacrebleu> i have a windows machine in the loop which is the cause of my angst
+[03:01:11] <sacrebleu> i'm sick of rewriting it.  it seems the only way i can get communication is to have windows initiate it
+[03:01:29] <Cork> sacrebleu: build the system to work with either not closing the http connection until it is done
+[03:01:33] <Cork> or callbacks
+[03:01:34] <sacrebleu> if i try to depend on wamp or xampp or uwamp problems occur, but i know its not because of wamp
+[03:01:43] <sacrebleu> you're missing the point, Cork
+[03:02:12] <sacrebleu> The data i'm trying to get, its a few bytes.  In one context, it happens INSTANTLY.  In another context, it fails 100% or 90% of the time.
+[03:03:25] <sacrebleu> if I go "file_get_contents()" from the shell, using php -f, it works.  if I do it via ajax, it fails.
+[03:03:30] <Cork> sacrebleu: the amount of data isn't the only thing that makes a difference in a http call
+[03:03:39] <Cork> THAT is the point you're missing
+[03:03:52] <JosefDe> Hi guys. I have a problem:
+[03:03:52] <sacrebleu> why is that, cork.
+[03:04:02] <Cork> scroll up, i told you less then a min ago
+[03:04:04] <sacrebleu> why would it matter.
+[03:04:13] <JosefDe> When I set a data-attribute inside my $.ajax()-success-function it is not available anywhere else in my code. How can I fix that?
+[03:04:18] <sacrebleu> you told me not to use sleep and to "keep the connection open" .. what the hell does that even mean
+[03:04:34] <Cork> JosefDe: as long as you target the same dom element it should work just fine
+[03:05:02] <Cork> JosefDe: through note ajax is async, so you can't expect the ajax code to be done "below" the ajax call in the code
+[03:05:22] <Cork> JosefDe: things that depends on the response has to happen in the callback
+[03:05:30] <Cork> or much later
+[03:05:41] <JosefDe> Cork: But that's the problem. The data on the same element is not available outside that ajax-success-callback
+[03:05:41] <Cork> (like from a separate click handler or similar)
+[03:05:53] <Cork> JosefDe: make a jsfiddle.net
+[03:08:30] <sacrebleu> i give up
+[03:11:07] <JosefDe> Cork: Ok
+[03:21:17] <JosefDe> Cork: http://jsfiddle.net/BWA9D/91/
+[03:22:16] <Cork> JosefDe: ya, that is exactly what i talked about before
+[03:22:26] <Cork> JosefDe: line 19 and 20 runs before line 7
+[03:22:53] <JosefDe> Cork: Aha
+[03:22:58] <Cork> JosefDe: http://jsfiddle.net/BWA9D/92/
+[03:23:19] <JosefDe> Cork: So the only solution would be passing that second console-log as callback which is then called inside the ajax-success-callback?
+[03:23:28] <Cork> JosefDe: check the paste
+[03:23:30] <Cork> opps
+[03:23:32] <Cork> the jsfiddle
+[03:23:49] <Cork> you can pass data directly if you prefer too
+[03:23:50] <JosefDe> Aha perfect! Let me apply that to my project
+[03:24:29] <Cork> JosefDe: http://jsfiddle.net/BWA9D/93/
+[03:26:35] <JosefDe> Cork: Saved my day buddy!
+[03:26:41] <Cork> heh
+[03:30:02] <JosefDe> hmm.. still doesn't work..
+[03:30:10] <JosefDe> maybe I have to use document.ready()
+[03:30:14] <Cork> no
+[03:30:22] <Cork> ready is for page loads not ajax calls
+[03:30:50] <JosefDe> In my real-life project I still get "undefined" for data
+[03:31:42] <Cork> JosefDe: what does console.log($('[id="item1"]').length); give you?
+[03:32:18] <JosefDe> It gives me "1"
+[03:32:25] <JosefDe> The element exists, but the data I've set in Ajax is not existing
+[03:32:42] <Cork> how are you setting the data?
+[03:32:43] <JosefDe> But when I ask for the data directly in Ajax or in the web-console it is valid
+[03:32:53] <JosefDe> I'm setting it inside the Ajax-success-callback
+[03:32:59] <Cork> sure, but HOW
+[03:33:19] <Cork> is it really through .data() ?
+[03:33:32] <Cork> or are you appending html with a data-key1 attribute
+[03:33:34] <JosefDe> Like this: myHtmlElem.data('item', {uid: 1});
+[03:33:51] <Cork> hmm
+[03:34:01] <Cork> that should work...
+[03:35:49] <JosefDe> Cork: But in comparison to your jsfiddle I'm doing: return $.ajax().done();
+[03:36:07] <JosefDe> And then doing myAjaxCall.done(function() { getData(); });
+[03:36:07] <Cork> that is needed
+[03:39:20] <JosefDe> But I'm calling the function which outputs the data in a separate, autofunction and passing jQuery ($) to it
+[03:39:31] <JosefDe> Is it possible that because of this the cache for data is not passed with it?
+[03:39:57] <Cork> the cache??
+[03:39:59] <Cork> there is no cache
+[03:40:21] <JosefDe> Cork: .data() caches the data-attribute and doesn't add it directly to the DOM-element
+[03:40:25] <Cork> JosefDe: the return is needed so the caller of the "myAjaxCall" can access the deferred object ajax creates
+[03:40:41] <JosefDe> Cork: But why is the data not available in there?
+[03:41:14] <Cork> JosefDe: too abstract
+[03:41:19] <Cork> show the code
+[05:13:56] <Cork> ...
+[05:14:03] <Cork> broken clients...
+[05:33:40] <crazycoder> hello
+[05:33:52] <crazycoder> i have to create a local js script that saves info to a server
+[05:34:15] <crazycoder> but i get No 'Access-Control-Allow-Origin' header is present on the requested resource. Origin 'null' is therefore not allowed access. The response had HTTP status code 500.
+[05:34:19] <crazycoder> what can i do ?
+[05:34:52] <Cork> crazycoder: you can't do ajax calls from a local script
+[05:35:07] <Cork> it would let scripts leak user data
+[05:35:20] <crazycoder> Cork, so ?
+[05:35:22] <Cork> simplest solution is to just set up a small webserver on your machine
+[05:35:42] <Cork> you still have to set cors, but then you can just set it for the origin
+[05:37:01] <crazycoder> ok
+[05:46:20] <Guest_48847> allah is doing
+[05:46:29] <Guest_48847> sun is not doing allah is doing
+[05:46:37] <Guest_48847> moon is not doing allah is doing
+[05:46:45] <Guest_48847> stars are not doing allah is doing
+[05:46:55] <Guest_48847> planets are not doing allah is doing
+[05:47:03] <Guest_48847> galaxies are not doing allah is doing
+[05:47:13] <Guest_48847> oceans are not doing allah is doing
+[05:47:20] <jiggawattz> who be spammin
+[05:47:22] <Guest_48847> mountains are not doing allah is doing
+[05:47:27] <jiggawattz> Guest_48847 ▸ stfu
+[05:47:39] <jiggawattz> Who's an operator in here?
+[05:47:45] <jiggawattz> done
+[06:13:20] <Tennis> http://paste.ee/p/WhHut , Hey how can i push data-vals into the autocomplete
+[06:17:41] <Cork> Tennis: .push($(this).data('vals'))
+[06:19:35] <Tennis> http://paste.ee/p/TnZvY thanks cork
+[06:19:46] <Tennis> I hadn't included the autocomplete function
+[06:20:19] <Tennis> how might I push the data-vals into the  jquery autocomplete list
+[06:20:29] <Tennis> should I make the one array more complex
+[06:20:45] <Tennis> just checking documentation to see what else I can have apart from (minLength, Source)
+[06:29:19] <tocka> Hi guys, I have a few contact forms with the same class "contact-us" and inside all of the forms there are 2 divs "contact-succes" and "contact-error"
+[06:30:11] <tocka> If I submit one of the forms all of the "contact-success" divs or "contact-error" divs are highlighted instead of just the ones that should be highlighted in form that I am submitting..
+[06:30:23] <tocka> Any ideas how could I fix this without changing class names?
+[06:32:16] <Tennis> use ID's or hide the ones you don't want
+[07:14:14] <Tennis> so I'm use to just feeding an array of names into an autocomplete
+[07:14:53] <Tennis> how could i include data-vals ? in the array or different parameter in the autocomplete function?
+[07:27:28] <shoky_> Tennis what do you want the data-vals to do?
+[07:29:44] <shoky_> anyways i think you can just include them as a property on your autocomplete item objects
+[07:30:30] <shoky_> assuming your items are actually objects and not just the strings shorthand
+[08:20:57] <Duikb00t> yo
+[08:21:18] <Duikb00t> Im looking for a good Lazyloading images plugin, I already found: https://github.com/tuupola/jquery_lazyload
+[08:21:46] <Duikb00t> But that one seems a little outdated?
+[08:29:10] <jomofcw> Hello !
+[08:29:47] <jomofcw> About delgated event, what is "$(this)" in it ? The clicked element (for a click event) or the element to which the event was attached ?
+[08:31:54] <jomofcw> If my test is OK it seems to be clicked element.
+[08:35:34] <Cork> jomofcw: the element targeted by the delegation selector
+[08:35:55] <Cork> so $(document).on('click', 'a') <-- it is the a tag here
+[08:36:14] <Cork> jomofcw: it isn't the clicked element
+[08:36:27] <Cork> as that can be a child of the event handler
+[08:36:51] <Cork> <a><span>text</span></a> <-- clicked target is the span not the a tag
+[08:43:52] <jomofcw> Hello Cork !
+[08:44:01] <jomofcw> OK, I understand. Thanks =).
+[08:51:44] <Tennis> shoky_,  yeah my autocomplete items are just strings , would you suggest making them objects with the strings and the data-vals that makes sense but im not sure how i would structure it so that autocomplete would recognise them and include the data-vals
+[08:54:50] <IamTrying> https://www.google.com/drive/using-drive/ - Gurus, how can i make a page like this with jQuery? when you scroll down it auto does some Ninja actions on menu and also when resized all get auto shapes.
+[08:56:38] <Duikb00t> css animations
+[08:56:53] <Duikb00t> run them on scroll
+[08:57:07] <Duikb00t> Or if a specifc element is in view.
+[08:57:07] <IamTrying> Duikb00t: is there any copy paste samples of that type of work?
+[08:58:17] <Duikb00t> You can start with this: https://github.com/protonet/jquery.inview#usage
+[08:58:21] <IamTrying> Duikb00t: Google also like Ninja changes the logo from white to color and then on the fly like side kick changes the menu into blue, only when scrolling is done, then it changes the header, like lot of Ninja actions, looks great too.
+[08:58:22] <IamTrying> thank you
+[08:59:50] <Duikb00t> Create your css animation then when the element is inview you add the class or something to your element and the action should be executed right on time :)
+[09:00:32] <IamTrying> Nice, lot of Ninja actions are possible now a days
+[09:02:35] <Duikb00t> ninja actions ;P
+[09:37:34] <shoky_> Tennis: what do you want the autocomplete to do with those data-vals?
+[09:37:52] <Tennis> put them as the data-vals of the dropdown list
+[09:37:59] <shoky_> why?
+[09:38:01] <Tennis> so that i can take them from clicking on them
+[09:38:08] <Tennis> I have a dropdownlist with data-vals
+[09:38:13] <Tennis> and also and autocomplete one
+[09:38:17] <shoky_> i suggest putting them as properties in the autocomplete item objects
+[09:38:19] <Tennis> from the same input field
+[09:38:27] <shoky_> and then you can access those properties in the autocomplete event handlers
+[09:38:37] <shoky_> like when you select an item
+[09:39:53] <Tennis> I have an onclick event for the #ui-id-1 which is the ID of the <UL> that autocomplete populates
+[09:40:05] <Tennis> are there autocomplete event handlers I should be using
+[09:40:10] <Tennis> that I am not , hmmm
+[09:40:17] * Tennis investigates the docs
+[09:41:05] <shoky_> yes ;p
+[09:41:28] <shoky_> all jquery-ui widgets have their own events
+[09:43:44] <Tennis> at the moment i'm pushing ever .text() of an li into an array
+[09:44:06] <Tennis> could i just put the html of the ul in ? hmm
+[09:44:16] <shoky_> use the 'select' event
+[09:46:33] <shoky_> https://jsfiddle.net/dtbto4ep/
+[09:57:17] <Tennis> thanks shoky_ let me try that out
+[09:58:02] <Tennis> impressively simple example too
+[09:58:06] <Tennis> +1 for code golf
+[10:15:21] <MacroMan> How can I make .change() fire when the element is changed by another script?
+[10:16:18] <MacroMan> Without explicitely calling change() in the other script?
+[10:35:26] <stennowork> lol the jquery search on their webpage is useless
+[10:35:27] <Tennis> MacroMan, I think it should change on .change
+[10:36:40] <Tennis> I hear there is a .trigger that could be of use
+[10:50:41] <AdamPDotty> still hard to call change() without calling change()
+[10:52:18] <Guest57685> Hello, https://jsfiddle.net/m9n2hh3o/1/ I am trying to sort the options from the select tag alphabetically, but it fails
+[10:52:35] <Guest57685> the reverse() method is working
+[10:52:40] <Guest57685> but the sort not
+[10:53:46] <Guest57685> anybody
+[11:02:39] <shoky_> Guest57685: sort() needs you to pass it a sort function (unless you're just sorting plain strings. but in your case these are <option> elements)
+[11:03:00] <shoky_> alternatively you can first map the array of options into an array of strings, and just call .sort() on it
+[11:03:30] <shoky_> e.g.  .map(function(option) { return option.text }).sort()
+[11:05:02] <shoky_> that's also a quicker/better way of doing that for loop you have
+[11:05:22] <mehale> Hello, is there a way I can get the http server's "expires:" response header in an ajax call?
+[11:05:23] <shoky_> oh they're gone ;S
+[11:06:42] <shoky_> mehale: think so.. xhr.getResponseHeader("expires")
+[11:07:06] <shoky_> assuming it's not a cross-domain request
+[11:07:15] <mehale> shoky_: it doesnt show on .getJSON, does it?
+[11:08:02] <shoky_> mehale: the 3rd argument to the success callback is the xhr
+[11:08:19] <shoky_> it's also returned by getJSON
+[11:08:52] <mehale> ah, ok!
+[11:20:03] <magnu> Hello
+[11:20:36] <magnu> https://jsfiddle.net/m9n2hh3o/1/ I am trying to sort the options
+[11:20:44] <magnu> and the sort is not working
+[11:33:00] <skinux> Do you guys recommend ReactJS for being able to select (edit, delete) rows of multiple form fields?
+[11:33:36] <skinux> I've been trying to use ReactJS, but it's been a pain in the ass.
+[11:38:38] <daslicht> anyone knows a jquery plugin where cleints can build grid layouts as it is possible with this wordpress plugin:
+[11:38:44] <daslicht> http://laytheme.com
+[11:38:45] <daslicht> ?
+[11:39:11] <daslicht> I have only found things like gridster but thats not the sufficient
+[12:05:16] <z1haze> anyone use nvd3 charts here?
+[12:05:23] <Profpatsch> ohai
+[12:05:51] <z1haze> I have some data that I want to display on a bar chart, but i dont really have a timelime (x)
+[12:06:02] <z1haze> I have a list of people, and i want to show how many votes for each person
+[12:06:05] <Profpatsch> I have a thing that gives me an svg as string "<svg foobar…>…elements…</svg>"
+[12:06:14] <Profpatsch> So I do $(svgstring)
+[12:06:40] <Profpatsch> Now I want to delete the children and convert it back to a string again (so I can insert it into mustache).
+[12:07:21] <Profpatsch> $(svgstring).html() only gives me a string with the *children* of the svg though.
+[12:07:36] <Profpatsch> Without the <svg> tag and its attributes.
+[12:07:45] <Profpatsch> How would you do that?
+[12:12:18] <c0ax_> Hello guys. Im working this project for one client and I need to make parallax desing. Currently Ive done it all, but Safari browser wont read attachent fixed background. And picture is moving but need to be static.
+[12:12:23] <c0ax_> Any idea what to do?
+[12:12:28] <c0ax_> I have tryed everything...
+[12:15:21] <c0ax_> anyone please?
+[12:46:30] <SamSagaZ__> hey guys, is OK to use 3.1 for production? im working into a new website i was using 2.1 but now looks like version 3 is out!
+[12:50:07] <shoky> yes
+[12:56:04] <JosefDe> Hi guys. I'm having big troubles. I've spent a whole day in work and couldn't fix my problem..
+[12:56:23] <JosefDe> So if someone has time for me that would be great
+[12:56:40] <JosefDe> Because I'm really desperate
+[13:26:46] <JosefDe> guys can anyone help me?
+[13:32:25] <shoky> stop selling it and just ask the question, jeez
+[13:38:10] <JosefDe> shoky: I'm setting an HTML-element's data-attribute inside Ajax. For some reason if I try to get that data inside another class I get undefined
+[13:40:23] <paulvd> anyone here knows how to set the VehicleType in Google maps to Ferry?
+[13:52:42] <Vacuum_> Do I have a syntax error: https://pastebin.mozilla.org/8907716 ?
+[14:04:26] <distrtedpuppy> I’m firing off an ajax post on click of a checkbox. Ajax fires correctly, but the checkbox state does not change to checked.
+[14:06:46] <kof> distrtedpuppy paste code somewhere
+[14:09:18] <distrtedpuppy> https://jsfiddle.net/szfyhd4f/
+[14:09:33] <distrtedpuppy> it checks in the fiddle, just not normally
+[14:12:46] <kof> Is the jQuery version 1.6+ ?
+[14:12:57] <distrtedpuppy> yea, 2+
+[14:13:28] <distrtedpuppy> 2.0.3 to be exact
+[14:22:58] <kof> I am not sure make try shorter $('#AddressCheckbox').click(function() {
+[14:24:58] <distrtedpuppy> Yea, that works, but isn’t exactly ideal
+[14:25:12] <distrtedpuppy> mostly because I’m doing something you’re *not supposed to do*
+[14:25:35] <distrtedpuppy> using the same id for multiple checkboxes
+[14:26:47] <distrtedpuppy> since it’s coming from a database, i can just append a number in the loop to the id, but that means I need to set up multiple listeners for “AddressCheckbox0”, “AddressCheckbox1”, etc.
+[14:27:54] <kof> If that work then your jQuery selector might be wrong
+[14:31:08] <distrtedpuppy> well, I was thinking by using $(this), jquery might actually know which checkbox in the dom was checked. It appears that is not the case
+[14:46:27] <jquoro> Remove all instances of 'posts-wrapper' starting from the 11th one --> $('.posts-wrapper').eq(9).nextAll().remove()
+[14:46:32] <jquoro> Is the syntax correct?
+[14:46:36] <jquoro> Because it isn't working
+[14:58:21] <kof> 11th one should be eq(10)
+[15:00:09] <jquoro> @kof It isn't removing anything
+[15:02:02] <hellyeah> is there a method in jquery for taking all html in one time?
+[15:04:35] <tobh> hellyeah: what do you mean exactly?
+[15:07:46] <kof> I just tested jQuery('.test-post').eq(0).nextAll().remove();  works
+[15:08:05] <kof> check your console for error
+[15:31:44] <helllen> I would like to implement a component like progress bar for status for one device. green line suppose it is active and red is down. the device can be down during some period of the day so it would be red for this portion of time
+[15:32:02] <helllen> any idea of component done already or do I have to implement completly
+[15:34:41] <hellyeah> tobh:  all html
+[15:35:05] <hellyeah> tobh:  i mean like GetFullHTML(URL)
+[15:53:36] <flobin> hi everyone
+[15:54:21] <flobin> I'm trying to figure out what a jquery script does, but I don't have a lot of jquery experience, can anyone tell me what's going on here? https://gist.github.com/Flobin/2afd5f6fec4833eae4ec13ef9bd7b555#file-jquery-version-js-L38
+[15:57:28] <binaryc> url
+[16:21:41] <shoky> flobin: are you asking about that long expression with the || && stuff, or the fact that it's in the last line of the file with that }(( ... ))   around it ?
+[16:22:07] <flobin> shoky well I got some help in #javascript, so I now know what it does
+[16:22:14] <shoky> oks
+[16:24:48] <flobin> step two is trying to put it in the DOMContentLoaded function properly
+[16:28:30] <systemfault> You're on jQuery... why would you use DOMContentLoaded?
+[16:31:05] <shoky> looks like they're trrying to un-jqueryfy some code, or smth
+[16:31:09] <flobin> systemfault well, when I wrote that, I wasn't using jQuery yet :P
+[16:31:16] <shoky> or not
+[16:32:58] <flobin> the reason is that DOMContentLoaded is a function called both on dom content being loaded but also the pjax success event
+[16:35:58] <c0ax> Hello guys. Im working this project for one client and I need to make parallax desing. Currently Ive done it all, but Safari browser wont read attachent fixed background. And picture is moving but need to be static.
+[16:35:58] <c0ax> <c0ax_> Any idea what to do?
+[16:35:59] <c0ax> <c0ax_> I have tryed everything..
+[16:40:49] <flobin> c0ax I had this problem a while ago
+[16:41:06] <c0ax> So what to do man ? Please help :)
+[16:41:07] <flobin> there's something weird with safari and fixed background
+[16:42:11] <flobin> c0ax this is what fixed it for me http://stackoverflow.com/a/23795792/1397535
+[16:44:55] <c0ax> flobin, thanks, I will check that tomorrow
+[18:44:42] <ahoo> hi
+[18:45:05] <Shai-Tan> How can I open mutilple modal windows at the same time?
+[18:45:10] <ahoo> i cannot call .noConflict() before another jQuery is loaded - how would i solve this?
+[18:45:18] <ahoo> Shai-Tan: multiple window.open
+[18:45:33] <Shai-Tan> not a new window, a new modal dialog
+[18:45:44] <ahoo> Shai-Tan: you can't
+[18:46:10] <ahoo> Shai-Tan: like the name says - it's modal
+[20:16:31] <robertmaxrees> relaxing day,
+[20:16:58] <kof> Labor free day
+[20:17:04] <robertmaxrees> not for everyone ;)
+[20:17:43] <systemfault> As long as I'm included
+[20:18:07] <systemfault> I didn't know it was labor day in the US
+[20:18:13] <robertmaxrees> yep.
+[20:18:20] <systemfault> (It is in Canada)
+[20:18:26] <robertmaxrees> ah
+[20:23:52] <eljacko> Hello, can someone help me with an issue I am having?
+[20:24:02] <robertmaxrees> eljacko if you have a question, just ask :)
+[20:24:07] <robertmaxrees> if somebody can help, they will :D
+[20:24:14] <eljacko> http://codepen.io/Prezzy876/pen/rradRW
+[20:24:24] <eljacko>  As you can see in the code example above, I have a problem, when I add a new row for the invoice by clicking the add button, the changes from the first row affect all its future siblings , and so newly added rows do not calculate independently.
+[20:24:43] <robertmaxrees> so one big problem for starters.
+[20:24:54] <robertmaxrees> <select id="selectservice" name="selectservice" class="form-control selectservice" required=""> - you're replicating this line over and over.
+[20:25:02] <robertmaxrees> that's not valid - you can't repeat the same ID on a page.
+[20:25:33] <robertmaxrees> also: context.
+[20:25:33] <eljacko> true, i know better, i will see if this helps
+[20:26:04] <robertmaxrees> however, your issue is context.
+[20:26:10] <robertmaxrees>  $(".amount").val($('.price').val() * $('.quantity').val());
+[20:26:10] <robertmaxrees>   total();
+[20:26:20] <robertmaxrees> that's getting ALL .amount and all .price, etc.
+[20:26:29] <robertmaxrees> you need to make your code relative to $(this)
+[20:26:55] <eljacko> hmm
+[20:26:58] <eljacko> yess makes sense
+[20:27:22] <eljacko> im stuck on rolling that snippet out
+[20:27:38] <eljacko> $(this) would give me independence
+[20:27:49] <robertmaxrees> i'd do something like var $currentTr = $(this).closest('tr');
+[20:28:06] <robertmaxrees> then use .find() off that to get the current price and quantity and amount fields.
+[20:29:09] <eljacko> ok i am trying to apply that now
+[20:29:29] <eljacko> thank you, ill be around
+[20:55:47] <eljacko876> Hey
+[20:56:20] <eljacko876> i jsut got diconeected, im tryinmg to remmber who was helping me
+[20:56:40] <robertmaxrees> like i said before, anybody can help ;)
+[20:58:14] <eljacko876> someone just some advice but i lost it when my power went, i was wondering if they code re type it, it was related to : https://codepen.io/Prezzy876/pen/rradRW
+[20:58:27] <robertmaxrees> lol
+[20:58:28] <robertmaxrees> it was me
+[20:58:35] <eljacko876> yah lol
+[20:58:50] <robertmaxrees> fwiw http://irc.jquery.org/%23jquery/latest.log.html
+[20:58:52] <robertmaxrees> full logs here :)
+[20:59:15] <robertmaxrees> http://irc.jquery.org/%23jquery/latest.log.html#t20:24:43 convo started here.
+[20:59:31] <eljacko876> thanks :)
+[21:31:57] <eljacko876> https://codepen.io/Prezzy876/pen/rradRW
+[21:32:18] <eljacko876> still having an issue with this
+[21:33:11] <eljacko876> i am not getting the right value for price on the added row element
+[21:39:27] <eljacko876> https://codepen.io/Prezzy876/pen/rradRW
+[21:39:31] <eljacko876> any help?
+[21:42:34] <eljacko876> @robertAway your missed :(
+[21:43:32] <Onionnion> s/your/you're
+[21:43:32] <b-ot> Correction, <eljacko876> @robertAway you're missed :(

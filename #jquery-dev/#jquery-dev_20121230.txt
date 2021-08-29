@@ -1,0 +1,79 @@
+[11:14:24] <gibson042> .
+[11:22:37] <snover> have you guys seen ie9 spontaneously decide to load scripts from the…wrong place?
+[11:37:00] <DaveMethvin> snover: wat?
+[11:37:07] <DaveMethvin> the wrong place?
+[11:37:37] <snover> DaveMethvin: yeah it’s just all over the place. it supposed to make a request to /__teststack/dojo/lang.js but sometimes it will make it to /lang.js instead
+[11:37:40] <snover> randomly
+[11:37:52] <snover> reload, it won’t happen
+[11:37:58] <snover> or it will be another script
+[11:38:06] <DaveMethvin> strange ... and this is a script tag, not a css ref?
+[11:38:08] <snover> yeah
+[11:38:18] <snover> ie10 is consistently not fucking up
+[11:38:21] <snover> ie9 is being super ando
+[11:38:22] <snover> rando
+[11:38:24] <DaveMethvin> yay 
+[11:38:35] <DaveMethvin> no, never seen that
+[11:39:28] <snover> seems like things are executing in a weird order
+[11:39:31] <snover> the generated url is actually wrong
+[11:39:38] <snover> so it’s not that IE is mangling it
+[11:39:50] <snover> race conditions, sigh
+[11:39:52] <DaveMethvin> oh is it like a generated script tag?
+[11:39:54] <snover> yeah.
+[11:40:04] <snover> script loader.
+[11:40:08] <DaveMethvin> oh boy
+[11:40:16] <DaveMethvin> gotta be some race condition then
+[11:40:27] <snover> and now, http://zetafleet.com/i/50e098a7e1762.jpg
+[11:40:51] <DaveMethvin> SCRIPT1312: Excessive torment detected
+[11:41:12] <snover> heh
+[11:42:43] <snover> this code is complex but not *that* complex
+[11:46:36] <snover> definitely seems like things are being executed out or order…like it is consuming all the script files and *then* firing load events
+[11:59:40] <snover> I am doing a lot of crashing of IE debugging this problem… :\
+[12:18:03] <snover> and now, for no reason, having changed nothing…it is no longer failing
+[12:18:14] <snover> \o_O/
+[12:24:38] <snover> and now that i am trying to do it on sauce it is failing again
+[13:43:59] <Joe1301> I have a php script that parses an xcel speadsheet into a mysql database.  I was hoping to execute the script via browser and have a progressbar show progress as this script can take a while to run as the excel is 25000 lines long
+[13:56:09] <snover> Joe1301: please see the topic
+[13:58:26] <Joe1301> jquery is the client side portion I need help with as php is server side and does not have fuctionality to update browser
+[14:10:36] <snover> Joe1301: this is not a support channel.
+[17:45:58] <snover> DaveMethvin: http://zetafleet.com/i/50e0ee50778bb.png arrrghhhh
+[17:46:17] <snover> executes all code, then fires load event
+[17:46:34] <DaveMethvin> that's not good
+[17:47:26] <snover> so random
+[17:47:51] <DaveMethvin> so is this a simple little test case?
+[17:48:08] <snover> not quite, it’s the dojo2 AMD loader
+[17:48:14] <snover> loading teststack
+[17:48:31] <snover> each “Def args” is a call to define; each “Loaded” is a script.onload callback
+[17:49:12] <snover> I’m not entirely sure what circumstances trigger this behaviour
+[17:49:28] <snover> the older loader used readystatechange, so now I gotta look at that
+[17:50:18] <DaveMethvin> tryna remember all the hassles we had during the jquery 1.8 cycle on that
+[17:51:17] <DaveMethvin> we tried to make .ready() fire on readyState==="interactive" and that was a mistake in IE9
+[17:51:34] <snover> I’m probably going to have to begrudgingly pull out a traffic inspector, watch which order things are completing in
+[18:04:15] <snover> readystatechange has the same problem
+[18:17:04] <snover> DaveMethvin: https://connect.microsoft.com/IE/feedback/details/648057/script-onload-event-is-not-fired-immediately-after-script-execution
+[18:17:34] <DaveMethvin> whatddya know
+[18:17:53] <DaveMethvin> of course, that does no good for ie9
+[18:19:02] <snover> there is some crap in requirejs to deal with it, but the old dojo loader should have this problem too but I have never seen it
+[18:19:17] <snover> so i am gonna look at what was done there…
+[18:19:23] <DaveMethvin> well it looks like you have some crap to add...
+[18:19:31] <DaveMethvin> what a pain
+[18:19:38] <DaveMethvin> i guess you have to sequence it yourself?
+[18:20:41] <snover> https://github.com/dojo/dojo/blob/master/dojo.js#L1775-L1809
+[18:20:47] <snover> yep.
+[18:20:52] <snover> so that sucks. thanks ie9.
+[18:21:16] <DaveMethvin> whoa, that's a lotta workaround
+[18:21:49] <snover> the dojo-combo-api stuff can be ignored
+[18:22:06] <snover> according to rawld that is some undocumented thing that came from some request that ibm made
+[18:22:31] <DaveMethvin> geez, how nice to have some group shoving strange stuff into your lib
+[18:23:02] <snover> one of them committed a change that set the lang property of all injected scripts to "ja"
+[18:23:14] <snover> i caught this today
+[18:23:16] <DaveMethvin> ja!
+[18:23:20] <DaveMethvin> nein!
+[18:23:26] <snover> ibm japan…
+[18:25:08] <snover> pull-request-only commits from them soon
+[18:25:15] <snover> and everyone else hopefully
+[18:28:42] <snover> one of their developers created some sort of amd loader that only runs on the server and so doesn’t work with plugins
+[18:28:49] <snover> like it preprocesses everything
+[18:29:04] <snover> and then files bugs saying that certain functionality that uses plugins won’t work with it
+[18:29:38] <DaveMethvin> yowsa
+[20:51:44] <snover> DaveMethvin|away: fix in ie9 might be simpler…actually fix in general might be simpler
+[21:56:32] <snover> if only i could write tests that work…

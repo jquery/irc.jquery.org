@@ -1,0 +1,205 @@
+[09:02:54] <scott_gonzalez> DaveMethvin: It's open
+[09:03:02] <DaveMethvin> thanks!
+[09:03:37] <DaveMethvin> orkel gnarf mikesherov rwaldron gibson042 timmywil Meetin time!
+[09:03:44] <gibson042> yup yup
+[09:03:50] <orkel> hi
+[09:04:08] <DaveMethvin> https://docs.google.com/document/d/1MrLFvoxW7GMlH9KK-bwypn77cC98jUnz7sMW1rg_TP4/edit
+[09:04:16] <DaveMethvin> to save you a few clicks
+[09:04:16] <rwaldron> Hi everyone, I have a delivery for moz/b2g, so I need to skip the meeting today
+[09:04:18] <rwaldron> sorry
+[09:04:18] <rwaldron> <3
+[09:04:33] <DaveMethvin> oh good, a scapegoat to drop all the work on!
+[09:04:58] <DaveMethvin> jQuery 3.0 ships in April, rick's gonna finish it up this week
+[09:04:59] <DaveMethvin> :D
+[09:05:35] <timmywil> i am opposed
+[09:05:58] <DaveMethvin> ok we move it to 4.0
+[09:06:05] <timmywil> ok
+[09:06:09] <DaveMethvin> yay!
+[09:06:23] <DaveMethvin> ok so i reallllly want to get the next 2.0 beta out this week
+[09:06:27] <DaveMethvin> before i get swamped again
+[09:06:49] <DaveMethvin> so this ie9 focus thing is causing lots of issues
+[09:07:01] <DaveMethvin> john resig sent me an email from their devs
+[09:07:37] <DaveMethvin> the document.activeElement of death
+[09:07:41] <timmywil> so, focus + iframes?
+[09:07:58] <DaveMethvin> so i'm really hesitant to force-focus the document, that seems like a bad idea
+[09:08:16] <DaveMethvin> it gets rid of the error but seems like it would cause other havoc
+[09:09:06] <DaveMethvin> SOMETHING had focus before we did that, and now it doesn't
+[09:10:19] <timmywil> has anyone tried this suggestion? "use document.documentElement.activeElement instead of document.activeElement"
+[09:10:45] <DaveMethvin> i saw that and meant to check ...
+[09:10:58] <gibson042> I was wondering that too, but haven't checked
+[09:11:12] <DaveMethvin> also there's another solution in the approach in http://bugs.jqueryui.com/ticket/8443 might work
+[09:11:34] <DaveMethvin> but documentElement would be cleaner if it works everywhere
+[09:11:51] <timmywil> the try/catch solution should be our last option
+[09:12:26] <DaveMethvin> agreed
+[09:12:47] <gibson042> try/catch doesn't even work IIRC
+[09:13:16] <DaveMethvin> i thought it was catchable, but we'd like to avoid them anyway
+[09:13:27] <timmywil> what about removing the activeElement check?
+[09:13:44] <DaveMethvin> there are two bugs stemming from it
+[09:13:49] <DaveMethvin> one is the :active selector
+[09:13:55] <DaveMethvin> the other is the .focus() method
+[09:14:04] <timmywil> :active selector was removed
+[09:14:10] <timmywil> but we do have :focus
+[09:14:24] <DaveMethvin> oh :focus
+[09:14:25] <DaveMethvin> yeah
+[09:14:48] <timmywil> gotcha
+[09:14:51] <DaveMethvin> i use activeElement for .focus() to see if we are re-focusing
+[09:15:00] <DaveMethvin> if we are i know it won't actually fire
+[09:15:14] <timmywil> right, but maybe re-focusing is ok
+[09:15:19] <timmywil> ?
+[09:15:21] <timmywil> perhaps?
+[09:15:43] <gibson042> I still like the documentElement fix if it does in fact work
+[09:15:48] <DaveMethvin> it's okay but the native DOM .focus() won't fire the handlers then
+[09:15:57] <DaveMethvin> agreed on documentElement
+[09:16:19] <DaveMethvin> dgalvez started on a PR for this but we havent' heard from him in a while
+[09:16:25] <timmywil> agreed, but if that doesn't work, I'm throwing out another option
+[09:17:05] <DaveMethvin> we pretty much have to fire jQuery handlers on .focus() regardless of whether it's curently focused or not
+[09:17:09] <DaveMethvin> that's what makes this hard
+[09:17:20] <DaveMethvin> so we need to know if native focus will do the work for us
+[09:17:25] <DaveMethvin> or if we have to call them ourselves
+[09:17:46] <DaveMethvin> or we have to set up a way to detect if they did fire and call them as a last resort
+[09:17:51] <DaveMethvin> i think gibson042 has a patch for that but it was big
+[09:18:05] <gibson042> to put it lightly
+[09:19:02] <DaveMethvin> so focus is a big ball o mess no matter what, and we tried to make it just a little better in 1.9 and it bit us
+[09:20:14] <DaveMethvin> the documentElement approach seems good if it works everywhere
+[09:20:27] <timmywil> I just checked Sizzle and :focus is ok with docElem
+[09:20:35] <timmywil> but I didn't add a test for IE9 or anything
+[09:21:03] <timmywil> aights, I gotta go to lunch
+[09:21:05] <DaveMethvin> good
+[09:21:10] <DaveMethvin> good on the test
+[09:21:13] <DaveMethvin> and on lunch
+[09:21:17] <timmywil> thanks :)
+[09:21:25] <timmywil> I'll go ahead and add a test for IE9 later
+[09:21:41] <timmywil> and check event.js
+[09:21:58] <DaveMethvin> ok timmywil so you've got this one?
+[09:22:04] <timmywil> yup
+[09:22:07] <DaveMethvin> great!
+[09:22:46] <DaveMethvin> gibson042 that CSP ticket looked like the unit test might not be working?
+[09:23:05] <gibson042> for the record, here's the full fix for leveraging native events while still doing our magic: https://github.com/gibson042/jquery/compare/jquery:1.9-stable...13428
+[09:23:26] <gibson042> yeah DaveMethvin, we were never 100% confident on that test and it does appear to be broken somehow
+[09:24:03] <DaveMethvin> okay ... still seems to me that on that particular bug we can't do much, cloning should not trigger CSP
+[09:24:21] <gibson042> 100% agree
+[09:24:30] <timmywil> 99.9% agree
+[09:24:40] <timmywil> ok, really gotta run. bbl!
+[09:24:43] <DaveMethvin> hey go eat lunch mr 0.1 percent!
+[09:25:18] <gibson042> also note http://bugs.jquery.com/ticket/13507#comment:3
+[09:25:25] <gibson042> are these harmless violations?
+[09:25:30] <jaubourg> oh hi, got lost in time translations
+[09:25:45] <DaveMethvin> that French standard time
+[09:26:00] <jaubourg> yeah, sun saving thingy
+[09:26:21] <DaveMethvin> yeah i dunno what is up with CSP
+[09:26:36] <DaveMethvin> clearly it's not used often enough for people to find these things
+[09:27:06] <DaveMethvin> i guess i'll close this cantfix but not sure how to deal with the unit test
+[09:27:20] <gibson042> looks to me like the only consequence (other than a console warning) is a false negative for support.clearCloneStyle
+[09:28:15] <gibson042> which will just result in an extra background-<prop>: inherit inline style in certain edge cases
+[09:29:18] <gibson042> so maybe all's well
+[09:29:45] <DaveMethvin> so does CSP just block it from happening but not throw an error?
+[09:29:54] <DaveMethvin> if so it would be hard to detect
+[09:30:01] <gibson042> shoot, looking at https://github.com/jquery/jquery/blob/1.9-stable/src/support.js#L142, we won't even have the false negative
+[09:30:13] <gibson042> DaveMethvin right
+[09:30:24] <gibson042> CSP prevents the action, but doesn't abort execution
+[09:30:35] <gibson042> and that test will survive the CSP block
+[09:30:50] <DaveMethvin> haha right!
+[09:30:51] <gibson042> as far as I can tell, the *only* issue here is a console warning of no effect
+[09:31:11] <DaveMethvin> so whatddya know, two rongs make a right!
+[09:31:15] <gibson042> :D
+[09:31:24] <DaveMethvin> two rongs have no effect
+[09:31:38] <DaveMethvin> ok i'll close that
+[09:34:42] <DaveMethvin> ok next
+[09:34:44] <DaveMethvin> Migrate
+[09:35:01] <DaveMethvin> I'll grab this, want to do a 1.2 to come out with the 2.0 beta
+[09:35:19] <DaveMethvin> that will have all the 1.10 changes
+[09:36:49] <DaveMethvin> Are there other 1.x vs 2.x changes we need to document?
+[09:37:09] <DaveMethvin> that would be another thing to mention in the blog post
+[09:37:24] <DaveMethvin> essentially set expectations about the two being compatible
+[09:37:29] <DaveMethvin> yes, they  are API compatible
+[09:37:35] <DaveMethvin> no they are not undocumented-compatible
+[09:37:57] <jaubourg> as far as ajax goes, we're as close as possible... the only difference is that you don't need the isLocal madness to deal with local protocols anymore in the 2.x line
+[09:38:32] <gibson042> given that 2.0 will precede 1.10, we should have a section about *not quite* fulfilling our promise of 1.9/2.0 compatibility, with the list of exceptions and the promise of sweeping them up with 1.10
+[09:38:33] <DaveMethvin> and i think a "better superset" is fine
+[09:39:07] <DaveMethvin> i think we just need to start talking about 1.x vs 2.x
+[09:39:21] <DaveMethvin> but yeah i'll mention those things
+[09:39:31] <gibson042> going forward, I completely agree
+[09:39:32] <jaubourg> are we syncing on 1.10 / 2.0 or do we intend to have a 1.10 / 2.1 offset ?
+[09:39:45] <DaveMethvin> 1.10 and 2.0
+[09:39:47] <jaubourg> the fact we release 2.0 first confuses me ;)
+[09:39:51] <jaubourg> k
+[09:39:58] <DaveMethvin> releasing both at once is just hard
+[09:40:07] <jaubourg> yeah, makes sense
+[09:40:17] <DaveMethvin> and also once 2.0 is real we may need to adjust a few things in 1.10
+[09:40:24] <jaubourg> especially with the flow of bugs we get at each release because we "forgot something" (tm)
+[09:40:29] <DaveMethvin> right
+[09:40:45] <DaveMethvin> or because nobody outside us Tested It
+[09:41:04] <jaubourg> do we test internally now ? ;P
+[09:41:21] <DaveMethvin> the ui and mobile folks test against git
+[09:41:33] <jaubourg> cheaters!
+[09:41:42] <DaveMethvin> but they have the same probs we do that people get creative
+[09:42:05] <jaubourg> you mispelled it... it's actually crazy: C R A Z Y :)
+[09:42:13] <DaveMethvin> ya
+[09:42:43] <DaveMethvin> okay, well i went through the new tix this morning and nothing interesting stuck out
+[09:43:00] <DaveMethvin> there are a bunch of pull requests that can land
+[09:43:18] <DaveMethvin> i can do that tonight
+[09:43:28] <DaveMethvin> any other things that need doing?
+[09:44:09] <gibson042> branch names?
+[09:44:11] <gf3> What about the jsdom thing shanejonas mentioned?
+[09:44:31] <gibson042> I like 1.10-stable
+[09:44:48] <DaveMethvin> gf3 that would be a good rwaldron question, i wanted him to be in that discussion regarding node.js
+[09:44:59] <DaveMethvin> we can do 1.10-stable
+[09:45:01] <gf3> Ahh
+[09:45:06] <DaveMethvin> should we move to 1.x-stable?
+[09:45:13] <jaubourg> 1.10-stable makes sense
+[09:45:20] <gibson042> I think we need both
+[09:45:35] <gibson042> 1.<x>-stable should branch from 1.x
+[09:45:43] <DaveMethvin> that works for me ... i need to delete the 1.8-stable branch to keep things clean
+[09:45:46] <jaubourg> +1
+[09:46:50] <DaveMethvin> trying to envision the tree, would we be committing to 1.x then and cherry-picking to 1.10?
+[09:47:21] <DaveMethvin> seems like we can work in 1.10-stable
+[09:47:25] <gibson042> 1.x would be ongoing development
+[09:47:37] <jaubourg> would be my guess
+[09:47:39] <gibson042> if we have that, we don't even need 1.10 until there's something releaseable
+[09:48:02] <jaubourg> what gibson says
+[09:48:04] <gibson042> 1.x would be the oldIE-supporting analog of master
+[09:48:18] <DaveMethvin> but once we do get 1.10.0 then we'll be working in 1.x-stable and picking to 1.10-stable
+[09:48:33] <gibson042> yes
+[09:48:44] <gibson042> 1.x is by definition *not* stable
+[09:49:04] <DaveMethvin> but in some cases also working in master and picking to 2.0-stable
+[09:49:26] <jaubourg> remember when everything was simple? :P
+[09:49:46] <gibson042> the common cherry picks would be between 1.x and master
+[09:49:57] <DaveMethvin> we basically just have two active branches, master and 1.x
+[09:49:59] <gibson042> only those bound for patch releases would go to versioned branches
+[09:50:02] <gibson042> yes
+[09:50:58] <DaveMethvin> i'm just not sure that the extra branch for 1.x vs 1.10-stable buys us enough to justify more cherry picking
+[09:51:19] <DaveMethvin> we aren't going to be working at all on 1.9-stable or 1.11-stable during that time
+[09:51:23] <gibson042> we could always start with one or the other and find out
+[09:51:29] <DaveMethvin> so 1.x could essentially be 1.10-stable
+[09:51:57] <DaveMethvin> i still manage to forget landing in one or the other on a few pull requests
+[09:52:27] <DaveMethvin> okay, well there's a week or two more before we get to that point afaict anyway
+[09:52:28] <jaubourg> well, I like the idea of it being names 1.x... I'd expect tags to be enough for an equivalent of 1.10-stable or do we expect to cherry-pick before release? Like we changed something but don't release it?
+[09:53:05] <DaveMethvin> something has to represent jquery-git.js
+[09:53:06] <gibson042> good point jaubourg, tags on a "1.x" branch will almost certainly cover the way we work
+[09:53:11] <DaveMethvin> right now that's the tip of 1.9-stable
+[09:53:26] <gibson042> jquery-git should come from 1.x
+[09:53:33] <DaveMethvin> i think tags can do the rest
+[09:53:38] <gibson042> +1
+[09:53:44] <jaubourg> ok, I'm not that mad after all
+[09:53:50] <jaubourg> +1
+[09:53:56] <DaveMethvin> not so fast jaubourg ... :D
+[09:54:02] <jaubourg> ouch
+[09:54:06] <DaveMethvin> we'll be the judge of that
+[09:54:25] <DaveMethvin> alright, either of you need some fun things to do?
+[09:55:00] <gibson042> I've still got open tickets for the next release
+[09:55:04] <gibson042> that's probably fun enough for now
+[09:55:06] <jaubourg> I have a million things to do at Creative-Area so it would have to be very very fun ;P
+[09:55:21] <jaubourg> but I'm still watching the ajax bugs
+[09:55:39] <jaubourg> desperate that so few of them get enough actionable test cases though
+[09:55:41] <DaveMethvin> ok, i'll keep plugging away as well, let's aim for a 2.0 beta on thursday
+[09:55:50] <DaveMethvin> agreed jaubourg they did need some tests
+[09:55:57] <DaveMethvin> ok see you guys later!
+[09:56:08] <jaubourg> later Dave :)
+[09:56:26] <gibson042> bye
+[11:08:43] <jzaefferer> DaveMethvin: here you go
+[11:08:58] <jzaefferer> least I can do ;)
+[11:09:20] <DaveMethvin> thanks jzaefferer
+[11:09:37] <jzaefferer> also ChanServ is your friend
+[11:09:56] <jzaefferer> once you registered: /msg ChanServ OP #jquery-meeting
+[11:09:58] <jzaefferer> I think
+[11:55:19] <scott_gonzalez> I just use `/cs op #jquery-meeting`

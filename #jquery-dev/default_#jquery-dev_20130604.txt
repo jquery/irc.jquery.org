@@ -1,0 +1,174 @@
+[03:54:39] <jzaefferer> JamesMGreene: good question. Do you have any suggestions?
+[04:09:51] <JamesMGreene> jzaefferer: Not particularly  :-\
+[04:10:36] <JamesMGreene> Probably don't want to encroach on the Infrastructure team by calling it Testing Infrastructure
+[04:11:40] <JamesMGreene> Calling it the QUnit team would definitely achieve more understanding but it also hides the other projects like TestSwarm
+[04:31:04] <jzaefferer> JamesMGreene: Calling it QUnit team was my idea, too. Since TestSwarm isn't featured as an official project, and might not be anytime soon, that's not really a bad thing.
+[04:31:31] <JamesMGreene> jzaefferer: True, good point
+[04:32:33] <jzaefferer> I wonder what Krinkle|detached will have to say about that
+[04:32:44] <JamesMGreene> I mean, as far as the "coding" teams go, all of the other ones are identified by their primary project: jquery (core), UI, Mobile, Sizzle (core?)
+[04:38:17] <JamesMGreene> jzaefferer: BTW, I tried changing the CommonJS export to `QUnit` before I posted that comment (seemed like the obvious thing to do) but it also didn't seem to work, oddly enough
+[04:40:15] <JamesMGreene> jzaefferer: e.g. the `QUnit` object strangely enough does not have the lifecycle logging hook functions...?
+[04:52:24] <jzaefferer> that's weird
+[04:52:38] <jzaefferer> I'm sure you can figure it out though :-)
+[06:05:59] <JamesMGreene> jzaefferer: Yeah, I figured it out
+[06:06:46] <JamesMGreene> It's because our `extend` won't go into prototype properties and those are defined on `QUnit.constructor.prototype`
+[06:07:27] <JamesMGreene> Easy fix for Node is just using `module.exports = QUnit` instead of extending `exports` but I'm not so sure that other CommonJS environments support `module.exports` like Node does
+[06:10:31] <JamesMGreene> Oh, good news, looks like they should have both:  http://wiki.commonjs.org/wiki/Modules/1.1#Module_Context
+[06:10:47] <jzaefferer> JamesMGreene: afaik they don't, that's how I ended up with that pattern in the first place. With some log searching you might find the original ticket and discussion. A good reference is here: https://github.com/jdalton/qunit-clib/
+[06:11:26] <jzaefferer> since its currently completely b0rked, I'd rather start with actively supporting node, then going from there, if anyone cares
+[06:11:57] <JamesMGreene> k
+[06:12:19] <JamesMGreene> I mean I don't think it would be that big of a deal
+[06:12:40] <JamesMGreene> We just need to extend `exports` with both `QUnit` and `QUnit.constructor.prototype`
+[06:12:42] <JamesMGreene> (I think)
+[06:14:20] <JamesMGreene> blargh, that also carries forward the `assert` methods at the top-level... can we kill those yet?  Looks like you guys deprecated them 4 minor versions ago now
+[06:14:33] <JamesMGreene> I guess that wouldn't be very semver of us
+[06:14:52] <JamesMGreene> (unless we rev to 2.0)
+[06:15:01] <JamesMGreene> (or don't care about semver)
+[06:17:35] <jzaefferer> JamesMGreeneAway: there wasn't any actual deprecation, e.g. docs say nothing about that
+[06:17:57] <jzaefferer> JamesMGreeneAway: could you take a look at this update? https://github.com/jquery/qunit/pull/433#issuecomment-18399936
+[06:54:14] <jzaefferer> JamesMGreeneAway: nevermind my last question, I'm working on that now
+[06:55:44] <jqcommit> 01[13qunit01] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/v2ue0A
+[06:55:44] <jqcommit> 13qunit/06master 144e62b4a 15David Vollbracht: Use a local setTimeout reference, add separate unit test suite for that. Fixes #432 - Using a setTimeout stub can stop test suite from continuing. Closes gh-433
+[06:57:17] <jzaefferer> Krinkle: I just landed that setTimeout fix, added to testswarm myself. Doesn't look too good though: http://swarm.jquery.org/job/583
+[06:57:38] <Krinkle> Not in any browser
+[06:57:41] <Krinkle> Did you test this locally?
+[06:58:06] <Krinkle> jzaefferer: swarminject
+[06:58:10] <Krinkle> view-source:http://builds.jenkins.jquery.com/qunit/4e62b4adb798aff082d864a4aa409d7746e255e1/test/async.html
+[06:58:13] <Krinkle> view-source:http://builds.jenkins.jquery.com/qunit/4e62b4adb798aff082d864a4aa409d7746e255e1/test/setTimeout.html
+[06:58:16] <Krinkle> See the difference
+[07:02:52] <jzaefferer> Krinkle: no, no local test obviously
+[07:03:03] <jzaefferer> that was silly :/
+[07:03:40] <Krinkle> I usually don't testswarm locally, but since I reverted this one because it failed on testswarm but passed outside testswarm ;-). Anyhow, easy to fix :)
+[07:04:04] <jqcommit> 01[13qunit01] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/K2a29Q
+[07:04:04] <jqcommit> 13qunit/06master 1465d27d2 15Jörn Zaefferer: setTiemout testsuite: Add missing swarminject
+[07:06:52] <doesallmagic2> Project QUnit build #312: FAILURE in 11 min: http://jenkins.jquery.com/job/QUnit/312/
+[07:06:53] <doesallmagic2> joern.zaefferer: Use a local setTimeout reference, add separate unit test suite for that. Fixes #432 - Using a setTimeout stub can stop test suite from continuing. Closes gh-433
+[07:08:13] <doesallmagic2> Yippie, build fixed!
+[07:08:14] <doesallmagic2> Project QUnit build #313: FIXED in 1 min 19 sec: http://jenkins.jquery.com/job/QUnit/313/
+[07:08:14] <doesallmagic2> joern.zaefferer: setTiemout testsuite: Add missing swarminject
+[07:08:33] <Krinkle> brb later
+[08:38:44] <doesallmagic2> Project jQuery Migrate Core 1.x build #71: STILL FAILING in 5.9 sec: http://jenkins.jquery.com/job/jQuery%20Migrate%20Core%201.x/71/
+[08:39:39] <JamesMGreene> jzaefferer: Maybe not in the docs, no, but in the code for sure:
+[08:39:41] <JamesMGreene>  * @deprecated since 1.8.0
+[08:39:41] <JamesMGreene>  * Kept assertion helpers in root for backwards compatibility.
+[08:39:41] <JamesMGreene>  */
+[08:39:41] <JamesMGreene> extend( QUnit, assert );
+[08:39:46] <doesallmagic2> Project jQuery Migrate Core 1.x build #72: STILL FAILING in 3.7 sec: http://jenkins.jquery.com/job/jQuery%20Migrate%20Core%201.x/72/
+[08:41:22] <jzaefferer> DaveMethvin: I'm updating the jQuery Migrate Core 1.x job on the new Jenkins. I need to update to latest node-testswarm as well. 
+[08:52:17] <doesallmagic> Project jQuery Migrate Core 1.x build #72: STILL FAILING in 7.6 sec: http://swarm.jquery.org:8080/job/jQuery%20Migrate%20Core%201.x/72/
+[08:52:18] <doesallmagic> joern.zaefferer: Migrate to node-testswarm 1.x, necessary for current TestSwarm
+[08:52:22] <jqcommit> 01[13jquery-migrate01] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/TzOZDA
+[08:52:22] <jqcommit> 13jquery-migrate/06master 14ca38a94 15Jörn Zaefferer: Migrate to node-testswarm 1.x, necessary for current TestSwarm
+[08:52:40] <doesallmagic2> Project jQuery Migrate Core 1.x build #73: STILL FAILING in 3.9 sec: http://jenkins.jquery.com/job/jQuery%20Migrate%20Core%201.x/73/
+[08:52:40] <doesallmagic2> joern.zaefferer: Migrate to node-testswarm 1.x, necessary for current TestSwarm
+[08:55:15] <jqcommit> 01[13jquery-migrate01] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/IpxAeg
+[08:55:15] <jqcommit> 13jquery-migrate/06master 14d61e382 15Jörn Zaefferer: Grunt: Fix lint errors
+[09:00:19] <Krinkle> DaveMethvin: Looks like "button.attr('value') returns empty string." is still failing in all browsers in jquerymigrate
+[09:00:43] <Krinkle> (in -git that is)
+[09:00:55] <Krinkle> Also a few new (not before seen) errors in -git2
+[09:00:56] <Krinkle> http://swarm.jquery.org/job/587
+[09:01:08] <doesallmagic2> Project jQuery Migrate Core 1.x build #74: STILL FAILING in 6 min 8 sec: http://jenkins.jquery.com/job/jQuery%20Migrate%20Core%201.x/74/
+[09:01:08] <doesallmagic2> joern.zaefferer: Grunt: Fix lint errors
+[09:01:20] <jzaefferer> that also fails within phantomjs. I wonder why the QUnit task is skipped?
+[09:01:44] <jzaefferer> DaveMethvin: but hey, the job and TestSwarm stuff is running again
+[09:02:07] <DaveMethvin> Krinkle jzaefferer thanks, it's been broken for about a month and I have been waiting for testswarm/jenkins to settle before trying to tackle it
+[09:02:10] <JamesMGreene> jzaefferer Krinkle: Do we want to update http://qunitjs.com/ and http://api.qunitjs.com/ to always show the `assert.deepEqual` style usage (where `assert` is the test function's callback arg)
+[09:02:24] <Krinkle> yes, eventually.
+[09:02:34] <JamesMGreene> Why only eventually?
+[09:02:39] <Krinkle> However it appears jzaefferer prefers holding off until the new QUnit.Assertion is done, though I'm not sure why
+[09:02:54] <JamesMGreene> There is a QUnit.Assertion in the works?
+[09:03:04] <Krinkle> As far as I'm concerned we can start using that pattern now, it will silently use the new class underneath once that lands
+[09:03:11] <Krinkle> yes, I'm workign on that, see issue tracker.
+[09:04:13] <JamesMGreene> https://github.com/jquery/qunit/issues/374
+[09:04:55] <Krinkle> Indeed
+[09:05:17] <Krinkle> Right now the 'assert' argument is just a reference to the global/static assert object
+[09:05:21] <jzaefferer> JamesMGreene: I'm okay with updating the documentation
+[09:05:33] <Krinkle> it doesn't really have context (if you call it out context it will just push into whatever test is currently running)
+[09:05:43] <Krinkle> But it will once #374 is fixed 
+[09:06:09] <JamesMGreene> ah, gotcha
+[09:06:16] <JamesMGreene> right, so that each test gets its own instance
+[09:06:24] <Krinkle> yep
+[09:06:26] <JamesMGreene> makes sense
+[09:06:39] <Krinkle> that'll also allow parallel execution
+[09:06:49] <Krinkle> And nicer async tests in general
+[09:06:52] <JamesMGreene> yeah
+[09:07:36] <JamesMGreene> The issue makes it look like a combo of nodeunit and grunt :)
+[09:09:06] <JamesMGreene> With regard to `.not`, would the usage be like:  `assert.not.deepEqual(...)` === `assert.notDeepEqual(...)`?
+[09:09:21] <Krinkle> jzaefferer: The fix for jquery migrate, was that server move related or in general? If general, be sure to update the old jenkins as well, right? Since that's the one github is pushing to afaik.
+[09:09:23] <JamesMGreene> That would be pretty slick
+[09:09:48] <Krinkle> JamesMGreene: That's the idea, yes. Whether we will have a .not I'm not sure yet, but it will be possible to do very easily.
+[09:10:13] <jzaefferer> Krinkle: renaming authUsername to authID caused some trouble. Otherwise the old node-testswarm version would've continued to work just fine
+[09:10:27] <Krinkle> I know
+[09:10:30] <jzaefferer> Krinkle: I'm already updating GitHub hooks, so this is only pushed to the new server
+[09:10:37] <JamesMGreene> IMO, that's way nicer than having separate public functions, e.g. `deepEqual` and `notDeepEqual`
+[09:11:37] <Krinkle> indeed
+[09:11:48] <Krinkle> JamesMGreene: How is .not related to grunt?
+[09:12:08] <Krinkle> you mean with grunt.verbose.ok ?
+[09:12:12] <JamesMGreene> Not `.not`, just the `.async()` made me think of grunt
+[09:12:18] <Krinkle> ah, ok
+[09:12:40] <Krinkle> grunt.log.ok, grunt.verbose.ok (calls log.ok if verbose is enabed, a similar wrapper, though they use a different implementation afaik)
+[09:12:58] <Krinkle> Yeah, it's nice when those patterns come together.
+[09:14:00] <Krinkle> The idea is to ensure .not will not be a copy though, but a dynamic reference to a true instance still. that way adding things to Assertion.prototype will propagate as it should. instances of Assertion (including .not) should be inheriting the prototype
+[09:34:07] <scott_gonzalez> DaveMethvin: I know you always say jQuery never supported quirks mode.
+[09:34:15] <scott_gonzalez> But I'm pretty sure that's not true.
+[09:34:29] <scott_gonzalez> We used to fix bugs specific to quirks mode all the time.
+[09:34:40] <DaveMethvin> i checked with john years ago and he said we didn't
+[09:34:50] <DaveMethvin> we tried to fix an occasional thing
+[09:34:55] <DaveMethvin> but we don't even test in quirks
+[09:35:27] <scott_gonzalez> We might've tested the dimension code in quirks at some point.
+[09:35:34] <DaveMethvin> yep
+[09:35:39] <DaveMethvin> the dimensions plugin worked in it
+[09:35:56] <DaveMethvin> not sure we continued that support once it was integrated into core
+[09:36:03] <scott_gonzalez> Pretty sure we did.
+[09:36:24] <scott_gonzalez> I'm glad we don't support it now.
+[09:36:48] <scott_gonzalez> But we didn't start closing tickets because of quirks mode in the beginning.
+[09:37:20] <DaveMethvin> that's how we ended up with 1400 open tickets :)
+[09:38:22] <scott_gonzalez> Hah, check out the oldest ticket that mentions quirks mode: http://bugs.jquery.com/ticket/27
+[09:38:59] <DaveMethvin> that idiot!
+[10:09:19] <m_gol> DaveMethvin: good news, Chrome implemented //# pragma for source maps :)
+[10:09:19] <m_gol> https://code.google.com/p/chromium/issues/detail?id=239660
+[10:09:32] <m_gol> should be in tomorrow's Canary
+[10:23:13] <m_gol> what's with these people...
+[10:23:14] <m_gol> ?13743
+[10:23:16] <bot-t> [#13743] Remove jQuery.support.boxModel (closed feature: fixed in v1.10/2.0) - http://jqbug.com/13743
+[10:23:40] <m_gol> cut out one line of code and they panic, because it's so hard to copy-paste if you need it
+[10:52:15] <DaveMethvin> m_gol that guy is definitely in the minority ... if it takes several months before we get one complaint about something, it isn't that common
+[10:52:57] <DaveMethvin> i would definitely like to make it clearer in the docs that jQuery.support isn't fit for external consumption
+[10:53:13] <DaveMethvin> especially if we refactor it to do a lot of that lazily so it doesn't need to run at document ready
+[10:53:26] <DaveMethvin> we are causing several reflows before giving control to the page
+[10:53:58] <m_gol> I agree
+[10:54:27] <m_gol> these aren't utility methods
+[10:54:45] <m_gol> DaveMethvin: is there a reason to expose them publicly at all?
+[10:55:09] <DaveMethvin> originally i think it was like, "we're doing these so we might as well let others use them"
+[10:55:23] <DaveMethvin> but then, if someone does use them we become obligated to provide them
+[10:55:35] <DaveMethvin> and we were guaranteeing them to be present at doc ready
+[10:55:43] <DaveMethvin> which meant we have to compute them immediately
+[10:55:48] <DaveMethvin> before any other page code runs
+[10:58:22] <m_gol> yeah, seems like there are more drawbacks than gains from that...
+[10:59:37] <m_gol> DaveMethvin: anyway, it might be a good idea to add it to the Migrate plugin
+[10:59:49] <DaveMethvin> yeah it's certainly easy enough
+[10:59:51] <m_gol> I hope people pay attention to those warnings ;)
+[11:00:45] <m_gol> DaveMethvin: I forgot to ask at the meeting... https://github.com/jquery/jquery/pull/1241 do you think we can merge it?
+[11:00:59] <m_gol> +35 gzipped minimum but it does workaround WebKit issues
+[11:01:12] <DaveMethvin> does it seem safe enough for a patch release?
+[11:01:19] <DaveMethvin> changes like that make me nervous
+[11:01:25] <m_gol> I'm asking because I want to wait until it lands before I tackle ?13956
+[11:01:37] <m_gol> right, maybe not for a patch release
+[11:01:55] <m_gol> ?13956
+[11:01:56] <bot-t> [#13956] .css('right') returns percentage value in Chrome (assigned bug) - http://jqbug.com/13956
+[11:02:05] <m_gol> I'll change the milestone of that to 2.1/1.11, too
+[11:02:39] <DaveMethvin> yeah i'd really like to get a solid stable release out, seems we've broken a little thing for every little thing we've fixed lately
+[11:02:41] <DaveMethvin> which is easy to do
+[11:02:43] <m_gol> when to we plan to branch out 2.0-stable & 1.10-stable?
+[11:03:08] <DaveMethvin> i dunno, as little and as late as possible
+[11:03:15] <DaveMethvin> just more cherry picking to do :D
+[11:03:44] <DaveMethvin> i guess we can talk about some of that in portland
+[11:04:04] <m_gol> ok, patches won't break too much anyway, we can wait with them
+[11:04:40] <m_gol> I thought I've read somewhere some time ago that starting with 2.0 jQuery plans to have 1 release a year or even more rarely, did anything change?
+[11:04:43] <m_gol> ;)
+[11:04:57] <DaveMethvin> yeah, too many things to pack in there!
+[11:05:06] <DaveMethvin> but really, i would like to slow down the non-patch releases
+[11:05:15] <DaveMethvin> we can only break things so quickly
+[11:05:21] <m_gol> 1.9-1.10 was a little too quick
+[11:05:32] <DaveMethvin> yeah, it was mainly to get the numbers lined up
+[11:07:11] <m_gol> but that was a necessity because of too long break between 1.9 & 2.0

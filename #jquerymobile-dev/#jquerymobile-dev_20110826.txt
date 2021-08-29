@@ -1,0 +1,330 @@
+[08:26:35] <scottjehl> morning
+[08:28:07] <mrevd1> is there a way to fire two changePage calls sequentially?
+[08:31:59] <scottjehl> like... change to first, then change again after it loads?
+[08:32:09] <mrevd1> exactlly
+[08:32:20] <scottjehl> guess you could... hmm
+[08:33:18] <scottjehl> $.mobile.changePage( url ); $("#idOfIncomingPage").live("pagecreate", callsecondchangepage);
+[08:35:07] <mrevd1> it doesn't always happen though
+[08:35:41] <mrevd1> lets say i have 3 pages left to right. i have a nav item that allow page 1 to get to page 3, but i want to first switch to page 2 then 3.
+[08:36:00] <mrevd1> and still allow for 1 to get to 2 normally
+[08:36:40] <kinblas> mrevd1: are you trying to simulate the page flipping you see in iPod/iPad photo albums?
+[08:36:51] * kinblas notes scottjehl has a spiffy new plugin for that
+[08:37:49] <mrevd1> i guess, not necessarily flipping, really just two page transitions
+[08:37:55] <kinblas> mrefvd1: if that's not your intention, you will have to use an event handler as scottjehl mentioned above, but the event you want to listen for is "changepage"
+[08:38:58] <scottjehl> sounds like a specific situation you could probably handle with page events, like above. With changepage instead like kinblas said. This could end up as a sortof not-great user experience, though... anyway, sounds doable
+[08:38:59] <kinblas> changepage is the final event that is fired after a page has been transitioned into the current active page
+[08:39:53] <mrevd1> what do i bind it to?
+[08:40:46] <scottjehl> document would work
+[08:41:01] <scottjehl> or delegate/live to the page selector you're expecting
+[08:41:23] <mrevd1> like this?   $(document).live("changepage", function(){alert('test');});
+[08:42:33] <mrevd1> strange, i don't see it in the documentation for events
+[08:42:58] * kinblas hides
+[08:43:12] * kinblas meant checks documentation
+[08:47:45] <kinblas> mrefvd1: I'll add to the docs
+[08:47:52] <kinblas> just so you know the events are:
+[08:48:38] <kinblas> changepage, pagecreate, pageshow, pagehide
+[08:48:52] <kinblas> I believe all of those have before equivalents too
+[08:49:00] <kinblas> beforechangepage, beforepageshow, beforepagehide
+[08:50:06] <kinblas> whoops
+[08:50:08] <kinblas> I think it's
+[08:50:13] <kinblas> pagebeforeshow and pagebeforehide
+[08:55:30] <mrevd1> hmm, i'm can't get changepage to fire
+[08:56:16] <mrevd1> http://pastie.org/2434152
+[09:01:10] <_nickel> toddparker: I'm writting up the docs on the hashchange and I'm debating whether an example is necessary
+[09:01:17] <_nickel> it seems like overkill
+[09:01:36] <_nickel> All I've really added so far is a brief explanation and the config option
+[09:01:38] <kinblas> mrevd1: changepage isn't fired at a page, but the elements above pages
+[09:01:43] <_nickel> to disable it, that is
+[09:01:51] <kinblas> mrevd1 so either listen at the body or document level.
+[09:02:12] <kinblas> it's basically fired on the container that contains pages
+[09:02:20] <kinblas> which in the 1.0 case is the body
+[09:02:22] <scottjehl> kinblas - should we make that more consistent with other page events?
+[09:02:27] <_nickel> $.mobile.pageContainer ?
+[09:02:42] <scottjehl> trigger on one page, provide callback data for the pages invovled
+[09:02:52] <kinblas> scottjehl: what do you fire events on if the changepage fails?
+[09:02:52] <scottjehl> seems like what I'd expect
+[09:03:51] <kinblas> scottjehl: how do you register for catching an event on a page that doesn't exist yet?
+[09:04:08] <scottjehl> well, good point on the first
+[09:04:13] <mrevd1> kinblas: thanks got it to fire… but, if click a button on page 1 to get to page 3, how can i use this to make two page transitions?
+[09:04:15] <scottjehl> for the second, I'd delegate
+[09:04:32] <scottjehl> like we do for handling a pagecreate event for something that's being fetched
+[09:04:52] <scottjehl> $( "#myPageThatHasNotLoadedYet" ).live( "pagecreate",
+[09:05:45] <kinblas> personally I think the *ALL* events should all be fired on the container, which always exists ... and the page in question is the target/data of the event
+[09:06:45] <kinblas> live is evil :-)
+[09:06:48] <kinblas> .. but convenient
+[09:07:16] <kinblas> the danger with live is folks always set it and forget it
+[09:07:36] <kinblas> so if they are continually loading/looking for pages
+[09:07:43] <kinblas> those things will build up and bog the system down
+[09:08:44] <kinblas> it bogs the system down because the live handlers *ALWAYS* fire for that event ... because they need to wake up and apply the selector  to figure out if it should fire the user's callback
+[09:09:09] <kinblas> the selector application is what kill performance
+[09:09:24] <scottjehl> I used live here because delegate is more obtuse
+[09:10:36] <scottjehl> anyway, yeah really I'm asking for consistency. Container would be fine too I think
+[09:11:53] <kinblas> scottjehl: so something else I wanted to bounce off you
+[09:12:09] <scottjehl> ya
+[09:12:16] <scottjehl> btw I'm looking at lastscroll right now
+[09:12:20] <kinblas> scottjehl: in trying to figure out why certain Android platforms blink so damn much after transitions
+[09:12:29] <scottjehl> k
+[09:12:53] <kinblas> I figured out that if you change the visibility or the display of a page while it is underneath the active one, it causes a blink
+[09:13:40] <kinblas> how do you guys feel about resizing non-active pages to 0x0 and sticking them to the left of the viewport as opposed to display:none?
+[09:14:05] <mrevd1> thanks giuys… have a good one
+[09:21:15] <scottjehl> mrevd1 sure thing!
+[09:21:29] <scottjehl> kinblas hmm. I'm not against this idea
+[09:22:07] <scottjehl> maybe left: -100% would be safer though
+[09:22:13] <scottjehl> in case crop/overflow fails
+[09:22:32] <kinblas> yeah that's what I meant by to the left of the viewport
+[09:22:34] <scottjehl> although, display gets us really nice a11y
+[09:22:37] <kinblas> "out of sight"
+[09:22:54] <kinblas> scottjehl: what do you mean about a11y
+[09:23:07] <scottjehl> display lets us isolate the visible and audible experience to the active page
+[09:23:08] <kinblas> the reader skips all display none?
+[09:23:13] <scottjehl> yep
+[09:23:30] <scottjehl> what if you placed the page offscreen for the display none/block toggle?
+[09:23:36] <scottjehl> rather than underneat
+[09:23:37] <scottjehl> h
+[09:24:45] <kinblas> I think I tried that and it still blinked
+[09:25:23] * kinblas tries again but this time with a minimal example outside jqm
+[09:26:17] <_nickel> toddparker: scottjehl http://jquerymobile.com/test/docs/pages/page-navmodel.html
+[09:26:24] <_nickel> added the replaceState bit
+[09:26:36] <_nickel> wondering if it needs more detail about the url lifecycle or anything
+[09:26:39] <_nickel> example maybe?
+[09:26:55] <_nickel> I feel like I had more to cover yesterday but I didn't write it down :(
+[09:31:18] <scottjehl> looking good
+[09:31:20] <scottjehl> nice work
+[09:31:37] <scottjehl> we should opt this out of ajax: a[download]
+[09:31:50] <scottjehl> feature request :)
+[09:33:20] <toddparker> thanks for writing that stuff up _nickel
+[09:33:44] <toddparker> how deep you got with examples if sort fo up to you
+[09:34:01] <toddparker> i've found that you can't be too explicit in the docs
+[09:35:20] <_nickel> toddparker: docs are like comments though, if you don't keep them up to date with the code they can do more harm than good. The more docs you have the harder it will be to keep up
+[09:35:51] <_nickel> toddparker: also the chrome bug fix (if I get it working) will change a little bit of the behavior
+[09:38:41] <_nickel> so I figured I would avoid to much detail until the bahavior is solid
+[10:32:18] <toddparker> that's fine with me
+[10:32:40] <toddparker> i gotta get a blog post out today since i missed last week
+[10:33:31] <_nickel> toddparker: blogging is hard
+[10:33:33] <_nickel> I know from experience
+[10:33:35] <_nickel> :(
+[10:34:09] <toddparker> it is
+[10:34:15] <toddparker> almost done
+[10:34:19] <toddparker> got all your changes in
+[10:34:24] <toddparker> added a pushstate blurb
+[10:34:30] <toddparker> and scott's pagination plugin
+[10:34:40] <toddparker> anything else worth mentioning this week?
+[11:45:54] * kinblas grumbles at the fact he can crash the Xoom browser by just toggling an element's display:none
+[11:46:06] <kinblas> kinda makes testing hard.
+[11:46:16] <scottjehl> ugh
+[12:04:50] <_nickel> toddparker: not that I can think of
+[12:07:17] <kinblas> Leaving for home, I should be back online in about 30 minutes or so.
+[12:11:54] <_nickel> currently working on that build failure
+[12:12:11] <_nickel> the version on the ci server is 3.2.16 so I have to find that and build it
+[12:26:45] <scottjehl> hmmm
+[12:27:01] <scottjehl> _nickel did you test android 2.2 with replaceState
+[12:27:18] <_nickel> scottjehl: I don't have a 2.2 device :(
+[12:27:36] <scottjehl> I'm seeing a good result when browsing forward, but going backwards, it just keeps the same url as a hash
+[12:27:45] <_nickel> of course it does
+[12:27:51] <_nickel> :(
+[12:29:13] <_nickel> scottjehl: if you have a 2.2 device in hand do you want to take a look at it? Otherwise I can go fetch the emulator.
+[12:30:01] <scottjehl> well, I mean it's only urgent that we fix before b3
+[12:30:14] <scottjehl> can't get to it now
+[12:33:08] <_nickel> scottjehl: alright, I'll go grab the emulator and take a look
+[12:33:22] <_nickel> hopefully it behaves the same
+[12:55:47] <_nickel> scottjehl: alright I think I've identified the issue
+[12:55:57] <scottjehl> woah really
+[12:56:05] <kinblas> what issue?
+[12:56:06] <kinblas> :-)
+[12:56:25] <_nickel> the hashchange thats supposed to follow the popped replace state isn't happening "properly"
+[12:56:34] <_nickel> hopefully thats vague enough for you
+[12:57:03] <_nickel> I'll let you know more in a minute
+[12:57:08] <_nickel> I need to deal with my daughter quickly
+[13:01:18] <kinblas> scottjehl: Do we want that slider snap animation to work on other browsers besides webkit?
+[13:01:38] <kinblas> I noticed it was using a transition ... but the underlying code was listening for an animation
+[13:02:22] <scottjehl> slider snap
+[13:02:29] <scottjehl> slider widget?
+[13:02:40] <scottjehl> like, form control? Is that what you mean?
+[13:03:08] <kinblas> scottjehl: slider.js
+[13:03:13] <kinblas> and slider.css
+[13:03:21] <scottjehl> ah. ok yeah then
+[13:03:27] <scottjehl> I mean, up to you
+[13:03:31] <kinblas> do you want me to add the other vendor prefixes?
+[13:03:32] <scottjehl> whatever makes sense
+[13:03:52] <kinblas> I guess to be consistent with the transitions
+[13:03:55] <kinblas> we probably should
+[13:03:59] <kinblas> the code gets executed anyways
+[13:05:01] <kinblas> scottjehl: do we have an example of this snapping behavior?
+[13:05:24] <scottjehl> k I'm confused
+[13:05:25] <scottjehl> heh
+[13:05:45] <kinblas> in the slider.css there is this:
+[13:06:08] <kinblas> div.ui-slider-handle-snapping { -webkit-transition: left 100ms linear; }
+[13:06:38] <kinblas> In the slider.js
+[13:06:44] <kinblas> in the mouseup handler
+[13:06:52] <kinblas> we check for a cType === "selet"
+[13:06:54] <kinblas> select
+[13:07:05] <kinblas> if that's true, we add that class
+[13:07:17] <scottjehl> ah ok. that's for the switch
+[13:07:21] <scottjehl> switch control
+[13:07:32] <kinblas> oh
+[13:07:37] <kinblas> ok it's the on/off switch
+[13:07:41] <kinblas> it's a 2 item select
+[13:07:50] <scottjehl> yep
+[13:08:20] <kinblas> scottjehl so just curious
+[13:08:29] <scottjehl> if at any point, one felt those two widgets should be separated into different files, well, I'd be okay with that
+[13:09:17] <kinblas> that point would be after 1.0 if any one felt :-)
+[13:09:25] <scottjehl> yep
+[13:09:58] <scottjehl> I'd also be okay with a stepped slider from a many-item select
+[13:10:27] <scottjehl> really, we'll probably want to merge with jQuery UI's slider post-1.0. It's much better
+[13:10:42] <_nickel> scottjehl: in at least one of my test cases when onHashChange is fired, the has is empty :/
+[13:10:45] <_nickel> *hash
+[13:10:48] <_nickel> kinblas: ^
+[13:10:54] <scottjehl> aside from touch support, and that UI's is called on a div rather than a form element
+[13:12:33] <kinblas> _nickel: the hash was cleared no?
+[13:12:49] <kinblas> scottjehl: so when I look at the flip switch on ipad
+[13:12:52] <kinblas> I see no animation
+[13:13:16] <scottjehl> yeah maybe no worky
+[13:14:40] <kinblas> scottjehl: did it ever work?
+[13:16:32] <scottjehl> I can't confirm
+[13:16:46] <scottjehl> pretty sure
+[13:16:46] <kinblas> scottjehl: thank you senator
+[13:17:06] <kinblas> ok hmmm, then I'll have to look into why. I'm not seeing any animation on /test/
+[13:17:07] <_nickel> kinblas: in this case its no cleared
+[13:17:22] <_nickel> on popstate we restore the hash to let our hash handling bring up the right page
+[13:17:32] <_nickel> and the squash it again
+[13:17:52] <_nickel> *then squash it again
+[13:18:12] <kinblas> I guess now would be a good time to tell _nickel what he's observed in the past
+[13:18:42] <_nickel> this changes in my chrome fix
+[13:18:45] <kinblas> hmmm nevermind you're not using push state
+[13:22:30] <kinblas> _nickel: are your changes checked in so I can see the flow?
+[13:23:45] <_nickel> kinblas: for thw chrome fix?
+[13:23:49] <_nickel> *the
+[13:24:13] <kinblas> yeah, whatever you're wrestling with
+[13:25:05] <_nickel> kinblas: I'm working on an android issue with the new replace state
+[13:25:33] <kinblas> oh heh
+[13:34:40] <toddparker> http://jquerymobile.com/blog/2011/08/26/team-update-week-of-august-22nd/
+[13:44:30] <scottjehl> bug in pushstate - it doesn't look like we're adding the hash before dialog urls anymore
+[13:44:39] <scottjehl> not sure how that crept in
+[13:45:15] <scottjehl> go here http://jquerymobile.com/test/docs/pages/page-dialogs.html
+[13:45:36] <scottjehl> open dialog, close dialog, open, close. it'll just add &ui-dialog to the url without a hash
+[13:45:43] <scottjehl> refresh will result in 404
+[13:48:38] <_nickel> scottjehl: what browser?
+[13:48:41] <_nickel> works fine here
+[13:48:47] <scottjehl> I'm in chrome
+[13:48:55] <_nickel> scottjehl: ah I see the hash is gone
+[13:48:59] <scottjehl> yeah
+[13:49:06] <scottjehl> tricky beast
+[13:52:51] <_nickel> scottjehl: I think it probably crept in because the tests check content for dialogs and the dialog does in fact come up :/
+[13:58:47] <_nickel> scottjehl: I don't think this has anything to do with replaceState
+[13:59:27] <scottjehl> but the plugin could not be setting anything but the hash, right?
+[13:59:31] <scottjehl> originally
+[14:00:05] <_nickel> scottjehl: true
+[14:00:08] <_nickel> thus
+[14:00:12] <_nickel> I am wrong
+[14:00:19] * _nickel goes back to work
+[14:09:33] <toddparker> hey kinblas
+[14:09:39] <toddparker> busy day
+[14:09:48] <kinblas> toddparker: yo
+[14:18:21] <toddparker> yo yo
+[14:18:27] <toddparker> sorry i didn't get to test earlier
+[14:18:42] <toddparker> so i should look at the transitions branch now?
+[14:28:45] <toddparker> just looking at the 2.3 android and the slide transition doesn't animate at all
+[14:29:25] <_nickel> scottjehl: same problem with nested lists :(
+[14:29:40] <scottjehl> _nickel. hmm
+[14:30:20] <_nickel> scottjehl: I think in the pushstate we need to replace those two keys with the hashstate equivelant
+[14:30:31] <_nickel> err hash equivelant
+[14:30:47] <scottjehl> I don't think that was always the case in that branch. I could be wrong though. Just wondering if one of our recent tweaks broke this part
+[14:30:50] <scottjehl> yeah maybe
+[14:30:59] <_nickel> scottjehl: well its a pretty simple failure
+[14:31:14] <_nickel> example.com/#/foo/bar&ui-dialog
+[14:31:15] <scottjehl> yep
+[14:31:19] <_nickel> moved to
+[14:31:28] <_nickel> example.com/foo/bar&ui-dialog
+[14:31:41] <_nickel> there was never any logic to sort that out as I recall
+[14:32:54] <scottjehl> I thought it broke the hash at &ui-dialog and kept that part for resetting it as a new hash?
+[14:33:10] <_nickel> scottjehl: maybe I removed it by accident
+[14:33:14] <_nickel> let me look
+[14:34:29] <_nickel> scottjehl: ah! you are correct
+[14:34:42] <_nickel> scottjehl: I naively assumed that absolute url handling would take care of that
+[14:34:53] <_nickel> which was admitedly stupid
+[14:34:58] <scottjehl> https://github.com/jquery/jquery-mobile/blob/0512916e7260d597212fde5b29b10bd93c9097d5/js/jquery.mobile.navigation.pushstate.js#L44
+[14:35:04] <scottjehl> this stuff I think
+[14:36:25] <kinblas> scottjehl: found when the switch animation broke
+[14:36:30] <kinblas> it was due to this checkin:
+[14:36:31] <kinblas> https://github.com/jquery/jquery-mobile/commit/2dea6cd721d1ca85d3f3e6d6e7b931434004b35a#js/jquery.mobile.forms.slider.js
+[14:36:32] <socialhapy> ★ Commit on jquery-mobile by Yuki KODAMA (9m, 1w ago): implemented 'refresh' method for slider widget
+[14:36:58] <kinblas> basicaly he added a call to flip the value if you just touch the switch
+[14:37:08] <kinblas> that is ... you don't even have to drag it anymore
+[14:41:22] <_nickel> scottjehl: re-adding the logic
+[14:43:06] <scottjehl> rok
+[14:48:03] <_nickel> scottjehl: fix pushed, adding tests
+[14:48:29] <scottjehl> oh nice - worked?
+[14:48:55] <toddparker> kinblas -
+[14:49:08] <toddparker> I did some testing but I'll need mroe time to go thru this in detail
+[14:49:13] <kinblas> toddparker: yo
+[14:49:27] <kinblas> toddparker: this is against jqm3?
+[14:49:29] <toddparker> short answer is that on my galaxy tab running honeycomb, jqm3 isn't better
+[14:49:38] <kinblas> heh
+[14:49:42] <toddparker> it runs faster but it still blinky
+[14:49:47] <toddparker> on complete
+[14:49:51] <kinblas> toddparker: I just found out why
+[14:50:05] <kinblas> it seems that if you toggle any absolute pos display:none
+[14:50:11] <kinblas> it causes all abs items to blink
+[14:50:39] <_nickel> scottjehl: yah I just added your code as a method and pushed
+[14:50:40] <toddparker> jqm2 seems smoother but the animations run super slow. like lots of frames but they take ~2 seconds to finish
+[14:50:45] <_nickel> scottjehl: I plane ol' removed it
+[14:50:49] <toddparker> ah
+[14:50:51] * _nickel is silly
+[14:50:53] <toddparker> so is there hope?
+[14:50:56] <kinblas> jqm2 is my experimental
+[14:51:12] <kinblas> using offscreen hiding versus display none
+[14:51:49] <kinblas> toddparker: Yeah, "I hope" these guys fix their damn bugs
+[14:51:50] <kinblas> :-)
+[14:52:07] <toddparker> android is garbage
+[14:52:33] <kinblas> toddparker: I have a simple test page where just toggling a display:none crashes the Xoom browser
+[14:53:02] <kinblas> it's been quite frustrating to say the least ... I had to take a break and fix the broken headers/footers/switches
+[14:53:08] <kinblas> :-)
+[15:12:55] <scottjehl> hey _nickel
+[15:13:03] <scottjehl> if you go here - http://jquerymobile.com/test/docs/pages/page-transitions.html
+[15:13:09] <scottjehl> click the first link
+[15:14:02] <toddparker> sorry kin, i gotta run
+[15:14:18] <kinblas> toddparker: ok
+[15:14:20] <kinblas> have a good one
+[16:55:13] <scottjehl> _nickel ping
+[16:55:18] <_nickel> scottjehl: I saw your link
+[16:55:20] <scottjehl> hey
+[16:55:50] <_nickel> I'm just about to push the tests for the dialog and subpage key issues
+[16:55:58] <scottjehl> I'm trying to figure out if it's something that happened in Todd's checkin or yours
+[16:56:12] <_nickel> scottjehl: bisect?
+[16:56:30] <_nickel> scottjehl: though I'm guessing its mine
+[16:56:42] <scottjehl> did you see the issue?
+[16:56:55] <scottjehl> pretty bizarre
+[16:57:09] <scottjehl> I wonder if it's todd's "dialog" ID
+[16:57:10] <_nickel> scottjehl: no transition going back the first time
+[16:57:13] <scottjehl> that he's using
+[16:57:19] <scottjehl> no no, much worse than that
+[16:57:23] <_nickel> oh
+[16:57:25] <_nickel> :P
+[16:57:27] <scottjehl> if you go here http://jquerymobile.com/test/docs/pages/page-transitions.html
+[16:57:36] <scottjehl> click one of the buttons in the content
+[16:57:37] <scottjehl> slide
+[16:57:39] <scottjehl> slideup
+[16:57:40] <scottjehl> etc
+[16:58:11] <_nickel> whats the next step?
+[16:58:13] <_nickel> :D
+[16:58:18] * _nickel is waiting in suspense
+[16:58:33] <scottjehl> ohhh I know what this is… he's using a multi-page without data-ajax=false
+[16:58:41] <scottjehl> if you had gotten to that page from home
+[16:58:49] <scottjehl> it would've been via ajax
+[16:58:55] <scottjehl> then all those links are soooo messed up
+[16:58:58] <_nickel> haha
+[16:59:00] <_nickel> it loads home
+[16:59:09] <scottjehl> start at home
+[16:59:11] <_nickel> yah
+[16:59:12] <_nickel> I did
+[16:59:12] <scottjehl> then go to transitions
+[16:59:16] <_nickel> the dialog comes up as the home page lol
+[16:59:18] <scottjehl> then click em
+[16:59:26] <scottjehl> yeah an effed up one too
+[16:59:29] <scottjehl> k I'll fix
+[16:59:34] <_nickel> kk
+[16:59:42] <_nickel> I'm going to get back to working on the chrome fix finally
+[17:00:21] <scottjehl> k awesome thx
+[17:00:24] <scottjehl> whew
+[17:10:07] <scottjehl> k got that one
+[17:21:15] <scottjehl> back to workshop prep. I'll be here if you need anything

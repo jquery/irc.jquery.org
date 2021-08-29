@@ -1,0 +1,93 @@
+[11:02:08] <ariya> good morning everyone!
+[11:02:55] <ariya> mikesherov is out today so I'll be taking notes
+[11:03:49] <ariya> let's get started :-)
+[11:05:36] <ariya> first agenda time: since last time
+[11:05:50] <ariya> I landed a few commits that pertain ES6 identifier grammar support
+[11:05:50] <ariya> since we want to include this as part of 2.5
+[11:06:09] <ariya> the only remaining thing to handle is surrogate pairs
+[11:06:19] <gibson0421> for 2.5, or for identifiers?
+[11:06:24] <ariya> both :-)
+[11:06:31] <gibson0421> :+1:
+[11:06:34] <ariya> I have WIP on that, will create an issue in a day or two
+[11:08:01] <ariya> meanwhile jlast is making progress on the use of karma as the test runner!
+[11:08:09] <ariya> https://github.com/jquery/esprima/pull/1237
+[11:08:19] <jlast> yep
+[11:08:24] <jlast> happy to give an update
+[11:08:28] <ariya> go ahead
+[11:11:26] <jlast> cool
+[11:11:51] <jlast> the karma runner is running w/ 41 unicode related issues
+[11:12:28] <jlast> there are two other concerns: 1) there are 2k script tags, 2) deep diffs w/ errors
+[11:12:54] <jlast> i'm removing the script tags now, with a pre-processor that builds two fixtures files (js, and json)
+[11:13:10] <jlast> and i'm going to try and come up w/ a mocha deep diff viewer after that
+[11:13:23] <jlast> --done--
+[11:13:32] <ariya> is that the diff for browser view?
+[11:13:42] <jlast> it should ideally be both
+[11:13:51] <ariya> OK
+[11:14:00] <ariya> what's your plan on running the tests with Node.js?
+[11:14:04] <jlast> so both console.log w/ format and a dom viewe
+[11:14:28] <jlast> I was thinking PhantomJS could be the CI environment
+[11:14:45] <jlast> I was thinking this morning that w/ the fixture work, node would not be hard
+[11:15:15] <ariya> the very least, you need a different test runner
+[11:15:42] <ariya> we still need to run the tests with Node.js, cause that's the primary use cases of people building tools
+[11:15:58] <jlast> yup - but that's pretty basic. `1. read json, 2. use unit-test to build cases 3. run mocha a couple times`
+[11:16:05] <ariya> also the easiest way to get code coverage
+[11:16:28] <jlast> that actually might be a good short term solution for deep diffs
+[11:16:32] <jlast> as that's easy in node
+[11:16:55] <ariya> also, if your refactor the way you populate cases
+[11:17:00] <ariya> you may not need leche anymore
+[11:17:16] <ariya> withData is just a loop over the cases
+[11:17:23] <jlast> yea, i'm not a big fan of leche.
+[11:17:35] <jlast> withData is really basic, so i might just extract that for this use case
+[11:18:08] <jlast> ariya, how do you think the tests ideally should be organized?
+[11:18:30] <ariya> I have no strong preference
+[11:18:41] <ariya> the fixtures are organized by directory anyway, per feature
+[11:18:46] <jlast> i created separate test files by type (api, failure, etc) but i'm thinking it might be nicer to organize by fixture folder
+[11:18:55] <ariya> that's what matters most, esp when you figure out what tests regress
+[11:19:21] <ariya> any benefit from organizing it per folder?
+[11:19:36] <ariya> from my perspective, if you put it into one file, that still works
+[11:19:58] <ariya> thanks to your refactoring, each describe is short anyway
+[11:20:05] <jlast> i think it would read better if describes followed features
+[11:20:10] <ariya> the file has a longer copyright notice than the code :-)
+[11:20:24] <jlast> haha - that's how i get my line count :P
+[11:20:43] <jlast> what would you think about inlining sources at somepoint
+[11:21:03] <ariya> that one, the benefit is dubious :-)
+[11:21:25] <ariya> just escaping \ and all other fancy characters can lead to spurious errors
+[11:21:46] <jlast> it('arrow with multiple args', function() { expect(parseTree('(a,b,...c) => 0; ').toEqual('ES6/arrow-function/multiple-args.tree'))
+[11:21:57] <jlast> yea, i'm seeing that lol
+[11:22:06] <ariya> the standalone source means you can invoke esvalidate with it in your IDE/debugger and understand what's wrong
+[11:22:31] <jlast> oh i see - esprima path/to/test ?
+[11:22:43] <ariya> bin/esvalidate
+[11:22:52] <ariya> that's underappreciated tool to help debugging
+[11:23:10] <ariya> also, if you inline source, you need to inline the tree as well
+[11:23:20] <ariya> if they are not in close proximity, it's another overhead
+[11:24:06] <jlast> i like inlining the examples because it makes the tests easier to scan... quickly read all of the arrow examples
+[11:24:46] <ariya> I understand
+[11:24:56] <jlast> but I see your point with keeping them close together and in a file... maybe withData can help us out
+[11:25:03] <ariya> maybe the test runner should print each cases
+[11:25:04] <jlast> because it's really just a reporter optimization
+[11:25:15] <jlast> yea. i'll see if that can be done nicely
+[11:25:15] <ariya> say in verbose mode?
+[11:25:21] <jlast> or chrome
+[11:25:28] <ariya> even better if you can point a runner to a directory
+[11:25:36] <jlast> you can do that in chrome
+[11:25:38] <ariya> and it only displays whatever fixtures in there
+[11:25:51] <jlast> grep for by folder or failures
+[11:26:10] <ariya> I have a quick one-line using find that does that
+[11:26:18] <jlast> oh nice, yea?
+[11:26:26] <ariya> example
+[11:26:28] <ariya> find  invalid*.js -print0 | xargs -0 bash -c 'for fname; do echo "$fname": && cat "$fname" && echo; done' bash
+[11:26:55] <jlast> nice
+[11:26:59] <ariya> BTW, I got to run in 4 minutes
+[11:27:15] <ariya> jlast: I'll continue to try your test branch and give feedback
+[11:27:16] <jlast> no problem. i'll update the PR in a bit
+[11:27:19] <jlast> thanks
+[11:27:37] <ariya> jlast: Excellent work so far and hopefully we will converge at some point, hopefully by next week :-)
+[11:27:59] <ariya> gibson042: ping me again to remind me of the possible project I have in mind for you :-)
+[11:28:29] <jlast> ariya - definitely. i want a merge asap :)
+[11:28:39] <jlast> by the way, i started looking at this yesterday https://github.com/jquery/esprima/issues/1210
+[11:28:39] <ariya> that's all I have for today
+[11:28:45] <ariya> thank you very much everyone
+[11:28:49] <ariya> and see you again next week
+[11:28:51] * ariya waves
+[11:28:53] <jlast> i'd like to have some experience contributing as well
+[11:28:56] * jlast waves

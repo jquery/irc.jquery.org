@@ -1,0 +1,372 @@
+[07:11:52] <bforbes> rxaviers: ping?
+[07:12:10] <rxaviers> Hi, I just saw your cldrjs question
+[07:12:40] <rxaviers> I see what you need. You can do that using cldrjs. Let me show you some code.
+[07:12:53] <bforbes> great!!
+[07:13:10] <rxaviers> navigator.language gives you a locale
+[07:13:17] <bforbes> right
+[07:13:19] <rxaviers> you need to figure which bundle has data for such locale
+[07:13:25] <bforbes> right
+[07:13:28] <rxaviers> just a sec
+[07:14:12] <rxaviers> Figuring which bundle has data for a locale can be tricky. For example, locale `zh-TW` has data in zh-Hant bundle
+[07:14:31] <rxaviers> (btw, more info at: https://github.com/rxaviers/cldrjs/blob/master/doc/bundle_lookup_matcher.md)
+[07:14:38] <bforbes> even for resolved bundles?
+[07:14:41] * rxaviers getting some code to show you
+[07:14:47] <rxaviers> yeap
+[07:14:52] <bforbes> ok
+[07:14:57] <bforbes> I wondered that yesterday
+[07:15:54] <bforbes> I'm wrapping globalize for dojo 2, and in dojo 1, we have completely unresolved bundles in unbuilt versions of dojo
+[07:16:35] <bforbes> during the build process, they get resolved (we call them flattened), but before the build, the loader plugin figures out which bundles to load and flattens them on the fly
+[07:17:20] <bforbes> the initial bundle that is loaded (we call it the root bundle) has the available locales embedded in it, so the loader plugin figures out what other bundles to load based on those
+[07:18:33] <rxaviers> Ok, I'm going to answer you first for resolved data. Then, I comment about unresolved.
+[07:18:55] <bforbes> k
+[07:24:08] <bforbes> I sense a long response ;)
+[07:24:29] <bforbes> locale info is hard, so I kind of expected a long response anyway
+[07:38:47] <rxaviers> bforbes, https://github.com/rxaviers/cldrjs/issues/30#issuecomment-110383882
+[07:39:06] <rxaviers> Let me know when you read it
+[07:39:14] <bforbes> hah, `setAvailableBundlesHack`
+[07:40:18] <rxaviers> bforbes, I've just fixed something in my example:
+[07:40:20] <rxaviers> let bundle = new Cldr(navigator.langugage).attributes.bundle;
+[07:40:24] <rxaviers> comment editted
+[07:40:28] <rxaviers> edited*
+[07:40:40] * bforbes refreshes
+[07:40:44] <rxaviers> :)
+[07:41:29] <bforbes> ok, I think this makes sense
+[07:41:49] <bforbes> so, using cldr-data (resolved data), I don't have to load anything extra
+[07:41:55] <bforbes> just the named bundles
+[07:43:06] <bforbes> but if I'm using unresolved data (which I'd have to generate myself), I'd have to load all of the bundles in the lookup chain
+[07:44:26] <bforbes> I generated unresolved data last night using tools.zip (my word those are some convoluted tools), so I have some test data
+[07:45:01] <rxaviers> your understanding is correct.
+[07:45:14] <bforbes> the one thing that would deter me from using unresolved data is that numbers.json (and other files) don't show up in every bundle, so you can potentially hit a 404 when fetching all bundles
+[07:45:23] <bforbes> I suppose that could be handled with a .catch()
+[07:45:57] <bforbes> I may be misunderstanding something, though
+[07:46:14] <bforbes> as I look at the parent locale data, it looks like en-GB's parent is en-101, which doesn't have a parent
+[07:46:49] <rxaviers> that's it and I'd recommend you use resolved data. It's faster to have 1 http request to be made instead of several and then resolve the data in the client.
+[07:47:08] <bforbes> agreed
+[07:47:22] <bforbes> the one place I could see unresolved data being useful in development is for message bundles
+[07:47:35] <rxaviers> yeap, me too
+[07:48:00] <rxaviers> unresolved data is also good when you are supporting various locales dynamically and you need all the data available.
+[07:48:19] <rxaviers> in this use case, having unresolved data save tons of space.
+[07:48:25] <rxaviers> saves*
+[07:48:37] <bforbes> cldrjs only deals with cldr-data, right?
+[07:49:01] <bforbes> and globalize adds the message bundle portion
+[07:49:22] <rxaviers> it deals with resolved or unresolved data in the official JSON format, which `cldr-data` module uses.
+[07:49:32] <bforbes> ok
+[07:49:41] <rxaviers> Globalize adds the message portion, correct.
+[07:50:03] <bforbes> does Globalize use cldrjs to store and retrieve the message bundles?
+[07:50:33] <rxaviers> It does, because technically it makes sense. But, it's a convenience we choose. :)
+[07:50:56] <bforbes> hmm
+[07:50:59] <bforbes> I see a conflict here
+[07:51:13] <bforbes> cldr-data has its own available locales
+[07:51:16] <rxaviers> https://github.com/jquery/globalize/blob/master/src/message.js#L46
+[07:51:24] <bforbes> and message bundles may have different available locales
+[07:51:36] <rxaviers> it's scoped, so there's no conflict
+[07:51:52] <bforbes> it is?
+[07:51:57] <bforbes> oh!
+[07:51:59] <bforbes> you're right
+[07:52:25] <bforbes> could we scope the Cldr.setAvailableLocales()?
+[07:52:57] <rxaviers> please, explain me what you're trying to accomplish
+[07:53:31] <bforbes> ok, so dojo-i18n would use cldr-data, which has pretty much every locale translated
+[07:53:48] <bforbes> now, let's say I have an Acme application
+[07:54:10] <bforbes> and bundles for that application at Acme/messages/j
+[07:54:15] <bforbes> withouth the j
+[07:54:56] <bforbes> for Acme, I only have a few locales right now: en, de, and zh
+[07:55:25] <bforbes> the available locales for Acme are different than the available locales for cldr-data
+[07:56:03] <bforbes> does that make sense?
+[07:56:26] <rxaviers> Gotcha. One workaround in that case is having cldrjs/unresolved.js loaded and set Acme/messages/root with your default messages.
+[07:56:39] <rxaviers> And having root always loaded.
+[07:56:50] <rxaviers> or loaded when not en, de or zh
+[07:56:55] <bforbes> yeah
+[07:57:02] <bforbes> that's essentially what the dojo 1 loader plugin does
+[07:57:33] <bforbes> it grabs root (which also contains the list of available locales) and then any other locale bundles it needs
+[07:58:00] <bforbes> but, Acme could potentially have something like en, en-GB, de, and zh
+[07:58:23] <bforbes> so then when en-GB users hit the app, it'd need to grab root, en, and en-GB
+[07:58:42] <bforbes> and I'd need a way to know all of the locales to potentially load
+[07:59:48] <rxaviers> In my suggestion, you don't need the whole chain. Considering the root messages are present, if Globalize (via cldrjs) doesn't find `messages/<bundle>/` it will eventually hit `messages/root/`
+[08:00:04] <rxaviers> and find the default message.
+[08:00:30] <bforbes> right, but there may be a message in en that isn't in en-GB but masks something in root
+[08:00:44] <bforbes> root.foo, en.foo, en-GB.<no foo here>
+[08:02:01] <bforbes> most root bundles will probably be English, so this example doesn't make a ton of sense, but for something like de or zh, I could see this being a problem
+[08:03:18] <rxaviers> Let's ignore messages for a second. Is my answer about your CLDR question ok?
+[08:03:31] <bforbes> rxaviers: absolutely
+[08:04:10] <rxaviers> awesome, so back to messages. The only difference I see from CLDR to messages is that messages is user-provided-content, where CLDR is a "3rd-party-provided-content"
+[08:04:34] <bforbes> it'd be nice if .setAvailableLocales() and .getBundleName() were available (so users wouldn't have to instantiate an instance of Cldr to get the bundle name)
+[08:04:51] <bforbes> rxaviers: right, I agree with that
+[08:05:18] <rxaviers> +1 with .getBundleName(), feel free to include that as a comment please.
+[08:05:22] <rxaviers> (in the issue)
+[08:06:18] <bforbes> done
+[08:06:20] <bforbes> :)
+[08:07:10] <rxaviers> another difference between CLDR content and messages is that CLDR has a well defined set of fields, where messages are freely invented by end users.
+[08:07:21] <bforbes> yes
+[08:07:33] <rxaviers> A big similarity is that both are i18n content and could be treated the same way
+[08:07:38] <bforbes> agreed
+[08:07:56] <rxaviers> If applications had the same care creating messages that CLDR has creating their content.
+[08:07:59] <bforbes> I think you're on the right track with scoping messages away from cldr-data
+[08:08:47] <bforbes> but application creators can't be expected to translate their application into every language that cldr-data does
+[08:09:34] <rxaviers> and they should take that into account
+[08:09:45] <bforbes> so the available locales for cldr-data have to be different from the available locales of message bundles, IMO
+[08:11:18] <bforbes> let me gist a scenario I could envision
+[08:12:08] <rxaviers> alright it will help. Because, I agree the available locales are different. But, I don't see where this could be a problem.
+[08:14:03] <rxaviers> Let me clarify: I don't see how this could be a problem, because the library allows this to be solved in the user land.
+[08:14:26] <bforbes> if it's solvable in user-land, then a loading mechanism can solve it
+[08:14:30] <bforbes> I just need to know how to solve it ;)
+[08:14:32] <bforbes> https://gist.github.com/bryanforbes/61993d43ff4183537783
+[08:15:00] <bforbes> in this scenario, I have acme that depends on widgets and both depend on globalize + cldrjs + cldr-data
+[08:15:12] <bforbes> cldr-data has its set of available locales
+[08:15:52] <bforbes> widgets has its messages that it uses and its translations that it uses for things like tooltips and loading messages (as an example)
+[08:16:13] <bforbes> and acme has its messages it will use for, let's say, greeting messages and button lables
+[08:16:19] <bforbes> *labels
+[08:16:57] <bforbes> as you can see, they both have different locales translated in the en-IN chain
+[08:17:16] <rxaviers> considering each has its own availableLocales as you suggest, what do you get when an Arabic user uses your Acme app?
+[08:17:47] <bforbes> given this situation, that user would (I assume) only get root
+[08:18:38] <rxaviers> alright. what would happen if user has `en-GB` locale?
+[08:18:56] <rxaviers> root for acme messages, en-GB for widgets and globalize
+[08:19:19] <bforbes> if it's resolved data, yes
+[08:19:48] <rxaviers> what would happen for unresolved?
+[08:19:48] <bforbes> if it's unresolved, root for acme, root and en-GB for widgets
+[08:20:35] <bforbes> since you'd need everything in the chain
+[08:20:58] <rxaviers> just clarifying, you mean root (in case the field is not found in en-GB) and en-GB, right.
+[08:21:07] <bforbes> correct
+[08:21:10] <rxaviers> ok
+[08:21:22] <bforbes> the loading mechanism would need to grab both things
+[08:21:44] <bforbes> so that globalize and cldrjs could resolve all of the messages in the bundle
+[08:26:01] <bforbes> hopefully I'm making sense
+[08:26:55] <rxaviers> bforbes, ok, I just want to emphasize that setAvailableLocales (or better named setAvailableBundles) only have to do with which bundle to start the chain. It doesn't have anything to do with parent inheritance (the way how chain is propagated, which is via truncate or parent).
+[08:28:07] <bforbes> oh, right... setAvailableLocales would be for generating one bundle name for resolved data
+[08:28:25] <rxaviers> In your gist example, where root is used for default messages, it's assumed unresolved is used. Therefore, I don't see a problem.
+[08:29:21] <rxaviers> yeap, for example
+[08:29:43] <rxaviers> say your locale is `en-Latn-US`
+[08:30:21] <rxaviers> and you have `en` bundle
+[08:30:39] <rxaviers> cldrjs should never try `en-Latn-US` first. It should start with `en`
+[08:30:56] <bforbes> that's if there's no en-Latn-US bundle
+[08:31:31] <bforbes> (or I'm forgetting something about the bundle lookup routine)
+[08:32:01] <rxaviers> yeap. In case we had a en-Latn-US, it should be used. But, noting that `en-Latn-US` is the default content for `en`, so there isnt en-Latn-US bundle.
+[08:32:12] <bforbes> right
+[08:32:23] <bforbes> en == en-Latn-US == en-US
+[08:32:29] <rxaviers> yeap
+[08:32:52] <rxaviers> Once `en` is used, then the inheritance algo applies to it, `en` -> `root`.
+[08:32:52] <bforbes> does a resolved en bundle include info from root?
+[08:32:59] <rxaviers> nope
+[08:33:10] <rxaviers> for resolved, it tries en, and if not found, it returns undefined.
+[08:33:16] <bforbes> oh, sorry
+[08:33:17] <rxaviers> for unresolved, it would try root as well
+[08:33:23] <bforbes> I meant the json files in cldr-data
+[08:33:37] <rxaviers> ah! ok. Yeap it does
+[08:33:40] <rxaviers> It's already flattened
+[08:33:44] <bforbes> right, ok
+[08:34:00] <bforbes> of course, it only includes things from root if there are "holes" in en
+[08:34:09] <rxaviers> correct
+[08:34:19] <arschmitz> rxaviers: Hey when you have some time i want to discuss some testing issues with you
+[08:34:52] <bforbes> ok, so IMO there are two scenarios that need to be supported (and maybe I'm not seeing if they already are)
+[08:35:05] <rxaviers> arschmitz, sure. I'm about to leave now. But, will be available in 2h
+[08:35:07] <bforbes> let me change my gist really quick
+[08:35:28] <bforbes> ok, refresh https://gist.github.com/bryanforbes/61993d43ff4183537783
+[08:35:58] <rxaviers> arschmitz, does that work for you?
+[08:36:17] <arschmitz> rxaviers: yeah thats fine ill be here
+[08:36:27] <bforbes> so, during development, I believe users will use resolved cldr-data (from npm or bower), and libraries may (or may not) include resolved message bundles
+[08:36:28] <rxaviers> arschmitz, ok feel free to ping me then ;)
+[08:36:45] <rxaviers> refreshed
+[08:36:46] <bforbes> however the message bundles they are developing more than likely won't be resolved
+[08:37:38] <bforbes> for production, there should be a build step to flatten the bundles, but during development it seems silly to require users to have resolved message bundles
+[08:38:48] <bforbes> IMO, there needs to be a way to figure out the chain of bundle names from the `navigation.language` given a list of available locales
+[08:39:03] <bforbes> in the gist, `widgets` didn't change
+[08:39:24] <bforbes> however, I added an `en` directory in there
+[08:39:53] <bforbes> if a user has en-IN as their locale, the loader would need to grab en-IN, en, and root
+[08:40:10] <bforbes> for en-GB, the loader would need to grab en and root
+[08:40:33] <bforbes> (since it's unresolved data)
+[08:40:50] <rxaviers> yeap and this should work with current Globalize code (considering cldrjs/unresolved is loaded)
+[08:41:09] <rxaviers> (and supplemental/parentsLocale.json is loaded)
+[08:41:33] <bforbes> right, but those bundles' data have to be loaded into cldrjs
+[08:41:53] <bforbes> the problem I'm trying to solve is grabbing the data and loading it into cldrjs
+[08:42:08] <bforbes> to do that, I need to know the chain
+[08:42:28] <rxaviers> https://github.com/rxaviers/cldrjs/blob/master/src/bundle/parent_lookup.js
+[08:42:33] <rxaviers> But, this is not accessible publicly, you would have to duplicate this code in you application or having us figure out how this could be exposed.
+[08:43:11] <bforbes> essentially, getChain(locale, availableLocales) -> locale[]
+[08:43:28] <bforbes> rxaviers: I'd have to run that until it returned 'root', right?
+[08:43:34] <bforbes> the parent_lookup.js code
+[08:43:35] <rxaviers> correct
+[08:43:42] <bforbes> ok
+[08:44:03] <rxaviers> I got leave now, but just let me know if you hit any issues
+[08:44:13] <bforbes> will do
+[08:44:19] <rxaviers> ;)
+[08:44:32] <bforbes> I'll probably file an issue wanting to expose this somehow :)
+[08:44:47] <rxaviers> :D
+[08:47:06] <bforbes> rxaviers: thank you for all of your help
+[08:52:59] <rxaviers> ywc
+[11:13:24] <bforbes> rxaviers: I think I found a problem
+[11:14:07] <rxaviers> bforbes, what this is?
+[11:14:33] <bforbes> ok, let's say a user hits my app with zh-TW
+[11:14:45] <bforbes> ignore cldr-data's locales for a second
+[11:14:50] <bforbes> but not the supplemental data
+[11:15:22] <bforbes> how do I get all of the links in the chain from zh-TW to root using cldrjs? zh-TW -> zh-Hant-TW -> zh-Hant -> root
+[11:15:36] <bforbes> I just want the locale names
+[11:15:39] <bforbes> not any bundles
+[11:17:38] <bforbes> same with en-AU... en-AU -> en-GB -> en -> root
+[11:18:38] <rxaviers> Considering you have all necessary bundles available, zh-TW locale will map to zh-Hant bundle (via bundle lookup matcher). So the chain starts with zh-Hant. It's zh-Hant -> root (via parent locale lookup)
+[11:18:58] <rxaviers> en-AU doesn't map to en-GB
+[11:19:09] <bforbes> https://docs.google.com/document/d/1qZwEVb4kfODi2TK5f4x15FYWj5rJRijXmSIg5m6OH8s/edit
+[11:19:25] <bforbes> according to that doc, en-GB is the parent locale of en-AU
+[11:19:56] <rxaviers> it's en-AU -> en-001 (via parent locale lookup) -> en (truncate) -> root
+[11:19:59] <rxaviers> :q
+[11:20:25] <rxaviers> perhaps in the past, not anymore: https://github.com/unicode-cldr/cldr-core/blob/master/supplemental/parentLocales.json#L15
+[11:20:25] <bforbes> what is en-001?
+[11:20:39] <rxaviers> an alternative en rsrsrs
+[11:20:42] <rxaviers> lol
+[11:20:50] <rxaviers> Im sure there's a proper name for it
+[11:24:44] <bforbes> rxaviers: are these locale names and inheritance chain strictly for cldr-data? or are they universal?
+[11:25:23] <rxaviers> They are for CLDR and they follow UTS#35 www.unicode.org/reports/tr35/
+[11:25:50] <rxaviers> http://www.unicode.org/reports/tr35/#Locale_Inheritance
+[11:26:05] <rxaviers> If you find something in the docs that we're doing differently, please just let me know
+[11:26:44] <bforbes> ok, I'm probably not thinking correct
+[11:26:46] * bforbes reads
+[11:27:14] <rxaviers> this is indeed not trivial
+[11:27:31] <bforbes> :)
+[11:35:00] <bforbes> so, globalize expects that any message bundles have to have the same locale inheritance chain as cldr-data, right?
+[11:36:04] <bforbes> unresolved message bundles
+[11:36:52] <bforbes> rxaviers: ^
+[11:43:57] <rxaviers> bforbes, correct, globalize expects the same UTS#35/cldr rules applied for message inheritance as well
+[11:45:15] <bforbes> so globalize will always put en-001 into the inheritance chain
+[11:47:14] <rxaviers> yeap, but if no en-001 is defined, the next is en
+[11:47:23] <bforbes> oh, right
+[11:47:33] <rxaviers> you dont need to define every node, but you can :D
+[11:47:39] <bforbes> right
+[11:48:14] <rxaviers> also note not always en-001 is in the chain. But, only for a set of locales including en-AU
+[11:48:45] <bforbes> and en-GB
+[11:49:03] <rxaviers> correct
+[11:49:19] <rxaviers> not for en-US for example
+[11:49:27] <bforbes> right
+[11:49:38] <bforbes> en-US goes en-US -> en -> root
+[11:49:43] <rxaviers> correct
+[11:51:40] <bforbes> for unresolved bundles
+[11:52:47] <bforbes> I'm trying to figure out this whole "en-US resolves to en" thing in the bundle lookup matcher
+[11:56:16] <rxaviers> bforbes, the Bundle Lookup Matcher is a special case of http://www.unicode.org/reports/tr35/#LanguageMatching
+[11:56:34] <rxaviers> it's a special case, because it considers 100% accuracy
+[11:57:56] <rxaviers> On https://github.com/rxaviers/cldrjs/blob/master/doc/bundle_lookup_matcher.md, take special attention for the sr-Cyrl, sr-Latn, and zh-Hant examples. They are the trickiest ones.
+[11:58:34] <rxaviers> Interestingly, this is currently broken on Ecma-402:
+[11:58:34] <rxaviers> https://github.com/rxaviers/ecma402-fix-lookup-matcher
+[12:00:37] <bforbes> ok, so if I have unresolved.js loaded, and I feed unresolved message bundles in for root, zh-Hant, and zh-Hant-TW, cldrjs will combine those together for zh-TW?
+[12:01:45] <rxaviers> not combine. But, cldrjs will figure that zh-Hant-TW is the best to start with and then follow the inheritance chain from there.
+[12:01:57] <bforbes> sorry, that's what I meant
+[12:02:01] <rxaviers> yes, that's correct hen
+[12:02:04] <rxaviers> then*
+[12:02:46] <rxaviers> I would place zh-TW content on zh-Hant though. Because, zh-Hant-TW is the default bundle for zh-Hant
+[12:02:56] <rxaviers> So, zh-Hant-TW and zh-Hant must be identical
+[12:02:59] <bforbes> in Dojo 1, the i18n plugin returned an object that was the result of taking a copy of the root bundle and successively copying properties from each more specific locale onto it
+[12:03:58] <rxaviers> maybe the result would be the same. But, I think cldrjs approach is faster.
+[12:04:03] <bforbes> it might be
+[12:04:19] <bforbes> since you're not doing copies for things that aren't being used
+[12:04:36] <bforbes> however, it wasn't really a copy
+[12:04:40] <rxaviers> and it's not wasting time checking for unused data.
+[12:04:59] <rxaviers> Notice that it caches the on-the-fly resolved data
+[12:05:20] <bforbes> it used a delegate of the root bundle and copied stuff onto it
+[12:05:38] <bforbes> Object.create(root);
+[12:06:48] <rxaviers> It seems like dojo 1 goes botom-up (root <- en). Cldrjs goes top-down (en -> root). Note that if an element is defined in `en` (for instance), it doesnt need to check what's in root.
+[12:06:56] <bforbes> anyway, I think I'm still getting tripped up on how to figure out what unresolved message bundles to load for a given user's locale
+[12:07:15] <rxaviers> steps:
+[12:07:24] <bforbes> rxaviers: dojo 1 is essentially the same as what cldrjs is doing, just different
+[12:07:47] <bforbes> the most-specific is checked first, then the next specific, all the way down to root
+[12:07:57] <rxaviers> hm ok
+[12:07:58] <bforbes> if something isn't found
+[12:08:20] <bforbes> it just does it in a different way
+[12:08:25] <bforbes> it's not as efficient
+[12:09:15] <rxaviers> 1. bundle = Bundle Lookup Matcher (navigator.language) --- a way to do this with cldrjs is to set the availableBundles and than create a instance like in the example of the issue we were discussing.
+[12:09:37] <rxaviers> 2. Once you have bundle, use https://github.com/rxaviers/cldrjs/blob/master/src/bundle/parent_lookup.js to figure each step
+[12:09:45] <rxaviers> up until root
+[12:09:58] <bforbes> it's kinda like this: var en = Object.create(root); mixin(en, enSource); var enUS = Object.create(en); mixin(enUS, enUSSource);
+[12:10:13] <bforbes> enUS gets handed out, and then lookups happen through the prototype chain
+[12:11:13] <bforbes> rxaviers: ok, I'll play with that
+[12:11:16] <bforbes> thanks
+[12:11:18] <rxaviers> :)
+[12:11:28] <rxaviers> ywc
+[12:11:30] <bforbes> Sorry if I'm being dense... it's a lot to wrap my head around
+[12:11:36] <rxaviers> np
+[12:11:55] <rxaviers> feel free to reach out
+[12:13:07] <bforbes> will do
+[12:43:16] <bforbes> I still think I'm getting mixed up
+[12:50:20] <bforbes> rxaviers: this whole zh-TW zh-Hant-TW zh-Hant thing is really messing me up
+[12:54:07] <bforbes> would someone ever want to define all three of those?
+[12:59:44] <rxaviers> bforbes, I guess people most often use zh-TW for specifying a locale. zh-TW means Chinese as spoken in Taiwan. zh-Hant, in turn, means Chinese language, Hant script. It happens that the most used script in Chinese Taiwan is Hant
+[13:07:20] <bforbes> does availableLocales.json in cldr-data define all locales known to clrd?
+[13:07:23] <bforbes> cldr, rather
+[13:08:13] <bforbes> I'm still trying to figure out if getBundleName needs the idea of scoping
+[13:09:11] <bforbes> the algorithm I'm thinking of goes like this:
+[13:09:48] <bforbes> 1. Grab cldr-data/availableLocales.json, cldr-data/supplemental/likelySubtags.json, and cldr-data/supplemental/parentLocales.json and feed them to Cldr.load()
+[13:11:12] <bforbes> 2. Given a message bundle path (app/messages/foo), split between messages and foo
+[13:11:45] <bforbes> 3. For the user's locale, fetch all message bundles between and including root and the user's locale
+[13:12:31] <bforbes> at this step, the message bundle may have different available locales than cldr-data
+[13:13:27] <bforbes> this was solved in dojo 1 by having the root bundle contain the list of available locales: https://github.com/dojo/dojo/blob/master/cldr/nls/currency.js
+[13:16:28] <bforbes> so, you'd tell the loader to grab dojo/cldr/nls/currency and it would grab (for en-US) dojo/cldr/nls/currency, and from that bundle, it would know what locales were available and then grab just the en bundle (dojo/cldr/nls/en/currency) and use them for lookups
+[13:16:52] <bforbes> every bundle could specify which locales were available for it
+[13:17:10] <bforbes> it was all scoped to the bundle
+[13:19:55] <bforbes> from what I can tell of cldrjs, availableLocales is the same for every bundle
+[13:20:35] <bforbes> rxaviers: ^
+[13:25:06] <rxaviers> availableLocales.json is deduced by cldr-data module. It's deduced by what's available in cldr-data/main. It varies depending of which coverage you choose. There are two current available coverages: modern (default) and full.
+[13:25:32] <rxaviers> https://github.com/unicode-cldr/cldr-json/#package-organization
+[13:25:34] <bforbes> ok, so it's only supposed to be used for cldr-data
+[13:25:59] <rxaviers> yes
+[13:26:45] <bforbes> ok, so using cldrjs, how do I set up the available locales for another package?
+[13:26:54] <rxaviers> cldrjs in turn doesn't require users to feed in which the available bundles are. But, it deduces from what users load. When users `Cldr.load(data)`, cldrjs will check which /main content is loaded and will pouplate available bundles by itself.
+[13:26:55] <bforbes> s/package/bundle/
+[13:30:08] <rxaviers> Is it clear?
+[13:30:23] <rxaviers> Or, any questions
+[13:31:15] <bforbes> ok, so I get that cldrjs is mostly for parsing/dealing with the cldr-data info
+[13:31:33] <rxaviers> for traversing cldr data
+[13:31:36] <bforbes> right
+[13:32:30] <bforbes> but globalize uses it to store non-cldr-data in it as well
+[13:32:40] <rxaviers> yeap, messages
+[13:32:51] <bforbes> and that's where I'm getting messed up
+[13:33:32] <bforbes> because if cldr's available locales are determined from /main, what happens if /globalize-messages has a locale that isn't available in /main?
+[13:34:56] <rxaviers> In a normal scenario, one would use both CLDR and messages of the same locale.
+[13:35:11] <rxaviers> For example, using English numbers and English messages.
+[13:35:16] <rxaviers> Arabic numbers and Arabic messages
+[13:35:53] <rxaviers> It's pretty likely that for any language that you might support your messages, you'll have CLDR support as well.
+[13:37:27] <bforbes> right, but if someone writes an app and their messages are written for zh-TW, cldrjs isn't going to know about that locale and it's going to think that the zh-Hant locale should be loaded
+[13:37:53] <bforbes> or, it'll tell the loader to load zh-Hant
+[13:39:07] <rxaviers> Yes, you are correct. This is a limitation. But, I would recommend developers to follow CLDR for that. Instead of specifying the bundle as zh-TW for their messages, use what's common in CLDR, e.g., zh-Hant
+[13:39:36] <bforbes> ok
+[13:40:14] <bforbes> sorry if I'm being obtuse
+[13:40:27] <bforbes> is there a list of CLDR-supported locales?
+[13:40:42] <rxaviers> This will help them to have a more organized tree (and avoid inheritance problems)
+[13:41:12] <rxaviers> https://github.com/unicode-cldr/cldr-json/#package-organization
+[13:41:16] <bforbes> I mean, if I were a user and my locale were zh-TW, I'd just write a zh-TW bundle
+[13:42:06] <rxaviers> I'm sure there's a lot of documentation improvement to be done on the Globalize end to make all that more clear.
+[13:48:16] <bforbes> hold on... in node it's called cldrjs, but in amd you have it named cldr?
+[13:52:17] <bforbes> why not cldrjs?
+[14:00:01] <bforbes> rxaviers: ^
+[14:01:42] <rxaviers> you do have good questions, https://github.com/rxaviers/cldrjs/issues/7
+[14:04:03] <bforbes> hmm
+[14:04:23] <bforbes> I saw that earlier and was going to comment
+[14:04:28] <bforbes> I may do that now ;)
+[14:05:38] <bforbes> I think I may know how to solve this
+[14:11:47] <bforbes> why not just rename dist/cldr/ -> dist/cldrjs/ and dist/cldr.js -> dist/cldrjs.js
+[14:15:09] <bforbes> yeah, that'd solve the problem
+[14:15:14] <bforbes> I just tested it
+[14:15:59] <bforbes> rxaviers: https://gist.github.com/bryanforbes/1fb78e19d3d948ae93c7
+[14:16:39] <bforbes> although, I'd argue that's not a great AMD package since cldrjs.js lives outside of cldrjs/
+[14:22:14] <bforbes> man, I wish paths didn't exist
+[14:25:31] <bforbes> and where I wish node and amd could converge on things
+[16:26:08] <apsdehal> rxaviers: There?
+[17:26:50] <rxaviers> apsdehal, yeap
+[17:27:56] <apsdehal> rxaviers: Intern doesn't support IE8
+[17:29:01] <rxaviers> Hmm. Why?
+[17:29:18] <apsdehal> It is just their specs
+[17:29:52] <apsdehal> https://travis-ci.org/apsdehal/globalize/builds/66115529
+[17:30:18] <apsdehal> I wish it could had passed on jquery/globalize too, though snover will look into the issue
+[17:31:30] <apsdehal> rxaviers: Can you restart this build? https://travis-ci.org/jquery/globalize/builds/66130378
+[17:31:49] <rxaviers> apsdehal, have you loaded es5-shim when running for ie8?
+[17:32:18] <apsdehal> Yes
+[17:32:27] <rxaviers> e.g., https://github.com/jquery/globalize/blob/master/test/unit-es5-shim.html
+[17:32:31] <apsdehal> but the point is ie8 is not supported
+[17:32:43] <rxaviers> restarted
+[17:32:44] <apsdehal> So I had removed the support from repo for now
+[17:33:48] <rxaviers> other than that it's looking fantastic, great job
+[17:34:07] <rxaviers> I hope we can test ie8 as well
+[17:34:40] <rxaviers> I will review your PR "soon" (~1 or 2 weeks)
+[17:35:01] <apsdehal> is ie8 support too necessary?
+[17:35:14] <rxaviers> well, Globalize must support IE8
+[17:35:19] <rxaviers> so, yeap
+[17:35:49] <apsdehal> https://github.com/theintern/intern/tree/geezer
+[17:35:59] <apsdehal> There is a version for ie8
+[17:36:09] <apsdehal> But I don't think it would be supported for long
+[17:37:06] <apsdehal> If it is almost vital then we maybe out of luck with intern for globalize
+[19:23:01] <jqcommit> [api.globalizejs.com] scottgonzalez pushed 1 new commit to master: http://git.io/vIrwD
+[19:23:02] <jqcommit> api.globalizejs.com/master 1c027da Scott González: Build: Run `grunt lint` on Travis...

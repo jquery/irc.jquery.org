@@ -1,0 +1,323 @@
+[12:02:58] <timmywil> DaveMethvin, gibson042, markelog, m_gol meetings yo
+[12:03:32] <gibson042> Let's do this!
+[12:03:45] <timmywil> We covered a lot at the summit. Back down below 90 issues!
+[12:04:10] <markelog> hey-hey
+[12:04:22] <markelog> awesome!
+[12:04:45] <DaveMethvin> here
+[12:05:58] <timmywil> First, https://github.com/jquery/jquery/issues/2668
+[12:06:19] <timmywil> I haven't read the long comments, but the latest imply we can migrate to docs issue?
+[12:06:40] <m_gol> present
+[12:06:59] <gibson042> the trac issues were closed: https://github.com/jquery/jquery/issues/2668#issuecomment-149406465
+[12:07:21] <gibson042> it irks me that we get this wrong, but they are very much edge cases
+[12:07:32] <timmywil> and the fix is big
+[12:07:47] <gibson042> +48 when last checked
+[12:07:57] <gibson042> ...but that was a while ago
+[12:08:01] <gibson042> should we check again?
+[12:08:07] <timmywil> a lot of that is probably the regex, which wouldn't change
+[12:08:29] <timmywil> so is 48 bytes worth it
+[12:08:29] <gibson042> OTOH, this was the whole reason for exposing a jQuery.htmlPrefilter hook
+[12:08:38] <timmywil> right
+[12:08:39] <gibson042> well, _part_ of the reason
+[12:08:58] <timmywil> perhaps we could post a working htmlPrefilter in the docs
+[12:09:02] <markelog> hm, trac tickets are related, but i'm not sure if they are duplicative
+[12:09:04] <timmywil> for this issue
+[12:09:11] <DaveMethvin> sgtm
+[12:09:15] <gibson042> I'm cool with that
+[12:09:30] <DaveMethvin> munging the incoming string will never be safe
+[12:09:48] <markelog> but it seems as pretty much as an edge case
+[12:09:55] <DaveMethvin> yes i agree
+[12:10:14] <DaveMethvin> ppl shouldn't be sending big strings full of ambiguous mixes of html and script to us
+[12:10:16] <DaveMethvin> but they do
+[12:10:40] <timmywil> https://github.com/jquery/jquery/pull/2671
+[12:10:44] <timmywil> This you, DaveMethvin
+[12:10:49] <timmywil> you see gibson042's comments?
+[12:10:58] <DaveMethvin> yep, need to review them
+[12:11:14] <DaveMethvin> that type should be POST for one
+[12:11:35] <timmywil> might still need a GET with data test
+[12:11:41] <timmywil> to ensure it does '+'
+[12:11:42] <DaveMethvin> yes
+[12:12:03] <timmywil> what about HEAD?
+[12:12:05] <DaveMethvin> get shouldn't do +
+[12:12:13] <gibson042> yes it should
+[12:12:13] <DaveMethvin> only the bodies should get +
+[12:12:25] <DaveMethvin> becaues the content-type applies to the body
+[12:12:28] <DaveMethvin> not to encoded url
+[12:12:41] <timmywil> hmm
+[12:12:51] <timmywil> yea, I guess I thought of body as what is included in the URL as wel
+[12:12:56] <gibson042> but the same _algorithm_ is still used
+[12:13:12] <gibson042> in fact, it is the URL encoding algorithm
+[12:13:28] <gibson042> it is used for bodies when the bodies are acting like URL-submitted data
+[12:14:25] <DaveMethvin> re your jsonp comment, that never has a body right? so no change to + gibson042
+[12:16:12] <gibson042> the JSONP comment was just pointing out code similarity that should be collapsed
+[12:17:03] <DaveMethvin> oh i guess a JSON request could post a body with form encoding, yeah
+[12:17:04] <gibson042> the more important point is that U+0020 → U+002B is not limited to content body
+[12:17:28] <DaveMethvin> we only do it based on content-type which only applies to the body tho?
+[12:18:52] <m_gol> I added one entry to the agenda
+[12:19:17] <gibson042> HTTP Content-Type is limited to body, but is the same true of jQuery.ajax contentType?
+[12:19:41] <DaveMethvin> i think it should be
+[12:19:58] <DaveMethvin> we can't even set content-type on a JSONP that uses a script tag
+[12:20:06] <DaveMethvin> not as a header ... we can set script charset
+[12:20:32] <DaveMethvin> but that's for the response
+[12:21:33] <timmywil> fixed, m_gol
+[12:21:49] <m_gol> ah, right
+[12:21:58] <m_gol> I didn't refresh the page :D
+[12:22:05] <timmywil> :)
+[12:22:08] <gibson042> DaveMethvin: what if we keep the logic as-is and just drop the https://github.com/jquery/jquery/pull/2671/files#r42897526 assertion?
+[12:23:19] <gibson042> we'll still issue queries with `%20`s where there _technically_ should be `+`s, but I can't think of a server that cares
+[12:23:36] <DaveMethvin> i see your points about GET tho
+[12:23:47] <DaveMethvin> let me think a bit more about it and comment in the ticket
+[12:23:59] <DaveMethvin> it's a really strange case
+[12:24:12] <gibson042> server-side, they both decode to space anyway
+[12:24:14] <DaveMethvin> the default form encoding will mean that GET almost always gets +
+[12:24:31] <DaveMethvin> which was the original complaint and we won't have fixed that if we leave it that way
+[12:24:36] <gibson042> you're right that it should only apply to body, though
+[12:24:52] <gibson042> yeah, I think I like the code as-is
+[12:25:00] <gibson042> it's just that one assertion that goes too far
+[12:25:24] <timmywil> +1
+[12:25:28] <gibson042> it's saying "must percent-encode" when I think we're feeling more like "don't care"
+[12:25:29] <DaveMethvin> ok
+[12:26:06] <timmywil> So, 2.2/1.12
+[12:26:08] <DaveMethvin> i have another thought but I'll put it on the ticket
+[12:26:38] <timmywil> I think we do need a release, but we don't need to include every fix we've done for compat
+[12:26:54] <timmywil> unfortunately, it still requires a good bit of work
+[12:26:56] <markelog> what fixes you want in there?
+[12:27:03] <DaveMethvin> the important ones :)
+[12:27:07] <timmywil> to filter out the high priority tickets
+[12:27:09] <markelog> :-)
+[12:27:38] <DaveMethvin> there have been a few things that have been reported several times, those are good candidates
+[12:27:47] <markelog> it might be a lot of work though
+[12:28:10] <timmywil> in the interest of time, I think we need to have a point person of sorts who makes the decisions on which ones are important, rather than evaluating each one in a group.
+[12:28:17] <gibson042> I just did a smaller-scale version for cherry-picking summit changes from master into compat; it wasn't too bad
+[12:28:31] <timmywil> yea, thanks for that gibson042
+[12:28:59] <markelog> well summit changes shouldn't be that hard, right?
+[12:29:06] <timmywil> does anyone want to own it?
+[12:29:11] <gibson042> git log --since=2015-10-15 --reverse --color --oneline --no-abbrev-commit master | grep -vFf <(git log --since=2015-10-15 --pretty=format:%s compat)
+[12:29:25] <markelog> but cherry-pick with holding back compat
+[12:29:36] <markelog> i have a bit of time right now
+[12:29:43] <markelog> can do that
+[12:29:57] <timmywil> if you'd like to do it, that'd be awesome, markelog
+[12:30:02] <m_gol> it'd be good to have a list of linkable commits in an issue
+[12:30:11] <m_gol> and mark backported ones via checking the checkbox
+[12:30:14] <markelog> yeah, we need a list
+[12:30:14] <DaveMethvin> that would help a lot
+[12:30:26] <timmywil> good idea
+[12:30:26] <markelog> how about i will create a list
+[12:30:27] <m_gol> we'd then see what's there and what's not and we could decide to backport more etc.
+[12:30:37] <DaveMethvin> if it makes any kind of breaking change, even a small one, i would not include it
+[12:30:38] <markelog> and send a letter to jquery-dev
+[12:30:48] <m_gol> this will not be editable
+[12:30:56] <m_gol> I think it should be on GitHub
+[12:31:00] <timmywil> yea, need to be clear about which ones we are purposefully skipping
+[12:31:09] <gibson042> on a related note, I'm planning to start including semver level in commit messages, probably in the subject
+[12:31:11] <markelog> aam, link to the google document :)
+[12:31:13] <timmywil> DaveMethvin: +1
+[12:31:25] <gibson042> for just such occasions
+[12:31:35] <markelog> in the commit body?
+[12:31:43] <m_gol> gibson042: I talked to timmywil about that, that sounds good
+[12:31:47] <m_gol> maybe we could copy what Node.js does
+[12:31:48] <timmywil> yes
+[12:31:52] <timmywil> thanks for the reminder
+[12:31:54] <gibson042> haven't yet decided on format or subject vs. body
+[12:32:03] <markelog> since, if do that in the head
+[12:32:05] <timmywil> I think subject
+[12:32:05] <gibson042> m_gol: do you have a link for that (node.js)
+[12:32:12] <markelog> we will have two types in there
+[12:32:27] <markelog> and commit head is only 72 symbols
+[12:32:50] <timmywil> well, that would reduce our max length for the message even further. I guess we can still filter the logs if in the body
+[12:32:51] <markelog> since breaking changes are rare
+[12:33:02] <timmywil> I think we should to all 3
+[12:33:03] <markelog> we can put in the head though
+[12:33:10] <timmywil> patch, minor, major
+[12:33:14] <m_gol> let me find it
+[12:33:25] <markelog> and if we do the only "major"
+[12:33:35] <timmywil> should still do patch because we need to be explicit. Not doing it might mean the committer forgot.
+[12:33:36] <markelog> which is only one we currently cares, right?
+[12:33:59] <timmywil> also care about minor
+[12:34:00] <gibson042> we can bikeshed elsewhere; I just wanted to spread the idea a little more
+[12:34:11] <markelog> +1 anyhow
+[12:34:14] <markelog> :)
+[12:34:16] <timmywil> ok
+[12:34:20] <timmywil> maybe an email thread
+[12:34:30] <gibson042> commitplease and jquery-dev are probably the right places
+[12:34:41] <markelog> commit body sounds good already :)
+[12:34:46] <m_gol> hmm, ok, I thought they put it in the commit msg but I don't see it now
+[12:34:53] <timmywil> oh, true, an issue on commitplease would be good
+[12:34:58] <m_gol> they have release proposals like that: https://github.com/nodejs/node/pull/3466
+[12:35:06] <m_gol> with these "(SEMVER-MAJOR)" etc.
+[12:35:08] <markelog> timmywil: and in docs too
+[12:35:10] <m_gol> but they're not in commits
+[12:35:22] <markelog> beware, that would be another challenge for the contributros
+[12:35:22] <timmywil> sure, once we decide on format
+[12:35:37] <timmywil> markelog: we can edit the commit message
+[12:35:40] <gibson042> ideally, it's only an issue for maintainers
+[12:35:50] <markelog> yeah, but commitplease, will warn regardless
+[12:35:51] <timmywil> we usually do that anyhow
+[12:35:57] <m_gol> angular puts a "BREAKING CHANGE" message for breaking changes, nothing for minor (it doesn't adhere to semver)
+[12:35:59] <timmywil> ah, true
+[12:36:12] <markelog> m_gol: yeah, that is what i'm thinking
+[12:36:18] <markelog> see above :-)
+[12:36:43] <timmywil> are we saying all breaking changes warrant major version bumps?
+[12:36:54] <gibson042> maybe non-maintainers don't need commitplease >:)
+[12:36:55] <DaveMethvin> semver requires it right?
+[12:37:00] <markelog> yeah
+[12:37:05] <gibson042> yes, all breaking changes are semver major
+[12:37:13] <DaveMethvin> we'll be on jQuery 6 in no time :)
+[12:37:15] <gibson042> all additions are semver minor
+[12:37:33] <timmywil> and bug fixes are patch?
+[12:37:37] <gibson042> yep
+[12:37:37] <markelog> yep
+[12:37:47] <m_gol> https://github.com/angular/angular.js/commit/b71d7c3f3c04e65b02d88b33c22dd90ae3cdfc27
+[12:37:56] <timmywil> ok, then I'd like to point out additions in commits too
+[12:38:16] <timmywil> anyway, we can discuss in the issue
+[12:38:20] <gibson042> +1
+[12:38:22] <markelog> yeah
+[12:38:41] <m_gol> do we want to release a 1.12 rc?
+[12:39:01] <markelog> i'd say no
+[12:39:09] <markelog> since this is not a major
+[12:39:13] <m_gol> there will be a lot of commits, it makes me a little uncomfortable to push it to people with no way to test before the release
+[12:39:19] <DaveMethvin> theres aways 1.12.1 for that case
+[12:39:24] <markelog> we can release another minor
+[12:39:32] <DaveMethvin> which we will probably need anyway
+[12:39:33] <m_gol> that's theory, practice is that lots of code changes = something will be broken
+[12:39:34] <markelog> or patch, yeah :-)
+[12:39:41] <DaveMethvin> b/c something we thought wasn't breaking really was
+[12:39:47] <m_gol> yep
+[12:40:01] <DaveMethvin> but we prob can't get people to report that in an rc
+[12:40:05] <markelog> yeah, if we break something, which we will not :-)
+[12:40:06] <DaveMethvin> from history, few people use them
+[12:40:09] <markelog> we can release another one
+[12:40:11] <m_gol> I was thinking about an rc for at most 2 weeks; if nothing critical happens during that time, a final one
+[12:40:23] <DaveMethvin> and with more ppl using pkg managers they only update when the real thing arrives
+[12:40:32] <timmywil> since we're trying to keep breaking changes out, I don't think an rc is necessary
+[12:40:39] <timmywil> we will fix anything in a patch or another minor
+[12:40:52] <m_gol> what if we accidentally add sth that's breaking?
+[12:41:02] <m_gol> if we patch it back in 1.12.1, we'll have another semver violation
+[12:41:08] <timmywil> then we fix it in a quick release
+[12:41:09] <m_gol> since some people might start to depend on 1.12.0
+[12:41:18] <markelog> that would be a mistake
+[12:41:29] <markelog> if release something breaking
+[12:41:38] <timmywil> we always do. heh
+[12:41:43] <markelog> so, that would a bug fix
+[12:41:46] <DaveMethvin> if you read the articles on semver they describe these cases, not really anything you can do for mistakes
+[12:41:56] <timmywil> yes
+[12:42:15] <timmywil> an rc has historically not helped us that much
+[12:42:31] <markelog> okay, so i would like revert show/hide changes and check my pr for size
+[12:42:33] <DaveMethvin> and even less now that ppl just let the pkg manager do it
+[12:42:33] <markelog> sounds good
+[12:42:34] <markelog> ?
+[12:42:34] <timmywil> and mistakes are not unexpected
+[12:42:52] <timmywil> as in, users understand that mistakes can happen
+[12:43:12] <DaveMethvin> how hard is it going to be to revert the show/hide commit?
+[12:43:16] <timmywil> markelog: sounds good
+[12:43:26] <markelog> DaveMethvin: shouldn't be that hard i think
+[12:43:26] <gibson042> why do we need to revert show/hide?
+[12:43:30] <gibson042> it just won't be included
+[12:43:32] <timmywil> I think the idea is to revert in code, not necessarily revert commits
+[12:43:52] <DaveMethvin> where are we on show/hide then?
+[12:43:53] <gibson042> just don't cherry-pick the commit(s)
+[12:43:59] <markelog> no-no
+[12:44:01] <markelog> i mean
+[12:44:05] <timmywil> gibson042: I think he means in master/compat
+[12:44:06] <markelog> for the master/compat
+[12:44:09] <DaveMethvin> oh
+[12:44:16] <markelog> i just want to finish with that first
+[12:44:16] <timmywil> quick context switching
+[12:44:21] <gibson042> I'm lost
+[12:44:21] <DaveMethvin> :)
+[12:44:30] <markelog> timmywil: read my mind :-)
+[12:44:30] <gibson042> for 1.12, don't cherry-pick breaking changes
+[12:44:39] <DaveMethvin> we prob should focus on getting 1.12/2.2 done first?
+[12:44:44] <gibson042> for master, I agreed to try the "everybody wins" approach
+[12:44:46] <timmywil> gibson042: yea, we all agree
+[12:44:47] <markelog> okay, will do that first
+[12:44:52] <m_gol> yes, I think it's the highest priority now
+[12:44:55] <m_gol> to get 1.12/2.2 out
+[12:45:06] <m_gol> if we continue to focus on master, we'll just be dragging it longer & longer
+[12:45:17] <m_gol> and I'd really like to stop cherry-picking to compat ;)
+[12:45:17] <timmywil> DaveMethvin: yes, good point
+[12:45:35] <DaveMethvin> ok and then get a good Migrate out to match it
+[12:45:51] <markelog> i should be done for the next meeting
+[12:45:55] <m_gol> DaveMethvin: this will be an old-style Migrate, right?
+[12:46:00] <DaveMethvin> i think so
+[12:46:00] <m_gol> the one that supports ancient jQueries
+[12:46:09] <DaveMethvin> we'll go to the new plan for 3.0
+[12:46:15] <m_gol> sounds good
+[12:46:17] <timmywil> +1
+[12:46:18] <gibson042> so what would be in this one?
+[12:46:19] <markelog> will do these things in separate branches
+[12:46:24] <gibson042> migrate is only needed for major versions
+[12:46:52] <DaveMethvin> well mainly just make sure it works correctly wit the new version and reports deprecated stuff
+[12:47:03] <timmywil> yea, might not be much work in migrate
+[12:47:05] <m_gol> gibson042: sometimes we also add warnings to Migrate for non-breaking changes that are breaking a common use case that was undocumented; who knows
+[12:47:13] <DaveMethvin> i'd like to get a few of the 3.0 deprecated things into there if they are easy
+[12:47:19] <DaveMethvin> as warnings, not as fills
+[12:47:41] <m_gol> DaveMethvin: according to semver deprecations must happen in minor or major releases, not patch
+[12:47:50] <m_gol> so 1.12 sounds as a good place for that
+[12:47:56] <timmywil> markelog: let me know if you need helping picking commits
+[12:48:02] <DaveMethvin> right but if something is being deprecated we can warn about it
+[12:48:03] <timmywil> I'll be available this week
+[12:48:08] <m_gol> what branch do we get it on?
+[12:48:15] <markelog> will write a letter with proposed commits
+[12:48:24] <m_gol> 1.12-stable? or maybe 1.12-proposal for now?
+[12:48:32] <timmywil> 1.12-stable sounds good
+[12:48:36] <DaveMethvin> the -stable name sgtm
+[12:48:42] <markelog> cool, okay
+[12:49:17] <timmywil> anything else?
+[12:49:27] <markelog> oh, right
+[12:49:34] <markelog> at the meeting with mozilla
+[12:49:46] <markelog> we wanted to propose some changes to the DOM API
+[12:49:59] <markelog> to improve show/hide situation
+[12:50:06] <timmywil> mhmm
+[12:50:22] <markelog> can someone summirize all issue that we have?
+[12:50:29] <markelog> with it
+[12:50:40] <timmywil> like, in an email?
+[12:50:43] <gibson042> for show/hide, what we needed was exposing the style cascade
+[12:50:53] <DaveMethvin> right
+[12:50:55] <timmywil> to mozilla?
+[12:50:56] <markelog> there is a w3c repo
+[12:51:03] <m_gol> which is a part of the Houdini effort
+[12:51:06] <markelog> we can create an issue in there
+[12:51:29] <markelog> and then send letter to mozilla and everybody else
+[12:51:30] <m_gol> I think it mightbe already planned
+[12:51:32] <timmywil> ah, ok. I think that depends on who's doing the proposal.
+[12:51:38] <markelog> so it would have some attention
+[12:51:51] <m_gol> https://github.com/w3c/css-houdini-drafts
+[12:52:04] <timmywil> we can do it, but mozilla might have a better understanding of how to propose such a feature
+[12:52:11] <m_gol> agreed
+[12:52:17] <timmywil> given implementation requirements and such
+[12:52:33] <markelog> so, we can start with the letter to them?
+[12:52:44] <timmywil> I think that's a good start
+[12:52:56] <timmywil> detail our needs to them and let them propose a solution
+[12:53:19] <markelog> gibson042: would you like to do it? :-)
+[12:53:50] <DaveMethvin> if you can write out what you want, i can try to get it to the right place
+[12:53:59] <gibson042> ok
+[12:54:11] <timmywil> sounds good
+[12:54:19] <markelog> would you mind doing that in the google docs or at the github?
+[12:54:25] <gibson042> was there anything other than show/hide? IIRC, our "select under NodeList" desire is already satisfied
+[12:54:39] <timmywil> that's all I can think of
+[12:54:43] <markelog> check it out - mths.be/bun
+[12:54:59] <DaveMethvin> i know mikesherov wanted some more apis around the different values that css gives, we wanted to know more than just getComputedStyle
+[12:55:08] <DaveMethvin> but we can ask him
+[12:55:13] <markelog> like onfocusin/onfocusout also is an issue
+[12:55:14] <gibson042> yeah, resolved value especially
+[12:55:23] <timmywil> oh yea
+[12:55:40] <timmywil> some way to test focusin support
+[12:55:58] <DaveMethvin> jdalton was stumped on that one
+[12:56:04] <markelog> so at least three things
+[12:56:08] <DaveMethvin> we can't feature test it
+[12:56:09] <markelog> 1. more from getComputedStyle
+[12:56:18] <m_gol> does anyone know if Edge has the correct focusin impl. from IE11 or a broken one like in Chrome?
+[12:56:19] <markelog> 2. onfocus(in | out)
+[12:56:22] <markelog> 3. show/hide
+[12:56:40] <markelog> m_gol: i think you were telling me, that they do it right
+[12:56:56] <m_gol> I hope they do, I didn't check it
+[12:57:04] <m_gol> so I don't think I told you that ;)
+[12:57:10] <timmywil> if you think of any more, add it to the meeting notes
+[12:57:16] <markelog> hm
+[12:57:20] <markelog> well
+[12:57:25] <markelog> easy to check
+[12:57:27] <markelog> :)
+[12:57:55] <DaveMethvin> ok gotta run
+[12:57:57] <timmywil> ok, thanks everybody!
+[12:58:03] <markelog> see ya!
+[12:58:07] <m_gol> cu

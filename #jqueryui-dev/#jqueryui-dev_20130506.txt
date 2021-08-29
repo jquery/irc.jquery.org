@@ -1,0 +1,125 @@
+[02:24:45] <doesallmagic> Project jQuery UI - git core build #393: STILL FAILING in 10 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%20git%20core/393/
+[02:24:52] <doesallmagic> Project jQuery UI 1-9-stable - git core build #180: STILL FAILING in 6.6 sec: http://swarm.jquery.org:8080/job/jQuery%20UI%201-9-stable%20-%20git%20core/180/
+[03:05:55] <doesallmagic> Project jQuery UI - 1.6.x core build #288: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.6.x%20core/288/
+[03:21:08] <doesallmagic> Project jQuery UI - 1.7.x core build #290: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.7.x%20core/290/
+[03:46:16] <doesallmagic> Project jQuery UI - 1.8.x core build #265: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.8.x%20core/265/
+[07:26:46] <scott_gonzalez> gnarf: jzaefferer kborchers petersendidit rxaviers tj_vantoll: Thoughts on this? https://gist.github.com/scottgonzalez/1b556692bbad78883a4d
+[07:27:11] <scott_gonzalez> Right now, .ui-front requires containers to be initialized first.
+[07:27:14] <kborchers> scott_gonzalez: in a meeting but i can take a look in a bit
+[07:27:36] <scott_gonzalez> So if you have an autocomplete inside a dialog, the dialog needs to be initialized before the autocomplete in order for autocomplete's default of appendTo: null to do the right thing.
+[07:27:58] <scott_gonzalez> This was brought to my attention last week by Felix (he noticed it with selectmenu).
+[07:28:19] <scott_gonzalez> Then someone filed a bug about this today (amazing how that timing matched up).
+[07:35:43] <tj_vantoll> Interesting. I'm trying to decide whether I like that approach or not. Wouldn't it make more sense for menu to extend stackingWidget rather than autocomplete? Or would that not work with the current setup?
+[07:41:18] <scott_gonzalez> Menu doesn't have an appendTo option.
+[07:41:34] <scott_gonzalez> Menus are always inline.
+[07:41:51] <scott_gonzalez> But autocomplete generate the menu, so it needs to know where to inline it.
+[07:42:36] <tj_vantoll> In that case this would apply to datepicker as well correct?
+[07:42:49] <scott_gonzalez> yup
+[07:42:57] <scott_gonzalez> and selectmenu
+[07:43:56] <tj_vantoll> Is the ui-front technique documented anywhere other than this blurb on the Wiki? http://wiki.jqueryui.com/w/page/12137737/Coding%20standards
+[07:44:06] <scott_gonzalez> That's the only place right now.
+[07:44:16] <scott_gonzalez> We should create a page on api.jqueryui.com
+[07:44:26] <scott_gonzalez> A regular page, not an entry.
+[07:44:28] <tj_vantoll> Yeah this comes up a lot.
+[07:44:37] <scott_gonzalez> https://github.com/jquery/api.jqueryui.com/tree/master/pages
+[07:45:00] <scott_gonzalez> I can work on that.
+[07:46:13] <scott_gonzalez> I don't really like having two separate base widgets for this.
+[07:46:31] <tj_vantoll> Ok cool. I could help as well. I feel like I need to understand ui-front better before I can critique your gist.
+[07:46:34] <tj_vantoll> Yeah.
+[07:46:58] <scott_gonzalez> Maybe instead of using _create(), we can just add methods for the two different widget types to call.
+[07:47:22] <tj_vantoll> Yeah I like mixing in the behavior rather than extending in this case.
+[07:47:37] <scott_gonzalez> Like _registerStackingElement( element ) - would avoid the need to assign this.stackingElement as well.
+[07:47:54] <tj_vantoll> Where would that go?
+[07:48:24] <scott_gonzalez> In a stackingWidget base.
+[07:48:42] <scott_gonzalez> The problem with mixins is that you lose the benefits of putting things in a prototype.
+[07:49:11] <scott_gonzalez> I mean, it would end up in the final widget's prototype, but not shared among each final widget type
+[07:49:25] <scott_gonzalez> So autocomplete and selectmenu and dialog would have their own copies of the methods.
+[07:50:24] <tj_vantoll> Yeah, but we're not talking about a whole lot of copying here. Dunno, a base widget just feels a little weird.
+[07:52:00] <scott_gonzalez> So $.widget( "ui.autocomplete", $.extend({ ... }, $.ui.stackingWidget ); ?
+[07:53:00] <petersendidit> yuck
+[07:53:06] <tj_vantoll> Agreed. Ugh.
+[07:54:13] <tj_vantoll> Would having a separate base widget for extension help 3rd party widgets?
+[07:54:32] <scott_gonzalez> Yeah, they won't need to write all the ui-front logic.
+[07:54:45] <scott_gonzalez> They can just element.appendTo( this._appendTo() )
+[07:55:09] <petersendidit> Yea I think we need to allow others to be able to do the same thing
+[07:56:51] <scott_gonzalez> Collapsed into a single widget: https://gist.github.com/scottgonzalez/415d8924ec9fa92b0a79
+[07:58:03] <tj_vantoll> Nice
+[07:59:47] <scott_gonzalez> The downside to having it in a single widget is that the container widget (like dialog) only needs 1 line of code, but now requires the whole thing.
+[09:43:06] <gnarf> this stacking idea seems pretty nice scott_gonzalez
+[09:50:38] <scott_gonzalez> Thanks gnarf.
+[10:48:05] <lampe2> hey i got a problem with draggable elements. i wanne move the dragged element X pixel to the left while iam dragging it. i tryed it of css( left:); and it dident work can someone help ?
+[11:13:33] <scott_gonzalez> tj_vantoll1: http://cl.ly/image/1y3f1M1O1k2I
+[11:13:46] <scott_gonzalez> I added a sentence warning about the perf hit.
+[11:14:59] <tj_vantoll1> Good call, looks good.
+[11:16:12] <tj_vantoll1> "I'm animating 100 elements and their children at the same time, why is the animation sluggish?" Now we'll have a place to link to.
+[11:16:51] <scott_gonzalez> yup
+[11:17:21] <scott_gonzalez> Regarding the duplication, you should be able to split out the individual properties into their own files.
+[11:17:30] <scott_gonzalez> But as you said, it's probably not worth it at this point.
+[11:18:21] <tj_vantoll1> Yeah, I was weighing DRY vs convenience. I thought some duplication there was ok.
+[12:04:32] <doesallmagic> Project jQuery UI build #1096: STILL FAILING in 0.36 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/1096/
+[14:17:28] <agcolom> scott_gonzalez: re: http://cl.ly/image/1y3f1M1O1k2I just a question/suggestion: would you think it might be a good idea to use the warning div for this? (just so that people don't miss it? (maybe just for the part that starts "this feature....") 
+[15:29:12] <DaveStein> paul_irish are you speaking at adobe max? im apparently here
+[15:29:44] <DaveStein> scott_gonzalez: i havent been able to get to pull request or unit tests due to coding for features demo'ed at adobe max. ironically i can now get back to it since im here til thursday between talks
+[15:29:47] <DaveStein> :)
+[16:00:12] <paul_irish> DaveStein: ill be there tmw
+[16:00:27] <DaveStein> awesome which talk? this schedule is not the most userfriendly
+[16:00:29] <DaveStein> paul_irish ^^
+[16:01:25] <DaveStein> i heard through a coworker youre talking and that's all i know. now i'll feel silly if the talk is like "Paul Irish speaking" haha
+[16:04:02] <paul_irish> DaveStein: wednesday like 11am. mobile css performance
+[16:04:52] <DaveStein> paul_irish: Awesome I'll be sure to make it
+[16:05:00] <paul_irish> kk
+[16:17:25] <mikesherov> scott_gonzalez: hi!
+[16:22:18] <DaveStein> mikesherov you appeared at the exact right moment
+[16:22:25] <mikesherov> huzzah
+[16:22:26] <DaveStein> you gotta tell me if im doing something wrong or if this is expected
+[16:22:34] <DaveStein> i just figured out this scrollbar unit test thing
+[16:22:46] <DaveStein> remember me complaining the other week?
+[16:23:03] <DaveStein> draggable: options: { helper: 'original' }, relative, with scroll offset on root (3, 0, 3)
+[16:23:14] <DaveStein> so those tests.... if i run them in the browser by themselves they work
+[16:23:18] <DaveStein> and in the full suite they werent
+[16:23:34] <mikesherov> right, I remember
+[16:23:36] <DaveStein> i was like commenting out tests one by one and it turns out if i run the suite in my browser and have a scrollbar it fails
+[16:23:55] <DaveStein> so if i comment out enough tests so theres no scrolbar they succeed
+[16:23:56] <mikesherov> it's because of the height of the document when one test exists versus many
+[16:24:02] <mikesherov> right
+[16:24:15] <mikesherov> look at the tests in master draggable
+[16:24:28] <DaveStein> didnt these tests come from master? 
+[16:24:28] <mikesherov> that append a huge ass div to force scrollbars even if it's by itself
+[16:24:36] <mikesherov> yes, they did
+[16:24:44] <mikesherov> but they are the sucky old ones I salvaged
+[16:24:49] <DaveStein> haha
+[16:25:21] <DaveStein> so should i be running the tests another way or is this a legit bug where i should be forcing th existance of scrollbars during the test?
+[16:26:07] <mikesherov> yes, always force actual scrollbars in tests that expect scrollbars to exist
+[16:26:44] <DaveStein> so when i do this, you think theres an actual bug... or the failing tests are from the scrollbar appearing and disappearing because of it being a unit test
+[16:28:53] <mikesherov> I think it's an actual bug
+[16:29:08] <mikesherov> didn't you already fix this with some caching magic before?
+[16:29:19] <DaveStein> i remember fixing scrolling bugs
+[16:29:28] <DaveStein> but then when you merged master whilei wasnt active these popped up
+[16:31:36] <mikesherov> hm
+[16:31:40] <DaveStein> mikesherov do you think its a bad idea for me to make something in draggable options module that forces the scrollbar and then makes a flag for teardown to take care of?
+[16:31:56] <DaveStein> or should i use testhelper for "forceScroll" and "stopScroll" something like that
+[16:32:11] <DaveStein> i hate things when you have to turn on and then off manually repeatedly - greater chance of user error 
+[16:32:17] <DaveStein> but im thinking test helpers is better 
+[16:32:18] <mikesherov> I agree
+[16:32:26] <DaveStein> agree to which
+[16:32:34] <DaveStein> you hit that just as i typed other thing i think
+[16:32:59] <mikesherov> I think in setScroll and restoreScroll it should append a div
+[16:33:08] <DaveStein> ok so testhelper it is
+[16:33:10] <mikesherov> which will force scrolling to happen
+[16:33:46] <mikesherov> yeah
+[16:33:46] <DaveStein> k adding into existing functions
+[16:33:53] <mikesherov> I think so
+[16:33:56] <DaveStein> i guess just a body appending of super tall div 
+[16:35:54] <DaveStein> ill throw a class in draggable.html so the adding and removing make some sense when read
+[16:36:40] <mikesherov> k
+[16:36:42] <DaveStein> and yup certainly a real bug that happens now even when i run the test by itself
+[16:36:46] <DaveStein> time to fix
+[16:37:57] <DaveStein> mikesherov I'm in LA for the week so I'll be able to code between talks so hopefully ill be more useful than as of late ;)
+[16:38:11] <mikesherov> I'm looking forward to it DaveStein 
+[16:38:14] <mikesherov> Me too!
+[16:38:19] <DaveStein> are you at max?
+[16:38:41] <DaveStein> or just LA?
+[16:38:43] <DaveStein> in general
+[16:40:24] <DaveStein> or you were saying me too, to hoping i do more work this week haha
+[16:44:20] <DaveStein> bah off to next talk. see ya later
+[19:08:52] <DaveStein> mikesherov: you awake guy?

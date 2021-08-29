@@ -1,0 +1,238 @@
+[00:00:51] <gnarf> hrm
+[00:01:22] <gnarf> i think this might work out better if .data() == the "data" key on the internal cache....
+[00:02:10] <gnarf> sean`: got an opinion on that?
+[00:02:24] * gnarf just asking you cuz I just saw you talking ;)
+[00:02:51] <sean`> My jquery ajax form plugin refuses to work on IE7/8
+[00:02:58] <gnarf> thats bs
+[00:02:59] <sean`> and I have a deadline :-P
+[00:03:02] <gnarf> you know why yet?
+[00:03:06] <sean`> nope
+[00:03:22] <gnarf> i just spent like 3 hours on a branch i think i want to throw away
+[00:03:39] <gnarf> cuz I think this new idea makes more sense...
+[00:03:52] <gnarf> of course, firequery will hate me
+[00:04:20] <sean`> hmm
+[00:04:25] <sean`> what do you mean
+[00:04:29] <sean`> <gnarf> i think this might work out better if .data() == the "data" key on the internal cache....
+[00:04:43] <gnarf> so right now... _data() is like this "internal data" object
+[00:04:47] <gnarf> we put events / handler / etc there
+[00:05:03] <gnarf> however, it gets stored on .data( jQuery.expando )
+[00:05:18] <gnarf> I'm thinking if we reverse that
+[00:05:40] <gnarf> and make .data() store itself in _data()'s "data" key
+[00:05:58] <gnarf> it might make more sense
+[00:06:25] <gnarf> that way you don't have to be checking for the possible existance of this rogue data key that stores jQuery internal stuff
+[00:06:55] <gnarf> as the end user, i don't think .data() should ever give me the "internal data"
+[00:07:14] <gnarf> did i just talk myself in a circle or did you get that? :)
+[00:11:05] <gnarf> jQuery.cache[ elem[ jQuery.expando ] ] would be the "internal data" and .data on that would be the "data"
+[00:11:19] <gnarf> as opposed to now
+[00:11:43] <gnarf> jQuery.cache[ elem[ jQuery.expando ] ] is the "data" and [ jQuery.expando ] on that is the "private data"
+[00:12:12] <gnarf> it makes more sense in the pain object case too...
+[00:12:41] <gnarf> object[ jQuery.expando ] = "internal data" and object[ jQuery.expando ].data = "data"
+[00:13:52] <gnarf> that way, the "internal data" is the thing that picks up the toJSON -> noop
+[00:14:01] <gnarf> and the user data can still have a toJSON
+[00:14:15] <gnarf> or not even check for it
+[06:16:25] <timmywil> gnarf: clever
+[06:16:25] <bot-t> (6 hours 38 mins ago) <gnarf> tell timmywil hey - read https://github.com/jquery/jquery/pull/499 over real quick let me know what you think of that approach - also take a look at the comment and let me know what you think?
+[06:16:26] <socialhapy> ★ Pull request on jquery by gnarf37 (6h, 55m ago): data: Storing internal cache in a separate place
+[06:16:34] <timmywil> heh
+[06:16:50] <timmywil> yea, that's brilliant
+[06:18:47] <danzik17> timmywil: Does that mean the internal events object will be private in 1.7?
+[06:20:01] <timmywil> danzik17: it will be a little more private :)
+[06:21:49] <timmywil> it will no longer be returned with public data on a .data() call
+[06:23:45] <danzik17> timmywil: Will there still be some public (if undocumented) way of getting at it?  Just planning for stuff I work on - when I need to do late binding of an event but have it fire first, I mess with the event object.  Since it's undocumented I knew this day would come, just planning ahead
+[06:24:14] <timmywil> sure, it will be available via jQuery._data()
+[06:24:21] <danzik17> timmywil: Ah score, thanks
+[06:24:31] <timmywil> np
+[08:46:04] <wookiehangover> hey does anyone know who maintains the jquery node package?
+[08:46:39] <wookiehangover> because old dude bumped it to 1.6.3 yesterday and broke just about everyone who was requiring ~1.6.2
+[08:48:36] <socialhapy> ★ Tweet from jquery: jQuery 1.6.4, a maintenance release, is now available! http://t.co/gGnmpa2 ★ http://bit.ly/obwgOw
+[09:03:33] <danheberden> bot-t: tell DaveMethvin can you also update the index.html page on the cdn when you add the latest jquery version under "all jquery versions" (or rather, add it to the deployment document) - thanks! hugs 'n kisses!
+[09:03:34] <bot-t> danheberden, Okay.
+[11:34:41] <rwaldron> ?jqstyle
+[11:34:43] <bot-t> rwaldron, Ajax will_paginate, jq-style - http://ozmm.org/posts/jquery_will_paginate.html
+[11:34:46] <rwaldron> ef.
+[11:34:48] <rwaldron> ?style
+[11:34:48] <bot-t> http://docs.jquery.com/JQuery_Core_Style_Guidelines
+[13:07:46] <gnarf> timmywil: yeah, pull 500 made sense right?
+[13:08:18] <gnarf> wish I'd thought of it while i was doing all that work for 499 :)
+[13:15:56] <gnarf> although all the work on 499 pointed out all the spots I was gonna need to rewrite for 500 anyway :)
+[13:24:26] <timmywil> gnarf: yea i like
+[13:24:38] <timmywil> gnarf: that was clever
+[13:27:17] <gnarf> was one of those "doh" moments
+[14:04:03] <gnarf> So, random thing I found when working on 500, there is some "dead code" that we shouldn't need, but its protected by a unit test
+[14:05:55] <gnarf> Its the removing of the private data shouldn't destroy user data.... the actual call to remove all private data only happens in one place, and it won't ever run if there is "public data"
+[14:07:44] <gnarf> So, since removeData( elem, undefined, true ) could purge the whole object and not have to worry about saving the "public data" but it makes some tests fail.
+[14:39:51] <socialhapy> ★ Tweet from jquery: Psst... Boston jQuery Conference tickets are just about sold out! If you haven't bought yours yet, the time is now... http://t.co/sWF88Ma ★ http://bit.ly/njtJuF
+[14:57:07] <gnarf> hrm - anyone with an opinion on data around? rwaldron?
+[14:57:36] <sean`> gnarf, ping
+[14:57:48] <sean`> oh, lol, 21 secs later Lo
+[14:57:49] <gnarf> hey sean`!
+[14:57:49] <sean`> :p
+[14:57:54] <sean`> got code?
+[14:58:02] <rwaldron> hey
+[14:58:11] <sean`> YO
+[14:58:12] <rwaldron> sorry, i'm working on popcorn.js stuff
+[14:58:16] <rwaldron> we have a code freezr coming
+[14:58:19] <rwaldron> freeze*
+[14:58:26] <rwaldron> i'll be back in a few mins
+[14:58:27] <gnarf> https://github.com/jquery/jquery/pull/500 - there is one more thing i think i can sneak in here with this one
+[14:58:28] <socialhapy> ★ Pull request on jquery by gnarf37 (13h, 36m ago): 1.7 - "public data" stored as a key on "internal data" - Fixes #8921
+[14:58:58] <gnarf> https://github.com/gnarf37/jquery/blob/a39433f97baf570ba77f9800bc8d05b38e15fe37/src/data.js#L202-212 this whole chunk of code isn't needed
+[14:59:05] <gnarf> but its tested by a unit test
+[14:59:49] <gnarf> basically, jQuery.removeData( elem, undefined, true ) is only used in one place, and I would think we could ensure that it was known that it will also delete the "user data"
+[15:00:33] <gnarf> but like i said, there is a unit test making sure that .removeData( elem, undefined, true ) only deletes private data
+[15:00:44] <sean`> hmm
+[15:00:45] <sean`> looks good
+[15:01:10] <sean`> good luck on popcornjs rwaldron
+[15:01:19] <sean`> I'll be using that baby soon!
+[15:01:24] <rwaldron> back
+[15:01:35] <gnarf> I would think that .removeData( elem, undefined, true ) could remove all data - we are the only people who should ever be using it, and even then - only in the "cleanData"
+[15:01:36] <rwaldron> i accidentally committed shit to branch 718
+[15:01:42] <rwaldron> when i was working on ticket 713
+[15:01:46] <rwaldron> :(
+[15:01:48] <rwaldron> fixed
+[15:01:51] <gnarf> rwaldron: hate when that happens :)
+[15:02:26] <rwaldron> gnarf, what happens when you remove all data?
+[15:02:41] <gnarf> thats what .removeData( elem, undefined, true ) would do
+[15:02:45] <gnarf> but right now
+[15:02:49] <gnarf> anytime you remove anything
+[15:02:50] <rwaldron> "there is a unit test making sure that .removeData( elem, undefined, true ) only deletes private data"
+[15:02:53] <rwaldron> right?
+[15:02:55] <gnarf> it checks for emptiness
+[15:03:19] <rwaldron> that's likely from when data() was first introduced
+[15:03:25] <rwaldron> ie. jQuery.data()
+[15:03:26] <gnarf> rwaldron: yes, currently there is a unit test testing that - but since its an internal function I'm more for rewriting our only use of it (which would be smaller anyway )
+[15:03:30] <rwaldron> not fn.data()
+[15:03:41] <rwaldron> +1
+[15:03:54] <gnarf> our only use of .removeData( elem, undefined, true ) is in events
+[15:04:03] <rwaldron> gnarf wait
+[15:04:05] <gnarf> when we unbind the last event
+[15:04:06] <rwaldron> clarify
+[15:04:07] <rwaldron> http://api.jquery.com/jQuery.removeData/
+[15:04:32] <gnarf> .removeData( elem, name, pvt /* internal only */ )
+[15:04:33] <rwaldron> The jQuery.removeData() method allows us to remove values that were previously set using jQuery.data(). When called with the name of a key, jQuery.removeData() deletes that particular value; when called with no arguments, all values are removed.
+[15:04:59] <gnarf> that last argument is undocumented
+[15:05:02] <gnarf> cuz its internal only
+[15:05:04] <rwaldron> yeah
+[15:05:11] <gnarf> but its remove all internal data
+[15:05:26] <rwaldron> This is my 9th day of work straight
+[15:05:30] <rwaldron> so, bear with me
+[15:05:33] <gnarf> i just think we can make it so that that actually will remove the "public" data too
+[15:05:36] <sean`> what about .data ('data', 'foo')
+[15:05:43] <gnarf> and just never call it
+[15:05:48] <gnarf> sean`: unaffected
+[15:05:55] <sean`> love it
+[15:06:13] <rwaldron> gnarf and the only issue is the unit test
+[15:06:17] <rwaldron> (that is old)
+[15:06:41] <gnarf> rwaldron: yup - lets me cut like 8 lines of code out of data.js - and clean up a few in events.js
+[15:06:41] <rwaldron> ?
+[15:06:47] <rwaldron> hm
+[15:06:50] <gnarf> if i hack the unit test to pass
+[15:06:55] <gnarf> or remove that one unit
+[15:07:08] <rwaldron> remove that unit
+[15:07:12] <rwaldron> can you do me a favor
+[15:07:19] <rwaldron> test this against UI and Mobile
+[15:07:31] <rwaldron> if no issue, then I am +1
+[15:07:55] <gnarf> yeah, I can test with UI - but really, we shouldn't ever need to call .removeData( elem, undefined, true ) unless we are about to destroy the element
+[15:08:17] <gnarf> as far as mobile goes, i have no test platform for it, but maybe i can ask someone else to look at it from the mobile team
+[15:08:17] <rwaldron> yeah, you're right
+[15:08:22] <rwaldron> but I just want to cover asses
+[15:08:35] <rwaldron> use there unit tests
+[15:08:37] <rwaldron> their*
+[15:08:38] <gnarf> UI doesn't even use _data right now...
+[15:08:43] <rwaldron> so?
+[15:08:44] <Lampoon> so are you
+[15:08:50] <rwaldron> hahaha
+[15:09:04] <gnarf> i don't think at least
+[15:09:11] <rwaldron> I only ask because they use data() like crazy
+[15:09:17] <gnarf> regular .data()
+[15:09:24] <gnarf> but yeah
+[15:09:27] <rwaldron> can you just run their unit tests with your branch built?
+[15:09:30] <gnarf> yup
+[15:09:49] <gnarf> lemme push this second commit to that branch and then I'll run some tests
+[15:09:59] <rwaldron> it will just make me feel better and I can get behind it if i know its not going to break our dependents
+[15:10:04] <rwaldron> awesome
+[15:10:08] <rwaldron> nice one though
+[15:10:10] <rwaldron> finding this
+[15:10:13] <rwaldron> :)
+[15:10:19] <gnarf> yeah, pull 499 felt too dirty
+[15:10:23] <gnarf> but right when i finished it
+[15:10:25] <gnarf> i was like
+[15:10:26] <gnarf> waits
+[15:10:36] <gnarf> flip it around and it makes 3* as much sense
+[15:11:44] <rwaldron> nice :)
+[15:14:39] <sean`> I got 499 problems, but a pull ain't one!
+[15:14:54] <rwaldron> ugh
+[15:15:00] <rwaldron> i'm having an API crisis
+[15:15:04] <rwaldron> jQuery.eventPropHooks?
+[15:15:19] <rwaldron> gnarf danheberden ^
+[15:15:25] <rwaldron> i hate that
+[15:15:38] <gnarf> um
+[15:15:45] <gnarf> that sounds a little contrived
+[15:15:49] * gnarf grins
+[15:15:54] <rwaldron> well.
+[15:15:57] <rwaldron> cssHooks
+[15:16:05] <rwaldron> attrHooks
+[15:16:07] <gnarf> yeah - the hooks that started it all
+[15:16:14] <rwaldron> should've been
+[15:16:15] <gnarf> if only we had done .hooks.css
+[15:16:19] <rwaldron> jQuery.hooks.*
+[15:16:23] <rwaldron> yeah
+[15:16:37] <gnarf> we could still do that
+[15:16:38] <rwaldron> I wonder if everyone will hate me if i do that
+[15:16:41] <rwaldron> fuck it
+[15:16:53] <rwaldron> if everyone thinks it sucks, I'll find somewhere else to put this api
+[15:17:05] <rwaldron> for now. jQuery.hooks muthahfuckah
+[15:17:09] <gnarf> jQuery.hooks.css = {}; jQuery.cssHooks = jQuery.hooks.css; should keep BC too
+[15:18:25] <gnarf> bbiab
+[15:19:28] <rwaldron> yeah
+[15:19:40] <rwaldron> but i just realized that this doesnt have a logically nice place to go
+[15:19:46] <rwaldron> and i got outvoted on that ticket
+[15:19:54] <rwaldron> i would be rude to go over the group vote
+[15:21:11] <rwaldron> gnarf also, jQuery.event.special is basically "hooks"
+[15:21:12] <rwaldron> wtf.
+[15:36:49] <danheberden> rwaldron would putting the hooks on the event constructor be bad?
+[15:38:02] <danheberden> i'll give you a +1 on jQuery.hooks though :)
+[15:41:54] <rwaldron> wtf
+[15:42:00] <rwaldron> actually, it did get voted for
+[15:42:35] <rwaldron> the only ones that downvoted were paul_irish, scott gonzalez and dmethvin
+[15:44:42] <rwaldron> also, paul_irish i think you misused yak shaving
+[15:45:02] <rwaldron> ;)
+[16:31:32] <gnarf> hrm
+[17:03:14] <thomasdavis> requirejs4life
+[17:04:08] <ajpiano> ?csb
+[17:04:08] <bot-t> cool story, bro. http://i599.photobucket.com/albums/tt71/Pittsburghistan/xb9yt0jpg-1.gif
+[18:11:59] <rwaldron> jaubourg yt?
+[22:11:56] <thomasdavis> It ain't easy being sleazt
+[22:33:57] <jitter_> +++ßśb0#c
+[22:33:58] <bot-t> (31 hours 10 mins ago) <jboesch> tell jitter_ Just wondering what your thoughts are on this. I left a comment below: http://bugs.jquery.com/ticket/7260#comment:5
+[22:34:44] <ajpiano> jitter_ !!
+[22:35:18] <jitter_> 4
+[22:57:37] <jitter_> .. sry for the spam. looks like the first irc post of my daughter :D
+[22:59:43] <ajpiano> haha congrats jitter_
+[22:59:47] <ajpiano> long time no see!!
+[23:01:26] <jitter_> thx :)
+[23:01:32] <jitter_> yeah... that's true
+[23:03:23] <jitter_> for some time now i just don't really find the time to do something useful in jquery
+[23:03:42] <ajpiano> heh yeah if you have a new baby!
+[23:03:46] <ajpiano> i can imagine
+[23:04:55] <jitter_> yeah that's accounting for most of the current situation :)
+[23:05:25] <jitter_> i'm still like lurking in the background and following progress
+[23:06:14] <ajpiano> thats good to know
+[23:06:20] <ajpiano> maybe when she goes to college you can hop back in ;)
+[23:07:14] <jitter_> :D yeah
+[23:07:54] <jitter_> i hope i get my act together earlier then that
+[23:08:45] <jitter_> so I can be back and contribute
+[23:09:04] <ajpiano> yea we would welcome you back
+[23:09:06] <ajpiano> when was she born??
+[23:10:58] <jitter_> she was born in april
+[23:11:52] <ajpiano> ahh just a baby baby
+[23:11:53] <ajpiano> :)
+[23:12:17] <jitter_> haha yes. which more or less caused my current disappearal
+[23:13:03] <jitter_> I hadn't planned to do so... but you know
+[23:13:41] <ajpiano> yeah i can seriously imagine
+[23:17:25] <jitter_> so once I find some time
+[23:17:27] <jitter_> I'll be back :)
+[23:18:07] <ajpiano> ok :)
+[23:18:09] <ajpiano> you know where to find us
+[23:18:49] <jitter_> yeah. hope you don't kick me from -dev too in the meantime ;)
+[23:23:57] <ajpiano> don't sweat it!

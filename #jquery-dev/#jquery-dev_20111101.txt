@@ -1,0 +1,782 @@
+[05:16:52] <mikesherov> So, I don't understand timmywil's commit from yesterday
+[05:17:09] <mikesherov> did anyone ever figure out why only FF was complaining about the support unit test?
+[05:17:25] <mikesherov> What bothers me is that really, shouldn't all the browsers complain?
+[05:19:20] <mikesherov> I would understand if that test needed to be updated in all browsers
+[05:21:36] <mikesherov> and the bug is super flaky... if you just refresh the test, it works, but if you navigate to the test, it fails
+[06:23:32] <timmywil> found the display issue
+[06:30:07] <kborchers> could someone give me a rundown on how to reproduce the error that was being caused by the detached body in support?
+[06:30:17] <kborchers> we just landed something similar in position in UI
+[06:30:35] <kborchers> and i am seeing no errors in ie8 in units or visual tests or demos that use position
+[06:31:45] <timmywil> kborchers: I reproduced by emptying cache and restarting ie8
+[06:31:54] <kborchers> ok, let me try
+[06:34:25] <kborchers> hmmm, still seems fine
+[06:34:45] <timmywil> it was a strange internal pointer issue.  It may not actually be a problem in UI
+[06:35:19] <kborchers> ok, that's what i had kind of determined last night but wanted to make sure i wasn't missing something today
+[06:36:11] <kborchers> i'll keep an eye on it though
+[06:36:13] <kborchers> thanks timmywil
+[06:36:16] <timmywil> kborchers: oh, but there's something else needed to reproduce
+[06:36:22] <kborchers> oh?
+[06:36:25] <timmywil> you need to set a background-image on the body
+[06:36:37] <timmywil> this is what we have
+[06:36:42] <kborchers> oh, well we won't do that
+[06:36:50] <timmywil> body, div { background: url(http://static.jquery.com/files/rocker/images/logo_jquery_215x53.gif) no-repeat -1000px 0; }
+[06:36:56] <timmywil> it's not seen
+[06:37:05] <timmywil> it's a matter of attaching external data
+[06:37:28] <kborchers> this is where we're using it https://github.com/jquery/jquery-ui/commit/bfbc0b1fb3c0bf43ccbaefd03bcfa2cf19ea4a03#L1R262
+[06:37:28] <socialhapy> ★ Commit on jquery-ui by scottgonzalez (5d, 22h ago): Position: Added a check for fraction support in element positions. Fixes #7255 - Position: Revisit solution for off-by-1 errors.
+[06:39:22] <timmywil> we didn't find the ie8 crash until we started getting tickets about backgrounds on body being lost in opera
+[06:39:50] <timmywil> hence why you also see background: "none" in the testElementStyle
+[06:40:15] <kborchers> right
+[06:42:11] <kborchers> we're just using it to test if jQuery is rounding positions so we can adjust accordingly to avoid off-by-1 position issues
+[06:42:22] <kborchers> i don't think we would ever need a background there
+[06:42:35] <kborchers> and if we did, if we wrap that in doc ready it should be ok right?
+[06:42:58] <timmywil> that would work
+[06:43:29] <kborchers> ok, well i'll double check with scott but i think we'll just leave it as is for now
+[06:43:33] <kborchers> thanks for the help timmywil
+[06:43:40] <timmywil> np
+[06:46:40] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/47AwNw
+[06:46:40] <jqcommit> [jquery/master] Fix a failing effects test in IE; minor style changes in effects - timmywil
+[06:46:45] <timmywil> gnarf: check me ^
+[06:47:06] <timmywil> ?tell DaveMethvin see fix for the effects fail http://git.io/47AwNw
+[06:47:06] <bot-t> timmywil, Okay.
+[06:49:08] <jq-jenkins> Project jQuery build #152: STILL FAILING in 2 min 5 sec: http://swarm.jquery.org:8080/job/jQuery/152/
+[06:49:09] <jq-jenkins> timmywillisn: Fix a failing effects test in IE; minor style changes in effects
+[07:00:18] <gnarf> timmywil: im not sure how that solves the issue
+[07:00:45] <gnarf> oh wait
+[07:00:47] <gnarf> i see now
+[07:00:56] <timmywil> cool :)
+[07:01:55] <timmywil> it was a new addition to fall back to uncomputed, which fixed another issue, but we can't let everything that was empty string go to auto
+[07:02:00] <gnarf> it seems like a null might fall through there now tho right?
+[07:02:19] <timmywil> it fell through before as well
+[07:03:11] <gnarf> so is the "auto" at the bottom still used?
+[07:03:36] <timmywil> it is when computed is ""
+[07:03:55] <gnarf> which is untrue for display
+[07:04:06] <gnarf> ?
+[07:04:10] <timmywil> exactly
+[07:04:15] <gnarf> odd
+[07:05:04] <timmywil> computed style for display is null
+[07:05:44] <gnarf> timmywil: one question for ya
+[07:05:53] <timmywil> sup
+[07:05:58] <gnarf> can you share the test case that was causing the crash with kborchers?
+[07:06:02] <gnarf> oh you did
+[07:06:11] <timmywil> yea we talked
+[07:06:18] <kborchers> yeah, i don't think it's an issue in UI
+[07:06:37] <timmywil> kborchers: it still could be, it won't crash without a background on body
+[07:07:02] <kborchers> does it need to be an image or is a color a good enough test?
+[07:07:10] <timmywil> it needs to be an image
+[07:07:22] <kborchers> ok, i'll test
+[07:08:06] <gnarf> timmywil: a background on the real body?
+[07:08:13] <timmywil> yea
+[07:09:22] <timmywil> gnarf: do you have time to run safari for http://swarm.jquery.org/job/202/ ?
+[07:09:50] <gnarf> sure
+[07:10:27] <timmywil> bbs
+[07:12:22] <kborchers> seems fine ... my position demo has pretty unicorns as the background and no errors
+[07:12:33] <kborchers> cleared cache and restarted IE8 with no errors
+[07:19:09] <gnarf> all green timmywil
+[07:19:29] <gnarf> hey DaveMethvin
+[07:19:39] <gnarf> timmy nailed the display bug i think
+[07:19:43] <DaveMethvin> hey gnarf
+[07:19:43] <bot-t> (32 mins 30 secs ago) <timmywil> tell DaveMethvin see fix for the effects fail http://git.io/47AwNw
+[07:19:53] <DaveMethvin> great!
+[07:19:59] <DaveMethvin> sorry i had a dental appt
+[07:20:06] <DaveMethvin> how was your party timmywil
+[07:20:54] <kborchers> so looks like for what ever reason that issue does not effect UI the way we are using the detached body. also ... i think all of our visual tests in UI should look like this http://gyazo.com/1cb25a5bd39bc6baf7d8ff6d47930e5a
+[07:22:47] <gnarf> nice kborchers
+[08:25:42] <DaveMethvin> so gnarf timmywil do we have everything passing now?
+[08:25:55] <DaveMethvin> i still have some worries bout support.js, for example https://github.com/jquery/jquery/blob/master/src/support.js#L150
+[08:26:15] <DaveMethvin> that line was in a doc ready a few months ago and it's migrated out to run immediately
+[08:28:15] <timmywil> back
+[08:28:18] <timmywil> had a meeting
+[08:29:15] <DaveMethvin> yeah sorry it's been so crazy lately
+[08:29:44] <DaveMethvin> i had a dental appt this morning, still on some pain killers so if i don't make sense let me know :)
+[08:30:07] <gnarf> nice
+[08:30:26] <timmywil> yay
+[08:31:08] <timmywil> DaveMethvin: that's been like that since 1.5 right?
+[08:31:30] <DaveMethvin> i am not sure when it changed, maybe on jaubourg's rewrite?
+[08:31:44] <gnarf> hrm
+[08:31:55] <timmywil> im assuming when support was switched to the invisible body
+[08:32:01] <timmywil> so ye
+[08:32:03] <DaveMethvin> here's the patch where I originally looked for body
+[08:32:03] <timmywil> a
+[08:32:04] <DaveMethvin> https://github.com/dmethvin/jquery/blob/dd2376bbfd45468ca9a35cea19cfca34456a2f11/src/support.js#L128
+[08:32:14] <DaveMethvin> a lot more stuff done at ready
+[08:32:19] <gnarf> i thought that code right there was what was causing the crash?
+[08:32:51] <timmywil> it's related, but not exactly
+[08:33:16] <DaveMethvin> also it looks like testElement is used from the outer scope in the ready, but not for any real content, shoudl prolly be local
+[08:33:29] <DaveMethvin> and should we be nulling it out on ready?
+[08:33:54] <timmywil> DaveMethvin: testElement is remade, it's just reusing the var
+[08:34:04] <DaveMethvin> yeah but fromthe outer scope
+[08:34:14] <timmywil> is that bad?
+[08:34:29] <DaveMethvin> well it slower, but also notice the outer scope works hard to clear it out
+[08:34:44] <DaveMethvin> oh yeah the other does too
+[08:34:47] <DaveMethvin> missed that
+[08:35:24] <timmywil> i mean, it saves another declaration, but i don't mind declaring a local
+[08:36:10] <DaveMethvin> yeah i think it shoudl be local .. is anything else taken from the outer scope?
+[08:36:35] <DaveMethvin> body is recreated
+[08:36:45] <gnarf> timmywil: so what about the stuff inside the ready now is crashing ie?
+[08:36:55] <gnarf> in the "fake body" ?
+[08:37:15] <timmywil> yea body and testElement
+[08:37:35] <DaveMethvin> oh is the crash back?
+[08:37:37] <timmywil> gnarf: it's very sensitive.  Currently, it does not crash
+[08:37:50] <gnarf> no, the crash is gone
+[08:37:59] <DaveMethvin> ok, nobody breathe! :)
+[08:38:09] <gnarf> i'm just trying to figure out what was causing it, because we use this fake body technique in ui too
+[08:38:24] <DaveMethvin> the other q i had was about the body var at line 150
+[08:38:33] <DaveMethvin> originally that was in a ready, now it's not
+[08:38:44] <DaveMethvin> so if you include jquery in the head that body will always be undefined
+[08:39:01] <DaveMethvin> but include in the body, ding it's there
+[08:39:08] <timmywil> so you're thinking we should put it back in ready?
+[08:39:14] <gnarf> DaveMethvin: but it uses that to determine if it should create a div or a body
+[08:39:22] <gnarf> to do its tests
+[08:39:40] <DaveMethvin> right but should we be doing that? if it always works with a div then use a div
+[08:39:50] <timmywil> it doesn't
+[08:39:56] <timmywil> we definitely need a body
+[08:39:57] <DaveMethvin> if it doesn't then we have created a situation where including in the body works but head doesnt
+[08:40:08] <DaveMethvin> which is a pain
+[08:40:18] <timmywil> it still works because the next line creates a fake body
+[08:40:23] <timmywil> if body is not yet present
+[08:40:35] <DaveMethvin> which shoudl be crashing ie, right??
+[08:40:38] <gnarf> DaveMethvin: https://github.com/jquery/jquery/blob/master/src/support.js#L154-169
+[08:40:42] <DaveMethvin> but it's not?
+[08:40:44] <timmywil> DaveMethvin: not exactly
+[08:40:53] <timmywil> the fake body in and of itself is not crashing ie
+[08:41:15] <timmywil> i think it's a matter of what data gets attached to that body
+[08:41:26] <DaveMethvin> so i guess we are deferring the crashing operations to ready, which we hope won't crash ie
+[08:41:33] <DaveMethvin> at least that is the theory
+[08:41:40] <timmywil> basically, yes
+[08:41:49] <timmywil> but
+[08:42:09] <gnarf> is it just me or is there still going to be an issue with a frameset in the ready ... i.e. its possible body doesn't exist
+[08:42:15] <timmywil> how much does it hurt us to put anything that needs to get attached to a body in doc ready?
+[08:42:22] <timmywil> regarding performance i mean
+[08:42:26] <DaveMethvin> wait, lemme go back to the dentist for more pain killers :(
+[08:42:40] <DaveMethvin> mr dentist, i work on jquery
+[08:42:44] <DaveMethvin> load me up
+[08:42:44] <timmywil> gnarf: yes, that was going to be my next point
+[08:43:00] <DaveMethvin> for frameset docs i don't think it hurts to skip all this
+[08:43:17] <DaveMethvin> b/c nobody will be needing these feature detects in the frameset itself
+[08:43:37] <gnarf> unless the inner frames don't include jQuery ?
+[08:43:53] <DaveMethvin> we have never supported cross-frame jquery to any great extent
+[08:43:57] <DaveMethvin> too many issues, esp with ie
+[08:44:04] <DaveMethvin> and different domains etc
+[08:44:17] <timmywil> that's fine, we can return if no body is present, but even though we don't have crashes in IE right now, it is still very sensitive.  So would it be advantageous for us to put anything that needs a body in doc ready to avoid introducing any crashes in the future?
+[08:44:45] <DaveMethvin> i think so, the detached body trick seems like it is just too advanced for IE
+[08:45:09] <DaveMethvin> if it works reliably everyhere else we could do it in head, but only defer it for ie
+[08:45:18] <DaveMethvin> but that might cause more trouble than it's worth
+[08:45:26] <DaveMethvin> b/c it's not consistent across all platforms
+[08:45:33] <timmywil> and attaching to a fragment actually works for some things that need to be connected
+[08:46:39] <timmywil> so we can filter out the ones that absolutely need a body
+[08:46:56] <timmywil> fixedPosition is the only one I'm aware of currently
+[08:47:23] <timmywil> the other offset tests worked when simply attached to a disconnected div
+[08:47:47] <DaveMethvin> if we have a div and not a body, these aren't done ... how does that come into play? https://github.com/jquery/jquery/blob/master/src/support.js#L163
+[08:48:16] <timmywil> i think you mean the other way around? if we have a div, they are done
+[08:48:43] <timmywil> because they are getting attached to the real body
+[08:48:48] <gnarf> DaveMethvin: thats not a test
+[08:48:51] <timmywil> they are = it is
+[08:49:04] <gnarf> DaveMethvin: thats just positioning the div offscreen so our tests wont render
+[08:49:10] <DaveMethvin> ah ok
+[08:50:16] <timmywil> is this a venture best saved for 1.7.1 (we should add the return in the offset tests for sure)?
+[08:50:39] <DaveMethvin> i think so if we're doing a release in the next day
+[08:50:48] <DaveMethvin> b/c this needs some rethinking
+[08:51:12] <DaveMethvin> so is there a reason we do this with a loop and props rather than a big text string assigned to the style property? do we need some existing styles for example?
+[08:51:53] <gnarf> DaveMethvin: I saw that too, I think the extend is pointless :)
+[08:52:09] <timmywil> that could be a string
+[08:52:14] <timmywil> with a +=
+[08:52:35] <DaveMethvin> ok, must mean the drugs  are wearing off
+[08:52:37] <timmywil> but I think we should leave that for now
+[08:52:41] <DaveMethvin> yeah agreed
+[08:52:52] <DaveMethvin> if we have it passing, let's not unpass it
+[08:52:59] <timmywil> yea
+[08:53:03] <DaveMethvin> and then in 1.7.1 figure out how to clean this up
+[08:53:12] <timmywil> i'll make a ticket
+[08:53:47] <DaveMethvin> so i didn't see the swarm job link, are we ready to go now for rc2?
+[08:53:55] <gnarf> ?swarm
+[08:53:55] <bot-t> Swarm Status: http://swarm.jquery.org/user/jquery/ http://swarm.jquery.org/user/jqueryui/ http://swarm.jquery.org/user/qunit/ http://swarm.jquery.org/user/jquerycolor/ -- Jenkins http://swarm.jquery.org:8080
+[08:54:03] <gnarf> http://swarm.jquery.org/job/202/
+[08:54:41] <DaveMethvin> ...and we should get that focusy thing fixed, huh gnarf?
+[08:54:53] <gnarf> yup
+[08:55:11] <DaveMethvin> i'll make a ticket for that
+[08:56:32] <timmywil> http://bugs.jquery.com/ticket/10629
+[08:56:38] <timmywil> ?10629
+[08:56:39] <bot-t> [#10629] IE is much too sensitive concerning the fake body. Explore cleaning up support.js to avoid any future crashes. (assigned bug) - http://jqbug.com/10629
+[08:57:15] <DaveMethvin> http://bugs.jquery.com/ticket/10630
+[08:57:27] <DaveMethvin> ?10630
+[08:57:28] <bot-t> [#10630] Fix focus-related test failures to resolve Swarm failures (open bug) - http://jqbug.com/10630
+[08:58:01] <timmywil> i looked into that btw.  It's really hard to tell if the window currently has focus
+[08:58:26] <timmywil> focus events work, but not on pageload
+[08:59:19] <gnarf> :)
+[08:59:24] <DaveMethvin> well we may have to just skip them in the swarm tests, we need to avoid those false alarms somehow
+[08:59:43] <timmywil> yea, it's easier to detect swarm
+[08:59:43] <DaveMethvin> anything to shut up jenkins :P
+[09:01:35] <gnarf> DaveMethvin: it would be easier IMO to detect the "failure" condition before the test
+[09:01:55] <gnarf> for "Element focused (input:focus)" for example
+[09:02:08] <DaveMethvin> oh, see if it's focused?
+[09:02:14] <gnarf> DaveMethvin: it IS focused
+[09:02:27] <gnarf> but :focus (the css selector) purposely fails when the browser isn't
+[09:02:42] <gnarf> so .matchesSelector( ":focus" ) fails
+[09:02:44] <DaveMethvin> oh oh, focus an element and then see if :focus lies
+[09:02:46] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/HPM2sw
+[09:02:46] <jqcommit> [jquery/master] Add return in the offset support tests if the body is not present in frameset docs - timmywil
+[09:02:59] <timmywil> sure, but what about ie
+[09:03:16] <gnarf> DaveMethvin: yup - IE doesn't lie
+[09:03:19] <gnarf> thats why it doesn't fail
+[09:03:24] <DaveMethvin> well that's okay
+[09:03:25] <gnarf> IE's failure is a different one
+[09:03:41] <gnarf> IE wont let you .blur() if the window isn't focused
+[09:04:04] <timmywil> im ok with just not running those 2 tests in swarm
+[09:04:19] <gnarf> so you need input.blur(); if ( document.activeElement === input ) { document.body.focus(); }
+[09:04:26] <gnarf> thats easy enough
+[09:04:34] <DaveMethvin> yeah we'll figure something out ... i just had ignored them but if we have easy fixes then great
+[09:04:44] <timmywil> anyway, I think we're set for an rc2 release
+[09:04:50] <timmywil> we can do swarm again right now
+[09:04:50] <DaveMethvin> i'm gonna crank the script now
+[09:05:04] <DaveMethvin> oh yeah you did a commit, let's see the swarm results first
+[09:05:22] <jq-jenkins> Project jQuery build #153: STILL FAILING in 2 min 25 sec: http://swarm.jquery.org:8080/job/jQuery/153/
+[09:05:22] <jq-jenkins> timmywillisn: Add return in the offset support tests if the body is not present in frameset docs
+[09:05:34] <DaveMethvin> i'm gonna miss that guy
+[09:05:48] <gnarf> builds will probably still fail
+[09:05:56] <DaveMethvin> what a fricking pessimist
+[09:06:21] <DaveMethvin> maybe YOUR code will fail but mine? smooth sailing ahead, gnarf
+[09:06:42] <DaveMethvin> (let's see how long that lasts)
+[09:07:17] <gnarf> im connecting a safari
+[09:07:43] <timmywil> need an ie7
+[09:07:52] <timmywil> i'd do mine, but im using that vm for ff3.6
+[09:08:34] <timmywil> or i can just connect it when ff is done
+[09:08:57] <DaveMethvin> started a safari and ie9
+[09:09:16] <timmywil> http://swarm.jquery.org/job/204/
+[09:09:24] <DaveMethvin> and an ie8 in a vm
+[09:14:01] <timmywil> well, that's most green we've had yet. just that dumb opera ajax error and the dumber ie9 object clone
+[09:15:12] <DaveMethvin> damn the rc2 files didn't copy to code.jquery.com lemme get that fixed
+[09:15:38] <jqcommit> [jquery] dmethvin pushed 2 new commits to master: http://git.io/PDabxw
+[09:15:38] <jqcommit> [jquery/master] Tagging the 1.7rc2 release. - Dave Methvin
+[09:15:38] <jqcommit> [jquery/master] Updating the source version to 1.7pre - Dave Methvin
+[09:15:49] <timmywil> DaveMethvin: maybe it needs a min
+[09:16:11] <DaveMethvin> nah, i did an earlier test run and it won't overwrite that one
+[09:16:39] <timmywil> http://code.jquery.com/jquery-1.7rc2.min.js
+[09:16:42] <timmywil> works for me
+[09:17:07] <DaveMethvin> note the date on the uncompressed one
+[09:17:42] <timmywil> oh 10 min ago?
+[09:17:44] <jq-jenkins> Project jQuery build #154: STILL FAILING in 1 min 59 sec: http://swarm.jquery.org:8080/job/jQuery/154/
+[09:17:45] <jq-jenkins> * dave.methvin: Tagging the 1.7rc2 release.
+[09:17:45] <jq-jenkins> * dave.methvin: Updating the source version to 1.7pre
+[09:17:57] <DaveMethvin> no, mine is showing oct 28
+[09:18:08] <DaveMethvin> here lemme check again
+[09:18:09] <timmywil> i see nov 1
+[09:18:16] <kswedberg> weird. I see oct 28, too
+[09:18:29] <timmywil> here? http://code.jquery.com/jquery-1.7rc2.js
+[09:18:33] <gnarf> https://gist.github.com/9e500fb0c84042ac5989
+[09:19:03] <timmywil> gnarf: we need that to work for all matchesSelectors
+[09:19:04] <kswedberg> timmywil, yes
+[09:19:07] <timmywil> if we're going to dot aht
+[09:19:43] <timmywil> and just calling focus on the body works?
+[09:19:46] <DaveMethvin> http://code.jquery.com/jquery-1.7rc2.js
+[09:19:48] <gnarf> timmywil: yup
+[09:19:54] <DaveMethvin> what do  you see when you click that?
+[09:20:03] <timmywil> nov 1
+[09:20:06] <gnarf> Date: Fri Oct 28 15:31:58 2011 -0400
+[09:20:07] <timmywil> 12:07
+[09:20:13] <timmywil> Date: Tue Nov 1 12:07:23 2011 -0400
+[09:20:17] <DaveMethvin> i see what gnarf sees
+[09:20:22] <DaveMethvin> must be the cdn?
+[09:20:23] <timmywil> empty your caches?
+[09:20:34] <DaveMethvin> there's a trick with ?reload but it doesn't seem to be working
+[09:21:25] <kswedberg> timmywil: it's not a browser cache issue.
+[09:21:27] <DaveMethvin> ok well the file must be in the cdn at least ... danheberden does the ?reload trick to kick the cdn still work?
+[09:21:53] <DaveMethvin> it used to give a status page when you did that, now it doesn't
+[09:21:57] <timmywil> ok, multiple servers?
+[09:22:08] <gnarf> wtf rc2 is that showing?
+[09:22:12] <gnarf> did we try to push one before?
+[09:22:19] <gnarf> on the 28th?
+[09:22:20] <DaveMethvin> i ran the script as a test
+[09:22:22] <gnarf> oh
+[09:22:39] <DaveMethvin> it pushes to my origin so i just  had to reset head
+[09:22:44] <kswedberg> DaveMethvin: push another with rc2.1? ;)
+[09:22:47] <DaveMethvin> but i forgot about the push to the cdn
+[09:23:24] <DaveMethvin> kswedberg well i've already tagged and pushed to jquery now ... so hacky looking
+[09:23:35] <DaveMethvin> all we need to do is get the cdn to wake up and smelll the refresh
+[09:23:50] <kswedberg> yeah. I was just messing with you. :)
+[09:24:35] <gnarf> maybe its just the cdn closest to me has the cache wrong
+[09:24:39] <DaveMethvin> obtw kswedberg is email notify working on api? I did a change this morning but didn't get an email yet
+[09:24:56] <DaveMethvin> well maybe so but i am hesitant to announce until everyone has the right version :/
+[09:25:23] <danheberden> DaveMethvin refreshed cdn cache
+[09:25:38] <gnarf> http://code.jquery.com/jquery-1.7rc2.js still says Oct 28 to me
+[09:25:45] <DaveMethvin> yeah me too
+[09:26:04] <kswedberg> same here
+[09:26:08] <danheberden> it'll take a few mins to propagate
+[09:26:33] <kswedberg> DaveMethvin: which post did you update? I didn't get the email either.
+[09:26:43] <DaveMethvin> .on()
+[09:26:56] <kswedberg> hmm.
+[09:26:57] <DaveMethvin> np thanks danheberden, it gives me time to edit the rc2 blog post
+[09:27:29] <DaveMethvin> lemme just double check kswedberg
+[09:27:36] <kswedberg> k
+[09:28:55] <DaveMethvin> yeah the edits are in the post and i had left the page, went back and clicked saved draft and it doesn't say there is an autosave
+[09:29:41] <kswedberg> weird
+[09:29:56] <kswedberg> I'll look into it
+[09:31:32] <DaveMethvin> ok my rc2 is right now, how bout yours gnarf?
+[09:31:53] <kswedberg> mine's good!
+[09:32:05] <gnarf> yup
+[09:32:08] <kswedberg> DaveMethvin: does that mean we can publish the 1.7 docs?
+[09:32:32] <DaveMethvin> sure, release the dogs!
+[09:32:41] <kswedberg> woohoo!
+[09:38:36] <timmywil> doesn't the script do the blog post too?
+[09:39:10] <DaveMethvin> timmywil: it generates a template, basically just fills the closed ticket list
+[09:39:48] <DaveMethvin> one of the reasons i ran it on the 28th is that i needed to go thru the ticket list, it's not right unless we tag everything right
+[09:40:04] <DaveMethvin> oh crap, my ie8 swarm box failed
+[09:40:21] <DaveMethvin> timmywil gnarf: http://gyazo.com/427c679d24bb011ad72bcacf31c38ed7
+[09:40:26] <timmywil> don't be alarmed, it probably ran an old test
+[09:40:51] <timmywil> happened to me a couple times too, but it was a past commit
+[09:40:53] <DaveMethvin> well good
+[09:41:11] <DaveMethvin> k lemme check the check list
+[09:44:17] <DaveMethvin> kswedberg: should this be working now? http://api.jquery.com/category/version/1.7/
+[09:44:24] <DaveMethvin> wanted to link it in the blog if possible
+[09:45:48] <kswedberg> DaveMethvin: yes, except whoever created the category did it wrong. :)
+[09:45:58] <kswedberg> fixed
+[09:45:59] <DaveMethvin> hmm, what idiot did that?
+[09:46:09] <kswedberg> ssshhhhhhh!
+[09:46:11] <DaveMethvin> he should be fired!
+[09:46:43] <DaveMethvin> i did notice i had possibly created the version in the wrong spot and didn't circle back to fix it :)
+[09:47:01] <kswedberg> no problem. just needed to fix the slug
+[09:47:04] <kswedberg> it's all good now.
+[09:47:10] <DaveMethvin> those hire-archies always confuse me
+[09:47:47] <kswedberg> :)
+[09:51:56] <DaveMethvin> http://blog.jquery.com/2011/11/01/jquery-1-7-rc2-released/
+[09:52:39] <gnarf> animate isn't listed?
+[09:52:43] <gnarf> for the queue option
+[09:52:44] <gnarf> ?
+[09:52:55] <gnarf> in the 1.7 category - kswedberg?
+[09:53:04] <DaveMethvin> prolly isn't tagged
+[09:53:30] <kswedberg> gnarf: it isn't tagged. kind of hard to know what to do with that one since it's not really a new signature. at least, that's not how I updated the doc
+[09:53:50] <gnarf> yeah
+[09:54:23] <gnarf> nice post dave
+[09:54:37] <DaveMethvin> woulda been better on halloween ... :)
+[09:57:15] <DaveMethvin> ajpiano or Rwhitbeck can you tweet http://blog.jquery.com/2011/11/01/jquery-1-7-rc2-released/
+[09:57:22] <ajpiano> yessir!
+[09:57:31] <DaveMethvin> tanks a lot!
+[09:58:13] <gnarf> http://bit.ly/jq17rc2
+[09:58:18] <gnarf> changed topic in #jquery
+[09:59:32] <ajpiano> oh god i did the wrong url i think i deleted it in time
+[10:00:07] <gnarf> .tweet jquery
+[10:00:08] <socialhapy> ★ Tweet from jquery: The first release candidate for jQuery 1.7 is now available! Test it now! http://t.co/4X4YKjBS ★ http://bit.ly/ubZ351
+[10:00:35] <timmywil> well i see a tweet with the right url
+[10:00:57] <timmywil> but alas it was deleted
+[10:01:06] <ryanneufeld> last tweet takes me here: http://blog.jquery.com/2011/10/24/jquery-1-7-rc1-released/
+[10:01:16] <DaveMethvin> ut oh ajpiano
+[10:01:18] <timmywil> ryanneufeld: notice what it says
+[10:01:26] <ajpiano> i guess that means i deleted it in time
+[10:01:27] <ajpiano> :)
+[10:01:32] <DaveMethvin> lol
+[10:01:32] <ajpiano> .tweet jquery
+[10:01:34] <socialhapy> ★ Tweet from jquery: jQuery 1.7 RC2 is now available! Test it today! http://t.co/KgtbmBQh ★ http://bit.ly/skEXV0
+[10:01:51] <timmywil> pairfect
+[10:01:56] <DaveMethvin> quick trigger finger there ajpiano
+[10:02:57] <ajpiano> pew pew
+[10:04:17] <gnarf> thats a lot of retweets :)
+[10:06:08] <kswedberg> DaveMethvin and everyone … all the docs that were ready for 1.7 are now published. ongoing doc status here: http://oksoclap.com/1-7-docs
+[10:06:33] <kswedberg> timmywil, DaveMethvin: lemme know if you need any help with your docs
+[10:06:50] <timmywil> thanks, i should be able to get to them tonight
+[10:07:20] <kswedberg> awesome! thx, timmywil
+[10:07:51] <kswedberg> (I'm always afraid that if I don't put an exclamation point after "awesome," it'll be perceived as sarcastic)
+[10:10:03] <timmywil> kswedberg: why are you so sarcastic all the time
+[10:10:21] <kswedberg> good question!
+[10:10:40] <timmywil> it's always like, ugh, karl made DaveMethvin cry again
+[10:10:58] <kswedberg> ahahahaha.
+[10:11:13] <DaveMethvin> caught in a bad bromance
+[10:11:39] * ajpiano applauds for DaveMethvin
+[10:11:58] <DaveMethvin> now that those pesky code things are done i can turn my attention to docs
+[10:12:16] <ajpiano> that's what stevedore said
+[10:12:38] <gnarf> bad bromance - lol
+[10:13:46] <kswedberg> oooh, ajpiano, nice pun!
+[10:14:05] <ajpiano> thx kswedberg :D
+[11:11:10] <DaveMethvin> can someone with an iPhone/iOS5 go to the url in this comment and see if it breaks? http://bugs.jquery.com/ticket/10513#comment:6
+[11:11:26] <ajpiano> on it
+[11:17:54] <kborchers> DaveMethvin: it runs fine for me on my ipad with ios5 ... i am on wifi though (no 3g)
+[11:18:28] <DaveMethvin> yeah i strongly suspect this is another case of the mobile provider messing with our file
+[11:25:03] <gnarf> another case?
+[11:42:04] <SlexAxton> just fyi - the large backbone/coffee/require app that I found those couple of bugs in 1.7rc1 works without error in 1.7rc2
+[11:54:02] <DaveMethvin> yay SlexAxton!
+[13:07:48] <ajpiano> DaveMethvin: http://bugs.jquery.com/ticket/9399#comment:24 ?
+[13:08:18] <DaveMethvin> I'll reply there
+[13:09:05] <ajpiano> thx
+[13:09:12] <ajpiano> try not to break any websites
+[13:18:40] <gnarf> YOU ASSHOLES
+[13:22:19] <gnarf> or whatever that quote was
+[13:29:12] <gnarf> was it "you bitch" ? :)
+[13:34:34] <DaveMethvin> ajpiano timmywil rwaldron gnarf: do you recall if/where we made the announcement about input for 1.7? I can't find one but I thought we did a call for suggestions
+[13:38:57] <gnarf> i remember being given the link by julian
+[13:38:57] <DaveMethvin> lol
+[13:38:58] <DaveMethvin> well i have a personal goal of doing this a bit more openly for the 1.8 cycle ... we need a blog post about it
+[13:38:58] <DaveMethvin> on the official blog
+[13:38:58] <gnarf> im for it
+[13:38:58] <DaveMethvin> once 1.7 clears we can start some discussion
+[13:38:58] <gnarf> googling: http://jquerybyexample.blogspot.com/2011/05/submit-your-ideas-for-jquery-17.html lols
+[13:38:58] <gnarf> http://darcyclarke.me/thoughts/why-doesnt-jquery-support-insert-feature-natively/
+[13:38:58] <DaveMethvin> yeah i thought for sure we had a blog post and i went looking for it, even went into wordpress for blog.jquery.com
+[13:39:18] <DaveMethvin> oh maybe it was a tweet
+[13:39:20] <DaveMethvin> from john
+[13:39:27] <gnarf> maybe
+[13:39:32] <gnarf> sounds familiar
+[13:39:40] <DaveMethvin> dont worry its all history
+[13:42:14] <rwaldron> DaveMethvin just curious, how do you mean more openly?
+[13:43:21] <ajpiano> yeah i looked through the tweets and stuff, i thought we announced it as well
+[13:43:24] <ajpiano> we announced it for 1.6
+[13:45:37] <rwaldron> ajpiano DaveMethvin http://blog.jquery.com/page/2/
+[13:45:46] <rwaldron> control F "already getting started working on jQuery 1.7"
+[13:45:58] <rwaldron> gnarf ^
+[13:48:08] <DaveMethvin> i dunno, a sentence at the end of a release announcement wasn't exactly what i was looking for
+[13:48:13] <DaveMethvin> which is why i didn't find it
+[13:48:49] <DaveMethvin> these guys have a point, we need to be clearer about what is happening so nobody feels taken by surprise
+[13:49:07] <ajpiano> yeah
+[13:49:21] <DaveMethvin> if someone spends time looking in the tracker the tickets are all there but that hardly constitutes notice
+[13:49:45] <ajpiano> we didn't publicise the 1.7 feature proposal enough, or as much as we did for 1.6,
+[13:49:48] <ajpiano> not out of maliciousness or anything
+[13:49:55] <ajpiano> so yeah we should make sure to get back on top of that for 1.8
+[13:50:00] <DaveMethvin> and that particular ticket says we are taking them out in 1.8 although i don't know if we will, so that's got the adrenaline up in these guys
+[13:50:38] <DaveMethvin> i do feel like we shoudl be able to deprecate things easily, it's not as if things break immediatley when we do that
+[13:50:55] <DaveMethvin> but if we DON'T deprecate things then it just lets more people get comfortable using them
+[13:51:02] <DaveMethvin> which we generally don't want
+[13:51:42] <DaveMethvin> look at the $.ajax api entry and see how long it takes you to find the deprecation notice ... no fair using ^F
+[13:52:24] <DaveMethvin> so anyway i'd been thinking about this b/c i am working on the 1.7 release blog post and wanted to cover it all there
+[13:53:25] <DaveMethvin> i think we shoudl have a specific blog post after we ship 1.7 with some thoughts about where we want to go in the future and our motivations for it
+[13:53:37] <DaveMethvin> but we shoudl discuss in a team mtg before that
+[13:55:05] <gnarf> well deprecation notices
+[13:55:27] <gnarf> whats their complaint? one major version isn't enough time?
+[13:55:50] <DaveMethvin> i think that's the gist of it, although we don't know how long before 1.8
+[13:56:18] <DaveMethvin> i don't have a prob leaving it in sooner, it seems like we are talking 2.0 being our cleanup release
+[13:56:25] <DaveMethvin> s/sooner/longer/
+[13:56:50] <DaveMethvin> but that prolly means the in-between releases won't be as small as we'd like
+[13:57:17] * gnarf sighs
+[13:57:38] <DaveMethvin> well the animation code along will be half its size after gnarf refactors it in 1.8
+[13:58:13] <gnarf> :)
+[13:58:15] <rwaldron> who are "these guys"
+[13:58:28] <rwaldron> "<DaveMethvin> these guys have a point, we need to be clearer about what is happening so nobody feels taken by surprise"
+[13:58:29] <gnarf> i mean, seriously, 6 months or so between releases?
+[13:59:07] <rwaldron> i think i missed the ticket you're all talking about
+[13:59:12] <ajpiano> yeah... " i need nine months to a year to update my code if jQuery makes a change" kind of rings a bit hollow
+[13:59:12] <gnarf> thats more than enough time...
+[13:59:22] <rwaldron> >>>>
+[13:59:24] <rwaldron> ??
+[13:59:26] <rwaldron> ack fuck
+[13:59:26] <DaveMethvin> the guys complaining about things being removed ... oh http://bugs.jquery.com/ticket/9399#comment:26
+[13:59:29] <rwaldron> thanks
+[13:59:37] <ajpiano> ?9399
+[13:59:38] <bot-t> [#9399] Deprecate jqXHR.success and jqXHR.error (closed enhancement: fixed in v1.7) - http://jqbug.com/9399
+[13:59:43] <rwaldron> holy shit
+[13:59:54] <DaveMethvin> ajpiano: it's all about managing expectations :P
+[13:59:54] <rwaldron> sorry, I dont feel bad at all
+[14:00:00] <rwaldron> 5 months
+[14:00:15] <rwaldron> and I dont think we promoted the 1.6 feature request more then 1,7
+[14:00:16] <rwaldron> 1.7
+[14:00:29] <rwaldron> as i recall, it was also just a sentence at the end of a blog post
+[14:00:34] <ajpiano> rwaldron: we tweeted about 1.6
+[14:00:34] <rwaldron> maybe I'm wrong
+[14:00:49] <ajpiano> so it's not like, omg huge deal you did a bad job....
+[14:01:00] <rwaldron> do you have the complete history of tweets for whatever account you speak of?
+[14:01:07] <gnarf> like as of today, we know that .data( "events" ) and jqXHR.success jqXHR.error, etc are deprecated right?
+[14:01:17] <ajpiano> http://twitter.com/#!/jquery/status/44889116420218880
+[14:01:22] <rwaldron> I feel like the number of feature proposals approximately matched 1.6
+[14:02:26] <DaveMethvin> nobody seems to ever submit a feature of "deprecate this", and also the outcome of the voting/decisions would have made a good blog post in retrospect
+[14:02:41] <rwaldron> so... does google not include results from twitter anymore?
+[14:02:59] <gnarf> DaveMethvin: probably right
+[14:03:04] <gnarf> "heres the plan for 1.7"
+[14:03:23] <gnarf> i think ajpiano and i talked about this once
+[14:03:23] <rwaldron> I agree with all of thise
+[14:03:24] <DaveMethvin> yeah but rwaldron, joe web developer doesn't say "kinda busy today but let me google to see what jquery may be deprecating"
+[14:03:25] <rwaldron> this*
+[14:03:42] <rwaldron> but I'm presently annoyed by the d-bag that posted some insulting shit about data()
+[14:03:46] <rwaldron> so fuck the users
+[14:03:51] <gnarf> DaveMethvin: all the more reason i think we should have some sort of debugging/deprecation warnings plugin
+[14:04:22] <DaveMethvin> gnarf:  yes, as part of this slim-down that would be definitely useful
+[14:04:53] <DaveMethvin> if we're not worried about the size of the compat plugin it could have console warnings and then a flag to turn them off
+[14:05:17] <gnarf> DaveMethvin: kinda my thought
+[14:06:15] <ajpiano> DaveMethvin: can we have a feature to suppress warnings in firefox
+[14:06:39] <ajpiano> so that i can support firefox 3.6 with even though firefox 14 will be out by the time jquery 2.0 is
+[14:06:41] <DaveMethvin> or this new chrome one that's yelling at everyone
+[14:06:56] <DaveMethvin> layerX and layerY are deprecated!!!! oh noes!!!!!
+[14:07:10] <gnarf> YOU BROKE MY WEBSITE YOU BITCH
+[14:07:16] <gnarf> dear chrome ^^^
+[14:07:19] <DaveMethvin> why doesn't anyone yell at CHROME and say "no you can't deprecated those, I love layers"
+[14:07:49] <ajpiano> DaveMethvin: jQuery.compatify( String startVersion, String versionToEmulate, String browserToMakeWorkProperly);
+[14:07:57] <DaveMethvin> make it so ajpiano
+[14:08:03] <DaveMethvin> i love it
+[14:08:46] <DaveMethvin> jQuery.compatify( 1.1, 1.7, 1.5, "Netscape 4")
+[14:08:49] <DaveMethvin>  OUT OF STACK SPACE
+[14:09:44] <ajpiano> loll
+[14:10:01] <ajpiano> what happens if you noConflit that, :x
+[14:10:17] <DaveMethvin> HEAD ASPLODE
+[14:10:47] <DaveMethvin> so i am putting together the blog post to end all blog posts for the final release, i will send a draft link to -api and -bugs tomorrow when it's closer
+[14:11:09] <kswedberg> thx DaveMethvin!
+[14:13:16] <gnarf> hrm
+[14:14:01] <gnarf> do we have a list of deprecated shit?
+[14:15:15] <DaveMethvin> gnarf: don't think so
+[14:15:24] <DaveMethvin> google for it :P
+[14:16:00] <gnarf> well i was just thinking i'd write that plugin
+[14:16:14] <gnarf> decorate the native methods, console.warn() any deprecations
+[14:16:28] <gnarf> if we had a list ;)
+[14:16:50] <DaveMethvin> kswedberg and i were talking, wanted to put in a Deprecated category
+[14:17:16] <DaveMethvin> dunno if that works for all of these though since they are tiny little pieces-parts of bigger things like $.ajax
+[14:17:35] <DaveMethvin> but maybe the category description could contain those?
+[14:17:47] <gnarf> yeah?
+[14:17:49] <gnarf> prolly
+[14:17:59] <kswedberg> the tricky part is for things like $.ajax().success(). where to put the deprecation flag within the doc structure
+[14:18:30] <DaveMethvin> yeah
+[14:19:28] <gnarf> exactly
+[14:19:39] <gnarf> but if we can get a plugin that can console.warn() it
+[14:19:40] <DaveMethvin> gnarf, this might be a good way to do it: http://james.padolsey.com/javascript/jquery-lint/
+[14:19:45] <gnarf> yeah
+[14:19:51] <gnarf> jQuery lint would be useful too
+[14:21:11] <kswedberg> I put <deprecated>1.7</deprecated> within the <entry> node for the .live() and .die() docs xml
+[14:22:09] <kswedberg> but, haven't done anything to output it into the html yet
+[14:22:17] <kswedberg> DaveMethvin ^^
+[14:22:29] <DaveMethvin> thanks, it's a start kswedberg
+[14:23:26] <DaveMethvin> hmm, i wonder if we want something more general since if a feature is removed we'll need to indicate that too
+[14:23:47] <DaveMethvin> or we could just have <removed>1.9</removed> i guess
+[14:25:00] <kswedberg> yep!  we can also put <deprecated/> and <removed/> within the signature if it's more specific. but still not sure what to do with the ajax success/error/complete stuff.
+[14:26:35] <DaveMethvin> i think the most important thing is to get the word out, so if we could add them to a category description text for now that would work for me
+[14:26:51] <kswedberg> sure
+[16:25:22] <jzaefferer> hey DaveMethvin, thanks for the rc2 blog post - its a piece of art :-)
+[16:25:33] <DaveMethvin> lol thanks
+[16:30:17] <tbranyen> rc2 is out :D
+[16:30:18] <tbranyen> ??
+[16:30:37] <jzaefferer> I like the detached body part :-)
+[16:30:51] <tbranyen> this is great
+[17:10:22] <mikesherov> Hey, so I sorta figure out that whole issue with timmywil's last commit
+[17:10:43] <mikesherov> and why only FF was complaining about the support variables not being there
+[17:11:57] <timmywil> my last commit?
+[17:13:10] <timmywil> the fail makes sense; you have an idea why it only failed in ff7?
+[17:15:10] <mikesherov> YES
+[17:15:21] <mikesherov> Commenting on the commit as we speak
+[17:15:31] <mikesherov> then I'll hit you up for feedback
+[17:16:20] <mikesherov> https://github.com/jquery/jquery/commit/006fde228da59ae71c11a67ef65dbfc09e788773#commitcomment-689164
+[17:16:37] <mikesherov> I'm not so much of an expert, but I was getting some wacky results
+[17:17:33] <timmywil> huh
+[17:17:44] <timmywil> well, that's interesting
+[17:17:50] <mikesherov> LOL
+[17:18:07] <mikesherov> opera wins the rac, ff loses the race, and chrome doesn't race
+[17:18:35] <mikesherov> literally, if you put that alert in, and wait four seconds to close it, the test stalls 4 more seconds
+[17:18:50] <mikesherov> it's as if it adds execution stop time to the other thread as well
+[17:19:18] <timmywil> i imagine that's still the same thread
+[17:19:20] <mikesherov> it might be that chrome forces an IFRAME to be ready before it's parent is ready?
+[17:19:33] <timmywil> perhaps
+[17:19:35] <mikesherov> well, sure, thread is clumsy of me
+[17:19:44] <mikesherov> I don't literally mean thread
+[17:19:53] <mikesherov> I mean synchronous execution
+[17:19:56] <timmywil> i've noticed similar issues with some of my presos that have jsfiddle iframes
+[17:20:02] <timmywil> nothing happens until they load in chrome
+[17:20:32] <mikesherov> go ahead and add the alert and you could see it clear as day
+[17:21:01] <gnarf> thats strange :)
+[17:21:09] <mikesherov> I can get FF to succeed with changing the setTimeout, and opera to fail with alerts
+[17:21:21] <mikesherov> but chrome, that always passes no matter what I do
+[17:21:38] <mikesherov> I didn't bother testing in IE ;-)
+[17:24:02] <timmywil> hehe @ docs#10599
+[17:24:03] <bot-t> [#10599] Fadeout Jerky effect in IE8 browser (open bug) - http://jqbug.com/10599
+[17:24:06] <timmywil> "Please help us to resolve this jerks issue."
+[17:24:39] <timmywil> 280 fiddle revisions?
+[17:25:01] <ajpiano> hahah timmywil
+[17:25:10] <mikesherov> I lol'ed at that one the other day
+[17:25:15] <ajpiano> that pretty much describes patchwelcome
+[17:25:16] <ajpiano> lol
+[17:25:33] <mikesherov> I was trying to poach from effects, considering I did what I could on dimensions and css
+[17:25:35] <timmywil> hah
+[17:26:40] <mikesherov> so, now that the crisis are averted from yesterday
+[17:27:10] <mikesherov> can someone point me in the direction of information about when voting for 1.8 happens, and how that process works?
+[17:27:14] <mikesherov> I don't want to miss the boat
+[17:27:51] <ajpiano> mikesherov: we are probably about to put out a post on that
+[17:28:13] <ajpiano> but basically, submitting any ticket to the tracker with the tag 1.8-discuss
+[17:28:40] <mikesherov> ajpiano: in the blog? That's cool. I'm also looking to see if there is a permanent place for how that process works
+[17:28:40] <ajpiano> will mark it for inclusion in the discussion
+[17:28:49] <timmywil> i believe DaveMethvin said he wants to do a post
+[17:28:57] <ajpiano> mikesherov: yeah, i think there will be one
+[17:29:04] <ajpiano> the process itself is still evolving really
+[17:29:22] <ajpiano> we only started doing this earlier this year :)
+[17:29:29] <ajpiano> we used to have a big crazy SPREADSHEET OF DOOM
+[17:29:34] <mikesherov> Right, I myself am curious, but I'm also curious for other reasons
+[17:29:41] <mikesherov> I submitted a jqbug about "it's unclear how to best contribute to jquery"
+[17:29:52] <ajpiano> ha yeah, i saw that, i had a feeling that's what you were hinting at
+[17:30:09] <timmywil> contributing feature requests will be cake
+[17:30:11] <mikesherov> And honestly, it's selfish... but also, I'm trying to think about anyone like me
+[17:30:13] <timmywil> that will simply be a form
+[17:30:16] <ajpiano> mikesherov: i hear ya man
+[17:30:39] <ajpiano> mikesherov: rwaldron and i gave a preso on getting more involved at jqcon, and some of that really needs to be documented
+[17:30:47] <timmywil> as far as voting on features, that has been reserved for the teams thus far
+[17:30:53] <mikesherov> Sure, and I can ask these questions all day, but I mean, sure, I can submit a feature request... but how do I advocate for it, or even vote for it?
+[17:31:01] <mikesherov> does any joe schmoe get a vote?
+[17:31:03] <ajpiano> right now i'm in the process of churning on getting the learning site launchable, and it hink that's where we'll be able to house content like this persistently
+[17:31:12] <mikesherov> cool
+[17:31:29] <ajpiano> mikesherov: right now, anyone who's on the core or bugs subteams gets a vote
+[17:31:39] <mikesherov> I see
+[17:31:59] <ajpiano> and you can just get on that by if DaveMethvin thinks you're doing a good job :p
+[17:32:19] <mikesherov> Sure, I eventually want to make a team. That would be a dream.
+[17:32:40] <mikesherov> But currently, I can't just decide I want to fix percentage dimensions all by myself?
+[17:32:55] <mikesherov> I guess my main point is this. I went through and submitted a bunch of PR's
+[17:33:07] <mikesherov> one inclouded basic css vendor prefix detection
+[17:33:33] <mikesherov> Very little chance of being included unless the teams decide they want to go after vendor prefix detection
+[17:33:46] <mikesherov> So I want to make sure that I advocate for that in 1.8
+[17:33:56] <ajpiano> mikesherov: once the premlinary tickets have all been submitted and voted on
+[17:34:04] <ajpiano> we have a publi meeting in irc
+[17:34:08] <mikesherov> I see
+[17:34:11] <timmywil> the voting process is one that will probably not get documented, as that is just something to make things easier for the team.  But we do want to make people aware when it's time to submit feature proposals, and anyone can submit proposals.
+[17:34:20] <ajpiano> to go through things that have been approved and are contentious
+[17:34:32] <ajpiano> so you can definitely vouch for a given feature
+[17:34:53] <mikesherov> but what if it's a feature that wasn't considering for inclusion?
+[17:35:11] <ajpiano> once you propose it, we are considering it :)
+[17:35:24] <timmywil> mikesherov: you mean after 1.8?
+[17:35:33] <mikesherov> no, for 1.8
+[17:35:39] <mikesherov> So, real world example
+[17:35:41] <timmywil> propose it :)
+[17:35:52] <mikesherov> Well, I submitted a bug, and a PR that has it already
+[17:36:00] <mikesherov> I built the feature to fix a bug
+[17:36:15] <mikesherov> Should I submit a new ticket just for vendor prefix detection?
+[17:36:26] <ajpiano> if you have a PR against it, yes, also submit the ticket
+[17:36:30] <timmywil> ah, well, like I said, we'll have a form to submit proposals.  When it comes time, include links to the bug and PR and make a case.
+[17:36:35] <ajpiano> becauase that's where the proposals are essentially collected
+[17:36:55] <mikesherov> I see, so I'll submit via the form, and link to the bug and PR I already got. Cool
+[17:37:08] <mikesherov> thanks for spending the time to help me out
+[17:37:10] <ajpiano> mikesherov: it might be the case that everyone will be like, hey, this is perfectly reasonable we'll do it
+[17:37:23] <mikesherov> I just want to be a weapon, and help in whatever way I can
+[17:37:45] <ajpiano> or everyone might think it's crazy and then you can be like "but it's a great idea and it only costs 3 bytes gzipped and it is literally a pony"
+[17:37:46] <ajpiano> so
+[17:37:48] <ajpiano> yeah :)
+[17:38:02] <mikesherov> got it
+[17:39:13] <ajpiano> you have def been taking the right tack so far :)
+[17:39:42] <mikesherov> well, I know how to fix bugs. I'm not crystal on getting features advocated for, but you explained it today
+[17:40:42] <mikesherov> and to be honest, I've just focused on css and dimensions. I love those two components because I understand them
+[17:41:28] <mikesherov> those are easy enough for a newcomer
+[17:41:46] <ajpiano> that's good for us too, we like mastery
+[17:42:00] <ajpiano> like jaubourg is the ajax man
+[17:42:49] <mikesherov> The trick with css is just always consider disconnected nodes, hidden nodes, and children of hidden nodes
+[17:42:56] <mikesherov> there's about 30 edge cases there
+[17:43:35] <gnarf> I'm diving pretty hard into animate in 1.8
+[17:43:39] <ajpiano> i think gnarf is planning to
+[17:43:40] <ajpiano> yup
+[17:43:51] <mikesherov> the next thing I want to go after there is figuring out how to handle percentage widths of hidden elements or disconnected nodes, even if it means NOT handling them
+[17:44:09] <mikesherov> right now we translate hidden percentages into pixels 1 to 1, pretty shitty
+[17:44:19] <mikesherov> so 94% becomes 94px
+[17:44:28] <ajpiano> mikesherov: since 1.5 we've tackled a major aspect of the lib on each release... ajax, attrs vs properties, events... 1.8 is planned to be effects and stuff
+[17:44:38] <mikesherov> Oh cool
+[17:44:53] <mikesherov> any plans for native css3 transforms?
+[17:45:11] <ajpiano> my gut feeling is we'll probably say plugin first on that
+[17:45:16] <mikesherov> right
+[17:45:25] <ajpiano> but i donno, you and gnarf should become best fwiends
+[17:45:39] <ajpiano> and see what happens
+[17:45:40] <ajpiano> lol
+[17:45:47] <mikesherov> Well, we follow each other on twitter, it's a start LOL
+[17:46:54] <ajpiano> hehe
+[17:46:58] <ajpiano> alright i need some groceries
+[17:47:02] <mikesherov> later
+[17:47:06] <mikesherov> thanks for the help
+[17:47:09] <ajpiano> no problemo
+[17:48:09] <gnarf> mikesherov: native transitions are an issue
+[17:48:23] <mikesherov> sure
+[17:48:31] <gnarf> mikesherov: you can't get them by setting values
+[17:48:35] <gnarf> its gonna be ugly
+[17:48:39] <mikesherov> I can imagine you have a laundry list
+[17:48:49] <gnarf> but i'd like to get core to the point that it COULD support using a css3 engine
+[17:49:35] <mikesherov> ugly, but acheivable? or ugly, and impossible?
+[17:49:54] <gnarf> right now everything in effects is so unbelievably tied to DOM
+[17:49:59] <gnarf> and CSS
+[17:50:38] <gnarf> few other things on my hitlist
+[17:51:03] <gnarf> mikesherov: well css3 transitions don't work when you set style properties
+[17:51:38] <mikesherov> well, if it touches the css module, I'd love to help in any way I can
+[17:51:40] <gnarf> so like the only way to do it right now is to style.addRule shit and add/remove classes ;)
+[17:51:58] <gnarf> which isn't the nature of things i'd like in core
+[17:52:02] <mikesherov> anything with cssText hacks?
+[17:52:30] <gnarf> well yeah, writing stylesheets is the only way to do css3 transitions, and well - I'm a little concerned there for good reason ;)
+[17:53:06] <mikesherov> sure, sounds crazy, and cssText can't do it either?
+[17:55:52] <gnarf> mikesherov: i've tested that a few places, which seems to work oka
+[17:56:24] <mikesherov> yeah, just did a quick google and stackoverflow search: http://stackoverflow.com/questions/6193756/css3-transition-with-javascript
+[17:57:46] <gnarf> mikesherov: its something i'll keep in mind
+[17:57:57] <mikesherov> cool
+[17:58:05] <mikesherov> Anyway, I gotta run
+[17:58:09] <mikesherov> Speak to you later
+[18:11:13] <SlexAxton> gnarf: should the jquery master repo be passing all tests, do you know?
+[18:12:05] <SlexAxton> or does anyone?
+[18:13:58] <timmywil> SlexAxton: there's a few known fails we're not worried about
+[18:14:28] <timmywil> SlexAxton: http://swarm.jquery.org/job/204/
+[18:14:45] <SlexAxton> bout to spec out some new things, just making sure I haven't already broken anything
+[18:14:46] <SlexAxton> https://img.skitch.com/20111102-rrjqs2b48wfkpr8qhxm52kepuq.jpg
+[18:15:04] <SlexAxton> that's chrome 16
+[18:15:16] <timmywil> SlexAxton: that looks the error for when you don't have php running in your local server
+[18:15:21] <SlexAxton> ah
+[18:15:32] <SlexAxton> python simpleserver does not have that indeed
+[18:15:38] <timmywil> ah yes
+[18:15:49] <timmywil> i use mamp
+[18:15:49] <SlexAxton> shouldn't we switch that to like
+[18:15:52] <SlexAxton> node or something?
+[18:16:00] <timmywil> we could
+[18:16:16] <timmywil> we've had ajax tests in php before node was
+[18:17:54] <SlexAxton> is it doc'd anywhere that we need php?
+[18:18:02] <SlexAxton> let me see what the php is doing
+[18:18:29] <SlexAxton> this one still fails
+[18:18:29] <SlexAxton> https://img.skitch.com/20111102-tb2g2wpjk793xtm83wb1eiq8hi.jpg
+[18:18:45] <timmywil> SlexAxton: the browser needs focus for that to pass
+[18:18:53] <SlexAxton> wow
+[18:18:54] <SlexAxton> ok
+[18:18:57] <SlexAxton> sweet
+[18:19:24] <timmywil> but we're working on making it so it is skipped if the browser doesn't have focus
+[18:19:31] <SlexAxton> cool
+[18:22:33] <SlexAxton> I'm putting it on my list to port the tests backends to node
+[18:22:40] <SlexAxton> and just include the test server along with it
+[18:22:53] <SlexAxton> unless someone thinks that's a bad idea
+[18:22:57] <SlexAxton> we already require it for minification
+[18:23:17] <timmywil> sounds good to me
+[18:23:21] <DaveMethvin> SlexAxton: we do so little with the backend, it sounds like a good idea
+[18:23:38] <timmywil> SlexAxton: make a ticket
+[18:24:10] <DaveMethvin> you asked about the php dependency, i thought it was in the readme but it doesn't seem to be
+[18:24:15] <SlexAxton> kk
+[18:24:22] <timmywil> so did i
+[18:24:26] <SlexAxton> yea, there should probably be a whole section on running tests
+[18:24:34] <timmywil> i could've sworn we added that
+[18:24:46] <SlexAxton> especially with rwaldron nearby
+[18:24:53] <DaveMethvin> hey timmywil it will be fixed by SlexAxton's ticket :P
+[18:24:59] <SlexAxton> :D
+[18:25:04] <timmywil> heh, good
+[18:25:21] <SlexAxton> i might bump the node version dependency to 0.4.x+ instead of 0.2.x
+[18:25:24] <SlexAxton> anybody object to that?
+[18:25:38] <DaveMethvin> as long as there's a Windows port
+[18:25:47] <SlexAxton> oh, then we'd need 0.5.x
+[18:25:50] <DaveMethvin> the last one i tried had a problem but that was a month ago
+[18:25:51] <SlexAxton> didn't even think of that
+[18:26:03] <timmywil> ah, that could be an issue
+[18:26:06] <SlexAxton> 0.5.10 would pretty much be the base point
+[18:26:17] <SlexAxton> maybe we wait until 0.6.0
+[18:26:22] <SlexAxton> which should be full windows support
+[18:26:28] <DaveMethvin> that sounds good
+[18:26:49] <timmywil> we don't want to require a node dependency that is too high, given that people often need to run a certain version of node for projects
+[18:27:03] <SlexAxton> nave/nvm are already so crucial
+[18:27:14] <SlexAxton> that people will either have the wrong subversion anyway
+[18:27:20] <SlexAxton> or have nvm installed
+[18:27:45] <timmywil> hopefully
+[18:27:59] <SlexAxton> i don't even do that much node
+[18:28:00] <SlexAxton> and
+[18:28:00] <SlexAxton> https://img.skitch.com/20111102-1i7r25y93xukj4su9xxpm1aan5.jpg
+[18:29:06] <DaveMethvin> quite a menagerie you have there
+[18:29:25] <SlexAxton> don't speak your voodoo languages to me DaveMethvin
+[18:29:38] <DaveMethvin> lol
+[18:30:27] <SlexAxton> so if i try to make a modular buildable version of jquery (for like the 5th time), you guys would totally at least consider something like that, right?
+[18:30:40] <timmywil> absolutely
+[19:57:07] <Rwhitbeck> ajpiano you around?
+[19:57:21] <ajpiano> wassup Rwhitbeck
+[19:57:36] <Rwhitbeck> can you proof a blog post for me before I publish?
+[19:57:40] <ajpiano> sure
+[19:57:52] <Rwhitbeck> http://blog.jquery.com/?p=1631&preview=true
+[19:57:55] <Rwhitbeck> thanks
+[20:00:17] <ajpiano> Rwhitbeck: can you drop it into a goog doc or something, i just reset my wordpress pw and the e-mail isn't showing up
+[20:00:28] <Rwhitbeck> sure
+[20:02:22] <Rwhitbeck> ajpiano sent you a link in skype
+[20:02:46] <ajpiano> yup
+[20:03:27] <ajpiano> Rwhitbeck: haha this was written by a briton, eh?
+[20:03:48] <Rwhitbeck> yeah the White October guys wrote it
+[20:03:58] <ajpiano> i could tell :)
+[20:04:07] <ajpiano> looks good to go to me
+[20:04:23] <Rwhitbeck> k just needed a second set of eyes on it.
+[20:04:45] <ajpiano> actually
+[20:04:49] <ajpiano> i'm gonna add one half sentence
+[20:04:52] <Rwhitbeck> I am scheduling a tweet to go out in the morning when the brits will be awake
+[20:04:53] <Rwhitbeck> ok
+[20:08:00] <ajpiano> Rwhitbeck: made a few minor tweaks, she's yours
+[20:08:06] <Rwhitbeck> thanks
+[20:08:49] <Rwhitbeck> scumbag ajpiano says "she's yours" … makes one more change.
+[20:08:55] <ajpiano> hahah+
+[20:08:59] <ajpiano> true story
+[20:09:17] <ajpiano> i closed the doc, that's all she wrote
+[20:11:45] <Rwhitbeck> http://blog.jquery.com/2011/11/01/jquery-conference-2012-united-kingdom-announced/
+[20:20:57] <Rwhitbeck> ha funny http://twitter.com/torysimmers/status/131507338883497985

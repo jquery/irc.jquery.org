@@ -1,0 +1,108 @@
+[03:41:45] <rxaviers> gnarf, mr! gd morning
+[03:42:24] <rxaviers> I've pasted in pvt to you my dsa and rsa pub keys
+[03:42:50] <rxaviers> I was wondering to ssh to jenkins machine and play in the download workspace to track an issue with `grunt prepare` there.
+[07:38:30] <gnarf> rxaviers: Traveling - maybe ryanneufeld|away can hook you up later
+[07:38:45] <rxaviers> thks!
+[08:55:35] <ryanneufeld> who am I hooking up with what?
+[08:57:31] <ryanneufeld> ping rxaviers ^^
+[08:57:46] <rxaviers> ryanneufeld, hello Ryan
+[08:57:59] <ryanneufeld> Yo, sup
+[08:58:01] <rxaviers> let me give you background
+[08:58:44] <ryanneufeld> that would help
+[08:59:24] <rxaviers> On Jenkins, Im having a built issue on download.jqueryui.com
+[08:59:51] <rxaviers> Im having trouble trying to debug that using log messages
+[09:00:52] <rxaviers> I need ssh access to the jenkins machine, so I can build locally in the download.jq.com workspace and track down the issue we're having.
+[09:01:34] <rxaviers> Can you help me? :)
+[09:01:42] <rxaviers> I can provide you my pub keys
+[09:01:54] <rxaviers> (Im from jquery UI team)
+[09:04:34] <ryanneufeld> I'm not sure I have ssh on that box
+[09:04:37] <ryanneufeld> lemme check
+[09:07:28] <ryanneufeld> danheberden: you around?
+[09:08:59] <ryanneufeld> rxaviers: I can't even ssh to that machine right now.
+[09:09:18] <ryanneufeld> danheberden: do you have creds on build.jquery.com or download.jquery.com ?
+[09:09:19] <rxaviers> because of access of downtime?
+[09:09:34] <rxaviers> s/access/auth
+[09:09:57] <ryanneufeld> it's not responding to ssh connections
+[09:09:59] <rxaviers> nope, never logged in in any machine
+[09:10:08] <rxaviers> ah!
+[09:10:19] <ryanneufeld> oh, wait
+[09:10:20] <rxaviers> (jquery  machine)
+[09:10:27] <ryanneufeld> you're on jqueryui.com... derp
+[09:10:30] <ryanneufeld> that one might be puppeted
+[09:10:54] <rxaviers> Im trying to access this
+[09:10:54] <rxaviers> http://swarm.jquery.org:8080/job/download.jqueryui.com/
+[09:10:54] * ryanneufeld looks
+[09:11:15] <ryanneufeld> oh, I don't have an account on jenkins
+[09:11:35] <ryanneufeld> so you need access to swarm.jquery.org
+[09:12:57] <rxaviers> so that's it ;)
+[09:13:09] <rxaviers> I wanna work in its  /var/lib/jenkins/jobs/download.jqueryui.com/workspace
+[09:13:21] <rxaviers> path
+[09:14:29] <ryanneufeld> why is it that you want to be working in the workspace? isn't that a git repo?
+[09:18:11] <ryanneufeld> rxaviers: PM me your rsa key plz
+[09:18:17] <rxaviers> locally, I cannot reproduce the same error that is happening there
+[09:18:31] <ryanneufeld> ok
+[09:19:54] <ryanneufeld> so I can give you an account
+[09:20:11] <ryanneufeld> I can probably give you sysadmin access
+[09:32:41] <jqcommit> [infrastructure] ryanneufeld pushed 2 new commits to puppet-stage: https://github.com/jquery/infrastructure/compare/3baa05de081e...e1c594fb5aca
+[09:32:41] <jqcommit> infrastructure/puppet-stage 2990812 Ryan Neufeld: Adding rxaviers to jq03 as an admin
+[09:32:41] <jqcommit> infrastructure/puppet-stage e1c594f Ryan Neufeld: Merge branch 'puppet-stage' of github.com:jquery/infrastructure into puppet-stage...
+[09:37:21] <rxaviers> cool thanks ryanneufeld
+[09:37:34] <ryanneufeld> np
+[10:34:45] <rxaviers> ryanneufeld, it seems I found the issue
+[10:35:02] <rxaviers> may I install xsltproc?
+[10:35:52] <rxaviers> the issue:
+[10:35:53] <rxaviers> [pid  7706] execve("/usr/games/xsltproc", ["xsltproc", "--xinclude", "entries2html.xsl", "entries/zIndex.xml"], [/* 18 vars */]) = -1 ENOENT (No such file or directory)
+[10:37:11] <rxaviers> I found no xsltproc with `which xsltproc`
+[10:37:28] <rxaviers> and this file are provided by xsltproc package
+[10:40:24] <rxaviers> Follow what's to be installed
+[10:40:24] <rxaviers> https://gist.github.com/4047427
+[10:43:15] <ryanneufeld> rxaviers: I can install it using puppet
+[10:43:38] <rxaviers> ryanneufeld, ok, plz just let me know when you're done so I can re-try it plz
+[10:43:44] <ryanneufeld> ok
+[10:47:58] <ryanneufeld> rxaviers: what is that a requirement for?
+[10:48:07] <rxaviers> https://github.com/jquery/api.jqueryui.com
+[10:48:44] <ryanneufeld> is that part of web-base-template? ajpiano?
+[10:49:31] <ajpiano> is what?
+[10:50:22] <ryanneufeld> rxaviers: is getting xsltproc errors on the jenkins build for api.jquery.com
+[10:50:33] <ryanneufeld> I'm trying to figure out what the best puppet module is for this
+[10:50:40] <ryanneufeld> should I roll it in with jenkins?
+[10:50:51] <ryanneufeld> or are there other servers that will need to build it?
+[10:51:20] <rxaviers> yeap, the erros is for its `grunt build-xml-entries`
+[10:52:33] <rxaviers> ryanneufeld,  (actually, the errors on the jenkins build are for download.jqueryui.com `grunt prepare`, which in turn runs api.* `grunt build-xml-entries` above)
+[10:52:39] <ryanneufeld> OH, taht machine is not setup as a builder
+[10:52:45] <ryanneufeld> it's setup as services machine
+[10:53:17] <rxaviers> ;)
+[10:56:26] <ryanneufeld> rxaviers: so, the build is failing on the jenkins machine?
+[10:56:35] <ryanneufeld> but not on the actual one?
+[10:56:40] <rxaviers> correct
+[10:56:45] <ryanneufeld> oh, whew
+[10:56:46] <ryanneufeld> okay
+[10:56:55] <ryanneufeld> I can add those packages to the builder config
+[10:57:01] <ryanneufeld> makes sense to have them there as well
+[10:57:28] <rxaviers> is builder config a infra script/thing to setup this kinda machine?
+[10:58:26] <ryanneufeld> it's a node type definition in puppet
+[10:58:50] <ryanneufeld> is this to build the web-base-template stuff?
+[10:59:08] <rxaviers> I was wondering if everytime the jenkins job run, it would run that builder config OR if it's a machine setup thing?
+[10:59:21] <ryanneufeld> it's a machine config thing
+[10:59:26] <rxaviers> cool
+[10:59:26] <rxaviers> ok
+[10:59:31] <ryanneufeld> is this to build the web-base-template stuff?
+[10:59:33] <rxaviers> kinda
+[10:59:50] <rxaviers> actually, download.jqueryui.com is part of it
+[11:00:07] <rxaviers> runs on top of the template
+[11:00:16] <ryanneufeld> yeah, okay
+[11:02:01] <jqcommit> [infrastructure] ryanneufeld pushed 1 new commit to puppet-stage: https://github.com/jquery/infrastructure/commit/72f2001fd1d826a4acde087a02eb6d89ab4476a2
+[11:02:01] <jqcommit> infrastructure/puppet-stage 72f2001 Ryan Neufeld: adding xsltproc and xml2 utils to services machines. this way jenkins tasks can properly run the grunt tasks to build sites
+[11:04:04] <ryanneufeld> okay rxaviers give that a go
+[11:04:17] <rxaviers> great, trying..
+[11:04:46] <rxaviers> \o/
+[11:04:50] <rxaviers> ryanneufeld, worked
+[11:05:02] <ryanneufeld> excellent
+[11:05:10] <rxaviers> ryanneufeld, thanks!
+[11:05:17] <ryanneufeld> the reason that we use puppet for this, instead of manually installing
+[11:05:27] <ryanneufeld> is so that if/when we move to new servers
+[11:05:34] <ryanneufeld> we just run one command, and it's all set up
+[11:07:35] <rxaviers> ah! that's cool
+[11:08:02] <ryanneufeld> yes, it is
+[11:08:11] <ryanneufeld> I <3 puppet
+[11:12:35] <rxaviers> :)

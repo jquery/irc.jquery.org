@@ -1,0 +1,179 @@
+[03:21:02] <guy> I found sort of bug/sort of feature request. If I have selector $('.entry') and multiple .entry elements, calling $('.entry').height() I expect to get sum all element height, instead of [0] element height
+[03:33:12] <jzaefferer> guy: that's a bad assumption. Getters will always give you the value of the first selected element, as the docs say: http://api.jquery.com/height/
+[03:43:41] <guy> I see.
+[07:05:11] <timmywil> .
+[07:05:11] <bot-t> (11 hours 20 mins ago) <mikesherov> tell timmywil please read this comment about 10413: http://bugs.jquery.com/ticket/10413#comment:17
+[07:05:12] <bot-t> (10 hours 40 mins ago) <rwaldron> tell timmywil Can you land the JSHint tweaks PR: https://github.com/jquery/jquery/pull/627 kthx <3
+[07:05:12] <socialhapy> ★ Pull request on jquery by rwldrn (6d, 11h ago): Reformat jshint errors to be readable
+[07:13:39] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/pilWGg
+[07:13:39] <jqcommit> [jquery/master] Reformat jshint errors to be readable; make post-compile.js write directly to jquery.min.js; update required Node version - Rick Waldron
+[07:20:32] <jq-jenkins> Project jQuery build #234: STILL FAILING in 6 min 44 sec: http://swarm.jquery.org:8080/job/jQuery/234/
+[07:20:33] <jq-jenkins> timmywillisn: Reformat jshint errors to be readable; make post-compile.js write directly to jquery.min.js; update required Node version
+[07:23:14] <rwaldron> thanks timmywil!
+[07:23:22] <rwaldron> DaveMethvin I've been working on 9777....
+[07:23:25] <rwaldron> a bunch last night
+[07:23:32] <timmywil> np
+[07:23:32] <rwaldron> and since I got in this morning
+[07:23:36] <rwaldron> i dont have good news
+[07:23:37] <DaveMethvin> oh good!
+[07:23:40] <DaveMethvin> oh bad.
+[07:23:50] <rwaldron> well,
+[07:24:01] <DaveMethvin> hey i'll be back in 5 minutes
+[07:24:04] <rwaldron> the good news is I've exhausted a bunch of weird attempts
+[07:24:10] <rwaldron> ok, I'll paste some shit in here
+[07:24:17] <rwaldron> pardon the flood everyone...
+[07:24:44] <rwaldron> even doing something as completely absurd and uncool as this...
+[07:24:45] <rwaldron> 	dest.removeAttribute("id");
+[07:24:45] <rwaldron> 	dest.removeAttribute("name");
+[07:24:45] <rwaldron> 	dest.setAttribute( "id", src.getAttribute("id") + "" );
+[07:24:45] <rwaldron> 	dest.setAttribute( "name", src.getAttribute("name") + "" );
+[07:24:53] * rwaldron barfs
+[07:25:03] <rwaldron> doesn't break the reference
+[07:25:37] <timmywil> is it just id and name?
+[07:26:09] <rwaldron> I can't answer that definitively at this point
+[07:26:20] <rwaldron> I'm just using those two, as they were mentioned in the ticket
+[07:26:51] <rwaldron> now, I only went down that root to rule out cloneFixAttributes as the culprit
+[07:26:58] <rwaldron> which I did
+[07:34:09] <rwaldron> timmywil I'm going to push a branch with my tests
+[07:34:17] <rwaldron> this is happening in attr
+[07:34:41] <rwaldron> maybe a fresh set of eyes will help :)
+[07:36:02] <timmywil> cool
+[07:38:47] <DaveMethvin> whoa rwaldron, that's a pretty persistent bug
+[07:39:14] <rwaldron> DaveMethvin I'm about to push a test case that I believe is a solid representation
+[07:39:23] <rwaldron> one sec
+[07:39:37] <rwaldron> it eliminates the clonign code as a culprit
+[07:42:54] <rwaldron> DaveMethvin, timmywil: git checkout -b 9777 && git pull https://github.com/rwldrn/jquery 9777
+[07:44:27] <timmywil> I thought I already established it was the cloning
+[07:45:39] <DaveMethvin> here was my test case from last night: https://gist.github.com/1481562
+[07:45:56] <danheberden> DaveMethvin does your wife know you're sharing that?
+[07:46:03] <rwaldron> timmywil i've been up and down through the cloning stuff
+[07:46:25] <DaveMethvin> danheberden: WAT
+[07:46:31] <danheberden> :p
+[07:46:38] <timmywil> er, excuse me, the act of appending
+[07:46:51] <timmywil> it is actually set to the right thing before it is appended
+[07:47:00] <rwaldron> ah
+[07:47:17] <rwaldron> ?slap timmywil
+[07:47:18] * bot-t slaps timmywil around a bit with a large trout
+[07:47:24] <rwaldron> next time add it to the ticket :P
+[07:47:49] <DaveMethvin> hmmm, is it because the clone has the same ID?
+[07:47:56] <timmywil> "The right name is being set, but there is some weirdness with the manipulation."
+[07:48:18] <timmywil> that makes PERFECT sense :P
+[07:48:30] <rwaldron> <33333333
+[07:48:33] <rwaldron> ahahahahah
+[07:48:33] <timmywil> ha, cloning is manip too, soooo oops
+[07:48:38] <DaveMethvin> my test case has no id so it's not that ...
+[07:49:38] <timmywil> wait, im wrong again
+[07:49:46] <timmywil> AMAZING
+[07:50:07] <DaveMethvin> waitaminit, setting unique id fixes it...
+[07:50:09] <rwaldron> best ticket ever
+[07:50:56] <rwaldron> DaveMethvin one of the fiddles shows that to be untrue :\
+[07:51:07] <DaveMethvin> yeah i broke the test
+[07:51:09] <rwaldron> there is one where both the id and name are being changed
+[07:51:10] <timmywil> ha
+[07:51:52] <rwaldron> and the name keeps coming up the same as the last item to be modified
+[07:52:04] <DaveMethvin> well in that test i am using quack as the attr name and it breaks
+[07:52:13] <DaveMethvin> so it's not unique to id or name
+[07:52:17] <timmywil> looking at the third fiddle setting the name property directly also has an issue, but different
+[07:52:34] <rwaldron> yeah i remember that
+[07:52:51] <timmywil> the properties stay correct, but the attrs keep the first cloned value for all clones
+[07:52:57] <DaveMethvin> right, some diffs prop vs attr
+[07:56:13] <DaveMethvin> hey i think this is a bug in ie7, we should get microsoft to fix it
+[07:56:17] <DaveMethvin> HAHAHAHA
+[07:58:56] <DaveMethvin> btw i tried the mysterious dest.mergeAttributes( src, false ) but no difference in behavior
+[07:59:25] <timmywil> blar
+[08:00:52] <timmywil> i've been seeing quite a few tracebacks recently on bugs
+[08:01:04] <timmywil> "MySQL server has gone away"
+[08:02:15] <rwaldron> DaveMethvin I also tried that :\
+[08:02:29] <rwaldron> and replacing mergeAttributes with...
+[08:02:31] <rwaldron> 	var attr,
+[08:02:31] <rwaldron> 	attrs = src.attributes,
+[08:02:31] <rwaldron> 	length = attrs.length,
+[08:02:31] <rwaldron> 	i = 0;
+[08:02:31] <rwaldron> 	for ( ; i < length; i++ ) {
+[08:02:32] <rwaldron> 		if ( (attr = attrs.item( i )) && attr.nodeValue ) {
+[08:02:32] <rwaldron> 			console.log( attr.nodeName );
+[08:02:33] <rwaldron> 			dest.setAttribute( attr.nodeName, attr.nodeValue );
+[08:02:33] <rwaldron> 		}
+[08:02:34] <rwaldron> 	}
+[08:02:34] <rwaldron> ew
+[08:02:37] <rwaldron> sorry about that
+[08:02:51] <DaveMethvin> so yeah it sounded like a manual loop doesn't fix it either
+[08:02:56] <rwaldron> right
+[08:03:02] <DaveMethvin> which is *really* strange
+[08:03:07] <rwaldron> this was all leading up to me ruling out clone
+[08:03:44] <DaveMethvin> something about appending it
+[08:03:54] <timmywil> well, it's wrong before appending too
+[08:04:08] <DaveMethvin> oh i didn't notice that
+[08:04:16] <DaveMethvin> ok well "something about cloning it" :D
+[08:04:18] <timmywil> setting on one clone changes all previous clones
+[08:04:22] <DaveMethvin> yeah
+[08:04:55] <timmywil> probably some reference issues internally in IE when making clones
+[08:05:22] <DaveMethvin> right, and it must be pretty deep since it seems to be all attributes
+[08:05:35] <timmywil> yea
+[08:05:50] <timmywil> i wonder if it works on html5 elements
+[08:05:57] <timmywil> since we clone differently
+[08:09:39] <rwaldron> The thing is... in my tests, I change two sets of elements
+[08:09:46] <rwaldron> one with attr and the other with setAttribute
+[08:10:00] <rwaldron> setAttribute respects the clone's individuality
+[08:10:24] <rwaldron> both sets of clones were made by jQuery( foo ).clone( true, true )
+[08:11:13] <timmywil> well, setAttribute will set the property
+[08:12:02] <timmywil> but may have more magic for aligning the corresponding attribute, so maybe that works
+[08:12:24] <rwaldron> I wonder if this was one of those mysterious reasons for attr's previous behaviour...
+[08:12:48] <rwaldron> i have to address some client shit
+[08:12:52] <rwaldron> back in a bit
+[08:12:54] <timmywil> i doubt this was encountered
+[08:13:41] <timmywil> DaveMethvin: http://jsfiddle.net/timmywil/mn7KG/30/
+[08:13:52] <timmywil> cloning an html5 element works great
+[08:14:27] <DaveMethvin> and we shim that
+[08:14:37] <timmywil> we clone differently
+[08:15:28] <timmywil> using outer/innerHTML
+[08:15:34] <timmywil> instead of cloneNode
+[08:16:21] <timmywil> but yes it uses a shim'd fragment to append to, but I don't think that affects it
+[08:16:23] <DaveMethvin> right ... that's the way jQuery 1.3-ish did it too
+[08:16:46] <DaveMethvin> lemme find the old code
+[08:17:02] <DaveMethvin> it was 1.5 where we changed i think
+[08:18:24] <DaveMethvin> gotta run for a sec
+[08:19:09] <timmywil> and just to make sure, i use a div instead here http://jsfiddle.net/timmywil/mn7KG/31/
+[08:21:09] <DaveMethvin> ok back
+[08:23:45] <timmywil> yea that's what I guessed.  using rwaldron's suggestion, we have the same issue as setting the property http://jsfiddle.net/timmywil/mn7KG/32/
+[08:25:29] <DaveMethvin> timmywil: it's definitely something funny with cloneNode()
+[08:25:35] <timmywil> so there's a solution, but we should consider whether it's worth changing the way we clone.
+[08:25:56] <DaveMethvin> it's really a case of choosing our poison
+[08:26:01] <DaveMethvin> just the ie case
+[08:26:26] <DaveMethvin> i remember there were issues related to the html approach, need to find the closed ticket
+[08:27:14] <timmywil> alright, i have a lunch meeting. bbs
+[08:29:44] <DaveMethvin> later
+[12:40:53] <DaveMethvin> .
+[12:42:40] <gnarf> ,
+[12:55:19] <DaveMethvin> hey gnarf, did you know that you need to change $.isNaN in the color plugin??
+[12:55:21] * DaveMethvin runs away
+[12:55:36] <gnarf> DaveMethvin: :) i think i changed that before you changed it in core
+[12:55:39] <DaveMethvin> you should get in a time machine and do it in october
+[12:56:20] <gnarf> October 11, 2011 18:40:33 according to github
+[12:56:24] <gnarf> https://github.com/jquery/jquery-color/commit/4a6abaf21ebfd6e9c55fa30c240a1a8fb76a9a86
+[12:56:24] <socialhapy> ★ Commit on jquery-color by gnarf37 (2m, 3d ago): Removing undocumented/disappearing $.isNaN
+[12:58:45] <gnarf> darn yours is 18:04
+[12:58:51] <gnarf> so it took me 35 minutes :)
+[12:58:51] <gnarf> https://github.com/jquery/jquery/commit/83c08ffa1ffa778e41d728ed7fa49044dd7135f9
+[12:58:52] <socialhapy> ★ Commit on jquery by dmethvin (2m, 3d ago): Fix #10478. Replace jQuery.isNaN with jQuery.isNumeric.Thanks to Christian C. Salvadó for the unit tests!
+[13:05:32] <timmywil> 35 minutes??? shame on you.
+[13:06:25] * gnarf hides in a corner
+[14:58:01] <johnbender> are there release notes for 1.7 or  1.7.1 that include the shortened list of $.event.props (aside from layer(X|Y)
+[14:58:09] <johnbender> ?
+[15:21:34] <johnbender> DaveMethvin: I have another annoying question for you!
+[15:21:43] * johnbender approaches with caution
+[15:24:29] <johnbender> ?tell DaveMethvin did the change that moved the mouse event properties under the mouseHooks object make it into any release notes? I'm curious how or if we should be using them. $.event.props is referenced http://api.jquery.com/category/events/event-object/ and we're using it in the vmouse pluggin
+[15:24:30] <bot-t> johnbender, Okay.
+[15:25:06] <gnarf> johnbender: they are still on originalEvent too
+[15:25:36] <gnarf> but aside from that little tidbit, i'm as clueless as you on this one
+[16:20:11] <johnbender> gnarf: yah I'm mostly curious as to how we should proceed
+[16:20:37] <johnbender> I just landed a patch to concat  the mouseHooks.props onto props where its a mouse event
+[16:21:01] <johnbender> so that works but I want to know if i should write a test to enforce that assumption or of we can be relatively certain that won't change
+[16:36:48] <DaveMethvin> .
+[16:36:49] <bot-t> (1 hour 12 mins ago) <johnbender> tell DaveMethvin did the change that moved the mouse event properties under the mouseHooks object make it into any release notes? I'm curious how or if we should be using them. $.event.props is referenced http://api.jquery.com/category/events/event-object/ and we're using it in the vmouse pluggin
+[16:36:56] <DaveMethvin> johnbender: you around?
+[18:42:41] <DaveMethvin> .
+[18:57:00] <Eviltwin> I really wouldn't have called this: http://jsperf.com/crazy-selectors
+[18:57:10] <Eviltwin> Anyone got other browsers they can try it in?
+[18:57:13] <Eviltwin> Now I'm curious
+[23:38:57] <Eviltwin> Also strange: http://jsperf.com/uniquify-2/3

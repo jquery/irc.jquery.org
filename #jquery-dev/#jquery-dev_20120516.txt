@@ -1,0 +1,432 @@
+[03:39:08] <umbassi> I've got a problem with make on Ubuntu. The JS_ENGINE is set, but @@if test ! -z ${JS_ENGINE}; then  is evidently still failing...
+[03:39:39] <umbassi> test: 8: /usr/bin/node: unexpected operator You must have NodeJS installed in order to minify jQuery.
+[03:40:03] <umbassi> Both node and nodejs are on path
+[03:40:10] <umbassi> Anyone advise?
+[04:05:07] <jaubourg> gf3: I looked into Connect but failed to understand it... searched for tutorials, failed to find anything that made sense to me (reference to injection techniques I never used didn't help). I then looked into existing static file servers: they were as unpliuggable as one can think of. Then I made my own ultra-minimal static file server
+[04:05:44] <jaubourg> umbassi: check the 1.8pre branch and use grunt ;)
+[04:08:41] <umbassi> jaubourg: grunt is new to me, can I use it to build jq?
+[04:09:24] <jqcommit> [qunit] jzaefferer pushed 1 new commit to master: http://git.io/DR58Bg
+[04:09:24] <jqcommit> [qunit/master] Refactor assertion helpers into QUnit.assert (backwards compatible) - Timo Tijhof
+[04:09:33] <jq-jenkins> Project QUnit build #121: FAILURE in 3.5 sec: http://swarm.jquery.org:8080/job/QUnit/121/
+[04:09:33] <jq-jenkins> krinklemail: Refactor assertion helpers into QUnit.assert (backwards compatible)
+[04:09:44] <jaubourg> umbassi: if you use the 1.8pre branch, yes
+[04:09:57] <Krinkle-away> Oh?
+[04:10:06] <umbassi> jaubourg: Thanks, Ill look into that.
+[04:10:23] * Krinkle-away hears beep but doesn't see anything
+[04:10:37] <Krinkle-away> oh, it's jq-jenkins
+[04:11:03] <jzaefferer> hello Krinkle-away
+[04:11:06] <jaubourg> umbassi: look into the package.json devDependencies... I guess you can have them install automagically, but then it is me who's not fluent enough in npm to help (or to old for magic)
+[04:11:14] <jaubourg> hey Krinkle
+[04:12:20] <jaubourg> gf3: you can use issues and pull requests if you had ideas that can save the day btw
+[04:12:34] <umbassi> jaubourg: Thats the thing, everything is installed. Im wondering if too much is installed, i.e. it is looking for either node or nodejs, but my system has both (for some reason) and thus the JS_ENGINE variable is borked.
+[04:13:42] <Krinkle-away> jzaefferer: Hm.. jslint:qunit failed
+[04:13:46] <Krinkle-away> Regression ?
+[04:13:55] <jzaefferer> prolly
+[04:14:06] <jaubourg> umbassi: yes, it's probably an issue but using pure node should help (ie npm should sort this out)
+[04:14:20] <Krinkle-away> jzaefferer: Ah, that's a bug in jshint (imho), I've seen that before
+[04:14:24] <Krinkle-away> jslint doesn't have that bug
+[04:14:30] <Krinkle-away> if one uses /** */ documentation comments
+[04:14:35] <Krinkle-away> in an indented block
+[04:14:44] <jzaefferer> Yeah, stupid crap, there's a ticket for the in jshint
+[04:14:46] <Krinkle-away> then, jshint considers the space before the * after the tab to be illegal
+[04:15:09] <Krinkle-away> It makes sense, but it shouldn't parse inside comments
+[04:15:14] <jaubourg> yeah, always hated this limitation
+[04:15:22] <jzaefferer> I'll add "smarttabs" here, too, until that is fixed...
+[04:15:29] <Krinkle-away> is there an opt...^
+[04:15:31] <Krinkle-away> okay
+[04:15:39] <umbassi> jaubourg: I thought I was. Confirmed thats the problem. Id suggest that JS_ENGINE ?= `which node nodejs 2>/dev/null` is too lax. If it can match two paths then it should make sure that it only ever selects one.
+[04:15:52] <Krinkle-away> I take it "smarttabs" turns that off ?
+[04:17:05] <jaubourg> umbassi: since we will switch to grunt in 1.8, seems like a non-issue or an edge case at best, that we don't really need to fix... but you can open an issue in the bug tracker. I dunno if we will keep the Makefile around or not.
+[04:17:26] <umbassi> kk
+[04:18:02] <jqcommit> [qunit] jzaefferer pushed 2 new commits to master: http://git.io/0BWnaw
+[04:18:02] <jqcommit> [qunit/master] Update validTest() : Simplify logic, clarify vars and add comments - Timo Tijhof
+[04:18:02] <jqcommit> [qunit/master] Fix jshint validation until they deal with /** */ comments properly - Jörn Zaefferer
+[04:18:45] <jzaefferer> Krinkle-away: any thoughts on https://github.com/jquery/qunit/pull/227 ?
+[04:18:45] <socialhapy> ★ Pull request on qunit by amb26 (1m, 6d ago): Patch and test case for #226 allowing cumulative issue of "expect" calls
+[04:19:27] <Krinkle-away> I discussed "cumulative expect" the other day at Wikimedia, someone was having a similar "expectation" and disappointed it didn't work that way
+[04:19:48] <Krinkle-away> however we somewhat came to an agreement that expect() should not be cumulative. It is imho against the testing nature
+[04:19:55] <jaubourg> btw Krinkle, jzaeffere: dunno if you saw this: https://github.com/jquery/jquery/tree/test-jhp
+[04:20:03] <Krinkle-away> if it is variable, then one can't use expect
+[04:20:31] <Krinkle-away> so far all cases I found for cumulative expect() are cases where it isn't useful.
+[04:20:36] <Krinkle-away> where it can't fail, so to speak
+[04:21:04] <jaubourg> Krinkle-away: no recursive situation that would benefit from it?
+[04:21:12] <Krinkle-away> important notes: 1) expect() doesn't have to be at the beginning, it can be at the end, 2) it is optional, can be left out on tests where you don't know
+[04:21:48] <jaubourg> oh, good point about it being at the end, but counting can be painfull while calling expect on the go simplifies stuff
+[04:22:16] <jaubourg> (not that I have any big interest in a cumulative expect)
+[04:22:23] <Krinkle-away> maybe painful, but it can set wrong expectations.
+[04:22:46] <Krinkle-away> I'd go further and even insert a failure when expect() is called multiple times
+[04:23:05] <Krinkle-away> (a similar artificial failure as when expect-count doesn't add up, or when there is an exception caught)
+[04:23:40] <jaubourg> yeah, if you don't support cumulation, you'd better fail if it's called twice
+[04:23:42] <Krinkle-away> btw, I"ll put this in a comment -- At wikipedia we say "IRC is not consensus" :D
+[04:23:54] <jaubourg> haha
+[04:24:22] <jzaefferer> thanks Krinkle-away
+[04:24:39] <jzaefferer> A few suggestions on alterantive approaches should help
+[04:26:05] <Krinkle-away> but I don't have a problem with it landing in QUnit, it's not like it would affect code that doesn't support cumulative expect (aside from it acting weird when you call it multiple times).
+[04:26:18] <Krinkle-away> but as a principle / encouragement of good quality code, I'd say no.
+[04:26:51] <Krinkle-away> jzaefferer: btw the smarttabs option, is that something we should add to grunt, or in jenkins ?
+[04:28:17] <jzaefferer> Krinkle-away: added in grunt.js already
+[04:28:22] <Krinkle-away> cool
+[04:28:29] <jq-jenkins> Yippie, build fixed!
+[04:28:30] <jq-jenkins> Project QUnit build #122: FIXED in 10 min: http://swarm.jquery.org:8080/job/QUnit/122/
+[04:28:30] <jq-jenkins> * joern.zaefferer: Update validTest() : Simplify logic, clarify vars and add comments
+[04:28:31] <jq-jenkins> * joern.zaefferer: Fix jshint validation until they deal with /** */ comments properly
+[04:28:42] <jzaefferer> jaubourg: if you want to drop php, talk to gnarf about getting Jenkins to support that
+[04:29:24] <jaubourg> ok
+[04:30:27] <jzaefferer> he wrote the bash script that does the git checkout for serving files to run via Jenkins/TestSwarm, he should know what to do to support jhp
+[04:30:50] <jaubourg> awesome
+[04:31:03] <Krinkle-away> jhp?
+[04:31:34] <jaubourg> https://github.com/jaubourg/jhp <= I'll add a land mail adress for intimidation letters ;)
+[04:35:18] <Krinkle-away> Aaah! is it halloween already?
+[04:35:25] <jaubourg> héhéhé
+[04:35:40] <Krinkle-away> Interesting idea
+[04:35:41] <jaubourg> my exact feeling while I was doing it
+[04:36:10] <jaubourg> but I was able to port the jquery unit tests to in roughly half a day (the other half was about fixing the thing)
+[04:36:23] <jaubourg> should took all the php files and translated them
+[04:36:30] <Krinkle-away> but for jquery testing? This is the response of a scared man, but right now I'm thinking it'd be nice to keep it so that one can execute the test suite on a "good ol'" LAMP stack with just apache and php in the web browser
+[04:37:10] <Krinkle-away> We don't use php for any extensive logic, just very basic stuff
+[04:37:49] <Krinkle-away> Hm.. github is eating my indention spaces in comments ?
+[04:38:00] <jaubourg> thing is, we have better control over headers and stuff, especially given how there is far less middleware than with lamp. For instance, I was able to trigger a firefox bug I could never trigger using PHP (because of default headers)
+[04:38:25] <jaubourg> (the one regarding not having a Content-type header)
+[04:38:40] <Krinkle-away> jaubourg: Are you sure there is no way around that in PHP?
+[04:39:02] <jaubourg> there is a way around, by configuring PHP AND Apache
+[04:39:19] <jaubourg> that's the thing, using node makes this kind of things pretty simple
+[04:39:36] <jaubourg> and we don't need 3 pages of "how to setup your env"
+[04:40:09] <jaubourg> since we only use very basic things in php, jhp turns out to be quite enough
+[04:40:44] <Krinkle-away> php has a simple output buffer, you can clear the default headers. Not perfect, but I'd rather have 2 lines of code more in php, that 3 pages of documentation to set up all node and jhp stuff locally. Not to mention the maintenance overhead of this new format.
+[04:41:18] <jaubourg> oh, you mean, like using the same node you installed to run grunt and type "jhp"?
+[04:41:32] <jaubourg> it's 1 line that's needed to document it
+[04:41:48] <Krinkle-away> grunt and node are not required to run the qunit test suite
+[04:41:49] <jaubourg> we already document installing node anyway
+[04:42:08] <jaubourg> true, we require an entirely different env for that
+[04:42:12] <Krinkle-away> all it needs is a browser and apache+php
+[04:42:18] <Krinkle-away> default stack, works currently
+[04:42:27] <Krinkle-away> right out of git
+[04:42:51] <jaubourg> well, just test the test-jhp branch
+[04:43:12] <Krinkle-away> not right now, I have a clock ticking down
+[04:43:28] <jaubourg> You're going... BACK TO THE FUTURE?!?
+[04:43:35] <jaubourg> ;)
+[04:43:43] <Krinkle-away> next movie starts at 14:00
+[04:43:44] <Krinkle-away> lol
+[04:43:50] <jaubourg> hehe
+[04:43:54] <Krinkle-away> I'm in a entalogy+1 marathon of Batman
+[04:43:59] <Krinkle-away> entalogy = 5 films
+[04:44:05] <Krinkle-away> Pentalogy *
+[04:44:16] <jaubourg> jeez
+[04:44:19] <Krinkle-away> the 5 batman films + The Dark Knight
+[04:44:25] <jaubourg> where is the next batman released btw?
+[04:44:33] <jaubourg> when
+[04:44:35] <Krinkle-away> just finished Batman Forever
+[04:44:41] <jaubourg> erk
+[04:57:43] <jqcommit> [qunit] jzaefferer pushed 1 new commit to master: http://git.io/ICeb1A
+[04:57:43] <jqcommit> [qunit/master] CLI runner for phantomjs - jzaefferer
+[04:57:46] <jq-jenkins> Project QUnit build #123: FAILURE in 2.7 sec: http://swarm.jquery.org:8080/job/QUnit/123/
+[04:57:47] <jq-jenkins> joern.zaefferer: CLI runner for phantomjs
+[04:58:20] <Krinkle-away> 'phantom' is not defined.
+[04:58:34] <Krinkle-away> 'onfinishedTests' was used before it was defined.
+[04:58:35] <Krinkle-away> ai..
+[04:59:52] <jzaefferer> needs grunt 0.4, which supports .jshintrc files, would make this so much easier to manage
+[05:01:19] <jqcommit> [qunit] jzaefferer pushed 1 new commit to master: http://git.io/O8R2zw
+[05:01:19] <jqcommit> [qunit/master] Disable linting for addons until grunt 0.4 is ready, making configuration via .jshintrc files a lot easier - Jörn Zaefferer
+[05:03:51] <jq-jenkins> Yippie, build fixed!
+[05:03:52] <jq-jenkins> Project QUnit build #124: FIXED in 2 min 30 sec: http://swarm.jquery.org:8080/job/QUnit/124/
+[05:03:52] <jq-jenkins> joern.zaefferer: Disable linting for addons until grunt 0.4 is ready, making configuration via .jshintrc files a lot easier
+[05:18:46] <jqcommit> [qunit] jzaefferer pushed 1 new commit to master: http://git.io/xrx3CQ
+[05:18:46] <jqcommit> [qunit/master] Use QUnit.push for raises implementation. Fixes #243 - Jörn Zaefferer
+[05:18:59] <jq-jenkins> Project QUnit build #125: FAILURE in 10 sec: http://swarm.jquery.org:8080/job/QUnit/125/
+[05:18:59] <jq-jenkins> joern.zaefferer: Use QUnit.push for raises implementation. Fixes #243
+[05:25:42] <jq-jenkins> Yippie, build fixed!
+[05:25:42] <jq-jenkins> Project QUnit build #126: FIXED in 4 min 19 sec: http://swarm.jquery.org:8080/job/QUnit/126/
+[07:06:27] <rwaldron> .
+[07:25:49] <jqcommit> [jquery] jaubourg pushed 1 new commit to 1.8pre: http://git.io/DLQvBg
+[07:25:49] <jqcommit> [jquery/1.8pre] Makes sure child element doesn't prevent setting height to 0. Fixes failure in unit test in IE6. - jaubourg
+[07:27:01] <jaubourg> should fix the css filure
+[07:27:05] <jaubourg> failure even
+[07:41:39] <jq-jenkins> Project jQuery 1.8 build #63: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery%201.8/63/
+[07:41:39] <jq-jenkins> j: Makes sure child element doesn't prevent setting height to 0. Fixes failure in unit test in IE6.
+[08:13:09] <scott_gonzalez> ajpiano, DaveMethvin: Do you know where this page will live in the future? http://docs.jquery.com/Downloading_jQuery
+[08:13:37] <ajpiano> right now it's slated to go into learn but it doesn't feel right there
+[08:13:59] <scott_gonzalez> Yeah, seems wrong.
+[08:14:03] <ajpiano> doesn't make sense in api.* either though
+[08:14:09] <scott_gonzalez> We could have jquery.com/download
+[08:14:17] <ajpiano> that's what i was in the middle of typing
+[08:14:17] <ajpiano> lol
+[08:14:18] <rwaldron> +1
+[08:14:24] <scott_gonzalez> There's nothing forcing us to keep jquery.com as a single page site.
+[08:14:33] <ajpiano> amen to that
+[08:14:40] <kswedberg> scott_gonzalez, ajpiano: +1 for jquery.com/download
+[08:14:46] <scott_gonzalez> DONE!
+[08:14:47] <kswedberg> was thinking the same thing. :)
+[08:14:55] <rworth> yay
+[08:15:00] <rwaldron> scott_gonzalez FTW!
+[08:19:24] <scott_gonzalez> ajpiano: Have you gone through all of docs.jquery.com to find content that needs to be moved?
+[08:20:06] <ajpiano> scott_gonzalez: https://github.com/jquery/learn.jquery.com/issues?direction=desc&labels=mediawiki-transition&page=1&sort=created&state=open
+[08:20:43] <scott_gonzalez> oh, nice
+[08:21:16] <scott_gonzalez> Are there other pages that should live on jquery.com?
+[08:21:26] <ajpiano> browser compat
+[08:21:27] <rworth> I'm thinking no
+[08:21:34] <rworth> shouldn't that be jquery.org?
+[08:21:50] <ajpiano> well, it shouldn't be in learn :)
+[08:21:55] <rworth> :)
+[08:21:57] <scott_gonzalez> heh
+[08:22:02] <ajpiano> i would think browser compat would be a .com thing
+[08:22:06] <rworth> I think it could live on .org like /license does
+[08:22:31] <ajpiano> i would tend to think .org would warehouse non-technical information
+[08:22:37] <scott_gonzalez> I think browser support would be on .com
+[08:22:44] <rworth> I was thinking cross-project
+[08:22:44] <scott_gonzalez> ajpiano: agreed
+[08:22:45] <ajpiano> agree
+[08:22:47] <ajpiano> yeah
+[08:22:56] <rworth> but yeah, if this is just jQuery browser support
+[08:23:02] <ajpiano> i don't necessarily think browser support cross-project is the same thing
+[08:23:04] <rworth> caus UI and mobile have different ones
+[08:23:07] <ajpiano> for all projects
+[08:23:08] <rworth> yeah, ok
+[08:23:09] <ajpiano> exaxctly
+[08:23:15] <rworth> exaxctly
+[08:23:18] <scott_gonzalez> Well, UI tracks core, but we don't have to.
+[08:23:23] <rworth> right
+[08:23:39] <ajpiano> having individual compat pages for each i think makes sense
+[08:23:40] <scott_gonzalez> And there was some amount of time (less than a year, I think) where we diverged.
+[08:23:43] <rworth> so, jquery.com/browsers
+[08:23:51] <rworth> ?
+[08:23:51] <ajpiano> this way the ui compat page can have an index of which ui versions go with which core versions
+[08:24:06] <ajpiano> in addtion to browser support
+[08:24:50] <ajpiano> not sure about the url slug
+[08:25:14] <ajpiano> i guess browsers is better than "compatibility"
+[08:25:35] <scott_gonzalez> I think /browsers or /browser-support is good.
+[08:25:54] <rworth> I like /browser-support
+[08:26:16] <ajpiano> yea
+[08:26:17] <ajpiano> browser-support
+[08:26:18] <scott_gonzalez> Where should wontfix go?
+[08:26:29] <ajpiano> scott_gonzalez: wontfix is going to go in a special page in Trac
+[08:26:36] <scott_gonzalez> oh, nifty
+[11:04:44] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/wB6STw
+[11:04:44] <jqcommit> [jquery/master] Merge branch 'master' of github.com:jquery/jquery - Dave Methvin
+[11:05:10] <danheberden> DaveMethvin holy shit
+[11:05:22] <DaveMethvin> merge master?
+[11:05:26] <danheberden> http://danheberden.com/share/4c48.png
+[11:05:36] <scott_gonzalez> THIS IS WHY BRANCHES ARE BAD!
+[11:05:40] <danheberden> whoever follows that account just got flooded
+[11:05:41] <DaveMethvin> yeah
+[11:05:44] <danheberden> haha
+[11:05:48] <danheberden> it was fun to watch tho
+[11:05:55] <scott_gonzalez> Also, whoever follows Trac just had their inbox flooded.
+[11:05:56] <scott_gonzalez> :-(
+[11:05:58] <danheberden> jqcommit just went 'pew pew pew'
+[11:06:04] <DaveMethvin> hehe
+[11:06:15] <danheberden> oh shit the bugs server
+[11:06:26] <DaveMethvin> i got 19 messages
+[11:06:28] <DaveMethvin> so far
+[11:06:36] <danheberden> ok, it's doing ok
+[11:06:52] <DaveMethvin> yeah
+[11:06:59] <DaveMethvin> even better than normal
+[11:09:45] <scott_gonzalez> http://twitter.com/scott_gonzalez/status/202822938276278273
+[11:09:47] <socialhapy> ★ Tweet from scott_gonzalez: Scumbag @davemethvin merges to master; kills everyone's notification streams http://t.co/oEEDQsaC ★ http://bit.ly/KPE2Is
+[11:11:09] <scott_gonzalez> ouch http://bugs.jquery.com/ticket/10944
+[11:11:25] <scott_gonzalez> That sounds like a pain to work with.
+[11:14:52] <DaveMethvin> there are some nasty back-compat issues that have no happy resolution, unfortunately
+[11:15:33] <DaveMethvin> like, .always() gets its args in different order depending on whether the promise was resolved or rejected
+[11:17:46] <DaveMethvin> jaubourg rwaldron gnarf gibson042 mikesherov: note that we're in master now
+[11:18:02] <rwaldron> no more 1.8pre?
+[11:19:13] <DaveMethvin> nope
+[11:20:06] <ajpiano> guys
+[11:20:29] <ajpiano> leaving all other details about said talk aside, do you think the general idea of having an ES5 talk at jqcon is a generally wise idea
+[11:20:50] <ajpiano> or a generally not one
+[11:21:01] <ajpiano> i think it will excite a bunch of people and bore others
+[11:21:14] <rwaldron> I think it would be nice, but I'm actually annoyed by Justin's pet boner for getters/setters
+[11:21:19] <jaubourg> omg
+[11:21:30] * rwaldron whistles
+[11:21:58] <DaveMethvin> es5 is not a very practical concern for people depoying on existing platforms
+[11:22:06] <DaveMethvin> or even deploying
+[11:22:07] <rwaldron> I mean... c'mon, that's not even the correct name for them, so how you gonna give a talk about it???
+[11:22:18] <rwaldron> +1 DaveMethvin
+[11:22:20] <ajpiano> DaveMethvin: that's my concern
+[11:22:40] <rwaldron> Note however that mobile can get away with it
+[11:22:50] <rwaldron> Ringmark is written in all kinds of ES5
+[11:22:58] <rwaldron> because ajpiano and I _could_
+[11:23:07] <DaveMethvin> lucky suckers
+[11:23:15] <rwaldron> yeah, it's really nice
+[11:28:15] <rwaldron> hm, did I miss the wednesday meeting?
+[11:28:34] <rwaldron> ugh
+[11:28:44] <rwaldron> it was one of the reminders I ignored at 1
+[12:27:41] <DaveMethvin> bot-t: glad to see you are feeling better!
+[12:27:42] <bot-t> DaveMethvin, JQuerySprint/dev/irclog - All times are EDT(GMT-4) http://docs.jquery.com/JQuerySprint/dev/irclog
+[12:28:46] <bot-t> Thanks DaveMethvin, it's been a rough couple of days
+[12:29:02] <DaveMethvin> awww
+[13:12:08] <scott_gonzalez> Is this the correct way to check for beforeSend: function() { return false; }
+[13:12:16] <scott_gonzalez> $.ajax().state() === "rejected"
+[13:20:52] <scott_gonzalez> DaveMethvin: ^
+[13:25:56] <DaveMethvin> scott_gonzalez: yeah that looks right but you'd need to check the args to know whether beforeSend cancelled it
+[13:26:13] <scott_gonzalez> The code will look like this:
+[13:26:20] <scott_gonzalez> xhr = $.ajax({ ... });
+[13:26:44] <scott_gonzalez> if ( xhr.state() !== "rejected" ) { ... }
+[13:27:00] <scott_gonzalez> It'll actually be more complicated, because it needs to support old versions too.
+[13:27:33] <DaveMethvin> so beforeSend could do that, but a 404 could as well
+[13:27:41] <scott_gonzalez> if ( xhr && (!xhr.state || xhr.state() === "rejected" )
+[13:27:55] <scott_gonzalez> a 404 could do that synchronously?
+[13:28:02] <scott_gonzalez> I guess in cached IE?
+[13:28:03] <DaveMethvin> oh, sync
+[13:28:14] <DaveMethvin> ok now i see what you're saying
+[13:28:27] <DaveMethvin> so if you check immediately, what other things might reject immediately
+[13:28:29] <scott_gonzalez> BTW, I think that's a broken design (handling cached IE synchronously).
+[13:29:14] <scott_gonzalez> https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.tabs.js#L508-516
+[13:29:27] <scott_gonzalez> I want to update this to be ready for 1.8.
+[13:29:38] <scott_gonzalez> We need to support 1.6+
+[13:31:46] <DaveMethvin> looking...
+[13:34:19] <DaveMethvin> damn i was hoping you could attach a fail() before even making the ajax request
+[13:34:52] <DaveMethvin> then you could look for the "canceled" in the args it gave you
+[13:35:06] <DaveMethvin> but if it happens sync you'll miss it 100% of the time
+[13:35:38] <scott_gonzalez> If checking state() is bad for this, I can set a flag.
+[13:35:49] <DaveMethvin> the only solution i can think of scott_gonzalez is to make your own promise and use callbacks
+[13:36:07] <scott_gonzalez> Instead of just returning, I can set a flag to the return value.
+[13:36:13] <scott_gonzalez> Then check that.
+[13:36:30] <DaveMethvin> yeah
+[13:36:39] <DaveMethvin> damn that's ugly
+[13:36:52] <DaveMethvin> well, at least non-elegant
+[13:37:06] <DaveMethvin> the beforeSend stuff doesn't mesh well
+[13:37:08] <scott_gonzalez> I can check .statusText === "canceled"
+[13:37:58] <scott_gonzalez> That should work, right?
+[13:38:11] <scott_gonzalez> Would make the conditional easier too, since I'm not calling a function :-)
+[13:38:24] <DaveMethvin> right, if you the beforeSend returns false it basically .abort()s the request
+[13:38:25] <scott_gonzalez> if ( xhr && xhr.statusText !== "canceled" ) {...}
+[13:42:48] <scott_gonzalez> Forced async is still undecided?
+[13:43:37] <DaveMethvin> you mean, when we'll drop the ability to do sync ajax scott_gonzalez?
+[13:43:47] <DaveMethvin> thats the only way we can drop it as i recall
+[13:44:03] <scott_gonzalez> No, forced async resolution for deferreds.
+[13:44:18] <scott_gonzalez> Well, I guess you're viewing them as going hand-in-hand.
+[13:44:26] <DaveMethvin> but ajax, even the sync ajax, is implemented through deferreds/callbacks
+[13:44:30] <DaveMethvin> so we can't do one without the other
+[13:45:11] <scott_gonzalez> I know, you didn't like my flag suggestion :-)
+[13:46:19] <DaveMethvin> yeah it's such a pain b/c there is no place to put the flag
+[13:46:29] <DaveMethvin> and a global is just plain crazy
+[13:46:55] <scott_gonzalez> Not a global, a flag per deferred.
+[13:47:09] <DaveMethvin> right, passed in somewhere
+[13:47:29] <DaveMethvin> but so many are internal
+[13:47:48] <DaveMethvin> so like, $.ajax would need too create the flag for the deferred it makes internally>
+[13:48:42] <DaveMethvin> imo it's still not too late to make $.saneAjax :)
+[13:48:59] <scott_gonzalez> So I have a different request then.
+[13:49:24] <scott_gonzalez> https://github.com/jquery/jquery/blob/master/src/ajax/xhr.js#L196-197
+[13:49:31] <scott_gonzalez> Those two cases should not be lumped together.
+[13:49:52] <scott_gonzalez> IE resolving synchronously for async xhr should still be resolves async by us.
+[13:50:11] <DaveMethvin> yeah i agree with that
+[13:50:19] <DaveMethvin> dunno why jaubourg didn't fix that yet
+[13:51:16] <scott_gonzalez> I'll file a bug.
+[13:51:25] <DaveMethvin> oh i was getting the two confused
+[13:51:41] <DaveMethvin> docs#10467 is for all to resolve async
+[13:51:42] <bot-t> [#10467] Deferreds should always resolve asynchronously (open enhancement) - http://jqbug.com/10467
+[13:51:44] <DaveMethvin> which we can't do
+[13:51:52] <DaveMethvin> without breaking the world
+[13:51:55] <scott_gonzalez> Right, that makes me really sad.
+[13:51:59] <scott_gonzalez> The world should break.
+[13:52:03] <scott_gonzalez> It's not doing so well anyway.
+[13:52:25] <DaveMethvin> again i wonder if we should try to create some other interface
+[13:52:26] <scott_gonzalez> I can live with the fact that the world is broken.
+[13:52:39] <DaveMethvin> $.ajax has too big a burden
+[13:52:40] <scott_gonzalez> $.syncXHR() :-)
+[13:52:55] <DaveMethvin> and break backcompat too :(
+[13:53:00] <scott_gonzalez> $.omgINeedToSendDataNOW()
+[13:53:10] <DaveMethvin> oh no doubt it's a bad idea
+[13:53:24] <scott_gonzalez> It's needed for certain cases though.
+[13:53:29] <scott_gonzalez> Like beforeunload.
+[13:53:45] <scott_gonzalez> Async XHR is not guaranteed to complete.
+[13:53:58] <DaveMethvin> there are plenty of situations where $.ajax is breaking that can't be easily fixed
+[13:54:13] <DaveMethvin> the fact that .done() and .fail() get their args in different order for example
+[13:54:23] <DaveMethvin> which means .always() has unknown order!
+[13:55:14] <DaveMethvin> if we had created ajax to use promises to begin with it wouldn't have happened but we're past that
+[13:55:39] <DaveMethvin> so now it's just a question of whether we break all the $.ajax code out there or create a new interface without the backcompat rules
+[13:56:07] <jaubourg> re-plop
+[13:56:19] <DaveMethvin> oh  boy we were just talking about ajax jaubourg
+[13:56:31] <DaveMethvin> scott_gonzalez wants to break all the ajax code :P
+[13:56:56] <scott_gonzalez> We can do that, actually.
+[13:56:59] <scott_gonzalez> With $.xhr()
+[13:57:06] <DaveMethvin> yes that's what i would advise
+[13:57:09] <scott_gonzalez> That's my plan for when I have free time.
+[13:57:15] <scott_gonzalez> AKA never
+[13:57:27] <DaveMethvin> maybe we can get jau...whoops he's here
+[13:57:44] <scott_gonzalez> jaubourg: I'm trying to update https://github.com/jquery/jquery/blob/master/src/ajax/xhr.js#L196-197
+[13:58:06] <scott_gonzalez> Would the best check be: if ( xhr && xhr.status !== "canceled" )
+[14:00:55] <jaubourg> scott_gonzalez: let me check that
+[14:01:28] <jaubourg> errr
+[14:02:10] <jaubourg> this test is to determine if the request completed before we attached the handler (or if we're in sync and don't need to use a handler)... code in 1.4.4 was quite messy there
+[14:02:30] <jaubourg> I don't see how a "cancelled" status would help?
+[14:02:45] <jaubourg> what's this $.xhr()?
+[14:04:28] <scott_gonzalez> jaubourg: It's always an async request, and it can only have been cancelled in the beforeSend callback.
+[14:04:37] <scott_gonzalez> That code all runs synchronously.
+[14:05:13] <scott_gonzalez> I want to detect the case where jQuery <1.8 returned false.
+[14:05:26] <jaubourg> ooooh
+[14:05:34] <scott_gonzalez> $.xhr() is unrelated, it's my idea for implementing sane ajax without breaking back-compat.
+[14:05:39] <jaubourg> yep that's it
+[14:05:44] <scott_gonzalez> thanks
+[14:06:03] <jaubourg> your test is correct, I didn't see what the lines you pointed me to has to do with it
+[14:07:20] <jaubourg> <scott_gonzalez> jaubourg: I'm trying to update https://github.com/jquery/jquery/blob/master/src/ajax/xhr.js#L196-197
+[14:07:58] <scott_gonzalez> Oh, haha, I grabbed the wrong URL :-P
+[14:08:21] <scott_gonzalez> I scrolled up in the chat and copied.
+[14:08:26] <scott_gonzalez> I meant to show you this: https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.tabs.js#L508-516
+[14:08:32] <jaubourg> scott_gonzalez: regarding $.xhr, I think we really need to provide builds without ajax and/or effects and see what the community will come with as alternatives
+[14:08:52] <scott_gonzalez> $.xhr will be my alternative :-)
+[14:09:21] <jaubourg> yeah, I'd like to provide alternatives too
+[14:09:36] <DaveMethvin> ok, back ... had to walk the dog
+[14:09:48] <scott_gonzalez> jaubourg: http://bugs.jquery.com/ticket/11778
+[14:09:53] <jaubourg> I know the current architecture is pluggable to the bones but people just don't see it since it's hidden behind the almighty $.ajax
+[14:10:22] <DaveMethvin> but also that flexibility and all the options come at a price
+[14:10:40] <jaubourg> scott_gonzalez: nice one
+[14:10:47] <DaveMethvin> you just costed out $.ajax last night at 4.5kb gzip, and $.jsonp is much smaller
+[14:11:09] <DaveMethvin> if you just had a $.xhr that returned a promise it would be much smaller too
+[14:11:26] <jaubourg> DaveMethvin: look at ajax/xhr.js and you'll see that what costs us is the mess browser vendors made of the xhr object... and xhr 2 is even worse
+[14:11:52] <DaveMethvin> yeah, cors does complicate the situation
+[14:11:53] <jaubourg> it's all ifs and try/catches all around
+[14:12:31] <jaubourg> cors + some browser throw exceptions in that case + others only when trying to access xhr.status + IE caches like its life depends on it, etc etc
+[14:12:53] <jaubourg> not to mention headers nightmare both in request and reponse
+[14:12:59] <scott_gonzalez> HAHA, I read that as "IE crashes like its life depends on it"
+[14:13:08] <jaubourg> xmlhttprequest has to die
+[14:13:28] <DaveMethvin> there are not enough silver bullets and stakes for that jaubourg
+[14:13:28] <jaubourg> scott_gonzalez: and the sentence was still correct
+[14:13:41] <DaveMethvin> crashes, caches, what's the diff when it comes to ie
+[14:13:55] <jaubourg> breaking news: IE caches its crashes
+[14:14:02] <jaubourg> and crashes its caches
+[14:15:01] <scott_gonzalez> Hooray for tests.
+[14:15:11] <jaubourg> \o/
+[14:15:11] <scott_gonzalez> I was able to verify that the new conditional works.
+[14:15:43] <DaveMethvin> oh jaubourg in case you missed we're back on master now
+[14:15:59] <DaveMethvin> and as far as developing on a branch ... never again
+[14:16:20] <jaubourg> it wasn't that bad... I just didn't checkout master for weeks :P
+[14:16:42] <scott_gonzalez> You guys think it's bad having to support all these browsers? Try supporting all these jQueries :-) https://github.com/jquery/jquery-ui/blob/90705cdffe58b0448a4520fef922ec7f28afd722/ui/jquery.ui.tabs.js#L516
+[14:16:44] <jaubourg> it made sense to keep master open in case of a blocker we would have to fix
+[14:16:45] <DaveMethvin> when i pushed to master it was like a fireworks display
+[14:17:03] <scott_gonzalez> jaubourg: For that you should branch to 1-7-stable
+[14:18:02] <jaubourg> you could simplify all this you know... beforeSend: function() { return myVar = ... } and then if ( myVar !== false ) { ... }
+[14:18:26] <jaubourg> unless you abort in the event handler?
+[14:18:31] <scott_gonzalez> I said that earlier to DaveMethvin, but we both think it's kind of ugly.
+[14:19:02] <jaubourg> I dunno, I find it more elegant than relying on a string value
+[14:19:05] <scott_gonzalez> Also, when we no longer support jQuery <1.8, we can drop to a single check again.
+[14:19:13] <scott_gonzalez> And we won't need to the flag.
+[14:19:29] <scott_gonzalez> I wonder if we could check !xhr.status.
+[14:19:43] <jaubourg> you could
+[14:20:01] <jaubourg> or you could move the code in the beforeSend handler :P
+[14:20:02] <scott_gonzalez> It'll always be >0 if it hasn't been cancelled?
+[14:20:14] <scott_gonzalez> We can't move it out of beforeSend.
+[14:20:24] <jaubourg> the conditional code I mean
+[14:20:28] <jaubourg> put it in ;)
+[14:20:34] <scott_gonzalez> heh
+[14:20:49] <scott_gonzalez> Horray for nesting?
+[14:20:53] <jaubourg> \o/
+[14:20:59] <jaubourg> that's a stupid idea, mind you
+[14:21:07] <jaubourg> but I thought I had to tell you
+[14:22:38] <jaubourg> it's a winner from a size point of view though, seeing as you have the jqXHR in scope
+[14:25:12] <scott_gonzalez> We need the reference in other places anyway.
+[14:43:52] <jqcommit> [jquery] jaubourg pushed 1 new commit to master: http://git.io/541nXQ
+[14:43:52] <jqcommit> [jquery/master] When IE6 & IE7 serve from the cache in async mode, resolves the request asynchronously. Fixes #11778. - jaubourg
+[14:43:53] <jaubourg> here scott_gonzalez
+[14:44:28] <scott_gonzalez> :-)
+[14:46:58] <jaubourg> why isn't the bug closed in the tracker?
+[14:47:03] <jaubourg> weird
+[14:56:10] <louisremi> Hi guys, did anyone notice that .on() shouldn't accept data arguments of type "string", because they could be interpreted as a selector...
+[14:57:14] <louisremi> $(elem).on("click", "data", function(e) {console.log(e.data)}) == BOOM
+[14:57:39] <louisremi> this should at least be documented
+[15:10:53] * louisremi wonders if  he's muted or he said something stupid...
+[16:12:32] <scott_gonzalez> It makes me sad that .on() supports data.
+[18:13:26] <DaveMethvin> ?tell louisremi All the args to .on() are documented ... technically the data arg is supposed to be an object
+[18:13:26] <bot-t> DaveMethvin, Okay.
+[18:20:04] <jqcommit> [jquery] jaubourg pushed 1 new commit to test-jhp: http://git.io/ew3HUg
+[18:20:04] <jqcommit> [jquery/test-jhp] Merge branch 'master' of github.com:jquery/jquery into test-jhp - jaubourg
+[18:28:39] <socialhapy> ★ Tweet from jquerymobile: jQuery Mobile Vertical Slider -  http://t.co/rMtNhc6l ★ http://bit.ly/JLpLv6

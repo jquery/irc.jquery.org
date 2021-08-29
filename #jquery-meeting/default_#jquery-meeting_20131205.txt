@@ -1,0 +1,456 @@
+[08:05:09] <iskren> hello
+[08:06:04] <rxaviers> Hello Krinkle iskren
+[08:06:22] <rxaviers> scott_gonzalez, jzaefferer, tj_vantoll
+[08:06:32] <rxaviers> I am not sure if anyone else is joining
+[08:06:44] <rxaviers> I guess this one will be iskren Krinkle and I.
+[08:06:59] <scott_gonzalez> I'm here, wathing :-)
+[08:07:11] <Krinkle> iskren: Hi!
+[08:07:18] <rxaviers> :)
+[08:07:21] <iskren> hello rxaviers Krinkle
+[08:07:52] <rxaviers> So, 2 weeks ago we had our first meeting and jzaefferer created this minutes
+[08:07:54] <rxaviers> https://docs.google.com/document/d/1V8X33uphHUeUEhX8AYU4GZ4DrPPGxbbpuydqShDO-Gw/edit
+[08:08:17] <rxaviers> During this time, iskren and I have talked about some implementation details.
+[08:09:14] <rxaviers> I can talk a little about Globalize/CLDR updates, and I will pass the word to iskren to talk about Moment/CLDR
+[08:10:00] <Krinkle> Sounds good.
+[08:10:53] <rxaviers> Globalize now has CLDR date parse implemented, and I have updated the new new jQuery UI datepicker to use it.
+[08:11:35] <rxaviers> Globalize uses cldr.js (a low level lib to manipulate CLDR JSON data) (<- introducing this to Krinkle)
+[08:12:07] <rxaviers> After talking to iskren and jzaefferer, its README (and its code) got several improvements
+[08:12:20] <rxaviers> Anyway...
+[08:12:52] <rxaviers> iskren, would you like to go ahead with Moment/CLDR updates
+[08:13:01] <iskren> So rxaviers explaned a lot to me in the past two weeks and now I feel I know cldr better, so I'm very thankful for that!
+[08:13:16] <rxaviers> thanks, ywc
+[08:13:47] <iskren> about moment/cldr -- I think it'd be best if its extracted as a separate plugin
+[08:14:28] <iskren> the good news is that most of the existing i18n functionality can be implemented using cldr data, so that we can deprecate our in-house translations faster
+[08:15:20] <iskren> also I kind of missed the globalize to cldr port in https://github.com/jquery/globalize/pull/172 I thought you were *thinking* of doing that
+[08:15:48] <rxaviers> :) it's a reality (work in progress reality) hehe
+[08:15:49] <iskren> so now that I know it exists it should be relatively simple to implement a moment wrapper around
+[08:16:14] <iskren> I have a few comments that I can share with rxaviers later (or in the PR)
+[08:16:29] <iskren> but overall it looks great
+[08:16:43] <rxaviers> excellent, your comments are welcome
+[08:16:55] <rxaviers> a question, if moment/cldr becomes a plugin.
+[08:17:14] <rxaviers> how is it going to deal with formats or parses without it?
+[08:17:18] <iskren> yes
+[08:17:22] <rxaviers> I mean: is the plugin optional?
+[08:18:42] <iskren> the easiest way is to have moment format/parse that is using old locales (for now, remove in 3.0 probably)
+[08:19:04] <iskren> and then the plugin can overwrite these functions with new copies
+[08:19:45] <Krinkle> rxaviers: So cldr.js, is that for the backend or front-end? I would like it to download or parse as little as possible client-side.
+[08:19:52] <Krinkle> e.g. build script
+[08:19:52] <iskren> you might be wondering how the incompatible tokens would work -- I guess the plugin can exist pre 3.0 and when we're happy we can just make it a default
+[08:20:21] <iskren> and change moment's tokens
+[08:21:29] <iskren> I have to talk to icambron about that, because I think we need another set of tokens for a "machine" locale (i.e stuff that can not be i18 but still needed on backend for example)
+[08:21:43] <rxaviers> (Krinkle, it works both in frontend and backend, and it uses as little as possible client-side. I can walk you thru it offline)
+[08:21:47] <rxaviers> iskren, I see.
+[08:22:13] <iskren> also I want to kind of deprecate the use of cldr tokens, because ppl should learn to use the presets
+[08:22:34] <iskren> I mean deprecate printing for users in format('MMM YYYY') way
+[08:22:50] <rxaviers> yeah, presets are the way to go...
+[08:22:52] <iskren> it can look like this but instead print month and year in a locale friendly way
+[08:23:09] <iskren> but this means we need another format for "low level" machine readable format
+[08:23:17] <Krinkle> That would also be most flexible for our API going forwards. Discourage specifying exact formats directly.
+[08:23:41] <scott_gonzalez> iskren: rxaviers and I discussed how we're going to handle that in Globalize the other day.
+[08:23:47] <iskren> this part needs more work on our end to decide what goes where (moment-core or moment-cldr)
+[08:23:58] <scott_gonzalez> rxaviers: Do you want to go over the discussion we had about time/date and preset/explcit?
+[08:24:26] <scott_gonzalez> I think one of the biggest hurdles will be user education.
+[08:24:35] <iskren> :) I completely agree
+[08:24:39] <scott_gonzalez> So many people are accustomed to writing explicit formats.
+[08:24:59] <scott_gonzalez> It's going to be hard to break that habit/explain why the format they wrote isn't the format they got back.
+[08:25:13] <rxaviers> right scott_gonzalez, thanks for pointing that out
+[08:25:20] <scott_gonzalez> But we should definitely do everything we can to push users to use presets.
+[08:25:38] <rxaviers> Although before getting into such details, I would like to hear what the overall roadmap plans iskren has for moment/CLDR vs. how Krinkle can help.
+[08:26:09] <rxaviers> I know Krinkle has offered himself to help on the migration.
+[08:26:39] <rxaviers> Is that correct? I think it would be good if Krinkle and iskren could align perspectives.
+[08:27:01] <Krinkle> As well as early feedback from language experts. If there's anything I've learned about languages in the last few years is that no matter how simple or absracted something may seem, there's going to be a language we need to support that might blow up the plan.
+[08:27:06] <iskren> well, the next step for me is to design the interface and make sure it is doable (we can split i18n independent code in moment-core)
+[08:27:24] <iskren> then we can discuss this interface from your point of view (as users of moment-cldr)
+[08:27:47] <Krinkle> And with Wikimedia on that front, it's going to be tough to find anything on the web that supports more languages and works close with CLDR on that front.
+[08:28:14] <iskren> so Krinkle -- you want something that is still customizable on top of CLDR?
+[08:28:36] <Krinkle> My main concerns are the API and the end result package format in the release. Though I didn't know initially, I know think the implementation is very much on the right track.
+[08:28:53] <Krinkle> now*
+[08:29:42] <Krinkle> iskren: Not per se no, if the release process would feature a build script that generates moment.<lang>.js files for each of the cldr languages, that would be more than enough for now. I'll let you know if there's anything we think is justifiably required on top of that, but I don't think so at the moment.
+[08:30:02] <Krinkle> We've fixed cldr upstream where needed in the past, and if we find more, I'm sure that'll get upstreamed as well.
+[08:30:32] <rxaviers> Krinkle, the idea is to decouple I18n data from code
+[08:30:47] <rxaviers> On globalize, we don't have globalize.<lang>.js anymore
+[08:31:02] <iskren> so I guess we won't have moment.lang.js, because the i18n data would come from cldr json, which would be handled by globalize
+[08:31:15] <rxaviers> Right
+[08:31:34] <rxaviers> Let me paste an example
+[08:31:50] <Krinkle> Well, unless there's a better alternative, I think it's a required to be able to send the user a combination of lib + lib-lang (both js files, concatenatable) and have that do all the magic.
+[08:32:10] <iskren> but I guess we might want overrides of the data, or even functional implementations on top to accommodate "bugfixes" in advance
+[08:32:24] <Krinkle> based on user context, a different one (or multiple) lang files are bundled dynamically (and cached of course)
+[08:32:40] <rxaviers> https://gist.github.com/rxaviers/7808600
+[08:33:03] <Krinkle> using abstracted data directly from cldr is great, but is it beneficial to burdon the client with requesting json, parsing it, and laying it out in the library?
+[08:33:23] <Krinkle> checking
+[08:33:24] <iskren> Krinkle, the main problem is that json data is split into multiple files (good), and you require different set of files for different things (hard to manage)
+[08:33:39] <scott_gonzalez> Krinkle: Let me try to explain the process.
+[08:33:49] <scott_gonzalez> CLDR provides a ton of locale data.
+[08:33:50] <Krinkle> I understand it.
+[08:33:55] <iskren> Krinkle, the way globalize works now is by using the json structure directly
+[08:34:04] <scott_gonzalez> You don't want to load it all in, right?
+[08:34:25] <scott_gonzalez> So the goal is the be able to produce stripped down locale data, but preserve the structure.
+[08:34:40] <scott_gonzalez> So say you only care about three specific date formats and 50 locales.
+[08:34:45] <Krinkle> Sure, but wouldn't it make sense for there to be a release where the data moment.js needs is bundled so that for the common use case it is much easier to install, distribute and load?
+[08:35:00] <Krinkle> I don't want to have to deal with getting that json file to the client and passing it to Globalize or moment.js
+[08:35:12] <Krinkle> I assume jquery.ui won't do that either.
+[08:35:13] <rxaviers> Krinkle, the cons of doing so is that all libraries that depends on I18n data duplicates them
+[08:35:30] <rxaviers> Our goal is to be able to use the same I18n data across diff libs
+[08:35:33] <scott_gonzalez> I think that passing that data will happen one of two ways.
+[08:35:44] <scott_gonzalez> Either lib.load( data )
+[08:35:58] <scott_gonzalez> or perhaps lib.dataSrc = data
+[08:36:19] <scott_gonzalez> The goal is to never duplicate the data, regardless of how many independent i18n libs you're using.
+[08:36:43] <rxaviers> (much better put)
+[08:36:57] <scott_gonzalez> So let's say you had a global named CLDR, which was a hash of locale to data.
+[08:37:29] <scott_gonzalez> Each lib can decide on their own API for specifying that data, but they should all be written in a way that the data is injected.
+[08:37:40] <scott_gonzalez> So lib.load( "en", CLDR.en )
+[08:37:51] <scott_gonzalez> or lib.locales = CLDR;
+[08:37:54] <scott_gonzalez> or whatever
+[08:38:13] <scott_gonzalez> And that gets us the ability to have the locale data as stripped down as we want.
+[08:38:23] <scott_gonzalez> As long as it's using the same structure as the original CLDR source.
+[08:38:35] <scott_gonzalez> So moment can ship files that are stripped down if it wants.
+[08:39:23] <scott_gonzalez> But that's a decision for moment to make, and it won't affect Wikimedia's ability to keep their client data as slim as possible.
+[08:39:44] <scott_gonzalez> Because even if moment doesn't generate locale files, you'd be able to do the same trimming process that moment would have done.
+[08:40:12] <Krinkle> scott_gonzalez: I get that, but the most basic usage imho can't realistically involve having to manually do or load anything. I could elaborate on Wikimedia's use case, but let's take one jQuery UI datepicker for example.
+[08:40:45] <rxaviers> what's the problem?
+[08:40:53] <Krinkle> Having that option to share the data is great, but it shouldn't be the only way to load it.
+[08:41:01] <scott_gonzalez> So for UI datepicker, it'd look like this:
+[08:41:08] <scott_gonzalez> <script src="datepicker.js">
+[08:41:21] <scott_gonzalez> <script src="xyz.js">
+[08:41:36] <scott_gonzalez> $( elem ).datepicker({ locale: xyz })
+[08:41:51] <scott_gonzalez> The injection still has to occur somewhere.
+[08:42:06] <scott_gonzalez> Right now all UI locale files change the defualts, which is pretty bad.
+[08:42:09] <scott_gonzalez> The new version won't do that.
+[08:43:51] <Krinkle> But do you think there should be a downloadable for e.g. datepicker that gives you one language (or all) in such a way that if you load those js files, the data is already referenced properly so you can immediately start using .datepicker({ locale: 'xyz' })
+[08:44:13] <Krinkle> and xyz would be a js file, it looks. One that is provided by whom?
+[08:45:57] <Krinkle> if loading 2 js files (both which are provided) makes it work, then it satisfies my concerns.
+[08:46:17] <iskren> Krinkle, I see what is your concern, but you can always fallback to libraries bundling cldr data in their own specific ways and providing a file <library>.<locale>.js that has all that data, so users will just put that and be happy
+[08:47:03] <iskren> I guess the next step is to make a merger that takes an array of <lib>.<locale>.js for different libs and merges them together, so no data duplication occurs
+[08:47:20] <rxaviers> Previously, we weren't able to load I18n data the way we wanted. The only way was to load them embeded the way you are saying.
+[08:47:29] <scott_gonzalez> $.extend( true, lib1, lib2 ) // yay :-P
+[08:47:30] <iskren> but that would mean that the js files are plain json (or pretty plain) so it can be merged
+[08:47:37] <rxaviers> Now, it's decoupled in such a way that you can still do that, or do the way you would like
+[08:47:48] <rxaviers> You could load the data using require.js, $.ajax, ...
+[08:47:49] <scott_gonzalez> Yeah, they'll just be JSON.
+[08:48:03] <scott_gonzalez> I think the projects will end up shipping trimmed down files.
+[08:48:20] <scott_gonzalez> But even if we don't, we can certainly build a tool that makes it very easy.
+[08:48:29] <scott_gonzalez> Could even be part of rxaviers's cldr lib.
+[08:48:30] <iskren> well yes, the average joe doesn't want to be bothered with trimming down locales for his deps and bundling on his own
+[08:48:41] <scott_gonzalez> Where you just pass it the full locale data and an array of paths you care about.
+[08:49:04] <rxaviers> Yeap. The good news is that we are FREE now :D
+[08:49:05] <rxaviers> hehe
+[08:49:17] <rxaviers> It's a decision up to the application using the libraries.
+[08:50:28] <Krinkle> If we standardise the CLDR global, what we could do is a hybrid (maybe you meant that already and I'm describing it differently), where moment.de.js or jquery.ui.datepicker.de.js is just a a file calling CLDR.load('de', {cldr for (datepickers needs json})
+[08:50:57] <Krinkle> and the lib in question, when being asked to use locale 'x' would fallback to consulting the CLDR global?
+[08:51:25] <scott_gonzalez> Sure, they can be designed to fallback to a common global.
+[08:51:45] <rxaviers> Krinkle, about your current interest on I18n libs...
+[08:51:49] <iskren> hm, but the idea is to always use CLDR, even with prebundled files
+[08:51:58] <Krinkle> Sounds good.
+[08:51:58] <rxaviers> Moment.js is (simly put) is one in the date manipulation field.
+[08:52:13] <scott_gonzalez> iskren: He means fall back to a global named CLDR.
+[08:52:26] <rxaviers> Are you guys working on other i18n libs too?
+[08:52:46] <rxaviers> I would like to understand your current goal helping moment.js
+[08:52:47] <iskren> cldr.js would be a library everybody uses (hopefully), so in this sense its always global (one instance) per application, right?
+[08:52:55] <scott_gonzalez> So if Moment has a method for injecting locales and the user requests a locale that hasn't been injected, it would see if CLDR[ locale ] exists.
+[08:53:02] <Krinkle> so instead of jquery.ui storing the data in its own stash, it would put it in CLDR (if available), maybe even require it (similar to one some projects require requirejs, and optionally bundle it if you don't use anythign else that uses it)
+[08:53:02] <rxaviers> iskren, yeap! even better
+[08:53:28] <Krinkle> scott_gonzalez: yep
+[08:53:51] <rxaviers> yeap Krinkle that would be possible
+[08:54:19] <scott_gonzalez> Well, there still needs to be the injection option, otherwise this won't work with pure AMD setups.
+[08:54:24] <rxaviers> The goal is to postpone the decision of how/where to load the data to the user-application.
+[08:54:34] <scott_gonzalez> require( "ui/datepicker", "cldr/en", ... )
+[08:54:45] <Krinkle> the base storage should be very slim. What do you expect would be in the CLDR singleton besides the loaded data? Any methods or really just a plain object?
+[08:54:57] <scott_gonzalez> Just the data.
+[08:55:02] <Krinkle> lovelu
+[08:55:05] <Krinkle> lovely
+[08:55:12] <scott_gonzalez> Then tools are built to use it, like Globalize.
+[08:55:22] <iskren> it has a few helper getter functions, but they can go in a plugin, I guess
+[08:55:56] <rxaviers> Krinkle, CLDR is not that simple. You can find a little more info here https://github.com/rxaviers/cldr
+[08:55:58] <Krinkle> yeah, that would make it easy to shim. Libs like jQuery UI datepicker could perhaps contain a line like CLDR
+[08:56:00] <Krinkle>  CLDR
+[08:56:03] <Krinkle> argh
+[08:56:06] <Krinkle> CLDR = CLDR || {};
+[08:56:24] <iskren> :) won't bet *that* simple
+[08:56:36] <iskren> but the lib is tiny, so no worries
+[08:56:57] <iskren> ^^ be* *that* simple
+[08:57:09] <rxaviers> yeap, cldr.js is a very single-role slim as possible one
+[08:57:22] <Krinkle> Well, that depends on what kind of format we make the individual cldr json files. If they are in such a way that is usable directly by libs like datepicker, it wouldn't have to do anything else.
+[08:58:00] <rxaviers> Krinkle, we don't make data. We use the official JSON data, downloaded straight from CLDR servers :D
+[08:58:06] <Krinkle> Besides, there's a great benefit to not having to deal with "to use this lib, load cldr.js first, or click here to download a bundled version". It's the "yet another thing" dilemma.
+[08:58:52] <scott_gonzalez> I woudl expect Globalize to have build options where cldr.js can be bundled in.
+[08:59:06] <scott_gonzalez> Same for Moment.
+[08:59:10] <Krinkle> OK
+[08:59:12] <scott_gonzalez> If cldr.js is a dep.
+[08:59:14] <rxaviers> currently, we're bundling it in. So, no dependency is left to the end-user.
+[08:59:53] <rxaviers> by default, but optionally. So, libs like moment.js could use Globalize without it bundled
+[09:00:43] <Krinkle> Is the core code different depending on whether it is bundled?
+[09:01:06] <Krinkle> e.g. if an app resource delivery framework that manages dependencies provides 'cldr.js' as a separate dependency, that should work fine, right?
+[09:01:33] <rxaviers> yeap, it should
+[09:02:06] <Krinkle> e.g. at Wikimedia I expect we'll have separate modules jquery.ui.core, jquery.ui.datepicker, cldr, moment, where ui.datepicker would depend on ui.core and cldr, and moment would also depend on cldr.
+[09:02:13] <Krinkle> and some other module could also use it
+[09:02:47] <rxaviers> what are you using to manage dependencies? AMD?
+[09:02:51] <iskren> if you use something like amd, jspm, cjs it should work
+[09:03:07] <Krinkle> No, it's not AMD flavoured.
+[09:03:26] <iskren> but I guess we'll need to add a bundler on the main site, as jquery.ui
+[09:03:28] <Krinkle> It uses closures, but not in the require/export sense.
+[09:03:53] <rxaviers> cldr.js and new globalize have UMD return exports wrapper
+[09:03:55] <iskren> the "module" pattern?
+[09:03:55] <Krinkle> so modules can only communicate the same way they would when loaded directly as script tags, the global object. Not ideal, but that's what we have.
+[09:04:02] <rxaviers> but, basically like iskren you will.
+[09:04:36] <rxaviers> We can always go deep into the technical aspects later
+[09:04:59] <iskren> well, umd supports cjs, amd and browser globals, so that is fine
+[09:05:00] <rxaviers> I'd like that in this meeting we still have a clear perspective of the action items, next items
+[09:06:16] <rxaviers> iskren said "well, the next step for me is to design the interface and make sure it is doable (we can split i18n independent code in moment-core)"
+[09:06:21] <rxaviers> "then we can discuss this interface from your point of view (as users of moment-cldr)"
+[09:06:25] <rxaviers> I think that's great.
+[09:06:45] <rxaviers> iskren, how can Krinkle help?
+[09:07:10] <rxaviers> also Krinkle where you would like to get involved?
+[09:07:56] <rxaviers> So far, in a very high level perspective, this is what we have:
+[09:07:56] <rxaviers> (a) cldr.js is a low level lib that handles the hardnesses of CLDR
+[09:08:16] <rxaviers> (b) Globalize uses cldr.js, and implements date, number, and currencies parsing and formatting
+[09:08:50] <rxaviers> (c) Moment/CLDR will eventually use Globalize for such I18n functions; and implement date manipulations along with other I18n functions
+[09:09:04] <rxaviers> (d) jQuery UI datepicker will use moment/CLDR for its calendar date manipulation
+[09:09:16] <Krinkle> I'd like someone else from Wikimedia (someone in language engineering) to review the cldr handling, and myself I can help out with any code development. I'm specifically interested in the interoperability between cldr globalize momentjs and jquery.ui.datepicker and the way it can deal with cldr being already on the page.
+[09:09:38] <rxaviers> Great!!
+[09:10:04] <iskren> Krinkle, this is very important for me too. I'll spend some time banging my head against the wall to make sure it is all sound
+[09:10:42] <Krinkle> The one thing I'm somewhat suspicious of is Globalize being in the middle there. It's not exactly clear to me what it is doing that shouldn't be in cldr or moment instead.
+[09:11:06] <iskren> globalize is a high-level wrapper of cldr data
+[09:11:15] <Krinkle> Right, wider than just date/time
+[09:11:24] <iskren> well, we can split it in modules
+[09:11:34] <iskren> datetime, currency, number, locations
+[09:11:49] <Krinkle> I guess momentjs uses datetime and number?
+[09:11:58] <Krinkle> assuming number is plural?
+[09:12:04] <Krinkle> or is it number formatting?
+[09:12:13] <iskren> number is how to format numbers and decimals, and percents
+[09:12:15] <rxaviers> yeap, I've talked to jzaefferer, and Globalize will be split in above such modules
+[09:12:20] <Krinkle> e.g. handling of 0, 1, 10, few, many etc. plural rules
+[09:12:42] <iskren> I gave an example, I'm actually not sure what the modules would be
+[09:12:46] <iskren> but one would handle displaying numbers
+[09:12:52] <iskren> the other -- plural rules
+[09:13:18] <iskren> "like give me the name of the plural rule for 135" -> few
+[09:13:21] <Krinkle> plural rules is a fairly major thing to get right on itsown. It's one of the CLDR things we've had most difficulty with at Wikimedia, but are now mostly done with.
+[09:14:01] <rxaviers> cldr.js helps with stuff like:
+[09:14:02] <rxaviers> Cldr.load( data );
+[09:14:06] <rxaviers> var ptBr = new Cldr( "pt_BR" );
+[09:14:10] <rxaviers> ptBr.main( "numbers/symbols-numberSystem-latn/decimal" );
+[09:14:13] <rxaviers> / ➡ ","
+[09:14:39] <rxaviers> Globalize helps with stuff like
+[09:14:40] <rxaviers> Globalize.parseDate("Wed, Sep 15, 2010 AD", {skeleton: "GyMMMEd"});
+[09:14:41] <rxaviers> / Wed Sep 15 2010 00:00:00 <your tz>
+[09:15:07] <scott_gonzalez> Right, so cldr.js is basically just a helper to get a specific piece of data, while Globalize is a set of APIs to work with that data.
+[09:15:29] <rxaviers> yeap
+[09:15:31] <scott_gonzalez> Krinkle: Does that help with your understanding of why Globalize is in the middle?
+[09:15:36] <rxaviers> Is that clearer Krinkle?
+[09:15:38] <Krinkle> Yes
+[09:15:40] <iskren> in cldr there are many places where the data is too raw to use directly, globalize just gives that code that "should have always been there"
+[09:16:11] <rxaviers> hehe yeap
+[09:16:24] <iskren> I wonder why they don't provide a reference impl
+[09:16:38] <iskren> maybe globalize can be their first **cldr approved** :-P
+[09:17:09] <rxaviers> There are solid libraries in the backend (C, and java)
+[09:17:12] <rxaviers> none in the frontend
+[09:17:39] <rxaviers> or backend (when we talk about native javascript for node.js)
+[09:18:55] <rxaviers> gentlemen
+[09:19:04] <rxaviers> Do we have anything else?
+[09:20:11] <Krinkle> The contact at Wikimedia I'll be looping in in Siebrand Mazeland
+[09:20:17] <Krinkle> is*
+[09:20:37] <Krinkle> Can we schedule the next meeting?
+[09:21:07] <rxaviers> I'd propose one on Dec 19 if everyone is available
+[09:21:26] <iskren> should work for me
+[09:21:39] <rxaviers> So, we have time to get things done.
+[09:21:45] <Krinkle> Which time, same time?
+[09:21:54] <rxaviers> same time is ok for me
+[09:23:32] <rxaviers> Hi siebrand
+[09:24:03] <siebrand> Hola. I'm Product Manager Language Engineering at Wikimedia Foundation. Krinkle dragged me in. Will lurk for a bit, and hopefully participate in the next meeting.
+[09:24:21] <rxaviers> excellent
+[09:24:56] <rxaviers> So, Krinkle, and siebrand, feel free to get in touch having any questions of any of the libs we've talked about today.
+[09:25:55] <Krinkle> rxaviers: I've shared the google doc with various wikimedia addresses, can someone approve?
+[09:26:00] <siebrand> Krinkle will send a mail to our team list. I expect the devs, especially Santhosh Thottingal, to respond and participate.
+[09:26:21] <rxaviers> jzaefferer, is the one, we'll ask him to
+[09:27:53] <rxaviers> iskren, when you design the new moment interface, and if you need something that Globalize can help and doesn't currently do, just let me know.
+[09:28:23] <Krinkle> siebrand: rxaviers: iskren: THough this channel is logged on jquery.org as well, pasted it here as well (just this portion of the log) https://gist.github.com/Krinkle/2bd19c4f8a9f04f46fff
+[09:28:44] <Krinkle> https://gist.github.com/Krinkle/2bd19c4f8a9f04f46fff/raw/
+[09:29:07] <rxaviers> ;)
+[09:29:36] <rxaviers> So, see you guys Dec 19 in this same time
+[09:31:29] <iskren> rxaviers, sure! see you "MMM DD"
+[09:31:35] <rxaviers> lol
+[09:32:09] <rxaviers> 19th would be harder :p
+[09:32:12] <rxaviers> ordinals
+[09:32:21] <siebrand> Happy Sinterklaas, people :)
+[11:00:12] <_|Nix|_> Hey!
+[11:00:21] <uGoMobi> hey _|Nix|_ !
+[11:00:55] <RWhitbeck> hi
+[11:01:06] <uGoMobi> hey RWhitbeck !
+[11:01:10] <_|Nix|_> Hey!
+[11:01:31] <uGoMobi> arschmitz gseguin agcolom toddmparker
+[11:01:47] <gseguin> present
+[11:02:16] <uGoMobi> agenda/updates https://docs.google.com/document/d/1Cna-5zXj4kI_K5ejx0G3LSMlJXMhja90qG3jGAPizMc/edit#
+[11:02:27] <agcolom> present :-)
+[11:02:58] <uGoMobi> hi gseguin and agcolom
+[11:03:12] <arschmitz> here
+[11:03:29] <uGoMobi> hey arschmitz
+[11:03:41] <uGoMobi> let's get started
+[11:04:00] <uGoMobi> last week there was no meeting because of Thanksgiving
+[11:04:44] <uGoMobi> the ThemeRoller has been updated!
+[11:04:59] <gseguin> yay!
+[11:05:03] <uGoMobi> big thanks to the web-ui-fw team for their help
+[11:06:11] <uGoMobi> _|Nix|_: do you have time to look into the issues that have been reported?
+[11:06:16] <_|Nix|_> OK.
+[11:06:20] <uGoMobi> great
+[11:06:38] <uGoMobi> I was hoping I would have finished the new jquerymobile.com site by now but I was a bit busy so I am still working on it
+[11:06:52] <uGoMobi> shouldn't take long though
+[11:07:04] <uGoMobi> arschmitz gseguin: can we move demos to /demos/ ?
+[11:07:08] <_|Nix|_> Argh ... download errors ... I never could get the server interaction to work locally ...
+[11:07:19] <gseguin> uGoMobi: what do you mean?
+[11:07:23] <uGoMobi> instead of having them on view.*
+[11:07:31] <gseguin> oh yeah yeah
+[11:07:37] <gseguin> it's already working
+[11:07:46] <gseguin> it's just a matter of changing the link
+[11:07:54] <uGoMobi> right
+[11:07:59] <gseguin> go for it
+[11:08:11] <uGoMobi> will do :)
+[11:08:54] <uGoMobi> we have to check the commits in the API docs 1-4 branch
+[11:09:17] <uGoMobi> to see if there are changes that should have landed on master
+[11:09:54] <uGoMobi> agcolom: do you have time to scan https://github.com/jquery/api.jquerymobile.com/compare/master...1-4 ?
+[11:10:09] <agcolom> sure
+[11:10:44] <agcolom> so changes made in 1.4-branch that need to go into master, right?
+[11:10:50] <uGoMobi> great thanks
+[11:10:56] <uGoMobi> agcolom: yes
+[11:11:12] <_|Nix|_> agcolom: Actually, both ways. IINM, uGoMobi said that some fixes were in master but not 1-4
+[11:11:14] <agcolom> I can do that tomorrow.
+[11:11:15] <_|Nix|_> uGoMobi: Right?
+[11:11:32] <uGoMobi> _|Nix|_: we will rebase 1-4
+[11:11:40] <_|Nix|_> uGoMobi: Oh, OK ... a rebase, eh?
+[11:11:42] <uGoMobi> so that should take care of that
+[11:11:46] <_|Nix|_> OK.
+[11:11:53] <arschmitz> _|Nix|_: a lot of commits need to be squashed
+[11:11:58] <_|Nix|_> It's gonna be an ugly merge ...
+[11:12:08] <uGoMobi> yeah I know
+[11:12:15] <uGoMobi> 268 commits ahead
+[11:12:24] <arschmitz> _|Nix|_: like there really only needs to be one commit per entry / page
+[11:12:52] <_|Nix|_> arschmitz: OK, but there are commits that touch all pages.
+[11:13:04] <_|Nix|_> arschmitz: Like when I did a sed, or when I introduced a new include.
+[11:13:05] <arschmitz> _|Nix|_: those are different
+[11:13:26] <arschmitz> im talking about content changes or pages added stuff like that
+[11:14:02] <_|Nix|_> arschmitz: Right, but the problem is those systematic commits will cause conflicts if you try to rearrange the order of commits in order to squash.
+[11:14:37] <uGoMobi> why is that we do multiple commits for a similar change in multiple entries?
+[11:14:41] <agcolom> arschmitz: so you're saying in future there should be always just one commit per file touched except when we change the same thing across the board?
+[11:14:44] <uGoMobi> like the CDATA commits
+[11:15:08] <_|Nix|_> uGoMobi: Actually, that's a good thing for what arschmitz wants to do.
+[11:15:25] <arschmitz> basicly we should be constantly rebasing future branches like this
+[11:15:37] <_|Nix|_> uGoMobi: Because if I add the CDATA to a single file, that commit can be squashed with others that only touch that same file.
+[11:15:39] <arschmitz> so you can end up with basicly one commit per entry
+[11:16:00] <uGoMobi> _|Nix|_: gotcha
+[11:16:17] <uGoMobi> arschmitz: yeah, we should have rebased earlier
+[11:16:54] <uGoMobi> arschmitz: I think it's because this is first time we release new version of API docs
+[11:17:27] <arschmitz> yes exactly
+[11:17:29] <uGoMobi> wasn't clear to all of us how we would handle that
+[11:17:39] <arschmitz> and really there are going to be a lot of conflicts when we do it now
+[11:17:48] <uGoMobi> we learned a lot from this release :)
+[11:17:57] <scott_gonzalez> As arschmitz said, this is most important for future branches.
+[11:17:57] <uGoMobi> arschmitz: true :(
+[11:18:21] <scott_gonzalez> Keep in mind that when 1-4 becomes master, and master becomes 1-3, you'll still be maintaining 1-3.
+[11:18:36] <scott_gonzalez> Up to that point, you want it to be very easy to rebase master into 1-4 to keep it up-to-date with bug fixes.
+[11:18:45] <_|Nix|_> If we want to squash down to a single commit for each entry, then we'll definitely not want to commit anything that touches multiple files.
+[11:18:49] <scott_gonzalez> And after that point, you want it to be very easy to cherry-pikc from master to 1-3 to backport bug fixes.
+[11:19:00] <scott_gonzalez> It doesn't need to be one per file.
+[11:19:14] <arschmitz> _|Nix|_: that was just an example for certin types of commits
+[11:19:14] <scott_gonzalez> The history just needs to be smaller and easier to manage.
+[11:19:23] <scott_gonzalez> Constant rebasing on 1-4 should be easy.
+[11:19:25] <arschmitz> commits that qre sweeping changes are still fine
+[11:19:32] <scott_gonzalez> Until you're ready to make 1-4 master.
+[11:20:27] <arschmitz> we just need to be more responsible along the way to maintain clean history
+[11:20:44] <arschmitz> there is not strict number of commits rule
+[11:21:00] <arschmitz> just rebase along the way and squash where it makes sense
+[11:21:24] <uGoMobi> yeah
+[11:22:08] <uGoMobi> this will also be easier if we keep maintaining API docs while we are developing
+[11:22:58] <arschmitz> yup
+[11:23:53] <uGoMobi> arschmitz: do we already have a complete changelog for 1.4 final?
+[11:24:12] <arschmitz> iv run one and im doing manual cleanup on it
+[11:24:21] <uGoMobi> great
+[11:24:34] <arschmitz> figured should not be anything else now so i can start it
+[11:24:47] <uGoMobi> yeah
+[11:25:34] <uGoMobi> we should be able to ship 1.4 final soon then
+[11:25:55] <arschmitz> yup let me know when your almost done with website and ill add the change log
+[11:26:06] <uGoMobi> ok will do
+[11:26:58] <uGoMobi> when 1.4 final has been released don't start removing deprecated code or making big changes like the file structure
+[11:27:17] <uGoMobi> let's work on bug fixes for 1.4.1 first and do some triage
+[11:28:04] <uGoMobi> next topic... the roadmap
+[11:28:04] <arschmitz> agreed
+[11:28:20] <uGoMobi> https://docs.google.com/document/d/1B1faJXMvk_G6pZNwRCXhSry7Q20zmzS4sFlm-piDH3k/edit
+[11:29:04] <uGoMobi> during the meeting here in Amsterdam we discussed all UI and Mobile widgets
+[11:29:46] <uGoMobi> what widgets would remain in 2.0
+[11:30:48] <uGoMobi> this new roadmap is based on that
+[11:31:09] <uGoMobi> meaning that we only invest time in widget that will remain
+[11:31:20] <uGoMobi> ones that will be replaced we only do bug fixes
+[11:32:18] <_|Nix|_> uGoMobi: We also must make sure to deprecate and then remove the API for those widgets we eventually drop.
+[11:32:52] <_|Nix|_> uGoMobi: For example, if we drop popup in favour of dialog, we must eventually remove the popup API.
+[11:33:06] <uGoMobi> _|Nix|_: I am not sure if we need to deprecate for a 2.0 version
+[11:33:17] <arschmitz> no deprecation in a full version
+[11:33:19] <uGoMobi> or that everything is "automatically" deprecated
+[11:33:20] <arschmitz> it just changes
+[11:33:21] <_|Nix|_> uGoMobi: Oh, that's right. We can just drop outright.
+[11:33:22] <arschmitz> no backcompat
+[11:33:31] <uGoMobi> right
+[11:33:35] <_|Nix|_> NM.
+[11:34:44] <uGoMobi> I don't think we have to go over every item in the roadmap
+[11:35:05] <uGoMobi> just take a look and ask or comment :)
+[11:35:51] <uGoMobi> the web-ui-fw offered to help with things
+[11:36:45] <uGoMobi> _|Nix|_: the idea was to port widgets from web-ui-fw to Mobile/UI, right?
+[11:37:23] <uGoMobi> in general I think the focus should be on getting everything we already have in good shape
+[11:37:38] <uGoMobi> a lot of widgets need to be rewritten
+[11:37:56] <_|Nix|_> uGoMobi: Eventually, yes.
+[11:38:02] <uGoMobi> maybe they can help with that
+[11:38:10] <uGoMobi> with listview for example
+[11:38:51] <_|Nix|_> uGoMobi: I guess the decision wrt listview is that we should, after all, try to drop style options, right?
+[11:40:12] <uGoMobi> _|Nix|_: dropping style options is in the roadmap for 1.5 as well
+[11:40:22] <uGoMobi> meaning we need to keep them until 1.6
+[11:41:18] <_|Nix|_> uGoMobi: Right, but if we succeed in doing without them in 1.5 we can deprecate them during the 1.5 dev cycle.
+[11:41:30] <uGoMobi> _|Nix|_: correct
+[11:41:46] <uGoMobi> that goes for all widgets that have style options
+[11:41:50] <_|Nix|_> uGoMobi: That's something we (web-ui-fw-ers) can help with.
+[11:42:00] <uGoMobi> awesome
+[11:42:15] <_|Nix|_> uGoMobi: Well, it's not a commitment (yet) :) Let's talk on Monday.
+[11:42:30] <uGoMobi> :)
+[11:42:55] <_|Nix|_> uGoMobi: It's good that we've established the general thrust though (getting rid of style options wherever possible).
+[11:43:52] <uGoMobi> _|Nix|_: I think that as soon as we 1.4.1 is out we should start with working on that
+[11:44:20] <uGoMobi> think it's good to have that on master for a while for testing
+[11:44:25] <_|Nix|_> uGoMobi: I know, I already have a lot of 1.4.1 issues assigned to me.
+[11:44:41] <_|Nix|_> uGoMobi: So I'll get those out of the way before anything.
+[11:44:46] <uGoMobi> cool
+[11:45:13] <agcolom> sorry I have to run... will be in touch tomorrow
+[11:45:28] <uGoMobi> agcolom: ok later
+[11:46:20] <uGoMobi> we are not going to set dates for the new version releases but it will be approx. a half year for each release
+[11:46:49] <_|Nix|_> uGoMobi: May the gods of scheduling look with favour upon our endeavours!
+[11:46:56] <uGoMobi> :D
+[11:47:24] <_|Nix|_> Annuit coeptis :)
+[11:47:51] <uGoMobi> I was about to say that
+[11:49:03] <arschmitz> we can update the road map as we go too
+[11:49:23] <arschmitz> if priorities change or something is taking longer etc
+[11:49:28] <arschmitz> we can update as we go
+[11:49:44] <uGoMobi> yeah true
+[11:51:00] <uGoMobi> I think it's good to have a goal and something on which we can base decisions
+[11:51:18] <uGoMobi> but at the same time we need some flexibility
+[11:51:39] <_|Nix|_> Agreed ... we should also consider tying things off wherever they are after about four months and calling it a beta.
+[11:51:56] <uGoMobi> _|Nix|_: +1
+[11:52:31] <_|Nix|_> It seems to me that working on branches a lot should help with that.
+[11:52:45] <_|Nix|_> If a branch doesn't make it into x, that's NP, it'll make it into x+1
+[11:52:57] <uGoMobi> yes exactly
+[11:53:28] <uGoMobi> right now we keep coming up with things we want to land in next version
+[11:54:04] <uGoMobi> that makes next version such a big thing that we want even more things to land in that version
+[11:55:23] <uGoMobi> so it's very important that we keep API docs, tests, demos, etc up to date during development
+[11:55:24] <_|Nix|_> Yeah, we need to simply cut it off at some point ... whatever we have is fine, and the rest will be next version ...
+[11:55:34] <uGoMobi> yeah
+[11:56:05] <_|Nix|_> Right - working across all aspects of the project should also help with simply cutting off development at some point to roll a version.
+[11:56:44] <_|Nix|_> But I still think 1.4 has been inordinately big, because we've been rolling out the new Web sites, and we've been making substantial internal changes.
+[11:57:03] <uGoMobi> right
+[11:57:37] <uGoMobi> and when we started we didn't really know exactly what we were going to do
+[11:57:57] <uGoMobi> but we learned from this :)
+[11:58:12] <uGoMobi> ok it's almost time
+[11:59:23] <uGoMobi> let's look into more detailled plan for 1.5 later
+[11:59:31] <_|Nix|_> Yep. And I've reproduced https://github.com/jquery/web-jquery-mobile-theme-roller/issues/163 (BTW)
+[11:59:36] <_|Nix|_> +1
+[11:59:58] <uGoMobi> we should make sure there are tickets for everything we are going to work on, set milestones, etc.
+[12:00:28] <uGoMobi> wow that must be a really big screen
+[12:00:42] <_|Nix|_> I know, eh?
+[12:01:18] <uGoMobi> let's take this to -dev
+[12:01:28] <uGoMobi> anything else we need to discuss here?
+[12:01:35] <_|Nix|_> I'm good.
+[12:02:07] <arschmitz> yeah i think we are good
+[12:02:11] <uGoMobi> thanks everyone!
+[12:02:20] <uGoMobi> see you on -dev
+[12:02:44] <_|Nix|_> To the -dev-cave!

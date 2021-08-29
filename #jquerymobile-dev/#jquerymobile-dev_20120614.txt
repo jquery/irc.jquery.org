@@ -1,0 +1,267 @@
+[07:02:41] <jqmobilecommit> [jquery-mobile] gabrielschulhof pushed 2 new commits to master: http://git.io/Bi6Tcg
+[07:02:41] <jqmobilecommit> [jquery-mobile/master] [popup] Refine re-focus-on-link logic - only if the link is not inside the popup, and only when the entire popup sequence (begin -> popup1 -> ... -> popupn -> ... -> back to page) has completed - Gabriel Schulhof
+[07:02:41] <jqmobilecommit> [jquery-mobile/master] [popup] css: kill outline for container - Gabriel Schulhof
+[07:12:08] <_|Nix|_> uGoMobi: What do you think about extending the possible data-corners values in buttonMarkup to [true,false,"top","left","right", "bottom", "topleft", "topright", "bottomleft", "bottomright"]?
+[07:12:59] <uGoMobi> _|Nix|_: will have a look at current buttonMarkup
+[07:15:31] <_|Nix|_> uGoMobi: It would fix https://github.com/jquery/jquery-mobile/issues/3635 because we could modify controlgroup to not go behind the back of buttonMarkup adding/removing classes manually.
+[07:16:12] <uGoMobi> _|Nix|_: ah ok, i get it
+[07:17:03] <_|Nix|_> uGoMobi: Yeah, and when you re-enhance, the re-enhancement code would pick up the correct corners value, and would do the Right Thing™ ...
+[07:18:13] <_|Nix|_> uGoMobi: We should talk about it today ...
+[07:18:36] <uGoMobi> _|Nix|_: I am thinking how this all should work
+[07:19:16] <uGoMobi> _|Nix|_: how does buttonMarkup know what corners to apply when it is directly called
+[07:19:31] <_|Nix|_> data-corners=true|false
+[07:19:57] <_|Nix|_> Means add class ui-btn-corners-all or do not add class ui-btn-corners-all
+[07:20:00] <uGoMobi> hmm
+[07:20:15] <uGoMobi> but this is about buttons in a controlgroup
+[07:20:49] <uGoMobi> controlgroup function manages what corners to apply to a certain button in the group
+[07:21:05] <_|Nix|_> uGoMobi: https://github.com/jquery/jquery-mobile/blob/master/js/jquery.mobile.buttonMarkup.js#L81
+[07:22:00] <_|Nix|_> uGoMobi: Yes, but the way it applies them should be changed: Instead of using addClass/removeClass, it should use .buttonMarkup({corners: "left"/"right"/false})
+[07:22:35] <uGoMobi> buttonClass += o.corners ? " ui-btn-corner-all" : "";
+[07:22:47] <_|Nix|_> uGoMobi: Yep.
+[07:22:48] <uGoMobi> option corners is set by controlgroup
+[07:23:11] <_|Nix|_> Yeah, but currently only two values are recognized: true and false.
+[07:23:25] <_|Nix|_> uGoMobi: So, all corners, or no corners.
+[07:23:37] <uGoMobi> _|Nix|_: huh?
+[07:23:56] <uGoMobi> o.corners is just to check if corners are set
+[07:24:24] <_|Nix|_> Yes, and if it is set, it adds the class ui-btn-corner-all, which adds all 4 corners.
+[07:24:24] <uGoMobi> oh hang on... my mistake
+[07:24:28] <uGoMobi> i get what you mean
+[07:25:33] <_|Nix|_> controlgroup should not be doing /any/ addClass/removeClass on the buttons. It should all be done via .buttonmarkup({corners: <value that indicates which corners to set>})
+[07:26:30] <_|Nix|_> ... and it would actually not require much of a change ... I'll make a demo ...
+[07:27:00] <uGoMobi> but how does buttonMarkup know the position of the button in the controlgroup?
+[07:29:43] <uGoMobi> _|Nix|_: just checked controlgroup function... i forget about the flipCorners function
+[07:30:16] <uGoMobi> _|Nix|_: so it's indeed controlgroup adding/removing corner classes
+[07:31:05] <uGoMobi> controlgroup is not setting an option and then buttonMarkup applying the right classes
+[07:31:39] <_|Nix|_> uGoMobi: Exactly. controlgroup should be setting data-corners="left" or data-corners="right", and then buttonMarkup should do the right thing ...
+[07:32:26] <uGoMobi> yep you are right... so flipCorners should set options instead of classes
+[07:33:07] <uGoMobi> but then i still wonder how that will work when someone manipulates the controlgroup
+[07:33:40] <uGoMobi> and directly calls buttonMarkup and not controlgroup
+[07:34:08] <_|Nix|_> uGoMobi: Then buttonMarkup will pick up the correct corners that were previously set by controlgroup ...
+[07:34:29] <_|Nix|_> uGoMobi: Of course, if you set the /corners/ manually yourself, well, of course it will break.
+[07:34:48] <uGoMobi> _|Nix|_: lets say i append a button
+[07:35:09] <uGoMobi> that means that one has to get corners right
+[07:35:14] <_|Nix|_> uGoMobi: Does controlgroup have an API for appending a button?
+[07:35:35] <uGoMobi> no
+[07:35:46] <_|Nix|_> OK, then you need to append a button and call .controlgroup() again.
+[07:35:52] <uGoMobi> yes
+[07:36:15] <uGoMobi> thats what that issue is about, right?
+[07:36:38] <_|Nix|_> But if you call .controlgroup(), and then .buttonMarkup({icon: "grid"}), that's not gonna break the corners, because earlier, when .controlgroup() called .buttonMarkup(), it passed the right corners value to the button.
+[07:37:03] <uGoMobi> _|Nix|_: correct
+[07:37:08] <_|Nix|_> uGoMobi: No, the issue is that calling .buttonMarkup() on the individual button breaks the corner settings created by .controlgroup().
+[07:37:22] <uGoMobi> _|Nix|_: i see the issue is more about updating state or changing icons
+[07:37:29] <_|Nix|_> ... even though your call to .buttonMarkup() did not contain anything related to corners.
+[07:37:32] <uGoMobi> not manipulating the controlgroup as a whole
+[07:37:41] <_|Nix|_> Yeah, changing the icon should not break the corners.
+[07:37:54] <uGoMobi> i agree
+[07:38:06] <_|Nix|_> But it does, because controlgroup adds/removes corner classes that .buttonMarkup is not aware of.
+[07:38:37] <_|Nix|_> So we must change the code so that controlgroup doesn't add/remove classes, but instead it calls buttonMarkup, and buttonMarkup adds/removes clasess.
+[07:39:23] <_|Nix|_> ... and then buttonMarkup will add/remove classes in such a way that it remembers which classes were added/removed, and will re-add those classes correctly later on, when you change the icon.
+[07:40:00] <uGoMobi> _|Nix|_: the last part is what i was curious about
+[07:41:21] <uGoMobi> _|Nix|_: but you can store that in the data attribute
+[07:42:21] <_|Nix|_> uGoMobi: Exactly: data-corners=<true|false|"left"|"right"|...>
+[07:42:36] <uGoMobi> _|Nix|_: get it
+[07:43:15] <uGoMobi> _|Nix|_: btw - you dont need topleft bottomright etc if you ask me... just top, bottom, left, right will do
+[07:45:41] <uGoMobi> _|Nix|_: maybe good to have a look at this thread https://github.com/jquery/jquery-mobile/issues/3496
+[08:46:41] <jqmobilecommit> [jquery-mobile] uGoMobi pushed 1 new commit to master: http://git.io/kTSCNg
+[08:46:41] <jqmobilecommit> [jquery-mobile/master] Fixes #4193 - Added zoom 1 to trigger HasLayout on toolbars for IE. - Jasper de Groot
+[08:48:32] <jqmobilecommit> [jquery-mobile] uGoMobi pushed 1 new commit to 1.1-stable: http://git.io/2SdnjQ
+[08:48:32] <jqmobilecommit> [jquery-mobile/1.1-stable] Fixes #4193 - Added zoom 1 to trigger HasLayout on toolbars for IE. - Jasper de Groot
+[08:51:50] <uGoMobi> toddparker: is there an agenda for today's meeting?
+[08:55:11] <_|Nix|_> uGoMobi: Having to run .controlgroup() again is not a problem.
+[08:56:02] <uGoMobi> _|Nix|_: what do you mean? after adding or removing a button?
+[08:56:22] <uGoMobi> or after manipulating state of a button
+[08:57:46] <_|Nix|_> uGoMobi: After adding/removing ...
+[08:58:05] <_|Nix|_> uGoMobi: After manipulating a single button it should continue to be correct, unless you explicitly modify the corners.
+[08:59:02] <uGoMobi> _|Nix|_: ok, i agree... it makes sense that when you manipulate a controlgroup you have to call that function to refresh it
+[08:59:24] <uGoMobi> _|Nix|_: just something we need to clarify a bit more in the docs with an example
+[08:59:34] <uGoMobi> thats on my list btw
+[09:01:10] <uGoMobi> _|Nix|_: we have to make clear controlgroup is a function and not a widget so you just call the function without the "refresh" argument
+[09:01:13] <_|Nix|_> Yeah ... I pushed the commit: https://github.com/gabrielschulhof/jquery-mobile/commit/f49abba3d0d3ee5f490d778ead3b705392fabbee
+[09:01:14] <socialhapy> ★ Commit on jquery-mobile by Gabriel Schulhof (4m, 10s ago): [buttonMarkup] Accept more than just true/false for corners: tl, tr, bl, br, top, left, right, bottom as well
+[09:01:43] <_|Nix|_> ... for ppl to comment on ...
+[09:02:17] <_|Nix|_> uGoMobi: If that lands, we can build controlgroup on top of that.
+[09:02:33] <_|Nix|_> uGoMobi: ... and then 3635 should be fine.
+[09:02:38] <uGoMobi> _|Nix|_: cool!
+[09:03:35] <_|Nix|_> uGoMobi: I'd like one or more of gseguin, johnbender, scottjehl to have a look, because buttonMarkup is pretty performance-intensive.
+[09:03:48] <johnbender> yar, that's a hot spot
+[09:04:01] <uGoMobi> _|Nix|_: yeah you are right
+[09:04:07] <_|Nix|_> johnbender: Then check this out: https://github.com/gabrielschulhof/jquery-mobile/commit/f49abba3d0d3ee5f490d778ead3b705392fabbee
+[09:04:08] <socialhapy> ★ Commit on jquery-mobile by Gabriel Schulhof (7m, 4s ago): [buttonMarkup] Accept more than just true/false for corners: tl, tr, bl, br, top, left, right, bottom as well
+[09:04:10] <gseguin> Good morning
+[09:04:21] <_|Nix|_> gseguin: I see I woke up the left coast :)
+[09:04:23] <uGoMobi> hey johnbender and gseguin
+[09:04:30] <johnbender> gseguin: so it's a feature?
+[09:04:44] <johnbender> err
+[09:04:48] <johnbender> _|Nix|_: so it's a feature?
+[09:05:10] <_|Nix|_> johnbender: It is. It would allow us to correct some unexpected controlgroup behaviour.
+[09:05:38] <johnbender> _|Nix|_: uGoMobi: so here's something that would be super duper cool
+[09:05:45] <_|Nix|_> johnbender: controlgroup is manipulating buttonMarkup corner classes behind the back of buttonMarkup, so when you re-enhance later on, it clobbers controlgroup-assigned corners.
+[09:05:49] * gseguin catches up
+[09:05:51] <johnbender> if you guys could set up a perf test on jsperf that compares the old and the new?
+[09:06:00] <gseguin> I'm missing context, what are we talking about?
+[09:06:04] <johnbender> gseguin: patch
+[09:06:08] <johnbender> the link is a bove
+[09:06:25] * gseguin looks
+[09:06:30] <_|Nix|_> gseguin: allowing .buttonMarkup({ corners: "top"}) instead of just corners: true/false ...
+[09:06:46] <_|Nix|_> gseguin: I mean in addition to true/false
+[09:06:52] <_|Nix|_> johnbender: jsperf?
+[09:06:59] * _|Nix|_ go google
+[09:07:00] <johnbender> _|Nix|_: jsperf.com
+[09:07:15] <johnbender> uGoMobi: I know we talked about using it for something else, do you recall what?
+[09:07:33] <_|Nix|_> johnbender: Cool ...
+[09:07:35] <johnbender> I wish we could use it to track results over time
+[09:07:38] <uGoMobi> johnbender: yes, for my whitespace remove function
+[09:07:42] <johnbender> uGoMobi: yar!
+[09:07:51] <gseguin> brb
+[09:07:54] <uGoMobi> i asked you how to test
+[09:08:08] <uGoMobi> had a look at jsperf but didnt test it yet to be honest
+[09:08:51] <uGoMobi> i didnt expect my 27 commits to be pulled within one day... it all went a bit fast ;-)
+[09:08:59] <johnbender> :D
+[09:09:09] <johnbender> uGoMobi: cool, as long as it's still in your queue
+[09:09:30] <uGoMobi> oh yes it is... i have a very nice to do list :D
+[09:09:35] <johnbender> I'm looking forward to the next minor version, hopefully we'll get to focus on performance
+[09:09:41] <johnbender> we have a lot of work to do in that regard :D
+[09:10:34] <uGoMobi> yeah i agree... it doesn't stop with that blur() issue
+[09:15:50] <gseguin> so what's wrong with that commit?
+[09:16:30] <uGoMobi> gseguin: we were talking about impact on performance
+[09:17:25] <uGoMobi> idea from _|Nix|_ is to have buttonMarkup handle all the corners, not controlgroup
+[09:18:20] <uGoMobi> so when you refresh a button in a controlgroup after manipulating it's icon for example you won't loose the corner styles
+[09:27:54] <johnbender> gseguin: I suggested a quick jsperf to double check it
+[09:28:25] <johnbender> _|Nix|_: were you able to do something like that?
+[09:29:10] <gseguin> jsperf is always good for any code
+[09:29:32] <gseguin> but I have to admit that I'm kinda disconnected
+[09:29:50] <gseguin> you guys seem to have it in hands
+[09:30:13] <gseguin> let me know if you need me to dive in and understand
+[09:43:10] <johnbender> zomg so close to being lint free
+[09:43:17] <jqmobilecommit> [jquery-mobile] johnbender pushed 2 new commits to master: http://git.io/rNNwXQ
+[09:43:17] <jqmobilecommit> [jquery-mobile/master] white space, compound boolean statements, semi colons - John Bender
+[09:43:17] <jqmobilecommit> [jquery-mobile/master] unnecessary semi - John Bender
+[09:43:21] <johnbender> support.js is a nightmare though :(
+[09:43:28] <johnbender> I'm going to see if scott can take a look
+[09:43:35] * johnbender is scared by it
+[09:51:47] <_|Nix|_> johnbender: "_|Nix|_: were you able to do something like that?" Something like what?
+[09:51:53] <johnbender> _|Nix|_: jsperf
+[09:52:04] <_|Nix|_> Oh ... sorry ... dinner time ... back in the saddle now.
+[09:52:19] <johnbender> _|Nix|_: ah no worries, just curious if you were going to tackle that
+[09:52:51] <_|Nix|_> johnbender: On it now - never used jsperf though ...
+[09:53:02] <johnbender> super duper simple
+[10:02:25] <_|Nix|_> johnbender: WTF: "Include JavaScript libraries as follows: <script src="//cdn.ext/library.js"></script>"?
+[10:02:28] <_|Nix|_> johnbender: No proto:
+[10:02:29] <_|Nix|_> ?
+[10:02:44] <johnbender> ?
+[10:02:46] <johnbender> protocol relative
+[10:03:09] <johnbender> so if the asset is served over both you won't have security warnings and such
+[10:03:32] <johnbender> not well known but excpetionally usefull
+[10:03:39] <johnbender> *exceptionally usefull
+[10:10:32] <jqmobilecommit> [jquery-mobile] johnbender pushed 1 new commit to master: http://git.io/txen1A
+[10:10:32] <jqmobilecommit> [jquery-mobile/master] someone seems to have 755'd the core module for some reason - John Bender
+[10:10:49] <johnbender> we definitely need to figure something out to make performance testing easy if we're going to focus on it
+[10:11:08] <johnbender> and tracking those numbers in an automated fashion so we don't regress would be damn nice
+[10:11:13] <johnbender> _ahead_ of time
+[10:21:32] <uGoMobi> johnbender: sorry, I didn't noticed you already replied on that iOS tel link issue
+[10:22:11] <johnbender> uGoMobi: oh no I reopened it, it's something we should probably address even if it means logging a bug with apple
+[10:22:38] <toddparker> Hi all - meeting in 38 minutes :)
+[10:23:18] <toddparker> agenda
+[10:23:19] <toddparker> https://docs.google.com/document/d/1bgVDZU04uGCKPEONATc_W2h6jSLhUHi22cQUm2aSXp8/edit#
+[10:23:25] <uGoMobi> toddparker: hi Todd
+[10:23:25] <toddparker> please fill out your updates
+[10:24:22] <uGoMobi> toddparker: is it an idea to create agenda for next week right after the meeting of current week? so we can update during the week
+[10:40:34] <toddparker> yes, i tried doing that
+[10:40:37] <toddparker> little late today
+[10:41:00] <toddparker> i want to focus on any 1.1.1 bugs that we should nail down for the RC
+[10:49:25] <_|Nix|_> toddparker: Then let's milestone https://github.com/jquery/jquery-mobile/issues/3635
+[10:53:57] <toddparker> _|Nix|_: you want to get that in for 1.2?
+[10:54:46] <toddparker> ok, done
+[10:56:22] <johnbender> _|Nix|_: commented on that patch
+[10:57:06] <johnbender> I was thinking that getting everyone familiar with jsperf would be a good idea but property lookup should be O(1) so I would just merge it if it solves a major issue
+[10:57:15] <johnbender> might need a var cornerClasses though
+[10:57:17] <johnbender> :)
+[10:59:22] <_|Nix|_> johnbender: Whoops - definitely.
+[10:59:50] <_|Nix|_> johnbender: Well, I wouldn't qualify it as a /major/ issue, but it does serve to further encapsulate buttons ...
+[11:00:23] <_|Nix|_> johnbender: ... and it gets rid of a conditional, too :)
+[11:01:05] <agcolom> Hi, where is the meeting taking place?
+[11:01:24] <toddparker> meeting time
+[11:01:28] <toddparker> IRC
+[11:01:31] <toddparker> jquery-meeting
+[11:01:35] <agcolom> ok
+[11:03:03] <uGoMobi> toddparker: i get Cannot send to channel (#jquery-meeting)
+[11:03:20] <JasonDScott> same here
+[11:03:21] <gseguin> toddparker: same here ^
+[11:03:23] <agcolom> same here
+[11:03:57] <agcolom> working now thanks,
+[11:04:01] <johnbender> are we going to start a google hangout backchannel?
+[12:19:57] <uGoMobi> _|Nix|_: i agree we need to improve that... already said we need to make the focus style themable as well when we do that for active state
+[12:21:20] <toddparker> add another lever for focus?
+[12:21:29] <toddparker> hover tends to be subtle
+[12:21:33] <toddparker> and down isn't right
+[12:21:35] <toddparker> so maybe
+[12:27:57] <toddparker> heading out for a bit
+[12:28:12] <toddparker> uGoMobi: definitely send me a long list of stuff to test
+[12:28:22] <toddparker> i can have zach test everything ASAP
+[12:28:44] <uGoMobi> toddparker: sure will send an email asap
+[12:36:52] <uGoMobi> agcolom: http://dev.w3.org/html5/html-author/#void-elements
+[12:37:42] <uGoMobi> agcolom: in html5 <img> closing tag can be omitted
+[13:06:41] <agcolom> ok
+[13:49:33] <johnbender> toddparker: https://github.com/jquery/jquery-mobile/issues/2190#issuecomment-6340063
+[13:49:36] <johnbender> BAM!
+[13:50:03] <johnbender> here let me solve the js dev solve your obj-c issue :/
+[13:50:11] <johnbender> ugh
+[13:50:20] <johnbender> here let the js dev solve your obj-c issue :/
+[13:50:24] * johnbender smiles
+[15:02:36] <gseguin> so moving the depend and text plugins to the js dir got me unstuck
+[15:03:03] <gseguin> any problem with having depend and text in js?
+[15:03:51] <gseguin> I know they're external components but I think there is a bug in requirejs that prevents from calling the plugin with a relative path in that particular case
+[15:17:41] <gseguin> johnbender: build/config.js got deleted?
+[15:17:56] <johnbender> gseguin: separated
+[15:18:02] <johnbender> gseguin: config moved to grunt.js
+[15:18:10] <gseguin> oh ok
+[15:18:11] <johnbender> and config tasks to build/tasks/config.js
+[15:18:25] <gseguin> cool
+[15:18:36] <gseguin> about to merge code reorg
+[15:26:42] <gseguin> johnbender: git question
+[15:27:02] <gseguin> so my code-reorg branch is local and hasn't been pushed on any public repo
+[15:27:14] <gseguin> how would you go about merging it to master?
+[15:27:30] <gseguin> git merge?
+[15:29:41] <gseguin> that was a silly question
+[15:29:44] * gseguin hides
+[15:31:24] <johnbender> gseguin: you can rebase too if you want
+[15:31:35] <johnbender> but I'd imagine you're going to get conflicts
+[15:31:40] <johnbender> not sure though
+[15:31:40] <gseguin> yeah but is there a point?
+[15:31:49] <johnbender> yah it would make the history linear
+[15:31:54] <johnbender> your merge would be fast forward
+[15:31:55] <gseguin> I got conflict but expected
+[15:32:07] <johnbender> I would just merge then
+[15:32:17] <johnbender> gseguin: how drastic was the reorg?
+[15:32:17] <gseguin> I got conflict merging
+[15:32:26] <johnbender> I know we talked about it briefly
+[15:32:36] <gseguin> moved widgets to widgets/
+[15:32:45] <gseguin> and form widgets to widgets/forms/
+[15:32:59] <johnbender> kk
+[15:33:04] <gseguin> also moved depend and text from external/requirejs to js/
+[15:33:10] <johnbender> did we talke about that in the meeting today?
+[15:33:17] <johnbender> gseguin: arg
+[15:33:19] <gseguin> I know you're not going to like that one
+[15:33:29] <johnbender> gseguin: I'd like to keep stuff that's not part of the actual library out of js
+[15:33:37] <johnbender> otherwise it's just a big lump
+[15:33:39] <gseguin> but no real choice until we move to requirejs 2.0
+[15:33:44] <johnbender> orly?
+[15:33:52] <johnbender> js/external?
+[15:34:16] <johnbender> when the docs get pulled out the js directory is going to make a lot less sense
+[15:34:21] <gseguin> I'm guessing there is s but in requirejs
+[16:05:20] <jqmobilecommit> [jquery-mobile] uGoMobi pushed 2 new commits to master: http://git.io/oZzYvA
+[16:05:20] <jqmobilecommit> [jquery-mobile/master] Border width subtracted from page min-height - Nicholas Hall
+[16:05:20] <jqmobilecommit> [jquery-mobile/master] Merge pull request #4486 from ngharo/master - Jasper de Groot
+[16:07:30] <jqmobilecommit> [jquery-mobile] uGoMobi pushed 1 new commit to 1.1-stable: http://git.io/UtGrTA
+[16:07:30] <jqmobilecommit> [jquery-mobile/1.1-stable] Merge pull request #4486 from ngharo/master - Jasper de Groot
+[18:00:13] <jqmobilecommit> [jquery-mobile] gseguin pushed 7 new commits to master: http://git.io/UYHiSQ
+[18:00:13] <jqmobilecommit> [jquery-mobile/master] Got rid of order! plugin - Ghislain Seguin
+[18:00:13] <jqmobilecommit> [jquery-mobile/master] Moved depend! and text! plugins into js directory - Ghislain Seguin
+[18:00:13] <jqmobilecommit> [jquery-mobile/master] Moved depend! and text! plugins into js directory - Ghislain Seguin
+[18:09:49] <jqmobilecommit> [jquery-mobile] gseguin pushed 1 new commit to master: http://git.io/hEi8ag
+[18:09:49] <jqmobilecommit> [jquery-mobile/master] Fixed page.sections module path - Ghislain Seguin
+[18:13:54] <jq-jenkins> Project jQuery Mobile Phantom Master build #126: ABORTED in 10 min: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Phantom%20Master/126/
+[18:19:59] <gseguin> johnbender: ping
+[18:34:04] <gseguin> Yippie!
+[18:34:20] <gseguin> no errors!
+[18:34:34] <gseguin> only had to abort one Jenkins build ;D

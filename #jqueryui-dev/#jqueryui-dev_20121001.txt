@@ -1,0 +1,256 @@
+[02:46:05] <doesallmagic> Project jQuery UI - git core build #132: STILL FAILING in 17 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%20git%20core/132/
+[03:16:24] <doesallmagic> Project jQuery UI - 1.6.x core build #74: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.6.x%20core/74/
+[03:32:08] <doesallmagic> Project jQuery UI - 1.7.x core build #73: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.7.x%20core/73/
+[03:52:35] <doesallmagic> Project jQuery UI - 1.8.x core build #50: STILL FAILING in 18 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.8.x%20core/50/
+[06:08:05] <scott_gonzalez> _zoggy_: We've got a weird situation where ui-lightness is the deafult theme, but smoothness is the base theme.
+[06:08:18] <scott_gonzalez> So no settings at all = smoothness, which is what's in the code repo.
+[06:08:50] <_zoggy_> ok
+[06:08:54] <_zoggy_> just seems a bit off
+[06:09:01] <_zoggy_> why even add a param of none if none is set
+[06:09:20] <jquicommit> [jqueryui.com] kborchers pushed 1 new commit to master: http://git.io/DZZYUw
+[06:09:20] <jquicommit> [jqueryui.com/master] Fixed typo and updated my bio - Kris Borchers
+[06:10:45] <scott_gonzalez> no idea
+[06:11:07] <scott_gonzalez> rxaviers: ^
+[06:14:55] <rxaviers> scott_gonzalez, _zoggy_, I missed the question... On the builder rewrite, no settings means default theme = ui-lightness (on download builder and on themeroller)
+[06:15:38] <scott_gonzalez> The question is why does this happen: "if i go to customize with no theme selected, then go to download custom theme i end back up at http://jq02.stage.jquery.com:3000/download?themeParams=none"
+[06:15:46] <scott_gonzalez> Why is there a themeParams=none
+[06:17:28] <_zoggy_> because you set that on the builder page before taking me to the roller page
+[06:17:48] <_zoggy_> nm i think we are all on the same page
+[06:18:16] <_zoggy_> but if none means one thing, and nothing means something else.. then that should be reflected as the same from page to page
+[06:18:24] <_zoggy_> not, ui-lightness here.. but smoothness here
+[06:18:38] <scott_gonzalez> Yeah, that definitely adds to the confusion.
+[06:18:41] <_zoggy_> and what about in the future if you change what the default means...
+[06:18:45] <rxaviers> yes. But, there is a bug. When back to download builder, "No Theme" should remain selected
+[06:18:50] <scott_gonzalez> I'm not sure who made that decision, but it's been that way for a long time.
+[06:18:56] <_zoggy_> i say, just set the default theme .. whatever that may be
+[06:19:15] <scott_gonzalez> Also strange because the quick download link gives you smoothness, but the default download from the builder gives you ui-lightness.
+[06:20:08] <scott_gonzalez> _zoggy_: Yeah, that makes sense now.
+[06:20:26] <scott_gonzalez> The themeParams should get passed as "none", but then we need to properly set No Theme.
+[06:20:42] <scott_gonzalez> Oh, no this is correc.t
+[06:21:03] <scott_gonzalez> If you select No Theme, then go to TR, then click download, you should end up with smoothness.
+[06:21:24] <scott_gonzalez> At least based on the default settings that TR loads with.
+[06:21:35] <rxaviers> makes sense to me too
+[06:21:40] <scott_gonzalez> It's just confusing that you end up with "none" in the URL though.
+[06:22:07] <scott_gonzalez> Since that's technically wrong now.
+[06:22:39] <rxaviers> So, when selecting a theme back and forth it's just fine. But, none is problematic right now
+[06:23:18] <rxaviers> I can fix it like you said above. DL (no theme) -> themeroller (smoothness/base) -> DL (smoothness/base)
+[06:23:30] <scott_gonzalez> Yeah, that seems like the correct fix.
+[06:24:03] <rxaviers> ok ;)
+[06:24:11] <rxaviers> anything else, plz just let me know
+[06:24:57] <scott_gonzalez> rxaviers: _zoggy_ also noticed that the "To view and modify this theme..." note is not at the top of the CSS file.
+[06:25:12] <scott_gonzalez> It's about halfway down.
+[06:25:25] <scott_gonzalez> It should be included in the main header comment that lists out which files are included.
+[06:25:25] <_zoggy_> yeah, seems a little less them optimal
+[06:25:43] <_zoggy_> how would a normal person know to scan 55% of the document to find that
+[06:25:53] <_zoggy_> i would think it makes sense to put that up top..with the ver/date/whatever
+[06:27:48] <scott_gonzalez> Having it in the wrong place also means that it doesn't exist in the minified file.
+[06:31:22] <scott_gonzalez> DaveMethvin: We've got a tough situation with accordion animations.
+[06:31:24] <rxaviers> scott_gonzalez, _zoggy_, technically, the merged .css is the sum of all plus theme css and that's why we have two headers.
+[06:31:41] <rxaviers> Shall we strip both headers and generate one?
+[06:31:45] <scott_gonzalez> yeah
+[06:31:50] <scott_gonzalez> We're already stripping all other headers.
+[06:31:53] <rxaviers> like we do for other generated css files?
+[06:31:55] <rxaviers> ok
+[06:32:13] <DaveMethvin> scott_gonzalez: whatsup?
+[06:32:21] <scott_gonzalez> DaveMethvin: Are you familiar with the subpixel issues that we fight against?
+[06:32:37] <DaveMethvin> not in detail but i know they cause issues
+[06:32:45] <scott_gonzalez> Ok, here's what happens.
+[06:32:58] <scott_gonzalez> Accordions can be set to have a constant total height.
+[06:33:06] <scott_gonzalez> So all panels are the height of the tallest panel.
+[06:33:20] <scott_gonzalez> As you switch which panel is active, two panels are animating at the same time.
+[06:33:26] <scott_gonzalez> One is being hidden and one is being shown.
+[06:33:35] <scott_gonzalez> Animating height + padding + border.
+[06:33:49] <scott_gonzalez> So that's 10 properties being animated at the same time.
+[06:34:04] <scott_gonzalez> height (1) + padding (2) + border (2) * 2 elements
+[06:34:36] <scott_gonzalez> Which causes disgusting animations as the browser rounds pixel values and causes 1px jumps all over the place.
+[06:35:35] <DaveMethvin> so the problem is that the growing one and shrinking one vary by a pixel during parts of the transition?
+[06:35:41] <scott_gonzalez> After three years of fighting with this, I was finally able to fix it with a custom step for "accordionHeight"
+[06:35:47] <scott_gonzalez> yup
+[06:36:10] <scott_gonzalez> And "parts of the animation" might as well be "every other step" with how bad it looks.
+[06:37:00] <scott_gonzalez> The way the accordionHeight step works is that all other properties animate first (hooray for maintaining order of keys in objects :-P
+[06:37:32] <scott_gonzalez> And it looks at the outerheight of the two elements and adjusts the height of the element being shown to adjust for any slight differences in that step.
+[06:37:53] <scott_gonzalez> Seems horribly inefficient, but it worked.
+[06:37:56] <scott_gonzalez> At least for a weeks it did.
+[06:38:14] <scott_gonzalez> Then browsers released updates and started handling subpixels differently.
+[06:38:20] <scott_gonzalez> And now the animations are horrible again.
+[06:38:35] <scott_gonzalez> So the best solution now is to force full pixel values for height + padding + border.
+[06:39:09] <scott_gonzalez> But that means either overriding the step for all of those to force full pixels in all animations.
+[06:39:36] <scott_gonzalez> Or creating custom steps for each like paddingTopAdjust, borderBottomWidthAdjust, etc.
+[06:40:20] <scott_gonzalez> I think mikesherov suggested just having core force full pixels for certain properties the last time I was working on this.
+[06:40:27] <DaveMethvin> so if you Math.round them do they actually come out right? Or are there some situations where the browser is rounding strangely?
+[06:40:31] <scott_gonzalez> But I didn't feel like it was a good idea.
+[06:40:51] <scott_gonzalez> I still need to do the final height adjustment even with rounding the pixels.
+[06:40:59] <_zoggy_> browsers do some subpixel stuff for border box stuff like on calculating width for a table td.. correct?
+[06:41:14] <rxaviers> scott_gonzalez, _zoggy_, The generated headers follow a very simple pattern. 1st line) jquery ui version, 2nd line) url, 3rd line) list included files, and 4th line) copyright. Shall we then create a custom header for this bundle css file? Include a 5th line with the "To view and modify this theme"? Or shall we simply strip that information from the bundle (like it is stripped in the jquery-ui build dist files)? The jquery.ui.theme.css have a verbos
+[06:41:15] <rxaviers> e header with that info anyway.
+[06:41:41] <DaveMethvin> rounding to integers doesn't seem like a good idea in general
+[06:41:46] <scott_gonzalez> rxaviers: Just adding a 5th line should be fine.
+[06:41:52] <rxaviers> scott_gonzalez, ok
+[06:41:58] <_zoggy_> yeah, im cool with the comment block that yo make.. just have an issue of where its placed in the file
+[06:42:08] <DaveMethvin> gnarf says there are people using animate to animate plain object properties
+[06:42:10] <_zoggy_> placing it 55% of the way down in the file.. buried.. is not great
+[06:42:16] <DaveMethvin> so we'd need to avoid screwing them for sure
+[06:42:23] <scott_gonzalez> DaveMethvin: Right, that was my thought, but look how bad this is: http://view.jqueryui.com/master/demos/accordion/default.html
+[06:42:37] <scott_gonzalez> FWIW: I haven't been able to find a single accordion implementation that has smooth animations.
+[06:42:53] <scott_gonzalez> I was so happy when I fixed this before, because we were the only project with smooth animations.
+[06:43:01] <scott_gonzalez> And now we're probably the worst :-P
+[06:43:45] <scott_gonzalez> DaveMethvin: Right, mikesherov was talking about specific properties, like padding* and borderWidth*
+[06:44:13] <DaveMethvin> man those are jumpy
+[06:44:20] <DaveMethvin> everywhere just about
+[06:44:22] <scott_gonzalez> I don't feel like this is a general enough problem though.
+[06:44:49] <scott_gonzalez> Yeah, I don't even know what causes the jumping of the icons.
+[06:44:53] <scott_gonzalez> That doesn't make any sense to me.
+[06:45:27] <DaveMethvin> so in this case you have A and B being calculated separately and they don't always exactly equal C
+[06:45:39] <DaveMethvin> if we could animate A and then B as C-A
+[06:45:45] <DaveMethvin> in some general way
+[06:46:04] <DaveMethvin> that would be ideal
+[06:46:34] <DaveMethvin> i agree, though, it doesn't seem like a generic problem
+[06:46:40] <DaveMethvin> and the solutions have other effects
+[06:49:51] <DaveMethvin> gotta run to a meeting, back in about 30 minutes
+[06:51:26] <scott_gonzalez> ok
+[08:18:42] <scott_gonzalez> rxaviers: Do you want to fix this? http://bugs.jqueryui.com/ticket/8003
+[08:18:59] <scott_gonzalez> Just default the font name to "inherit" on the server?
+[08:20:23] <rxaviers> scott_gonzalez, ok, so when font params are empty, default to "inherit", will fix
+[08:20:30] <scott_gonzalez> yup
+[08:20:35] <rxaviers> ;) ok
+[08:20:38] <scott_gonzalez> That seems like the easiest fix.
+[08:20:44] <rxaviers> :)
+[08:20:44] <scott_gonzalez> Rather than trying to parse out lines.
+[09:18:06] <timmywil> scott_gonzalez: completely disagree. wayyy too easy to support bower. might get more people using the widget factory
+[09:18:39] <scott_gonzalez> timmywil: There need to be better docs
+[09:18:46] <scott_gonzalez> I honestly have no idea how to support Bower.
+[09:18:58] <scott_gonzalez> The site is like "put this one file in your repo"
+[09:19:03] <scott_gonzalez> Can it just go into a tag?
+[09:19:08] <scott_gonzalez> Can you have more than one component in a repo?
+[09:24:39] <_zoggy_> rxaviers: http://24ways.org/2010/calculating-color-contrast -- about doing other colors than white for theme roller
+[09:24:49] <_zoggy_> http://stackoverflow.com/questions/8036580/using-less-jquery-to-switch-body-text-color-dependent-on-background-color
+[09:25:22] <_zoggy_> the theme roller component labels/etc text should be black or white depending on bgcolor used
+[09:25:23] <timmywil> scott_gonzalez: I'm not sure what you mean by go into a tag. As for multiple components, I imagine you can register any url that has a component.json, but you're right in that they don't really tell you that. Given the explosion of bower and yeoman, I figured you'd want the widget factory to be on that train.
+[09:25:57] <scott_gonzalez> timmywil: Can the component.json file just exist in a tag and not be in master.
+[09:26:25] <scott_gonzalez> If someone wants to explain how Bower actually works, then we can think about it.
+[09:26:40] <timmywil> probably not, it seems to check the repo for the file, then check out the version indicated for download
+[09:26:56] <scott_gonzalez> Honestly, Bower should just work with other people's code.
+[09:27:21] <scott_gonzalez> It really doesn't sound like this can work.
+[09:28:06] <timmywil> it doesn't sound like you want it to
+[09:28:34] <scott_gonzalez> Well, I honestly don't. But I'm willing to look into it.
+[09:28:43] <scott_gonzalez> The problem is there is no real documetation.
+[09:29:03] <scott_gonzalez> I have very little incentive to dive in and figure it out myself.
+[09:29:55] <scott_gonzalez> I certainly don't want to be chasing after every build/dependency management tool that pops up.
+[09:30:45] <scott_gonzalez> If Twitter is willing to provide documentation or at least have someone answer my questions, then I can look into it.
+[09:31:22] <_zoggy_> i like npm.. this just looks like a npm clone
+[09:31:50] <_zoggy_> dont really know why youd want something like this.. cant npm/nodejs do it already?
+[09:31:56] <scott_gonzalez> And it's important to point out that npm doesn't allow what timmywil wants.
+[09:32:12] <_zoggy_> if you wanna use jquery..just link it. its not like it goes away or moves
+[09:32:12] <timmywil> doesn't allow?
+[09:32:16] <_zoggy_> if you want edge.. link to edge
+[09:32:26] <scott_gonzalez> It doesn't allow you to expose a portion of a repo.
+[09:32:48] <_zoggy_> jquery/jquery ui is on github.. cant just link to that ?
+[09:32:58] <scott_gonzalez> Not if you just want the widget factory.
+[09:33:01] <timmywil> scott_gonzalez: don't you have the widget factory under your github?
+[09:33:19] <scott_gonzalez> Widget factory is a single file in jquery-ui.
+[09:33:42] <timmywil> ok, I thought you were planning on both
+[09:33:58] <scott_gonzalez> nope
+[09:34:07] <scott_gonzalez> This is the problem that we had to overcome for the jQuery Plugins site.
+[09:34:16] <scott_gonzalez> Repositories with multiple plugins.
+[09:34:41] <_zoggy_> https://github.com/scottgonzalez/widget-factory-docs/
+[09:34:44] <scott_gonzalez> jQuery UI is a collection of like 40 differnet plugins.
+[09:35:03] <_zoggy_> you guys using submodules to build out jui ?
+[09:35:07] <scott_gonzalez> no
+[09:35:12] <scott_gonzalez> submodules are horrible
+[09:35:13] <_zoggy_> oh wait, its all in the same repo
+[09:35:40] <_zoggy_> yeah, we tried submodules out.. they work but its just uneeded compelxity for most
+[09:35:49] <scott_gonzalez> yup
+[09:37:43] <timmywil> scott_gonzalez: why isn't the widget factory it's own repo if we want it to be for all plugins and not just jQuery UI widgets? maybe we don't really want to go that direction? we haven't really made that clear to the community
+[09:43:54] <scott_gonzalez> Because we have a download builder?
+[09:43:55] <rxaviers> _zoggy_, thanks for the tip, it will be very helpful implementing different color bg for themeroller
+[09:44:39] <timmywil> scott_gonzalez: how does a download builder help if all you want is the factory for a plugin?
+[09:44:53] <scott_gonzalez> Just download the widget factory.
+[09:45:36] <scott_gonzalez> We could certainly make the widget factory its own repo.
+[09:46:02] <scott_gonzalez> We tried to move it out of UI but could never get John to agree to the API.
+[09:47:42] <scott_gonzalez> We'd want to add another level of abstraction if we moved it out of UI though.
+[09:47:58] <scott_gonzalez> Which is something we'd like to get done anyway.
+[09:50:26] <timmywil> interesting, I'd like to see what that looks like
+[09:50:44] <timmywil> what I was saying, tho, is the download builder obfuscates the purpose of the widget factory.
+[09:53:25] <scott_gonzalez> We can work on splitting it out.
+[09:53:46] <scott_gonzalez> We need to figure out how to handle external dependencies in the download builder first.
+[10:27:03] <jquicommit> [download.jqueryui.com] rxaviers pushed 3 new commits to master: http://git.io/71Ca2g
+[10:27:03] <jquicommit> [download.jqueryui.com/master] Fix toggle vs. toggleAll - Rafael Xavier de Souza
+[10:27:03] <jquicommit> [download.jqueryui.com/master] Properly prevents default when validation dialog is displayed - Rafael Xavier de Souza
+[10:27:03] <jquicommit> [download.jqueryui.com/master] Smarter validation when unckecing components with dependents - Rafael Xavier de Souza
+[10:48:17] <agcolom> scott_gonzalez: Hi, quick question, shouldn't you also be with me leading table 15? (UI Mobile Docs)
+[10:49:36] <scott_gonzalez> agcolom: I can only be in one place at a time.
+[10:50:11] <scott_gonzalez> I assume they organized the tables so that 15 and 8 are next to each other.
+[10:50:16] <agcolom> ok, so you'll have to brief me at some point about what is needed for ui docs...
+[10:50:32] <agcolom> yes, hope so ;)
+[10:54:03] <scott_gonzalez> I fixed that style issue with the version info that you pointed out.
+[10:59:26] <agcolom> scott_gonzalez: Cool, thanks!
+[11:13:57] <scott_gonzalez> rxaviers: Can you look into removing the hotkeys plugin that's inlined in themeroller.js?
+[11:14:08] <scott_gonzalez> It looks like it's only used to listen for return keypress.
+[11:15:14] <rxaviers> scott_gonzalez, sure
+[11:15:25] <scott_gonzalez> rxaviers: Thanks.
+[11:18:47] <rxaviers> ywc
+[11:31:32] <scott_gonzalez> rxaviers: FYI I'm switching download builder to use 1.9.0-rc.1 instead of master.
+[11:32:04] <scott_gonzalez> I'm getting version info into a config file so that there's a single location for all version data.
+[11:35:00] <scott_gonzalez> crap, 1.9.0-rc.1 doesn't build :-/
+[11:35:27] <rxaviers> scott_gonzalez, ok! In DL builder, we're using to the following versions: jquery (1.7.2), jqueryui (1.9.0-rc.1).
+[11:35:55] <scott_gonzalez> Yup, I'm switching it to 1.8.2 + 1.9.0-rc.1
+[11:36:04] <rxaviers> scott_gonzalez, ah ok!! ;)
+[11:36:13] <scott_gonzalez> But the download builder is actually generating files from master.
+[11:36:30] <scott_gonzalez> The prepare task defaults to master.
+[11:36:35] <rxaviers> ah ok, I see
+[11:36:50] <scott_gonzalez> I'm actually removing the parameter for prepare and having it just read the version number out of the config.
+[11:37:22] <rxaviers> I may then update frontend.js to load version numbers from that same place then
+[11:46:30] <jquicommit> [download.jqueryui.com] scottgonzalez pushed 1 new commit to master: http://git.io/RbeJEg
+[11:46:30] <jquicommit> [download.jqueryui.com/master] Centralize version info in a config file. - Scott González
+[12:22:12] <jquicommit> [download.jqueryui.com] scottgonzalez pushed 1 new commit to master: http://git.io/9dvw4g
+[12:22:12] <jquicommit> [download.jqueryui.com/master] Tagging 1.0.2. - Scott González
+[12:35:16] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/9O4cOA
+[12:35:16] <jquicommit> [jquery-ui/master] Dialog: Don't try to place the dialog next to itself on destroy. Fixes #8613 - Destroying a dialog removes the original element from the DOM. - Scott González
+[12:42:47] <jquicommit> [download.jqueryui.com] rxaviers pushed 1 new commit to master: http://git.io/LnwKhg
+[12:42:47] <jquicommit> [download.jqueryui.com/master] Fix texturePicker selected preview - Rafael Xavier de Souza
+[12:47:14] <doesallmagic> Project jQuery UI build #671: STILL FAILING in 11 min: http://swarm.jquery.org:8080/job/jQuery%20UI/671/
+[12:47:15] <doesallmagic> Scott González: Dialog: Don't try to place the dialog next to itself on destroy. Fixes #8613 - Destroying a dialog removes the original element from the DOM.
+[13:25:50] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/JbtrSQ
+[13:25:50] <jquicommit> [jquery-ui/master] Accordion: New approach to synchronizing animations. Fixes #4178 - Accordion animation a bit jumpy in some browsers. - Scott González
+[13:26:25] <doesallmagic> Project jQuery UI build #672: STILL FAILING in 36 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/672/
+[13:26:26] <doesallmagic> Scott González: Accordion: New approach to synchronizing animations. Fixes #4178 - Accordion animation a bit jumpy in some browsers.
+[13:53:11] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/cIzFKw
+[13:53:11] <jquicommit> [jquery-ui/master] Accordion: Only adjust height animations for heightStyle: content. Fix tests that punch .animate(). - Scott González
+[14:01:29] <rxaviers> jzaefferer, scott_gonzalez, _zoggy_ asked me why on themeroller we put # for colors if on percentages we don't require %.  Any reason? Should change/
+[14:03:17] <doesallmagic> Project jQuery UI build #673: STILL FAILING in 10 min: http://swarm.jquery.org:8080/job/jQuery%20UI/673/
+[14:03:18] <doesallmagic> Scott González: Accordion: Only adjust height animations for heightStyle: content. Fix tests that punch .animate().
+[14:04:37] <_zoggy_> why put a designation symbol for opacity.. but for color you dont.. does that mean you actually accept multiple types of inputs? like rgb/hex/hsl/etc?
+[14:04:45] <_zoggy_> if not.. then i say put the # outside of the input box
+[14:05:50] <_zoggy_> then additonally. you make your input boxes very narrow to hold #123456 characters..  i say either widen them (to account for font differenceS) or use a fixed width font.. so you can better guess what the width really is needed
+[14:06:48] <_zoggy_> hmm if i try to control+a or shift+home/end to delete out one of those color inputs i cant
+[14:07:00] <_zoggy_> wont let me select it all
+[14:07:14] <_zoggy_> looks like its trying to do its logic to weed out unacceptble characters/lower input
+[14:53:23] <jquicommit> [download.jqueryui.com] rxaviers created fixHotkeys (+2 new commits): http://git.io/c88A7g
+[14:53:23] <jquicommit> [download.jqueryui.com/fixHotkeys] Update themeroller/rollyourown.html form action url - Rafael Xavier de Souza
+[14:53:23] <jquicommit> [download.jqueryui.com/fixHotkeys] Remove hotkeys, capture color change instead - Rafael Xavier de Souza
+[14:55:24] <rxaviers> scott_gonzalez, is that change ok for removing hotkeys? Instead I noticed the only input that would NOT work properly would be color pickers. So, I've adjusted it. Color inputs trigger formChange on update. All other inputs trigger form change event.
+[14:55:33] <rxaviers> https://github.com/jquery/download.jqueryui.com/compare/fixHotkeys
+[14:57:25] <jquicommit> [download.jqueryui.com] rxaviers pushed 1 new commit to master: http://git.io/TBVg3g
+[14:57:25] <jquicommit> [download.jqueryui.com/master] Update themeroller/rollyourown.html form action url - Rafael Xavier de Souza
+[14:59:35] <jquicommit> [download.jqueryui.com] rxaviers force-pushed fixHotkeys from 123af40 to 9c4a36f: http://git.io/2VwOWQ
+[14:59:35] <jquicommit> [download.jqueryui.com/fixHotkeys] Remove hotkeys, capture color change instead - Rafael Xavier de Souza
+[15:13:09] <_zoggy_> rxaviers, http://www.eyecon.ro/bootstrap-colorpicker/
+[15:13:34] <_zoggy_> i know this isnt bootstrap, but maybe do something similar.. show the input + color together.. to show the linking
+[15:14:26] <_zoggy_> also notice you can do opacity within that color picker.. and rgba
+[15:15:22] <_zoggy_> or something a little less fancy, but maybe more famaliar to windows people.. http://www.digitalmagicpro.com/jPicker/
+[15:15:52] <_zoggy_> or http://labs.abeautifulsite.net/jquery-miniColors/
+[15:18:35] <_zoggy_> github page for that one: https://github.com/claviska/jquery-miniColors/
+[15:50:02] <scott_gonzalez> rxaviers: Looks good.
+[15:50:24] <scott_gonzalez> I wouldn't worry too much about things like colors and whether # is inside or outside. We're probably going to make large changes in the future.
+[16:19:08] <jquicommit> [jqueryui.com] scottgonzalez pushed 2 new commits to master: http://git.io/DqKjmg
+[16:19:08] <jquicommit> [jqueryui.com/master] Upgrade download.jqueryui.com to 1.0.2. - Scott González
+[16:19:08] <jquicommit> [jqueryui.com/master] Updated 1.9.0 changelog. - Scott González
+[18:06:42] <kborchers> scott_gonzalez: any idea what i'm missing now when i grunt deploy jqueryui.com i get var themeStaticCss = fs.readFileSync( release.path + "/themes/base/jquery.ui.t
+[18:06:42] <kborchers> TypeError: Cannot read property 'path' of undefined
+[20:38:21] <Krinkle> that's bad
+[21:50:35] <JohnnyHooks> hey guys
+[21:50:46] <JohnnyHooks> anyone have a solid swipe down menu framkework for mobile
+[21:51:08] <JohnnyHooks> this was the closest i could find
+[21:51:09] <JohnnyHooks> http://blog.aldomatic.com/facebook-style-slide-out-menu-in-jquery-mobile//
+[22:06:12] <kborchers> JohnnyHooks: try #jquerymobile
+[22:06:51] <JohnnyHooks> thanks!

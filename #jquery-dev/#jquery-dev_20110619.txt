@@ -1,0 +1,79 @@
+[00:44:04] <gavin_huang> just talked to coldhead with this. in ff 3.6 attr() returns undefined for single attrs like "required". since attr() is pretty much frozen, should it be considered as a bug? http://jsfiddle.net/VrHHM/2
+[00:50:33] <gavin_huang> oh, I have also tested with older versions, pretty sure it starts from jquery 1.6.1.
+[00:58:48] <gavin_huang> just found out timmywil has opened the bug two weeks ago. I'll just comment on it then.
+[01:28:49] <gnarf> sigh
+[01:28:59] <gnarf> boolHooks bites us in the ass...
+[01:29:00] <gnarf> :)
+[08:32:25] <gnarf> ?tell timmywil hey - http://jsfiddle.net/gnarf/9rXBV/4/ (try in IE)-- my first random inspired idea for that fliter didn't work :/
+[08:32:25] <bot-t> gnarf, Okay.
+[13:50:15] <olivvv> anybody from jquery-ot here and awake ?
+[13:58:04] <rwaldron> timmywil yt?
+[13:58:27] <timmywil> 9617?
+[13:58:27] <bot-t> (5 hours 25 mins ago) <gnarf> tell timmywil hey - http://jsfiddle.net/gnarf/9rXBV/4/ (try in IE)-- my first random inspired idea for that fliter didn't work :/
+[13:58:37] <rwaldron> "thistle whistle".indexOf("this") ;)
+[13:58:44] <rwaldron> https://github.com/jquery/jquery/pull/415
+[14:04:17] <rwaldron> timmywil are you having issues with the site loading?
+[14:04:42] <timmywil> the bugs site?
+[14:04:52] <timmywil> hmm, yes
+[14:05:02] <rwaldron> yeah
+[14:05:02] <timmywil> "temporarily unavailable"
+[14:05:04] <rwaldron> anyway
+[14:05:10] <rwaldron> bummer about that
+[14:05:32] <timmywil> danheberden: kswedberg ^
+[14:05:48] <rwaldron> I feel like a dick for not looking more thoroughly at that patch you wrote :P
+[14:06:19] <timmywil> rwaldron: no big deal, glad we caught it in rc.
+[14:06:30] * rwaldron nods
+[14:15:39] <timmywil> rwaldron: i wonder if constructing a regex is faster than calling inArray
+[14:15:54] <rwaldron> funny you should ask
+[14:16:15] <rwaldron> after I made the pr, was wonder the same
+[14:16:22] <rwaldron> wondering*
+[14:16:29] <rwaldron> so started fiddlin'
+[14:16:47] <timmywil> yup, perfin
+[14:17:39] <rwaldron> timmywil http://docs.jquery.com/JQuery_Core_Style_Guidelines#RegExp
+[14:18:10] <timmywil> yea i know ;)
+[14:27:13] <rwaldron> timmywil how goes?
+[14:27:46] <timmywil> trying an implementation then will perf against yours
+[14:27:57] <rwaldron> neat
+[14:36:50] <timmywil> rwaldron: oo, think I found a better idea
+[14:38:49] <timmywil> rwaldron: http://jsfiddle.net/timmywil/Fjfy8/  just different placement of spaces
+[14:39:43] <rwaldron> what about matches at the front and rear?
+[14:40:57] <rwaldron> and... wont this add a whole bunch of spaces to the setClass string?
+[14:41:16] <timmywil> keeps the space at the front and back, which is trimmed
+[14:42:24] <timmywil> I think it's ok with the front and rear since I'm starting with " " + elem.className + " "
+[14:42:43] <timmywil> then just trim it afterwards
+[14:43:00] <rwaldron> yeah, passes the tests
+[14:43:03] <rwaldron> go for it.
+[14:43:21] <rwaldron> grab that test that I wrote if you want
+[14:43:22] <timmywil> I'll add a couple more, see if I can break it
+[14:43:24] <rwaldron> or whatever
+[14:43:32] <timmywil> rwaldron: got it :)
+[15:26:39] <timmywil> JohnResig: danheberden: anything we can do about getting the bugs site up and running again?
+[15:33:00] <timmywil> rwaldron: can you think of any reason why in add/remove/toggleClass, we pass .attr("class") instead of elem.className when value is a function?
+[15:33:27] <rwaldron> i dunno
+[15:42:03] <dabear> timmywil: .attr("class") returns "", while .className returns undefined for elements with empty classlists
+[15:42:38] <dabear> dunno if that is the reason though
+[15:43:24] <timmywil> dabear: yea, but I think it's the other way around
+[15:45:07] <dabear> timmywil: not according to my fiddle
+[15:45:09] <dabear> at least
+[15:45:11] <dabear> http://jsfiddle.net/HqCLn/
+[15:45:43] <timmywil> dabear: $d[0]
+[15:45:54] <dabear> hm
+[15:45:57] <dabear> yeah
+[15:46:41] <dabear> should've noticed that :/
+[15:46:57] <timmywil> the removeClass will set the property to empty string, which also sets the attribute, so you should see both empty strings there
+[15:47:33] <timmywil> however, if no class has been set, .className will be empty string, while .attr('class') will return undefined
+[15:48:17] <timmywil> http://jsfiddle.net/timmywil/HqCLn/2/
+[15:48:34] <timmywil> however, the old attr used to return the property value
+[15:48:47] <dabear> http://jsfiddle.net/HqCLn/3/
+[15:48:51] <dabear> hm yes
+[15:49:04] <timmywil> so I think changing it to elem.className instead of attr will actually make it the way it used to be
+[15:49:31] <timmywil> but faster
+[15:50:43] <dabear> micro optimalization?
+[15:51:04] <timmywil> heh, yea ;)
+[15:59:21] <timmywil> darn, I need to add a bug ticket and the bugs site is down
+[16:01:29] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://bit.ly/lnZ8zt
+[16:01:29] <jqcommit> [jquery/master] Allow similarly named classes (regression from 9499) and switch class retrieval to property when passing class to value functions. Fixes #9617. - timmywil
+[22:50:02] <ryanneufeld> danheberden: yt?
+[22:50:13] <danheberden> ryanneufeld aye
+[22:50:31] <danheberden> although half-heartedly - trying to get something done for a work deadline tomorrow
+[22:50:35] <ryanneufeld> ah

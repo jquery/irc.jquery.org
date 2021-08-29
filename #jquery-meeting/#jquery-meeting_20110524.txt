@@ -1,0 +1,314 @@
+[11:03:21] <toddparker> Hi all -
+[11:03:28] <vikas_> Hi
+[11:03:32] <gseguin> hi
+[11:03:34] <toddparker> The jQuery Mobile meeting will be starting in a minute
+[11:03:38] <toddparker> Hey all
+[11:04:09] <kinblas> hola
+[11:04:12] <toddparker> waiting for kinblas, _nickel, scottjehl, stevenblack
+[11:04:51] <StevenBlack> Agenda?
+[11:05:01] <scottjehl> heyo
+[11:05:19] <toddparker> Agenda here:
+[11:05:19] <toddparker> https://docs.google.com/document/d/1O-pcEcPaJ8enwFnJ8yJsDkyts3HYI4IMAWs61WUtto4/edit#
+[11:06:09] <toddparker> basically, we're going to rundown the status on the navigation re-factor, chat about excluding Ajax from some browsers
+[11:06:09] <toddparker> team member: feel free to add more topics
+[11:06:29] <toddparker> Sorry I just created that agenda doc, running a bit late today
+[11:07:16] <kinblas> toddparker: i'm here
+[11:07:23] <toddparker> hey kin
+[11:07:32] <JohnResig> I'm here as well
+[11:07:33] <toddparker> anyone seen _nickel today?
+[11:07:36] <toddparker> hey john!
+[11:07:54] <kinblas> toddparker: haven't seen him online today
+[11:08:04] <toddparker> ok, let's move on then
+[11:08:20] <toddparker> first item: Navigation re-write status update
+[11:08:20] <toddparker> Decouping and cleanup (Kin)
+[11:08:26] <kinblas> Landed
+[11:08:28] <scottjehl> hey John
+[11:08:29] <toddparker> Changes landed this morning:
+[11:08:29] <toddparker> https://github.com/jquery/jquery-mobile/commit/368d3e55b44b0c41debecce4fa72e37898637bb5
+[11:08:30] <scottjehl> :)
+[11:08:46] <kinblas> what landed today:
+[11:09:02] <kinblas> refactor of changepage() into 3 methods:
+[11:09:13] <kinblas> loadPage(), changePage(), transitionPages()
+[11:09:30] <kinblas> changePage has a new signature
+[11:09:44] <kinblas> first arg is either an url, or a $(element)
+[11:10:03] <vikas_> ok.
+[11:10:06] <kinblas> if it's an URL, loadpage() is automatically called to load the content into the DOM, and a deferred call to changepage will be fired
+[11:10:09] <kinblas> when it is done
+[11:10:28] <kinblas> this gives us a place other devs can hook in to load their own JSON and do transformations
+[11:11:01] <kinblas> changePage with a $(element) simply updates bookeeping and shows the page with a transition
+[11:11:09] <toddparker> awesome work kin
+[11:11:20] <kinblas> eh ... it was mostly all there, just some shuffling around
+[11:11:21] <scottjehl> seriously - great stuff
+[11:11:33] <kinblas> I'm forgetting some stuff
+[11:11:35] <kinblas> oh yeah
+[11:11:35] <toddparker> are there any other critical extensibility hooks we want to land here
+[11:11:42] <JohnResig> kinblas: on thing that I've been doing is binding to mousedown and auto-generating a page (in the DOM) from a JSON blob that I have, would I be able to overrid loadPage in that regard? (or pre-empt it?)
+[11:11:46] <toddparker> or is this good
+[11:11:49] <JohnResig> *one thing
+[11:12:06] <kinblas> JohnResig: yes that was the purpose
+[11:12:14] <JohnResig> cool!
+[11:12:24] <kinblas> though i'm wrestling with trying to figure out if we want to promote a monkey patch/override approach
+[11:12:25] <toddparker> so what would he do in the new system?
+[11:12:30] <kinblas> or a delegate type approach
+[11:12:39] <kinblas> with notifications and a short-ciruiting method
+[11:12:41] <kinblas> *OR*
+[11:12:48] <kinblas> having folks register load handlers
+[11:12:57] <kinblas> and then invoke loadPage with the type of handler
+[11:13:09] <kinblas> the latter would allow folks to build plugins
+[11:13:16] <kinblas> and then change the one invoked by default
+[11:13:17] <kinblas> once
+[11:13:34] <kinblas> I was going to propse these 3 approaches in a doc on the wiki I'm working on
+[11:13:41] <kinblas> so we can all decide
+[11:13:45] <JohnResig> cool, ok!
+[11:13:57] <toddparker> perfect. that will be easier to review
+[11:14:01] <kinblas> so the big thing this round was just refactoring to open up possibilities
+[11:14:08] <scottjehl> approach: in regards to how plugins tie in, or just how to do data-driven pages in general?
+[11:14:08] <toddparker> irc is hard for that kind of thing
+[11:14:17] <kinblas> and improve read-abliity of the code
+[11:14:48] <kinblas> scottjehl: approach to allow folks to tie in to get what they need done
+[11:14:55] <scottjehl> I'd like to see most (all?) of our widgets move to self-invocation via binding to pagecreate
+[11:15:05] <kinblas> YES!
+[11:15:09] <toddparker> +1
+[11:15:25] <kinblas> right so
+[11:15:37] <scottjehl> we'll need to tie up some issues regarding order of execution (theming gets interesting), but overall I think I could start on that right away
+[11:15:37] <kinblas> that was why I was wondering about the approach we take
+[11:15:58] <kinblas> with the 3rd approach (plugins) we could still keep the code in tact for enhancing markup
+[11:16:10] <kinblas> etc ... so they wouldn't have to write that in their "loadPage"
+[11:16:45] <kinblas> anyways, I'm working on the doc, it's hard to talk about all the issues and possiblities on IRC
+[11:16:55] <scottjehl> hmm. well if they generate a page from data, then call page() on it, all widgets will be bound and work as expected, right?
+[11:17:05] <kinblas> yes
+[11:17:15] <kinblas> we just need a hook to let them load what they want (default HTML)
+[11:17:23] <kinblas> and then transform
+[11:17:29] <kinblas> where the output of transform is HTML
+[11:17:39] <kinblas> then the last step is insert and enhance
+[11:17:48] <kinblas> (or reverse that for perf reasons)
+[11:17:51] <kinblas> :-)
+[11:18:08] <scottjehl> so should that hook be an event that's triggered within the ajax callback? With the response xhr and other args available?
+[11:18:21] <StevenBlack> The locus for all this is currently the $.ajax success callback.
+[11:18:39] <kinblas> I want the *HOW* its loaded to be transparent
+[11:18:47] <scottjehl> sure
+[11:18:54] <StevenBlack> Need to pre-hook that, make it punchable, and post-hook it at the end.
+[11:18:59] <scottjehl> binding to ajax success would be too late, yes?
+[11:19:12] <scottjehl> we need a hook first-thing inside the success callback we already use
+[11:19:12] <kinblas> I don't want folks to know we're using $.ajax
+[11:19:20] <kinblas> for all we know they can have an array of JSON
+[11:19:22] <kinblas> they are reading from
+[11:19:28] <toddparker> right
+[11:19:28] <kinblas> and building on the fly as needed
+[11:19:36] <scottjehl> yeah that's fine so where is this event triggered?
+[11:19:44] <toddparker> very common scenario, esp for apps
+[11:19:44] <kinblas> default loader is HTML with ajax and cache (DOM) lookup
+[11:19:46] <scottjehl> on the page container? (body usually?)
+[11:20:00] <kinblas> scottjehl: its not an event per-se, its a hook in loadPage
+[11:20:22] <scottjehl> k. I'll look forward to seeing what you do there
+[11:20:30] <toddparker> cool
+[11:20:42] <kinblas> the goal is to make it so that the casual user sees no difference in behavior as they see today
+[11:20:56] <kinblas> so PE works as it does today
+[11:21:11] <kinblas> but to also allow the folks that rely on JSON for perf
+[11:21:16] <scottjehl> right right
+[11:21:24] <kinblas> to leverage our code without hacking it up
+[11:21:35] <toddparker> right, sounds great
+[11:21:38] <scottjehl> we can document a workflow for using the x-requestedwith header to serve html or json, transform it, etc
+[11:21:59] <toddparker> so kin will post as a wiki page and create a ticket to implement a solution. we can decide on the details then?
+[11:21:59] <kinblas> oh yeah regarding the changePage changes
+[11:22:18] <kinblas> yeah ... we'll have time to decide, I'm working on fixing our path handling first
+[11:22:19] <scottjehl> yeah sonds good
+[11:22:27] <kinblas> because things seem broken and we're getting complaints from folks
+[11:22:30] <kinblas> I want to get folks unblocked
+[11:22:31] <toddparker> cool..nice segue
+[11:22:44] <toddparker> next topic
+[11:22:45] <toddparker> Improved URL handling (Kin)
+[11:22:46] <toddparker> in-progress, test written, code changes in progress
+[11:22:46] <toddparker> https://github.com/jquery/jquery-mobile/wiki/Refactor:-navigation-paths
+[11:22:46] <toddparker> Note some great ideas/abstractions in https://github.com/mtrpcic/pathjs
+[11:22:54] <scottjehl> k. I'm thinking pushState should be implemented as a first-class citizen in this path fixup
+[11:23:18] <scottjehl> rather than a tack-on
+[11:23:52] <scottjehl> or at least, we should keep in mind how pushState or replaceState will tie-in
+[11:23:55] <toddparker> what would that entail
+[11:24:08] <toddparker> that for sure
+[11:24:32] <kinblas> yeah we'll need to figure out how to do this, but my thinking was that we need to have an abstraction our paths cross through so that folks can formulate the URLS they place in the location bar
+[11:24:45] <kinblas> of course our default is to use hash paths and pushState when possible
+[11:24:53] <kinblas> same is said when loading pages
+[11:24:53] <scottjehl> it may be that it sits lightly on top of our hash handling. Maybe that's fine. Like... where we bind to hashchange, we'd also bind to popstate, and we could use replaceState right there to swap the hash out potentially
+[11:25:24] <kinblas> the gist [jist?]
+[11:25:32] <scottjehl> we'll probably want to look to history.js for ideas here - I'm sure they've found workarounds
+[11:25:49] <kinblas> is when a user clicks on a link, hits a submit, or calls changePage directly with a URL
+[11:26:05] <kinblas> we need pass the URL through something that can extract out the real thing we need to make a request for.
+[11:26:13] <kinblas> on the flip side, after the page arrives
+[11:26:17] <kinblas> and is made current
+[11:26:42] <StevenBlack> Recall that the Jive article alludes to them having added URL handler.
+[11:26:46] <kinblas> we need to pass the original url, and the url used to load the page through some mechanism so that folks can set the location bar to whatever they want
+[11:27:07] <kinblas> gseguin: probably knows more about that, I thought they modified the code internally
+[11:27:22] <kinblas> I want to make it so folks don't have to have special one-off versions of our code
+[11:27:24] <scottjehl> sure. maybe that could take place around the same time as that after success callback?
+[11:27:31] <gseguin> I remember Dmitry talking to me about that
+[11:27:56] <gseguin> but I'm not really familiar with that code
+[11:28:06] <toddparker> maybe you can pick his brain for ideas
+[11:28:13] <gseguin> yep, will do
+[11:28:22] <scottjehl> so Kin do you want to loop back on the pushState/replaceState stuff after this?
+[11:28:34] <kinblas> yeah sure
+[11:28:42] <toddparker> cool
+[11:28:42] <kinblas> I'll need help for the WIKI doc
+[11:29:00] <toddparker> i noted the pushState and self-invocation stuff in the agenda
+[11:29:01] <kinblas> I want to make sure we support our agenda (hash + pushstate) and jive's (other devs)
+[11:29:29] <toddparker> so for beta 1, which of these navigation features are "must have"
+[11:30:02] <scottjehl> I think pushState (real urls) is pretty darn important
+[11:30:11] <toddparker> the decoupling (done), URL fixes, what else?
+[11:30:19] <toddparker> for 1.0, yeah
+[11:30:27] <scottjehl> oh sorry yeah
+[11:30:29] <scottjehl> 1.0
+[11:30:45] <kinblas> we just need to make sure out paths work
+[11:30:55] <toddparker> just wondering if we should try to draw a line of what we can get done in ~1 week for beta 1 and really focsu on tightening those items up
+[11:30:55] <scottjehl> I'll land the bb5 and opera ajax shutdown this afternoon
+[11:31:03] <toddparker> awesome scott
+[11:31:11] <toddparker> that is a big one for support
+[11:31:15] <kinblas> yee haw
+[11:31:27] <toddparker> i'd love to announce good BB5 and opera mini support this week
+[11:31:28] <scottjehl> that'll be just Mini
+[11:31:34] <scottjehl> not Mobile
+[11:31:38] <scottjehl> (Opera)
+[11:31:44] <toddparker> scott and i found some good  way to detect them
+[11:31:48] <vikas_> I waiting for bb5 support..:-)
+[11:31:54] <toddparker> yea, just mini. mobile is all good on opera
+[11:32:37] <scottjehl> I wouldn't say "good"
+[11:32:39] <scottjehl> :)
+[11:32:46] <toddparker> ok so other than the decoupling, URL fixes and ajax exclusions for BB5 and Opera mini are there other critical nav thigns we should fix for beta 1
+[11:32:55] <toddparker> it's pretty slick on mobile
+[11:33:20] <StevenBlack> I think we'll know a ton more in a couple of days from folks using the nightlies.
+[11:33:20] <kinblas> what about caching stuff?
+[11:33:50] <toddparker> true
+[11:33:53] <StevenBlack> Seems related to the page-scrubbing so I can take that.
+[11:34:12] <vikas_> What about http://filamentgroup.com/clients/om/? is it work around non-ajax env?
+[11:34:15] <toddparker> the cache page flag seems easy to implement so if we can land it, sure
+[11:34:32] <StevenBlack> Assign it to me, toddparker.
+[11:34:50] <kinblas> _nickel's in the house
+[11:34:50] <scottjehl> om/ was just a quick ajax shut-off test
+[11:34:51] <toddparker> the /om/ link shuts off ajax nav in the config to simulate the exclusion scott is going to add today
+[11:35:01] <toddparker> so that will be the end result
+[11:35:05] <toddparker> just automagic
+[11:35:14] <toddparker> hey _nickel!
+[11:35:17] <_nickel> toddparker: yo!
+[11:35:24] <_nickel> sorry I'm late :(
+[11:35:33] <_nickel> I'm going to pay attention today too since I think I have free time
+[11:35:33] <toddparker> stevenblack - the cache flag feature?
+[11:35:41] <StevenBlack> Yep.
+[11:35:43] <toddparker> _nickel - heh
+[11:36:19] <toddparker> tagged to stevenblack - https://github.com/jquery/jquery-mobile/issues/1554
+[11:36:53] <toddparker> so _nickel, we were jsut discussing what items in nav we can/shoudl land for beta 1
+[11:37:16] <toddparker> decoupling (done), URL fixes, page cache flag so far
+[11:38:16] <toddparker> what about Extensibility hooks?
+[11:38:27] <toddparker> that can wait?
+[11:38:41] <_nickel> toddparker: I would say that can wait since kin added some basic ones
+[11:38:47] <toddparker> cool
+[11:38:59] <_nickel> toddparker: and because we should get whats there right before we try and improve it
+[11:39:11] <toddparker> makes sense
+[11:39:13] <StevenBlack> I would still hook success and error on ajax calls.
+[11:39:38] <scottjehl> yep
+[11:39:38] <StevenBlack> Separate them from the mainline ajax call and put them in a Deferred stack.
+[11:39:56] <StevenBlack> Devs can then just add to the deferred stacks.
+[11:40:08] <toddparker> is that a small tweak?
+[11:40:23] <_nickel> I don't think it is
+[11:40:31] <scottjehl> is that the easiest way we'd recommend this though?
+[11:40:36] <_nickel> but I'll defer to kinblas on that one since he added deferreds in the refactor
+[11:40:49] <toddparker> kinblas?
+[11:40:57] <kinblas> loadPage needs to be separated into 2 pieces tied together by a deferred to allow for async load
+[11:41:00] <StevenBlack> At least we need to call named functions from success and error so it's punchable.
+[11:41:10] <kinblas> loadContent (returns deferred) then tied with enhancePage()
+[11:41:10] <scottjehl> yep
+[11:41:24] <kinblas> note there is no reference to ajax in what I said
+[11:41:26] <kinblas> it has to be generic
+[11:41:46] <kinblas> our default loadContent handler will use a combo of lookupin DOM and ajax when not there
+[11:41:59] <kinblas> this is a point of pluggability for other devs to use JSON
+[11:42:02] <kinblas> or whatever
+[11:42:16] <toddparker> so this might be simple enough to attempt for beta 1 or should we wait and plan this out more?
+[11:42:35] <scottjehl> it's not a breaking feature. I think it's fine to add
+[11:42:35] <kinblas> I'll write it up on the wiki ... like _nickel said i'm concerned about what we have
+[11:42:39] <toddparker> yeah
+[11:42:43] <kinblas> that's why I said lets fix path handling right now
+[11:42:44] <_nickel> thats my stance
+[11:42:49] <scottjehl> cool
+[11:42:50] <toddparker> i'd be very happy getting the 3 items above in beta one
+[11:42:51] <kinblas> we're generating bad paths right now on links and images
+[11:43:05] <scottjehl> not always, right?
+[11:43:09] <toddparker> yeah, URLs base tag really need to be our focus
+[11:43:13] <kinblas> not always
+[11:43:20] <kinblas> but still we need to fix it
+[11:43:28] <scottjehl> normal cases are ok tho http://jquerymobile.com/test/#/test/docs/about/intro.html
+[11:43:40] <scottjehl> but yeah - bugs
+[11:43:53] <kinblas> there are a couple of bugs related
+[11:43:59] <kinblas> to that change that fixed things
+[11:44:07] <kinblas> we're munging paths
+[11:44:20] <kinblas> in some cases
+[11:44:29] <kinblas> anyays, that's what I'm working on after the wiki doc
+[11:44:38] <toddparker> ok so let's focus on documenting the decoupling (kin), URL/Base fixes (Kin), Adding the page cache flag (steven), excluding BB5 and Opera mini from Ajax (scott)
+[11:44:47] <toddparker> that's it for nav for beta 1
+[11:44:54] <StevenBlack> So to clarify... here's the Ajax call.  For Beta 1 break-out the callbacks or no?  https://github.com/jquery/jquery-mobile/blob/master/js/jquery.mobile.navigation.js#L454-554
+[11:44:58] <toddparker> did i miss anything?
+[11:45:25] <_nickel> StevenBlack: I think we're going to leave it as is until we get it working
+[11:45:33] <toddparker> stevenblack - that seems like an improvement we can tryt o get into beta 2
+[11:45:39] <toddparker> yeah
+[11:45:41] <scottjehl> break them out to override them entirely? or...
+[11:45:59] <StevenBlack> Foremostky to rationalize the code.
+[11:46:02] <scottjehl> seems like a lot of "default" code in there shouldn't be prevented...
+[11:46:05] <scottjehl> ok
+[11:46:34] <StevenBlack> Once broken out they can be augmented by devs.
+[11:46:46] <toddparker> well, the nav and ajax exclude was the main thing i wanted to cover in the meeting today
+[11:46:53] <scottjehl> k
+[11:47:13] <toddparker> we should focus on getting things in good shape by this time next week so we can start prepping for beta 1
+[11:47:13] <vikas_> :-)
+[11:47:31] <toddparker> scott is also going to look at some pull requests
+[11:47:47] <_nickel> I'm going to get the last of those tests passing
+[11:47:56] <_nickel> I think that should be a priority for beta
+[11:47:56] <toddparker> but if anyone can help review & commet on those or fix blockers, now is the time
+[11:48:07] <toddparker> agreed, thanks _nickel
+[11:48:20] <kinblas> _nickel: agreed, lets get everything green
+[11:48:23] <scottjehl> nice thanks _nikel
+[11:48:39] <toddparker> anyone have anything they'd like to discuss with us all here?
+[11:48:55] <kinblas> where did we end up with the nested lists?
+[11:48:57] <_nickel> actually one item
+[11:49:03] <_nickel> what kin said
+[11:49:08] <_nickel> we have a failing test in listview
+[11:49:12] <kinblas> that's the only test broken in listview
+[11:49:14] <_nickel> thats there for a future fix
+[11:49:21] <gseguin> correct
+[11:49:31] <gseguin> but shouldn't that be addressed for b1 ?
+[11:49:34] <_nickel> can we shoot to get that fix in before beta?
+[11:49:47] <kinblas> right, it needs to be fixed for B1
+[11:49:48] <toddparker> so do we just need to review that pull gseguin?
+[11:50:01] <toddparker> can you post the issue here?
+[11:50:02] <gseguin> there is no pull request for that one
+[11:50:10] <toddparker> we'll prioritize that for today
+[11:50:20] <_nickel> brilliant
+[11:50:23] <gseguin> we were working with kinblas on a fiddle version first
+[11:50:25] <_nickel> stoked we're testing
+[11:50:29] <StevenBlack> Sticking to the agenda, Memory management for the DOM, Issue 1554 (mine) and 1555 are definitely related. https://github.com/jquery/jquery-mobile/issues/1555 and last meeting 1555 was assigned to me but not so-tagged in issues.  That's B1 also.
+[11:50:35] <toddparker> ah, ok
+[11:50:55] <kinblas> gseguin: now that the navigation refactor is behind _nickel and I can probably pay more attention ... sorry
+[11:51:09] <toddparker> #1555 tagegd ot you stevenblack
+[11:51:10] <gseguin> alright, let's talk after the meeting
+[11:51:14] <kinblas> let's touch base on #jquery-dev after this
+[11:51:36] <toddparker> ok, cool. making some serious progress here. thanks for all you hard work boys.
+[11:52:05] <toddparker> if there's nothing else, let's wrap up!
+[11:52:12] <toddparker> see y'all over on dev
+[11:52:12] * kinblas gives props to _nickel for helping him get the tests green
+[11:52:22] * _nickel points at kinblas for doing all the work
+[11:52:25] <toddparker> yeah, thanks for that _nickel
+[11:52:39] <toddparker> 1 + 1 = 5
+[11:52:42] <_nickel> :D
+[11:52:46] <gseguin> :)
+[11:53:20] <toddparker> speak now...moderating....
+[11:53:36] <StevenBlack> Docs?
+[11:53:58] <eddiemonge> should be able to take a huge chunk out of that this weekend
+[11:54:31] <vikas_> can we have back button if history have one item?
+[11:55:09] <vikas_> suppose I'm coming from non jqm site..
+[11:55:45] <kinblas> vikas_: you can always create your own back button in the header
+[11:55:54] <StevenBlack> vikas: you can set properties of $.mobile.page.prototype.options object...
+[11:57:08] <vikas_> I don't want manual back button, as my app will work with ajax and with not ajax if it is bb5
+[11:57:19] <StevenBlack> Back to docs, I'm going to bring http://jqx.ca/nav/ back in sync with edge, eddiemonge, and we can pick from that.
+[11:58:55] <eddiemonge> ok sounds good
+[11:59:25] <eddiemonge> im hoping to have the infrastructure in place this weekend so docs can start getting populated
+[12:03:06] <vikas_> There are also some ui issues on bb5, like page loading shows on top, header is not fixed, etc, anybody working on that?
+[12:12:54] <vikas_> Hi there
+[12:47:05] <toddparker> viklas_ - BB5 has a lot of issues with positioning so those won't be supported/fixed. WebOS has the same issues. That's why we fall back to having thing work inline.
+[12:47:25] <toddparker> thought i had moderated this channel. lemme re-try the magical spell
+[12:47:35] <toddparker> cs op #jquery-meeting

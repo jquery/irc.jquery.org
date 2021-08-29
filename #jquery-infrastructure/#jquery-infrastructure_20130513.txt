@@ -1,0 +1,223 @@
+[09:47:15] <s5fs> scott_gonzalez: hey, any chance I can lend a hand on the docs decomm? I'm happy to help, just need a shove in the right direction
+[10:37:33] <Krinkle> gnarf: I know how to make a mysqldump, but I'm not sure what options to use (more importantly, to be able to restore it exactly how it was)
+[10:38:09] <Krinkle> I'm thinking of creating a new database, importing into it, and renaming the old one to swarm_old.
+[10:38:20] <Krinkle> That way a rollback will be much easier (simply drop the new one and keep the old one)
+[10:44:28] <Krinkle> Hm.. I'll need to grant the proper access. user 'testswarm' isn't allowed to create a new db
+[10:47:03] <Krinkle> created database and using `mysqldump testswarm | mysql testswarm_new` to import.
+[10:48:58] <Krinkle> Looks like this is going to take a while :)
+[10:52:44] <ryanneufeld> Krinkle: yeah, that could take a while
+[10:54:30] <Krinkle> mysql> SELECT * FROM TABLES WHERE TABLE_SCHEMA='testswarm' LIMIT 1; 
+[10:54:40] <Krinkle> DATA_LENGTH=4734976
+[10:54:47] <Krinkle> INDEX_LENGTH=4456448
+[10:55:22] <Krinkle> 4.5 M?
+[10:55:29] <Krinkle> Or am I interpreting this wrong?
+[10:55:50] <Krinkle> I expected it to be much larger
+[10:56:04] <Krinkle> It seems to have finished importing
+[10:56:30] <Krinkle> ryanneufeld: How do I grant user 'testswarm' the same access on 'testswarm_new' as on 'testswarm' ?
+[10:56:46] <ryanneufeld> that is a good question
+[10:56:51] <ryanneufeld> what machine is this on?
+[10:56:54] <Krinkle> jq03
+[10:58:07] <Krinkle> ryanneufeld: jq03
+[10:58:09] <ryanneufeld> yeah
+[10:58:16] <ryanneufeld> what host would it be connecting from?
+[10:59:02] <ryanneufeld> http://cl.ly/image/2u0x2m2r4514
+[10:59:02] <ryanneufeld> there you go
+[10:59:31] <ryanneufeld> you should be able to duplicate those grants for the new DB
+[10:59:33] <ryanneufeld> Krinkle: 
+[11:00:26] <Krinkle> jq03 hosts its own database
+[11:00:38] <Krinkle> it is the same host as testswarm (web server) and Jenkins
+[11:00:46] <Krinkle> we're working on splitting it up
+[11:01:04] <Krinkle> ryanneufeld: so those definitions are also valid statements?
+[11:01:11] <Krinkle> I know about show grants
+[11:01:24] <ryanneufeld> I just ran GRANT ALL PRIVILEGES ON `testswarm_new`.* TO 'testswarm'@'localhost'
+[11:01:33] <ryanneufeld> so that should have you fixed up :)
+[11:01:36] <Krinkle> OK
+[11:01:41] <Krinkle> It is only temporary :)
+[11:01:42] <Krinkle> Thanks
+[11:01:46] <ryanneufeld> np
+[11:07:28] <Krinkle> Okay, dbUpdate.php is running.
+[11:40:45] <scott_gonzalez> So, regarding our 375 TB of bandwidth per month...
+[11:40:57] <scott_gonzalez> Who has the breakdown of where that bandwidth is being used?
+[11:41:08] <ryanneufeld> (MT) I think
+[11:43:28] <scott_gonzalez> Do we at least have access logs for everything?
+[11:43:41] <scott_gonzalez> So we can see where we can make things better?
+[11:44:20] <ryanneufeld> not sure, have to ask danheberden/gnarf
+[11:44:51] <gnarf> on the cdn?
+[11:44:56] <gnarf> not sure it exists
+[11:45:13] <gnarf> it's pretty much entirely code.jquery.com
+[11:45:17] <gnarf> but as far as what and where
+[11:45:20] <gnarf> i am not sure
+[11:45:37] <gnarf> edgecast api as far as i can tell doesn't provide very good tools to discover this
+[11:51:57] <scott_gonzalez> gnarf: This is just in response to the data Richard just poted in the foundation issue.
+[11:52:10] <scott_gonzalez> There was no breakdown at all, it just said 375 TB of bandwidth.
+[11:54:44] <danheberden> correct - scott_gonzalez, we don't get an access log
+[11:54:53] <danheberden> we get bandwidth allocations for sizes of adata
+[11:54:57] <danheberden> *data
+[11:55:17] <danheberden> see http://danheberden.com/share/4eaf6.png
+[11:55:55] <scott_gonzalez> :-/
+[11:56:09] <danheberden> roughly 60 gigs a day
+[11:56:15] <danheberden> so cray
+[11:56:25] <scott_gonzalez> Can we see the numbers for code.jquery vs. all other sites?
+[11:56:32] <danheberden> shit that isn't per day, that's per 15 min
+[11:56:58] <scott_gonzalez> heh
+[11:57:10] <danheberden> our cache hit percentage is 99.89%
+[11:57:22] <scott_gonzalez> That's pretty damn high.
+[11:57:32] <danheberden> i see no ability to parse out domains
+[11:57:46] <danheberden> they only let you look at large and small requests
+[11:58:50] <danheberden> however it would be neat if we could get someone from edgecast to do a review of our account
+[11:58:58] <danheberden> to look for optimisation opppurtunities 
+[11:59:02] <danheberden> MOAR p's
+[11:59:47] <scott_gonzalez> Let's ask (mt) if they can give us a total just for the CDN.
+[11:59:59] <scott_gonzalez> We should be able to use nginx access logs for the rest, right?
+[12:02:51] <danheberden> for non-cdn you mean?
+[12:02:57] <danheberden> yeah, that should be piped into splunk 
+[12:21:09] <scott_gonzalez> Yeah, we should look at non-CDN requests for places to optimize.
+[12:21:46] <scott_gonzalez> But it'd be good to know what % of the 375 TB is non-CDN requests.
+[14:03:27] <danheberden> scott_gonzalez: the 375TB is ALL CDN requests
+[14:03:38] <danheberden> we can look at the (mt) panel for bandwidth otherwise
+[14:03:41] <scott_gonzalez> wow, even with 99% cach hit?
+[14:03:45] <danheberden> yuppers
+[14:03:49] <scott_gonzalez> crazy
+[14:04:11] <scott_gonzalez> Sounds like there's nothing we can do about that.
+[14:04:16] <danheberden> unless they are counting cache hits in the total? :/
+[14:04:45] <scott_gonzalez> It'd be worth reaching out to them about this.
+[14:04:49] <danheberden> agreed
+[14:04:57] <scott_gonzalez> Since they seem to think we've regressed on caching based on bandwidth.
+[14:05:35] <scott_gonzalez> OMG, docs.jquery.com is so slow.
+[14:05:43] <scott_gonzalez> Writing all these redirects is painful.
+[15:52:33] <s5fs> scott_gonzalez: i'm happy to help!
+[15:52:38] <s5fs> put me in coach, i'm ready to play
+[15:53:12] <scott_gonzalez> s5fs: Hey!
+[15:53:25] <scott_gonzalez> I was going to respond to you earlier, but there was netsplit insanity going on.
+[15:53:56] <gnarf> scott_gonzalez: ~3TB a mo on wordpress server
+[15:53:57] <scott_gonzalez> So, this MediaWiki deprecation stuff is just easy, boring, mundane, repetitive crap
+[15:54:07] <scott_gonzalez> So OF COURSE I'd love your help :-)
+[15:54:14] <scott_gonzalez> BUT...
+[15:54:23] <scott_gonzalez> I have no idea how to get you access to MediaWiki.
+[15:54:29] <scott_gonzalez> Krinkle can probably help there.
+[15:54:31] <s5fs> scott_gonzalez: yeah, that much i'm aware of haha! however, there are plenty of spare cycles in the evening when my brain is in the other room, and am happy to help.
+[15:54:45] <scott_gonzalez> Unless you already have an account that appropriate permissions.
+[15:54:45] <gnarf> i think you can create your own account on it
+[15:54:53] <gnarf> then ask krinkle for whatever permissions
+[15:55:24] <s5fs> gnarf: i can? nice. what host is that? i gotta go back thru the network doodles and see who lives where.
+[15:55:26] <Krinkle> Let me know what I can do to help.
+[15:55:32] <scott_gonzalez> docs.jquery.com
+[15:55:50] <gnarf> s5fs: docs is on an old host, your ssh won't work there
+[15:56:01] <gnarf> i think thats even a shared "jqadmin@docs.jquery.com" host
+[15:56:10] <gnarf> so maybe Krinkle can help with that too if you need it 
+[15:56:25] <Krinkle> No, per-use ssh is enabled there
+[15:56:30] <Krinkle> it is at eol3
+[15:56:34] * gnarf is so deep into mozilla gaia at the moment
+[15:56:35] <Krinkle> ssh krinkle@eol3.jquery.com
+[15:56:38] <gnarf> awesome
+[15:56:52] <Krinkle> at least it works for me
+[15:56:55] <s5fs> Krinkle: confirmed, i have access
+[15:57:09] <Krinkle> scott_gonzalez: gnarf: Who needs what access and what are you planning on doing?
+[15:57:25] <scott_gonzalez> Krinkle: s5fs just needs access to edit pages.
+[15:57:33] <scott_gonzalez> He's going to help with the redirects.
+[15:59:24] <s5fs> i'm excited to help, wooo!
+[16:01:45] <Krinkle> scott_gonzalez: In that case no ssh is needed. You can create the wiki account and then grant it rights via the Special:UserRights page
+[16:03:44] <scott_gonzalez> The magical page that eluded us for years, causing nobody to ever be able to edit the docs...
+[16:04:32] <scott_gonzalez> So, s5fs, you can just go through http://docs.jquery.com/Special:PrefixIndex?prefix=&namespace=0&hideredirects=1 and edit the pages to be redirects.
+[16:04:42] <scott_gonzalez> Ignore the version numbers in the URLs for API docs.
+[16:04:50] <scott_gonzalez> They'll always redirect to a versionless page.
+[16:05:14] <scott_gonzalez> There's some info in https://github.com/jquery/infrastructure/issues/23 about how to do the redirects.
+[16:05:18] <scott_gonzalez> https://github.com/jquery/infrastructure/issues/23#issuecomment-8679199
+[16:05:38] <scott_gonzalez> I need to go give my kids a bath and put them to bed, but I'll be back after that.
+[16:05:42] <s5fs> scott_gonzalez: thanks. page is loading pretty slow.
+[16:06:29] <s5fs> scott_gonzalez: haha, no worries, bathe your grubbies. if i'm not here, i'm in transit to home and/or fooding.
+[16:06:31] <scott_gonzalez> Yeah, something's messed up, but we're not sure what.
+[16:06:44] <Krinkle> scott_gonzalez: Users in the  'wiki-admin'  group have the ability to create an account. We've disabled public sign up.
+[16:08:15] <Krinkle> scott_gonzalez: You are in that group: http://docs.jquery.com/Special:UserLogin/signup
+[16:08:24] <Krinkle> Forget about Special:UserRights, the default is fine
+[16:20:24] <Krinkle> gnarf: Any idea what could cause apache to take > 50% cpu usage from a fresh restart?
+[16:20:48] <Krinkle> It instantly starts several dozen -k start processes, I figured those are its hot pool for when requests come in
+[16:20:57] <Krinkle> but they are using more cpu than they should, way more
+[16:21:07] <Krinkle> top -c on eol3 is giving me some with 53% cpu usage
+[16:21:41] <Krinkle> and lots of 10-20% cones
+[16:28:44] <s5fs> Krinkle: anything obvious in the logs?
+[16:33:51] <Krinkle> Nope
+[16:33:56] <Krinkle> https://gist.github.com/Krinkle/5572420
+[16:33:59] <Krinkle> strace
+[17:11:52] <Krinkle> More debug data
+[17:11:53] <Krinkle> https://gist.github.com/Krinkle/5572587
+[17:12:03] <Krinkle> That's of this request: http://cl.ly/image/1G2R0P3s3G3W
+[17:15:20] <Krinkle> DNS Lookup 1ms, Connecting 104ms, Sending 1ms, Waiting 16.36ms, Receiving 1ms
+[17:30:51] <Krinkle> I've gotten detailed reports from at least 2 other continents besides Europe (Australia and US)
+[17:30:51] <s5fs> Krinkle: interesting
+[17:30:58] <Krinkle> so not connected to us/me.
+[17:31:44] <Krinkle> I'm in a more active conversation about it in #wikimedia-dev (it spawned there as it seemed initially relevant to MediaWiki, but the people there have a lot of experience with MediaWiki/Linux as well)
+[17:31:57] <Krinkle> Feel free to join if you like.
+[17:32:42] <s5fs> Krinkle: will do. also, i don't know your traffic patterns but it seems a lot of traffic is coming from a handful of IPs. haven't looked into the though, just observing.
+[17:33:12] <Krinkle> s5fs: Can you PM the IPs? Could be me and 2 people from #wikimedia-dev
+[17:33:29] <Krinkle> we did a short bash-loop curl a few minutes ago so that I can catch the requests in tcpdump
+[17:33:48] <Krinkle> I'll recognize the IPs
+[17:34:19] <scott_gonzalez> back
+[17:38:04] <Krinkle> s5fs: What's your github username?
+[17:38:33] <s5fs> aulvi
+[17:39:18] <s5fs> Krinkle: can we just block that offending IP? out of ~600 open connections on port 80, it's responsible for over 400.
+[17:39:45] <s5fs> I can't say that will fix anything, but reducing traffic may make the problem more evident.
+[17:39:48] <Krinkle> s5fs: Fine by me, I woulnd't know what the proper procedure for that is though
+[17:40:24] <s5fs> Krinkle: same, i'm still green as a leaf. i'm looking to you for guidance haha
+[17:40:31] <Krinkle> And I just assumed you'd be a jquery operations root.
+[17:40:54] <Krinkle> s5fs: Wait, I see your github account has no ties to jquery/infrastructure.
+[17:40:57] <Krinkle> So how did you know about the IP?
+[17:41:02] <s5fs> Krinkle: I am, hence the caution.
+[17:42:05] <s5fs> Krinkle: weird, I see it listed as "organizations" on my github page.
+[17:42:23] <Krinkle> You're probably concealing membership
+[17:42:29] <Krinkle> Can you make it public (if you don't mind)
+[17:42:33] <s5fs> Krinkle: no prob
+[17:46:14] <s5fs> Krinkle: okay give it a try, sorry about that.
+[17:46:26] <Krinkle> I see it now
+[17:47:17] <s5fs> yay!
+[17:49:22] <scott_gonzalez> Whoa. Suddenly much faster.
+[17:50:08] <scott_gonzalez> ..and back to being slow
+[17:50:18] <scott_gonzalez> That latest about 5 seconds.
+[17:50:21] <s5fs> quick, everyone hit it at once to test!
+[17:50:23] <scott_gonzalez> s/latest/lasted/
+[17:52:42] <Krinkle> scott_gonzalez: heisenbug
+[18:03:36] <s5fs> I'm still in favor of blocking that IP, thoughts?
+[18:03:51] <s5fs> gnarf: hey, how does one go about blocking an IP that appears to be a meanie?
+[18:04:11] <s5fs> woah, site's fast now!
+[18:04:49] <Krinkle> Yep, looks like putting sessions in php-accel or memcached (instead of phpsession in /tmp/sess_ files) fixed it
+[18:05:41] <Krinkle> This is a MediaWiki specific feature we use at Wikimedia as well. We never call session_id or start_session(), instead all interactions with session are abstracted and with an option we bypass it into our own format.
+[18:05:54] <s5fs> nicely done, big improvement
+[18:06:09] <Krinkle> https://github.com/Krinkle/docs.jquery.com/commit/46334edaa6d637be6a549b0b2843ff71af407f19
+[18:06:36] <Krinkle> https://github.com/wikimedia/mediawiki-core/blob/master/includes/GlobalFunctions.php#L3307-L3311
+[18:06:37] <s5fs> gotta love it
+[18:06:59] <scott_gonzalez> HAHAHAHA http://docs.jquery.com/Click_event_on_loaded_file
+[18:07:15] <scott_gonzalez> Someone managed to use the docs as a forum and the page survived all this time.
+[18:07:17] <Krinkle> Hm.. looks like it has changed. We now do call native php session_* functions, but php has a hook to install a save handler.
+[18:07:32] <Krinkle> Which we apparently switched too
+[18:07:35] <Krinkle> oh well, details.
+[18:07:42] <s5fs> scott_gonzalez: let's redirect it
+[18:08:01] <scott_gonzalez> I'm gonna redirect to to /dev/null :-P
+[18:08:14] <s5fs> haha
+[18:10:18] <scott_gonzalez> It's amazing how small this page is ;-) http://docs.jquery.com/Browser_Differences
+[18:11:55] <Krinkle> "css() may give different values in different values "
+[18:12:02] <Krinkle> That's very helpful
+[18:12:26] <Krinkle> I guess that's what you get when you open up wiki to free editing
+[18:12:33] <Krinkle> This is from before it was restricted
+[18:12:51] <Krinkle> Of course that model works if people are patrolling edits :)
+[18:12:54] <Krinkle> (e.g. Wikipedia)
+[18:13:34] <Krinkle> scott_gonzalez: Beware of double redirects, they should be fixed. Unfortunately. 
+[18:13:34] <Krinkle> http://docs.jquery.com/Special:DoubleRedirects
+[18:13:45] <Krinkle> Though forget about those for now
+[18:13:53] <Krinkle> I can run a script that does fixes that automatically
+[18:14:49] * Krinkle ran it
+[18:15:05] <scott_gonzalez> :-)
+[18:15:19] <scott_gonzalez> Krinkle: You'll probably need to run it again at the end.
+[18:15:25] <Krinkle> np
+[18:15:58] <Krinkle> http://docs.jquery.com/Special:Contributions/Redirect_fixer
+[18:16:16] <Krinkle> [18:14 PDT] krinkle at eol3 in /var/www/docs.jquery.com (master)
+[18:16:16] <Krinkle> $ php mediawiki-core/maintenance/fixDoubleRedirects.php --wiki jqdocs_live
+[18:16:16] <Krinkle> 75 double redirects processed
+[18:16:51] <Krinkle> scott_gonzalez: Just in case an astroid removes my country from the map, that's how you do it :P
+[18:17:16] <scott_gonzalez> heh, thanks
+[18:19:44] <Krinkle> btw, I have a love/hate relationship with the fact that GitHub's service hooks (at least for IRC) are asynchronous and distributed over different of their serves 
+[18:19:47] <Krinkle> servers*
+[18:19:54] <Krinkle> as a result they some times appear in a different order
+[18:19:57] <Krinkle> or some are skipped
+[18:20:07] <Krinkle> like right now it missed 1 commit to docs.jquery.com
+[18:20:26] <Krinkle> it got the latest, it missed the before latest
+[18:20:35] <Krinkle> see #jquery-dev and https://github.com/Krinkle/docs.jquery.com/commits/

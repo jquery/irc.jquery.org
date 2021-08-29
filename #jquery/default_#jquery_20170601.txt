@@ -1,0 +1,340 @@
+[04:51:20] <lilltiger_> How do I set multiple items to hidden without triggering a rendering of the DOM, and then when all is set to hidden id like to trigger the render? Right now I am adding a class to the items ( .addClass('doHide') ) then I hide those items with ( $('.doHide').hide(); ) and then remove the class ( $('.doHide').removeClass('doHide'); ) but this is a bit too slow. Is there a faster way?
+[04:56:41] <AdamPDotty> you do not actually hide the items yourself, you have a css rule .doHide {display:none;}
+[04:56:54] <AdamPDotty> or better .hidden
+[04:57:27] <Cork> lilltiger_: what are you doing that takes too long?
+[04:57:45] <Cork> cause you can't control when the rendering happens
+[04:57:55] <Cork> but normally that shouldn't matter too much
+[04:59:04] <obert> it's .do-hide {} not doHide
+[04:59:31] <Cork> obert: doesn't really matter except for page standards
+[04:59:34] <Cork> css doesn't care
+[05:00:08] <obert> I name the classes with that format not girlycase
+[05:00:23] <Cork> ya, but that doesn't mean it is wrong to have another standard...
+[05:15:35] <lilltiger_> Cork: it's filtering a large list of items containing company information, the list is about 10000 items long. So sometimes it should hide like 6000 entries at once.
+[05:16:06] <Cork> lilltiger_: then i would prob recommend not having all those entries in the dom to begin with
+[05:16:26] <Cork> keep a list of dom elements and inset inject the ones matching the filter into the page
+[05:16:52] <Cork> (don't throw away the dom nodes though, just inject and remove them from the page)
+[05:17:09] <lilltiger_> Cork: I have thought about that as well, but that removes the handy ability to use the Ctrl+F search
+[05:17:35] <Cork> lilltiger_: so does it if yo set them to display: none
+[05:17:44] <Cork> so it doesn't make a difference there
+[05:18:26] <Cork> but the dom is not good at handling large amounts of dom nodes attached to the document
+[05:18:27] <lilltiger_> Cork: it does, as the defult state is now to show them all, and then you can use ctrl+f, while in the other way the default state would be none
+[05:18:43] <Cork> lilltiger_: ya?, didn't say you should default to show nothing
+[05:18:54] <Cork> just that when the page loads you store the doms in a js array
+[05:19:13] <Cork> and instead of .hide you work with that array and replace the entire child structure
+[05:19:38] <Cork> parent.html(filteredArray)
+[05:20:07] <Cork> but as some point you will have to stop having them all in the page
+[05:20:13] <Cork> cause browsers will just not be able to cope
+[05:20:40] <lilltiger_> Ahh ok, so the jquery.hide on a collection of items does unnessesary rendering inbetween?
+[05:20:52] <Cork> no
+[05:21:09] <Cork> .hide() is basically the same as .css('display', 'none')
+[05:21:28] <Cork> and that means the browser will still have to loop over all of them when it reflows
+[05:21:48] <Cork> if you instead remove them from the page it will only have the dom elements that it actually is going to draw
+[05:21:52] <Cork> and that will be faster
+[05:22:19] <lilltiger_> Cork: well that was what I ment, I thought that when doing it on a container jquery chneged them all at once (like remove them all and readd them etc) guess not then
+[05:22:40] <Cork> lilltiger_: jquery can't do what the dom doesn't support
+[05:23:09] <Cork> you could loop over them and set a class like "filtered" and then set a hide-filtered class on the parent
+[05:23:20] <Cork> it would mean the rendering would not happen for each element
+[05:23:34] <Cork> but it would still mean all the none visible elements will slow down the dom
+[05:24:14] <lilltiger_> yhee, I think your erlier idea is better, ill try it out
+[05:24:23] <Cork> lilltiger_: additionally make sure you delegate all repeated event handlers, cause that is another thing that will grately affect speed
+[05:28:34] <lilltiger_> Cork: like: $( document ).on( "click", ".classForExpandingItem", function() { .. } ); right?
+[05:29:04] <Cork> or $(commonParent).on('click', '.classForExpandingItem', func)
+[05:29:19] <Cork> just make sure commonParent is static and not repeated
+[05:29:33] <Cork> (well at least not repeated more then 2-4 times)
+[05:30:21] <lilltiger_> right, I have avoided that culprit, did not know that it affected performance much but it makes the code alot easier to maintain to do it delegated
+[05:31:44] <Cork> lilltiger_: it is similar to leaving all dom nodes in the page
+[05:32:02] <Cork> cause for each time an event occures the browser has to loop the list of event handlers
+[05:32:09] <Cork> and the longer the list is the more time it takes
+[05:32:25] <Cork> as delegated event handlers binds one handler on the given parent, it means less event handlers
+[05:32:40] <Cork> == better performance
+[05:33:04] <Cork> it doesn't matter much until you reach a critical limit, but after that it gets painful
+[05:55:40] <lilltiger_> Cork: now i have a list of all the elements from start, then I filter it and return a array with the filtered items in it, so now I shall insert them again, should I concatigate the html of all the items and insert them as .html() or is there another way to add several items at once?
+[06:05:26] <localh0st> lilltiger_: you're making simple things too complicated IMO
+[06:06:09] <localh0st> Why can't you just avoid of loading those items before DOM is read?
+[06:07:48] <lilltiger_> localh0st: it's a large list of companies that the user should be able to filter and search amough, and it's the filtering tha was was slow
+[06:09:45] <localh0st> If you have a lot of entries you're filtering on browser, I'd do it with db query instead to limit browser memory and cpu usage
+[06:11:42] <lilltiger_> localh0st: that would eleminate the ability to use the ctrl+f ability by the browser wich comes in handy
+[06:12:16] <localh0st> lilltiger_: then maybe you should use autocomplete with ajax call to db?
+[06:12:31] <lilltiger_> localh0st: and the set of items is limited to about 10000-15000 so I dont have to adjust for scvaling larger then that
+[06:14:27] <lilltiger_> localh0st: I was thinking of that, I do that in the product page, but that makes it harder to find items where one is uncertain of things
+[06:16:41] <lilltiger_> And as I am using MariaDB as the backend database it does not allow for wildcard searches in the middle of text, so id I knew the company name had "productions" in it like "awproductions" i would not be able to search for that using the db
+[06:16:56] <localh0st> lilltiger_: so maybe pagination is a choice?
+[06:18:14] <lilltiger_> localh0st: yhee, it would be my fallback if this way wouldent work, but I am getting ok performance now after implementing it the way Cork suggested.
+[06:18:22] <localh0st> With pagination you would limit entries visible on single page, limit DOM elements but if someone would go manually through all items he would click on specific page and hit CTRL + F, additionaly he would use autocomplete to filter results
+[06:19:38] <lilltiger_> I think ill also fall back to loading the additional information about the company only when expanding the item (and not keeping it hidden like now), making the dom alot smaller to speed it up even more.
+[06:21:18] <localh0st> Yes, that would increase the speed. Check your page response/load size in MB, every byte less will increase the speed, keep the list size as small as it's possible
+[06:21:19] <lilltiger_> Thought, right now it's only the first number or letter that has any delay when entering it at all (about 1.5sec) the rest filters it in an instant
+[06:23:34] <lilltiger_> already alot faster then the 10-20sec wait time the current non webbased system takes for the same thing, and in that system they then have to do several steps to get the wanted information making one lookup take more then 40sec.
+[06:35:38] <ChrisCwmbran> Hello alll
+[06:37:29] <ChrisCwmbran> I have a jQuery problem Im hoping someone can help me with
+[06:40:31] <FilipNortic> ChrisCwmbran: aking the accual question would help
+[06:41:01] <ChrisCwmbran> I have a page which uses jQuery/ajax to load another page into a div
+[06:41:24] <ChrisCwmbran> This is working fine, and via controls Im able to change pages etc on the child page
+[06:42:34] <ChrisCwmbran> However Im trying to use $("td:contains('text')").trigger("click"); to find a td containing "text" and effectively click on it when the page is loaded but its only working intermittenly
+[06:42:50] <ChrisCwmbran> The <td> is in the child window btw
+[06:44:47] <ChrisCwmbran> What is the best way to share the code fragment with you?
+[06:45:16] <ChrisCwmbran> https://pastebin.com/cq1EeZwk
+[06:45:21] <ChrisCwmbran> Does that allow you to see?
+[06:45:51] <ChrisCwmbran> Ive tried it with and without the #sec0020
+[06:46:56] <localh0st> ChrisCwmbran: oh god
+[06:47:39] <localh0st> why can;t you pass multiple values in json, and you're doing such a bad things in the response?
+[06:48:24] <ChrisCwmbran> Im very new to JS and jQuery. Im not sure what you mean tbh
+[06:49:53] <localh0st> ChrisCwmbran: create array of values on PHP side for example, response['html'] = $pageHtml;  $response['pagination'] = $paginationCode; $response['hasCH64OEV'] = false;   and return json_encode($response);
+[06:50:45] <localh0st> on js side you can read those values: var response = JSON.parse(data); and access to 'hasCH64OEV' boolean with response['hasCH64OEV']
+[06:51:00] <localh0st> boolean with response: response.hasCH64OEV **
+[06:52:25] <ChrisCwmbran> Ok Im looking at your suggesting and figuring out what you mean in my head :) Excuse my delay :)
+[06:54:48] <ChrisCwmbran> I understand that I can build the array, convert the array to JSON and pass the json encoded values, but how is that actually better
+[06:55:00] <Cork> uh, JSON.parse is only needed if the server is broken
+[06:55:28] <Cork> just send json from the server and jquery will parse the data automatically (meaning set content-type to json)
+[06:56:53] <ChrisCwmbran> Is the JSON encoded data not actually visible as part of the URL? Is there some security benefit?
+[07:03:45] <localh0st> ChrisCwmbran: it's not, AJAX method is describing how it's send
+[07:04:15] <localh0st> I mean $.ajax({method: "POST" (or "GET")});
+[07:07:16] <Cork> ChrisCwmbran: not really, some servers has a max length for urls that might cause a problem if the json blob is long
+[07:07:29] <Cork> (btw its type: 'post' not method)
+[07:12:54] <localh0st> Cork: http://api.jquery.com/jquery.ajax/
+[07:13:08] <localh0st> docs says "method: "POST","
+[07:13:38] <localh0st> anyway, I checked the one I used to use and I've got "type" like you said
+[07:13:41] <Cork> ah, they've added that one then
+[07:13:53] <Cork> cause historically its been type
+[07:14:42] <Cork> yup: "(version added: 1.9.0)"
+[07:22:56] <ChrisCwmbran> Thanks for trying to help anyway guys
+[07:23:10] <ChrisCwmbran> Im feeling somewhat more confused now I think sadly lol
+[07:32:55] <ChrisCwmbran> AS far as I can see you are saying that rather than encoding the variables in the URL in the traditional manner I should use pass them via JSON in the ajax request right?
+[07:33:06] <Cork> no, not at all
+[07:33:34] <Cork> when the server responds with json set the http response header to Content-Type: application/json
+[07:33:49] <Cork> if you don't do this most webservers will set it to Content-Type: text/html
+[07:33:56] <Cork> meaning your json will be html not json
+[07:34:07] <Cork> and that is why you need to do var json = JSON.parse(data)
+[07:34:34] <Cork> ChrisCwmbran: for php that would mean header("Content-Type: application/json")
+[07:34:44] <Cork> before you echo the json
+[07:35:03] <ChrisCwmbran> I feel like we are discussing two different things here
+[07:35:12] <ChrisCwmbran> Is it possible to take this to a private window?
+[07:35:38] <Cork> not really
+[07:35:43] <ChrisCwmbran> k
+[07:36:09] <Cork> the comment was just to comment on that you should never need to do var json = JSON.parse(data) in your ajax response handlers
+[07:36:16] <Cork> if you do it means the server is lying
+[07:36:34] <ChrisCwmbran> I understand that...but it wasnt me who mentioned JSON at all :/
+[07:36:51] <Cork> "<localh0st> on js side you can read those values: var response = JSON.parse(data); and access to 'hasCH64OEV' boolean with response['hasCH64OEV']"
+[07:37:26] <FilipNortic> in the paste he is doing .html(response_Data)
+[07:38:15] <Cork> i didn't even address the comment to ChrisCwmbran it was to localh0st
+[07:38:22] <Cork> and i haven't looked at the paste
+[07:38:46] <Cork> opps i did actually :x
+[07:38:50] <Cork> sorry
+[07:38:51] <ChrisCwmbran> Sorry, I thought this was the right IRC room to ask for help about a problem
+[07:38:58] <Cork> ChrisCwmbran: you are
+[07:39:15] <FilipNortic> $("#sec0020 tr:contains("+"CH64OEV"+")").trigger("click");
+[07:39:22] <FilipNortic> this is a wierd line of code
+[07:39:55] <ChrisCwmbran> I know the "CH64OEV" doesnt need to be added like that. I want to replace it with a variable but I couldnt get it to work
+[07:40:02] <Cork> ChrisCwmbran: is the "CH640DEV" php variable?
+[07:40:46] <ChrisCwmbran> PHP establishes a variable called registration
+[07:41:19] <ChrisCwmbran> It did read $("tr:contrains('CH64OEV')").trigger("click");
+[07:41:30] <ChrisCwmbran> But I couldnt even get that to work reliably
+[07:42:03] <ChrisCwmbran> It would work sometimes but not other times and I dont understand why
+[07:42:03] <Cork> ChrisCwmbran: contains is a hack and i would recommend trying to avoid using it
+[07:42:25] <Cork> what it does is take the tr.html() and search in that string for the matching string
+[07:42:44] <Cork> and that is a quite lousy way to identify an element
+[07:42:47] <ChrisCwmbran> What is a better way to find the <tr> with a <td> that has specific content?
+[07:43:00] <Cork> i would recommend setting a class on the td
+[07:43:12] <Cork> $('tr.the-class').closest('tr')
+[07:43:30] <Cork> ChrisCwmbran: btw for the ajax query https://jsfiddle.net/xgon24db/
+[07:43:37] <Cork> data makes parames a lot nicer to read
+[07:43:50] <Cork> just a comment you can do either way if you like
+[07:44:31] <ChrisCwmbran> Thanks Cork. I understand that - and yes I agree. So I'll start doing it like that
+[07:44:32] <Cork> uhh... i mean $('td.the-class').closest('tr') -_-'
+[07:44:47] <ChrisCwmbran> Now Im trying to understand the suggested query
+[07:45:07] <Cork> ChrisCwmbran: if you make a get call and provide the params as an object to data
+[07:45:13] <Cork> jquery will build the param string for you
+[07:45:18] <ChrisCwmbran> I think perhaps you are misunderstanding  what Im trying to do with the search
+[07:45:20] <Cork> so you don't have to concat it your self
+[07:45:38] <ChrisCwmbran> On my page a user selects a TR which is then highlighted by setting the background
+[07:45:57] <ChrisCwmbran> Then when they click another button the value of one of the TDs is passed to the sub page
+[07:46:08] <ChrisCwmbran> err to another page
+[07:46:21] <Cork> ya, so just have ids or a class on the tr/td and pass that along
+[07:46:29] <ChrisCwmbran> What Im trying to do is navigate back to the first page and maintain the highlighted row
+[07:46:42] <Cork> it is much more reliable to have as a selection base then text content inside the elements
+[07:47:02] <ChrisCwmbran> Ok I think Im understanding
+[07:47:07] <ChrisCwmbran> Lemme think a min :)
+[07:55:40] <ChrisCwmbran> Ok Thanks for your help Cork. Im going to go and have a tinker and try to do it along the lines you suggest :)
+[07:56:14] <rjCousineau> Hi.  I want to bind keypress events to document when I had bootstrap modal window open, then unbind when closed (so the keypress events don't fire)..
+[07:57:07] <Cork> rjCousineau: $(document).on('keydown.modal', func); $(document).off('.modal')
+[07:57:16] <Cork> the later you run when you close the dialog
+[07:57:25] <rjCousineau> hmm
+[07:57:35] <Cork> note keypress isn't a javascript event what you want is keydown for that
+[08:00:32] <rjCousineau> Thanks so much Cork. It worked perfectly
+[08:00:45] <rjCousineau> Can't believe you knew that lol. thank you
+[08:00:55] <Cork> rjCousineau: .modal can be what ever you like
+[08:01:00] <Cork> it is an even namespace
+[08:01:04] <rjCousineau> Well I can believe it, but it was very helpful because I wouldn't have known that
+[08:01:04] <Cork> *event*
+[08:01:37] <Cork> and that is why .off works cause it removes all event handlers from document with the namespace modal
+[08:02:26] <tuskkk___> Have run into this complex problem, I have around 40 sources in a json that are being represented on the DOM. They are sorted by review count initially. Now on subsequent ajax calls, I have again sorted the json, but how do I change the DOM now effectively without re rendering whole html?
+[08:03:21] <Cork> tuskkk___: could you show the code from where you load the first json to when you make the following calls?
+[08:03:31] <tuskkk___> I tried doing :eq for each row with a counter and replacing each row with new fields, but that seems buggy.
+[08:03:48] <tuskkk___> sure, give me a moment
+[08:15:18] <tuskkk___> Cork: the data is of the format, https://bpaste.net/show/6566b80c86d4 , and the ajax success code  is https://jsfiddle.net/fLn81344/
+[08:21:16] <tuskkk___> what approach should I use to update the html?
+[08:42:42] <Cork> tuskkk___: where are you making the additional ajax call?
+[08:43:17] <tuskkk___> Cork:  on the same page
+[08:43:23] <Cork> tuskkk___: btw you should use addClass not attr('class') as attr('class') means no other script can touch the html without this breaking it
+[08:43:29] <Cork> tuskkk___: ya, but it isn't in the jsfiddle
+[08:43:59] <tuskkk___> ok
+[08:44:05] <tuskkk___> its done as, var intervalObj = setInterval(updateSources,callInterval);
+[08:44:13] <Cork> ah
+[08:44:27] <Cork> ok so there isn't any context relation between them
+[08:44:34] <tuskkk___> no
+[08:44:53] <Cork> tuskkk___: you could give the element an id and then use that in the update call to find where to do the modification
+[08:45:22] <tuskkk___> they all have the id. The challenge is to change their position
+[08:45:42] <Cork> then i don't follow
+[08:45:58] <Cork> if you want to change the position just insert it where you want it in the list
+[08:46:22] <Cork> targetRow.before($('#the-id'))
+[08:46:56] <tuskkk___> Cork: yes, this insertion has to be done in an order by which all are sorted. So I don't know .before or .after in every case
+[08:47:26] <Cork> lets back up a bit
+[08:47:34] <Cork> why are you doing this in an interval?
+[08:47:58] <Cork> or more specifically what exactly are you doing
+[08:49:08] <tuskkk___> yes, this interval brings a source list, sorted by a review count. All these sources are already on DOM. Now the update call updates the json, hence a new sort order now. At this point how do I change the list rendered on the DOM?
+[08:51:10] <tuskkk___> the response json is, https://bpaste.net/show/6566b80c86d4
+[08:51:26] <Cork> tuskkk___: i would just do $('.list-elements').sort(function(a, b) { var aRev = review[a.id].value, bRev = review[b.id].value; if(aRev < bRev) { return -1 } else if(aRev > bRev) { return 1 } return 0;  }
+[08:51:35] <Cork> and then just parent.html(result)
+[08:51:48] <tuskkk___> now say on the thrid ajax call, source3 is at the top, now I want to put it on the top at the DOM
+[08:52:20] <Cork> i guess you want to use the totalReviewCount instaed of value
+[08:58:26] <tuskkk___> Cork: this sort will be written after the $.each? will it directly generate new html?
+[08:59:48] <Cork> tuskkk___: no, it takes the dom elements reorder them and stores the new order
+[08:59:57] <Cork> browsers work with dom not html
+[09:00:15] <Cork> and they have node relation so you just switch the pointers and the order has changed
+[09:00:51] <Cork> tuskkk___: $('.list-elements') is meant to match all the source elements
+[09:01:11] <Cork> and parent is meant to be the parent of them
+[09:06:50] <tuskkk___> ok, let me try doing this...
+[09:24:38] <ChrisCwmbran> Are you still around Cork?
+[09:24:59] <Cork> ChrisCwmbran: if you have a question just ask it, don't ask for ppl please
+[09:25:44] <ChrisCwmbran> I wanted to refer to what we discussed earlier. I've edited my ajax loaded php page to give the specific td a class of "chosen"
+[09:26:27] <ChrisCwmbran> In $( document ).ready( function() { i have put $(".chosen").trigger("click"); but it doesnt seem to work
+[09:26:56] <Cork> are you sure the element has that class?
+[09:27:17] <Cork> also are you sure you have bound the click handler before you trigger that?
+[09:28:00] <FilipNortic> and ajax doen't rerun the document ready or have you put the ready function in the hrml serer side?
+[09:28:25] <ChrisCwmbran> The td certainly has the class
+[09:28:57] <Cork> ChrisCwmbran: btw didn't you say you wanted this cross pages?
+[09:29:08] <Cork> how is the class moved across?
+[09:29:16] <ChrisCwmbran> Well the TD is in the ajax loaded page
+[09:29:28] <FilipNortic> ChrisCwmbran: but you want to define the click handler inte the ready function and do the trigger in the done() call from the ajax
+[09:29:33] <Cork> uh, load page?
+[09:30:13] <Cork> ChrisCwmbran: i think you need to show the code that does this instead of explaining what it does
+[09:30:32] <Cork> cause it becomes quite clear that something isn't working the way you think it does
+[09:32:04] <ChrisCwmbran> What is the easiest website to share bits of code?
+[09:32:18] <Cork> jsfiddle.net
+[09:33:34] <ChrisCwmbran> https://jsfiddle.net/m5sbuknp/
+[09:33:46] <ChrisCwmbran> Thats the JS that you helped fix earlier that loads the sub page
+[09:34:29] <ChrisCwmbran> The page it loads contains "<td class="chosen">RU66BTL</td>"
+[09:34:33] <Cork> ChrisCwmbran: you can't have multiple ids with the same id
+[09:34:41] <Cork> opps i meant multiple elements with the same id
+[09:35:07] <Cork> so $('sec0020-2').find('#page-count') is pointless and could just be $('#page-count')
+[09:35:17] <Cork> and will match the first element with that id
+[09:35:29] <Cork> if you want to allow it multiple times use a class
+[09:36:00] <Cork> ChrisCwmbran: but there isn't any trigger click here
+[09:36:11] <ChrisCwmbran> Understood and changed
+[09:36:12] <Cork> so you don't touch the chosen elements
+[09:36:32] <Cork> .ready runs on page loads not ajax calls
+[09:36:32] <ChrisCwmbran> The trigger click I have tried after the maxpage= line
+[09:37:19] <ChrisCwmbran> https://jsfiddle.net/m5sbuknp/1/
+[09:37:54] <Cork> and console.log($(".chosen").length) after maxpage gives you?
+[09:39:19] <ChrisCwmbran> Ive never used console.log before but adding it and displaying the page looks like it puts 1
+[09:39:39] <Cork> ok
+[09:39:44] <Cork> how are you binding the click handler?
+[09:41:32] <ChrisCwmbran> https://jsfiddle.net/m5sbuknp/2/
+[09:41:43] <ChrisCwmbran> Ive added the thing I think you mean there
+[09:42:21] <Cork> could you add the tr you have with the chosen class?
+[09:42:26] <Cork> (in the html section)
+[09:43:56] <ChrisCwmbran> https://jsfiddle.net/m5sbuknp/4/
+[09:47:26] <Cork> ah, yup
+[09:47:42] <Cork> ChrisCwmbran: this should work https://jsfiddle.net/m5sbuknp/5/
+[09:48:05] <Cork> alternatively you can set the class on tr instead of td
+[09:50:07] <ChrisCwmbran> Did you just change the one line?
+[09:52:54] <ChrisCwmbran> Doesn't seem to be working
+[09:53:00] <ChrisCwmbran> I'll try moving the class to the tr
+[09:55:16] <ChrisCwmbran> Even with the class moved to the tr it doesnt seem to work
+[09:56:55] <Cork> uh hmm...
+[09:57:45] <Cork> ChrisCwmbran: does $'#sec0020table tbody tr.chosen') or $'#sec0020table tbody tr td.chosen') match the correct element?
+[10:06:47] <ChrisCwmbran> Only the first one of the two has a length of 1 in the console
+[10:08:41] <ChrisCwmbran> Without the td has a length of 1
+[10:09:20] <ChrisCwmbran> But even when I use $("#sec0020table tbody tr.chosen").trigger("click"); nothing happens
+[10:22:47] <Cork> ChrisCwmbran: add a console.log in the event handler and make sure it fires then
+[10:22:53] * Cork afk
+[12:05:30] <robsco> if I set a function to be used for an event ('hidden.bs.modal' in this case), and that function needs some data from the function that's setting it, is it fine/safe to just use the variable, or should i store it "somewhere" for that function to go and get it when it's actually called?  (if that makes sense)
+[12:05:57] <robsco> ie, could i create a data attribute on the modal for example?
+[12:06:37] <duch_kazatel> " and that function
+[12:06:38] <duch_kazatel> needs some data from the function that's setting it,
+[12:06:43] <duch_kazatel> could you clarify this?
+[12:06:46] <duch_kazatel> maybe show us what you mean?
+[12:06:52] <robsco> ok, i'll nopaste it, 2 secs
+[12:07:02] <robertmaxrees> rad
+[12:08:43] <robsco> https://nopaste.me/view/7e62dfda
+[12:08:57] <robertmaxrees> sooo...
+[12:09:14] <robertmaxrees> Buuuut I'd caution against doing this.
+[12:09:14] <robsco> this is what i need toget my head around  :)
+[12:10:02] <robertmaxrees> so yeah, response is available in the event handler scope, so that part's legit, but this will introduce a little funk because .on() doesn't replace each time it runs.
+[12:10:15] <robertmaxrees> so you basically create a new handler each time ajaxSuccess runs.
+[12:11:09] <robsco> i could clear them before it tho yes?  modal.off('hidden.bs.modal');  just to prevent clogging up with lots of them?  I've ran into that before
+[12:11:19] <robertmaxrees> i wouldn't do that, either :)
+[12:11:20] <robsco> not ideal i see
+[12:12:03] <robertmaxrees> what data do you need from the response object there?
+[12:12:04] <robsco> i'm thinking, it would *work*, but the handler should only be set once, outside my ajaxSuccess() ?
+[12:12:53] <robertmaxrees> yep.
+[12:14:33] <robsco> okay great, so then where to store the data i'll need when the eventhandler fires?  does it matter much?  ie, throw it in a data attribute on the modal for example, keeping things associated, in my head anyway
+[12:14:51] <robertmaxrees> what data do you need?
+[12:14:57] <robertmaxrees> a little more context would be helpful :)
+[12:15:07] <robsco> it'll be whether to redirect after closing the modal, or just reload the current page
+[12:15:25] <robertmaxrees> ah.  yeah, you could stick that on a data attribute.
+[12:15:30] <robsco> cool
+[12:16:09] <robsco> this idea of what data is in the same scope, etc. what's that called?  I recall seeing an article on it that explains it, but don't really know what to google for to find it again
+[12:16:22] <robertmaxrees> closure.  and scope.
+[12:16:28] <robsco> thanks
+[12:16:32] <robertmaxrees> the basic idea is pretty simple
+[12:16:51] <robertmaxrees> anything defined in a "parent" scope i available to any "child" scopes, but not outside of it.
+[12:16:53] <robertmaxrees> make sense?
+[12:17:04] <robsco> yeah i get scope
+[12:17:33] <robsco> i think it's the mechanics of how that data is available when the function is called, since at that time, that variable isn't actually *there* anymore
+[12:17:41] <robertmaxrees> huh?
+[12:17:58] <robertmaxrees> the data IS there - it's stored in memory.
+[12:21:34] <robsco> is it copying any referenced variables into some "local" scope?  when the eventhandler is called, the containing function has finished, so how can it still access something declared in the outer function?  that's where I'm struggling
+[12:22:05] <robertmaxrees> there's an easy way to test that :)
+[12:23:08] <robertmaxrees> https://jsfiddle.net/8qq45un0/
+[12:26:48] <robsco> it's more this type of scenario i'm trying to get my head around https://nopaste.me/view/769d09eb
+[12:27:07] <robsco> the inner workings of that, and why
+[12:33:56] <robertmaxrees> Ah, yeah, closure.
+[12:34:38] <robertmaxrees> basically, bar() is referencing the variable defined in foo().  the engine knows you're going to use it later so it decides to hold onto that reference.
+[12:35:45] <robsco> i see
+[12:36:14] <robertmaxrees> but that goes back to the whole scope thing i mentioned - "child" scopes have access to their "parent" scopes.
+[12:37:26] <robsco> ok.  i get the scope, it's more the closure stuff, things being called later, and what's still around, so to speak
+[12:37:48] <robsco> but now I know what to google for  :)
+[12:37:50] <robsco> thanks
+[12:38:58] <robertmaxrees> yep.
+[13:21:02] <stanford_AI>  Looking for a developer to show this data: http://stanfordtools.top/calendar/ in this UI: http://stanfordtools.top/calendar/app/ using Vue.js and firebase (vuefire). Budget: $50 USD.
+[13:22:10] <taplar> ##freelance or one of the other rooms is more appropriate
+[13:22:13] <robertmaxrees> ^
+[13:22:14] <robertmaxrees> :)
+[13:22:16] <robertmaxrees> beat me to it.
+[14:07:11] <taplar> i've been promoted!!!
+[14:07:33] <Uhkis> congrats!
+[14:07:51] <robertmaxrees> Grats duder!
+[14:07:52] <taplar> now no longer a fill in for my pathfinder group, :D
+[14:08:03] * taplar evil laugh
+[14:16:55] <taplar> what's everyone up to this fine thursday?
+[14:17:33] <robertmaxrees> service worker precaching and shiz.
+[14:18:03] <taplar> what kind of stuff do you precache?
+[14:18:12] <robertmaxrees> everything and anything you want.
+[14:18:24] <robertmaxrees> experimenting with a heavy-handed "all assets" approach to see what happens.
+[16:58:18] <robertmaxrees> weeeeeeeeeeeeeeeeeeeee
+[16:59:20] <taplar> ya
+[17:05:23] <robertmaxrees> i just realized i'm juggling like 4 projects at once right now.
+[17:05:26] <robertmaxrees> not even mad about it.
+[17:07:04] <goodenough> are they all jquery?
+[17:08:24] <robertmaxrees> hahahaha
+[17:08:30] <robertmaxrees> none of them really involve jq
+[17:18:51] <taplar> i'm getting the feeling i need to transition to the QA role
+[17:20:10] <taplar> so many things i see where i just silently die in side with an echoing noooooooooo........
+[17:21:35] <taplar> and it sounds like my busyness has shifted to you, heh.  4 projects, man
+[17:24:10] <robertmaxrees> that's about standard tbh
+[20:33:20] <randymarsh9> hello
+[20:38:10] <randymarsh9> is there a jquery ui.min?
+[23:39:29] <DexDeadly> I got a question, I'm debating if I'm doing something wrong.  On my page I have a modal, that opens up with a form in it.  Instead of using submit buttons I been using javascript to serialize the form data and post it to a php page that then processes the data.
+[23:39:58] <DexDeadly> however, in doing this its not accepting my required tag.
+[23:40:03] <DexDeadly> Is there a way to do this

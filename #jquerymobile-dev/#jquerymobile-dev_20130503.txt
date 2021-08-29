@@ -1,0 +1,374 @@
+[00:24:40] <agcolom> johnbender: re: document everything there even if it's deprecated: I thought things deprecated in version x were removed in x+1? As the api docs start from 1.3, I thought the methods deprecated in 1.1 or 1.2 would be removed in 1.3 and so should not appear in the api doc? 
+[00:24:53] <agcolom> or maybe they didn't get removed? 
+[00:25:21] <agcolom> Gosh! Timezones are not helping here ;-) 
+[00:32:02] <uGoMobi> agcolom: api.jquery.com has a category with versions as subcategories for deprecated features
+[00:32:18] <uGoMobi> maybe we should do something similar
+[01:30:59] <_|Nix|_> uGoMobi: Hey! Can I get mergin'?
+[01:32:43] <uGoMobi> _|Nix|_: hey! still working on some CSS, but I don't think we made any changes in these files on master so... go ahead
+[01:33:15] <_|Nix|_> uGoMobi: OK. Great!
+[01:33:30] <_|Nix|_> Merginator engage!
+[01:33:51] <uGoMobi> :)
+[01:34:32] <uGoMobi> _|Nix|_: I am trying to set a jsperf test page to test https://github.com/jquery/jquery-mobile/issues/5927#issuecomment-17378370
+[01:35:57] <uGoMobi> _|Nix|_: I thought it was the other way around but I might be wrong there
+[01:37:02] <jqmobilecommit> 01[13jquery-mobile01] 15gabrielschulhof pushed 1 new commit to 06next: 02http://git.io/g9cA_A
+[01:37:02] <jqmobilecommit> 13jquery-mobile/06next 1488d124a 15Gabriel Schulhof: Merge branch 'master' into next...
+[01:39:40] <_|Nix|_> uGoMobi: The OP is right. If we used .on() like that we would catch all close events, including those from elements added after the handler has been attached.
+[01:40:26] <uGoMobi> _|Nix|_: yes, I know that it would resolve the issue
+[01:40:41] <uGoMobi> _|Nix|_: but we can also fix it by adding a refresh method
+[01:41:08] <_|Nix|_> uGoMobi: Yeah, but that's ugly. We shouldn't add a refresh() method for things that we can solve otherwise.
+[01:41:09] <uGoMobi> _|Nix|_: it was more about what is faster... an object or a delegated event handler
+[01:43:58] <_|Nix|_> uGoMobi: That's easy to test and fairly obvious. Create two DOM snippets, like this: <div id="delegated"><div class="eventSource"></div><div class="eventSource"></div></div> <div id="selector"><div class="eventSource"></div><div class="eventSource"></div></div> and then hook up a handler to a custom event, say "customevent" to $( ".eventSource" ) in the two different ways.
+[01:44:13] <_|Nix|_> uGoMobi: Then, measure how long it takes to trigger the event.
+[01:44:18] <uGoMobi> _|Nix|_: this is what I set up http://jsperf.com/delegated-vs-object
+[01:45:51] <_|Nix|_> uGoMobi: I can tweak that.
+[01:46:29] <uGoMobi> _|Nix|_: please do, like to learn from it
+[01:54:07] <_|Nix|_> uGoMobi: I have to take care of my daughter for about an hour, then I can get to it. Sorry!
+[01:54:38] <_|Nix|_> uGoMobi: It makes sense that it should be faster, but we should test.
+[01:54:39] <uGoMobi> _|Nix|_: NP
+[01:55:01] <uGoMobi> _|Nix|_: it... object or delegated?
+[02:01:14] <doesallmagic> Project jQuery Mobile Phantom 1.2-stable build #157: FAILURE in 6.7 sec: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Phantom%201.2-stable/157/
+[02:02:17] <doesallmagic> Project jQuery Mobile Phantom Master jQuery Git build #343: STILL FAILING in 52 sec: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Phantom%20Master%20jQuery%20Git/343/
+[02:12:20] <_|Nix|_> uGoMobi: OK ... looks like I may have some time after all ...
+[02:14:32] <uGoMobi> _|Nix|_: great if you have time to look at it, but there is no rush
+[02:17:32] <_|Nix|_> uGoMobi: Wait a sec ... is the point here that it takes longer to bind or that it takes longer to handle the event?
+[02:18:20] <_|Nix|_> uGoMobi: Because the selector definitely takes longer to bind, because it has to bind to each element, whereas the delegation takes very little, because it only binds one handler.
+[02:18:59] <uGoMobi> _|Nix|_: I see
+[02:18:59] <_|Nix|_> However, if it's the time it takes to process the trigger, well, it should be about the same, because you trigger an event on any one of the .eventSource divs ...
+[02:19:44] <_|Nix|_> ... and in one case, it gets handled immediately, and in the other case it bubbles up to the container div and gets handled because the target matches the associated selector.
+[02:19:44] <uGoMobi> _|Nix|_: then he is right about using delegation
+[02:20:30] <_|Nix|_> uGoMobi: The problem is it's hard to measure how long it takes to attach a handler because you must also measure how long it takes to detach.
+[02:20:38] <_|Nix|_> So you can only measure attach + detach.
+[02:20:53] <uGoMobi> ah ok
+[02:20:54] <_|Nix|_> Another problem with not having per-sample setup/teardown.
+[02:21:24] <_|Nix|_> May still be a good test ... *shrug* ...
+[02:23:03] <uGoMobi> _|Nix|_: if you look at the suggested changes https://github.com/tschettler/jquery-mobile/commit/ca4e5e8a152fb0cbec6fc34bd55a53125b12ada1
+[02:23:49] <uGoMobi> _|Nix|_: I thought that in current situation we use the :jqmData selector once and bind an event to those links that have the selector
+[02:24:13] <_|Nix|_> uGoMobi: Yeah, but that's static.
+[02:24:21] <uGoMobi> _|Nix|_: while the code that he suggest has to use the :jqmData selector each time a link is clicked
+[02:24:45] <_|Nix|_> uGoMobi: We should be binding to the container of the close-links and receive the event only if it bubbles up from a target that matches the selector - which is what .on does.
+[02:25:01] <uGoMobi> right
+[02:25:03] <_|Nix|_> uGoMobi: That's right.
+[02:25:24] <_|Nix|_> uGoMobi: OK. You're right.
+[02:25:52] <_|Nix|_> uGoMobi: So, it makes sense to test both: The time it takes to attach (affecting startup performance), and the time it takes to process an event (runtime performance).
+[02:26:17] <_|Nix|_> uGoMobi: Unfortunately, for startup performance we can only test attach+detach :(
+[02:26:41] <_|Nix|_> uGoMobi: I will test runtime performance by issuing an event on a random eventSource div.
+[02:26:53] <uGoMobi> _|Nix|_: great
+[02:26:57] <_|Nix|_> uGoMobi: OK, I'll test runtime performance first.
+[02:27:14] <uGoMobi> _|Nix|_: this is a bit too complicated for MyFirstJsPerf ;)
+[02:34:12] <_|Nix|_> :)
+[02:34:28] <_|Nix|_> uGoMobi: It's a bit of a learning curve, but totally worth it in the end.
+[02:34:47] <uGoMobi> _|Nix|_: yes for sure
+[02:34:49] <_|Nix|_> uGoMobi: You just gotta remember, that it basically compares two pieces of JS.
+[02:35:14] <uGoMobi> _|Nix|_: I played around with it before
+[02:37:44] <uGoMobi> _|Nix|_: the basics aren't difficult, but have to be sure that the test reflects what you actually want to test
+[02:44:03] <_|Nix|_> uGoMobi: I know what you mean. That's why I always create a test file locally first, and, of course, it's best when at least two people look at the final test.
+[02:54:05] <_|Nix|_> uGoMobi: Processing events via delegate is slower than processing them via the selector.
+[02:54:18] <_|Nix|_> uGoMobi: So, yeah, for perf, selector+refresh may be the way to go.
+[02:54:35] <_|Nix|_> uGoMobi: http://jsperf.com/delegated-vs-object/3
+[02:54:36] <uGoMobi> _|Nix|_: ok, thanks a lot for testing
+[02:56:08] <uGoMobi> _|Nix|_: don't you think the difference would be even bigger when using a :jqmData selector?
+[02:56:20] <_|Nix|_> uGoMobi: That's true.
+[02:56:21] <uGoMobi> _|Nix|_: I thought that one was a but slow
+[02:56:35] <uGoMobi> s/but/bit/
+[02:56:57] <_|Nix|_> uGoMobi: I guess for responsiveness it's better to use the selector.
+[02:57:14] <_|Nix|_> ... + refresh, of course.
+[02:57:19] <uGoMobi> _|Nix|_: yes
+[02:57:33] <_|Nix|_> OK, that settles it then.
+[02:57:49] <_|Nix|_> OTOH, setting up the selector may take longer during startup :/
+[02:58:09] <uGoMobi> yeah that's true
+[02:58:21] <_|Nix|_> ... especially with a loooooong list.
+[02:58:53] <_|Nix|_> uGoMobi: So, in the case of a panel, if it has a ton of close links, it may take a long time to set up.
+[02:59:04] <_|Nix|_> uGoMobi: However, that is not often the case.
+[02:59:31] <_|Nix|_> uGoMobi: ... and listview links are handled through the central click handler, which is exactly one binding, so that's fine.
+[02:59:33] <uGoMobi> _|Nix|_: yeah, I don't think so either... I think responsiveness is most important here
+[03:00:04] <_|Nix|_> uGoMobi: The bottom line is that, whenever you're about to $( selector ).bind( ... ), you must remember that $( selector ) can result in a looooooong list.
+[03:00:19] <_|Nix|_> uGoMobi: We can put that in the bug.
+[03:09:59] <uGoMobi> _|Nix|_: I made a new revision to test with :jqmData... how come I only get to see results of my own browser http://jsperf.com/delegated-vs-object/4
+[03:10:33] <uGoMobi> _|Nix|_: when I click the filter tags nothing happens or I get an error "no data available"
+[03:13:58] <uGoMobi> _|Nix|_: do I have to run the test on different browsers myself?
+[03:16:16] <_|Nix|_> uGoMobi: I believe so. It doesn't run them for you. It only saves the definition.
+[03:16:49] <uGoMobi> _|Nix|_: ah ok, I thought browserscope was something like browserstack
+[03:16:50] <_|Nix|_> uGoMobi: YOu shouldn't load all of jQM.
+[03:17:09] <_|Nix|_> uGoMobi: You should grunt --modules jquery.mobile.core and then load dist/jquery.mobile.js
+[03:17:46] <uGoMobi> _|Nix|_: oops... I was lazy ;)
+[03:17:49] <_|Nix|_> ... which means you need to upload dist/jquery.mobile.js to ugomobi.github.io/something/jqmData-test.js or whatever and then reference that from jsperf's test.
+[03:18:02] <_|Nix|_> uGoMobi: The problem is if you use the full lib it tries to enhance the jsperf.com page.
+[03:18:15] <_|Nix|_> uGoMobi: You could turn off autoInitializePage from mobilinit.
+[03:18:28] <_|Nix|_> uGoMobi: ... but I think it's safer to use the custom build.
+[03:18:33] <uGoMobi> gotcha
+[03:19:22] <_|Nix|_> uGoMobi: Wow! On FF it's almost twice as fast!
+[03:19:39] <_|Nix|_> uGoMobi: I wonder if it parses the selector every time an event fires.
+[03:19:55] <_|Nix|_> uGoMobi: It would be better if it compiled the selector and then used the compiled version.
+[03:21:37] <napster> jqmobile noob here. I have a radio button group and a submit button below that. based on the selection of the radio groups I need to navigate to another page (in my single page template model). The navigated page should be based on the selection of the radio buttons. How can I do this?
+[03:22:10] <uGoMobi> napster: #jquery is the channel for support, also for jQuery Mobile
+[03:22:23] <uGoMobi> _|Nix|_: shouldn't we use .find() in the test?
+[03:22:24] <napster> oh, sorry. Thanks uGoMobi 
+[03:22:28] <uGoMobi> np
+[03:32:39] <_|Nix|_> uGoMobi: Use find() for what?
+[03:33:01] <uGoMobi> _|Nix|_:  $( "#selector" ).find(":jqmData(rel='close')").bind( "customevent", doSomething );
+[03:33:26] <uGoMobi> _|Nix|_: because this is what we use in panel.js: _closeLink: $el.find( ":jqmData(rel='close')" ),
+[03:34:02] <_|Nix|_> uGoMobi: In that test, the attaching happens only once during test setup.
+[03:34:13] <_|Nix|_> uGoMobi: That test measures the processing time, not the attaching time.
+[03:34:39] <uGoMobi> _|Nix|_: ok gotcha
+[03:44:40] <_|Nix|_> uGoMobi: This is a classic tradeoff between fast startup and responsiveness.
+[03:44:58] <uGoMobi> _|Nix|_: yeah
+[03:46:21] <uGoMobi> _|Nix|_: but like we said... not very likely that there are many close buttons in one panel
+[03:50:40] <pfFredd> I've made a page that the user of a web app gets redirected to if he doesn't allow geolocation that explains how the app will use it etc. Are there any ways of making a link the user can click to get a new "share location prompt" in case he decides to allow it?
+[03:59:20] <_|Nix|_> pfFredd: ... window.history.back()?
+[04:00:13] <_|Nix|_> pfFredd: ... a discussion for #jquery btw. not #jquerymobile-dev ...
+[04:01:24] <pfFredd> _|Nix|_, I'll try that. Well, I'm using jquery mobile making the web app so I figured this would be the place
+[04:02:21] <_|Nix|_> pfFredd: Nono. This is where we talk about modifying jQuery Mobile not about using jQuery Mobile. But yeah, if it's all AJAX, then going back() is probably the simplest. Maybe set a global variable that will avoid the redirect once you've gone back() ...
+[04:03:41] <pfFredd> _|Nix|_, ah I see. sorry about that ;) thanks for your help though! appreciate it
+[04:03:55] <_|Nix|_> pfFredd: NP!
+[05:31:40] <jqmobilecommit> 01[13jquery-mobile01] 15uGoMobi pushed 1 new commit to 06master: 02http://git.io/7bwlLQ
+[05:31:40] <jqmobilecommit> 13jquery-mobile/06master 1485b11b5 15Jasper de Groot: Panel: Make sure active button class is removed when link to panel is a listview button. Fixes #5961.
+[05:32:46] <jqmobilecommit> 01[13jquery-mobile01] 15uGoMobi pushed 1 new commit to 061.3-stable: 02http://git.io/zFP-4Q
+[05:32:46] <jqmobilecommit> 13jquery-mobile/061.3-stable 144777ef8 15Jasper de Groot: Panel: Make sure active button class is removed when link to panel is a listview button. Fixes #5961.
+[05:33:26] <travis-ci> [travis-ci] jquery/jquery-mobile#345 (master - 85b11b5 : Jasper de Groot): The build was broken.
+[05:33:26] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/569ea47d454e...85b11b5fe797
+[05:33:26] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/6850793
+[05:35:37] <uGoMobi> oops... lint issue
+[05:36:04] <arschmitz> morning uGoMobi: _|Nix|_:
+[05:36:52] <uGoMobi> morning arschmitz 
+[05:37:23] <arschmitz> so view has had a total of 35 minutes of down time since i set the monitor up
+[05:37:31] <arschmitz> in 5 minute increments
+[05:39:33] <arschmitz> uGoMobi: but it confirmed what i thought the problem is and i have a pr to fix it just need to talk to gnarf first
+[05:40:04] <uGoMobi> arschmitz: ok, great that you found the cause
+[05:42:48] <uGoMobi> arschmitz: do you know how I can run grunt jshint for a specific file?
+[05:43:01] <arschmitz> do you use sublime?
+[05:43:03] <uGoMobi> arschmitz: grunt jshint filename didn't work
+[05:43:18] <uGoMobi> yes
+[05:43:26] <arschmitz> there is a jshint plugin
+[05:43:29] <arschmitz> thats what i use
+[05:43:34] <arschmitz> checks everytime you save
+[05:43:35] <uGoMobi> ah cool
+[05:43:46] <arschmitz> also can then do ctrl+j 
+[05:44:32] <uGoMobi> arschmitz: jshint or jslint?
+[05:44:42] <arschmitz> there are both
+[05:44:44] <uGoMobi> I am looking for the package
+[05:45:12] <arschmitz> hold on let me see what its called
+[05:47:24] <arschmitz> hmm im not sure how to see what packages i have installed lol
+[05:47:36] <uGoMobi> might be better to use the same Travis uses though
+[05:47:51] <arschmitz> but i have a jshint one installed lol
+[05:47:52] <uGoMobi> ah ok, no
+[05:47:59] <uGoMobi> s/no/np
+[05:48:10] <uGoMobi> thanks for looking
+[05:48:10] <arschmitz> the commands are there for it lol 
+[05:48:26] <uGoMobi> lol
+[05:48:58] <arschmitz> oh its called JSHint lol
+[05:48:58] <uGoMobi> arschmitz: this is the error https://travis-ci.org/jquery/jquery-mobile/jobs/6850798
+[05:49:27] <uGoMobi> arschmitz: so I just declared var $parent together with $link
+[05:49:38] <uGoMobi> but we have the same code in popup.js
+[05:49:59] <uGoMobi> and when I run grunt jshint it starts with issues in navigation.js :/
+[05:51:35] <arschmitz> uGoMobi: did you try just jshint file.js?
+[05:51:42] <arschmitz> you wouldnt use grunt
+[05:51:50] <uGoMobi> arschmitz: yes
+[05:51:57] <uGoMobi> oh ok
+[05:52:02] <uGoMobi> no didn't try that
+[05:52:28] <arschmitz> yeah grunt is just for automating tasks so internally it basicly runs that command
+[05:52:40] <travis-ci> [travis-ci] jquery/jquery-mobile#346 (1.3-stable - 4777ef8 : Jasper de Groot): The build is still failing.
+[05:52:40] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/b6cfd588b842...4777ef8d6ae9
+[05:52:40] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/6850822
+[05:52:46] <arschmitz> on the files list specified in the gruntfile.js
+[05:53:08] <arschmitz> you just want to use jshint directly
+[05:55:59] <uGoMobi> arschmitz: ok that works, thanks!
+[05:56:08] <arschmitz> awesome no problem
+[05:59:01] <jqmobilecommit> 01[13jquery-mobile01] 15uGoMobi pushed 1 new commit to 06master: 02http://git.io/oqB2pQ
+[05:59:01] <jqmobilecommit> 13jquery-mobile/06master 14f35a71e 15Jasper de Groot: Panel: fixed jshint error
+[05:59:09] <arschmitz> uGoMobi: also if your intrested in the sublime one that is the same jshint its just an interface to have sublime run it 
+[06:00:04] <uGoMobi> arschmitz: sounds good, will search for the package
+[06:00:08] <arschmitz> just makes it easy because the jshint output pops up at bottom and you can click the errors and jump to the line
+[06:00:25] <uGoMobi> cool
+[06:01:07] <arschmitz> uGoMobi: all i did to find it is i have the sublime package manager installed then i searched via that for it
+[06:03:02] <uGoMobi> yeah, probably the easiest way indeed
+[06:07:20] <arschmitz> yeah lots of cool packages you can get for sublime!
+[06:08:20] <uGoMobi> I think I only installed SASS package
+[06:08:39] <uGoMobi> I must be missing all the coolness
+[06:08:44] <arschmitz> ha ha
+[06:10:40] <arschmitz> scott was always talking about them in campfire 
+[06:15:16] <jqmobilecommit> 01[13jquery-mobile01] 15uGoMobi pushed 1 new commit to 061.3-stable: 02http://git.io/Z6aDWA
+[06:15:16] <jqmobilecommit> 13jquery-mobile/061.3-stable 14142f15f 15Jasper de Groot: Panel: fixed jshint error
+[06:15:30] <travis-ci> [travis-ci] jquery/jquery-mobile#347 (master - f35a71e : Jasper de Groot): The build is still failing.
+[06:15:30] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/85b11b5fe797...f35a71e49f24
+[06:15:30] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/6851520
+[06:35:18] <travis-ci> [travis-ci] jquery/jquery-mobile#348 (1.3-stable - 142f15f : Jasper de Groot): The build is still failing.
+[06:35:18] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/4777ef8d6ae9...142f15f1d990
+[06:35:18] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/6851925
+[06:55:57] <gseguin> Good morning
+[06:58:57] <arschmitz> morning gseguin
+[07:37:54] <toddmparker> morning
+[07:38:55] <toddmparker> hi gseguin, arschmitz, uGoMobi 
+[07:39:06] <gseguin> hey toddmparker
+[07:39:10] <uGoMobi> morning toddmparker 
+[07:39:21] <uGoMobi> and gseguin 
+[07:56:36] <toddmparker> how goes?
+[07:58:26] <arschmitz> toddmparker: verified and reproduced view issue and have fix written just waiting to talk to gnarf and do a PR
+[07:59:31] <johnbender> agcolom: they should be removed, but that doesn't mean they will be or were
+[08:26:59] <gnarf> arschmitz: whats up?
+[08:27:28] <gnarf> why not do the PR >and< talk to me about it at the same time? :)
+[08:27:42] <gnarf> (stepping away for a bit, be back in about an hour)
+[08:29:48] <arschmitz> gnarf: will do see you in an hour
+[08:38:39] <arschmitz> johnbender: you still around?
+[09:05:57] <toddmparker> arschmitz: NICE
+[09:06:23] <arschmitz> yup PR is Submitted going to go over it with gnarf: when he gets back
+[09:06:30] <toddmparker> cool
+[09:06:59] <arschmitz> toddmparker: there is no reason we should ever delete a tag is there?
+[09:13:16] <toddmparker> I don't think so
+[09:16:40] <arschmitz> didnt think so
+[09:28:41] <arschmitz> scott_gonzalez: ping!
+[09:30:55] <gnarf> arschmitz: i'd rather see if we can figure out when the repo fetch ends up "corrupted" and not do other work
+[09:30:57] <gnarf> just by default
+[09:31:08] <agcolom> johnbender: ok
+[09:31:27] <arschmitz> gnarf: ok any ideas on that because the first bunch of tags are just missing
+[09:31:47] <arschmitz> and the one with the error is in the middle so by the time it gets there the others are already deleted
+[09:31:56] <johnbender> agcolom: you can always check the jquery mobile source for the method by using grep in the directory
+[09:32:03] <johnbender> agcolom: or some other code search facility
+[09:32:07] <gnarf> arschmitz: not really, perhaps an exit code from fetch?
+[09:32:11] <agcolom> sure. 
+[09:32:18] <arschmitz> gnarf: the fetch works fine
+[09:32:23] <agcolom> more | grep is my friend ;-)
+[09:32:35] <arschmitz> gnarf: its not untill we start parseing it with update 
+[09:33:00] <arschmitz> gnarf: works fine as much as there there is no error
+[09:33:19] <gnarf> but for some reason the fetch from github is missing tags?
+[09:33:24] <gnarf> this seems strange...
+[09:33:40] <arschmitz> yes and has an error on one tag
+[09:33:48] <arschmitz> its always the same ones missing
+[09:33:55] <arschmitz> and always the same one with the error
+[09:34:25] <gnarf> hrm
+[09:34:39] <scott_gonzalez> arschmitz: Are you able to reproduce this on its own?
+[09:34:51] <scott_gonzalez> If you just do the fetch manually on the command line, do you occassionally get the same results?
+[09:35:33] <arschmitz> gnarf: 1.3.1, 1.3.0, 1.3.0-rc.1, 1.3.0-beta.1 always missing and 1.2.1 error
+[09:35:57] <arschmitz> scott_gonzalez: iv run it a few hundred times with out an error locally 
+[09:36:13] <arschmitz> so i can reproduce on another machine 
+[09:36:18] <arschmitz> can't*
+[09:36:22] <gnarf> i still wonder if the process isn't being killed mid download or something
+[09:36:37] <gnarf> though if it is ALWAYS the same tags missing
+[09:36:40] <gnarf> this makes less sense
+[09:36:45] <arschmitz> gnarf: i have exact times when its happening
+[09:36:59] <arschmitz> i set up a monitor thats checks everyminute if view is working
+[09:38:14] <arschmitz> i agree this isnt ideal fix and is weird but we are getting a TON of people complaining about it being down 
+[09:42:09] <arschmitz> gnarf: scott_gonzalez: gnarf: scott_gonzalez: its down right now
+[09:43:46] <gnarf> arschmitz: i'd rather just comment out the clean part for tags across the board in the meantime
+[09:43:55] <gnarf> rather than add an option
+[09:43:58] <scott_gonzalez> Agreed
+[09:44:00] <arschmitz> works for me
+[09:44:12] <gnarf> we should still be testing this situation somehow
+[09:44:24] <gnarf> perhaps log out that it SHOULD be cleaned, but it wasn't there
+[09:44:33] <gnarf> also make sure that the old dirty tags still export in the data.json
+[09:44:36] <gnarf> or the menu will break
+[09:44:39] <scott_gonzalez> File an issue so we don't forget.
+[09:45:48] <arschmitz> gnarf: scott_gonzalez: i just checked the FETCH_HEAD while it was down
+[09:45:54] <arschmitz> and there is nothing missing
+[09:46:03] <gnarf> perhaps e-mail ourselves a diff of git for-each-ref every 5 minutes
+[09:46:31] <gnarf> or even FETCH_HEAD
+[09:47:23] <gnarf> arschmitz: update that pull to just not delete/make sure it stays in data.json and I'll land it
+[09:47:30] <gnarf> and then you can git pull the update on the server
+[09:47:35] <arschmitz> gnarf: sounds good
+[09:47:51] <arschmitz> gnarf: the problem isnt in the FETCH_HEAD though i was wrong
+[09:48:02] <arschmitz> i just checked while it was down
+[09:48:13] <gnarf> it might of been fetched before 
+[09:48:18] <gnarf> you got to check it
+[09:48:21] <gnarf> its on a 5 minute cron
+[09:48:31] <arschmitz> and the tags are all there and the sha where there error is correct
+[09:48:40] <arschmitz> gnarf no i have it alert me the second it goes down
+[09:48:42] <arschmitz> to make sure
+[09:48:48] <arschmitz> thats how i got that error output
+[09:48:51] <gnarf> scott_gonzalez: what does repo().tags() ?
+[09:48:55] <arschmitz> i did it before the new fetch
+[09:49:03] <gnarf> is that a git for-each-ref ?
+[09:49:46] <scott_gonzalez> yeah
+[09:50:05] <scott_gonzalez> for-each-ref over refs/tags
+[09:50:35] <arschmitz> scott_gonzalez: it looks like that problem is in the FETCH_HEAD not being parsed properly occasionally for some crazy reason
+[09:52:23] <arschmitz> scott_gonzalez: gnarf: any idea how that would happen? because im not sure.
+[09:52:38] <arschmitz> and its ALWAYS the same tags that have issues
+[09:53:15] <scott_gonzalez> I would assume the missing tags are related to the error.
+[09:53:26] <scott_gonzalez> I don't have time to look into this right now though, I'm in the middle of a release.
+[09:53:39] <arschmitz> scott_gonzalez: no problem thing is the sha of the error is correct
+[09:53:48] <arschmitz> not undefined as the error says
+[09:53:59] <arschmitz> but anyway ill let you get back to the relase
+[09:56:55] <scott_gonzalez> arschmitz: When the release is done, I'll definitely look into this.
+[09:57:07] <scott_gonzalez> I know how frustrating it is to have the view server die.
+[12:10:45] <arschmitz> _|Nix|_: you around?
+[13:08:30] <_|Nix|_> arschmitz: What's up?
+[13:08:42] <arschmitz> you use irssi right?
+[13:08:46] <_|Nix|_> arschmitz: Right.
+[13:09:07] <arschmitz> have you ever had issues with it consuming MASSIVE amounts of resources?
+[13:09:23] <_|Nix|_> arschmitz: O_o nope ...
+[13:09:33] <_|Nix|_> arschmitz: I run it on a Nokia N810 :)
+[13:09:54] <arschmitz> twice today i have had to force quit it because it was using over 4gb of memory
+[13:10:05] <arschmitz> 4GB!!!
+[13:10:25] <_|Nix|_> O_o
+[13:10:29] <_|Nix|_> Something's amiss ...
+[13:10:34] <arschmitz> for sure lol
+[13:10:43] <_|Nix|_> What OS/distro/whatever?
+[13:10:58] <arschmitz> i was watching its memory usage go up by .1GB every 30seconds
+[13:11:16] <arschmitz> osX 
+[13:11:33] <arschmitz> irssi 0.8.15
+[13:11:43] <_|Nix|_> Lessee what I got ...
+[13:12:01] <arschmitz> i found other people online complaining about same thing but all the filed issues were closed as not a bug with no real explination
+[13:12:59] <_|Nix|_> arschmitz: O_o well I got the same version running on Debian squeeze/ARM
+[13:13:11] <_|Nix|_> arschmitz: ... and it runs for months.
+[13:13:24] <arschmitz> weird yeah iv had it for several months with out issue 
+[13:13:27] <arschmitz> until today
+[13:13:36] <_|Nix|_> That /is/ weird.
+[13:13:44] <arschmitz> ohhhh i bet i know what it is
+[13:13:55] <_|Nix|_> arschmitz: Do tell ... you've piqued my curiousity.
+[13:14:05] <arschmitz> couple days ago i set up growl to give notification from irssi
+[13:14:16] <arschmitz> i bet the growl script i got is poorly written
+[13:14:22] <arschmitz> and has a memory leak
+[13:14:34] <_|Nix|_> Could well be.
+[13:14:42] <arschmitz> timing is perfect
+[13:14:56] <arschmitz> i just did it like 2 days ago
+[13:15:51] <arschmitz> i should have known when i had to fix an error in the script before it would even work
+[13:17:26] <_|Nix|_> arschmitz: Kill it! Kill it with fire!
+[13:17:33] <arschmitz> lol
+[13:17:53] <_|Nix|_> arschmitz: \007 ought to be enough for everybody.
+[13:18:08] <arschmitz> so yeah avoide https://github.com/kfdm/irssi-growl
+[13:18:11] <arschmitz> lol
+[14:29:30] <_|Nix|_> uGoMobi: Still up?
+[14:29:38] <uGoMobi> _|Nix|_: yes
+[14:29:43] <jqmobilecommit> 01[13jquery-mobile01] 15uGoMobi pushed 14 new commits to 06next: 02http://git.io/zfpufA
+[14:29:43] <jqmobilecommit> 13jquery-mobile/06next 14c1a7520 15Jasper de Groot: Moved CSS for .ui-btn from button.css to core.css; Only use button.css for button and input elements (button widget).
+[14:29:43] <jqmobilecommit> 13jquery-mobile/06next 144d41a47 15Jasper de Groot: Merge branch 'master' into next
+[14:29:43] <jqmobilecommit> 13jquery-mobile/06next 143167f21 15Jasper de Groot: Panel: Removed fix for #5961. No longer needed now the anchor instead of the list item get the button classes.
+[14:29:49] <_|Nix|_> uGoMobi: Re: https://github.com/jquery/jquery-mobile/issues/5802
+[14:30:00] <_|Nix|_> uGoMobi: Is there a signal when the native popup menu closes?
+[14:30:37] <uGoMobi> _|Nix|_: I think focusout
+[14:30:38] <_|Nix|_> uGoMobi: It seems that setting the text is causing the menu to close on IE10 ...
+[14:30:53] <_|Nix|_> uGoMobi: OK. I can try that.
+[14:31:11] <uGoMobi> _|Nix|_: there were some issues with that on Chrome
+[14:31:31] <uGoMobi> _|Nix|_: and I also noticed that all focusin and focusout events fire twice
+[14:32:38] <uGoMobi> that is a jQM issue because it doesn't happen if you just use jQuery core
+[14:33:18] <_|Nix|_> Seriously? Twice?
+[14:33:23] <_|Nix|_> Weird ...
+[14:33:26] <uGoMobi> yup
+[14:33:45] <_|Nix|_> Well, focusout doesn't seem to fire when I close the native popup.
+[14:34:57] <uGoMobi> _|Nix|_: related https://github.com/jquery/jquery-mobile/issues/5514
+[14:35:08] <uGoMobi> looks like we have to re-open
+[14:36:42] <_|Nix|_> uGoMobi: From http://stackoverflow.com/questions/6207929/is-there-a-dom-event-that-fires-when-an-html-select-element-is-closed it sounds like there's no real good event.
+[14:37:47] <uGoMobi> hmm
+[14:38:46] <uGoMobi> I was hoping core provided one wih focusout
+[14:39:46] <uGoMobi> oh that's actually a JS event
+[14:40:02] <_|Nix|_> uGoMobi: Yeah, but focus is not lost. It's still on the native select.
+[14:40:06] <uGoMobi> what's the difference between focusout and blur
+[14:40:22] <_|Nix|_> Not sure, actually.
+[14:40:27] <uGoMobi> _|Nix|_: yeah, that's indeed the problem
+[14:40:58] <_|Nix|_> uGoMobi: Well, if setting the text on some element is causing the native select to close, that's a bug in the browser.
+[14:41:15] <_|Nix|_> uGoMobi: The native select should only close if it loses focus, which it doesn't.
+[14:42:45] <uGoMobi> _|Nix|_: not sure... what happens if you use enter to select an option?
+[14:43:04] <uGoMobi> _|Nix|_: doesn't the select close but keep focus
+[14:44:52] <uGoMobi> difference blur and focusout: http://stackoverflow.com/questions/8973532/blur-vs-focusout-any-real-differences
+[14:44:53] <_|Nix|_> uGoMobi: I'm actually trying combinations of refresh() followed by click() to re-open it.
+[14:45:33] <_|Nix|_> uGoMobi: However, that's bad, because if you tab to it it will auto-open.
+[14:45:56] <_|Nix|_> ... still, can't even get it to open that way.
+[14:49:49] <_|Nix|_> uGoMobi: I think I'm'na hit the hay - here's what I have so far: http://jsbin.com/alujek/10/edit
+[14:50:36] <uGoMobi> _|Nix|_: good night and have a great weekend
+[14:50:56] <uGoMobi> we can look into the selects next week
+[15:05:08] <_|Nix|_> uGoMobi: K L8R
+[18:03:54] <jqmobilecommit> 01[13jquery-mobile01] 15gseguin pushed 1 new commit to 06master: 02http://git.io/znHB4A
+[18:03:54] <jqmobilecommit> 13jquery-mobile/06master 14970ae0f 15Ghislain Seguin: Published grunt-md5-manifest to NPM...
+[18:19:06] <travis-ci> [travis-ci] jquery/jquery-mobile#350 (master - 970ae0f : Ghislain Seguin): The build was fixed.
+[18:19:06] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/f35a71e49f24...970ae0f80c0c
+[18:19:06] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/6871137
+[20:17:08] <gseguin> scott_gonzalez: inspired by the MD5 manifest generation from jquery-ui, I published grunt-md5-manifest which we use to generate the Google CDN zip.
+[23:46:27] <_|Nix|_> gseguin: Shouldn't you be using sha256? md5 is sooooo '00s.

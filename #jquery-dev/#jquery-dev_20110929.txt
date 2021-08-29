@@ -1,0 +1,326 @@
+[02:57:12] <jaubourg> man, I missed all the fun and the 1.7b1 release
+[05:35:46] <gnarf> jaubourg: yup
+[05:36:47] <jaubourg> hey gnarf
+[05:37:07] <jaubourg> I'm so behind on my prez it's not even funny
+[05:38:09] <gnarf> jaubourg: i still have about um - 1/3 of it to make
+[05:38:23] <jaubourg> lucky you
+[05:39:05] <gnarf> jaubourg: yeah, you are behind... :)
+[05:39:15] <jaubourg> :P
+[05:39:17] <gnarf> jaubourg: you're gonna be working on your slides at like the speaker dinner :)
+[05:39:39] <jaubourg> lol, maybe... or maybe I just won't sleep on friday night :P
+[05:40:01] <jaubourg> you're at the IMAX projection?
+[05:40:39] <gnarf> well, not presently, presently i'm on tbranyen's couch - but i do plan on being at the IMAX
+[05:48:52] <jaubourg> k, just trying to figure out if I'll find someone at the hotel that'll get to the IMAX
+[05:49:07] <jaubourg> oh well, time will tell I guess
+[05:54:18] <rwaldron> good morning
+[05:56:30] <gnarf> morning
+[06:04:46] <rwaldron> oh shit...
+[06:04:53] <rwaldron> mike just zinged the shit out of us
+[06:05:10] <rwaldron> "jQuery 1.7: Now With 20% larger stack sizes!"
+[06:05:17] <rwaldron> DaveMethvin ^
+[06:05:56] <DaveMethvin> so is there a test case?
+[06:06:51] <rwaldron> http://bugs.jquery.com/ticket/10375
+[06:07:23] <DaveMethvin> that's an infinite recursion, i was looking at that one last night
+[06:07:38] <DaveMethvin> don't think it's 20% larger, it's infinitely larger afaict :)
+[06:07:44] <rwaldron> for some context, we were just joking around
+[06:07:49] <DaveMethvin> but i am not sure why it is happening yet
+[06:08:08] <rwaldron> say that line in a 1960's tv commercial voice
+[06:08:22] <rwaldron> or this... but like it's a Lexus commercial
+[06:08:43] <rwaldron> "The all new jQuery 1.7... redefined for maximum call stack sizes"
+[06:08:51] <rwaldron> it's funny dammit
+[06:09:01] <DaveMethvin> ok, then "ha"
+[06:09:03] <DaveMethvin> :P
+[06:09:13] <rwaldron> so, how about some good news?
+[06:09:21] <DaveMethvin> oh, you got some?
+[06:09:24] <rwaldron> yep
+[06:09:29] <DaveMethvin> lay it on me
+[06:09:48] <rwaldron> jQuery 1.7 is doing awesome as we test it in all of our bocoup client apps
+[06:10:00] <DaveMethvin> now THAT is good news
+[06:10:09] <rwaldron> we just got started
+[06:10:17] <rwaldron> so far so good :)
+[06:12:31] <rwaldron> DaveMethvin 2 reports in...
+[06:12:42] <rwaldron> All good on our New Game conference site
+[06:13:25] <rwaldron> All good on client ad serving framework project (yeah, we're building another one of these)
+[06:15:25] <rwaldron> uh oh
+[06:15:44] <rwaldron> i dropped it into a client mobile app that uses jQuery Mobile
+[06:16:06] <rwaldron> give me a min
+[06:19:28] <rwaldron> DaveMethvin this is the call stack: http://pastie.org/2611038
+[06:21:01] <DaveMethvin> rwaldron: yeah i got that far, have it sitting in the chrome debugger tryna figure out how it got that way
+[06:21:12] <DaveMethvin> mousedown
+[06:21:22] <rwaldron> yeah, was thinking same
+[06:21:28] <rwaldron> it's mouse related no doubt
+[06:21:33] <rwaldron> also, focus
+[06:21:51] <DaveMethvin> hmmm
+[06:22:01] <DaveMethvin> i didn't see the focus in the recursion
+[06:22:01] <rwaldron> which i noted when i hopped between the console window and the main window
+[06:22:06] <rwaldron> one sec
+[06:22:25] <rwaldron> ok, not focus
+[06:22:59] <rwaldron> i had misinterpreted what I was seeing initially
+[06:23:06] <DaveMethvin> i've done that a few times
+[06:23:23] <rwaldron> had assumed it was focus, but was actually the mouse entering the viewport
+[06:23:31] <DaveMethvin> oh right, i saw that too
+[06:23:35] <DaveMethvin> did a conditional breakpoint
+[06:23:48] <DaveMethvin> !/^mouse/.test(event.type)
+[06:24:44] <rwaldron> nice
+[07:02:51] <DaveMethvin> hey scott_gonzalez
+[07:04:27] <scott_gonzalez> hey
+[07:04:38] <DaveMethvin> hey got a few minutes? https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.widget.js#L372 clobber
+[07:05:02] <DaveMethvin> i think the loop to copy originalEvent properties clobbers event.type set earlier
+[07:05:11] <DaveMethvin> but i can't figure out why this JUST started happening in 1.7
+[07:05:42] <rwaldron> well... we just started extending that
+[07:05:44] <scott_gonzalez> the loop on line 382?
+[07:05:58] <DaveMethvin> yeah
+[07:06:05] <DaveMethvin> the blame view showed it was pretty old
+[07:06:13] <scott_gonzalez> did you stick type into the list of props?
+[07:06:14] <gnarf> / this would happen if we could call $.event.fix instead of $.Event
+[07:06:14] <rwaldron> DaveMethvin do you think jQuery Mobile is doing something similar
+[07:06:27] <DaveMethvin> dunno
+[07:06:33] <rwaldron> i'm going to investigate
+[07:06:34] <scott_gonzalez> jQuery Mobile uses the widget factory, so yes :-)
+[07:06:49] <rwaldron> Bingo
+[07:07:04] <DaveMethvin> so ... why did it just start happening?
+[07:07:07] <scott_gonzalez> I'll just move 374 after the loop
+[07:07:16] <scott_gonzalez> because you just added type to the list of event props to copy
+[07:07:35] <DaveMethvin> oh in jQuery.event.props
+[07:07:38] <scott_gonzalez> yeah
+[07:07:43] <scott_gonzalez> this might break random code for people
+[07:08:04] <scott_gonzalez> it's easy for me to fix in UI
+[07:08:17] <rwaldron> DaveMethvin did you add that? I was only removing props
+[07:08:31] <gnarf> yeah
+[07:08:37] <gnarf> removing type from $.event.props fixes it
+[07:08:47] <DaveMethvin> well if it's set elsewhere we can just remove it from props
+[07:08:55] <DaveMethvin> i must have added it, dunno why
+[07:08:58] <rwaldron> it set on the event object
+[07:09:05] <rwaldron> it's*
+[07:09:05] <gnarf> http://jsfiddle.net/3evgS/3/
+[07:09:07] <DaveMethvin> right it's set in jQuery.Event
+[07:09:15] <rwaldron> nice
+[07:09:19] <DaveMethvin> so we don't need to copy it again
+[07:09:19] <scott_gonzalez> https://github.com/jquery/jquery/commit/b4120a74306e1d98e212c77e5a89c1526a51fc3b
+[07:09:54] <rwaldron> DaveMethvin should we file something for this?
+[07:10:09] <rwaldron> so we have a record, in case this comes up in the future
+[07:10:22] <DaveMethvin> yeah, a ticket for sure
+[07:10:47] <DaveMethvin> although scott_gonzalez the data property would be clobberred too
+[07:10:54] <DaveMethvin> that was in there before
+[07:11:12] <scott_gonzalez> we don't use event.data
+[07:11:30] <DaveMethvin> ok on 550 i read event.data but you're right
+[07:11:49] <gnarf> http://bugs.jquery.com/ticket/10375#comment:3
+[07:12:13] <gnarf> so, b2 by saturday DaveMethvin? :)
+[07:12:36] <DaveMethvin> i want to fix more than one bug before beta 2! :P
+[07:12:45] <rwaldron> DaveMethvin docs#10379
+[07:12:46] <bot-t> [#10379] Do not include `type` in jQuery.event.props (assigned bug) - http://jqbug.com/10379
+[07:12:54] <DaveMethvin> we got timmywil's text improvements too
+[07:13:23] <rwaldron> shit, don't use that ticket number
+[07:13:23] <timmywil> hi
+[07:13:26] <rwaldron> DaveMethvin ^^^
+[07:13:38] <rwaldron> I should've just updated 10375
+[07:13:41] <rwaldron> doing that...
+[07:13:47] <DaveMethvin> gnarf did
+[07:13:50] <DaveMethvin> rwaldron:
+[07:14:03] <DaveMethvin> you can close 10379 dup
+[07:14:05] <rwaldron> Yeah, I'm going to update the subject and description to be more useful
+[07:14:11] <rwaldron> right
+[07:14:13] <DaveMethvin> sounds good
+[07:14:19] <rwaldron> and just delete the second
+[07:14:21] <rwaldron> not dup
+[07:14:27] <DaveMethvin> that's fine too
+[07:14:39] <DaveMethvin> ok thanks guys
+[07:14:51] <DaveMethvin> i love it when a fix is simple
+[07:15:22] <rwaldron> docs#10375
+[07:15:23] <bot-t> [#10375] Do not include `type` in jQuery.event.props (assigned bug) - http://jqbug.com/10375
+[07:15:25] <rwaldron> updated
+[07:15:30] <rwaldron> assigned to DaveMethvin
+[07:15:32] <rwaldron> :)
+[07:15:45] <rwaldron> so, can I suggest a test for this?
+[07:15:53] <DaveMethvin> definitely
+[07:16:11] <rwaldron> In the past I've been told by others that tests for the sake of tests is unnec.
+[07:16:23] <rwaldron> I think I just won a great argument
+[07:16:41] <rwaldron> I would just include a test that ensures "type" is not in jQuery.event.props
+[07:16:50] <rwaldron> simple
+[07:17:16] <rwaldron> if that had existed before, you would've failed it and known not to put it the list
+[07:17:27] <rwaldron> of course, no one would've thought
+[07:17:29] <DaveMethvin> well normall i'd say that IS unneccessary, but since there is external code that expects the behavior i think it's a very good idea :)
+[07:17:37] <rwaldron> :)
+[07:19:57] <gnarf> specially if the test includes a comment like "jQuery UI uses event.props when making its own special events, therefore we must make sure it doesn't kill type"
+[07:20:18] <rwaldron> hahahaha
+[07:20:37] <rwaldron> "Try not to break jQuery UI Widget Factory, dude"
+[07:20:57] <gnarf> thats the test name... test( "don't break widget factory dude", function() {} )
+[07:24:29] <DaveMethvin> I think #10375 says it all
+[07:26:08] <gnarf> DaveMethvin: NICE
+[07:26:29] <DaveMethvin> we should just talk to each other in ticket numbers
+[07:27:24] * gnarf goes to form the ticket that is I <3 u
+[07:29:58] <DaveMethvin> awwww
+[07:30:13] <DaveMethvin> i think tbranyen's couch is making gnarf a softie
+[07:30:40] <gnarf> i think i was a softie well before then
+[07:35:55] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/7CL1Ug
+[07:35:55] <jqcommit> [jquery/master] Fix #10375. Don't put `type` in jQuery.event.props - Dave Methvin
+[07:46:04] <ben_alman> danheberden, do you have a link to the wiki with the latest plugins repo package.json spec?
+[07:46:21] <danheberden> it's no in the wiki i don't think
+[07:46:24] <danheberden> in the repo
+[07:46:51] <danheberden> https://github.com/jquery/jquery-plugins
+[07:47:37] <ben_alman> i don't see a package.json
+[07:47:45] <ben_alman> ok, this https://github.com/jquery/jquery-plugins/blob/master/docs/json.md
+[07:47:53] <ben_alman> meh
+[07:48:01] <ben_alman> how the fuck am i supposed to talk about this mess
+[07:48:28] <ben_alman> I'll just link people to this document
+[07:48:31] <ben_alman> fuck it
+[07:48:36] <gnarf> wtf comma first in that json.md
+[07:48:50] <ben_alman> stuff was just copied from npm
+[07:50:05] <danheberden> ben_alman keep in mind it's not public
+[07:50:08] <danheberden> i don't think, anyway
+[07:50:17] <danheberden> gnarf yea :/
+[07:50:17] <ben_alman> it is
+[07:50:25] * rwaldron shoots steam from ears
+[07:50:33] <danheberden> omg he isn't kidding
+[07:50:35] <ben_alman> can you verify that it's going to stay public?
+[07:50:40] <danheberden> yes
+[07:50:41] <ben_alman> or should it be private?
+[07:50:48] <danheberden> everything public that can be
+[07:50:52] <ben_alman> ok, good
+[07:50:54] <danheberden> i'll lay on the tracks for that one
+[07:50:55] <ben_alman> i will give a link
+[08:42:23] <aaronmcadam> awesome work on 1.7 guys wooop
+[09:21:30] <s34n> anybody from DAER hanging out here?
+[09:59:20] <gnarf> so
+[09:59:29] <gnarf> ben_alman: was poking holes in my stop a queue api
+[09:59:33] <gnarf> and i happen to agree with him
+[09:59:53] <gnarf> how do people feel about a .stopQueue( type, clearQueue, gotoEnd )
+[10:00:16] <gnarf> since (almost) all the other functions that take a queue, take it as the first param
+[10:00:28] <gnarf> instead of the (current) .stop( clearQueue, gotoEnd, type )
+[10:00:38] <mxms> i'm creating a page, where a wide div has to slide off the page to the left, and another one has to slide in from the right, any advice on doing this efficiently?
+[10:00:54] <mikesherov> Hey guys, I was just reading this jQuery pull request: https://github.com/jquery/jquery/pull/524
+[10:01:07] <gnarf> mxms: support on #jquery
+[10:01:12] <mikesherov> anyone know / care to explain what jdalton's concerns are?
+[10:01:22] <mxms> oo, ok thanks.
+[10:01:47] <mikesherov> specifically, I asked: "@jdalton, just curious... what difference does it make if we're using the getComputedStyle function of the window instead of the same function on the ownerDocument?"
+[10:01:51] <gnarf> i happen to agree with him mikesherov
+[10:01:55] <gnarf> so like
+[10:01:57] <gnarf> $( elem )
+[10:02:03] <gnarf> and elem is in an iframe
+[10:02:05] <gnarf> the question is
+[10:02:20] <gnarf> does elem.ownerDocument.defaultView.getComputedStyle need to be used?
+[10:02:29] <gnarf> or does window.getComputedStyle still work
+[10:02:40] <mikesherov> no, I'm not disagreeing
+[10:02:48] <mikesherov> I'm legitimately curious!
+[10:03:23] <gnarf> i brought that up yesterday to rick
+[10:03:29] <gnarf> or actually i didn't
+[10:03:49] <gnarf> it was pillow talk with danheberden
+[10:03:54] <gnarf> that i thought about that
+[10:04:40] <ben_alman> lol
+[10:04:40] <mikesherov> so, I mean, what's the concern there? are we wondering whether an iframe has access to window? or are we wondering if the window. version is different than the elem.doc..... version?
+[10:05:49] <rwaldron> mikesherov jdalton's concern is way valid cc gnarf
+[10:06:01] <rwaldron> I just need to figure out a way to write a tst for it
+[10:06:03] <rwaldron> test*
+[10:06:07] <mikesherov> right, I'm not saying it isn't valid
+[10:06:19] <mikesherov> I'm legitimately asking what the concern is?
+[10:08:37] <mikesherov> everyone is concerned, and no one can tell me why!
+[10:08:38] <mikesherov> LOl
+[10:33:09] <rwaldron> gnarf  was wrong
+[10:33:37] <rwaldron> I was basing that off of something I  "thought" i saw
+[10:33:47] <rwaldron> anyway
+[10:38:42] <gnarf> mikesherov: because cross frame functionality is a pain in the dick
+[10:38:52] <gnarf> and getComputedStyle seems immune thusfar
+[10:39:10] <rwaldron> http://jsfiddle.net/rwaldron/4NWcY/
+[10:39:13] <rwaldron> mikesherov ^^
+[10:39:16] <rwaldron> loking good
+[10:39:18] <rwaldron> looking*
+[11:25:08] <gnarf> DaveMethvin / timmywil - either of you read my messages about queue & stop earlier? need a third/fourth opinion
+[11:25:50] <DaveMethvin> so what's wrong with .stop(queue, clearQueue, gotoEnd) gnarf?
+[11:26:00] <gnarf> queue: false
+[11:26:09] <gnarf> to stop unqueued anims
+[11:26:17] <gnarf> only
+[11:26:54] <gnarf> you run into some odd cases there wheere say you wanted .stop( false /* queue? */ )
+[11:27:20] <DaveMethvin> well the first arg woud be a q name only if it was a string
+[11:27:21] <DaveMethvin> right?
+[11:28:08] <gnarf> DaveMethvin: then how do you stop "unqueued" anims without stopping the "queued" ones
+[11:28:24] <gnarf> right now queue: false in animate === don't use the queue
+[11:28:52] <DaveMethvin> oh. nevermind.
+[11:28:52] <gnarf> bbiab, gonna walk over to filament group and say hi, bringing the laptop tho, will check in when i get back
+[11:29:04] <DaveMethvin> say hi to the guys
+[11:36:22] <tbranyen> same
+[12:06:24] <gnarf> DaveMethvin: when you getting into BOS?
+[12:06:47] <DaveMethvin> tomorrow around 9am
+[12:07:13] <DaveMethvin> don't use up all the fun before i get there!
+[12:09:21] <tbranyen> too late
+[12:09:41] <gnarf> DaveMethvin: :)
+[12:10:12] <DaveMethvin> ok well at least save me a beer :)
+[12:19:53] <gnarf> DaveMethvin: i wont be consuming beers
+[12:19:58] <gnarf> DaveMethvin: so you don't need to worry
+[14:21:22] <socialhapy> ★ Tweet from jquerymobile: jQuery Mobile 1.0 RC1 Released! Our first stable release candidate is now out for final testing. http://t.co/7vggwLJk ★ http://bit.ly/q4MrKj
+[14:24:05] <socialhapy> ★ Tweet from jquerymobile: Thanks to all hard-working contributors and the core team members for closing such a massive list to bugs in just 3 weeks since Beta 3. ★ http://bit.ly/nE5xXL
+[17:43:22] <gnarf> hrm
+[17:43:34] <gnarf> I just found a bug in UI effects brought on by 1.6
+[17:43:44] <gnarf> attr( "class" ) apparently can return undefined :)
+[17:43:59] <gnarf> maybe not brought on by 1.6
+[17:44:03] <gnarf> but bug nonetheless
+[17:47:13] <Krinkle> gnarf: should be prop(), and if a prop is not set, it is undefined. (previously it returned null or empty string < 1.6 afaik)
+[17:48:39] <Krinkle> although prop('class') should never return undefined as the default browser value is an empty string
+[17:48:47] <Krinkle> for .className which class is mapped to
+[17:48:57] <Krinkle> weird how attr('class') is different then prop('class')
+[17:50:37] <gnarf> so
+[17:50:40] <gnarf> out of curiosity
+[17:50:49] <gnarf> .attr( "class" ) still seems to work...
+[17:51:02] <Krinkle> well, only for the attribute
+[17:51:13] <Krinkle> not for the actual property
+[17:51:26] <Krinkle> just like attr( 'value', '…' ) is meaningless
+[17:51:38] <Krinkle> (if jquery wouldn't catch it)
+[17:52:01] <gnarf> Krinkle: i mean .attr( 'class', 'something' ) still sets the class to something
+[17:52:34] <Krinkle> that's the browser being nice I guess
+[17:53:11] <gnarf> Krinkle: http://jsfiddle.net/XAA7y/
+[17:53:13] <Krinkle> gnarf: Does CSS actually apply to classes set with attr() ?
+[17:54:26] <gnarf> Krinkle: http://jsfiddle.net/XAA7y/1/
+[17:54:31] <gnarf> also seems to read properly...
+[17:54:47] <Krinkle> try the other way around :)
+[17:55:02] <gnarf> http://jsfiddle.net/XAA7y/2/
+[17:55:12] <gnarf> seems .className is forever in sync with .attributes.class
+[17:55:28] <Krinkle> hm..
+[17:57:05] <Krinkle> yeah
+[17:57:08] <DaveMethvin> gnarf, yeah .className is also good because it will always be defined for nodeType=1 nodes
+[17:57:25] <DaveMethvin> undefined on text nodes tho
+[17:57:48] <DaveMethvin> don't ask me how i have this information...see this scar right here?
+[18:03:49] <gnarf> DaveMethvin: :)
+[18:04:10] <gnarf> DaveMethvin: You know whats scary
+[18:04:16] <gnarf> i think im gonna use my IE6 VM in my prez ;)
+[18:04:37] <DaveMethvin> That's just scary bro
+[18:07:16] <gnarf> i needed a browser that didn't support css3 transitions
+[18:07:23] <gnarf> figured IE6 was as good as any
+[19:18:30] <rwaldron> where the hell is everyone?
+[19:18:41] <rwaldron> i guess i mean just timmy
+[19:19:19] <rwaldron> DaveMethvin just closed a ticket that i was tempted to say "WTF is jQuery.browser.version?"
+[19:19:29] <rwaldron> docs#10385
+[19:19:31] <bot-t1> [#10385] jQuery.browser.version for ie9 is returning '7.0' (closed bug: worksforme) - http://jqbug.com/10385
+[19:20:01] <DaveMethvin> well i suspect he's got his browser in ie7 compat mode, which i am not sure we can detect
+[19:20:40] <DaveMethvin> ie9 has this list that comes down from the mother ship that throws certain sites into compat mode if ms knows they suck at ie9
+[19:21:36] <DaveMethvin> but yeah i think that anyone asking why $.browser.version is returning the wrong value is asking the WRONG QUESTION
+[19:22:31] <paul_irish> document.documentMode == 7
+[19:22:44] <rwaldron> No doubt it's in compat mode
+[19:22:58] <DaveMethvin> yeah paul_irish but $.browser only looks at userAgent
+[19:23:02] <paul_irish> correct
+[19:23:11] <rwaldron> they'd have to check additionally
+[19:23:18] <rwaldron> I'll paste that into the ticket
+[19:23:22] <paul_irish> well...
+[19:23:26] <DaveMethvin> once we find a losing strategy WE STICK WITH IT until we deprecate it
+[19:23:28] <rwaldron> and tell them its from paul with love
+[19:23:30] <rwaldron> haha
+[19:23:34] <paul_irish> 9 in 7 mode should have a 7 ua
+[19:23:42] <DaveMethvin> yeah
+[19:23:52] <rwaldron> which is why jQuery.browser.version comes up 7s
+[19:23:57] <DaveMethvin> lucky 7
+[19:24:01] <rwaldron> get it?
+[19:24:04] <rwaldron> sevens?
+[19:24:15] <rwaldron> I get no respect
+[19:24:22] <DaveMethvin> i gotta telllya
+[19:24:30] <paul_irish> :o
+[19:24:58] <DaveMethvin> take my userAgent, please!
+[19:28:59] <DaveMethvin> hey rwaldron paul_irish have you guys heard of marakana? They do training
+[19:29:14] <DaveMethvin> asking me about teaching some classes
+[19:29:56] <DaveMethvin> i hope they don't ask about $.browser
+[19:32:35] <paul_irish> DaveMethvin: yeah i know a bunch of guys from marakana
+[19:32:42] <paul_irish> they are cool
+[19:32:49] <paul_irish> i like them a lot
+[19:32:49] <DaveMethvin> ok good to know
+[19:34:34] <rwaldron> never heard of them
+[19:35:25] <paul_irish> ?g youtube paul irish intro html5 boilerplate
+[19:35:26] <bot-t1> paul_irish, Paul Irish on HTML5 Boilerplate - YouTube - http://www.youtube.com/watch?v=qyM37XKkmKQ
+[19:35:30] <paul_irish> they produced that.
+[19:38:02] <DaveMethvin> paul_irish: sweet!

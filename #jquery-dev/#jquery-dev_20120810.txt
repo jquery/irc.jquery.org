@@ -1,0 +1,177 @@
+[01:07:17] <matjas> i can’t get the custom builds working anymore against the 1.8.0 tag
+[01:07:44] <matjas> $ grunt custom:-ajax,-css,-deprecated,-dimensions,-effects,-offset; ls dist
+[01:07:44] <matjas> path.existsSync is now called `fs.existsSync`.
+[01:07:44] <matjas> Running "custom:-ajax,-css,-deprecated,-dimensions,-effects,-offset" (custom) task
+[01:07:44] <matjas> Creating custom build...
+[01:07:44] <matjas> Done, without errors.
+[01:07:55] <matjas> `dist` dir is empty
+[01:07:55] <b-ot> matjas, memorised “dir”.
+[01:09:44] <matjas> ah, my bad forgot to check out submodules (or run `grunt` first)
+[01:25:01] <peol___> Yay for 1.8 \o/
+[01:25:09] <peol___> Congrats to the team :)
+[01:26:50] <peol___> I tried updating our stack for 1.8, but I'm getting weird "unrecognized expression" errors from sizzle when filtering with classes. Anyone up for helping me debug this issue? I haven't been able to figure out the cause yet, and cannot replicate it outside of our environment...
+[01:31:33] <matjas> ?tell kswedberg jQuery(':animated') (http://api.jquery.com/animated-selector/) throws an error unless you include the `effects` module in a custom build. would you mind documenting this?
+[01:31:34] <b-ot> matjas, I’ll tell kswedberg about that.
+[02:12:27] <doesallmagic> Project jQuery UI - git core build #67: SUCCESS in 11 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%20git%20core/67/
+[06:05:05] <gibson042> .
+[06:07:40] <scott_gonzalez> Quite the flurry of activity on Trac...
+[06:10:17] <scott_gonzalez> HAHA, there's one bug in UI, and of course it's $.attrFn.
+[06:13:00] <scott_gonzalez> DaveMethvin: This is pretty funny, I think this broke because you put $.attrFn back in.
+[06:13:19] <DaveMethvin> waaaa?
+[06:13:19] <b-ot> DaveMethvin, you have 2 new messages, say “read” to me when you wish to read them.
+[06:13:26] <DaveMethvin> b-ot: read
+[06:13:26] <b-ot> DaveMethvin, from johnbender, 6h 47m ago: I've got some early minification overhead numbers for manipulations.js
+[06:13:31] <scott_gonzalez> We do: attrFn = $.attrFn || { ... } for 1.3.2 support.
+[06:13:32] <b-ot> DaveMethvin, from johnbender, 6h 47m ago: I'll ping you in the morning
+[06:13:49] <scott_gonzalez> So adding it back as an empty object broke the code that expects $.attrFn to be useful.
+[06:14:11] <DaveMethvin> scott_gonzalez: ugh ... well how does that affect functionality though?
+[06:15:10] <DaveMethvin> scott_gonzalez: ugh ... well how does that affect functionality though?
+[06:15:20] <DaveMethvin> it should just ignore the attrFn values
+[06:15:37] <scott_gonzalez> We do an `if (key in attrFn)` check.
+[06:15:52] <DaveMethvin> to what end???
+[06:16:10] <scott_gonzalez> https://github.com/jquery/jquery-ui/blob/1-8-stable/ui/jquery.ui.dialog.js#L395
+[06:16:23] <scott_gonzalez> I can just change it to what core does now.
+[06:16:39] <scott_gonzalez> It's just funny that this is the only bug that came up.
+[06:16:52] <scott_gonzalez> And it worked prior to $.attrFn being brought back.
+[06:17:36] <DaveMethvin> i didn't realize UI was messing with attrFn as well
+[06:18:13] <DaveMethvin> i saw the breakage with mobile, but i guess this got through b/c of the {}
+[06:18:23] <DaveMethvin> ugh
+[06:18:42] <scott_gonzalez> Well, we had support for $.attrFn not existing.
+[06:18:47] <DaveMethvin> right
+[06:18:48] <scott_gonzalez> We didn't have support for it existing and being empty.
+[06:19:14] <scott_gonzalez> I suppose dialog would've broken if anyone decided to do $.attrFn.text = false.
+[06:19:33] <DaveMethvin> right, or anything not previously in attrFn
+[06:19:51] <kswedberg> scott_gonzalez, DaveMethvin: is that related at all to the blog comment here? http://blog.jquery.com/2012/08/09/jquery-1-8-released/#comment-532480
+[06:19:51] <b-ot> kswedberg, you have one new message, say “read” to me when you wish to read it.
+[06:20:00] <kswedberg> b-ot: read
+[06:20:00] <b-ot> kswedberg, from matjas, 4h 48m ago: jQuery(':animated') (http://api.jquery.com/animated-selector/) throws an error unless you include the `effects` module in a custom build. would you mind documenting this?
+[06:20:14] <scott_gonzalez> kswedberg: No, that's someone not listening and using an old version of UI.
+[06:20:26] <scott_gonzalez> That's a broken pseudo selector.
+[06:20:33] <kswedberg> scott_gonzalez: ah! ok. :)
+[06:20:46] <w00tner> how can i retrieve and element value within a variable in jquery?
+[06:20:55] <DaveMethvin> w00tner: try #jquery
+[06:21:01] <w00tner> thanks
+[06:21:12] <scott_gonzalez> We actually got this bug filed 3x in UI and 1x in Core Trac.
+[06:22:00] <DaveMethvin> so scott_gonzalez was this problem caught by the nightly test against jquery-git?
+[06:22:34] <scott_gonzalez> No, we don't test against 1-8-stable.
+[06:23:44] <DaveMethvin> seems we should be testing that
+[06:23:53] <scott_gonzalez> 1-8-stable has a horrible test suite.
+[06:24:24] <scott_gonzalez> When master because 1.10pre, we'll set up tests against 1.9 and master
+[06:24:52] <scott_gonzalez> s/because/becomes/
+[06:28:14] <kswedberg> matjas: will add that note to :animated
+[06:30:06] <DaveMethvin> scott_gonzalez: so, if I take out $.attrFn = {} I break Mobile 1.1.1, but if I leave it in I break UI 1.8.22.  Let me find a coin to flip...
+[06:30:47] <scott_gonzalez> DaveMethvin: I already landed the fix for 1.8.23.
+[06:31:09] <scott_gonzalez> https://github.com/jquery/jquery-ui/commit/5e935ead9fbfb0ab368a9828a4d4b8d17eb38d5c
+[06:31:17] <DaveMethvin> i'm sure the world is anxiously awating that
+[06:31:40] <scott_gonzalez> I'll hold off until next week, in case any other bugs come in.
+[06:32:04] <scott_gonzalez> I was hoping to not release 1.8.23 until after 1.9.0, but since dialogs are broken, I'll release earlier.
+[06:32:10] <DaveMethvin> i just wish people would file better bugs
+[06:32:10] <matjas> kswedberg: yay, thanks!
+[06:32:42] <DaveMethvin> the people who wait until release to try the code are also the people who seem to understand very little about their own projects
+[06:37:25] <scott_gonzalez> Oh man, this blog comment is awesome: "Wow, that’s nice. It’s production ready?"
+[06:42:10] <matjas> haha yeah i saw that too
+[06:42:44] <matjas> “Sorry, production-ready releases are tagged as `beta`.”
+[07:00:38] <jzaefferer> scott_gonzalez DaveMethvin rwaldron: do you see any value in this proposed addon? https://github.com/jquery/qunit/pull/295#issuecomment-7641736
+[07:02:17] <DaveMethvin> when someone replies to themselves five times in a row... :D
+[07:03:28] <scott_gonzalez> Seems silly.
+[07:03:48] <scott_gonzalez> And that's coming from someone who has written similar tests.
+[07:05:33] <DaveMethvin> yeah, this sounds a lot more like an organizational or management issue masquerading as code
+[07:06:28] <scott_gonzalez> "good luck persuading busy server-side folks to write unit test for their code" umm...I would expect it to be harder to get client-side devs to write tests...
+[07:06:59] <scott_gonzalez> I've never seen a company with better client-side testing than server-side testing.
+[07:07:36] <scott_gonzalez> It sounds like this guy probably contracts with companies that don't test.
+[07:12:08] <scott_gonzalez> I left a comment on the PR.
+[07:12:43] <DaveMethvin> now you can see how many times he replies to himself
+[07:13:08] <kswedberg> matjas: I added the note for :animated but not sure when it will show up on the live site
+[07:13:22] <matjas> kswedberg: thanks!
+[07:13:39] <kswedberg> I'm afraid to clear the cache because the server always seems to break when I do that.
+[07:13:53] <kswedberg> matjas: no prob. thanks for the suggestion.
+[07:15:29] <jzaefferer> thanks scott_gonzalez - I'll leave it around a bit more, but I'll likely just close it
+[07:15:37] <scott_gonzalez> ok
+[08:01:33] <rwaldron> jzaefferer -1
+[08:11:47] <mikesherov> sott_gonzalez: you there?
+[08:19:54] <scott_gonzalez> Hey mikesherov
+[09:05:16] <timmywil> DaveMethvin: that ok with you?
+[09:05:24] <timmywil> you want some :eq(-1) action???
+[09:05:33] <timmywil> I know you do
+[09:05:35] <DaveMethvin> lol
+[09:05:44] <DaveMethvin> i think it makes sense for them to work the same
+[09:05:54] <DaveMethvin> let's just hope nobody depends on it being a noop
+[09:06:25] <DaveMethvin> kind of like we made .width(-1) === .width(0) instead of a noop, that hasn't exploded on us  yet
+[09:06:28] <DaveMethvin> afaik...
+[09:07:12] <timmywil> well, that makes sense. Can't have negative width anyway
+[09:07:41] <DaveMethvin> yeah but you know there is code out there that expects .width(-1) to be ignored
+[09:07:42] <timmywil> negative values with array indexes seems more intuitive
+[09:07:53] <DaveMethvin> yes, esp since .eq(-1) does
+[09:07:57] <timmywil> oh I see what you're saying
+[09:08:02] <timmywil> yea
+[09:08:09] <timmywil> well that's good that people haven't complained
+[09:08:47] <DaveMethvin> that was undocumented behavior, but that's what the browsers did with a negative width, they ignored it (except ie8 which exploded)
+[09:09:16] <DaveMethvin> here we documented it was a no-op, but i suspect nobody is using that behavior
+[09:09:39] <DaveMethvin> like, why would  you?
+[09:13:32] <timmywil> SO, this pseudo argument stuff. The way we expect it to work is more like a context-free grammar, which the w3c and every selector engine avoids. Nevertheless, using tokenize is a logical solution if we can get it to be just as performant. We currently only call tokenize in compile. I'm going to take a pass and see if I can still have tokenize called only once in any given codepath, but use it for pretty much everything.
+[09:15:40] <DaveMethvin> yeah, we are pushing the limits of what can be done with this sort of parsing, and I suspect there will be cases that fail.
+[09:16:11] <DaveMethvin> if we can define the valid cases clearly, that would  help
+[09:35:40] <DaveMethvin> yay, timmywil was correct!
+[09:35:57] <DaveMethvin> MR ALL CAPS GUY WAS WRONG
+[09:44:29] <scott_gonzalez> WHAT A SURPRISE!!!
+[09:45:01] <scott_gonzalez> gnarf: If I bump up the versions for some dependencies, the plugins site is 0.8 compatible :-)
+[09:45:26] <scott_gonzalez> I'm going to create the node-logger repo in the jquery account and update the plugins site to use that + new version of node-syslog.
+[09:46:47] <johnbender> DaveMethvin: ping :D
+[09:47:09] <DaveMethvin> sup johnbender
+[09:47:19] <johnbender> DaveMethvin: did you get my message?
+[09:47:40] * DaveMethvin scrolls back
+[09:47:51] <johnbender> DaveMethvin: I left it with the bot
+[09:48:18] <DaveMethvin> oh yeah
+[09:50:10] <peol> re: the sizzle errors earlier today, turns out jquery svg was the culprit… (prefilters and csshooks)
+[10:02:21] <agcolom> scott_gonzalez: Hi! I'm doing the indentation cleanup for the api.jquerymobile.com and I've noticed that under widget, the widgets are nearly in alphabetical order, but not quite! (see http://stage.api.jquerymobile.com/category/widgets/)
+[10:03:25] <scott_gonzalez> They're probably in creation order right now.
+[10:03:55] <scott_gonzalez> We have a lot of work to do on the API site still.
+[10:04:18] <agcolom> ah, ok. Thanks...
+[10:04:44] <scott_gonzalez> Feel free to point out anything else that you notice.
+[10:04:53] <scott_gonzalez> I'm keeping track of all of this stuff as I go through.
+[10:05:28] <agcolom> sure, will do :) and we get rid of theming and that all goes under option...
+[10:06:40] <scott_gonzalez> Yup, that's actually pretty high up on my list, but if you're going to get to that today, I'll just hold off.
+[10:06:52] <scott_gonzalez> I figured you wouldn't since you're on vacation.
+[10:07:30] <agcolom> regarding the options with data- attribute only, then I'll add them to the widget description and remove them from the option list so that under option only options that can be set programmatically stay under option...
+[10:08:00] <agcolom> yes, I am on vacation, but at the moment the laptop is never far... I can get that done this week...
+[10:08:54] <agcolom> (Well I love doing this stuff and I find it relaxing... )
+[10:08:57] <scott_gonzalez> Yeah, that's what I was planning on doing: moving the attribute only info to the overview section, just like the old docs.
+[10:09:11] <scott_gonzalez> Ok, I'll let you take care of it then :-)
+[10:09:47] <scott_gonzalez> If you make sure to close the related issue when it's done, I'll updat the XSL afterward.
+[10:09:52] <scott_gonzalez> Which is my real concern :-P
+[10:12:36] <agcolom> sure, will do :)
+[10:18:33] <agcolom> scott_gonzalez: and this is the view from where I am right now... http://cl.ly/image/0d2Q0D451w0G so it is nice to write the docs from here :)
+[10:18:49] <scott_gonzalez> :-)
+[10:47:37] <mikesherov> scott_gonzalez: I'm having a bit of difficulty getting the tests to pass for the jquery color fix I'm making
+[10:47:46] <mikesherov> still working on it, but taking a bit longer than I expected
+[10:49:09] <scott_gonzalez> ok
+[11:00:55] <scott_gonzalez> gnarf: https://github.com/jquery/node-logger
+[11:01:09] <scott_gonzalez> also: https://github.com/jquery/plugins.jquery.com/commit/52bfdd1724b5625f7e0a5a2340060f19a57a8f60
+[11:02:51] <gnarf> scott_gonzalez: nice
+[11:42:03] <paul_irish> scott_gonzalez:
+[11:42:12] <scott_gonzalez> hey paul_irish
+[11:42:13] <paul_irish> we owe you 1.8.22
+[11:42:17] <paul_irish> and.. 20 ?
+[11:42:34] <scott_gonzalez> yup
+[12:06:49] <johnbender> gnarf: just got the go ahead to spend some time getting infra rolling on vagrant
+[12:07:08] <gnarf> johnbender: nice!
+[12:07:15] <johnbender> gnarf: I'll tool around a bit and let you know when I have something worth playing with
+[12:07:52] <johnbender> gnarf: I want to make sure that's working perfect before the hackathon so that if someone wants to help with infra it's exceptionally easy
+[12:07:55] <johnbender> that's the goal at least
+[12:14:00] <gnarf> johnbender: cool
+[12:27:05] <nemo09> good evening
+[12:42:55] <paul_irish> 22 and both 1.8.0's shoudl be up... like
+[12:42:56] <paul_irish> nowish
+[12:43:33] <paul_irish> ok soon
+[13:12:19] <paul_irish> DaveMethvin: 1.8.0 is on the google cdn. live.
+[13:12:29] <DaveMethvin> thanks paul_irish!
+[14:45:27] <DaveMethvin> rwaldron: is is my imagination, or are the bug reports getting incredibly crappy lately?
+[15:09:51] <LakWork> grats on 1.8 rc!
+[15:09:58] <LakWork> ^5
+[16:34:26] <jqcommit> [jquery] rwldrn pushed 1 new commit to master: http://git.io/IbfHVA
+[16:34:26] <jqcommit> [jquery/master] Use window.getComputedStyle to prevent breaking jsdom/node.js . Fixes #12235 - Rick Waldron
+[16:57:59] <doesallmagic> Project jQuery Core build #311: SUCCESS in 23 min: http://swarm.jquery.org:8080/job/jQuery%20Core/311/
+[16:57:59] <doesallmagic> waldron.rick: Use window.getComputedStyle to prevent breaking jsdom/node.js . Fixes #12235
+[17:07:22] <doesallmagic> Project jQuery UI - git core build #68: SUCCESS in 9 min 22 sec: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%20git%20core/68/
+[18:41:53] <paul_irish> whats the right way to trigger the change special event?  https://github.com/freqdec/fd-slider/issues/22
+[18:42:04] <paul_irish> er. lemme ask #jquery

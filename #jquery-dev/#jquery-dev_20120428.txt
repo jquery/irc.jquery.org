@@ -1,0 +1,90 @@
+[05:37:36] <jzaefferer> ?tell Krinkle I've started the 1.0 migration on swarm.jquery.org. Disabled browserstack cron for now, disabled most jobs in Jenkins. TestSwarm fails due to __DIR__ not being available in PHP 5.2.x, needs 5.3+. My attempts at install newer php via yum were not successful: https://gist.github.com/391c20ee89ee195f0112 - once 1.0 runs, node-testswarm can be tested, see the one active UI job in Jenkins
+[05:37:36] <bot-t> jzaefferer, Okay.
+[05:38:47] <jzaefferer> gnarf around? See above. Currently outdated PHP version is blocking the TestSwarm update...
+[07:53:16] <jqcommit> [jquery] jaubourg pushed 1 new commit to 1.8pre: http://git.io/_1uVpg
+[07:53:16] <jqcommit> [jquery/1.8pre] Opera announced they will start supporting the -webkit- prefix for a selected set of css properties. Let's put the inspection of -webkit- prefix properties as the last one in case this propagates to the style object and/or other browsers (the cssPrefixes array is inspected from right to left). - jaubourg
+[08:00:36] <gnarf> jzaefferer: hrm
+[08:01:27] <jzaefferer> those yum packages didn't work, 5.3 was missing php-common, I couldn't even add the remote for the 5.4 repo
+[08:02:00] <gnarf> jzaefferer: want to work on setting it up on a stage for the new environment?
+[08:02:04] <jzaefferer> The specific issue with missing __DIR__ could be easy to fix, but I suspect there will be other problems
+[08:02:21] <jzaefferer> gnarf: might make more sense at this point
+[08:02:36] <jzaefferer> I won't have time for that today anymore though
+[10:44:38] <jaubourg> plop
+[10:49:07] <jaubourg> DaveMethvin: so when do I get my "YOU'RE FIRED" notice Back-to-the-Future-II-style? ;)
+[10:49:20] <DaveMethvin> hey jaubourg
+[10:49:21] <bot-t> (102 hours ago) <jzaefferer> tell davemethvin At least on iOS, $(window).innerHeight() != window.innerHeight - is there anything we can do about that? It looks like window.innerHeight is actually useful.
+[10:49:21] <bot-t> (76 hours 30 mins ago) <mikesherov> tell DaveMethvin got grunt working, here are the steps that worked for me: https://gist.github.com/2489540
+[10:49:36] <DaveMethvin> well i need to speak up more often
+[10:50:00] <DaveMethvin> well on that ticket i think he's being unrealistic about what we would do
+[10:50:01] <jaubourg> indeed
+[10:50:09] <DaveMethvin> just in the name of compat with a spec
+[10:50:19] <DaveMethvin> we probably have the most deployed code of any promise impl
+[10:50:37] <DaveMethvin> so it's easy for some other niche lib to say "we're doing it right, you're doing it wrong"
+[10:50:50] <DaveMethvin> oh i remembered something about errors
+[10:51:09] <DaveMethvin> we coud use events manually triggered to run the callbacks
+[10:51:15] <DaveMethvin> but avoid killing the promise
+[10:51:23] <DaveMethvin> so all callbacks run
+[10:51:35] <DaveMethvin> it was something dean edwards had a poc on
+[10:51:38] <DaveMethvin> lemme find it
+[10:51:57] <DaveMethvin> jaubourg: http://dean.edwards.name/weblog/2009/03/callbacks-vs-events/
+[10:52:45] <DaveMethvin> i have no idea what the overhead might be, but it would seem to solve the problem
+[10:52:49] <jaubourg> I looked into that and: 1) it's heavy-weight if you ask me 2) I like the fact the deferred/callbacks is locked (it's better for debugging) 3) if we wanted to do that, a setTimeout( 0 ) would be far simpler
+[10:53:08] <DaveMethvin> except settimeout is async
+[10:53:15] <jaubourg> the advantage of it though is that you could implement stopOnFalse
+[10:53:34] <DaveMethvin> so if you wanted to fire all the done callbacks the first one pees in the pool and breaks all following callbacks
+[10:54:04] <DaveMethvin> i'm in a hotel looking at kids in the pool, if you wondered about the analogy
+[10:54:30] <jaubourg> well, is it really sync this solution?
+[10:54:40] <DaveMethvin> yes i believe it is
+[10:54:49] <DaveMethvin> just like triggering an event is
+[10:55:14] <jaubourg> $.trigger would work you think?
+[10:55:47] <DaveMethvin> yeah, the element doesn't even have to be in the document i bet
+[10:55:53] <DaveMethvin> really shouldn't be
+[10:56:12] <jaubourg> let me see if it breaks unit tests
+[10:56:27] <DaveMethvin> he's got an impl in that blog entry, would probably be larger since it requires custom code
+[10:56:34] <DaveMethvin> but still, it may be worth a look
+[10:59:35] <jaubourg> .has() and .remove() will get tricky
+[10:59:57] <DaveMethvin> jzaefferer: on window.innerHeight, see docs#9434 and docs#6724
+[10:59:59] <bot-t> jzaefferer, [#9434] .outerWidth()/.outerHeight()/.innerWidth()/.innerHeight() should work on window and document (closed enhancement: fixed in v1.7) - http://jqbug.com/9434
+[11:00:00] <bot-t> jzaefferer, [#6724] wrong $(window).height() in mobile safari (iphone) (closed bug) - http://jqbug.com/6724
+[11:00:06] <jaubourg> since we have to envelop the function before binding
+[11:13:10] <jaubourg> good god, seems it works
+[11:13:26] <DaveMethvin> \o/ !!
+[11:14:11] <jaubourg> I do elem.click( handler ).click().unbind() (where handler is the envelop around the callback)
+[11:14:18] <jaubourg> must be very very heavy weight though
+[11:14:41] <DaveMethvin> true, but as a poc it shows we can probably come up with something
+[11:15:35] <DaveMethvin> actually, i am not sure trigger will survive though, we may need the bare DOM event methods which are browser-specific
+[11:15:53] <DaveMethvin> like fireEvent for IE
+[11:16:14] <jaubourg> I dunno... we have to bind on each iteration so it's tricky (we cannot rely on  bind for our callbacks list needs (has, remove, etc)
+[11:16:23] <jaubourg> pure DOM approach could work
+[11:16:47] <DaveMethvin> can  you experiment a bit with it?
+[11:16:59] <jaubourg> will do but the dog needs some walking first
+[11:17:11] <DaveMethvin> yeah, not doggy accidents, lol
+[11:18:49] <jaubourg> hmm, I actually just need the trigger in the loop, I can put all the rest in the whole closure
+[11:31:17] <DaveMethvin> gotta get my laundry
+[12:27:23] <gnarf> hrm
+[12:27:28] <gnarf> thats an interesting approach
+[13:41:56] <jaubourg> DaveMethvin: http://jsperf.com/callbacks-direct-execution-vs-event-trigger <= order of magnitude is too damn high and I create an Event object that I keep. It's the same kinda sisaster as doing sync ajax requests actually
+[13:43:15] <DaveMethvin> jaubourg: wow, quite a difference. :(
+[13:43:19] <jaubourg> ?tell DaveMethvin: http://jsperf.com/callbacks-direct-execution-vs-event-trigger <= order of magnitude is too damn high and I create an Event object that I keep. It's the same kinda sisaster as doing sync ajax requests actually
+[13:43:20] <bot-t> jaubourg, Okay.
+[13:43:24] <DaveMethvin> do you have a branch i can play with?
+[13:43:24] <bot-t> (4 secs ago) <jaubourg> tell DaveMethvin: http://jsperf.com/callbacks-direct-execution-vs-event-trigger <= order of magnitude is too damn high and I create an Event object that I keep. It's the same kinda sisaster as doing sync ajax requests actually
+[13:43:24] <jaubourg> oh, you're here
+[13:43:28] <DaveMethvin> lol
+[13:43:32] <jaubourg> no, no branch
+[13:44:26] <DaveMethvin> i have a few things to do, back shortly
+[13:44:26] <jaubourg> I just used Dean's approach (triggering for each callback which we need to handle border effects in callbacks) and it's abysmal
+[13:44:30] <jaubourg> k
+[14:07:28] <jqcommit> [jquery] jaubourg pushed 4 new commits to 1.8pre: http://git.io/Cl4sIA
+[14:07:28] <jqcommit> [jquery/1.8pre] code compression - Richard Gibson
+[14:07:28] <jqcommit> [jquery/1.8pre] Simplifies the way the internal memory storage is handled. - jaubourg
+[14:07:28] <jqcommit> [jquery/1.8pre] Merge branch '1.8-deferred-optimize2' of git://github.com/gibson042/jquery into PR754 - jaubourg
+[14:10:08] <jaubourg> hmmm, I must have screwed up seeing as gibson's commits are not listed and attributed to him :/
+[14:10:11] <jaubourg> this is weird
+[14:25:57] <gf3> jaubourg: It does for me
+[14:51:02] <jaubourg> even weirder
+[14:52:05] <jaubourg> yep, it shows now
+[14:52:12] <jaubourg> must have been a glitch on github
+[14:52:23] <jaubourg> thanks for pointing this out gf3 :)
+[14:53:01] <gf3> STRANGE
+[14:54:26] <snover> BIZARRE

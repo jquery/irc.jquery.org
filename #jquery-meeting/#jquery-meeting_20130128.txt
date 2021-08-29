@@ -1,0 +1,233 @@
+[09:04:05] <DaveMethvin> sorry
+[09:04:15] <DaveMethvin> but i did create an agenda!
+[09:04:23] <DaveMethvin> so who's here?
+[09:04:34] <gibson042> yo
+[09:04:41] <siovene> Hi.
+[09:05:00] <timmywil> hi
+[09:05:27] <DaveMethvin> mikesherov gnarf orkel hangin out
+[09:05:33] <DaveMethvin> rick said he's busy
+[09:05:55] <DaveMethvin> anyway, agenda https://docs.google.com/document/d/1MrLFvoxW7GMlH9KK-bwypn77cC98jUnz7sMW1rg_TP4/edit
+[09:06:39] <DaveMethvin> still tryna figure out what's wrong with swarm
+[09:06:43] <mikesherov> hi
+[09:06:43] <DaveMethvin> nothing runs
+[09:06:56] <mikesherov> busy at the moment, ping me if you need me
+[09:07:14] <DaveMethvin> which makes it kinda hard to test things
+[09:07:32] <gibson042> this is behind those 5-second failures, right?
+[09:07:43] <DaveMethvin> those were probs with the build
+[09:07:47] <DaveMethvin> i think i fixed those
+[09:08:12] <DaveMethvin> all the grunt deps are messed up
+[09:08:22] <DaveMethvin> and the custom build jobs all had to be jiggered
+[09:08:30] <DaveMethvin> but i think i got it all working this weekend
+[09:09:17] <gibson042> ah, so now we've moved to a downstream problem :)
+[09:09:38] <DaveMethvin> right it's like layers of an onion
+[09:09:41] <DaveMethvin> each makes you cry
+[09:10:00] <DaveMethvin> so i pulled out grunt-compare-size b/c it's a multitask and needs diff args
+[09:10:11] <DaveMethvin> and i was too busy this weekend to fix it
+[09:10:22] <DaveMethvin> plus i don't like its verbosity right now
+[09:10:45] <DaveMethvin> it records every size of every branch ever time you build, which gets tedious when you land a lot of stuff
+[09:11:09] <DaveMethvin> it either needs to be smarter about remembering just specific branches or have  a much less verbose output
+[09:11:11] <DaveMethvin> or both
+[09:11:25] <gibson042> probably both
+[09:11:27] <DaveMethvin> so let's look at some tix
+[09:11:39] <DaveMethvin> i'd like to get 1.9.1 out later this week
+[09:11:52] <DaveMethvin> we've got enough accumulated fixes that we could use one
+[09:12:04] <DaveMethvin> http://bugs.jquery.com/ticket/13335
+[09:12:12] <DaveMethvin> This one makes me want to cry
+[09:12:38] <DaveMethvin> at least in firefox, if any code in your call chain uses strict, the non-strict code will die
+[09:13:03] <DaveMethvin> i don't think that's in the spirit of use strict being scoped
+[09:13:08] <DaveMethvin> and chrome seems to deal with it
+[09:13:12] <DaveMethvin> but firefox doesn't
+[09:13:34] <DaveMethvin> so i plan on filing a firefox bug
+[09:13:49] <gibson042> from our perspective, I think this is wontfix
+[09:14:00] <DaveMethvin> but in the meantime, this could affect anyone using ASP.NET, that's why i bring it up
+[09:14:11] <DaveMethvin> really this seems like FF should fix
+[09:14:21] <DaveMethvin> and i'll argue that in the ticket i open
+[09:14:39] <gibson042> the farthest I'd want to go is making "use strict" excludeable, but even that seems overboard
+[09:14:46] <gibson042> agreed
+[09:15:13] <DaveMethvin> but like i said in the ticket, "use strict" changes some semantics like "this" so i'd hesitate to do that
+[09:15:27] <DaveMethvin> we shoudln't be *depending* on anything there
+[09:15:32] <DaveMethvin> but perhaps by mistake
+[09:15:59] <gibson042> as the library stands now, I think it wouldn't matter
+[09:16:15] <DaveMethvin> agreed, and we shouldn't write code that depends on it
+[09:16:28] <gibson042> but we'd never know if that changed because we just don't test for such variations
+[09:16:35] <DaveMethvin> right
+[09:17:21] <DaveMethvin> Ticket 14431: "use strict" with quirks mode doesn't run properly with IE9 in IE7 mode :)
+[09:17:39] <gibson042> hahahaha
+[09:17:54] <DaveMethvin> okay i'll just mark that one open but let's sit on it for 1.9.1
+[09:18:36] <DaveMethvin> oh boy everyone's favorite: text nodes!  gibson042 and orkel cage match!
+[09:18:47] <DaveMethvin> here's my thought
+[09:18:54] <DaveMethvin> i would love to avoid dealing with text nodes
+[09:19:11] <DaveMethvin> but if someone does $(html) or $($.parseHTML()) they show up
+[09:19:26] <DaveMethvin> so we can't throw them out can we?
+[09:19:37] <gibson042> that's pretty much my thinking
+[09:20:01] <gibson042> I actually don't have *strong* feelings about it; I mostly just want a clear position
+[09:20:05] <DaveMethvin> what happens if they are consistently a no-op for all element operations?
+[09:20:52] <DaveMethvin> that's not gonna work, or at least it feels wrong
+[09:20:53] <gibson042> and since we already accommodate them in .has and seem to want to in .parent, making it universal (for traversing) seems most reasonable
+[09:20:55] <orkel> We can't, but what possibility is there to someone use nextAll prev, and etc on text nodes and expect to get correct results?
+[09:21:34] <DaveMethvin> with specific exceptions like .contents() i think operations shoudl return elements
+[09:21:39] <gibson042> yes
+[09:21:47] <DaveMethvin> but if you get the .parent() of a text node, that's an element :)
+[09:22:04] <gibson042> output is only elements (except contents), it's text node *input* that gives headaches
+[09:22:44] <DaveMethvin> in many/most cases i guess we currently do just ignore them in the set
+[09:23:10] <DaveMethvin> i'd have to look at the manip code
+[09:23:24] <DaveMethvin> but we have plenty of nodeType===1 checks
+[09:24:06] <gibson042> we have a clear stance on manipulation that there is no defined behavior for text node input
+[09:24:36] <DaveMethvin> which is somewhat easier to do than traversing
+[09:24:53] <DaveMethvin> since for example it makes no sense to append an element to a text node
+[09:24:53] <gibson042> I'm not even sure we always no-op there, but we could
+[09:24:57] <gibson042> yep
+[09:25:07] <DaveMethvin> now, in traversing
+[09:25:23] <DaveMethvin> the dilemma is that there are reasonable things to return
+[09:25:25] <DaveMethvin> for text nodes
+[09:25:47] <orkel> only for parent, not for others methods
+[09:26:02] <gibson042> and that we have returned those reasonable things up to 2.0 beta
+[09:26:06] <DaveMethvin> well you could ask for siblings... :D
+[09:26:17] <DaveMethvin> text nodes are like runts
+[09:26:41] <gibson042> red-headed step-nodes
+[09:26:43] <DaveMethvin> yeah gibson042 that's the main problem is regressions even if it wasnt' intended behavior
+[09:26:52] <orkel> but, if you ask for siblings from a text node, you should get only text nodes siblings, just like you do it for the elements
+[09:27:07] <gibson042> not if we keep to "output is always elements"
+[09:27:11] <DaveMethvin> well that's not what it did before
+[09:27:31] <DaveMethvin> okay but let's focus on the reported issue i guess
+[09:27:32] <gibson042> .next has essentially been "next sibling that is an element" until now
+[09:27:42] <orkel> for me it looks like side effect, because our documentation clear about these things
+[09:27:58] <DaveMethvin> the reporter was saying the '\n' text nodes were being applied to .parent()?
+[09:28:00] <orkel> how it could be "next" if current one is not an element?
+[09:29:00] <DaveMethvin> again it's just a behavior change regardless of whether we intended it or not
+[09:29:01] <gibson042> or in this case, "parent that is an element"
+[09:29:31] <DaveMethvin> so what if all those just ignored text nodes
+[09:29:58] <DaveMethvin> but then that would be a big change 1.9 vs 2.0 even though not in the realm of documented behavior
+[09:30:13] <DaveMethvin> we could add the ignore to 1.9.1
+[09:30:15] <gibson042> we're still free to make that change, though
+[09:30:59] <DaveMethvin> did we ever get a test case from the OP on this?
+[09:31:12] <orkel> i doubt someone using them that way, that's why i proposing to wait for other tickets if it really a problem, they will let us know
+[09:31:30] <gibson042> text nodes would just be like plain objects e.g. `{ parentNode: "ha-ha!" }`
+[09:32:04] <DaveMethvin> well we don't support traversing on plain objects, period. don't make me slap you with a fish!
+[09:32:13] <DaveMethvin> shudder
+[09:32:15] <orkel> :-)
+[09:32:22] <orkel> thank god for that
+[09:32:41] <gibson042> that's what I'm saying, we're free to exhibit undefined behavior for invalid input and change it between versions
+[09:32:51] <gibson042> if text nodes are invalid input, then you get what you get
+[09:33:17] <gibson042> but it is a bit disingenuous to output them in that case
+[09:33:28] <DaveMethvin> i just wondered what the OP's code generated for that case
+[09:34:03] <DaveMethvin> so, it might turn out that the text nodes were incidental and ignoring them would give correct results for real-life cases
+[09:34:37] <gibson042> yeah
+[09:34:55] <DaveMethvin> so if we DO want to make any change I'd like it to be consistent across 1.9.1 and 2.0
+[09:35:02] <DaveMethvin> even if it's in undefined territory
+[09:35:17] <DaveMethvin> which is why i asked about the ignoring text nodes
+[09:35:48] <gibson042> the way I see it, we should pick one before 2.0 final: "text nodes are invalid input and yield undefined results" vs. "text nodes are valid input only for traversing methods"
+[09:36:04] <gibson042> would the reporter's answer sway you one way or the other?
+[09:36:23] <DaveMethvin> if some really common situation broke, yes :D
+[09:36:33] <DaveMethvin> but i like the first answer a lot bettterer
+[09:36:38] <gibson042> good answer 8-)
+[09:38:01] <DaveMethvin> okay, so he said it was part of their template processing
+[09:38:11] <DaveMethvin> i'm going to ask if we could see that code
+[09:38:54] <orkel> yeah, i wondering about the same thing
+[09:39:26] <DaveMethvin> okay, added a comment there
+[09:41:07] <DaveMethvin> alrighty then, the :focus regression
+[09:41:42] <DaveMethvin> Strange thing about that one, it worked for one shining moment in the 1.8.0-1.8.2 era
+[09:41:52] <DaveMethvin> but has been broken on both sides
+[09:42:03] <DaveMethvin> i didn't look to see what changed but i am guessing it's sizzle
+[09:42:04] <gibson042> timmywil did a lot of work on this and IIRC got to something he was happy with even though it was imperfect
+[09:42:07] <gibson042> yes
+[09:42:27] <timmywil> uhoh
+[09:42:32] <timmywil> ticket?
+[09:42:43] <DaveMethvin> http://bugs.jquery.com/ticket/13041
+[09:42:45] <gibson042> the 1.8 exception is probably an accidental alignment that happened to work only in specific cases
+[09:43:03] <DaveMethvin> right and it never worked in firefox
+[09:43:03] <timmywil> oh, an li can't be focused
+[09:43:16] <DaveMethvin> well it could in 1.8.2!
+[09:43:21] <DaveMethvin> and in chrome/ie
+[09:43:28] <DaveMethvin> but not in ff
+[09:43:42] <timmywil> well, it can if it has tabIndex, nvm
+[09:44:03] <DaveMethvin> i am totally ok with a wontfix on this if that's what it comes to
+[09:44:22] <gibson042> our current code specifically rejects elements with tabIndex -1
+[09:44:30] <gibson042> which is what this ticket is running afoul of
+[09:44:39] <siovene> one thing that comes to mind, is weather this bug is reproducible with focusable elements like inputs
+[09:44:41] <timmywil> ah, doesn't -1 mean it doesn't have tabIndex?
+[09:45:00] <siovene> whether*
+[09:45:07] <gibson042> yes
+[09:45:26] <DaveMethvin> siovene: i didn't check
+[09:45:28] <timmywil> the behavior probably changed becaus I added the tabIndex check, but I think this is actually spec'd behavior, right?
+[09:45:37] <gibson042> I believe so
+[09:45:51] <DaveMethvin> ok goood, can one of you close it with an explain then?
+[09:45:53] <timmywil> it's not even using Sizzle
+[09:45:58] <timmywil> it's using qsa
+[09:46:18] <DaveMethvin> well if qsa happened to do it wrong, the ask woudl be for us to fix it :D
+[09:46:21] <siovene> DaveMethvin: I can add a unit test for that, if none is present
+[09:46:22] <gibson042> it shouldn't (`rbuggyQSA = [ ":focus" ]`)
+[09:46:47] <timmywil> oh right, heh, we did do that
+[09:46:56] <DaveMethvin> recently too as i recall
+[09:48:56] <gibson042> https://github.com/jquery/sizzle/commit/f0dc09b83356e8bf8adeeb555e09077a10af2dc6
+[09:48:57] <b-ot> gibson042: Timmy Willison (3mon 1w ago): Fix :focus selector with elements that have a tabIndex !== -1. See http://dev.w3.org/html5/spec/single-page.html#focus-management
+[09:49:13] <DaveMethvin> siovene: focus-related tests are notoriously unreliable during unit tests btw
+[09:49:29] <DaveMethvin> especially with IE
+[09:49:39] <siovene> Oh.
+[09:50:02] <DaveMethvin> try running our unit tests in IE but let the browser window go out of focus while it's running
+[09:50:06] <timmywil> it strange to me that chrome is focusing the element when it has a tabIndex of -1. Did I miss something in the spec?
+[09:50:34] <DaveMethvin> man that does seem like a mistake
+[09:50:51] <DaveMethvin> well i think the spec says it will no longer be "keyboard focusable"
+[09:51:02] <DaveMethvin> so perhaps it can be force-focused via other means
+[09:51:07] <DaveMethvin> but it's not in the tab order anymore
+[09:51:25] <DaveMethvin> i think this is crazy enough to be closed either wontfix or notabug
+[09:52:00] <timmywil> yea, sounds like it can be force-focused
+[09:52:41] <DaveMethvin> well, firefox doesn't seem to want to do that
+[09:52:55] <DaveMethvin> so even the browsers disagree
+[09:53:14] <timmywil> and apparently it is up to the user-agent to allow focus anyway sometimes
+[09:53:41] <DaveMethvin> i just got the feeling that they were tryna build their own ghetto menu or something, based on the markup
+[09:53:46] <siovene> Let's not forget that some UAs might allow unorthodox focusing because of accessibility.
+[09:53:56] <timmywil> siovene: exactly
+[09:54:07] <DaveMethvin> right siovene and that's a good reason not to build your own like this anyway
+[09:54:10] <timmywil> but ignoring tabIndex comes with other problems
+[09:54:27] <DaveMethvin> it might work better/differently if they used ARIA attributes, who knows
+[09:54:42] <DaveMethvin> but the example here is just too strange to worry about
+[09:55:53] <timmywil> I think I agree.
+[09:56:39] <DaveMethvin> okay, close that ticket for any convenient reason then
+[09:56:45] <timmywil> ok
+[09:56:58] <DaveMethvin> last one is another one for timmywil and gibson042
+[09:57:13] <DaveMethvin> reordering disconnected nodes
+[09:57:21] <DaveMethvin> btw timmywil congrats on your ( ° ᴗ°)~ð     (/❛o❛\) 
+[09:57:26] <DaveMethvin> http://bugs.jquery.com/ticket/13331
+[09:57:37] <timmywil> DaveMethvin: thanks!
+[09:57:42] <siovene> :)
+[09:57:52] <DaveMethvin> there's an emoji for everything i found out
+[09:58:11] <timmywil> safari?
+[09:58:17] <DaveMethvin> so whaddya guys think on this, can we just leave disconnted elements in their original order
+[09:58:37] <DaveMethvin> chrome and safari reorder the elements
+[09:58:38] <timmywil> I think that's what we've been trying to do
+[09:58:56] <DaveMethvin> yeah i thought, and it leave them alone in most caes
+[09:58:58] <DaveMethvin> cases
+[09:59:11] <timmywil> is this only 1.9?
+[09:59:15] <gibson042> yeah, trying and getting better
+[09:59:24] <DaveMethvin> http://wnd8.com/grab/753a37.png
+[09:59:27] <DaveMethvin> thats chrome
+[09:59:37] <timmywil> yea seems like it
+[09:59:51] <timmywil> ok, we'll need to look that
+[09:59:57] <timmywil> *at that
+[10:00:06] <siovene> FF goes from 1 to 11, here.
+[10:00:55] <DaveMethvin> timmywil can you look at it by thursday?
+[10:01:07] <timmywil> yea
+[10:01:43] <DaveMethvin> okay i think that does it for the important stuff
+[10:01:47] <DaveMethvin> just in time!
+[10:02:04] <siovene> DaveMethvin: can you have a word after the meeting?
+[10:02:08] <siovene> can we*
+[10:02:09] <DaveMethvin> i'll be around most of the week so ping me in -dev if you need me
+[10:02:12] <DaveMethvin> siovene: sure
+[10:02:20] <DaveMethvin> let me close out the meeting room here
+[10:02:33] <orkel> one other thing
+[10:02:41] <orkel> Do we want this – https://github.com/jquery/jquery/commit/dbf4926e31390ceda57730c68d40f34536803114
+[10:02:41] <orkel> in 1.9.1?
+[10:02:41] <b-ot> orkel: Oleg (1w 6d ago): Consistently clean up after .ready() handler, close gh-1135.
+[10:02:56] <DaveMethvin> oh i only landed it for 2.0?
+[10:03:01] <orkel> yeah
+[10:03:06] <DaveMethvin> yeah orkel can you do a PR?
+[10:03:12] <orkel> sure
+[10:03:16] <DaveMethvin> thanks!
+[10:03:20] <orkel> it would cost 28 bytes or so for 1.9.1
+[10:03:30] <orkel> we okey with that?
+[10:04:42] <DaveMethvin> probalby SHOULD clean it up, so go ahead
+[10:04:48] <orkel> okey!
+[10:04:54] <DaveMethvin> plus that's 1.9, who cares :D
+[10:05:02] <orkel> :-)
+[10:05:03] <DaveMethvin> alright, see you in -dev guys

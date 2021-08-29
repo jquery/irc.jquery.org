@@ -1,0 +1,348 @@
+[10:17:18] <clarkbox> 70k 404's on jq01 in the last 15 min.
+[10:17:22] <clarkbox> https://citadel.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20sourcetype%3D%22access_combined%22%20host%3Djq01*%20status%3D%22404%22%20&earliest=-15m&latest=now
+[10:17:56] <clarkbox> in the same time, there has only ben 38k 200's
+[10:18:01] <clarkbox> been*
+[10:33:27] <ryanneuf_> clarkbox: I can has username/password?
+[11:10:18] <gnarf> Krinkle - can you take a look at the /var/log/error.log on eol3 - there are a bunch of apc messages that seem mediawiki related, can you help me figure out what to do with em?
+[11:12:11] <ryanneufeld> gnarf: you live!
+[11:14:22] <gnarf> clarkbox: yeah, 404's are like part of the job right?
+[11:14:30] <clarkbox> yaaa
+[11:16:35] <gnarf> clarkbox: can you filter out which ones don't serve nginx 404s?
+[11:16:42] <gnarf> because those are SUPER tiny and quick
+[11:17:01] <gnarf> size != 1726 ?
+[11:17:08] <clarkbox> you mean, don't log them?
+[11:17:27] <clarkbox> are you talking about filtering out before they hit the splunk index?
+[11:17:32] <clarkbox> or just a search that will filter them out?
+[11:17:46] <gnarf> search perhaps, or "saved report" i guess
+[11:18:01] <clarkbox> you can do things like "bytes > 20"
+[11:20:03] <clarkbox> does that answer your question gnarf?
+[11:20:10] <gnarf> yeah
+[11:20:22] <gnarf> you just seemed alarmed with the high number of 404s
+[11:20:40] <clarkbox> ya… well its more than usual. people are linking to some strange stuff
+[11:21:01] <clarkbox> and they shouldn't be. but i guess there is nothing we can do about that
+[11:21:14] <gnarf> https://citadel.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20sourcetype%3D%22access_combined%22%20host%3Djq01*%20status%3D%22404%22%20bytes%20%3E%201726&earliest=-15m&latest=now
+[11:21:42] <gnarf> clarkbox: the best we can do is make sure they are hitting the nginx 404 - perhaps we can turn off logging on those
+[11:22:09] <clarkbox> ya we might have to do something to prevent the citadel disk from filling up
+[11:22:30] <gnarf> so clark
+[11:22:31] <clarkbox> i will write a saved search that purges that data after a day or two
+[11:22:35] <gnarf> which host are these requests on
+[11:22:36] <gnarf> ?
+[11:22:52] <clarkbox> well its not in the log
+[11:22:58] <clarkbox> so we have to go by the source file
+[11:23:02] <gnarf> clarkbox: its in the log file
+[11:23:11] <gnarf> i can add it to the log
+[11:23:13] <gnarf> format
+[11:23:17] <gnarf> like last value or something
+[11:23:17] <clarkbox> you don't have to
+[11:23:27] <clarkbox> we can get it by specfying the source property
+[11:23:36] <clarkbox> so source=*jqueryui.com
+[11:24:52] <clarkbox> sourcetype="access_combined" source=*jqueryui.com* |head 100
+[11:24:54] <gnarf> so
+[11:25:01] <gnarf> can i sort these 404s by url?
+[11:25:08] <clarkbox> yup
+[11:25:13] <clarkbox> you can use the search lang
+[11:25:19] <clarkbox> or use the fields picker to the left of the page
+[11:25:24] <clarkbox> and interactively do it
+[11:25:33] <gnarf> i see the little mini graph when i click on the url
+[11:25:35] <gnarf> thats kinda nice
+[11:25:40] <gnarf> but i want that report like full screen
+[11:25:44] <clarkbox> sourcetype="access_combined" source=*jqueryui.com*  | head 10000 | timechart count by uri
+[11:25:51] <gnarf> aha
+[11:25:54] <clarkbox> then you can save as report
+[11:26:05] <clarkbox> or save it as a dashboard panel to a dashboard
+[11:26:10] <clarkbox> like i have done with this dashboard
+[11:26:17] <clarkbox> https://citadel.jquery.com:8000/en-US/app/search/web_stats
+[11:26:32] <clarkbox> i gotta run. hair cut.
+[11:26:38] <gnarf> clarkbox: quick Q
+[11:26:41] <clarkbox> shoot
+[11:26:52] <gnarf> can we define a meta-field "host" based on source with a regexp replace?
+[11:27:09] <clarkbox> yup!
+[11:27:12] <gnarf> also
+[11:27:14] <gnarf> top limit=10000 source uri
+[11:27:24] <gnarf> can i add source AND uri to this graph?
+[11:27:28] <clarkbox> yes
+[11:27:32] <clarkbox> its possible
+[11:27:36] <clarkbox> i don't have time to help with that right now
+[11:27:40] <gnarf> k
+[11:27:46] <gnarf> :)
+[11:27:56] <clarkbox> ill be back in a few and i can help out if you don't figure it out yourself by then
+[11:28:05] <clarkbox> lots of good splunk resources on the net
+[11:56:20] <gnarf> clarkbox: Walk me through adding a log file at some point - there is a good example with download builder
+[12:16:00] <ajpiano> clarkbox: can you quickly follow up with jenny medeiros: http://cl.ly/image/231A1e100z0F
+[12:16:20] <ajpiano> she might need to be added to infra or something
+[12:16:22] <ajpiano> cc gnarf
+[12:16:57] <clarkbox> ya she's needs to be added
+[12:17:07] <gnarf> is she on the splunk table?
+[12:17:15] <ajpiano> yeah, she's one of the non-splunkers at the splunk table
+[12:17:29] <ajpiano> i don't know if she's on github >:|
+[12:17:31] <gnarf> will she need a checkout of infra clark?
+[12:17:32] <clarkbox> well she won't need access to that repo
+[12:17:40] <gnarf> k
+[12:17:45] <clarkbox> access denied!
+[12:17:50] <ajpiano> k, well then it probably shouldn't say that she needs access to it :p
+[12:17:56] <clarkbox> hmmm
+[12:18:25] <gnarf> ajpiano: fyi - I've only head back from one of my table people from that email I sent
+[12:18:28] <clarkbox> oh that was part of the template. i didn't remove it. gone now
+[12:18:55] <ajpiano> k, can you just send her a quick e-mail, say hi and all that :)
+[12:19:07] <ajpiano> jmedeiros@embolden.com
+[12:21:12] <clarkbox> will do
+[12:24:14] <ajpiano> thanks
+[12:24:30] <gnarf> clarkbox: PS - I just added a ton of users to splunk
+[12:24:48] <clarkbox> sounds good
+[12:24:52] <gnarf> clarkbox: i'd prefer not to need the admin password for anything
+[12:24:59] <clarkbox> yes
+[12:25:32] <gnarf> clarkbox: do you have this running on the eol* yet?
+[12:26:47] <clarkbox> no
+[12:26:50] <clarkbox> want me to add it
+[12:27:02] <clarkbox> we are going to need a bigger license/disk on citadel as it is
+[12:27:05] <gnarf> clarkbox: yeah - there is some crazy hapening with eol3
+[12:27:10] <clarkbox> unless we prune info upstream
+[12:27:31] <clarkbox> is it possible to get more disk?
+[12:27:48] <gnarf> clarkbox: I can ask, but it's unlikely, might just want to move it to a different indexer
+[12:27:49] <clarkbox> in any case, ill add eol servers
+[12:27:54] <clarkbox> ok
+[12:28:14] <gnarf> eol3's error logs are getting so big that its disk is filling up
+[12:28:22] <gnarf> i had to blow one of them up just to retreive it
+[12:28:29] <clarkbox> also, we can control how long we keep the data. on a search by search basis. so we can identify data that we will never need, and dump it after a time period
+[12:28:34] <clarkbox> ok ill add it right now
+[12:29:49] <gnarf> clarkbox: is it easy to move the indexer with all its settings?
+[12:29:56] <clarkbox> ya
+[12:29:59] <gnarf> cool
+[12:30:15] <gnarf> maybe we can try to spin an indexer up on this new helix
+[12:31:33] <gnarf> clarkbox: how much disk are you talking btw?
+[12:31:44] <clarkbox> hard to say exactly
+[12:31:54] <clarkbox> need to figure out what data we want to keep around
+[12:32:17] <clarkbox> right now we are seeing 20-30gb per day indexed
+[12:32:23] <clarkbox> that does not === disk space used
+[12:32:29] <clarkbox> but pretty close
+[12:32:47] <clarkbox> also, we can roll the old data off to an archive
+[12:33:04] <clarkbox> which could be a slow, nfs mount or something
+[12:33:26] <gnarf> hrm
+[12:36:36] <clarkbox> whats the actual hostname? eol3.jquery.com right?
+[12:36:57] <gnarf> yeah
+[12:37:25] <gnarf> clarkbox: is this logging bandwidth use also?
+[12:37:27] <gnarf> memory?
+[12:37:29] <gnarf> disk?
+[12:37:36] <clarkbox> yes all of that
+[12:37:44] <clarkbox> however, there seems to be a prob with bandwidth logging
+[12:37:56] <clarkbox> i think due to the nature of virtualization MT is using
+[12:38:08] <clarkbox> i made some progress on fixing that last night… but not done yet
+[12:38:15] <clarkbox> you can see that stuff in the unix "app"
+[12:38:23] <clarkbox> look in the apps drop down on the upper right
+[12:38:53] <clarkbox> think of apps as templates… we may want to build our own dashboards for more accurate and relevant reporting
+[12:39:22] <clarkbox> ok you should see eol3 come online any min now
+[12:42:53] <clarkbox> …or not
+[12:46:22] <jqcommit> [infrastructure] clarkbox pushed 1 new commit to puppet-master: https://github.com/jquery/infrastructure/commit/49afda5c4351cdcc7993fab8957d10016971f1ed
+[12:46:22] <jqcommit> [infrastructure/puppet-master] adding splunk forwarder to eol3 - clark a
+[12:47:36] <clarkbox> gnarf, fyi added curl to eol3
+[12:47:44] <gnarf> k
+[12:52:10] <gnarf> ryanneufeld: you gonna be around saturday?
+[12:52:43] <clarkbox> ok eol3 is now forwarding
+[12:55:05] <clarkbox> yaaa something is wrong
+[12:55:07] <clarkbox> host=eol3* sourcetype="access_combined"
+[12:56:58] <gnarf> wtf
+[12:57:12] <clarkbox> haha
+[12:59:26] <gnarf> gg apache
+[12:59:39] <gnarf> thats not very big tho
+[12:59:43] <gnarf> or very frequent
+[13:00:53] <gnarf> the error.log is 19 gigs
+[13:08:35] <gnarf> hrm
+[13:08:42] <gnarf> why is jq02's hostname "nc02"
+[13:15:45] <jqcommit> [infrastructure] gnarf37 pushed 1 new commit to puppet-stage: https://github.com/jquery/infrastructure/commit/2c2acdeb2ba6bed3e69eb73d452f31454bcdef9a
+[13:15:45] <jqcommit> [infrastructure/puppet-stage] Adding some rewrites and 410/404 for jqueryui.com - Corey Frang
+[13:17:36] <clarkbox> need to go over hosts and fix/normalize the values
+[13:19:02] <clarkbox> keep in mind how intensive some of these commands can be. keep results limited using time range and the |head 100 command
+[13:19:16] <clarkbox> eg... the search will end if it his 100 results
+[13:19:57] <clarkbox> nc02 is coming from /var/www/amd-builder.jquerymobile.com/staging/jquery/1.2.0/jquery-mobile/js
+[13:20:08] <clarkbox> in syslog
+[13:20:41] <clarkbox> host is kind of a "super" field.
+[13:21:11] <clarkbox> it is determined during index phase
+[13:24:43] <jqcommit> [infrastructure] gnarf37 pushed 1 new commit to puppet-stage: https://github.com/jquery/infrastructure/commit/51d1372ed9f1fab4bb56aaac0222b330df1e2231
+[13:24:43] <jqcommit> [infrastructure/puppet-stage] Fixing errors with the rewrites - Corey Frang
+[13:26:16] <ryanneufeld> gnarf: I can be
+[13:26:47] <ryanneufeld> I'm feeling kinda gross right now, gonna have to get me some cold meds
+[13:35:09] <jqcommit> [infrastructure] gnarf37 pushed 1 new commit to puppet-stage: https://github.com/jquery/infrastructure/commit/a5f1c56087cd58692d0e00202c043d2c76d30815
+[13:35:09] <jqcommit> [infrastructure/puppet-stage] Rewriting /docs/Changelog -> /changelog for jqueryui.com - Corey Frang
+[13:36:21] <gnarf> ryanneufeld: need to do a spot check for vagrant up on everything, etc - wanna try to jam out our last "pre-summit" issues
+[13:36:33] <ryanneufeld> k
+[13:39:00] <gnarf> clarkbox: is there a way to group this by referer's domain part instead of the whole thing:
+[13:39:01] <gnarf> host=jq01* source="*/jqueryui.com*" status>200 bytes>1724 referer!="-" | top limit=10000 referer
+[13:39:38] <clarkbox> nice. that'll cut down
+[13:40:12] <clarkbox> ya
+[13:40:18] <clarkbox> there is a field defined for that
+[13:40:53] <clarkbox> does that != work?
+[13:41:00] <clarkbox> i think you want NOT x=y
+[13:41:22] <gnarf> clarkbox: != worked
+[13:41:58] <gnarf> nice -- referer_domain
+[13:42:18] <gnarf> interesting search: https://citadel.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20host%3Djq01*%20source%3D%22*%2Fjqueryui.com*%22%20status%3E200%20bytes%3E1724%20referer!%3D%22-%22%20%7C%20top%20limit%3D10000%20referer_domain&earliest=0
+[13:42:58] <clarkbox> there ya go!
+[13:43:39] <clarkbox> so we basically have the stats for every site using our hosted scripts
+[13:44:36] <clarkbox> host=jq01* source="*/jqueryui.com*" status>200 bytes>1724 referer!="-" | timechart count limit=10000  by referer_domain
+[13:47:58] <clarkbox> thats a fun one to watch real time
+[13:51:59] <clarkbox> feel free to add issues to the splunk table, requesting any specific dashboards/data you want to see
+[13:54:08] <gnarf> wtf --- http://cl.ly/image/3Q2U3t0z2s2t
+[13:54:14] <gnarf> host=jq01* source="*/jqueryui.com*" referer_domain="http://www.ask.com" | timechart count
+[14:00:46] <gnarf> man
+[14:00:53] <gnarf> I'm really really mad at hotlinks right now
+[14:01:33] <ryanneufeld> you can deal them harshly
+[14:02:50] <gnarf> clarkbox: here's another one
+[14:02:50] <gnarf> host=jq01* source="*/jqueryui.com*" NOT ( referer="-" OR referer_domain=*jqueryui.com ) | top limit=10000 referer_domain
+[14:03:03] <gnarf> how can I add like sum(bytes) for each of those
+[14:03:09] <gnarf> i wanna see how much traffic this shit is costing us
+[14:03:10] <gnarf> :)
+[14:03:19] <clarkbox> see the dashboard i made for example
+[14:03:28] <clarkbox> you can click "view results" on each panel
+[14:04:02] <clarkbox> sourcetype="access_combined" | stats sum(bytes) as totalbytes by host| eval megabytes=(totalbytes)/1024/1024 |fields host megabytes| sort megabytes
+[14:06:57] <clarkbox> host=jq01* source="*/jqueryui.com*" NOT ( referer="-" OR referer_domain=*jqueryui.com ) | stats sum(bytes) as totalbytes by referer_domain |sort -totalbytes
+[14:07:47] <clarkbox> these commands are about the extent of my use of the search language. it can get pretty cool
+[14:08:14] <clarkbox> clients have thousands character long searches
+[14:10:38] <gnarf> interesting:
+[14:10:40] <gnarf> host=jq01* source="*/jqueryui.com*" NOT ( referer="-" OR referer_domain=*jqueryui.com ) | stats count as totalcount, sum(bytes) as totalbytes by referer_domain | fields referer_domain totalcount totalbytes | sort -totalbytes
+[14:10:59] <clarkbox> that search i passed is wrong
+[14:11:02] <clarkbox> sourcetype="access_combined" | stats sum(bytes) as totalbytes by referer_domain| eval megabytes=(totalbytes)/1024/1024 |fields host megabytes referer_domain| sort megabytes
+[14:11:30] <clarkbox> ya you got it right
+[14:12:10] <gnarf> host=jq01* source="*/jqueryui.com*" NOT ( referer="-" OR referer_domain=*jqueryui.com ) | stats count as totalcount, sum(bytes) as totalbytes by referer_domain,status | fields referer_domain status totalcount totalbytes | sort -totalbytes
+[14:23:50] <gnarf> some cool stuff clark
+[14:23:55] <gnarf> lookin forward to playin with this more
+[14:24:12] <gnarf> oh hey clarkbox
+[14:24:27] <gnarf> how do we add an index for /var/www/download.jqueryui.com/logs as well?
+[14:24:33] <gnarf> ( jq02 )
+[14:24:40] <clarkbox> its easy
+[14:24:43] <clarkbox> but tedious
+[14:24:44] <clarkbox> ill add it
+[14:24:51] <gnarf> can you write up a walkthrough?
+[14:24:54] <clarkbox> ya
+[14:24:57] <gnarf> thanks
+[14:25:03] <clarkbox> its documented on the splunk site :|
+[14:25:20] <gnarf> infra wiki some useful links for newbies?
+[14:25:22] <clarkbox> its ok, ill write an executive overview
+[14:25:35] <clarkbox> only a few steps
+[14:26:06] <clarkbox> citadel will be out of disk space in a day or two at this rate
+[14:26:10] <clarkbox> what do you want to do?
+[14:26:15] <clarkbox> i can move the box over tonight
+[14:26:23] <clarkbox> or i can prune some data
+[14:31:05] <gnarf> lol
+[14:31:05] <gnarf> https://citadel.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20sourcetype%3D%22access_combined%22%20status%3D302%20clientip%3D%22145.255.146.19%22&earliest=-60m%40m&latest=0
+[14:31:36] <gnarf> clarkbox: not sure anything we have has enough disk for this
+[14:31:44] <clarkbox> ya
+[14:31:53] <gnarf> clarkbox: I'll try to make sure we have somewhere/something to do with it tomorrow
+[14:31:59] <clarkbox> ok cool
+[14:32:21] <clarkbox> if we want to keep the data around, we can archive it off worst case
+[14:32:27] <clarkbox> and we can always reindex
+[14:32:46] <clarkbox> but due to log rotation, we can only go back so far unless splunk is indexing
+[14:33:15] <gnarf> yeah
+[14:34:59] <gnarf> danheberden: you here?
+[14:35:51] <gnarf> clarkbox: with current estimations
+[14:35:58] <gnarf> if we wanted data for 3 months
+[14:36:08] <gnarf> can you approximate drive requirements?
+[14:36:12] <clarkbox> sure
+[14:37:29] <clarkbox> this dashboard gives a good insight to indexing rate
+[14:37:29] <clarkbox> https://citadel.jquery.com:8000/en-US/app/search/index_status
+[14:38:56] <clarkbox> a high estimate, we are around 86400000KB per day
+[14:39:03] <gnarf> so we are storing ~1M per sec?
+[14:39:18] <clarkbox> yaaaa
+[14:39:38] <clarkbox> thats without all possible sources
+[14:39:46] <clarkbox> but also without limiting the data we collect
+[14:39:47] <gnarf> so thats like 8 tb of data?
+[14:39:50] <gnarf> for 3 months?
+[14:39:54] <clarkbox> we can dump on the event level based on a search
+[14:39:57] <clarkbox> ha
+[14:40:14] <gnarf> seems we need to decide what we can dump
+[14:40:20] <clarkbox> yup
+[14:43:26] <clarkbox> i don't think there is much we can dump
+[14:44:03] <clarkbox> without crippling the value of the data. we may have to only keep a week of data.
+[14:44:51] <clarkbox> we could filter out some urls
+[14:45:27] <gnarf> well - non 200's aren't very interesting except for "url" and maybe "referer" after like one day
+[14:47:05] <clarkbox> true
+[14:48:10] <gnarf> can we say, store the "daily report"
+[14:48:18] <gnarf> and throw others away?
+[14:49:01] <clarkbox> ya there is a way to do summarization
+[14:49:09] <clarkbox> nothing i have had to worry about before
+[14:49:26] <clarkbox> there will be some splunkers on hand next week who do
+[14:49:36] <clarkbox> ...know how.
+[14:50:06] <gnarf> so we are going to have to
+[14:52:29] <gnarf> or just dump entire chunks
+[14:54:33] <gnarf> this doesn't make a lot of sense
+[14:54:47] <gnarf> 1m/s is like 80gig a day
+[14:55:11] <gnarf> seems unreasonable
+[14:57:50] <clarkbox> https://citadel.jquery.com:8000/en-US/app/search/indexing_volume
+[14:58:25] <clarkbox> i am suer there is a lot we can trim back
+[14:58:44] <clarkbox> change split by to host
+[14:59:02] <clarkbox> what is the services server still hosting?
+[15:00:23] <clarkbox> just serving up 404's
+[15:00:30] <clarkbox> haha
+[15:00:47] <clarkbox> i think we really should try and store 8tb of 404's
+[15:00:50] <clarkbox> ;)
+[15:01:18] <gnarf> yeah, we gotta figure out how to maybe just generate a "summary report" of the 404s like per day
+[15:01:23] <gnarf> and then throw em out
+[15:01:37] <gnarf> look at sourcetype="access_combined" | stats count by status
+[15:02:01] <clarkbox> ya
+[15:02:05] <clarkbox> its doable
+[15:02:19] <clarkbox> customers can afford the license cost.. but disk cost is always a concern
+[15:02:30] <clarkbox> its like winning a free house
+[15:02:41] <clarkbox> sure its free, but can you afford the taxes
+[15:03:29] <clarkbox> in the meantime, ill dump anything older than X days
+[15:03:45] <clarkbox> or can we at least get a little more storage?
+[15:04:29] <gnarf> clarkbox: i'll see if (mt) will spin up another one of the boxes that has 250gb for us
+[15:05:01] <gnarf> but thats about as big as I think we can get -- I can ask (mt) tho
+[15:19:42] <gnarf> clarkbox: realistically, 60gb is a TON of drive
+[15:20:06] <clarkbox> yes
+[15:23:21] <gnarf> bah
+[15:23:27] <gnarf> eol3 is blowing up at the moment
+[16:07:12] <clarkbox> https://github.com/jquery/infrastructure/wiki/Getting-data-into-Splunk
+[16:07:16] <clarkbox> gnarf ^
+[20:05:04] <ryanneufeld> gnarf: ping
+[20:05:17] <gnarf> yo
+[20:06:11] <ryanneufeld> so
+[20:06:22] <ryanneufeld> I was looking at https://github.com/jquery/infrastructure/issues?milestone=5&page=1&state=open
+[20:06:31] <ryanneufeld> you said you wanted that done before we left correct?
+[20:06:48] <gnarf> ya
+[20:07:12] <ryanneufeld> for 68, I kinda think it's moot with the readme in the vagrant dir
+[20:07:36] <ryanneufeld> unless you're wanting a "If you're working on wordpres themes use jq01"
+[20:07:58] <ryanneufeld> but it seems that we won't necessarily have people using the vms?
+[20:08:24] <gnarf> nope
+[20:08:28] <gnarf> readme is fine
+[20:08:30] <gnarf> its closable
+[20:08:45] <ryanneufeld> Cool, only thing I could think is to move it to the root of the project
+[20:08:55] <ryanneufeld> which kinda makes the vagrant dir pointless too
+[21:30:45] <ryanneufeld> gnarf: http://cl.ly/image/0E1P3h2s372p
+[21:31:24] <ryanneufeld> http://cl.ly/image/36232E013M21
+[21:51:37] <ryanneufeld> gnarf: http://cl.ly/image/2L0P1B3o3q2R
+[21:57:16] <gnarf> did they all provision well?
+[22:02:44] <ryanneufeld> doing a provisioning run now
+[22:02:49] <ryanneufeld> they all stood up with no errors
+[22:03:19] <ryanneufeld> I got this: http://cl.ly/image/1P2s0X1S0T1m
+[22:03:29] <ryanneufeld> but I'm not sure I should be worried
+[22:03:42] <ryanneufeld> I think it was on one of the EOL machines
+[22:04:04] <ryanneufeld> nope jq02.stage
+[22:04:30] <ryanneufeld> but so far the second round of provisioning has been good
+[22:06:15] <ryanneufeld> I'm closing #89
+[22:07:51] <ryanneufeld> afk
+[23:07:01] <jqcommit> [infrastructure] ryanneufeld pushed 2 new commits to puppet-stage: https://github.com/jquery/infrastructure/compare/ef73e7aca80f...50ad31f1a453
+[23:07:01] <jqcommit> [infrastructure/puppet-stage] Cleaning up project directory. fixes #68 - Ryan Neufeld
+[23:07:01] <jqcommit> [infrastructure/puppet-stage] Merge branch 'puppet-stage' of github.com:jquery/infrastructure into puppet-stage - Ryan Neufeld
+[23:11:04] <jqcommit> [infrastructure] ryanneufeld pushed 2 new commits to puppet-master: https://github.com/jquery/infrastructure/compare/ef73e7aca80f...f966f892530c
+[23:11:04] <jqcommit> [infrastructure/puppet-master] Cleaning up project directory. fixes #68 - Ryan Neufeld
+[23:11:04] <jqcommit> [infrastructure/puppet-master] Merge branch 'puppet-master' of github.com:jquery/infrastructure into puppet-master - Ryan Neufeld
+[23:11:54] <clarkbox> ok i just capped the index at 45gigs to prevent it from using all the disk
+[23:12:08] <ryanneufeld> nice
+[23:12:15] <clarkbox> meh. more would be better
+[23:12:22] <ryanneufeld> 45gigs isn't enough
+[23:12:24] <ryanneufeld> ?
+[23:12:26] <clarkbox> thats about 2 days of data
+[23:12:33] <ryanneufeld> shiiit
+[23:12:40] <clarkbox> the web servers are spitting out a LOT of logs
+[23:12:49] <clarkbox> lots of traffic
+[23:12:54] <ryanneufeld> ah
+[23:12:59] <ryanneufeld> well, I'm off for the night
+[23:13:05] <clarkbox> there has been 54k downloads from the jquery ui download builder
+[23:13:12] <ryanneufeld> I'll be around tomorrow
+[23:13:20] <clarkbox> sounds good. I'm flying into DC tomorrow
+[23:13:35] <clarkbox> will be around late night
+[23:13:46] <ryanneufeld> I'm flying in on sunday
+[23:13:50] <ryanneufeld> we should find beer
+[23:13:56] <ryanneufeld> and then, once found
+[23:13:58] <ryanneufeld> consume
+[23:14:01] <ryanneufeld> that is all
+[23:14:02] <ryanneufeld> night
+[23:14:17] <clarkbox> yes

@@ -1,0 +1,84 @@
+[05:26:32] <scott_gonzalez> gnarf: I just published git-tools@0.0.2 so you can use .branches() and .tags().
+[08:28:33] <Krinkle> gnarf: you there? could use some help figuring out what the hell is going on on jq03
+[08:28:47] <Krinkle> whatever is been messing up random things over the last months, it's all happening at once
+[08:31:14] <Krinkle> well, dang it, splunk is still expired, can't see a thing.
+[08:35:23] <Krinkle> mikesherov: scott_gonzalez: gnarf: danheberden: Any idea whether someone is working on fixing splunk?
+[08:35:31] <Krinkle> It's been expired and rendered unusable for a while now
+[08:36:22] <Krinkle> I'm in the middle of a outage-by-ghost on testswarm and a splotlight like Splunk would be nice
+[08:36:33] <Krinkle> Will log on manually now to dig through
+[08:41:00] <Krinkle> https://github.com/jquery/infrastructure/issues/147
+[08:55:37] <ryanneufeld> Krinkle: from what I can tell it's some git processes getting hung up
+[08:55:47] <ryanneufeld> perhaps they are stampeding?
+[08:57:58] <Krinkle> Well, that would explain the slowness and responsetime of the server
+[08:58:36] <Krinkle> But it wouldn't explain the more tangible issue in testswarm that is causing certain queries to fail but still succeed as if they succeeded. 
+[08:59:17] <Krinkle> I don't see any git processes on jq03
+[08:59:23] <ryanneufeld> could it be that the the testswarm is stampeding?
+[09:00:05] <ryanneufeld> hmm
+[09:00:13] <ryanneufeld> there is only one instance of browserstack...
+[09:00:32] <Krinkle> Yeah
+[09:00:55] <Krinkle> The `top` shows a phantomjs process on top
+[09:00:59] <Krinkle> doesnt' seem to be notable
+[09:01:07] <Krinkle> 28134 jenkins   15   0 1296m  49m  15m S    1  0.6   0:05.62 phantomjs                                                                                                                                      
+[09:01:13] <Krinkle> though it has been running for a long time
+[09:01:24] <Krinkle> but not being very expensive afaic
+[09:01:29] <Krinkle> something to check out later
+[09:02:39] <gnarf> its jenkins testing mobile, yes>
+[09:04:17] <Krinkle> /var/log
+[09:04:18] <Krinkle> $ sudo tail php5-fpm.log
+[09:04:32] <Krinkle> [19-Feb-2013 09:02:59] WARNING: [pool swarm] child 30595, script '/var/www/swarm/index.php' (request: "GET /index.php") executing too slow (6.073706 sec), logging 
+[09:05:30] <ryanneufeld> [19-Feb-2013 16:17:28 UTC] PHP Warning:  require_once(/var/www/swarm/inc/libs/ua-parser/php/uaparser.php): failed to open stream: No such file or directory in /var/www/swarm/inc/init.php on line 122
+[09:05:30] <ryanneufeld> [19-Feb-2013 16:17:28 UTC] PHP Fatal error:  require_once(): Failed opening required '/var/www/swarm/inc/libs/ua-parser/php/uaparser.php' (include_path='.:/usr/share/php:/usr/share/pear') in /var/www/swarm/inc/init.php on line 122
+[09:05:45] <ryanneufeld> Krinkle: /var/log/php-fpm/error.log
+[09:05:52] <Krinkle> ryanneufeld: that's been fixed
+[09:06:09] <ryanneufeld> cool
+[09:06:10] <Krinkle> ryanneufeld: Forgot submodule update after git pulling a fix for something related to the problem at hand
+[09:06:17] <ryanneufeld> ah
+[09:06:25] <ryanneufeld> phantomjs isn't using any cpu
+[09:06:29] <ryanneufeld> and hardly any ram
+[09:06:31] <Krinkle> yeah
+[09:06:54] <Krinkle> var/log/ mysql.log is empty
+[09:07:07] <Krinkle> var/log/mysql.err not recently written to
+[09:07:42] <Krinkle> var/log/mysql/mysql-slow.log does have some entries
+[09:07:43] <Krinkle> hm..
+[09:08:11] <Krinkle> the actual error (or sympton, if you consider jq03 slow as cause) is related to a query being executed that is supposed to be cancelled if another query failed
+[09:08:19] <Krinkle> e.g. "transaction" but more primitive than that
+[09:08:39] <ryanneufeld> is it?
+[09:08:43] <Krinkle> https://github.com/jquery/testswarm/issues/262
+[09:08:51] <Krinkle> yeas
+[09:08:52] <Krinkle> yes
+[09:09:26] <Krinkle> I fixed those entries manually, and swarm appears to be functioning again.
+[09:09:34] <Krinkle> But they sort of happen at random, not consistent
+[09:09:40] <Krinkle> it happened 4 times last hour
+[09:09:50] <Krinkle> after not happening for 2 months
+[09:10:10] <ryanneufeld> gnarf: any idea what happened to clarkbox?
+[09:10:43] <gnarf> nope
+[09:10:56] <gnarf> gonna wait for west coast to be a little further in the day, then ill call him
+[09:11:26] <ryanneufeld> it's 9am out here
+[09:18:00] <Krinkle> Okay, the 4 corruptions happened in a race condition shortly after one another
+[09:18:08] <Krinkle> There are no new ones since then, and I fixed those 4
+[09:18:14] <Krinkle> I'll have dinner first and check back later.
+[09:18:19] <Krinkle> https://github.com/jquery/testswarm/issues/262
+[11:28:14] <gnarf> rxaviers: you have interest in sitting in on this team too?
+[11:28:19] <gnarf> also guys, no meeting tomorrow
+[11:28:22] <gnarf> im going to be in transit
+[11:28:37] <gnarf> unless you want to have one without me
+[11:28:58] <gnarf> rxaviers: mainly, i just want your eyes in our issue list / puppet configs so you can file issues/comment on stuff
+[11:29:02] <gnarf> so im adding you to the infra team
+[11:29:26] <gnarf> you're already there
+[11:29:27] <gnarf> hey!
+[11:29:29] <gnarf> :)
+[11:29:33] <rxaviers> gnarf, sure. I dont know how responsive I will be able to be. But, sure I do.
+[11:29:46] <rxaviers> :D
+[11:29:53] <gnarf> make us an issue to get puppet installing imagick for "services"
+[11:30:25] <rxaviers> alright, is services a machines category?
+[11:30:51] <gnarf> yeah, its a node
+[11:30:55] <gnarf> jq03 = services
+[11:31:07] <rxaviers> ah cool :)
+[13:00:02] <Krinkle> Alrighty, we've survived the million runs on TestSwarm.
+[13:00:07] <Krinkle> http://swarm.jquery.org/result/1132475
+[13:00:14] <Krinkle> (hit it a little while ago)
+[13:00:53] <Krinkle> http://swarm.jquery.org/result/1000000
+[13:01:45] <Krinkle> Now I feel bad about maybe clearing the database next week when deploying the projects refactoring, which has a few breaking changes. 
+[13:01:58] <Krinkle> can probably preserver run results though, as those haven't changed.
+[13:02:14] <Krinkle> > 504 Gateway Time-out
+[13:02:16] <Krinkle> grr

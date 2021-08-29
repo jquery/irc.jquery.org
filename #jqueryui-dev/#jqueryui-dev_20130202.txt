@@ -1,0 +1,109 @@
+[02:38:59] <doesallmagic> Project jQuery UI - git core build #303: STILL FAILING in 17 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%20git%20core/303/
+[03:24:17] <doesallmagic> Project jQuery UI 1-9-stable - git core build #90: STILL FAILING in 45 min: http://swarm.jquery.org:8080/job/jQuery%20UI%201-9-stable%20-%20git%20core/90/
+[03:39:36] <doesallmagic> Project jQuery UI - 1.6.x core build #198: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.6.x%20core/198/
+[03:54:56] <doesallmagic> Project jQuery UI - 1.7.x core build #199: STILL FAILING in 15 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.7.x%20core/199/
+[04:11:17] <doesallmagic> Project jQuery UI - 1.8.x core build #174: STILL FAILING in 16 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20-%201.8.x%20core/174/
+[07:49:43] <DavidSullivan> scott_gonzalez, I don't thing that we should make the changes we discussed yesterday for bug 5454
+[07:49:48] <DavidSullivan> scott_gonzalez, http://jsperf.com/label-selector-test
+[08:53:39] <DavidSullivan> when I run grunt after doing git pull upstream master  it just comes back with no output
+[09:17:36] <DavidSullivan> can anyone run this test for me in IE and\or safari
+[09:17:47] <DavidSullivan> http://jsperf.com/label-selector-test/2
+[09:34:43] <DavidSullivan> anyone on to discuss a button performance issue?
+[10:34:20] <djQuery> ajpiano, you got a sec to discuss a .button performance issue
+[10:34:44] <ajpiano> possibly?
+[10:34:50] <djQuery> what do we do when changes make it work faster in most browser just not ie
+[10:35:12] <djQuery> http://jsperf.com/label-selector-test/2
+[10:35:42] <ajpiano> does it make it slower in ie ?
+[10:36:33] <ajpiano> or just about the same
+[10:36:48] <djQuery> just baout the same slightly slower on older ie
+[10:36:53] <djQuery> 9 is fine
+[10:37:00] <djQuery> havent been able to test 10
+[10:37:52] <ajpiano> hmm
+[10:37:59] <ajpiano> that is something of philosophical question
+[10:38:05] <djQuery> http://jsperf.com/label-selector-test
+[10:38:10] <ajpiano> yeah i mean
+[10:38:26] <djQuery> heck with <9?
+[10:39:10] <ajpiano> running it now in ie myself
+[10:42:21] <ajpiano> djQuery: which one is the current methodology
+[10:42:58] <ajpiano> djQuery: the thing that's fastest in chrome is also fastest in ie8
+[10:43:21] <ajpiano> .siblings().filter(...
+[10:43:55] <djQuery> ajpiano, after traversing up .parents().all()  it does .find(label[for="id"])
+[10:44:25] <djQuery> I was thinking I need to reorder the code so that it searches siblings first
+[10:44:33] <djQuery> before going up the tree
+[10:45:19] <ajpiano> that seeems to be faster everywhere though, so as long as everything still works ostensibly you should go with it
+[10:45:43] <djQuery> but I dont know how searching siblings will work when it is disconnected from the dom
+[10:45:49] <ajpiano> ohhhhhhhhh
+[10:45:59] <djQuery> $('<input>',)
+[10:46:23] <djQuery> but realy that shouldn't work in any case unless the is a container it has been attached to
+[10:46:56] <djQuery> line 232 of jquery.ui.button.js if you want to look at it with me
+[10:47:29] <ajpiano> looking now
+[10:47:50] <djQuery> thinking of just reordering it to where it search siblings first then searches parents().last()
+[10:48:13] <djQuery> hey lets to the fastes thing first
+[10:51:19] <ajpiano> hmm
+[10:51:28] <ajpiano> i think that would probably add unneeded complexity
+[10:53:20] <ajpiano> cause you'd have to fork the assignment on 235 somehow
+[10:53:35] <ajpiano> to say like, if i have siblings, look there, if i do, use that, if i don't, do the normal route
+[10:54:34] <djQuery> basicaly yes switching the order of the if there
+[10:56:07] <djQuery> by the way this is in refence to http://bugs.jqueryui.com/ticket/5454
+[10:58:40] <ajpiano> fontzter said it had "negligible benefit" to search the sblings first
+[10:59:22] <ajpiano> also
+[10:59:37] <ajpiano> this might have already improved by virture of the fact that it now explicitly searches only for labels
+[11:00:04] <ajpiano> i don't know though
+[11:02:12] <djQuery> ajpiano, in modern browsers yes it appears that adding laebel helped
+[11:04:08] <ajpiano> i wonder if making it .find("label").filter(...) would help
+[11:04:31] <djQuery> ajpiano, that is in one of the tests
+[11:04:39] <ajpiano> oh woops
+[11:04:46] <ajpiano> guess not
+[11:04:55] <ajpiano> it's hard to perf test this in insolation also
+[11:05:06] <ajpiano> because it can be sooo different depending on the structure of the particular page
+[11:06:19] <djQuery> ajpiano, so maybe thats what we need to look at what is the common structure
+[11:06:39] <djQuery> I used to allways do <label><input/></label>
+[11:06:49] <djQuery> but that is not supported by .button
+[11:06:55] <ajpiano> me too but sometimes it straight up don't work
+[11:07:23] <djQuery> so now I always do <label for=></label><input id= />
+[11:07:44] <ajpiano> i hate how the only way you can specify labels is with ids
+[11:07:46] <ajpiano> it drives me nuts
+[11:08:03] <ajpiano> aside from wrapping
+[11:10:10] <djQuery> http://jsbin.com/emavid/2/edit
+[11:10:54] <ajpiano> yea, granted
+[11:10:57] <djQuery> ajpiano, to make selecting the labels easier I have done <label id="lblInputID" for="InputID"? >
+[11:11:40] <djQuery> in your opinion are they usualy a sibling in which case we need to change the if, or is it something else
+[11:12:56] <ajpiano> i wish we had one of these dramatically bad DOMs
+[11:13:00] <ajpiano> to see where it realy slows down
+[11:15:02] <djQuery> especialy with the new chrome dev tools to inspect it
+[11:15:10] <ajpiano> it's weird how the current code
+[11:15:17] <ajpiano> checks the entire DOM first, and then looks at siblings
+[11:15:27] <ajpiano> i'd tend to think that just looking at siblings first
+[11:15:30] <ajpiano> would be the way to speed it up
+[11:18:29] <djQuery> ajpiano, thats it thats what I am going to change it to
+[11:18:35] <ajpiano> worth a shot for sure
+[11:24:41] <djQuery> how do you add a command to bot-t again
+[11:25:03] <djQuery> I used to have all the ?ui.module name listed in him but he seems to have forgoten
+[11:25:26] <ajpiano> oh bot-t
+[11:25:30] <ajpiano> is about to be decomissioned
+[11:25:40] <djQuery> ???????????????/
+[11:25:42] <ajpiano> you should tell b-ot
+[11:25:49] <ajpiano> if you are adding new facts
+[11:25:53] <ajpiano> it's basically the samet hing
+[11:25:56] <djQuery> how am I gonna do ?demo
+[11:25:59] <ajpiano> just maintained by people who actually exist
+[11:26:00] <ajpiano> `demo
+[11:26:01] <b-ot> ajpiano: Please create a live (working) demo of your problem on http://jsfiddle.net or provide a link to your site with instructions on how to reproduce the issue.
+[11:26:34] <djQuery> so is b-ot the new bot-t?
+[11:26:34] <bot-t> djQuery, Stored "so".
+[11:26:53] <djQuery> bot-t forget so
+[11:33:02] <ajpiano> djQuery: yea
+[12:30:58] <jquicommit> 01[13jquery-ui01] 15scottgonzalez pushed 1 new commit to 06master: 02http://git.io/d-Ftjg
+[12:30:58] <jquicommit> 13jquery-ui/06master 142df2abc 15Vahid Sohrabloo: Draggable: Change $.ui.contains() to $.contains(). Fixes #9051 - Draggable: Reference to undefined $.ui.contains().
+[12:47:25] <doesallmagic> Project jQuery UI build #955: STILL FAILING in 16 min: http://swarm.jquery.org:8080/job/jQuery%20UI/955/
+[12:47:25] <doesallmagic> Scott González: Draggable: Change $.ui.contains() to $.contains(). Fixes #9051 - Draggable: Reference to undefined $.ui.contains().
+[13:19:01] <djQuery> what settings do you set in jshint for your dev enviroment
+[13:19:11] <djQuery> mine is just full of errors
+[13:53:33] <djQuery> ajpiano, you still there? http://jsbin.com/ezorib/5/edit
+[13:53:38] <djQuery> take a look at that please
+[13:57:52] <djQuery> think I shaved a little time but not enough 
+[13:58:23] <djQuery> it just means that now it is going to be slower still when say the label is in a td other than the td that the input is in
+[16:27:59] <doesallmagic> Project jQuery UI build #956: STILL FAILING in 16 min: http://swarm.jquery.org:8080/job/jQuery%20UI/956/
+[16:28:00] <doesallmagic> Scott González: oops...
+[16:49:12] <doesallmagic> Project jQuery UI build #957: STILL FAILING in 16 min: http://swarm.jquery.org:8080/job/jQuery%20UI/957/
+[16:49:13] <doesallmagic> Scott González: Dialog: Don't use ._on() for modal event handlers. Fixes #9048 - Dialog: broken focusin event handler when beforeclose event of a modal opens another modal.

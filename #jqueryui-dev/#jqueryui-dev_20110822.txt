@@ -1,0 +1,82 @@
+[08:30:09] <kborchers> ajpiano: you around?
+[08:30:46] <ajpiano> kinda, wassup
+[08:31:30] <kborchers> just trying to DRY this code but doesn't seem possible with _bind http://jsfiddle.net/kborchers/EDMRw/ I need the bind and the delegate to both happen
+[08:32:21] <gnarf> kborchers: there is the obvious DRY
+[08:32:33] <gnarf> kborchers: which is defining that handler and using it for both events
+[08:33:25] <ajpiano> what is
+[08:33:31] <ajpiano> "the delegate" in this context
+[08:34:36] <kborchers> this is for Menu, the submenus haven't been defined at this point so need to bind to the current menu, then once the submenus (.ui-menu) have been defined, they get the binding
+[08:35:32] <ajpiano> won't the mouseleaves on the .ui-menu bubble to this.element anyway?
+[08:36:07] <ajpiano> i guess yeah, i would recommend what gnarf said
+[08:37:30] <kborchers> ok, i'll play around. thanks for the input gents :)
+[08:40:13] <kborchers> ajpiano: duh, yeah, i think just binding to the original menu will work. the event does bubble up and it seems to work fine. i'll do more testing but that looks like the solution. thanks!
+[08:48:58] <kborchers> sheesh, maybe i should take that beginner training before the conference ;) i was doing the delegate binding and it wasn't working for the base menu so i just thought i need to also bind to the base menu as well, not thinking about event bubbling. i'm blaming it on monday
+[08:53:46] <ajpiano> see you already know you're ok because "beginner jquery" !== "gracefully handling both delegated and bound events at the same time as DRY as possible"
+[08:53:47] <ajpiano> :D
+[08:54:57] <kborchers> true, true. thanks again
+[09:56:58] * gnarf grumbles
+[09:57:48] <gnarf> Pretty sure we lost raf support in core for 4-6 months
+[09:57:53] <gnarf> :(
+[10:01:51] <kborchers> yeah ... saw that. great points both for and against, though. tough decision either way! is that going to hurt your jqcon talk?
+[10:02:24] <gnarf> not really, just gives me more to talk about i think
+[10:02:36] <gnarf> because the problem is still a problem
+[10:02:42] <gnarf> its just not as exposed
+[10:03:04] <kborchers> true
+[10:03:23] <gnarf> already gotta try to compress that talk anyway
+[10:04:40] <kborchers> that's always the worst ... trying to get everything you want to talk about in a time period that is just too short. hard to avoid just talking faster ;)
+[11:57:55] <kborchers> ajpiano, gnarf: so i ended up having to define a mouseleave handler function and calling for both the mouseleave events on the base menu and submenus separately. none of us remembered that mouseleave doesn't actually bubble
+[11:58:12] <kborchers> it seemed like it did because in most cases leaving the submenu also left the main menu
+[11:58:28] <kborchers> but going backward through the menus never fired mouseleave on the submenus
+[11:59:22] <kborchers> so gnarf's suggestion was the best
+[12:00:21] <gnarf> hrm
+[12:00:31] <gnarf> can you even delegate mouseleave then?
+[12:00:38] <gnarf> if it doesn't bubble....
+[12:01:15] <kborchers> hmmm, good point. it seems to be working but now i'm not sure how
+[12:02:48] <gnarf> heh
+[12:15:11] <kborchers> gnarf: the element still triggers the event though, right? delegate is just saying bind this handler to any .ui-menu added to this menu now and in the future but the submenu still triggers the event. and then since it doesn't bubble, i have to assign the handler to the top level menu as well. that makes sense in my head, does it to you?
+[12:15:42] <gnarf> not really
+[12:15:53] <gnarf> delegate can only see events that are bubbling
+[12:16:03] <gnarf> unless something funky is hapening with delegate/live
+[12:16:22] <gnarf> but afaik the way the delegated handlers work is they are bound to the bubbling event and check event.target
+[12:16:31] <gnarf> filter it based on the "selector"
+[12:18:59] <kborchers> hmmm
+[12:20:24] <gnarf> perhaps there is something done when the event doesn't bubble...
+[12:20:47] <gnarf> cuz my quick test seems to work:http://jsfiddle.net/ZAUv4/
+[12:22:19] <kborchers> yeah, interesting. i'll dig around in the delegate code and see if i can see what's up. so at least i'm not going crazy cuz it is working, just still not sure how ;)
+[12:24:50] <gnarf> looks like there is this "liveMap" on line 1012
+[12:24:54] <gnarf> 1008
+[12:26:13] <gnarf> basically it seems if you are binding on mouseleave with a delegate you are actually binding a mouseout somehow
+[12:27:14] <gnarf> yup
+[12:28:13] <gnarf> then in the 1128 range its mapping it back
+[12:28:16] <gnarf> tricky
+[12:29:11] <kborchers> very tricky
+[12:32:14] <gnarf> so yeah, i guess you gotta delegate it like that
+[12:34:37] <kborchers> yeah ... i wonder if it would be more efficient to just do .bind for the mouseleave's though rather than doing all of this extra work through delegate
+[12:35:04] <kborchers> wonder if it would even be noticable
+[12:36:20] <gnarf> kborchers: it would be noticible because you'd have to deal with extra bullshit yourself ;)
+[12:36:31] <kborchers> heh
+[12:36:32] <gnarf> you could bind the mouseout instead of mouseleave
+[12:36:41] <gnarf> but then you need to check your "target"
+[12:37:15] <gnarf> and do all sorts of lovely shit based on that target
+[12:37:19] <kborchers> no, mouseout gets messy with all the other stuff inside of the menu elements it gets fired at bad times, thus checking target
+[12:37:20] <kborchers> right
+[12:37:44] <gnarf> but thats how you'd implement it without delegate
+[12:37:51] <kborchers> right
+[12:38:11] <kborchers> i'm going to keep playing around and see if i can find the "best" way
+[12:38:17] <gnarf> if ($( e.target ).is(".ui-menu")) { doYerShit(); }
+[12:40:20] <gnarf> then there is some other strange case too
+[12:40:36] <gnarf> moving from #outer to #inner fires a mouseout on #outer even tho #inner is inside of it
+[12:40:53] <gnarf> the way you had it is prolly the only way that "makes sense"
+[12:41:30] <kborchers> right, that was what i was referring too with the "other stuff inside of the menu elements" like an icon span would fire the mouseout
+[12:46:43] <kborchers> gnarf: so does this look ok to you or would you do anything different? I still hate the duplicated call to the handler but ... http://jsfiddle.net/kborchers/9GTpf/
+[12:48:45] <kborchers> and actually i never need to clear that autoCloseTimer so i'll get rid of that
+[12:48:50] <gnarf> kborchers: { "mouseleave": mouseleaveHandler, "mouseleave .ui-menu": mouseleaveHandler }
+[12:49:03] <gnarf> no reason to wrap it again
+[12:49:23] <kborchers> right, right. ok, thanks
+[12:49:32] <gnarf> and should that mouseover be a mouseenter?
+[12:51:19] <kborchers> i'll look at that but mouseover and mouseout seem to work perfectly for the individual menu items. that was there before i started working on menu so haven't gotten into seeing if that should change
+[14:20:55] <grid_> hey
+[14:21:29] <grid_> does somebody know about a bug fix with jquery ui dialog and ie8, it will always drag behind the edges of ie8 so my backgrounds will resize, i'm already looking for weeks to get this resolved
+[14:22:20] <grid_> http://img231.imageshack.us/img231/5651/screenyo.jpg
+[14:22:46] <grid_> it is with ie8 and whenever you run ie8 compatibilty mode
+[14:28:21] <kborchers> grid_: i don't see a ticket for that bug. Please go to http://bugs.jqueryui.com and search for that bug. If you don't find it, please file a ticket with a working, simplified test case demonstrating the issue.

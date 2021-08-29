@@ -1,0 +1,399 @@
+[05:10:48] <gibson042> .
+[05:15:33] <scott_gonzalez> Who's the resident animation expert?
+[05:20:10] <erichynds> gnarf?
+[05:25:53] <scott_gonzalez> Yeah, that's who I thought of too. Haven't seen him around lately.
+[06:26:39] <scott_gonzalez> gnarf gnarf gnarf
+[06:28:01] <kborchers> you want me to drive up to rockford and find him? ;)
+[06:35:16] <scott_gonzalez> Yes :-)
+[06:38:21] <kborchers> not sure where he's been. crazy that he is less than an hour away from me and i have no idea how to get ahold of him
+[06:38:46] <kborchers> wait ... is this really important. i think i have his phone number if you want me to text him or something
+[06:40:12] <kborchers> scott_gonzalez: ^^
+[06:40:43] <scott_gonzalez> No, I'm just trying to implement some animation stuff.
+[06:41:07] <scott_gonzalez> Trying to implement this for real: http://jsbin.com/uvukiz/edit#javascript,html
+[06:42:03] <scott_gonzalez> It's gonna end up being a lot of code. I want to know if there's stuff in core that I can leverage and make sure that I'm doing everything right.
+[06:42:16] <scott_gonzalez> I know that the code in the fiddle is missing a ton of stuff
+[06:42:32] <scott_gonzalez> Like handling the default display type, restoring the previous values, etc.
+[06:42:51] <scott_gonzalez> It doesn't even use .animate() or .queue() so there's no way to stop it...
+[06:43:20] <kborchers> hmmm, yeah that's definitely a question for gnarf
+[07:14:23] <scott_gonzalez> timmywil: Got some time to help with animation code?
+[07:22:40] <timmywil> scott_gonzalez: hey, sure
+[07:23:09] <scott_gonzalez> Skype?
+[07:23:42] <timmywil> sure, just a sec
+[07:27:35] <timmywil> kk, I'm on: timmywillison
+[07:27:58] <timmywil> you might hear people in the background
+[07:29:11] <timmywil> scott_gonzalez: what's your skype name
+[07:29:35] <scott_gonzalez> gonzasi0
+[07:29:43] <DaveMethvin> what kind of name is that?
+[07:29:46] <DaveMethvin> lol
+[07:52:14] <timmywil> scott_gonzalez: calling show on the fx object calls custom, which is what triggers the timer for that property. If you set up all of the fx objects and then write your own custom to call the ticks for all properties on the same timer, you'd have full synchronization.  hopefully that helps
+[07:53:50] <timmywil> ticks = steps
+[07:55:11] <timmywil> no wait, I'm confusing myself. you're right
+[07:55:32] <timmywil> there's only one timer
+[07:55:39] <scott_gonzalez> heh
+[07:56:59] <timmywil> terminology in effects is messed up. jQuery.timers is not actually an array of timers, but an array of step functions to run on the same timers
+[07:57:01] <timmywil> timer*
+[07:57:24] <timmywil> so now I'm confused again, because it _should_ be synchronized
+[07:58:06] <scott_gonzalez> But two elements being animated wouldn't be synchronized, right?
+[07:58:14] <timmywil> they should
+[07:58:25] <timmywil> there's only one universal timer
+[07:58:42] <timmywil> a local variable in jQuery (timerId)
+[07:58:54] <scott_gonzalez> Ok, well that's not the problem that I've actually seen anyway :-P
+[07:59:06] <timmywil> ok
+[07:59:31] <timmywil> I'm trying to understand why it would be jumpy then
+[07:59:32] <scott_gonzalez> The problem is that borderTopWidth + paddingTop + height + paddingBottom + borderBottomWidth doesn't stay constant across the whole animation
+[07:59:51] <scott_gonzalez> I'm not sure where the differences come from.
+[07:59:57] <timmywil> oh i see
+[08:00:21] <scott_gonzalez> I assume from things like 1.1623px not actually getting rendered that way.
+[08:00:37] <scott_gonzalez> Though it doesn't really explain why my fix works.
+[08:00:41] <timmywil> yea, sorry, that's making much more sense.  I always get confused about the timers
+[08:01:27] <scott_gonzalez> Oh, right, it's because I'm running Math.round() to make sure I know the actual sizes getting used.
+[08:01:37] <timmywil> perfect
+[08:01:45] <scott_gonzalez> So even in browsers that support fractional pixels, I'm not letting them render fractions.
+[08:01:54] <timmywil> in that cause I think you can use almost everything, but use your own step function
+[08:02:38] <timmywil> something like this....
+[08:03:50] <timmywil> making a fiddle to test
+[08:14:51] <scott_gonzalez> the overflow and display handling happens inside .animate(), not inside fx :-/
+[08:15:03] <timmywil> yea, but I think it's ok
+[08:22:50] <timmywil> scott_gonzalez: http://jsfiddle.net/timmywil/k827v/2/
+[08:23:53] <scott_gonzalez> I don't want to override the step logic for all those props though, right?
+[08:24:00] <scott_gonzalez> I want to leave normal animations alone.
+[08:26:09] <timmywil> might be better than rewriting everything tho, if those were the choices. This would just apply the rounding to user animations of those properties, which may be an improvement or unnoticeable.
+[08:26:41] <timmywil> Something we could consider in core actually
+[08:26:44] <timmywil> for slides
+[08:26:56] <scott_gonzalez> Well, just rounding doesn't fix anything.
+[08:27:00] <scott_gonzalez> The height still needs to be normalized.
+[08:27:39] <scott_gonzalez> I don't think core needs any changes because you can only see this when you're sliding two elements of the exact same height which are sitting on top of each other at the same time
+[08:28:30] <timmywil> seems to fix the jumpiness at the end in IE
+[08:29:13] <scott_gonzalez> That fiddle is jumpy for me (testing in Chrome)
+[08:30:03] <timmywil> yea I'm noticing little spurts as it changes height
+[08:30:21] <timmywil> that could be due to swing tho
+[08:31:35] <timmywil> nope
+[08:32:53] <scott_gonzalez> It's because rounding kills the actual values.
+[08:33:05] <scott_gonzalez> Which is why I have to normalize height.
+[08:33:17] <scott_gonzalez> Anything that gets lost in the rounding just gets added to the height.
+[08:33:29] <scott_gonzalez> Or anything that gets added from rounding gets removed from the height.
+[08:34:14] <timmywil> makes sense. i have an idea tho
+[08:36:11] <scott_gonzalez> This is far from a full thought, but I think it'll be something like this: http://codedumper.com/ijuki
+[08:36:37] <scott_gonzalez> The loop on line 14 is where the height calculation would need to occur
+[08:37:02] <timmywil> I'm trying a low-pass filter
+[08:39:01] <scott_gonzalez> $( $.fx ).is( ":magic" )
+[08:44:22] <timmywil> yea, that's too bad, low-pass looks about the same as just rounding
+[08:46:35] <timmywil> scott_gonzalez: I like what you did there
+[08:47:44] <scott_gonzalez> Does this look like I'm heading in the right direction? http://codedumper.com/evase
+[08:48:16] <scott_gonzalez> After I got that far, I realized that I'm going to run into problems with varying units.
+[08:48:34] <scott_gonzalez> fx keep the units, but I need everything normalized to px so I can adjust for the rounding.
+[08:50:56] <scott_gonzalez> lunch, back in a bit
+[09:15:17] <scott_gonzalez> back
+[09:22:19] <scott_gonzalez> timmywil: I'm starting to think this isn't going to work.
+[09:23:29] <scott_gonzalez> There's too much happening directly inside .animate() that I won't get and using the existing fx logic won't give me pixel values.
+[09:25:50] <timmywil> not consistently no
+[09:25:59] <timmywil> but it will give you a value
+[09:26:30] <timmywil> in other words, you can still normalize percent and point values right?
+[09:27:01] <timmywil> shouldn't be affected by the unit
+[09:34:14] <scott_gonzalez> Is there a way to convert 1em -> px?
+[09:34:42] <scott_gonzalez> I thought you had to do some hacky stuff like creating elements, setting values in the desired unit, then reading out the computed pixel value.
+[09:34:52] <danheberden> that's about the gist of it
+[09:35:02] <danheberden> or the parent's px value
+[09:35:15] <danheberden> but it'd have to for sure be an unstyled element
+[09:35:28] <danheberden> or explicitely set font-size: 1em
+[09:35:44] <scott_gonzalez> I'd still need to do all the overflow and display handling manually though, right?
+[09:35:56] <scott_gonzalez> because I'd be calling .animate() without passing in height.
+[09:35:57] <danheberden> also, `tar zcvf blahblahblah.zip /var/www on the old jqueryui.com was a BAD idea
+[09:36:17] <scott_gonzalez> heh, I have no idea where that happens
+[09:36:24] <scott_gonzalez> I just ./production-deploy :-P
+[09:36:41] <danheberden> scott_gonzalez i thought "i should make a backup of this *just incase* someone needs it someday"
+[09:36:48] <danheberden> when, really, i should just obliterate these unnused boxes
+[09:36:53] <danheberden> it's all svn shit anyway
+[09:37:15] <scott_gonzalez> BTW, I was going to create an issue to have sane deployments, but I figured that's already in your master plan.
+[09:37:18] <danheberden> i think i've zipped 232358274 copies of ui-lightness
+[09:37:27] <scott_gonzalez> awesome
+[09:37:30] <danheberden> scott_gonzalez yeah, first step is the actual boxes to work
+[09:37:40] <danheberden> then, like, our lives easier
+[09:38:07] <scott_gonzalez> Yeah, I assume moving the site to git will be a prereq for sane deployments.
+[09:38:25] <danheberden> yeah, and i've been working on my git deploy stuff with the bocoup site
+[09:38:35] <danheberden> so that should be a workable 'thing' that's pretty bullet proof soon
+[09:38:40] <danheberden> as for using anywhere
+[09:39:24] <timmywil> scott_gonzalez: yea, sorry, I guess I don't see a way around making a custom .animate(), but I'd still use the fx objects, your own step, and a single timer
+[09:40:11] <scott_gonzalez> With all the hacking I'll need to do on the fx objects, do you actually think it'll be beneficial?
+[09:40:25] <scott_gonzalez> They're all just going to fall into _default anyway, right?
+[09:40:25] <timmywil> why do you need to hack fx?
+[09:40:47] <scott_gonzalez> I need to manually generate the fx instances.
+[09:40:51] <scott_gonzalez> I need to normalize to px.
+[09:41:00] <scott_gonzalez> I probably need to do something crazy to deal with animatedProperties.
+[09:41:16] <timmywil> right, but that won't be changing fx objects
+[09:41:33] <scott_gonzalez> But at that point what benefit am I getting from the fx objects?
+[09:41:55] <scott_gonzalez> Seems like all I'd be getting is the calculation of start and end
+[09:42:08] <scott_gonzalez> Which I already know the value of one of those (either start or end is always 0)
+[09:42:40] <scott_gonzalez> Getting the other value, already in px, seems a whole lot easier than all the other work I'd be doing around the fx objects.
+[09:42:46] <scott_gonzalez> Since that's just a call to $.curCSS()
+[09:43:09] <scott_gonzalez> I guess I would get the resetting of original values.
+[09:43:23] <scott_gonzalez> But, again, I think I'd need to hack animatedProperties.
+[09:43:35] <scott_gonzalez> I'm not even sure if that can be done.
+[09:43:54] <timmywil> you get state, pos, now, the common tick if available, stop, and fx.off if set
+[09:44:09] <timmywil> now will be adjusted by you in step
+[09:44:24] <timmywil> the rest is the same
+[09:48:21] <timmywil> man, it's dirty
+[09:49:07] <timmywil> maybe you should just leave it. hehe
+[09:50:04] <scott_gonzalez> Using fx is making my head explode :-(
+[09:50:24] <scott_gonzalez> It was clearly not built to be hacked on like this :-P
+[09:50:51] <timmywil> is this mainly a concern for browserse that don't respect fractional pixel values?
+[09:51:30] <scott_gonzalez> No, the problem is that no browser supports a resolution as high as what we can generate.
+[09:52:00] <scott_gonzalez> So even if the browser supports fractions, it won't support the fractions we generate on each step.
+[09:52:19] <scott_gonzalez> Like the browser probably can't render 1.12345 exactly
+[09:52:45] <timmywil> makes sense, but will normalization look better?
+[09:52:50] <timmywil> in those browsers?
+[09:52:53] <scott_gonzalez> Presumably it would be more noticeable on browsers that don't support fractions.
+[09:52:58] <timmywil> alright, i gotta run to lunch
+[09:53:06] <scott_gonzalez> Yeah, if you look at my original jsbin, it's perfect in every browser
+[09:53:29] <scott_gonzalez> The key is just using height to compensate for any differences on every step.
+[09:54:00] <scott_gonzalez> Really you could use any property, I use height because it's probably the largest, so you're less likely to notice it.
+[09:58:36] <scott_gonzalez> Hmm...will the order of the steps follow the order of the props? $( el ).animate({ a: 1, b: 1, c: 1 })
+[09:58:43] <scott_gonzalez> Will it always do a, then b, then c?
+[10:15:43] <scott_gonzalez> I may have just figured out how to take advantage of fx objects :-)
+[10:30:46] <scott_gonzalez> Not quite as smooth as the from-scratch implementation, but much better than what's currently in accordion: http://jsbin.com/uvukiz/2/edit#javascript,html
+[10:34:13] <kborchers> scott_gonzalez: ooooo, that's nice!
+[10:38:09] <scott_gonzalez> Yeah, I think it covers all the edge cases too, since it goes through core :-)
+[10:51:50] <scott_gonzalez> YEAH! http://jsbin.com/uvukiz/3/edit
+[10:54:47] <scott_gonzalez> I deserve a run&coke™ for that
+[10:58:07] <kborchers> ?eval hi5('scott_gonzalez','kborchers')
+[10:58:08] <bot-t> kborchers: "scott_gonzalez _o/\o_ kborchers"
+[10:58:24] <scott_gonzalez> :-)
+[10:58:35] <scott_gonzalez> Now I just need to port this to accordion...
+[10:59:00] <scott_gonzalez> We need to figure out a sane animation API for accordion.
+[10:59:08] <scott_gonzalez> The existing API is crazy and undocumented.
+[10:59:54] <kborchers> yeah, i don't use accordion much but when i have, i think i tried figuring out animations ... then went with default :P
+[11:06:50] <scott_gonzalez> Yeah, I think you can pass an easing name and it'll generate an animation for you...
+[11:07:09] <scott_gonzalez> But I don't remember. I haven't looked at it in probably a year or so.
+[11:10:16] <timmywil> scott_gonzalez: outerHeight should handle the show/hide thing when retrieving. don't think you need to do that manually
+[11:10:46] <scott_gonzalez> What do you mean?
+[11:11:04] <scott_gonzalez> oh, you mean I can ask for outerHeight while it's still hidden?
+[11:11:04] <timmywil> I see, toShow.show(), toShow.outerHeight(), toShow.hide()
+[11:11:19] <timmywil> outerHeight will handle that
+[11:11:24] <scott_gonzalez> gotcha
+[11:11:39] <scott_gonzalez> I thought all dimension/position methods required being visible
+[11:11:39] <timmywil> scott_gonzalez: clever btw
+[11:11:43] <timmywil> _height
+[11:11:46] <scott_gonzalez> Thanks :-)
+[11:11:53] <timmywil> brb
+[11:13:31] <scott_gonzalez> Nope, doesn't work.
+[11:13:47] <scott_gonzalez> Also, first comment on http://api.jquery.com/outerHeight/ is ".outerHeight() don't works with hidden elements like .height() method :("
+[11:18:04] <timmywil> oh i know why
+[11:18:57] <timmywil> no wait, should still work
+[11:20:35] <timmywil> oh 1.6.2
+[11:20:36] <timmywil> yea
+[11:21:58] <scott_gonzalez> Yeah, UI 1.9 will support 1.6+
+[11:22:11] <scott_gonzalez> Which is a lot easier than 1.8.x which supports 1.3.2+
+[11:22:39] <scott_gonzalez> DO YOU KNOW WHAT'S NOT IN 1.3.2? EVERYTHING!!!1
+[11:23:18] <timmywil> hehe
+[11:23:32] <timmywil> http://jsbin.com/uvukiz/5/edit knew I fixed it tho
+[11:24:13] <scott_gonzalez> good to know
+[11:24:28] <scott_gonzalez> Though I won't be able to use that for a long time :-P
+[11:25:25] <scott_gonzalez> Do you know what's up with the setTimeout?
+[11:37:13] <timmywil> scott_gonzalez: we might do that internally in 1.8
+[11:38:37] <scott_gonzalez> What's going on that I needed to add it?
+[11:39:59] <timmywil> there's some issues concerning the time at which complete should be called. On the one hand, we need to dequeue after the complete callback to maintain queue order (and step functions) in case more animations are added, but on the other hand, the animation is not _actually_ complete at that time.
+[11:40:22] <timmywil> I'm not sure what the issue here is tho
+[11:40:35] <scott_gonzalez> ok
+[11:41:31] <scott_gonzalez> Do you think any of this can be reduced or optimized? http://jsbin.com/uvukiz/7/edit#source
+[11:46:01] <timmywil> investigating the setTimeout further
+[11:49:14] <timmywil> in terms of optimization, I probably wouldn't use the props function. maybe just have prebuilt objects for those properties on an accordion
+[12:02:14] <scott_gonzalez> You think the props function is gonna be slow?
+[12:02:48] <scott_gonzalez> It's just two function executions at the beginning of each animation.
+[12:03:20] <scott_gonzalez> I guess it's three, because of the extend for show
+[12:06:37] <timmywil> you know it's going to get used a lot. might as well have the objects already
+[12:06:46] <scott_gonzalez> I guess the function doesn't save too many bytes: http://codedumper.com/ogetu
+[12:07:20] <scott_gonzalez> Inlining the objects might even compress better than doing the multiple assignment
+[12:07:33] <timmywil> so I'm confused about why height and _height are both animated
+[12:07:42] <timmywil> it doesn't seem to work without it, but I don't understand
+[12:08:07] <scott_gonzalez> height is animated so that we get the overflow and display logic from .animate()
+[12:08:16] <scott_gonzalez> then _height is animated to override the actual value that got used.
+[12:08:34] <timmywil> oh
+[12:08:47] <timmywil> just set overflow hidden
+[12:08:50] <timmywil> ya?
+[12:09:12] <scott_gonzalez> well, doesn't it need to track overflow, overflowX, overflowY?
+[12:09:20] <scott_gonzalez> Plus the logic around default display
+[12:10:05] <scott_gonzalez> I also assume that actually using height will make .stop() work properly.
+[12:10:13] <scott_gonzalez> Though I haven't tested to see if it's actually broken without it.
+[12:12:50] <timmywil> that's just painful
+[12:30:34] <sindresorhus> DaveMethvin:  u there?
+[12:45:52] <ajpiano> DaveMethvin: it looks like taking the karma down to 5 is resulting in a lot more spam :/
+[12:48:34] <DaveMethvin> ajpiano: yeah i noticed :(
+[12:48:47] <DaveMethvin> although i did find a lovely elliptical machine
+[12:48:58] <ajpiano> i found out some intersting stuff about jersey shore
+[12:49:01] <DaveMethvin> sindresorhus: yeah now i am here
+[12:49:05] <ajpiano> i suppose we should crank it back up to 10 though
+[12:49:11] <DaveMethvin> yep i guess
+[12:49:20] <DaveMethvin> and several were not anon
+[12:49:21] <ajpiano> done
+[12:49:23] <DaveMethvin> so that won't help
+[12:50:06] <sindresorhus> DaveMethvin: Do you know any other way to check if a var is a jQuery object? The only other way I can think of is to check the `.selector` property, but that is not foolproof, since it will also match custom objects with `.length` and `.selector` properties.
+[12:50:22] <DaveMethvin> you could check for a .jquery property, it should be a string
+[12:50:36] <ajpiano> DaveMethvin: well we'll see what happens now,
+[12:50:39] <ajpiano> i guess!
+[12:50:43] <DaveMethvin> no duck typing is ever bulletproof
+[12:50:57] <DaveMethvin> ajpiano: what happens now is that people will bitch about the spam filter
+[12:50:59] <DaveMethvin> :P
+[12:52:22] <gibson042> .jquery is what's used primarily
+[12:52:55] <gibson042> (truthy/falsy)
+[12:54:16] <sindresorhus> DaveMethvin:  Thanks, that would work ;)
+[12:55:26] <sindresorhus> gibson042:  I used instanceof since i noticed it's used internally in jQuery.
+[12:56:28] <gibson042> hmmm... one of those methods should probably be replaced with the other
+[12:58:52] <timmywil> it's used in map, but passing a straight window to map would be invalid
+[12:59:12] <sindresorhus> While there's some activity here. What is holding jQuery core back from switching to GitHub issues? Seems like Trac brings a lot of trouble, both in spam and speed.
+[12:59:47] <gibson042> looks to me like map is one place where instanceof jQuery could just be dropped completely, since the length tests will also be true in those cases
+[13:00:12] <timmywil> it could. instanceof is checked first if time can be saved
+[13:00:28] <timmywil> which it usually would be
+[13:00:36] <rwaldron> gibson042 I'm pretty sure there is a bug covering that
+[13:05:13] <timmywil> sindresorhus: trac does more for us concerning organization and analytics
+[13:06:50] <sindresorhus> timmywil:  Couldn't this be solved by using milestones and the GitHub Issues API?
+[13:09:34] <timmywil> sindresorhus: there's been a lot of discussion on the topic. basically it was decided that github issues needs more before we could switch.
+[13:11:06] <sindresorhus> timmywil:  Ok, got it. Too bad though, I use GitHub issues daily, and I doesn't really seem to miss anything. The jQuery Mobile people seems happy with it too.
+[13:12:44] <timmywil> jquery mobile issues are a nightmare to sort through
+[13:15:38] <rwaldron> timmywil +9001
+[13:15:57] <rwaldron> is there a way to link to a stored query in gh issues?
+[13:16:16] <rwaldron> like, show me all of these open tickets in milestone 1.7.2
+[13:16:45] <rwaldron> also, don't like that there is no way to close with a specific resolution
+[13:16:50] <rwaldron> like "wontfix"
+[13:17:19] <sindresorhus> rwaldron:  https://github.com/jquery/jquery-mobile/issues/search?q=query&state=open&assignee=johnbender     ?
+[13:17:24] <rwaldron> nice
+[13:17:33] <timmywil> you can filter by milestone, but agreed on resoution
+[13:17:42] <sindresorhus> rwaldron:  You can add a label "wontfix" before closing?
+[13:17:51] <rwaldron> this is good too: https://github.com/jquery/jquery-mobile/issues?milestone=11&state=open
+[13:18:02] <rwaldron> sindresorhus yeah, i guess that's true too
+[13:18:03] <timmywil> sindresorhus: that's the real problem though. everything must be duplicated with labels
+[13:18:08] <timmywil> there's only so many colors
+[13:18:36] <sindresorhus> timmywil:  Yeah, i get your point, jQuery has a lot of tickets with a lot of states ;)
+[13:18:45] <rwaldron> admittedly, I haven't spent much time using gh issues
+[13:19:16] <rwaldron> history is a problem too
+[13:19:23] <rwaldron> trac has all of it
+[13:19:27] <rwaldron> issues has none of it
+[13:19:32] <rwaldron> so like...
+[13:19:37] <sindresorhus> But the spam and slowness in Trac I could certainly be without.
+[13:19:57] <rwaldron> http://bugs.jquery.com/ticket/7535
+[13:20:06] <rwaldron> what happens when issues gets to 7535
+[13:20:19] <rwaldron> and what if there is a note in the source about that number
+[13:20:25] <rwaldron> with related commits
+[13:20:37] <rwaldron> sindresorhus yeah, totally agreed
+[13:21:41] <sindresorhus> rwaldron:  Yeah, GitHub issues is not created for these massive projects, hopefully it'll improve. GitHub issues 2.0 is a lot better than the first, so we'll probably need to wait on Issues 4.0 ;)
+[13:21:54] <rwaldron> i remember the announcement
+[13:22:02] <rwaldron> issues is not bad, don't get me wrong
+[13:22:11] <rwaldron> and 2.0 was a huge bonus
+[13:23:09] <sindresorhus> rwaldron: What I like is how you can close issues from a commit, reference other issues and commits, and of course the UI ;) Though we can close Trac tickets from commits with this plugin: https://github.com/davglass/github-trac
+[13:23:48] <rwaldron> sindresorhus yeah, I like that too
+[13:23:58] <rwaldron> we have a post commit hook that closes tickets for us
+[13:24:11] <rwaldron> i think JohnResig wrote it.. maybe? not sure
+[13:24:44] <sindresorhus> rwaldron:  Like "fixes #666" ?
+[13:25:28] <rwaldron> Yes
+[13:25:42] <rwaldron> and/or naming the branch... i think?
+[13:25:43] <rwaldron> maybe
+[13:27:44] <sindresorhus> rwaldron:  Nice, hadn't noticed that ;)
+[16:09:36] <mikesherov> .
+[16:17:39] <mikesherov> .
+[16:32:25] <mikesherov> danheberden: you here?
+[16:36:05] <danheberden> mikesherov yo
+[16:36:17] <danheberden> ya, just going through the costco ad - you know, LIKE A BOSS
+[16:36:28] <mikesherov> LIKE A BAWS
+[16:36:40] <mikesherov> So, do I have access to www-04.jquery.net?
+[16:36:52] <danheberden> not yet
+[16:36:56] <mikesherov> kk
+[16:37:05] <danheberden> i'll ping ya when you do tho
+[16:37:10] <mikesherov> great, thanks
+[16:37:18] <danheberden> of course!
+[16:37:50] <mikesherov> I'm anxious to see what hell that report's query looks like and why it beats up MySQL
+[16:39:10] <danheberden> i just hope you don't find anything tooooo catastrophic
+[16:40:45] <mikesherov> I hope I do!
+[17:03:50] <sindresorhus> Does the Trac install run on FastCGI?
+[17:05:00] <DaveMethvin> sindresorhus: i can't recall now, gnarf did some tweaks about a week ago
+[17:05:11] <DaveMethvin> i think it may be fastcgi
+[17:05:22] <DaveMethvin> i remember being horrified so perhaps yes :D
+[17:08:07] <sindresorhus> DaveMethvin:  Just make sure it runs on mod_python, FastCGI or anything that runs it in memory, otherwise it'll need to run Python, import modules, and then finally handle the request on every HTTP request.
+[17:14:14] <sindresorhus> bot-t: tell mikesherov If you haven't seen it already:
+[17:14:14] <sindresorhus> http://trac.edgewall.org/wiki/TracPerformance
+[17:14:14] <sindresorhus> http://trac.edgewall.org/wiki/TracDev/Performance
+[17:14:14] <sindresorhus> http://trac.edgewall.org/wiki/TracDev/Performance/0.11.5
+[17:14:15] <bot-t> sindresorhus, Okay.
+[19:16:54] <sindresorhus> DaveMethvin:  Who's responsible for the docs at docs.jquery.com?
+[19:17:11] <DaveMethvin> most of them are obsolete
+[19:17:19] <DaveMethvin> we have a project to clean it up
+[19:17:47] <DaveMethvin> which page were you looking at?
+[19:18:33] <sindresorhus> DaveMethvin:  http://docs.jquery.com/Tips_for_jQuery_Bug_Patching  A lot of errors there.
+[19:18:55] <sindresorhus> DaveMethvin:  Any way to get involved in the cleanup?
+[19:19:35] <DaveMethvin> always looking for sucker, er, volunteers :P
+[19:20:09] <DaveMethvin> ajpiano may know more about where it stands atm
+[19:20:20] <sindresorhus> DaveMethvin:  I actually like cleaning up docs, so who's the sucker?
+[19:20:36] <DaveMethvin> lol well  you will have lots of  ....   fun then
+[19:20:46] <DaveMethvin> we need to get you some access
+[19:20:59] <DaveMethvin> i agree tho, a lot of times bug triage involves doc touchups
+[19:22:36] <sindresorhus> DaveMethvin:  Yes, mostly because I've been confused by the docs myself.
+[19:22:41] <sindresorhus> ajpiano: ?
+[19:22:45] <DaveMethvin> i would say ajpiano or kswedberg are our best bets for the status of the docs site ... it's definitely getting a cleanup soon
+[19:23:34] <DaveMethvin> so if you see either of them around, ping em and we can get you involved
+[19:23:42] <sindresorhus> When are they usually on? I'm on a fairly different timezone here utc+1.
+[19:24:18] <DaveMethvin> ajp is  utc-5 and kswedberg utc-6 i think
+[19:24:27] <sindresorhus> k
+[19:24:42] <DaveMethvin> and shouldn't you be asleep?? :P
+[19:25:00] <sindresorhus> Yeah, probably...
+[19:25:49] <sindresorhus> Having too much fun trying out plugins to Sublime Text.
+[19:40:03] <kswedberg> hey DaveMethvin, sindresorhus.
+[19:40:16] <sindresorhus> hi
+[19:40:18] <DaveMethvin> key kswedberg
+[19:40:24] <kswedberg> (DaveMethvin: I'm utc-5, btw) ;)
+[19:40:45] <DaveMethvin> darn utc
+[19:41:02] <kswedberg> sindresorhus: yeah, docs.jquery.com has been moribund for ages now. long, protracted death.
+[19:41:34] <DaveMethvin> but i think it's scheduled to be buried with this project we've been planning, right kswedberg?
+[19:41:43] <kswedberg> yessir, DaveMethvin
+[19:41:47] <DaveMethvin> i think there are a few nuggets in there but they  need a better home
+[19:42:16] <DaveMethvin> we still refer to this for example: http://docs.jquery.com/Won't_Fix
+[19:42:18] <kswedberg> right. most of it will be gutted.
+[19:42:45] <kswedberg> sindresorhus: here is the new home for a lot of the docs. https://github.com/jquery/learn.jquery.com
+[19:43:04] <DaveMethvin> get that boy a-workin!
+[19:43:35] <kswedberg> fork, clone, fix, pull request, repeat
+[19:43:40] <kswedberg> or something like that. :)
+[19:43:51] <sindresorhus> sure
+[19:44:03] <sindresorhus> anything particular?
+[19:44:48] <kswedberg> sindresorhus: probably looking through https://github.com/jquery/learn.jquery.com/issues would be a good start.
+[19:45:22] <kswedberg> in the meantime, however, I can set you up with access to docs.jquery.com so you can fix up the "how to fix bugs" page
+[19:45:39] <sindresorhus> k, sure ;)
+[19:47:10] <kswedberg> DaveMethvin: is there a canonical list of supported browsers somewhere? seems foolish to list them in multiple places … like http://docs.jquery.com/Tips_for_jQuery_Bug_Patching#jQuery_supports_the_following_browsers:
+[19:47:34] <kswedberg> would probably make more sense to link to the one true list™
+[19:47:36] <DaveMethvin> no list I know of, but I agree it's crazy to have it all over the place
+[19:47:43] <sindresorhus> http://docs.jquery.com/Browser_Compatibility
+[19:48:02] <kswedberg> awesome. another docs page we'll have to move. heh.
+[19:48:08] <DaveMethvin> we also may need to do that per-version
+[19:48:21] <DaveMethvin> we have probably dropped a few without ceremony
+[19:48:32] <DaveMethvin> at least we don't TEST them any more, which means they are likely broken
+[19:49:22] <kswedberg> I like Chrome current − 1 version. It's like saying, we support the last 2 weeks of Chrome.
+[19:49:39] <DaveMethvin> damn straight!!
+[19:49:44] <kswedberg> hehe
+[19:49:49] <sindresorhus> Isn't it what we do? Autoupdate ftw!
+[19:50:23] <sindresorhus> Just waiting for Firefox and IE autoupdate...
+[19:50:34] <DaveMethvin> i like the fact we don't have to fix any chrome bugs, just tell em to wait a month
+[19:50:35] <kswedberg> yeah, no kidding.
+[19:51:07] <kswedberg> but why do I keep getting error messages about layerX?!?!?1
+[19:51:13] <kswedberg> (jk)
+[19:52:19] <DaveMethvin> layerCake is eaten in Chrome and will be digested in a future release
+[19:52:44] <kswedberg> ha.
+[19:54:01] <kswedberg> so, DaveMethvin, I think we need a big list of docs.jquery.com pages and where they'll go: (a) api.jquery.com, (b) learn.jquery.com, (c) jquery.org, (d) trash
+[19:54:58] <DaveMethvin> so kswedberg what do you think we should do about redirects? Is it too horrible to contemplate?
+[19:55:28] <DaveMethvin> are we actually re-using the docs domain for anything in the new world order?
+[19:56:21] <kswedberg> I think there are already a ton of redirects going all over the place in docs. I think we should pretty much just do one-to-one redirects for the pages we want to keep elsewhere and let the rest die.
+[19:56:41] <kswedberg> we're not re-using docs domain for anything, as far as I know.
+[19:58:34] <kswedberg> what do YOU think, DaveMethvin?
+[19:58:38] <DaveMethvin> kswedberg maybe we could have a catch-all
+[19:58:50] <DaveMethvin> for the pages we can't redirect approprriately
+[19:59:00] <kswedberg> sure. to learn.jquery.com
+[19:59:04] <kswedberg> when that happens.
+[19:59:13] <kswedberg> s/when/if
+[19:59:20] <DaveMethvin> it WILL happen, you must BELIEVE!
+[19:59:22] <kswedberg> oops. I didn't write that.
+[19:59:27] <kswedberg> :)
+[19:59:43] <DaveMethvin> knocking together my ruby slippers as we speak
+[20:00:10] <kswedberg> awesome. I'd like to see you in ruby slippers.
+[20:00:14] <kswedberg> not really.
+[20:00:17] <DaveMethvin> theres NO place like home page, theres NO place like home page,
+[20:00:46] <DaveMethvin> auntie em and uncle px
+[20:00:54] <kswedberg> lol
+[20:01:10] <DaveMethvin> alright my wife says i have to get off the computer
+[20:01:16] <DaveMethvin> cya later
+[20:01:46] <sindresorhus> My body says I need some sleep. It's 5am here... cya
+[20:01:55] <kswedberg> whoa

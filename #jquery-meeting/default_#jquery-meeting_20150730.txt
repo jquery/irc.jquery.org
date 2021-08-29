@@ -1,0 +1,382 @@
+[09:00:44] <scott_gonzalez> arschmitz jdalton jrossi1 M4rius snover
+[09:00:49] <snover> hello
+[09:00:52] <arschmitz> hi
+[09:00:53] <arthurvr> hey everybody
+[09:00:57] <jdalton> woot
+[09:01:04] <snover> i was on leave in the last four weeks, so sorry for any inconvenience
+[09:01:24] <arschmitz> snover: unacceptable
+[09:01:31] <arschmitz> :-p
+[09:02:20] <arschmitz> snover: its been slow you were not the only person missing
+[09:02:42] <snover> not the first, nor the most important, eh :)
+[09:02:49] <scott_gonzalez> jdalton started submitting tests.
+[09:02:52] <scott_gonzalez> https://github.com/jquery/PEP/pull/207
+[09:02:56] <scott_gonzalez> https://github.com/jquery/PEP/pull/208
+[09:03:07] <snover> jdalton: i hope you were able to get your questions answered in my absence
+[09:03:09] <scott_gonzalez> You're going to end up merging those into a single PR?
+[09:03:20] <jdalton> yah! gonna merge them into 1 pr
+[09:03:24] <scott_gonzalez> ok
+[09:03:33] <jdalton> one depends on the other and some other wonky cleanup
+[09:03:54] <jdalton> I tried making them separate but it looks like that's gonna get messy for this round
+[09:04:00] <scott_gonzalez> That's fine. The number of tests between the two PRs is still manageable.
+[09:04:42] <jdalton> The one change besides more tests is I added a wrapper around w3c tests assert
+[09:04:48] <jdalton> to excuse instanceof checks
+[09:05:02] <jdalton> since many of the tests check event instanceof PointerEvent
+[09:05:06] <jdalton> which fails with the shim
+[09:06:22] <scott_gonzalez> Seems fine.
+[09:07:10] <scott_gonzalez> I'll wait for the merged PR before I do more review.
+[09:07:36] <scott_gonzalez> arschmitz jrossi1: Any update on touch-action discussions?
+[09:07:41] <jdalton> Ok cool. Might be something to check out though. Was it ever attempted to make the instanceof work?
+[09:07:53] <jdalton> *like early on
+[09:07:54] <arschmitz> there has been discussion on a few related issues
+[09:07:58] <arschmitz> quite a lot actually
+[09:08:31] <arschmitz> https://github.com/jquery/PEP/issues/211
+[09:08:40] <scott_gonzalez> I'm not sure. I assume the problem is that we need to use `document.createEvent()`.
+[09:08:45] <arschmitz> https://github.com/jquery/PEP/issues/151
+[09:10:47] <scott_gonzalez> Can you give an overview of the discussion from #151?
+[09:10:54] <arschmitz> Sure
+[09:11:18] <arschmitz> so no surprise supporting css completely would be really complicated
+[09:11:26] <arschmitz> it would involve ajax for style sheets
+[09:11:34] <arschmitz> plus a parser
+[09:11:59] <arschmitz> and we would also need to check the style attribute
+[09:12:17] <arschmitz> and you could not use cross domain style sheets
+[09:12:34] <arschmitz> so i suggested we use css
+[09:12:41] <arschmitz> but ONLY support the style attribute
+[09:13:20] <arschmitz> then its valid css that works with out anything special when its supported natively
+[09:13:33] <arschmitz> there is one kinda gotcha to this
+[09:14:20] <arschmitz> which is that the browser sanitizes the style attribute when you do element.style[ "some-valid-prop" ] = "somevalidvalue";
+[09:14:53] <arschmitz> the answer to this is to use a mutation observer to watch the style attribute and restore it
+[09:15:13] <arschmitz> which we already have to have a mutation observer to look for changes anyway
+[09:15:53] <arschmitz> i did a proof of concept making a fast-click
+[09:16:10] <scott_gonzalez> What about IE 9/10?
+[09:16:23] <scott_gonzalez> And Android <4.4?
+[09:16:56] <arschmitz> thats no different then now
+[09:17:04] <arschmitz> if its there when you start its there
+[09:17:56] <scott_gonzalez> ok
+[09:18:00] <arschmitz> you can also use a mutation observer polyfill
+[09:18:37] <arschmitz> which works in ie9+
+[09:19:36] <scott_gonzalez> So are there any objections to switching to inline styles?
+[09:20:19] <arschmitz> oh just for the record
+[09:20:34] <arschmitz> because there is no way to tell between a dev removing touch action and browser santization
+[09:20:46] <arschmitz> you cannot just remove it from the style attribute you need to set it to auto
+[09:20:56] <arschmitz> to stop listening
+[09:22:40] <arschmitz> didnt seem like it would be a big deal to me but others may disagree
+[09:22:50] <arschmitz> like jrossi9billion lol
+[09:23:25] <jrossi9billion> Sorry I'm late!
+[09:23:59] <arschmitz> jrossi9billion: we are talking about css touch-action
+[09:24:14] <jrossi9billion> Ah yes, that
+[09:24:42] <arschmitz> and hes gone...
+[09:24:53] <scott_gonzalez> You scared him off with touch-action :-P
+[09:25:42] <jdalton> What do you mean inline style?
+[09:25:50] <jdalton> like PEP not creating it dynamically?
+[09:25:55] <arschmitz> style="touch-action:none;"
+[09:26:13] <arschmitz> no forcing it to be in the style attribute instead of a custom attribute
+[09:26:27] <arschmitz> that ways its valid css
+[09:26:54] <jdalton> Ah. If it works then great! Not sure the behavior of some browsers when they hit unrecognized css
+[09:27:12] <arschmitz> jdalton: it sanitizes it when you update style[ prop ]
+[09:27:23] <arschmitz> but we already watch the prop with a mutation observer for changes
+[09:27:27] <arschmitz> so we can just put it back
+[09:28:15] <jdalton> if there are no negative side effects like reflow/recalc then that seems ok, also seems like magic :P
+[09:28:35] <arschmitz> jdalton: i made a POC as a fast click you can try it would work basicly the same
+[09:28:56] <arschmitz> https://github.com/hammerjs/hammer-time/blob/master/hammer-time.js
+[09:29:01] <jdalton> cool (I saw a mention in the thread, will check it..)
+[09:29:03] <jdalton> you beat me
+[09:29:13] <arschmitz> https://rawgit.com/hammerjs/hammer-time/master/index.html
+[09:29:15] <arschmitz> demo
+[09:30:18] <arschmitz> my understanding is as far as reflow
+[09:30:29] <arschmitz> that only happens when you set it via style[ prop ]
+[09:30:34] <arschmitz> not style="string"
+[09:30:43] <arschmitz> hence why when you do the second it wont get sanitized
+[09:31:08] <arschmitz> scott_gonzalez: also for ie10 they support ms-touch-action
+[09:31:16] <arschmitz> and pointer events
+[09:31:21] <arschmitz> so not really an issue :-)
+[09:31:38] <scott_gonzalez> True. So this is just IE9 and Android.
+[09:31:47] <arschmitz> yup
+[09:31:52] <arschmitz> and there is a polyfill
+[09:32:04] <arschmitz> and its no different then now
+[09:32:14] <arschmitz> since we already use the mutation observer
+[09:32:53] <arschmitz> as a bonus we could remove this entire file https://github.com/jquery/PEP/blob/master/src/touch-action.js
+[09:33:33] <arschmitz> all that does is install a style sheet when pointer events are supported which it actually does wrong
+[09:33:43] <arschmitz> since it should check if touch action is supported not pointer events
+[09:34:07] <scott_gonzalez> Sounds good.
+[09:34:16] <scott_gonzalez> Do you want to put together a PR for this change?
+[09:34:20] <arschmitz> sure
+[09:34:28] <arschmitz> overall it should be a pretty simple change
+[09:35:13] <arschmitz> i think updating all the demos to use the style prop will take longer lol
+[09:35:40] <arschmitz> oh one thing mentioned in the issue do we need to provide backcompat for the old attribute?
+[09:35:49] <arschmitz> or are we alpha enough to just tell people to change it lol
+[09:36:53] <scott_gonzalez> I think we can just tell people to make the change.
+[09:37:01] <arschmitz> awesome
+[09:37:32] <jrossi9billion>  agreed
+[09:37:37] <jdalton> woot
+[09:37:43] <scott_gonzalez> So that will resolve #151 and #209.
+[09:37:47] <arschmitz> yup
+[09:38:06] <arschmitz> i think its a good change
+[09:38:23] <arschmitz> its not perfect but i dont think supporting stylesheets is reasonable
+[09:39:35] <arschmitz> apparently there was a comment about this would be good with react since thats mostly inline styles
+[09:40:57] <arschmitz> ill comment on the 2 issues and do a pr
+[09:41:31] <scott_gonzalez> Sounds good.
+[09:41:40] <jdalton> neat
+[09:44:10] <scott_gonzalez> We had an issue filed about the README having out-of-date info for touch-action: https://github.com/jquery/PEP/issues/210
+[09:44:16] <arschmitz> yup
+[09:44:20] <arschmitz> ill update that also
+[09:44:22] <scott_gonzalez> Here's where the content is: https://github.com/jquery/pep#basic-usage
+[09:44:40] <scott_gonzalez> Would it make sense to just remove that content and link to http://www.w3.org/TR/pointerevents/#the-touch-action-css-property?
+[09:44:47] <arschmitz> yes
+[09:45:09] <arschmitz> we just need to note that you need to set a touch action on the style attribute to recieve any events
+[09:45:22] <arschmitz> and link there for valid values i think
+[09:47:11] <scott_gonzalez> yeah
+[09:50:03] <scott_gonzalez> Anyone have anything else to discuss today?
+[09:52:47] <scott_gonzalez> Ok, I guess that's all for today.
+[09:52:50] <scott_gonzalez> Thanks everyone.
+[11:16:06] <arschmitz> agcolom: gabrielschulhof: jasperdegroot: apsdehal2
+[11:16:15] <arschmitz> sorry im late had something come up last second
+[11:16:23] <apsdehal2> Hey
+[11:16:41] <jasperdegroot> hi
+[11:17:22] <arschmitz> sfrisk:
+[11:17:34] <sfrisk> hi
+[11:17:38] <gabrielschulhof> Hey!
+[11:17:44] <arschmitz> ok lets get started
+[11:18:19] * gabrielschulhof dances around: Popup has landed! Yaaay!
+[11:18:21] <arschmitz> https://docs.google.com/spreadsheets/d/1xGEVtftLDEHAA37YYlA23J_EZwIRyMUaseBY790byPM/edit#gid=939569741
+[11:18:25] <arschmitz> agenda
+[11:18:44] <arschmitz> Yes popup is landed
+[11:18:57] <arschmitz> we were green on tests but apsdehal2 broke them :-p
+[11:19:09] <arschmitz> apsdehal2: can you look at the failure its from your qunit events pr
+[11:19:10] <gabrielschulhof> I just fixed it.
+[11:19:11] <apsdehal2> lol
+[11:19:21] <apsdehal2> Ok
+[11:19:21] <arschmitz> gabrielschulhof: oh ok
+[11:19:30] <gabrielschulhof> I'm surprised I didn't catch that.
+[11:19:37] <gabrielschulhof> preventDefault() was missing from the event proto.
+[11:19:50] <gabrielschulhof> ... I thought I had added it to all event protos in the tests.
+[11:19:57] <arschmitz> gabrielschulhof: ok it looked related to that
+[11:19:58] <gabrielschulhof> ... but now I added it back.
+[11:20:15] <arschmitz> maybe it was from a rebase?
+[11:20:28] <arschmitz> though none of those had any conflicts that i fixed
+[11:20:34] <arschmitz> i only landed the ones with out conflicts
+[11:20:52] <arschmitz> oh well green again
+[11:21:08] <gabrielschulhof> Yep *wipe hands*
+[11:21:19] <arschmitz> whats the status on page
+[11:21:33] <arschmitz> not as done as we thought lol
+[11:22:12] <gabrielschulhof> I keep rebasing it.
+[11:22:27] <gabrielschulhof> It should be good to go, but then some tests failed, so I'm trying to get them green again.
+[11:22:34] <gabrielschulhof> I think it's green now.
+[11:22:34] <arschmitz> ok sounds good
+[11:22:49] <gabrielschulhof> I'll probably send it to you for review, in a bit.
+[11:22:54] <arschmitz> awesome
+[11:23:03] <gabrielschulhof> Should be good to go.
+[11:23:20] <arschmitz> loader is close but i assume waiting on you to finish page?
+[11:24:21] <gabrielschulhof> Yeah, I think so.
+[11:24:31] <arschmitz> sounds good
+[11:25:00] <arschmitz> apsdehal2: there are a few of your pr's with merge conflicts can you update those
+[11:25:10] <apsdehal2> Sure, will do
+[11:25:23] <arschmitz> i also dont see a PR for the bootstrap
+[11:25:29] <arschmitz> your branch was looking good on that
+[11:25:34] <arschmitz> can you give us an update?
+[11:26:01] <arschmitz> also an over view of exactly what your doing
+[11:26:14] <gabrielschulhof> bootstrap?
+[11:26:38] <apsdehal2> Yes, I haven't opened a pr because of index.php
+[11:26:59] <apsdehal2> I need to find a solution to tests who use that
+[11:27:02] <arschmitz> apsdehal2: i didnt get any message about that care to explain?
+[11:27:32] <apsdehal2> https://github.com/apsdehal/jquery-mobile/tree/bootstrap
+[11:27:37] <apsdehal2> This is the branch
+[11:27:50] <apsdehal2> So many tests use index.php to load stuff
+[11:28:17] <arschmitz> ok we have actually talked about this before
+[11:28:37] <arschmitz> and i think we decided to move to just requiring jquery.mobile.js where possible
+[11:28:48] <apsdehal2> https://github.com/apsdehal/jquery-mobile/blob/bootstrap/tests/unit/loader/index.html#L12
+[11:28:50] <arschmitz> and where not we will have to use the fully built jquery mobile
+[11:29:21] <arschmitz> apsdehal2: what might be throwing you off
+[11:29:33] <arschmitz> is if your running in phantom its not really using that file either
+[11:29:39] <arschmitz> its using a fully built jquery mobile
+[11:30:14] <apsdehal2> I will try once again and update you on situtation
+[11:30:25] <arschmitz> ok
+[11:30:28] <apsdehal2> Also 90% of tests have been shifted
+[11:30:30] <arschmitz> gabrielschulhof: so what hes doing
+[11:30:49] <arschmitz> https://github.com/apsdehal/jquery-mobile/blob/bootstrap/tests/unit/content/index.html
+[11:30:58] <arschmitz> is moving all our loading into something a little more sane
+[11:31:35] <arschmitz> https://github.com/apsdehal/jquery-mobile/blob/bootstrap/tests/lib/bootstrap.js
+[11:31:38] <gabrielschulhof> Oh, I see.
+[11:31:45] <gabrielschulhof> Basically, replacing asyncLoad.
+[11:31:51] <arschmitz> yup
+[11:32:03] <arschmitz> and it handles backcompat for you
+[11:32:04] <gabrielschulhof> Some suites have multiple sets of tests.
+[11:32:19] <arschmitz> gabrielschulhof: you specificy the tests via attribute
+[11:33:03] <gabrielschulhof> OK, I guess I can take a look at a suite that has multiple test.js files.
+[11:33:19] <gabrielschulhof> This is cool!
+[11:33:20] <arschmitz> gabrielschulhof: https://github.com/apsdehal/jquery-mobile/blob/bootstrap/tests/unit/popup/index.html
+[11:34:21] <arschmitz> actually that one is missing the others
+[11:34:26] <arschmitz> apsdehal2: you need to update that
+[11:34:27] <gabrielschulhof> Nono, I'm talking about multiple files containing tests. In your latter example, there's only one file containing tests: popup_core
+[11:35:06] <apsdehal2> Missing the others?
+[11:35:24] <gabrielschulhof> Argh ... I know we have at least one suite that has two files with tests loaded one after another.
+[11:35:27] <arschmitz> apsdehal2: each html file can have any number of test files
+[11:35:56] <gabrielschulhof> apsdehal2: We don't always just have one something_core.js
+[11:36:17] <arschmitz> i just had one
+[11:36:25] <gabrielschulhof> apsdehal2: Sometimes we have something_core.js, something_events.js something_else.js, and each of those contain tests and need to be loaded from index.html
+[11:36:39] <gabrielschulhof> apsdehal2: ... one after the other.
+[11:36:44] <arschmitz> https://github.com/apsdehal/jquery-mobile/tree/bootstrap/tests/unit/slider
+[11:37:25] <gabrielschulhof> OK, but that's not right. slider_events.js should not go into deps.
+[11:37:27] <arschmitz> apsdehal2: data-main should be data-modules
+[11:37:38] <arschmitz> and work like this https://github.com/jquery/jquery-ui/blob/master/tests/unit/widget/widget.html
+[11:37:51] <arschmitz> https://github.com/jquery/jquery-ui/tree/master/tests/unit/widget
+[11:38:26] <jasperdegroot> maybe this is more something to explain on -dev
+[11:38:33] <jasperdegroot> have to go in 20 minutes
+[11:38:46] <arschmitz> right gabrielschulhof apsdehal2 lets continue there
+[11:39:02] <arschmitz> jasperdegroot: i started looking at the demos and css pr again
+[11:39:04] <gabrielschulhof> Good point.
+[11:39:07] <arschmitz> i added a couple commits
+[11:39:17] <arschmitz> fixing issues you had mentioned
+[11:39:18] <jasperdegroot> the backcompat ones
+[11:39:23] <arschmitz> yes
+[11:39:32] <jasperdegroot> i pulled
+[11:39:34] <arschmitz> we were only handling string options not bool
+[11:39:37] <arschmitz> fixed that
+[11:39:40] <jasperdegroot> I am looking into controlgroup mini buttons height now
+[11:39:53] <arschmitz> cool i seems like a selector issue
+[11:40:05] <arschmitz> looked like only the first one was mini
+[11:40:19] <arschmitz> but the class was there on the parent like it should be
+[11:40:19] <jasperdegroot> not sure yet, i tested with just ui-mini class before and all looked ok
+[11:40:34] <jasperdegroot> so i think i made a change later or something
+[11:40:46] <jasperdegroot> trying to figure it out
+[11:40:52] <arschmitz> ok let me know if you run into anything else
+[11:41:02] <jasperdegroot> will do
+[11:41:08] <arschmitz> i did notice an issue with the icon in the checkboxradio enhanced
+[11:41:18] <arschmitz> i have not had a chance to look yet though
+[11:41:26] <jasperdegroot> yeah
+[11:41:30] <jasperdegroot> i added a comment about that
+[11:41:38] <jasperdegroot> in the PR
+[11:41:53] <arschmitz> oh is that what your were talking about i was not sure cool so yeah i see it too lol
+[11:42:03] <jasperdegroot> it gets the active state color, but doesn't show the icon
+[11:42:08] <arschmitz> yup
+[11:42:23] <arschmitz> i think there is some css trickery to make that work in ui
+[11:42:35] <arschmitz> oh but wait it works non enhanced so its not that
+[11:42:46] <jasperdegroot> but why is enhanced different from the normal one?
+[11:42:50] <jasperdegroot> yeah
+[11:43:14] <arschmitz> yeah it must be on our side
+[11:43:18] <arschmitz> just need to figure it out
+[11:44:15] <arschmitz> jasperdegroot: are you looking into the big long list of demos issues or should i get started on that?
+[11:44:29] <jasperdegroot> which long list do you mean?
+[11:44:35] <jasperdegroot> the one in the ticket that i open?
+[11:44:36] <arschmitz> let me find the issue
+[11:44:39] <arschmitz> yes
+[11:44:55] <jasperdegroot> i am not working on that yet
+[11:45:04] <arschmitz> ok i will
+[11:45:27] <jasperdegroot> maybe good to land 1.5-css-and-demos branch first
+[11:45:43] <arschmitz> yes i was planning on it
+[11:45:55] <arschmitz> but i figured you were going to look into the controlgroup issue first ?
+[11:46:07] <jasperdegroot> yeah
+[11:46:21] <jasperdegroot> but shouldn't take long
+[11:46:25] <arschmitz> cool
+[11:46:43] <jasperdegroot> will also add the ui-widget-icon-floatend/beginning class in there
+[11:46:48] <arschmitz> awesome
+[11:47:19] <jasperdegroot> also need to resolve some problems with mini button that get that class
+[11:47:31] <jasperdegroot> so it's easier to do it in that branch
+[11:47:31] <arschmitz> ok
+[11:47:38] <arschmitz> no problem
+[11:47:39] <jasperdegroot> should be done by this weekend
+[11:47:43] <arschmitz> just ping me when its ready
+[11:47:49] <jasperdegroot> yes
+[11:50:26] <jasperdegroot> am i still connected?
+[11:50:55] <arschmitz> yes
+[11:50:59] <gabrielschulhof> jasperdegroot: You're with us.
+[11:51:00] <jasperdegroot> ok :)
+[11:51:18] <arschmitz> ok so accordion sfrisk any update?
+[11:51:35] <sfrisk> Haven't had a chance to make updates this week, should have some time this weekend
+[11:54:02] <arschmitz> cool
+[11:54:11] <arschmitz> so related to that
+[11:54:18] <arschmitz> i updated the pr about using opacity
+[11:54:23] <arschmitz> to use visibility
+[11:54:54] <arschmitz> this still solves all the same problems but with out creating one really really big one
+[11:55:03] <arschmitz> tab
+[11:55:09] <jasperdegroot> yeah good point
+[11:55:17] <arschmitz> also
+[11:55:24] <gabrielschulhof> Right, and tabbing works too, right?
+[11:55:38] <arschmitz> tabbing works on opacity 0
+[11:55:42] <arschmitz> it does not on visibility
+[11:55:43] <gabrielschulhof> Really?
+[11:55:48] <gabrielschulhof> That's weird.
+[11:55:59] <arschmitz> gabrielschulhof: yes because its thre and functional you can still click it
+[11:56:02] <gabrielschulhof> Oh, I mean it should work correctly.
+[11:56:07] <arschmitz> its just transparent
+[11:56:09] <gabrielschulhof> Like, you can't tab to things you can't see.
+[11:56:28] <gabrielschulhof> arschmitz: Right, by "working", I meant working intuitively.
+[11:56:35] <arschmitz> lol
+[11:56:43] <arschmitz> also something else
+[11:56:47] <gabrielschulhof> So, does this prevent the footer from jumping to the top during a transition as well?
+[11:56:52] <arschmitz> they both cause local paint
+[11:57:07] <gabrielschulhof> Well, that's dumb!
+[11:57:08] <arschmitz> but
+[11:57:22] <arschmitz> opacity less then 1 creates a new stacking context
+[11:57:31] <arschmitz> which will be restored when it hits 1
+[11:57:53] <arschmitz> so visibility has less of a performance impact on a very large set like pages
+[11:58:27] <arschmitz> and neither cause reflows
+[11:58:40] <gabrielschulhof> I really hope this makes footers work correctly.
+[11:58:58] <arschmitz> sfrisk: so if this lands you dont need to make accordion listen to pagecontainershow any more
+[11:59:04] <sfrisk> okay
+[11:59:10] <gabrielschulhof> arschmitz: I'm pretty sure we have a bug about the footer jumping to the top during a transition, precisely because the page has zero height for a while.
+[11:59:15] <arschmitz> gabrielschulhof: well we can run updatepagepadding on pagecreate
+[11:59:26] <arschmitz> so it might
+[11:59:56] <gabrielschulhof> Actually, I think the problem is that we position: absolute during a transition, so the page no longer pushes the header and footer apart, because it's not in the flow anymore.
+[12:00:00] <arschmitz> this is going to remove a lot of event handlers
+[12:00:15] <arschmitz> gabrielschulhof: i think your right
+[12:00:20] <gabrielschulhof> So, this isn't going to fix it. Dang!
+[12:00:45] <arschmitz> so i wonder if we could use this for panels and popups the same way?
+[12:01:19] <gabrielschulhof> arschmitz: popup already sets visibility: hidden
+[12:01:52] <gabrielschulhof> arschmitz: It used to go off to never-never land in negative left, top coordinates, but no longer.
+[12:01:55] <arschmitz> then why do textareas listen for popupopen to size?
+[12:02:23] <gabrielschulhof> arschmitz: Because popup is also truncated to 1px ✕ 1px
+[12:02:25] <jasperdegroot> i have to go
+[12:02:30] <gabrielschulhof> jasperdegroot: K L8R
+[12:02:32] <jasperdegroot> later all
+[12:02:55] <gabrielschulhof> I'd have to git blame why both are needed.
+[12:03:21] <gabrielschulhof> In fact, they used to be one class, but I had to separate the properties into two classes.
+[12:03:37] <gabrielschulhof> ... because the 1px has to be removed at a different time than the visibility: hidden.
+[12:04:12] <arschmitz> hmm that sounds odd
+[12:05:03] <arschmitz> maybe the change to page and thinking about this more will help us untangle this
+[12:05:08] <gabrielschulhof> Yes, it's a long, sordid tale :/
+[12:05:22] <gabrielschulhof> ... of reacting to bug reports.
+[12:05:37] <arschmitz> yeah maybe fresh eyes will help
+[12:06:08] <gabrielschulhof> Well, I dunno ... popup is slated for deprecation and to be replaced with dialog, right? At least in the big picture ...
+[12:06:15] <arschmitz> yeah
+[12:06:38] <arschmitz> true perhaps better to focus on dialog
+[12:06:54] <gabrielschulhof> Yeah. We have to at least bring it up to par with popup.
+[12:07:37] <arschmitz> well i imagine they probably have a lot of this fairly sorted out already
+[12:07:40] <gabrielschulhof> No, that's not the right expression. We have to bend it in the direction of having popup's features.
+[12:08:12] <gabrielschulhof> I dunno ... we handle things like orientationchange. Does dialog?
+[12:08:28] <arschmitz> no but that can be an extension
+[12:08:53] <gabrielschulhof> Yeah. I'd also like to add some preventive extensions, like don't make a button area and title bar.
+[12:09:14] <gabrielschulhof> popup doesn't necessarily need those.
+[12:09:15] <arschmitz> yes
+[12:09:35] <arschmitz> though many usescases also could use tooltip
+[12:09:36] <gabrielschulhof> Anyhoo ... that's a story for another time.
+[12:09:49] <gabrielschulhof> Yeah, definitely.
+[12:10:02] <arschmitz> we blur that line
+[12:10:05] <gabrielschulhof> popup is explicit. You click it into existence, and you explicitly dismiss it.
+[12:10:16] <gabrielschulhof> tooltip just kinda shows up.
+[12:10:17] <arschmitz> you can do that with tooltop
+[12:10:43] <gabrielschulhof> Well then, between tooltip and dialog, I think we'll be well-served.
+[12:11:10] <gabrielschulhof> ... but wait ... tooltip is one of those singleton widgets, right?
+[12:11:20] <gabrielschulhof> You have one tooltip per document, right?
+[12:11:26] <arschmitz> you can
+[12:11:30] <arschmitz> or you can have 100
+[12:11:48] <gabrielschulhof> Well, OK. Then it's definitely a good replacement.
+[12:12:21] <gabrielschulhof> As long as we make sure that we've matched all of popup's capabilities with tooltip and/or dialog before releasing, we'll be golden.
+[12:12:39] <arschmitz> gabrielschulhof: well we dont need 100% 1 for 1
+[12:12:51] <arschmitz> they are different widgets and we can deprecate things
+[12:12:59] <gabrielschulhof> OK, but then whatever we don't need, we should deprecate. Right.
+[12:13:17] <gabrielschulhof> Well, I guess we'll deprecate popup altogether.
+[12:13:17] <arschmitz> they will need to co exsit for a version like collapsible and accordion
+[12:13:26] <arschmitz> yup
+[12:13:46] <gabrielschulhof> Yeah, and we can demo how you do things with tooltip and dialog that you used to do with popup.
+[12:13:54] <arschmitz> yup
+[12:14:10] <arschmitz> and we may need to add some extensions / extension points
+[12:14:19] <gabrielschulhof> Yeah, probably.
+[12:14:20] <arschmitz> but that should not be an issue
+[12:14:39] <gabrielschulhof> Gonna be fun.
+[12:14:46] <arschmitz> with proper extension points we can make the header and buttons just options
+[12:15:10] <gabrielschulhof> Anyway ... we should probably take this to -dev.
+[12:15:15] <arschmitz> yup
+[12:15:25] <arschmitz> anyone have anything else today?
+[12:16:24] <gabrielschulhof> I'm good.
+[12:16:29] <sfrisk> I'm good
+[12:21:32] <arschmitz> bye everyoe

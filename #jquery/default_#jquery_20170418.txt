@@ -1,0 +1,333 @@
+[01:44:49] <oojacoboo> anyone know why an event listener for onSubmit wouldn't be working?
+[01:45:11] <oojacoboo> $(document).on("submit", "form" function(e) {});
+[01:45:46] <oojacoboo> I have that registered in a global scope, and it's working in most cases, but in this particular case it doesn't appear to be registering
+[01:49:33] <oojacoboo> I'm guessing it's actually b/c the DOM element isn't added yet
+[01:58:42] <oojacoboo> for some reason, the event isn't getting registered with a hidden form element
+[01:58:52] <oojacoboo> even though proper delegation is being done
+[02:12:48] <Cork> oojacoboo: several possible reasons, 1. the event handler is added after the event is fired, 2. the form or a parent listens for the event and does event.stopPropagation()
+[02:13:06] <Cork> 3. the form has an event handler that does return false;
+[02:13:21] <Cork> 4. the form has an event attribute that does return false
+[02:13:54] <oojacoboo> none of those seem to be the case
+[02:14:25] <oojacoboo> I'm convinced it's related to the form being set as display: none when the event is registered
+[02:14:35] <Cork> no
+[02:14:41] <oojacoboo> I wouldn't think so
+[02:15:16] <Cork> display: none causes the node and its children to not be rendered, but it is still in the dom so it can create events
+[02:15:54] <oojacoboo> maybe .slideDown recreates the DOM node
+[02:15:59] <Cork> nope
+[02:15:59] <oojacoboo> and screws up any registered events
+[02:16:11] <Cork> can you reproduce the problem in a jsfiddle.net?
+[02:16:27] <oojacoboo> I haven't tried, although I have a fix that resolves this issue
+[02:16:41] <Cork> and that is?
+[02:16:52] <oojacoboo> it's, unfortunately, not conforming to the full global scope solution, but it's fine
+[02:17:18] <oojacoboo> we need to release a disabled attr on a form after a form submission fails
+[02:17:21] <oojacoboo> so you can resubmit the form
+[02:17:39] <oojacoboo> just added .always to the .ajax for this POST
+[02:17:56] <oojacoboo> it'll do for this - don't love it, but can't spend anymore time on it :/
+[02:17:57] <Cork> well that is how it should be done anyway
+[02:18:17] <Cork> you could bind the ajaxComplete event on document if you want to do it globally
+[02:18:25] <oojacoboo> yea, but we actually handle this with .ajaxSetup globally
+[02:18:37] <Cork> oook? so the problem is?
+[02:19:15] <oojacoboo> well, we have an event listener for form onSubmit that assigns the form to a variable that we check and then release the disabled attrs
+[02:19:27] <oojacoboo> that's all done with global xhr response checking
+[02:19:41] <Cork> oojacoboo: just do $.ajax({ context: this }) in the form submit event
+[02:19:43] <oojacoboo> this is the only form that it's not working with really, so it's a little strange
+[02:19:51] <Cork> the $(this) in the handler gives you the form
+[02:19:58] <oojacoboo> mmm
+[02:20:54] <oojacoboo> I'm pretty sure the context of this isn't the issue, unless you're saying that it's getting changed
+[02:21:14] <Cork> oojacoboo: i'm saying you don't need the extra event handler
+[02:21:23] <oojacoboo> oh!
+[02:21:32] <oojacoboo> well then
+[02:21:39] <oojacoboo> testing
+[02:21:46] <Cork> if you from the individual event handlers, when they call $.ajax do context: this
+[02:21:58] <Cork> you will have a reference to the specific form when you need it in the event handlers
+[02:22:03] <Cork> and you can do it generically
+[02:22:27] <oojacoboo> what about using that with ajaxSetup - that works as well, right?
+[02:22:36] <oojacoboo> isn't that just a global "config"
+[02:22:38] <Cork> uh... * when you need it in the ajax callbacks"
+[02:22:57] <Cork> oojacoboo: no it won't cause ajaxSetup doesn't have access to "this"
+[02:23:05] <oojacoboo> right
+[02:27:54] <oojacoboo> Cork: that worked as well
+[02:27:56] <oojacoboo> thanks
+[02:28:00] <Cork> np
+[02:28:25] <oojacoboo> any reason why the context gets "mangled" there?
+[02:28:27] <oojacoboo> whereas that's not an issue in all other cases
+[02:28:44] <Cork> mangled?
+[02:28:53] <oojacoboo> "changed"
+[02:29:02] <Cork> this is local to the function, and callbacks are functions
+[02:29:18] <Cork> so they get a different this variable unless $.ajax sets one
+[02:29:39] <Cork> and for ajax to be able to set the "current" this variable, you have to provide it with it (as it doesn't have access to it)
+[02:29:39] <oojacoboo> ah
+[02:29:53] <oojacoboo> yep
+[02:30:25] <oojacoboo> what does $.post pass as the this context?
+[02:30:33] <Cork> nothing
+[02:30:51] <oojacoboo> I'm pretty sure I can't rely on "this" globally without updating all ajax functions
+[02:30:56] <Cork> $.post is just a short hand for $.ajax(url, { type: 'post', data: arg[2] })
+[02:31:07] <Cork> so there isn't really a need to use $.post
+[02:31:26] <oojacoboo> no, except for shorthand
+[02:31:35] <oojacoboo> $.ajax gets to be a bit verbose
+[02:31:40] <oojacoboo> unless you wrap it
+[02:31:43] <Cork> yup, and the short hand doesn't have access to context; as it is a shorthand
+[02:32:25] <oojacoboo> right, just mean all our $.post calls would have to be updated to use $.ajax
+[02:32:27] <oojacoboo> in order to take advantage of this within $.ajaxSetup
+[02:32:33] <oojacoboo> so we'll have to stick with both for now
+[02:32:51] <Cork> ya, it is a bit of work transition from one to the other
+[02:32:58] <oojacoboo> both being, registering the event handler and assigning to a var in the global scope and passing this context where needed
+[02:33:07] <Cork> but as js works the way it does there isn't much jquery can do
+[02:33:18] <oojacoboo> sure, of course
+[02:33:58] <oojacoboo> thanks for that though - not sure this is any cleaner, per se, but it's at least handling the disabling attr globally
+[02:35:26] <Cork> oojacoboo: a sidenote, you might want to consider, most likely not for this project though
+[02:35:36] <Cork> is to just have a submit button in the form and set it to disabled
+[02:35:46] <Cork> instead of the attribute on the form
+[02:36:06] <Cork> that will disable the form too, and have the advantage to be visible to the user
+[02:36:25] <oojacoboo> yea, but then your inputs don't have any visible UI changes
+[02:36:39] <oojacoboo> We actually do a fair bit on form submission from a styling perspective
+[02:37:12] <Cork> ah, for form field styling i would prob use a class on the form or possibly even loop over them and set readonly
+[02:37:30] <oojacoboo> yep, that's basically what we do
+[02:37:35] <Cork> but ya, that was just a comment not really a "do this now"
+[02:37:56] <oojacoboo> yep
+[02:38:25] <oojacoboo> Honestly, not the place to probably say this, but next project/update will likely be React :/
+[02:38:57] <Cork> heh, i won't judge :)
+[02:39:05] <oojacoboo> nothing wrong with jQuery, but hard to beat it these days
+[02:39:23] <Cork> depends on what you want out of the lib
+[02:39:29] <oojacoboo> exactly
+[02:40:00] <oojacoboo> this custom SPA on jQuery was certainly chore and it's at the EOL @ 5+ years
+[05:25:57] <sonu_nk> hi. my forms have dual submission. 1. using ajax on first url and 2.  behave with default behaviour...
+[05:26:16] <sonu_nk> these are my steps which id doing with my code..
+[05:26:28] <sonu_nk> issue coming with validation.
+[05:26:40] <sonu_nk> $("form[data-track=MySubmit]").off("submit");
+[05:26:41] <sonu_nk>               $("form[data-track=MySubmit]").trigger( "submit" );
+[05:26:58] <sonu_nk> when i am using this
+[05:28:41] <sonu_nk> forget all above.. i am sending in deatail
+[05:44:22] <sonu_nk> http://stackoverflow.com/questions/43468746/dual-submission-of-form-creating-issue-with-validation
+[05:44:28] <sonu_nk> please take look at my issue
+[06:35:19] <sonu_nk> http://stackoverflow.com/questions/43468746/dual-submission-of-form-creating-issue-with-validation
+[06:56:47] <sonu_nk> is there any jQuery channel on slack ?
+[06:56:55] <sonu_nk> Cork, hi...
+[06:56:58] <sonu_nk> how are you ?
+[06:57:21] <sonu_nk> http://stackoverflow.com/questions/43468746/dual-submission-of-form-creating-issue-with-validation here is my issue..its seems critical
+[06:57:39] <sonu_nk> can you have  look , i am sure you have some solution.
+[07:09:10] <itsgokul> why accrodion shows scroll bar and not hiding on clicking
+[07:28:23] <Cork> itsgokul: sounds like a styling error
+[07:28:38] <Cork> sounds like it gets overflow: auto instead of overflow: hidden for some reason
+[11:48:20] <effectUI> Im doing $("#div").parent().effect("bounce", {distance: 10, times: 3 }, 300) how can I make it stop on the second call and rerun $("#" + fromUser + ".private-text-container").parent().effect("bounce", {distance: 10, times: 3 }, 300) ?
+[12:07:12] <MikeD_> what do you mean make it stop and rerun?
+[12:07:20] <MikeD_> isn't that just bounce 4 times?
+[12:11:18] <jquery769> hey guys i have a plugin i made which is used on 2 elements....this plugin has an onclick listener...but when i trigger the onclick function for 1 element it also triggers the other
+[12:11:57] <jquery769> so the onclick function runs twice when only should be running once
+[12:18:25] <taplar_> can you show us an example in a fiddle?
+[12:21:32] <jquery769> yeah sure 1 sec
+[12:28:49] <jquery769> taplar_: line 49 is the delete onclick   https://jsfiddle.net/2po6ge33/        if you click on the table row 'my phone' and then delete menu will come up
+[12:31:21] <jquery769> the menu is being used for both tables....so when click delete it triggers function twice table 1 and table 2
+[12:31:33] <jquery769> =/
+[12:32:55] <taplar_> where are you calling the plugin on the elements?
+[12:33:26] <jquery769> 491 and 576
+[12:33:41] <jquery769> maybe i need to clone the ul menu? or something
+[12:33:57] <jquery769> for each table
+[12:34:25] <taplar_> the issue is most likely that you are binding click handlers for each element to the same element
+[12:36:00] <jquery769> that menu and #editable-table-row-delete is used for the plugin
+[12:36:45] <jquery769> if i have 3 tables using the plugin then it will call onclick 3 times even if clicked once
+[12:37:09] <taplar_> ln 14-23 have id lookups.  and you are binding event handlers to some of them.  if you have 50 elements, the elements will have 50 bindings on them
+[12:38:12] <jquery769> those id's are the <li> options...
+[12:38:23] <jquery769> and yes i have triggers for them in the plugin
+[12:38:35] <taplar_> doesn't change what i said
+[12:39:11] <jquery769> how can i have a onclick of only 1 element
+[12:39:32] <jquery769> and not effecting other elements triggers that the plugin is binded too
+[12:40:15] <jquery769> i didnt see this problem coming and don't know of a solution/correct way to deal with this
+[12:40:21] <taplar_> you probably want to look into refactoring the logic so you only have a single binding for the elements, and derive the elements you need to affect based off of some other variables or something on the event
+[12:44:21] <jquery769> ummm ok 1 sec
+[12:48:08] <jquery769> taplar_: https://jsfiddle.net/2po6ge33/2/   you gave me an idea which works...line 53 is the function
+[12:48:31] <jquery769> would that be the right way?
+[12:49:35] <taplar_> that seems like it would work
+[12:49:57] <jquery769> taplar_: im trying to build this plugin with best practices in mind
+[12:50:02] <hlve> you seem like you would work
+[12:50:04] <hlve> ;)
+[12:50:15] <taplar_> to some degree
+[12:50:34] <hlve> my legs are so itchy. have a great tuesday all
+[12:50:37] <jquery769> im checking tr is apart of selector binded to plugin
+[12:51:05] <jquery769> before executing click
+[12:51:10] <taplar_> if that's the case i'd still look into only doing a single binding
+[12:51:50] <jquery769> a single binding leads to duplicate triggers =/
+[12:52:00] <jquery769> do you have an example?
+[12:52:15] <taplar_> no, multiple bindings are doing the multiple firings
+[12:52:25] <taplar_> think of it this way
+[12:52:30] <jquery769> i see
+[12:52:52] <jquery769> but how can i make a single binding to a menu being used for 2 elements
+[12:53:01] <taplar_> when you click that column or whatever that causes the modal to show, you at that point know, or can get, all the relative variables that would be needed in the event handlers, right?
+[12:54:05] <jquery769> $('td', $table) click then  menu shows then $('#editable-table-row-delete') click to delete
+[12:54:20] <jquery769> if i could bind those two magically
+[12:55:24] <taplar_> you click the row that you want to delete to bring up the option to click delete, yes?
+[12:55:46] <jquery769> yes
+[12:56:18] <taplar_> so at that point, you could store that reference in a variable in the plugin that it will reference when it does the delete logic
+[12:59:59] <jquery769> taplar_: ok i think i got it
+[13:00:02] <jquery769> thank you
+[13:00:16] <tokam> Hi
+[13:00:48] <tokam> I have a frequent event and want to delay it by x seconds and only execute the handling of the event once every x seconds.
+[13:01:02] <robertmaxrees> you want to throttle it.
+[13:01:02] <robertmaxrees> :)
+[13:01:05] <tokam> should I use https://api.jquery.com/delay/ this function for that task
+[13:01:10] <robertmaxrees> nope.
+[13:01:21] <robertmaxrees> that's for queues, which you're not using.
+[13:01:41] <tokam> so here it is used wrong?
+[13:01:41] <tokam> view-source:https://www.aescuvest.de/faq
+[13:01:46] <taplar_> probably a jquery plugin for it, pretty sure there is, or just lodash throttle
+[13:01:56] <taplar_> https://duckduckgo.com/?q=lodash+throttle&ia=about
+[13:02:00] <robertmaxrees> tokam delay is to delay the next animation
+[13:03:25] <tokam> http://benalman.com/news/2010/03/jquery-throttle-debounce-v11/
+[13:03:46] <robertmaxrees> that's another way.
+[13:11:26] <sigdk> I'm having a navigation menu and a div for content display as shown here: https://jsfiddle.net/cj4sgwow/9/ (work in progress -- any idea why it complains for misisng ')' in the console?)  . Can I make it work with links or do I need buttons?
+[13:12:14] <taplar_> css takes a comma
+[13:12:28] <taplar_> (key, value)
+[13:13:47] <sigdk> taplar_, thanks
+[13:14:51] <sigdk> how about the other... do I need buttons or links? I think with buttons is easier
+[13:15:38] <taplar_> anything can have a click event handler on it, for the most part
+[13:20:45] <tokam> robertmaxrees: somehow that plugin won't work on my meteor application
+[13:21:39] <tokam> without error in the console
+[13:24:29] <sigdk> I got this: https://jsfiddle.net/cj4sgwow/15/  and it works as explained before... yet I think the way I did it is hacky...  any hint?
+[13:25:09] <robertmaxrees> tokam no clue.
+[13:25:26] <tokam> I think the latest version does not fit the api documentation anymore
+[13:25:32] <tokam> I read the code of it and came further
+[13:25:40] <robertmaxrees> tokam you can find plenty of other solutions out there.
+[13:36:34] <nishttal> does jquery .post call limit the amount of data I can post? i keep getting 413 error
+[13:36:46] <robertmaxrees> that's an http error code.
+[13:36:50] <robertmaxrees> not from jquery
+[13:37:01] <taplar_> the server and/or application will limit that
+[13:37:09] <nishttal> so node.js is returning that..
+[13:37:15] <robertmaxrees> si
+[13:37:25] <nishttal> ok..thanks
+[13:40:38] <sigdk> https://jsfiddle.net/cj4sgwow/15/ any hint for improvement on this? It strikes me like playing with the id names is not good...
+[13:43:14] <robertmaxrees> sigdk https://jsfiddle.net/robertmaxrees/cj4sgwow/16/
+[13:44:14] <robertmaxrees> also: https://jsfiddle.net/robertmaxrees/cj4sgwow/17/
+[14:11:01] <sigdk> robertmaxrees, first time I see the "data-content-area"
+[14:14:05] <sigdk> and how exactly does this work: var contentSelector = $(this).data('contentArea');   ? what is the "contentArea"?
+[14:14:52] <taplar_> data-contentArea="something"
+[14:16:34] <sigdk> taplar_, is that an attribute of <a> ?
+[14:16:39] <robertmaxrees> sigdk they're called data attributes.
+[14:16:44] <robertmaxrees> look at the markup changes, too.
+[14:16:54] <taplar_> ^ which can be on anything
+[14:17:18] <taplar_> it's a way of assigning non-standard attributes to an element in order to contextualize data about those elements
+[14:17:55] <robertmaxrees> ^
+[14:18:26] <sigdk> robertmaxrees, why don't you use "id" ?
+[14:18:50] <robertmaxrees> lol
+[14:19:01] <robertmaxrees> becuase you want data about the element they're related to.
+[14:19:14] <robertmaxrees> even you noted IDs seemed a little jank there.
+[14:19:52] <sigdk> robertmaxrees, what does this line do: var contentSelector = $(this).data('contentArea');  ?
+[14:20:06] <robertmaxrees> it gets the data-content-area value
+[14:21:08] <sigdk> robertmaxrees, weird.... I could understand something like $(this).data('content-area');   .... but this is different
+[14:21:40] <robertmaxrees> it's converted to camel case.
+[14:21:44] <robertmaxrees> the docs explain it.
+[14:22:10] <taplar_> oh, does data translate camel case into dashes like css does?
+[14:22:10] <taplar_> cooleo
+[14:23:15] <taplar_> be aware also that data() will attempt to parse/convert the value into what it feels is an appropriate type
+[14:25:18] <hlve> my legs won't stop itching
+[14:25:19] <sigdk> ahh... you use it as attribute there and as identifier to the div... hmm, not bad... yet  data-content-area to this .data('contentArea');   sorry, it's weird
+[14:25:33] <hlve> robertmaxrees, use your voodoo jquery magic to fix this.
+[14:25:34] <robertmaxrees> it's pretty standard.
+[14:25:43] <robertmaxrees> you can change the name if you want sigdk
+[14:28:07] <sigdk> robertmaxrees, I tried this: https://jsfiddle.net/cj4sgwow/21/ but didn't work...  this did: https://jsfiddle.net/cj4sgwow/22/
+[14:28:27] <sigdk> btw is there any good convention I should follow concerning the class/id names?
+[14:28:44] <sigdk> shall I use dash - or doItLikeThis ?
+[14:29:26] <robertmaxrees> for classnames and IDs, I tend to prefer camelCase
+[14:30:35] <sigdk> robertmaxrees, hmm, is there anywhere you use dashes?
+[14:30:58] <taplar_> we use dashes for classes, camel case for ids in our shop
+[14:31:17] <robertmaxrees> oh, yeah.  we started doing that recently.
+[14:54:52] <ckb> Okay guys… Absract question here… I have a web application (doubling as a mobile app using a webview). When it comes to CPU vs memory (server, desktop AND mobile devices) which is more critical on performance? I’m stuck between a rock an a hard place by using javascript conditionals to generate HTML based on a JSON return (as I’m not abandoning javascript rendering; only conditional statements VS storing the raw HTML output the server generates to
+[14:54:53] <ckb> prevent the client from using the CPU)
+[14:56:20] <taplar_> it's hard to answer abstract question, imho
+[14:57:05] <ckb> ugh.. I know. The reality comes from storing HTML in JSON or having the client side generate it from slim JSON
+[14:57:33] <taplar_> debuggers and dev tools to identify bottlenecks are really the best tools
+[14:58:03] <taplar_> static content will always be faster, i think it's safe to say
+[14:58:16] <ckb> The only issue I’m having is with certain mobile devices… The SAME device that I’m using, but a bit older.
+[14:58:27] <taplar_> however there are lots of frameworks/libraries out there made to make content generation fast
+[14:58:52] <robertmaxrees> ^
+[14:59:04] <robertmaxrees> for mobile devices, you worry far more about load times.
+[14:59:06] <ckb> taplar_: I’m using HandlebarsJS… But the problem is that I have to manage 2 seperate templates (one for Handlebars and one in PHP)
+[14:59:20] <robertmaxrees> your JSON will likely be much smaller than html
+[14:59:31] <robertmaxrees> so ship json client side, make html from that.
+[15:00:55] <ckb> So I’m trying to decide if it’s worth my time and effort to just have PHP generate my JS template for me… but I can’t necessarily use conditionals if I have PHP generate my templates for me. So I’d only be generating small HTML blocks instead of just passing 1’s and 0’s, etc.
+[15:01:20] <robertmaxrees> back up :)
+[15:01:29] <ckb> back up?
+[15:01:35] <robertmaxrees> are you currently sending markup or JSON over the wire for these?
+[15:01:49] <ckb> My entire application is run off JSON
+[15:02:13] <robertmaxrees> is json what you send client-side for rendering?
+[15:02:28] <taplar_> and what do you mean you are generating a template?
+[15:02:30] <ckb> whether PHP loops through pre-json_encode or handlebars loops through returned JSON
+[15:02:44] <robertmaxrees> yeah, you're conflating things.
+[15:02:54] <robertmaxrees> when you have PHP do it, you're sending markup over the wire.
+[15:03:06] <robertmaxrees> you wnat to send the JSON to your client-side.
+[15:03:24] <taplar_> and your templates would be static in the markup
+[15:03:31] <robertmaxrees> ^
+[15:03:32] <ckb> right, as static html. would it generally be better to send the JSON then render it client side so I don’t have to worry about PHP outputting markup?
+[15:03:48] <robertmaxrees> render client side, yeah
+[15:04:13] <ckb> even on intial load? .. I should obviously keep a backup incase it bottlenecks?
+[15:04:38] <robertmaxrees> what are you expecting to have bottleneck?
+[15:04:45] <robertmaxrees> it's a tradeoff, fwiw.
+[15:05:05] <robertmaxrees> mobile devices genrally have enough horsepower to render stuff fine.  it's the mobile connection that's an issue.
+[15:05:54] <ckb> my pages get loaded quickly enough as is.. so never thought it to be a problem
+[15:06:08] <robertmaxrees> that's generally your biggest concern with mobile.
+[15:06:14] <robertmaxrees> mobile networks are slow.
+[15:06:26] <robertmaxrees> and a lot of wifi aps are garbage.
+[15:06:26] <ckb> I guess now I’m trying to figure out why my boss’s device takes 6+ seconds to render a json object
+[15:06:48] <ckb> when mine renders just as quick as desktop
+[15:06:55] <robertmaxrees> are you sure it's the render that's an issue?
+[15:07:01] <robertmaxrees> have you connected a debugger?
+[15:07:14] <ckb> Recommendations? Should that be what I research first?
+[15:07:27] <robertmaxrees> yeah, run a profiler on the device if you can.
+[15:07:35] <robertmaxrees> so what the actual problem is.
+[15:07:49] <ckb> iPhone 6+, use USB + profile?
+[15:08:01] <robertmaxrees> not familiar with how to do it on iDevices.
+[15:08:41] <ckb> gotcha.. but Safari/Chrome/Firefox has a profile spot in dev tools, so that’ll give me the information I need?
+[15:09:04] <robertmaxrees> you're not seeing the issues on desktop, are you?
+[15:09:30] <ckb> none at all
+[15:09:37] <robertmaxrees> so why profile there?
+[15:09:53] <ckb> xCode allows me to inspect using Safari on iDevices
+[15:10:09] <robertmaxrees> just so long as you're profiling an actual device, you're solid.
+[15:10:11] <ckb> or I mean, Safari allows me to inspect on iDevices, I mean
+[15:10:45] <ckb> Thanks so much for the help, robertmaxrees! :)
+[15:11:13] <robertmaxrees> yep.
+[15:12:40] <ckb> robertmaxrees: I forgot to mention, that this is using a webview on a native app…. so I’m not sure how I would profile it.
+[15:12:55] <robertmaxrees> sounds like you have a great place to start for research
+[15:13:25] <ckb> Hahaha. Thanks
+[15:14:13] <robertmaxrees> ;)
+[15:21:44] <torify> hello
+[15:22:03] <torify> I am a complete beginner with jquery and I need some help
+[15:22:20] <taplar_> learn.jquery.com
+[15:22:25] <robertmaxrees> ^ :)
+[15:22:30] <taplar_> try.jquery.com
+[15:22:42] <torify> I have two html buttons that load the same page, that page javascript source should change depending on the button that is clicked
+[15:22:57] <torify> what approach should I take?
+[15:23:15] <taplar_> you should read those sites i listed
+[15:23:17] <robertmaxrees> ^
+[15:23:46] <torify> hm
+[18:51:00] <rjCousineau> Hello.  I'm looking to receive raw JPEG data, and receive it into a <img> tag.
+[18:51:26] <rjCousineau> $.get( path, function(data){ $('<img>').??? });
+[18:51:53] <robertmaxrees> why do you think you need the raw data?
+[18:52:22] <rjCousineau> $('<img>', { src: path }); doesnt work because I need the http request to be a variable so I can abort() it if need be
+[18:52:27] <robertmaxrees> why?
+[18:53:06] <rjCousineau> robertmaxrees: because I'm hovering over icons, and request a screenshot, but I want to abort the request on mouseout
+[18:53:16] <robertmaxrees> nah.  i wouldn't worry about that.
+[18:53:20] <robertmaxrees> if user shows intent, let it finish.
+[18:53:30] <rjCousineau> well theres a strong delay from the server and the pictures are 2mb+
+[18:53:52] <snover> i’m looking at the spec to be sure but i am pretty sure setting the src property of an HTMLImageElement to null will cancel an in-progress request.
+[18:54:02] <rjCousineau> hmm. I can get this working with a var req = $.get() and cancelling works.. but i'm stuck on the <img> part
+[18:54:13] <rjCousineau> really hmm
+[18:54:18] <rjCousineau> I will try
+[18:54:58] <rjCousineau> if I $('img').remove(); it doesn't cancel the http request
+[18:56:30] <taplar_> you should be able to get the xhr in beforeSend that you can abort on later
+[18:57:13] <snover> removing an <img> element from the DOM is not what I said to do.
+[18:57:48] <rjCousineau> snover: i tried $('img').attr('src','null'); it didn't cancel
+[18:59:57] <snover> I also did not say to set the attribute, nor did I say to set to a string 'null'.
+[19:03:18] <snover> HTML5: When the user agent is to update the image data of an img element, it must run the following steps: 1. Return the img element to the unavailable state. 2. If an instance of the fetching algorithm is still running for this element, then abort that algorithm, discarding any pending tasks generated by that algorithm.
+[19:04:20] <rjCousineau> interesting, ty
+[20:02:10] <hassoon> guys please anyone who knows of some jquery plugin that alows me to zoom through an grab the zoomed surface around  ? i do need it, this is an example https://youtu.be/CLeL38Fg3tA?t=18
+[20:02:16] <hassoon> he is selecting images then zooming/panning through them
+[20:02:46] <hassoon> i've been seeking, but i don't think i found the right plugi
+[20:02:50] <hassoon> * plugin
+[20:03:05] <robertmaxrees> you mean pan and zoom?
+[20:04:04] <robertmaxrees> hassoon
+[20:04:09] <robertmaxrees> https://github.com/timmywil/jquery.panzoom
+[21:44:38] <quechon> hello
+[21:52:36] <francuz> hello everyone, i'm having trouble while toggling some items with jquery : when i sometimes toggle some divs visible after i added element on my page i have to resize my windows for them to refresh and get the right size(they are too big before the resize)
+[21:52:54] <francuz> is there a simple way to "refresh" the visual aspect of a div or even of my page  ?
+[23:15:17] <dadvid> http://stackoverflow.com/questions/43446368/bootstrap4-no-hidden-class-javascript-on-change/43446513#43446513 can someone help me with this? bootstrap 4 problem
+[23:32:55] <Snarfy_> hey
+[23:48:12] <dadvid> http://stackoverflow.com/questions/43446368/javascript-code-isnt-working-with-bootstrap-4-since-it-has-no-hidden-class/

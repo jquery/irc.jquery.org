@@ -1,0 +1,83 @@
+[00:06:08] <doesallmagic2> Project jQuery UI - 1.7.x core build #731: STILL UNSTABLE in 29 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.7.x%20core/731/
+[00:21:38] <doesallmagic2> Project jQuery UI - 1.9.x core build #27: STILL UNSTABLE in 15 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.9.x%20core/27/
+[00:52:00] <doesallmagic2> Project jQuery UI - 1.11.x core build #27: UNSTABLE in 30 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.11.x%20core/27/
+[01:08:04] <doesallmagic2> Project jQuery UI - 1.8.x core build #708: STILL UNSTABLE in 16 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.8.x%20core/708/
+[10:22:47] <doesallmagic2> Project jQuery UI - git core build #886: STILL UNSTABLE in 4 min 42 sec: http://jenkins.jquery.com/job/jQuery%20UI%20-%20git%20core/886/
+[13:26:01] <gabriel_schulhof> arschmitz: Ping! I'm trying to land https://github.com/jquery/jquery-mobile/pull/7902/, having rebased onto master and squashed into a single commit, but I decided to push that commit back to the PR before I actually fast-forward master onto it. For some reason it's failing massively on Travis, whereas it passes just fine locally.
+[13:26:28] <gabriel_schulhof> https://travis-ci.org/jquery/jquery-mobile/builds/61922471
+[13:26:42] <gabriel_schulhof> Look at the job I didn't restart. It's full of seemingly unrelated failures.
+[13:28:56] <gabriel_schulhof> Wait a sec ... I introduced a new file. That may be it. Load-order-related stuff ... that would also explain why I can't reproduce locally ...
+[13:29:46] <gabriel_schulhof> Then again "swipe not fired when coordinate change takes more than a second" fails ... huh?
+[13:54:36] <arschmitz> gabriel_schulhof: weird
+[13:56:03] <arschmitz> gabriel_schulhof: looks like travis being slow
+[13:56:45] <arschmitz> gabriel_schulhof: since everything i see is related to timing on swipe
+[14:24:20] <gabriel_schulhof> arschmitz: Yeah ...
+[14:24:26] <gabriel_schulhof> arschmitz: Should I just land it?
+[14:24:44] <gabriel_schulhof> arschmitz: ... and the jobs I did restart are taking forever.
+[14:24:50] <arschmitz> wait no
+[14:24:56] <gabriel_schulhof> OK.
+[14:25:02] <arschmitz> that failing only on git look
+[14:25:08] <arschmitz> https://travis-ci.org/jquery/jquery-mobile/builds/61922471
+[14:25:14] <arschmitz> thats why it does not fail local
+[14:25:29] <gabriel_schulhof> One failed on non-git.
+[14:25:39] <arschmitz> was it the same failures are you sure?
+[14:25:52] <gabriel_schulhof> I can run locally with JQUERIES=git
+[14:25:52] <arschmitz> because i would say its not a coincidence every git version failed
+[14:26:01] <arschmitz> please do
+[14:26:03] <gabriel_schulhof> OK.
+[14:26:37] <gabriel_schulhof> I don't see why navigation tests should fail because of the changes in this PR.
+[14:26:49] <arschmitz> they probably ae not
+[14:26:53] <arschmitz> its probably jquery git
+[14:27:15] <gabriel_schulhof> Oh, that's a good point ... if something's broken on git, it'll break other stuff of ours.
+[14:27:22] <arschmitz> gabriel_schulhof: the same tests are failing on git on 1.5-dev
+[14:27:24] <gabriel_schulhof> Maybe we should run the last thing that has landed.
+[14:27:27] <gabriel_schulhof> Oh.
+[14:27:30] <gabriel_schulhof> Hmmm ...
+[14:27:33] <gabriel_schulhof> OK.
+[14:27:37] <gabriel_schulhof> I'll have a look ...
+[14:27:39] <arschmitz> this is something in core
+[14:27:42] <gabriel_schulhof> Yep.
+[14:27:48] <gabriel_schulhof> Hopefully something transient ...
+[14:28:01] <gabriel_schulhof> Hut dawg! Got 'em failures!
+[14:28:32] <arschmitz> gabriel_schulhof: just a sec i think i know what it is
+[14:28:42] <gabriel_schulhof> WTF?! TypeError: 'undefined' is not a function (evaluating 'e.preventDefault()')
+[14:28:53] <gabriel_schulhof> That's a major API break ...
+[14:31:36] <gabriel_schulhof> All the errors so far are about preventDefault()
+[14:31:41] <arschmitz> yeah
+[14:32:02] <arschmitz> gabriel_schulhof: the only related looking think i see is https://github.com/jquery/jquery/commit/fac67a984268ef8f7de952666fda6d8d32754f5f
+[14:36:34] <arschmitz> gabriel_schulhof: yikes you have some tests tht are overwriting preventDefault() in those tests and never restoring it
+[14:36:55] <arschmitz> in the swipe cascade tests you wrote
+[14:37:00] <arschmitz> like forever ago
+[14:38:35] <gabriel_schulhof> Alright. Looks like I have some cleaning up to do.
+[14:39:18] <arschmitz> gabriel_schulhof: https://github.com/jquery/jquery/commit/a873558436383beea7a05fd07db7070a30420100
+[14:39:25] <arschmitz> is the cause i would say
+[14:40:07] <gabriel_schulhof> Yep. Looks like.
+[14:40:31] <gabriel_schulhof> Malformed events /should/ cause exceptions to be thrown.
+[14:53:16] <gabriel_schulhof> arschmitz: The problem is not with overriding preventDefault. The problem is this: https://github.com/jquery/jquery-mobile/blob/master/tests/unit/event/event_core.js#L146 ...
+[14:53:31] <gabriel_schulhof> You can't say event.originalEvent = { abc: "def" }
+[14:53:47] <gabriel_schulhof> originalEvent has also to be an object that has the whole Event interface.
+[14:57:24] <gabriel_schulhof> For event_core.js you can get away with { ... preventDefault: $.noop, ... }
+[15:00:57] <gabriel_schulhof> Yeah, I think that's not a bad fix, since it's what we've had so far via the core guard anyway.
+[15:02:00] <gabriel_schulhof> Some also need ... stopPropagation: $.noop
+[15:06:37] <arschmitz> gabriel_schulhof: ah yeah
+[15:07:10] <arschmitz> we should probably just start doing new $.Event and doing it right
+[15:07:41] <arschmitz> gabriel_schulhof: we also need to fix those bad overrides though
+[15:07:53] <arschmitz> we are doing ti backwards its weird
+[15:08:06] <arschmitz> it looks like we are restoring the original in setup instead of teardown
+[15:22:12] <gabriel_schulhof> arschmitz: The thing is, in some of those cases I dunno what type of event it's supposed to be.
+[15:22:25] <gabriel_schulhof> So, I dunno what to pass to new $.Event()
+[15:23:37] <gabriel_schulhof> ... and I found an instance in the library too: https://github.com/jquery/jquery-mobile/blob/master/js/navigation/navigator.js#L135-L138
+[15:24:15] <gabriel_schulhof> The library should be easy to fix with $.extend( new $.Event( "popstate" ), { state: null } );
+[15:24:48] <arschmitz> gabriel_schulhof: you can create a new even and leave type undefined
+[15:25:17] <gabriel_schulhof> Well, OK then. I'll do it that way - see if I have any more luck with the tests.
+[15:25:42] <arschmitz> gabriel_schulhof: you can pass nothing and just do $.Event() if you want to get a normal event object
+[15:26:34] <gabriel_schulhof> OK ... weird ... where's the API docs for $.Event?
+[15:26:48] <gabriel_schulhof> Is that an internal API?
+[15:27:49] <gabriel_schulhof> Got it.
+[15:27:50] <gabriel_schulhof> https://api.jquery.com/category/events/event-object/
+[15:28:21] <gabriel_schulhof> Aaah! Don't need $.extend()
+[15:48:02] <gabriel_schulhof> arschmitz: Wow! Using $.Event() instead of just adding a mock preventDefault: $.noop causes both phantom and Chrome to hang!
+[15:48:34] <arschmitz> weird
+[15:49:52] <gabriel_schulhof> Yeah ... I'll think I'll make this my quest for tomorrow ...
+[15:49:59] <gabriel_schulhof> Getting late here ...
+[15:50:06] <arschmitz> ok

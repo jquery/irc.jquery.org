@@ -1,0 +1,248 @@
+[02:54:20] <gabriel_schulhof> ldeluca: You can do git commit -m $'Component: Brief message\n\nFixes gh-nnnn'
+[02:54:53] <gabriel_schulhof> ldeluca: Notice the dollar sign in front of the quote. If you use bash, it causes the escape sequences to be replaced by the actual newline characters.
+[02:55:30] <gabriel_schulhof> I do that all the time.
+[06:52:41] <ldeluca> gabriel_schulhof: awesome!  Thanks for the tip
+[07:19:13] <jquicommit> [13globalize] 15rxaviers closed issue #343: Loading CLDR JSON data 02http://git.io/UCppwA
+[07:22:13] <jquicommit> [13globalize] 15rxaviers opened issue #344: Docs: Include example using jQuery getJson 02http://git.io/CsMr3w
+[07:36:46] <agcolom> arschmitz: gabriel_schulhof: weird problem with popup in Chrome... 
+[07:37:39] <agcolom> could you test this page for me: http://api.jquerymobile.com/resources/popup/example3.html 
+[07:48:19] <agcolom> So it seems that the img needs a max height?
+[08:18:35] <jqcommit> [13api.jquerymobile.com] 15agcolom opened pull request #338: Popup: Fixed scaling image example (06master...06popupScaleImage) 02http://git.io/rgZdEg
+[08:55:05] <gabriel_schulhof> arschmitz: I have an idea regarding https://github.com/jquery/jquery-mobile/issues/7719 ... we can modify jquery.mobile.js to do define([ "require", "./page" ], function() { require([ /* everything except init */ ], function() { require([ "init" ], function() {}); }); });
+[08:55:57] <gabriel_schulhof> arschmitz: That would ensure load order correctness.
+[08:56:13] <gabriel_schulhof> arschmitz: Hey! *wave* :)
+[09:04:55] <arschmitz> gabriel_schulhof: hey
+[09:05:41] <arschmitz> gabriel_schulhof: that sounds fine to me 
+[09:06:02] <gabriel_schulhof> arschmitz: OK. I'll do that for 1.4.5.
+[09:06:23] <arschmitz> cool i was not thrilled about porting the new autoinit
+[09:07:05] <gabriel_schulhof> arschmitz: I realized that with your autoinit, you can include things in any order, as long as page depends on autoinit - and it needs to, because it calls .enhanceWithin(), and autoinit provides .enhanceWithin().
+[09:07:21] <gabriel_schulhof> That's as of 1.5.0.
+[09:07:23] <arschmitz> gabriel_schulhof: yes page will depend on autoinit
+[09:08:14] <arschmitz> gabriel_schulhof: though i want to add an option to ignore autoinit all together 
+[09:08:33] <arschmitz> gabriel_schulhof: tj_vantoll and i talked and we want to switch to enhance rather then enhanceWithin
+[09:09:05] <arschmitz> gabriel_schulhof: im debating about if we should deprecate enhanceWithin or keep both
+[09:10:37] <gabriel_schulhof> arschmitz: ... and for 1.4.5, I also propose that we document the correct way of creating a require() call for your application: https://github.com/jquery/api.jquerymobile.com/issues/339
+[09:10:38] <jqcommit> [13api.jquerymobile.com] 15gabrielschulhof opened issue #339: Library: Document that, when using requirejs, a page should only be instantiated after the whole library is loaded, otherwise it may fail to instantiate some widgets 02http://git.io/58gHsw
+[09:11:11] <gabriel_schulhof> arschmitz: Yeah ... I've also found enhanceWithin() to be a bit limiting.
+[09:11:26] <gabriel_schulhof> arschmitz: .enhance() is better because it's recursive.
+[09:11:48] <gabriel_schulhof> I mean, not recursive, inclusive,
+[09:12:01] <gabriel_schulhof> Recursion doesn't start below the element in question, but includes it.
+[09:12:10] <arschmitz> gabriel_schulhof: and you can always do this.children().enhance();
+[09:12:19] <gabriel_schulhof> Yeah.
+[09:12:42] <gabriel_schulhof> There's kind of a conceptual tension in my mind though.
+[09:12:58] <gabriel_schulhof> .enhance() can be regarded as violating the opacity of a widget.
+[09:13:17] <gabriel_schulhof> If the outermost element is a widget, now you're poking around in the widget's innards, looking for other widgets.
+[09:13:27] <arschmitz> yeah?
+[09:13:33] <gabriel_schulhof> Well, yeah.
+[09:13:50] <arschmitz> nested widgets are very very very common
+[09:14:11] <gabriel_schulhof> Yes, they are, but once they are nested, the outermost widget should take care of initializing its children.
+[09:14:21] <arschmitz> no it shouldnt
+[09:14:29] <arschmitz> only in special cases where they are actually linked
+[09:14:50] <arschmitz> like controlgroup where there is a special relationship
+[09:15:24] <arschmitz> but popup should not enhance checkboxes within it
+[09:16:01] <gabriel_schulhof> If that is the attitude towards popup, then page should definitely also not enhance anything within it.
+[09:16:13] <gabriel_schulhof> ... and neither should panel.
+[09:16:14] <arschmitz> no page is different
+[09:16:25] <gabriel_schulhof> Well, it shouldn't be.
+[09:16:27] <arschmitz> page we say enhances everything within it that part of its purpose
+[09:16:39] <arschmitz> and panel does not enhance its children
+[09:16:56] <arschmitz> only page and controlgroup do 
+[09:17:10] <gabriel_schulhof> ... and collapsibleset.
+[09:17:13] <arschmitz> because that is part of their purpose
+[09:17:28] <gabriel_schulhof> Or wait ... does collapsibleset even enhance?
+[09:17:32] <arschmitz> gabriel_schulhof: yes but thats weird and bad that should not be that way accordion does not work like that
+[09:18:05] <arschmitz> gabriel_schulhof: and yes collapsible set enhances its collapsibles
+[09:18:12] <arschmitz> but not anything else
+[09:18:29] <gabriel_schulhof> Why is it bad for collapsible but OK for controlgroup? In both cases the children are connected to the parent.
+[09:18:30] <arschmitz> just like controlgroup enhances only the buttons / checkboxes / selects
+[09:18:49] <arschmitz> gabriel_schulhof: because controlgroup and collapsible set should not be 2 widgets
+[09:18:53] <arschmitz> it should be one
+[09:19:02] <arschmitz> just like slider and range slider should be one
+[09:19:17] <arschmitz> those were both i think mistakes on our part
+[09:19:46] <gabriel_schulhof> Well, the fact that rangeslider is a widget consisting of two slider widgets has historical roots in that the slider came first.
+[09:20:06] <arschmitz> gabriel_schulhof: oh i know i wrote it lol
+[09:20:22] <arschmitz> gabriel_schulhof: but its still a terible design
+[09:20:26] <gabriel_schulhof> For sure.
+[09:20:35] <gabriel_schulhof> But it was the way to go at the time.
+[09:20:37] <arschmitz> collapsibleset is the same 
+[09:21:17] <arschmitz> i dont know the historical reasons
+[09:23:02] <gabriel_schulhof> arschmitz: Correct me if I'm wrong: Is it not the case that, if you have a single collapsible, UI will create a container for it designed for storing multiple collapsibles?
+[09:23:19] <arschmitz> gabriel_schulhof: yes
+[09:23:27] <arschmitz> gabriel_schulhof: but does that matter really?
+[09:24:22] <gabriel_schulhof> Well, you're wasting a div everytime you have a single collapsible. Not sure if that matters much, but it's a waste.
+[09:25:00] <arschmitz> gabriel_schulhof: i don't really think it matters if you have enough collapsible on a single page for it to matter you have other bigger issues
+[09:26:12] <gabriel_schulhof> :)
+[09:26:53] <arschmitz> gabriel_schulhof: think about how many completely seperate individual collapsibles you would need for a single div each to matter
+[09:27:21] <arschmitz> gabriel_schulhof: because also remember this is a div you put in your markup not generated
+[09:28:04] <gabriel_schulhof> Right, true.
+[09:28:24] <gabriel_schulhof> This is not the place to strike a decisive blow against div sewage :)
+[09:29:18] <arschmitz> gabriel_schulhof: also note that that the markup for a single accordion and a collapsible are the same :)
+[09:29:44] <arschmitz> gabriel_schulhof: actually our collapsible set has an extra div per collapsible compared to accordion
+[09:30:16] <arschmitz> gabriel_schulhof: so more proof we are doing this wrong in mobile :)
+[09:30:59] <gabriel_schulhof> arschmitz: Oh, no doubt. I was more thinking about trimming it down in UI - but I guess it's not worth the trouble.
+[09:31:13] <arschmitz> gabriel_schulhof: i dont think you could
+[09:31:39] <arschmitz> in you its just <div><h1></h1><div><div></div>
+[09:31:47] <arschmitz> i think you need the wrapper no matter what
+[09:32:53] <arschmitz> gabriel_schulhof: accordion generates no markup
+[09:34:25] <gabriel_schulhof> arschmitz: Well, hut diggety ... ours sure does. We have the anchor, the status span ...
+[09:39:27] <gabriel_schulhof> arschmitz: Well, that's all we have, but still.
+[09:40:04] <gabriel_schulhof> ... and actually, I think I know why we have the anchor. I recall that on iOS you can't click on anything except an anchor. I experienced this when doing the popup arrow.
+[09:40:32] <gabriel_schulhof> arschmitz: I tried to create an area on which you click to make the popup show up and have its arrow point at the coordinates you clicked.
+[09:40:46] <gabriel_schulhof> I had to turn the area into an anchor, otherwise it wouldn't work on iOS.
+[09:41:22] <arschmitz> gabriel_schulhof: accordion works on ios just fine
+[09:41:31] <arschmitz> so i don't think thats the case 
+[09:44:58] <gabriel_schulhof> arschmitz: Must've been an old iOS ...
+[10:00:15] <ldeluca> gabriel_schulhof: you're still up? Do you work 24/7?
+[10:00:16] <ldeluca> :)
+[10:01:51] <ldeluca> arschmitz: or anyone... What do you all mean when you refer to Hungarian notation? and getting rid of it?
+[10:02:38] <gabriel_schulhof> ldeluca: Still? It's only 20:02 here.
+[10:02:38] <arschmitz> ldeluca: hungarian notation is when the name of a variable indicates its type
+[10:02:54] <arschmitz> ldeluca: so like $foo for a jquery object
+[10:02:58] <gabriel_schulhof> ldeluca: $something is Hungarian notation. Just get rid of the $.
+[10:03:18] <ldeluca> gabriel_schulhof: ah okay, cool.  I thought so but wasn't sure if it was something else
+[10:03:23] <gabriel_schulhof> ldeluca: It's common practice in Windoze programming: char *szFirstName;
+[10:03:53] <ldeluca> gabriel_schulhof: okay, I think i got all of your changes for pull request 7757.  I appreciate you help with this
+[10:04:50] <gabriel_schulhof> ldeluca: NP. It's evolving along. I tested your previous version manually, and I found that when you tab around the window it gets an exception in the .one( "focus" ) handler.
+[10:05:04] <gabriel_schulhof> ldeluca: Then I realized that it was because it was getting the wrong context.
+[10:05:43] <ldeluca> gabriel_schulhof: how do you test manually?  Just created a dummy page?  or is it somehow possible to easily test the test cases ina  browser?
+[10:05:48] <gabriel_schulhof> arschmitz: I dunno how accordion works, but this doesn't work on iOS 6.1.x: http://jsbin.com/qiziri/4/
+[10:06:06] <gabriel_schulhof> ldeluca: Yeah. I have a page with an input on the page, and a popup which also contains an input.
+[10:06:23] <gabriel_schulhof> ldeluca: Then, you tab around the page until the focus makes a round trip to all the widgets.
+[10:06:30] <gabriel_schulhof> ldeluca: Then, you open the popup and you do the same.
+[10:06:42] <gabriel_schulhof> ldeluca: The focus must skip the input on the page, but not the input inside the popup.
+[10:07:18] <gabriel_schulhof> ldeluca: I tested your PR and was startled to find that focus restriction was /completely/ broken :)
+[10:07:37] <gabriel_schulhof> ldeluca: Then I found the exception, and I was like, "oh, of course it's not gonna work" :)
+[10:11:40] <ldeluca> gabriel_schulhof: https://github.com/ldeluca/jquery-mobile/commit/6e9ad3b84ef8c347ab446a048083f8b52f5dee08 there was one spot where I didn't make your suggested change *kinda*
+[10:12:12] <ldeluca> gabriel_schulhof: line 302 you had target and I left as this.document[ 0 ]...
+[10:13:00] <gabriel_schulhof> ldeluca: Yeah, I put it back to target[ 0 ] in my comment :)
+[10:13:25] <gabriel_schulhof> ldeluca: Oh, I see. You left it as that. Well, I guess it's the same.
+[10:13:54] <gabriel_schulhof> ldeluca: OK. Let's leave it at .activeElement.
+[10:18:09] <gabriel_schulhof> ldeluca: I don't think we should be attaching the focus handler to .activeElement.
+[10:18:25] <gabriel_schulhof> ldeluca: .activeElement may well be different when target receives the focusin event.
+[10:18:58] <gabriel_schulhof> ldeluca: However, the fact that target receives the focusin event tells us that its likely to receive the focus event real soon, so that's why we attach a handler to it there.
+[10:19:18] <ldeluca> gabriel_schulhof: ah, okay.  so i'll update to be this._safelyBlur( target )
+[10:19:28] <gabriel_schulhof> ldeluca: Nono.
+[10:20:00] <gabriel_schulhof> It should be target.one( ... not $( this.document[ 0 ].activeElement ).one( ...
+[10:20:29] <gabriel_schulhof> Oh, wait ... it used to be the latter.
+[10:20:31] <gabriel_schulhof> Hmmm ...
+[10:20:38] <gabriel_schulhof> OK ... well, if it's the latter, leave it.
+[10:21:02] <gabriel_schulhof> OK. Then, NM.
+[10:21:24] <gabriel_schulhof> ldeluca: Don't wanna churn the code any more than it needs to churn.
+[10:22:27] <ldeluca> gabriel_schulhof: :)  I'm still considering myself to be newish to JavaScript.  I've been using it for forever but not to the level that you all use it.  So I lean on you for your expertise
+[10:26:33] <gabriel_schulhof> ldeluca: Don't worry about it :) I've used Javascript for all of two years :) I'm a total n00b when it comes to the Web :)
+[10:27:04] <gabriel_schulhof> ldeluca: ... but working on jQM has been ... and I cannot overstate this ... a huuuuge learning experience, and gigatons of fun :)
+[10:28:50] <ldeluca> gabriel_schulhof: I've already learned a lot just with the two short weeks I've been trying to help out
+[10:28:51] <gabriel_schulhof> ldeluca: Aside from a few style guide nitpicks, the PR looks good now, and the addition of those assertions to the test should mimic the tabbing around the window part of the manual test.
+[10:29:09] <ldeluca> gabriel_schulhof: probably easier for you to just do what youre helping me with but I really do appreciate the fact that youre helping me learn
+[10:29:36] <ldeluca> gabriel_schulhof: Okay, let me update the style stuff now...
+[10:33:11] <gabriel_schulhof> :)
+[10:38:57] <ldeluca> gabriel_schulhof: Okay, tests all pass, https://github.com/jquery/jquery-mobile/pull/7757#discussion_r18811286
+[10:39:06] <ldeluca> is there a way to test the styling stuff? like whitespaces?
+[10:39:44] <arschmitz> ldeluca: we will be adding jscs for that but currently no
+[10:43:27] <gabriel_schulhof> arschmitz: There's the PR checker extension you wrote.
+[10:43:42] <arschmitz> gabriel_schulhof: yeah that will check some things
+[10:43:43] <gabriel_schulhof> arschmitz: Oh, wait, that's only for line lengths.
+[10:43:47] <arschmitz> but not most
+[10:44:15] <gabriel_schulhof> ldeluca: If you do a git diff, it will show you if you have spaces in your indentation, because they'll be red.
+[10:44:36] <gabriel_schulhof> ldeluca: I think it shows them red if tabs and spaces are mixed in your indentation.
+[10:45:03] <ldeluca> gabriel_schulhof: I'm assuming I have to do that before the pull request because a git diff right now comes back empty
+[10:45:41] <gabriel_schulhof> ldeluca: git diff `git merge-base HEAD master`
+[10:46:07] <gabriel_schulhof> ldeluca: Oh, wait ... you merged master into the PR ... that might return an incorrect diff ... lemme check ...
+[10:46:18] <arschmitz> ldeluca: if you start doing much diffing i highly recomend pretty-diff
+[10:47:06] <ldeluca> arschmitz: is that a command line thing?
+[10:47:21] <arschmitz> scott_gonzalez: i need to start getting kickbacks from your non existent monies you get for pretty-diff from all my recomendations
+[10:47:27] <arschmitz> ldeluca: yes
+[10:47:39] <arschmitz> ldeluca: it works exactly the same as git diff
+[10:47:42] <arschmitz> but its pretty
+[10:47:47] <ldeluca> gabriel_schulhof: how do i not include master in my pull request?  I only added my changed files but I do see a master update in there.  
+[10:48:07] <ldeluca> gabriel_schulhof: my push is: git push -u origin XXX-branchname
+[10:48:28] <ldeluca> arschmitz: do i need to install some npm package to use it? or is it there by default?
+[10:48:29] <arschmitz> ldeluca: just do npm install -g pretty-diff
+[10:48:29] <gabriel_schulhof> ldeluca: -u?
+[10:48:39] <arschmitz> ldeluca: its an npm package
+[10:48:42] <gabriel_schulhof> ldeluca: I always just do git push origin branchname
+[10:49:09] <gabriel_schulhof> OK, -u should have nothing to do with it.
+[10:49:17] <arschmitz> ldeluca: scott_gonzalez wrote it 
+[10:50:07] <ldeluca> arschmitz: npm installed... woohoo... now to make some changes to see it in action
+[10:50:36] <arschmitz> ldeluca: i use it before i push or commit most of the time
+[10:50:42] <gabriel_schulhof> ldeluca: Actually, git diff master should work for you.
+[10:50:50] <gabriel_schulhof> ldeluca: ... but only because little has changed in master.
+[10:50:53] <arschmitz> ldeluca: to make sure im not including any changes i dont want to
+[10:51:05] <gabriel_schulhof> ldeluca: It will show you some changes you did not make, but you can ignore them.
+[10:51:23] <gabriel_schulhof> ldeluca: You have a superfluos tab character on the line before _safelyBlur: function() ...
+[10:51:49] <ldeluca> ah, i see that
+[10:51:52] <ldeluca> one sec
+[10:52:00] <gabriel_schulhof> ldeluca: ... and in the test case before and after the first focus expectation.
+[10:52:39] <gabriel_schulhof> ldeluca: Woah! And in a bunch more places in the test case :)
+[10:53:08] <ldeluca> yea, brackets auto indents for new lines... gotta figure out how to turn that off
+[10:54:02] <arschmitz> ldeluca: i dont know if there is something similar for brackets but in ST2 i have a plugin that highlights trailing whitespace including whitespace on blank lines
+[10:54:07] <arschmitz> ldeluca: so its hard to miss
+[10:54:46] <gabriel_schulhof> arschmitz: OK, we have a circular dependency in pagecontainer, and it's not letting me re-arrange jquery.mobile.js ...
+[10:55:11] <gabriel_schulhof> arschmitz: $.mobile.transitionHandlers is not defined, even though pagecontainer AMD-depends on transitions/handlers
+[10:56:11] <gabriel_schulhof> ... and the funny thing is it's hard to debug because, well, things are async with requirejs :)
+[10:56:22] <arschmitz> yup
+[10:56:32] <ldeluca> gabriel_schulhof: https://github.com/jquery/jquery-mobile/pull/7757#discussion_r18811286
+[10:56:37] <ldeluca> arschmitz: pretty-diff is my new best friend
+[10:56:46] <arschmitz> ldeluca: :-)
+[10:57:02] <arschmitz> ldeluca: thank scott_gonzalez
+[10:59:13] <gabriel_schulhof> ldeluca: There are still some whitespace issues at the end of the test and you still need to capitalize the comment and leave a blank line at https://github.com/jquery/jquery-mobile/pull/7757/files#diff-1d5adb10249a8b87ebe274787293060eR646
+[11:01:07] <gabriel_schulhof> ldeluca: Actually, weird ... github must not be showing the latest.
+[11:02:40] <gabriel_schulhof> ldeluca: I pulled your changes locally, and only the missing capitalization/blank-line-before, a superfluous tab before _safelyBlur(), and a blank line containing only tabs before the comment "Try to focus on the textinput again" are still superfluous.
+[11:04:00] <scott_gonzalez> arschmitz: Heh, it'd be cool if I could see *why* people donate on gratipay.
+[11:04:23] <arschmitz> scott_gonzalez: yeah like what project they were using
+[11:04:54] <scott_gonzalez> Doesn't help that the site is down right now.
+[11:05:43] <scott_gonzalez> Also doesn't help that I barely get any money through it :-P
+[11:11:36] <ldeluca> gabriel_schulhof: weird... try looking now.  https://github.com/jquery/jquery-mobile/pull/7757#discussion_r18811286  doing a diff against master looks okay with my whitespaces
+[11:14:28] <gabriel_schulhof> ldeluca: Go to https://github.com/jquery/jquery-mobile/pull/7757/files#diff-f8983f65c4ee6216514221b9ffad47daR378 and highlight the initial whitespace on that row with your mouse. You will find that it's composed of spaces. The same is true for the lines surrounding it.
+[11:15:10] <gabriel_schulhof> ldeluca: You've successfully removed the initial whitespace on the line preceding the comment "Try to focus on the textinput again".
+[11:15:51] <ldeluca> gabriel_schulhof: which line # should I be looking at?
+[11:17:06] <gabriel_schulhof> ldeluca: All the additions following this line: https://github.com/jquery/jquery-mobile/pull/7757/files#diff-f8983f65c4ee6216514221b9ffad47daR374
+[11:18:53] <ldeluca> gabriel_schulhof: thanks, i see it now
+[11:21:36] <ldeluca> gabriel_schulhof: 5th times a charm :)  hopefully I got all the whitespaces figured out.  pretty-diff and git diff aren't showing me white space errors.  but i could be doing it wrong because it didn't show me the errors with spaces vs. tabs before either
+[11:23:34] <gabriel_schulhof> ldeluca: Yeah ... I got my editor to highlight leading spaces and tabs differently.
+[11:23:55] <gabriel_schulhof> ldeluca: Spaces in the leading whitespace stick out to me like a sore thumb.
+[11:24:39] <ldeluca> gabriel_schulhof: I think i found a plugin for brackets that might help me https://github.com/DennisKehrig/brackets-show-whitespace
+[11:26:07] <gabriel_schulhof> ldeluca: Cool. Sounds like what you need, especially since it assigns different classes to tabs vs. spaces.
+[11:28:53] <ldeluca> gabriel_schulhof: got it installed and noticed another spot that used spaces instead of tabs
+[11:29:05] <ldeluca> gabriel_schulhof: should be good now, according to my beautiful editor ;)
+[11:34:48] <gabriel_schulhof> :)
+[11:36:09] <gabriel_schulhof> ldeluca: One extra tab is enough here: https://github.com/jquery/jquery-mobile/pull/7757/files#diff-f8983f65c4ee6216514221b9ffad47daR384 You have two extra tabs and two spaces before "An input outside the popup...
+[11:36:52] <ldeluca> gabriel_schulhof: you are good!  I see it now.
+[11:36:56] <gabriel_schulhof> ldeluca: I might just look into brackets for my own editing needs. My own editor is becoming rather ancient ...
+[11:37:59] <gabriel_schulhof> ldeluca: https://github.com/jquery/jquery-mobile/pull/7757/files#diff-1d5adb10249a8b87ebe274787293060eR646 ... you still need to capitalize the comment's first letter and leave a blank line before it.
+[11:38:00] <ldeluca> gabriel_schulhof: done.  I really like brackets.  it's pretty fast. quick to switch between workspaces.  simple
+[11:39:55] <ldeluca> gabriel_schulhof: just pushed update. is that okay? i'm assunig you're talking about the first comment
+[11:40:56] <gabriel_schulhof> ldeluca: Yeah. This one: //check to see if currElement is not a child of the container. If it's not, blur
+[11:41:21] <gabriel_schulhof> ldeluca: ... and actually, just to be extra nitpicky, IINM, we do // <- There's a space after the //
+[11:41:24] <gabriel_schulhof> ldeluca: Sorry!
+[11:42:20] <ldeluca> gabriel_schulhof: okay :)  better to learn at the beginning then later. i'm okay if you're picky
+[11:43:13] <gabriel_schulhof> ldeluca: Actually, lemme scan through the code to see how the majority of the comments is done.
+[11:44:41] <gabriel_schulhof> ldeluca: Yeah, it's mostly // Comment goes here.
+[11:44:43] <ldeluca> gabriel_schulhof: i pushed hte updates anyways
+[11:45:24] <gabriel_schulhof> Perfect.
+[12:13:49] <jqmobilecommit> [13jquery-mobile] 15qikhan opened issue #7776: jquery.mobile-1.4.4.min.js contains error 02http://git.io/CiUdSg
+[12:33:30] <jqcommit> [13api.jquerymobile.com] 15agcolom opened pull request #340: Dialog: Reduced strong to note for consistency (06master...06dialogNote) 02http://git.io/InfMMg
+[12:57:01] <jquicommit> [13jquery-ui] 15scottgonzalez pushed 1 new commit to 06master: 02http://git.io/_19bxQ
+[12:57:01] <jquicommit> 13jquery-ui/06master 1473cdc09 15Scott González: Build: Update authors list
+[13:03:52] <doesallmagic2> Project jQuery UI build #1470: STILL UNSTABLE in 7 min 3 sec: http://jenkins.jquery.com/job/jQuery%20UI/1470/
+[13:03:52] <doesallmagic2> Scott González: Build: Update authors list
+[13:35:19] <agcolom> arschmitz: gabriel_schulhof one of you still around?
+[13:41:02] <agcolom> arschmitz: gabriel_schulhof: scott_gonzalez we seem to have an issue on the api docs for mobile: on the old docs, the examples are the latest, and do not correspond to the docs people are looking at: 
+[13:41:20] <agcolom> so on http://api.jquerymobile.com/1.3/button/ the resources are not 1.3
+[13:46:40] <agcolom> ok, so big panic over, the resources are there, we're just not linking to it... 
+[14:09:57] <scott_gonzalez> agcolom: Before you go editing tons of URLs, we should make a sane way for this to work.
+[14:35:09] <jquicommit> [13globalize] 15rxaviers pushed 3 new commits to 06master: 02http://git.io/U57geg
+[14:35:09] <jquicommit> 13globalize/06master 14945dab9 15Rafael Xavier de Souza: Various: Use E_UNSUPPORTED error...
+[14:35:09] <jquicommit> 13globalize/06master 1446e4103 15Rafael Xavier de Souza: Various: Update cldrjs dependency to 0.3.9
+[14:35:09] <jquicommit> 13globalize/06master 14e3d3e2e 15Rafael Xavier de Souza: Various: Rename Node.js main js...
+[15:00:15] <arschmitz> scott_gonzalez: this should be handled by the old api links mu plugin probably
+[15:17:33] <jquicommit> [13globalize] 15rxaviers created 06node-easy-ramp-up (+2 new commits): 02http://git.io/g4Yy6w
+[15:17:33] <jquicommit> 13globalize/06node-easy-ramp-up 141566229 15Rafael Xavier de Souza: README: Update content to reflect Globalize.load( json, ... )...
+[15:17:33] <jquicommit> 13globalize/06node-easy-ramp-up 14c078c4f 15Rafael Xavier de Souza: Various: Easy ramp up for Node.js by auto-loading CLDR content
+[15:18:18] <jquicommit> [13globalize] 15rxaviers fast-forwarded 06master from 14e3d3e2e to 141566229: 02http://git.io/ChNbMA
+[15:21:20] <jquicommit> [13globalize] 15rxaviers opened pull request #345: Easy ramp up for Node.js by auto-loading CLDR data (06master...06node-easy-ramp-up) 02http://git.io/Z1CpgQ
+[15:27:30] <jquicommit> [13globalize] 15rxaviers pushed 1 new commit to 06node-easy-ramp-up: 02http://git.io/yfbYeg
+[15:27:30] <jquicommit> 13globalize/06node-easy-ramp-up 14582302a 15Rafael Xavier de Souza: Various: Easy ramp up for Node.js by auto-loading CLDR content...
+[22:43:00] <jquicommit> [13jquery-ui] 15RockQ opened pull request #1359: Spinner: fixes #10657 (06master...06master) 02http://git.io/lkgKvg
+[23:06:46] <doesallmagic2> Project jQuery UI - git core build #763: STILL UNSTABLE in 5 min 46 sec: http://jenkins.jquery.com/job/jQuery%20UI%20-%20git%20core/763/
+[23:27:24] <doesallmagic2> Project jQuery UI - 1.7.x core build #642: STILL UNSTABLE in 20 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.7.x%20core/642/

@@ -1,0 +1,363 @@
+[04:13:57] <mbains007> Hi all
+[10:41:33] <_nickel> I shant be missing this one
+[10:41:40] <_nickel> calendar notifications have been doubled
+[10:41:50] <_nickel> rawr
+[11:05:40] <toddparker> hi all
+[11:05:54] <toddparker> meeting starting now (slow line at the hipster lunch cart)
+[11:06:01] <kinblas> heh
+[11:06:01] <gseguin> hey
+[11:06:04] <toddparker> guess this isn't moderated?
+[11:06:22] <toddparker> scott will be here shortly
+[11:06:30] <toddparker> seems like the gang's all here
+[11:06:39] <toddparker> no formal agenda today
+[11:06:47] <toddparker> Beta 2 is out!!
+[11:06:58] <toddparker> no major issues so far (whew)
+[11:07:10] <kinblas> I had a question regarding the widget decoupling
+[11:07:15] <toddparker> fire away
+[11:07:22] <toddparker> scott just stepped in
+[11:07:37] <kinblas> I like it ... but ... was concerned about the number of times we traverse the markup in a page when pagecreate/create is fired
+[11:07:59] <kinblas> before, we searched the entire page once, and then filtered the resulting set
+[11:08:05] <toddparker> alternate ideas for making this work?
+[11:08:08] <scottjehl> here (sorry late)
+[11:08:23] <kinblas> yeah, a data-role plugin that listens for pagecreate/create
+[11:08:45] <kinblas> we can have the widgets register with that?
+[11:09:01] <kinblas> instead of listening to the create/pagecreate directly
+[11:09:10] <scottjehl> cool idea
+[11:09:20] <kinblas> that way we get one traversal
+[11:09:25] <scottjehl> should pagecreate possibly just expose an argument or two to the callback function
+[11:09:27] <scottjehl> ?
+[11:09:39] <scottjehl> containing data-role elems
+[11:09:59] <kinblas> hmmmm, that's a possibility :-)
+[11:10:09] <scottjehl> k. it's not all data-role too of course
+[11:10:10] <_nickel> what are the usecases for pagecreate though
+[11:10:12] <kinblas> but then what about the create event
+[11:10:13] <scottjehl> forms, etc
+[11:10:42] <scottjehl> create event is never triggered by us. It's just for enhancing appended markup fragments
+[11:10:43] <kinblas> yeah that plugin would search for data-role + inputs/textarea
+[11:10:47] <kinblas> and button
+[11:11:03] <scottjehl> hmm... not sure about the forms part
+[11:11:08] <_nickel> scottjehl: would the argument just be the page itself to provide context for the widget selector?
+[11:11:09] <scottjehl> but I like this direction
+[11:11:17] <scottjehl> that's already the case
+[11:11:25] <scottjehl> event is fired on the page elem
+[11:11:30] <scottjehl> right?
+[11:11:44] <_nickel> _trigger ?
+[11:11:45] <_nickel> ysh
+[11:11:53] <_nickel> I think its the data page though isn't it?
+[11:11:53] <kinblas> pagecreate is fired on page element, but create is on anything right?
+[11:12:01] * _nickel looks
+[11:12:23] <scottjehl> right. [fillintheblank]create is dispatched from every widget factory plugin on init
+[11:12:26] <toddparker> seems right
+[11:12:28] <scottjehl> including page
+[11:13:11] <scottjehl> "create" is just an arbitrary event that the widgets also bind to. You can trigger it on whatever you want.
+[11:13:16] <scottjehl> even an existing page
+[11:13:18] * kinblas did not know about that event on every widget
+[11:13:36] <scottjehl> * only widget factory widgets
+[11:13:39] <toddparker> it's new
+[11:13:42] <scottjehl> we have a few that still aren't
+[11:13:45] <scottjehl> no not new
+[11:13:51] <scottjehl> "create" is new though
+[11:14:03] <toddparker> yeah, thats what i meant
+[11:14:17] <scottjehl> we were going to call it "enhance". ended up calling it "create" to pair with existing naming
+[11:14:45] <scottjehl> anyway, you can even trigger create on an existing page if you want. It'll just cause new markup to init
+[11:15:17] <toddparker> wish i could see when/if people are typing on irc
+[11:15:22] <_nickel> scottjehl: sorry to sidetrack, so the pagecreate is trigger on the widget in the data or the page itself
+[11:15:36] <_nickel> scottjehl: it looks like we're binding to document everywhere to get the pagecreate
+[11:15:48] <_nickel> err binding to the event on the document
+[11:15:51] <scottjehl> yeah, but then finding the target
+[11:15:54] <scottjehl> which is the page
+[11:16:00] <_nickel> cool
+[11:16:05] <scottjehl> delegated
+[11:16:18] <_nickel> so that would limit the scope of the query at least kinblas
+[11:16:41] <kinblas> I know the search is scoped to a page
+[11:16:42] <scottjehl> _nickel: your idea of passing a cached reference to the page is interesting.My only concern is each widget modifies the contents of the page as it goes
+[11:16:55] <scottjehl> ...which is good
+[11:17:00] <kinblas> it's just the searching the entire page for *EACH* component that bugs me
+[11:17:18] <scottjehl> yeah. agreed. exposing data-role elems could be interesting to explore
+[11:17:21] <_nickel> scottjehl: well we already know that leads to memory leaks
+[11:17:23] <_nickel> :(
+[11:17:32] <_nickel> so whats the other suggestion
+[11:17:37] <_nickel> I'm confused kinblas
+[11:17:45] <_nickel> just tagging everything with data-roles
+[11:17:52] <_nickel> and then selecting on those specifically?
+[11:18:02] <scottjehl> however, if a plugin creates data-role elems (which they sometimes do), subsequent plugins won't see them
+[11:18:20] <scottjehl> the way it works now ensures each one gets a fresh new parse of whatever is there
+[11:18:56] <kinblas> scottjehl: are you sure that's the case?
+[11:19:08] <kinblas> if plugin C injects data-role="A"
+[11:19:18] <kinblas> and A has already been notified about "create"
+[11:19:21] <kinblas> it won't be re-run
+[11:19:25] <kinblas> right?
+[11:19:39] <_nickel> load deps are a possibility no matter what we do
+[11:19:55] <_nickel> I think kin is saying that we need to handle it internally no matter what so that we have control of that
+[11:20:01] <_nickel> ?
+[11:20:04] <kinblas> in the past when this was brought up
+[11:20:08] <kinblas> the rule was
+[11:20:15] <kinblas> any plugin that injects other data-role elements
+[11:20:15] <scottjehl> umm. I just mean, pagecreate is only dispatched once
+[11:20:18] * _nickel includes a question mark because it was in fact a question
+[11:20:31] <kinblas> had to manually instantiate the components for those elements it injected
+[11:20:50] <scottjehl> if it includes that selection of data-roles at that time, it'll be outdated
+[11:21:20] <scottjehl> it's not a live node list, in other words
+[11:21:38] <kinblas> right, we're saying the same thing
+[11:21:51] <scottjehl> slider finds input type range, changes it to input type number after adding the control. That then needs to be picked up by the input plugin
+[11:21:55] <scottjehl> yeah
+[11:21:57] <scottjehl> :)
+[11:22:49] <scottjehl> anyway, totally open to streamlining. I haven't noticed a lag in performance due to these new lookups yet, but I agree it adds more calls to sizzle than we had
+[11:24:08] <scottjehl> on the other hand, the widgets are largely unaware of each other and able to plug/unplug just by referencing them, so that'll be handy for external plugin pattern development
+[11:24:46] <scottjehl> also, sidenote, but glad to have you back, Kin! :)
+[11:24:46] <kinblas> yeah I like that part!
+[11:25:01] <kinblas> thanks!
+[11:25:07] <toddparker> ...the being back part?
+[11:25:11] <toddparker> kidding
+[11:25:14] <kinblas> heh
+[11:25:35] <kinblas> the ease at which someone can drop another widget into the mix
+[11:25:35] <toddparker> so kin, if you have ideas on how to streamline, give 'er a go
+[11:26:05] <kinblas> ok I'll think about it ... we made some great strides over the last couple of releases with reducing our page traversal
+[11:26:07] <toddparker> ...and we can pull out overly complex features (select vs. custom menus) into separate plugins
+[11:26:09] <kinblas> I just wanted to keep the gains
+[11:26:26] <toddparker> sure
+[11:26:58] <toddparker> all the work heading into the RCs should be on performance optimizations and bug fixes
+[11:27:16] <toddparker> so we can really look over everything with a fine toothed comb
+[11:27:37] <kinblas> I like the direction we're going with the plugins ... that means folks can prune what they ship without fear of busting things .. to get a smaller download.
+[11:28:12] <kinblas> toddparker: agreed
+[11:28:28] <scottjehl> ...and we can build plugins that tack-on very easily, without having to include them in master :)
+[11:28:38] <_nickel> gseguin: and I have at least one item if we're moving on
+[11:28:55] <scottjehl> go ahead
+[11:29:08] <_nickel> the long and drawn out search filter pull request
+[11:29:17] <_nickel> gseguin: do you have a link
+[11:29:22] <_nickel> I'm on the new rig
+[11:29:23] * gseguin looks
+[11:29:29] * _nickel is lacking a history
+[11:29:48] <gseguin> https://github.com/jquery/jquery-mobile/pull/2006
+[11:29:53] <_nickel> there it is
+[11:29:54] <_nickel> anyway
+[11:30:02] <_nickel> they want complex text searching built in
+[11:30:07] <_nickel> and there was a long discussion about it
+[11:30:17] <_nickel> I think we should just provide a callback and delegate that to the end user
+[11:30:25] <_nickel> since we're not a text searching library :P
+[11:30:30] <_nickel> sample solution is included
+[11:30:36] <_nickel> ~10mins
+[11:30:39] <scottjehl> sounds like a great idea to me
+[11:30:43] <toddparker> yeah.
+[11:30:47] <scottjehl> that's how ui autocomplete works too
+[11:31:08] <toddparker> if we want to offer some examples as external code demos, that's cool
+[11:31:11] <_nickel> I have the callback defined on options right now as a "pure" function
+[11:31:15] <toddparker> yeah
+[11:31:20] <_nickel> but I was wondering
+[11:31:27] <_nickel> should it be defined on the widget itself somehow?
+[11:31:38] <_nickel> via extend or whatever
+[11:31:51] <_nickel> so the `this` is valuable to get more info than just the values being passed in?
+[11:32:00] <_nickel> makes extension easier
+[11:32:10] <scottjehl> I think an option would be consistent with how jquery ui handles this sort of thing
+[11:32:15] <_nickel> ok
+[11:32:22] <_nickel> good start and we can tweak it later if needd
+[11:32:25] <_nickel> *needed
+[11:32:46] <scottjehl> awesome
+[11:32:49] <scottjehl> thanks!
+[11:32:51] <_nickel> I'll merge my solution in then today and we can close that sucker
+[11:33:02] <toddparker> cool
+[11:33:04] <_nickel> though I feel bad for the two guys who spent so much time fleshing out their ideas :(
+[11:33:16] <scottjehl> they'll be able to plug theirs in
+[11:33:17] <gseguin> my bad
+[11:33:19] <toddparker> well, could those be re-packaged as plugins?
+[11:33:34] <kinblas> _nickel: so with this new approach
+[11:33:43] <kinblas> folks specify the function on a per widget basis?
+[11:33:44] <gseguin> I was looking too much into the details rather than at the framework level
+[11:33:47] <toddparker> so we have the basic feature with a hook only, right?
+[11:33:49] <kinblas> can they set a default?
+[11:33:52] <scottjehl> these sorts of things are used in so many different filtering scenarios, it's nice to let people handle it externally
+[11:34:23] <_nickel> kinblas: the listviewfilter.prototype.options.filterCallback has a default which can be overridden at mobileinit
+[11:34:23] <toddparker> right, but if that logic they wrote was solid, could we re-purpose it as a demo
+[11:34:33] <scottjehl> ...would the default be a function that performs our existing match logic?
+[11:34:46] <_nickel> scottjehl: thats how it is
+[11:34:50] <scottjehl> nice
+[11:34:53] <_nickel> take a look at the sample at the bottom of the issue
+[11:34:55] <toddparker> ...which is just a simple "contains?" right?
+[11:34:56] <kinblas> _nickel: right but what about on a per-instance basis?
+[11:34:57] <_nickel> its like a 3 line diff
+[11:35:44] <_nickel> kinblas: as long as they have access to the instance they should be able to alter the options since its defined on the prototype?
+[11:36:01] <_nickel> I'm not 100% clear on how the widget factory produces, provides intances
+[11:36:11] <_nickel> scottjehl?
+[11:36:41] <scottjehl> for that I think you'll need to either set your option via the options method after the plugin is initialized or init the plugin programatically yourself and pass the option in via arguments
+[11:37:10] <scottjehl> $( elem ).listview( "option", "filterCallback", func );
+[11:37:14] <kinblas> _nickel: you typically override options via the options object ... but you can also add a setter
+[11:37:56] <kinblas> $(elem).listview("filter", function(){});
+[11:38:05] <scottjehl> that'd be a method itself
+[11:38:22] * kinblas didn't know there was an "option" method
+[11:38:34] <scottjehl> which is fine too... it's just a shortcut to that option setter that already exists
+[11:38:45] <kinblas> cool
+[11:38:49] <scottjehl> yeah that's ui widget factory again too
+[11:39:24] <scottjehl> for example, we have methods for things like... $( elem ).dialog( "open" )
+[11:39:28] <scottjehl> or close rather
+[11:39:32] <scottjehl> whatever. :)
+[11:39:49] <kinblas> right I knew about the "bridging"
+[11:39:56] <kinblas> it was the "option" setting I didn't know about
+[11:40:03] <scottjehl> ah ok cool
+[11:40:27] <scottjehl> yeah, it's a getter or setter depending on 3rd arg I believe
+[11:41:00] <toddparker> ok, so looks like we have a plan...finish on dev?
+[11:41:10] <_nickel> yah
+[11:41:25] <toddparker> ok, so for beta 3, let's talk about priorities
+[11:41:34] <toddparker> and who wants to tackle what
+[11:41:36] <gseguin> effing transitions
+[11:41:41] <toddparker> we have about 3 weeks
+[11:41:42] <toddparker> heh
+[11:41:51] <toddparker> so...transitions
+[11:42:11] <toddparker> we've been chatting about this a lot on dev so no need to re-hash
+[11:42:20] <gseguin> yup
+[11:42:26] <toddparker> seems like you've made some progress recently
+[11:42:37] <gseguin> thanks to Kin
+[11:42:51] <scottjehl> and to you, gseguin!
+[11:42:54] <scottjehl> :)
+[11:43:00] <gseguin> yeah some progress but not there yet
+[11:43:09] <toddparker> gseguin - you ok if kinblas takes at look at this as part of a larger effort to smooth out things?
+[11:43:23] <gseguin> absolutely
+[11:43:23] <toddparker> there's the transitions themselves
+[11:43:44] <toddparker> then there is the scroll jump/blink stuff
+[11:43:56] * kinblas shudders
+[11:44:11] <toddparker> so i'd rather think of this as a holistic problem: "How do we make transitions as smoother possible for 1.0"
+[11:44:31] <toddparker> from what i understand, we probably need to do what scott suggested
+[11:44:43] <toddparker> over overflow divs (on ios5)
+[11:45:07] <toddparker> so we can avoid the scroll to top > transition > scroll to position
+[11:45:09] <scottjehl> the webkit-overflow ticket could at least help iOS5. Moving away from keyframes could potentially resolve blinks in android.
+[11:45:18] <toddparker> right
+[11:45:35] <kinblas> hmmm not sure that's true
+[11:45:36] <scottjehl> yeah, it's more that we'd still be scrolling to top, but we'd always be at top in supporting browsers
+[11:45:49] <scottjehl> due to internal overflow scrolling
+[11:46:06] <toddparker> = two side by side divs with overflow
+[11:46:27] <toddparker> so they can each be at whatever scroll position they need
+[11:46:39] <scottjehl> oh, by blinks, I meant the Android blinks that temporarily show the prev page on complete.
+[11:46:46] <scottjehl> ordinary scroll blinks will still happen
+[11:46:48] <toddparker> the blink issue now is that both the to and from pages "share" the same scroll position
+[11:47:01] <toddparker> = the window
+[11:47:34] <toddparker> kin - do you think we can make some bigger improvements here?
+[11:48:12] <toddparker> i think that the quality of our transitions is our #1 issue
+[11:48:20] <kinblas> I think the blinking we see on android may be due to the fact that we are setting classes that fire off transitions at different times
+[11:48:36] <toddparker> first order of business is to achieve parity with the keyframe animations
+[11:48:44] <kinblas> I was going to experiment with starting the animations together via a contextual class on a parent
+[11:48:55] <kinblas> toddparker: right
+[11:48:57] <scottjehl> Yeah. step 1 is reproducing what we have right now in master without keyframes, and adding other prefixes
+[11:49:14] <scottjehl> dittos
+[11:49:44] <toddparker> then step 2 is seeing how to leverage overflow: for iOS to make this really tight
+[11:50:16] <scottjehl> yeah https://github.com/jquery/jquery-mobile/issues/2210
+[11:50:21] * _nickel marvels at how difficult xbrowser animation is
+[11:50:34] <toddparker> the other big ticket item is layering in position:fixed for toolbars where supported (ios5, android 2.2, bb6?)
+[11:51:26] <kinblas> android 2.2 only supports it with a specific viewport meta tag setting
+[11:52:01] <scottjehl> ...not sure we'll need fixed for that
+[11:52:03] <toddparker> scott was saying a different approach: use overflow:
+[11:52:04] <gseguin> which meta?
+[11:52:13] <toddparker> ...for fixed bars
+[11:52:15] <scottjehl> -webkit-scrolling-overflow: touch on the content could probably get us there
+[11:52:23] <toddparker> ya, that
+[11:53:07] <toddparker> the toolbars are lower priority
+[11:53:24] <toddparker> these 3 items seem like good ones for kinblas to dive into
+[11:53:33] <toddparker> because they are all related
+[11:53:36] <toddparker> somewhat
+[11:53:49] <toddparker> they are all assigned to him now
+[11:54:08] <toddparker> for scott, i think he's focused on pushState  as his #1
+[11:54:33] <_nickel> is that going in before 1.0?
+[11:54:40] <scottjehl> pushState: I've got it working currently, implemented as a separate file, without touching nav.js at all. Only hangup currently is dialogs go back 2 steps. https://github.com/jquery/jquery-mobile/blob/replacestate-external/js/jquery.mobile.navigation.pushstate.js
+[11:54:42] <toddparker> think it could
+[11:54:45] <toddparker> he's close
+[11:55:29] <_nickel> scottjehl: how complex is it? I guess I'm thinking in terms of new bugs etc?
+[11:55:34] <scottjehl> Maybe _nickel would be interested in helping out on this branch with me
+[11:55:42] <_nickel> scottjehl: sure thing
+[11:55:48] <_nickel> I'm still working on the select refactor
+[11:55:48] <toddparker> sold!
+[11:55:52] <_nickel> hah
+[11:55:59] <scottjehl> well, it's not bad actually. It sits on top of our nav model. Listens for hashchanges and cleans them up
+[11:56:04] <toddparker> yeah, so _nickel - that's your focus right now
+[11:56:08] <scottjehl> that file I linked above is the whole thing
+[11:56:10] <_nickel> I am a little worried about letting that stagnate
+[11:56:20] <toddparker> sure, worth finishing for sure
+[11:56:23] <_nickel> the refactor
+[11:56:26] <toddparker> soon, that is
+[11:56:29] <_nickel> hmm
+[11:56:30] <toddparker> yeah, that
+[11:56:35] <scottjehl> oh yeah finish that up first that's cool
+[11:56:39] <_nickel> ok
+[11:56:46] <_nickel> thats probably at least another couple of days
+[11:56:54] <_nickel> but its moving forward at a good clip
+[11:57:02] <_nickel> and I'm adding tests as I go
+[11:57:04] <scottjehl> in the end, what may stop pushState from inclusion in the build is that so many of our tests rely on hashes
+[11:57:14] <toddparker> the other vague item is what hook(s) we want to add to make it easier for devs to build dynamic pages
+[11:57:20] <_nickel> scottjehl: can we turn it off for the tests?
+[11:57:33] <scottjehl> so we'll see. maybe it'll have to be offered as a separate plugin people can include
+[11:57:54] <_nickel> we can test it seperately
+[11:57:57] <scottjehl> ...which is why i'm writing it as such
+[11:58:03] <_nickel> shweet
+[11:58:06] <scottjehl> yeah great idea
+[11:58:18] <scottjehl> our tests will need to fork based on pushstate support later on
+[11:58:53] <scottjehl> or each test could have a passing condition for clean href vs hash urls
+[11:59:09] <_nickel> hmm I'll have to think about that
+[11:59:28] <_nickel> we really need seperate tests
+[11:59:39] <_nickel> because we should test both in browsers that support both
+[11:59:44] <_nickel> since its optional
+[11:59:50] <toddparker> i *think* those are the big priorities for beta 3
+[11:59:54] <toddparker> did i miss anything?
+[11:59:55] <_nickel> cool
+[12:00:12] <toddparker> the dev extensibility stuff needs some definition
+[12:00:20] * _nickel agrees
+[12:00:24] <toddparker> scott had some ideas
+[12:00:32] <toddparker> but maybe we can chat about that on dev
+[12:00:36] <toddparker> so gseguin
+[12:00:42] <gseguin> yes sir
+[12:01:07] <toddparker> if kin is looking at transitions, do you want to help dig into the higher priority bug fixes?
+[12:01:22] <toddparker> we haven't had time to look at bug recently
+[12:01:33] <gseguin> sure, I'll push what I have and hand it off to Kin
+[12:01:58] <toddparker> cool
+[12:01:59] <gseguin> I'll look at what's on my plate
+[12:02:04] <toddparker> great
+[12:02:07] <gseguin> assign away
+[12:02:19] <toddparker> you could also help by just looking thru all issues and sorting by priority
+[12:02:33] <gseguin> alright
+[12:02:35] <toddparker> grabbing the worst offenders
+[12:02:37] <toddparker> cool
+[12:02:51] <scottjehl> download builder needs to be a priority soon too
+[12:02:51] <scottjehl> ven if it's just a rest API. Todd and I can build a UI for it in a snap
+[12:02:57] <scottjehl> ven = even
+[12:03:15] <toddparker> eddiemonge - could you help with that?
+[12:03:43] <scottjehl> ideally, something like the ideas we had in that email about a cdn-based builder would be amazing
+[12:04:32] * _nickel would find it fun to work on the cdn builder
+[12:04:34] <toddparker> at the very least we need a builder that will let you check components and get a compressed js file
+[12:04:51] <toddparker> but the cdn would be hot
+[12:04:55] <scottjehl> _nickel that'd be awesome
+[12:05:00] <eddiemonge> yeah
+[12:05:09] <_nickel> its really just designing the url scheme :P
+[12:05:22] <_nickel> so that its easy to pull what you want
+[12:05:29] <_nickel> obviously we have to provide the various permutations
+[12:05:29] <scottjehl> yep. it's gotta be short
+[12:05:36] <eddiemonge> i can work with _nickel on it
+[12:05:45] <scottjehl> ROCK
+[12:05:47] <_nickel> so many fun things to work on!
+[12:05:51] * _nickel is content
+[12:05:52] <toddparker> eddiemonge - that's great
+[12:05:59] <toddparker> super.
+[12:05:59] <gseguin> so you want to do kinda what YUI does?
+[12:06:25] <toddparker> and kin and i are working with tyler on the themeroller tool so that's in the works too
+[12:06:26] <eddiemonge> or jqui
+[12:06:42] <toddparker> yeah, like ui
+[12:06:45] <gseguin> cool
+[12:06:59] <scottjehl> except it builds a cdn-hosted file
+[12:07:01] <toddparker> http://jqueryui.com/download
+[12:07:03] <scottjehl> optionally
+[12:07:04] <toddparker> yeah
+[12:07:24] <toddparker> ok, so i think we all have plenty to do
+[12:07:43] <scottjehl> yep!
+[12:07:46] <toddparker> this is our lastchange to make bigger changes before rc
+[12:07:50] <toddparker> last chance
+[12:08:10] <toddparker> then we're pretty much locked except for fixing bugs
+[12:08:18] <scottjehl> we need to figure out what constitutes our non-optional "core" files for this too
+[12:08:18] <_nickel> that is a good thing imo
+[12:08:20] <toddparker> we've made a lot of cool tweaks/features in beta
+[12:08:22] <toddparker> yeah
+[12:08:46] <toddparker> that core should be clear when planning the download builder
+[12:08:57] <toddparker> ok all, awesome work as always
+[12:09:04] <toddparker> beta 2 seems really solid
+[12:09:14] <scottjehl> I was able to get a functional jqm app running with like 10kb of JS, which included navigation, etc. something in that ballpark will be awesome :)
+[12:09:24] <scottjehl> optional widgets ftw
+[12:09:29] <_nickel> super nice
+[12:09:36] <_nickel> are we wrapped?
+[12:09:42] <scottjehl> wrap
+[12:09:44] <toddparker> we are
+[12:09:46] <toddparker> thanks all!
+[12:09:54] <gseguin> thanks, see you on -dev

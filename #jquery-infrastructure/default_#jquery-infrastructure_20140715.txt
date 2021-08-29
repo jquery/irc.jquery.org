@@ -1,0 +1,56 @@
+[04:01:43] <jqcommit> [13infrastructure] 15mzgol closed issue #280: Timeout Jenkins plugin doesn't work 02https://github.com/jquery/infrastructure/issues/280
+[04:11:20] <jqcommit> [13infrastructure] 15mzgol pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/75a5774dd5cb7bf324e23f7404f1b31cc27506bd
+[04:11:20] <jqcommit> 13infrastructure/06puppet-stage 1475a5774 15Michał Gołębiowski: Revert "TestSwarm: remove the galaxy_note-android_2_3 browser"...
+[04:11:30] <jqcommit> [13infrastructure] 15mzgol merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/b7b58cedcff4...75a5774dd5cb
+[05:48:21] <scott_gonzalez> api.jquerymobile.com 1.4.11 didn't deploy to production, only stage.
+[05:48:34] <scott_gonzalez> Not sure if there's a way to tell what happened.
+[09:29:50] <ryanneufeld> scott_gonzalez: can you manually deploy to live?
+[09:30:10] <scott_gonzalez> Sure, but the question is why did nothing happen?
+[09:30:35] <scott_gonzalez> There wasn't an email sent out at all. So it wasn't a typical failure, it seems like it just didn't run.
+[09:30:48] <ryanneufeld> hmm
+[09:30:50] <scott_gonzalez> Not sure if we have any way to diagnose that at this point.
+[09:31:18] <scott_gonzalez> I know the GitHub hook was sent because stage updated.
+[09:31:42] <ryanneufeld> which site was it again? (on a diff compy)
+[09:31:54] <scott_gonzalez> api.jquerymobile.com
+[09:31:56] <scott_gonzalez> 1.4.11 tag
+[09:35:45] <ryanneufeld> what machine is that living on?
+[09:36:04] <ryanneufeld> http://www.cnet.com/news/cnet-attacked-by-russian-hacker-group/
+[09:37:08] <scott_gonzalez> Pretty sure the deploys go to jq02 and that publishes to WordPress on jq01.
+[09:41:46] <ryanneufeld> checking logs now
+[09:43:16] <ryanneufeld> scott_gonzalez: not sure if this is related
+[09:43:21] <ryanneufeld> Jul 15 04:53:44 nc02 download.jqueryui.com[11543]: Caught exception: Error: listen EADDRINUSE     at errnoException (net.js:904:11)     at HTTPServer.Server._listen2 (net.js:1042:14)     at listen (net.js:1064:10)     at net.js:1146:9     at dns.js:72:18     at process._tickCallback (node.js:419:13)     at Function.Module.runMain (module.js:499:11)     at startup (node.js:119:16)     at node
+[09:43:21] <ryanneufeld> .js:906:3
+[09:43:21] <ryanneufeld> Jul 15 04:53:45 nc02 puppet-agent[9758]: (/Stage[main]/Jquery::Postreceive/Jquery::Nodeinit[notifier-server]/Service[notifier-server]/ensure) ensure changed 'stopped' to 'running'
+[09:43:34] <scott_gonzalez> Let me check the time of the tag.
+[09:43:39] <ryanneufeld> but it seems like the notifier daemon had stopped
+[09:43:44] <ryanneufeld> and puppet re-started it
+[09:43:51] <ryanneufeld> which could have been the problem
+[09:43:54] <scott_gonzalez> What timezone is that?
+[09:44:21] <scott_gonzalez> The deploy would've been at 9:50a ET
+[09:44:48] <ryanneufeld> that doesn't tell me what the time would be in UTC
+[09:45:05] <ryanneufeld> or PDT
+[09:45:13] <ryanneufeld> Tue Jul 15 09:44:55 PDT 2014
+[09:45:22] <ryanneufeld> is what the server thinks it is
+[09:45:30] <ryanneufeld> so, it's oddly on my timezone
+[09:46:17] <ryanneufeld> so I'll look around 5~6am
+[09:46:42] <ryanneufeld> this shows up a lot download.jqueryui.com[22173]: Caught exception: Error: listen EADDRINUSE     at errnoException (net.js:904:11)     at HTTPServer.Server._listen2 (net.js:1042:14)     at listen (net.js:1064:10)     at net.js:1146:9     at dns.js:72:18     at process._tickCallback (node.js:419:13)     at Function.Module.runMain (module.js:499:11)     at startup (node.js:119:16)     at node.
+[09:46:43] <ryanneufeld> js:906:3
+[09:49:32] <ryanneufeld> scott_gonzalez: can you check the github post commit hooks and verify which service it's hitting?
+[09:50:10] <scott_gonzalez> http://jq02.jquery.com:3333
+[09:51:09] <ryanneufeld> okay, so best guess I can give you is that the notifier service crashed
+[09:51:16] <ryanneufeld> and puppet restarted it 30mins later
+[09:51:27] <scott_gonzalez> ok
+[09:51:33] <scott_gonzalez> Thanks for digging :-)
+[09:51:42] <ryanneufeld> that error keeps coming up
+[09:52:05] <ryanneufeld> since it's all the same parent process, that's where I'd suggest starting
+[09:52:06] <scott_gonzalez> The download builder error?
+[09:52:30] <scott_gonzalez> There should probably be another error mixed in there.
+[09:52:50] <scott_gonzalez> EADDRINUSE would mean that the service is already running and it started a second process.
+[09:53:04] <ryanneufeld> https://gist.github.com/add271a278c78005ee3c 
+[09:54:02] <scott_gonzalez> hmm...those are forced restarts, right?
+[09:54:11] <ryanneufeld> https://gist.github.com/f26c10b3def7174332c2 
+[09:54:11] <scott_gonzalez> They're scheduled to happen every 30 minutes?
+[09:54:25] <ryanneufeld> yes, puppet ensures it's running
+[09:54:31] <ryanneufeld> but doesn't restart it if it is running
+[09:55:05] <scott_gonzalez> ok
+[09:55:12] <ryanneufeld> so, unless puppet can't tell it's running

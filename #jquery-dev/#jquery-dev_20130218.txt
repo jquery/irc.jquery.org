@@ -1,0 +1,107 @@
+[04:54:10] <scott_gonzalez> ?tell JamesMGreene duplicating the QUnit repo would definitely not be the right way to build a repo for an extension.
+[04:54:10] <b-ot> scott_gonzalez: I’ll tell JamesMGreene about that.
+[04:54:11] <bot-t> scott_gonzalez, Okay.
+[06:31:39] <rwaldron> DaveMethvin|away ping me when you get in
+[06:32:33] <jqcommit> [13jquery] 15ruado1987 opened pull request #1170: Remove the deprecated andSelf in favor of addBack. Fixes #13283 (06master...06bug_13283)  02http://git.io/d1sbdA
+[06:48:40] <jqcommit> 01[13jquery01] 15rwldrn created 0613471 (+1 new commit): 02http://git.io/4eBeyQ
+[06:48:40] <jqcommit> 13jquery/0613471 14640300c 15Rick Waldron: Fixes #13471. When no explicit type, and no registered type, continue to event namespace removal....
+[06:49:51] <jqcommit> [13jquery] 15rwldrn opened pull request #1171: Fixes #13471. When no explicit type, and no registered type, continue to event namespace removal. (061.9-stable...0613471)  02http://git.io/XAmDVQ
+[06:51:06] <jqcommit> [13jquery] 15rwldrn opened pull request #1172: Fixes #13471. When no explicit type, and no registered type, continue to event namespace removal. (06master...0613471)  02http://git.io/w31Hig
+[07:12:05] <DaveMethvin> rwaldron hey
+[07:12:11] <DaveMethvin> sup?
+[07:13:56] <sizcommit> 01[13sizzle01] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/K7zppA
+[07:13:56] <sizcommit> 13sizzle/06master 14b56589f 15Richard Gibson: Followup e15dd8e1: Combine slice and push shims for better oldIE performance
+[07:14:19] <rwaldron> DaveMethvin hi! I pinged you because I wanted you to review my patch to namespaced event removal
+[07:14:52] <rwaldron> when no type was ever used, there was no way to get out of the recursive jQuery.event.remove call path
+[07:15:25] <DaveMethvin> we didn't have a unit test for namespace only?
+[07:16:26] <DaveMethvin> the attachment he did was wrong (using a namespace where an event name was needed) but we should be able to deal with removing by namespace for sure
+[07:16:55] <DaveMethvin> oh but when we parsed the event name it looked like  a namespace :(
+[07:17:14] <DaveMethvin> so it was the .on() that sent us to the dump
+[07:18:16] <scott_gonzalez> This is what happens when people use event namespaces the wrong way...
+[07:18:41] <rwaldron> DaveMethvin we had a test for namespace only, but the initial registration had a type
+[07:18:44] <rwaldron> scott_gonzalez is right
+[07:18:49] <rwaldron> but bootstrap is doing it
+[07:19:14] <rwaldron> jQuery(document).on(".ns", ... )
+[07:19:17] <rwaldron> which is fine
+[07:19:21] <rwaldron> until you try to trmove
+[07:19:25] <rwaldron> jQuery(document).on(".ns", ... ).off(".ns")
+[07:19:54] <rwaldron> when it goes into the if ( !type ) condition, then into the for ( type in events )... type will be ""
+[07:20:09] <DaveMethvin> well it's "fine" but what does it do to look for only a namespace? logically that should be "on any event that has such a namespace..."
+[07:20:21] <rwaldron> which means that the call to jQuery.event.remove( elem, type + types[i].... will just be the same call again
+[07:20:34] <rwaldron> what does my patch do?
+[07:20:36] <rwaldron> nothing
+[07:21:01] <rwaldron> it just doesn't do the recursive call if type === ""
+[07:21:15] <rwaldron> allowing it to continue through to the namespace removal
+[07:21:21] <DaveMethvin> no my question is , what does .on(".abc", fn) do?
+[07:21:37] <rwaldron> beats the hell out of me
+[07:21:40] <DaveMethvin> lol
+[07:21:54] <DaveMethvin> i think *that* is the problem
+[07:22:19] <DaveMethvin> you can't have just a namespace for the event(s) argument when attaching events
+[07:22:53] <DaveMethvin> the natural semantics for that would be "on any event of any kind that is triggered with that namespace, call the fn"
+[07:23:20] * rwaldron facepalm
+[07:23:32] <rwaldron> so... I just assumed that we supported insane shit like that
+[07:23:37] <DaveMethvin> so .on(".abc", fn) would trigger on "click.abc", "mouseover.abc"
+[07:23:38] <rwaldron> clooooosing
+[07:23:39] <DaveMethvin> i  hope now
+[07:23:41] <DaveMethvin> not
+[07:24:08] <DaveMethvin> normally I'd say it's just bad input but it's not good that we get in a loop so much later
+[07:24:21] <DaveMethvin> so it's probably good to turn .on(".abc", fn) into a nop
+[07:24:24] <DaveMethvin> or something
+[07:24:28] <DaveMethvin> but it's not critical
+[07:24:34] <DaveMethvin> because it's a mistake
+[07:24:38] <DaveMethvin> on their part
+[07:26:18] <DaveMethvin> rwaldron i'm traveling today so i won't be able to make the meeting at noon ... i hoped to get the 2.0 beta out over the weekend but got backed up
+[07:26:19] <scott_gonzalez> I have a feeling it's intentional on their part, but it's not how event namespaces are supposed to be used.
+[07:26:25] <DaveMethvin> are we good to go there?
+[07:26:45] <DaveMethvin> scott_gonzalez i don't even know if that "works"
+[07:26:58] <DaveMethvin> and if it does i'm inclined to go break it :)
+[07:27:04] <DaveMethvin> we don't have unit tests for it
+[07:27:19] <scott_gonzalez> I'm fine with us breaking it.
+[07:27:28] <scott_gonzalez> It's absolutely the wrong way to use events.
+[07:27:49] <DaveMethvin> rwaldron leave the ticket open and we'll figure out a resolution
+[07:27:55] <scott_gonzalez> FWIW, Yehuda encouraged using namespaces like this at the jQuery conf in '08 :-P
+[07:28:21] <scott_gonzalez> It was the first time I met him in person and I heckled him from the back during his presentation :-)
+[07:28:44] <DaveMethvin> well you shoulda done a better heckling job i blame YOU! :D
+[07:29:14] <DaveMethvin> these event extensions are what makes our impl so complex
+[07:29:32] <DaveMethvin> like the hassle with passing data, and the fact that it conflicts with the .data property on some native objects
+[07:31:52] <DaveMethvin> i'll reopen the ticket so we can fix, but it's not priority at all
+[08:07:01] <JamesMGreene> OK, scott_gonzalez, how would you produce we split out the QUnit addons into their own repos without duplicating the repo? Just push a branch to the new repo or something...?
+[08:07:01] <b-ot> JamesMGreene: You have 1 new message, use `read when you wish to read it.
+[08:07:10] <JamesMGreene> `read
+[08:07:10] <b-ot> JamesMGreene: From scott_gonzalez, 3h 12m 59s: duplicating the QUnit repo would definitely not be the right way to build a repo for an extension.
+[08:08:17] <scott_gonzalez> JamesMGreene: There should just be a new repo with no history, and likely a different directory structure.
+[08:08:51] <JamesMGreene> Well yeah, t
+[08:09:03] <JamesMGreene> Definitely diff structure
+[08:10:19] <JamesMGreene> I was assuming we'd want the history but, if not, then that makes it even easier
+[08:12:04] <JamesMGreene> Any opposition to me trying that out?
+[08:12:37] <JamesMGreene> Scott
+[08:12:38] <JamesMGreene> zc
+[08:13:01] <JamesMGreene> scott_gonzalez jzaefferer
+[08:14:15] <JamesMGreene> Ugh, sorry for the mistyping... trying out an Android IRC client 
+[08:19:24] <doesallmagic> Project jQuery Migrate Core 1.x build #31: FAILURE in 6 min 4 sec: http://swarm.jquery.org:8080/job/jQuery%20Migrate%20Core%201.x/31/
+[09:04:39] <siovene> Hi, is there a jquery meeting today, with Washington's bitrthday and all?
+[09:09:26] <jaubourg> no meeting ?
+[09:11:51] <siovene> Apparently...
+[09:40:04] <JamesMGreene> scott_gonzalez jzaefferer, thoughts? ^
+[09:41:36] <scott_gonzalez> JamesMGreene: I don't know what jzaefferer's plans are for splitting repos.
+[10:07:19] <jzaefferer> JamesMGreene scott_gonzalez: I don't have immediate plans, though I'll start working on jQuery stuff again next week (conf prep took a lot more time than planned). Splitting addons isn't a high priority though, but also rather low effort. James, if you could create a repo for one or all of the addons you've been working on, to propose a layout, I could use that to push it to a repo under the jquery orga later. 
+[10:13:10] <JamesMGreene> BTW, sounds good to me jzaefferer
+[10:13:34] <JamesMGreene> I know the QUnit addons aren't high priority for QUnit but they are actually rather high priority for me at the moment :)
+[10:16:17] <JamesMGreene> And, to be clear, I would be hoping for collaborator (admin) rights over all of these addon repos even after the initial transfer is completed
+[11:06:17] <jqcommit> [13jquery] 15bolasblack opened pull request #1173: 13471 fix off event stack overflow (06master...0613471-fix-off-event-stack-overflow)  02https://github.com/jquery/jquery/pull/1173
+[11:06:18] <b-ot> jqcommit: Pull request #1173 by bolasblack (10s): 13471 fix off event stack overflow
+[11:19:55] <rwaldron> DaveMethvin|away short of throwing when the first character is ".", I'm not sure how else we'd prevent that code from happening.
+[11:22:04] <jzaefferer> JamesMGreene: you are inbound to getting write access to the QUnit repo anyway
+[11:33:35] <rwaldron> timmywil https://github.com/jquery/learn.jquery.com/pull/249
+[11:33:35] <b-ot> rwaldron: Pull request #249 by lsoares (21m 33s): Update page/using-jquery-core/attributes.md
+[11:44:44] <timmywil> commented
+[11:45:03] <rwaldron> timmywil you blitzed me, but thank you
+[11:45:11] <rwaldron> I wanna slap that kid
+[11:45:38] <rwaldron> "want it more clear?" after showing me the docs... which he clearly read 1 line of
+[12:11:37] <JamesMGreene> jzaefferer: Yay, happy to hear it. :)
+[13:33:16] <scott_gonzalez> DaveMethvin|away timmywil gibson042 mikesherov rwaldron gnarf: If any of you have input about whether document fragments and/or shadow roots should have .innerHTML, please chime in on public-webapps: http://lists.w3.org/Archives/Public/public-webapps/2013JanMar/0465.html
+[13:35:19] <rwaldron> scott_gonzalez I'm admittedly not up-to-speed with the implications therein
+[13:35:50] <scott_gonzalez> Neither am I, seems like they could use someone who is :-)
+[13:36:21] <scott_gonzalez> All I know is that current jQuery breaks if document fragments have .innerHTML.
+[13:37:29] <ajpiano> everything i learned about shadow dom i learned from learning some things from this talk http://www.youtube.com/watch?v=JNjnv-Gcpnw&feature=player_embedded
+[23:07:26] <JamesMGreene> aaaaargh, must... finish... cover letter

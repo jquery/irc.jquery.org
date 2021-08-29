@@ -1,0 +1,511 @@
+[05:21:40] <kswedberg>  scott_gonzalez: I just remembered that I should be asking people who submit pull requests to sign the CLA. I don't think I have access to a list of people who've already signed it, though. 
+[05:21:57] <kswedberg> I don't want to bug people to sign if they already have. 
+[05:24:26] <gnarf> kswedberg: jquery-devs-team has access to the google doc
+[05:24:31] <gnarf> https://docs.google.com/spreadsheet/ccc?key=0Aj5JJFjq9rZDdFJucXdGZXlRdVh2SUVUb2hsb0FBYkE#gid=0
+[05:24:50] <kswedberg> gnarf: aha. thx!
+[05:25:02] <scott_gonzalez> Krinkle|detached: I'm pretty sure I tried that and no matter what I did the ? got encoded.
+[07:10:22] <jqcommit> 01[13docs.jquery.com01] 15Krinkle pushed 1 new commit to 06master: 02http://git.io/qCNAgA
+[07:10:22] <jqcommit> 13docs.jquery.com/06master 14a8dd557 15Timo Tijhof: skins.jqdocs.layout: Set layout to fixed for prefixindex table...
+[09:02:36] <snover> gnarf: I rewrote most of the github-trac plugin for Trac 1.0 yesterday
+[09:29:48] <jqcommit> [13jquery] 15rwldrn opened pull request #1268: Data cleandata optimized (06master...06data-cleandata-optimized)  02http://git.io/dfE3pA
+[09:37:10] <m_gol> http://jsperf.com/jquery-1-9-1-vs-2-0-0-beta/9 - append seems to be waaay slower in 2.x on Chrome...
+[09:37:50] <m_gol> in Fx, too
+[09:41:44] <m_gol> ahh, there was no proper teardown, that might be it
+[10:27:14] <jqcommit> 01[13testswarm01] 15Krinkle pushed 3 new commits to 06projects-4: 02http://git.io/zrgecA
+[10:27:14] <jqcommit> 13testswarm/06projects-4 14f8ccc1c 15Timo Tijhof: Action: Update parameter documentation...
+[10:27:14] <jqcommit> 13testswarm/06projects-4 14d9af123 15Timo Tijhof: ProjectAction: Move project creation logic out of cli script
+[10:27:14] <jqcommit> 13testswarm/06projects-4 14d608d27 15Timo Tijhof: dbUpdate: Add migration for 'users-projects-conversion'...
+[10:35:03] <Krinkle> gnarf: jzaefferer: FYI, I'm going to be upgrading our TestSwarm install shortly. I'll be making a back up now and then I'll upgrade the git checkout and run the dbUpdate script to migrate to the new schema.
+[11:11:44] <m_gol> DaveMethvin, you here?
+[11:11:55] <DaveMethvin> m_gol yep
+[11:12:06] <m_gol> so, I've narrowed it down to 3 cases
+[11:12:11] * m_gol http://jsperf.com/jquery-1-x-vs-2-x
+[11:12:13] <m_gol> http://jsperf.com/jquery-1-x-vs-2-x/3
+[11:12:15] <m_gol> http://jsperf.com/jquery-1-x-vs-2-x/4
+[11:12:19] <m_gol> the first one is huge
+[11:12:29] <m_gol> almost 4x slower in 2.x
+[11:13:36] <DaveMethvin> so is it slower in *creating* the html, or *removing* the old DOM it has to replace?
+[11:14:05] <m_gol> right, I could divide it further :)
+[11:14:25] <DaveMethvin> if it's in the creation then buildfragment must be the culprit
+[11:14:30] <DaveMethvin> otherwise it's cleanData
+[11:14:33] <DaveMethvin> i'd think
+[11:14:51] <m_gol> though, this #editablearea is almost empty before the test
+[11:15:18] <m_gol> wait, I forgot the teardown. again
+[11:15:35] <m_gol> ah, doesn't matter, setup does what's needed
+[11:16:02] <m_gol> so, before the operation #editablearea contains whitespaces only
+[11:16:12] <m_gol> I doubt that's the slowdown reason ;)
+[11:16:30] <DaveMethvin> so wait, setup is before each timed loop?
+[11:16:38] <DaveMethvin> or before each timed iteration?
+[11:16:57] <m_gol> "(runs before each clocked test loop, outside of the timed code region)"
+[11:17:17] <DaveMethvin> in setup you're using jQ2 to set up the content tho
+[11:17:30] <DaveMethvin> lemme think about this
+[11:17:35] <m_gol> OK, I can do it in pure JS just to be sure
+[11:19:21] <m_gol> ok, modification done
+[11:19:22] <DaveMethvin> m_gol don't you end up with a duplicate id #editablearea
+[11:19:34] <m_gol> it's down from 4x to 2x
+[11:19:45] <m_gol> hm, where?
+[11:20:04] <m_gol> ah, there
+[11:20:06] <DaveMethvin>     var ti = jQ2("#iteration").html(); ...       _$("#editablearea").html(ti);
+[11:20:09] <m_gol> haha
+[11:20:24] <m_gol> I should pay more attention when modifying not my tests ;)
+[11:20:52] <DaveMethvin> jsperf is good for some things, but not others
+[11:21:18] <DaveMethvin> seems like it breaks down past the typical "which way of looping is fastest" scenarios
+[11:21:37] <m_gol> modified it again, no duplicate IDs now
+[11:23:07] <m_gol> yeah, in one test changing .text(sth).html(sth).empty() by removing .empty() made everything waaaay slower
+[11:23:24] <m_gol> browser optimizations are magical sometimes
+[11:24:50] <m_gol> DaveMethvin: can you look at http://jsperf.com/jquery-1-x-vs-2-x again? I don't use jQuery in setup any more and I moved the #editablearea div outside of the pasted part
+[11:26:04] <DaveMethvin> thta looks like a valid test
+[11:26:40] <m_gol> and I changed #editablearea div so that it's really empty (as in :empty)
+[11:26:47] <m_gol> so there's only creation
+[11:27:07] <m_gol> just in case: when I swap the tests 2.x is stil way slower: http://jsperf.com/jquery-2-x-vs-1-x
+[11:27:43] <DaveMethvin> here's a profiler run in ie10 from during the jsperf http://wnd8.com/grab/63f381.png
+[11:28:57] <DaveMethvin> so you can't compare the Count values since jsperf is auto-timing
+[11:29:07] <DaveMethvin> but its interesting to see what funcs come up top
+[11:29:10] <DaveMethvin> basically key()
+[11:29:30] <DaveMethvin> do we call Object.defineProperties directly?
+[11:29:33] <DaveMethvin> lemme look
+[11:29:52] <DaveMethvin> oh yeah
+[11:30:00] <m_gol> we do
+[11:30:02] <DaveMethvin> which must be slow
+[11:30:13] <m_gol> yeah...
+[11:30:24] <DaveMethvin> and it makes sense, it's in data()
+[11:30:39] <m_gol> now, it was surely introduced for some reason
+[11:30:56] <DaveMethvin> i think rwaldron wanted to keep data out of the hands of interlopers
+[11:30:58] <m_gol> hah, I'd like to re-run these tests once rwaldron changes land
+[11:31:49] <m_gol> right
+[11:32:07] <m_gol> so it's either security or performance ;)
+[11:33:14] <m_gol> it's hard to compare those 2 implementations since data in 2.x is rewritten
+[11:33:32] <eddiemonge> is there documentation somewhere on why jqXHR.success(), jqXHR.error(), and jqXHR.complete() were deprecated? i see http://bugs.jquery.com/ticket/9399 but ajpiano's comment seems to have been ignored: http://bugs.jquery.com/ticket/9399#comment:9
+[11:33:54] <DaveMethvin> eddiemonge they made for an inconsistent Deferred
+[11:33:59] <DaveMethvin> no other Deferred has those methods
+[11:34:10] <DaveMethvin> either use the Deferred name or use the callback name
+[11:34:44] <DaveMethvin> m_gol here is the chrome profiler result http://wnd8.com/grab/bbe876.png
+[11:34:48] <DaveMethvin> similar
+[11:34:58] <eddiemonge> still seems odd that in ajax options succes,error must be used but in deferreds done, fail, even though they are essentially the same thing
+[11:35:20] <DaveMethvin> but it would seem even stranger to have two names for the same thing
+[11:35:29] <eddiemonge> it would make it consistent
+[11:35:29] <DaveMethvin> if you're using the promise/deferred, use the promise/deferred name
+[11:35:43] <DaveMethvin> no, it would be inconsistent
+[11:35:56] <DaveMethvin> we made it consistent now
+[11:37:23] <eddiemonge> seems like the option names should match as well then. having different names makes it slightly harder to teach
+[11:38:10] <DaveMethvin> that would confuse people about which were properties of the $.ajax object and which were methods of the $.Deferred
+[11:38:22] <DaveMethvin> which was what we did by adding them originally
+[11:38:48] <DaveMethvin> and so now people are all confused, kind of like .prop() vs .attr()
+[11:41:09] <dcherman2> it gets even more confusing when you try to .pipe or .then an ajax request, and the new promise doesn't have .success, .complete, or .error
+[11:41:25] <DaveMethvin> dcherman2 exactly
+[11:41:36] <DaveMethvin> so if you're using promises, use the promise name
+[11:45:05] <eddiemonge> so confusing. anyway, for http://bugs.jquery.com/ticket/13789
+[11:45:27] <eddiemonge> would an easier fix be: typeof module == "object" && module && module.exports === "object"
+[11:46:17] <eddiemonge> if someone puts module = { exports: null }, then they should have their code fail at that point because that is highly unlikely
+[11:46:26] <DaveMethvin> that should prob work 
+[11:46:53] <dcherman2> if typeof module === 'object', then module is truthy anyway, so what's the point of that check?
+[11:47:03] <DaveMethvin> module is in global scope
+[11:47:17] <eddiemonge> null is an object but is falsey
+[11:47:34] <jqcommit> 01[13testswarm01] 15Krinkle pushed 2 new commits to 06projects-4: 02http://git.io/ktC6Uw
+[11:47:34] <jqcommit> 13testswarm/06projects-4 149f4f6b1 15Timo Tijhof: dbUpdate: Don't migrate accounts with no jobs...
+[11:47:34] <jqcommit> 13testswarm/06projects-4 149538786 15Timo Tijhof: TestSwarmContext: Fix undefined 'gitHead' in calculateVersionInfo...
+[11:47:37] <dcherman2> ah...right.
+[11:48:33] <m_gol> until ES6 comes ;)
+[11:48:41] <m_gol> DaveMethin: look at this: http://jsperf.com/jquery-1-x-vs-2-x/6 in Firefox
+[11:49:51] <DaveMethvin> m_gol gulp
+[11:50:15] <m_gol> in Chrome cleanData is near the top in the profiler
+[11:50:36] <DaveMethvin> which doesn't surprise me, it's always been there in every version
+[11:50:47] <DaveMethvin> always a fight to get it to be smaller
+[11:50:57] <DaveMethvin> and this test isn't actually attaching a bunch of data and events
+[11:51:01] <DaveMethvin> like real code would
+[11:52:07] <DaveMethvin> the mv* frameworks tend to make cleanData look worse b/c they often replace big dom chunks
+[11:52:11] <m_gol> hah, in Nightly the 2.x version is way faster
+[11:52:38] <DaveMethvin> well that makes it kind of tough to optimize generally
+[11:52:38] <m_gol> and try to optimize sth in these conditions :D
+[11:53:25] <DaveMethvin> chrome is sufficiently fast with either
+[11:54:08] <DaveMethvin> both are over 1mm ops/sec which is plenty fast...although a test with a half-dozen events and data attached might behave a lot worse
+[11:54:25] <m_gol> in Fx beta & Aurora 2.x is slower, in Nightly 2.x is faster
+[11:54:36] <m_gol> tomorrow the next stable comes
+[11:55:23] <m_gol> right, Chrome is 10x faster than Fx here so that's not the most important regression here
+[11:56:08] <m_gol> it's dead slow in Fx 20 but since it's getting EOL'd as of tomorrow and in beta it's not THAT much worse...
+[11:56:34] <m_gol> well, 135,795 ops in 1.x and 92,867 ops in 2.x on Fx 21 beta
+[11:56:53] <m_gol> but it touches data, again
+[11:57:11] <m_gol> DaveMethin: will you be able to land rwaldron's patch, soon?
+[11:57:55] <m_gol> * no comma
+[11:58:04] <DaveMethvin> yeah let me do that now, then i have to run for a while
+[11:58:09] <m_gol> ok
+[12:03:44] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/Ng3R9g
+[12:03:44] <jqcommit> 13jquery/06master 14c1b8edf 15Rick Waldron: Optimize cleanData: allow direct access to data_priv for cleanup
+[12:03:55] <DaveMethvin> m_gol there ya go ... lemme know how it changes
+[12:04:16] <m_gol> k, will do
+[12:05:17] <m_gol> DaveMethvin: how often is http://code.jquery.com/jquery-git2.js regenerated? I don't see any changes yet
+[12:05:40] <DaveMethvin> when swarmy throws an error it should be regenerated :)
+[12:05:56] <DaveMethvin> it happens as part of the testswarm job
+[12:06:11] <Krinkle> DaveMethvin: http://swarm.jquery.org/
+[12:06:21] <Krinkle> I'm in the middle of one of the biggest migrations to date
+[12:06:30] <DaveMethvin> ok thanks Krinkle
+[12:06:32] <Krinkle> ETA: 1 hour
+[12:06:35] <DaveMethvin> np
+[12:06:44] <Krinkle> Database is temporarily locked for maintenance (since: Mon May 13 19:03:15 2013) 
+[12:06:57] <DaveMethvin> m_gol you could pull down master and build
+[12:07:15] <m_gol> yeah, if it doesn't change soon I'll do it
+[12:07:26] <m_gol> it's just quicker to rely on http://code.jquery.com/jquery-git2.js if available
+[12:07:36] <DaveMethvin> yeah i'm lazy too
+[12:07:39] <m_gol> ;)
+[12:08:01] <m_gol> as for mv* frameworks, I was trying AngularJS recently
+[12:08:14] <m_gol> and I discovered they monkey-patch some jQuery methods
+[12:08:21] <m_gol> html, empty, remove... ;)
+[12:08:27] <m_gol> and in an incorrect way :(
+[12:08:40] <DaveMethvin> hey i have my built copy on dropbox https://dl.dropboxusercontent.com/u/2024878/jquery.js
+[12:08:51] <m_gol> cool, I'll try :)
+[12:08:54] <DaveMethvin> that is my built copy every time i run
+[12:09:07] <m_gol> that's not a bad idea ;)
+[12:09:24] <DaveMethvin> there's a hook in the gruntfile to do the copy
+[12:11:35] <m_gol> nice, http://jsperf.com/jquery-1-x-vs-2-x is no longer slower in 2.x
+[12:11:40] <m_gol> and in Fx it's even way faster
+[12:12:25] <m_gol> http://jsperf.com/jquery-1-x-vs-2-x/3 is still slower, though
+[12:12:39] <Krinkle> DaveMethvin: It will now include the error in the API output. 
+[12:12:40] <Krinkle> DaveMethvin: http://swarm.jquery.org:8080/job/jQuery%20Core/827/console
+[12:12:46] <Krinkle> "Error message:\nDatabase is temporarily locked for maintenance (since: Mon May 13 19:03:15 2013)"
+[12:14:51] <Krinkle> DaveMethvin: Swarm is back up for ~ 15 minutes while I prepare the next step. I've triggered a new build for jQuery Core
+[12:14:54] <m_gol> DaveMethvin: 2.x is still way slower here: http://jsperf.com/jquery-1-x-vs-2-x/6
+[12:16:01] <Krinkle> Ugh, and now jq03 is doing its periodic crash
+[12:16:04] <Krinkle> now NOW
+[12:16:09] <Krinkle> not now, noooo
+[12:16:42] <Krinkle> http://swarm.jquery.org:8080/job/jQuery%20Core/lastBuild/console
+[12:16:49] <Krinkle> Fixed
+[12:17:07] <DaveMethvin> sometimes i think these computers are out to get us
+[12:18:38] <Krinkle> ok, nevermind. I'm going back to the migration. It's being its crashy self.
+[12:20:42] <jqcommit> 01[13testswarm01] 15Krinkle merged 06projects-4 into 06master: 02http://git.io/cM24pA
+[12:24:16] <m_gol> DaveMethvin: so, this: http://jsperf.com/jquery-1-x-vs-2-x/6 is 2x-1.5x as slower in 2.x even in Firefox Aurora
+[12:24:48] <DaveMethvin> what is wrong with firefox?
+[12:25:07] <DaveMethvin> tbh the perf diff isn't a concern in chrome at all, and really not in ie either
+[12:26:00] <m_gol> now it's even slower in Nightly. ;) though it's 394,059 in 1.x vs. 360,920 in 2.x so not significant
+[12:26:16] <m_gol> in Aurora: 1.x: 494,425, 2.x: 348,342
+[12:26:35] <DaveMethvin> but that's like the best case, just removing html that doesn't have events/data attached
+[12:26:39] <DaveMethvin> it goes downhill from there
+[12:27:44] <DaveMethvin> its been so long since i profiled in ff i can't remember where they hide it
+[12:28:36] <DaveMethvin> ah the console tab
+[12:28:38] <DaveMethvin> so intuitive
+[12:29:16] <m_gol> I don't see any profiler in Fx 20
+[12:29:21] <m_gol> there's in 21 & up
+[12:29:28] <DaveMethvin> you have to install firebug
+[12:30:01] <m_gol> yep
+[12:30:21] <m_gol> I've just tried this native profiler in Fx 21
+[12:30:24] <m_gol> it's weird
+[12:30:50] <m_gol> I can't get any data from it really, 95% some benchmark function and you have to unfold it
+[12:31:02] <m_gol> hardly useful
+[12:31:36] <eddiemonge> how do i write a test that tests jquery initialization (or initial loading)?
+[12:32:30] <eddiemonge> scott_gonzalez: should i cancel those pr's then?
+[12:33:21] <scott_gonzalez> Well I'm not a fan of it, even from an automated solution.
+[12:33:41] <scott_gonzalez> But I haven't seen any input from anyone else.
+[12:33:49] <DaveMethvin> my recollection was right, the firebug profiler is pretty damned worthless
+[12:33:49] <DaveMethvin> honestly i can't get ANY useful info out of this profiler, whereas the IE and Chrome profs are pretty decent
+[12:33:49] <DaveMethvin> does it have a second view
+[12:33:49] <DaveMethvin> like in ie and chrome there is a bottom-up/function vs top-down/tree view
+[12:34:17] <DaveMethvin> and in the firebug prof it has an "own time" column but it doesn't seem to be
+[12:34:30] <jqcommit> 01[13testswarm01] 15Krinkle pushed 2 new commits to 06master: 02http://git.io/sK0AtQ
+[12:34:30] <jqcommit> 13testswarm/06master 1423e9436 15Timo Tijhof: MaintenanceScript: Remove unused logic for required options
+[12:34:30] <jqcommit> 13testswarm/06master 14bff1ad9 15Timo Tijhof: dbUpdate: Fix logic error in 9f4f6b1...
+[12:34:55] <jqcommit> 01[13testswarm01] 15Krinkle pushed 1 new commit to 06master: 02http://git.io/kKMrQw
+[12:34:55] <jqcommit> 13testswarm/06master 14bc9469e 15Timo Tijhof: scripts: Implement REPL for TestSwarm environment
+[12:36:04] <m_gol> DaveMethvin: yeah, and the native debugger in Fx 21-23 is not too good either...
+[12:36:35] <m_gol> it displays the tree but there's no "own time" in functions, you just get 95% for the main benchmarking function etc.
+[12:36:52] <DaveMethvin> when i've done perf tuning for clients i generally just use chrome/ie and hope ff gets better too
+[12:37:03] <DaveMethvin> usually it does
+[12:37:20] <DaveMethvin> but for this case it seems ff-specific and i can't figure out what is actually slower
+[12:37:21] <jqcommit> 01[13testswarm01] 15Krinkle 04force-pushed 06master from 14bc9469e to 1460f8b97: 02http://git.io/9_ezCQ
+[12:37:21] <jqcommit> 13testswarm/06master 1460f8b97 15Timo Tijhof: scripts: Implement REPL for TestSwarm environment
+[12:37:47] <DaveMethvin> man that's a loaded commit message ... 
+[12:38:37] <Krinkle> DaveMethvin: Which one?
+[12:38:46] <DaveMethvin> "implement repl"
+[12:38:48] <DaveMethvin> :D
+[12:39:01] <Krinkle> It's nice, basically like `php -a` and `node`
+[12:39:11] <Krinkle> which is called REPL, a eval environment
+[12:39:16] <DaveMethvin> yeah
+[12:39:43] <DaveMethvin> i just imagined this bash-like wonderland with .testswarmrc files etc
+[12:40:00] <Krinkle> .bash_history, .testswarm_eval_history yep
+[12:40:10] <Krinkle> based on .mweval_history from MediaWiki's eval.php
+[12:40:12] <DaveMethvin> you're headed there, YOU KNOW IT! 
+[12:40:42] <Krinkle> I found myself hacking temporary code in existing scripts just to evaluate something (not write queries, just read queries)
+[12:40:46] <Krinkle> this'll make that a lot easier
+[12:40:48] <m_gol> I hoped Opera will show me sth but there 2.x is faster in this test
+[12:41:27] <m_gol> I guess I'll report the profiler suckiness to Mozilla tomorrow (note to self)
+[12:44:21] <DaveMethvin> m_gol the firebug profiler has about a 10x perf penalty while profiling is going on so it's not clear if the results are very valid anyway
+[12:45:20] <m_gol> yep
+[12:45:42] <m_gol> DaveMethvin: I have higher hopes in the native debugger though in some cases it's in the baby phase
+[12:46:02] <DaveMethvin> let's hope
+[12:51:55] <Krinkle> DaveMethvin: Here's a short view of the new TestSwarm version: http://swarm.jquery.org/projects http://swarm.jquery.org/project/jquery
+[12:52:11] <Krinkle> I'll set it back to the old db in a minute, and then re-do the upgrade on the live db
+[12:52:18] <Krinkle> it is now running a stage copy for testing the upgrade works
+[12:52:22] <DaveMethvin> that's nice and clean Krinkle
+[12:52:32] <Krinkle> pagination on the project page
+[12:52:38] <Krinkle> and lots of details
+[12:53:27] <Krinkle> I'll make an announcement later and tell y'all about me
+[12:53:29] <Krinkle> about it*
+[12:53:41] * Krinkle sets config back to current state
+[13:04:04] <Krinkle> Running actual upgrade now.
+[13:12:53] <Krinkle> Alrighty, we're done!
+[13:12:55] <jqcommit> 01[13testswarm01] 15Krinkle pushed 1 new commit to 06master: 02http://git.io/miNAsA
+[13:12:55] <jqcommit> 13testswarm/06master 14e50d45d 15Timo Tijhof: Clean up of various documentation comments...
+[13:13:10] <Krinkle> DaveMethvin: You can freely look around now :)
+[13:13:22] <Krinkle> See also the brand new swarm monitor: http://swarm.jquery.org/clients
+[13:13:48] <scott_gonzalez> Krinkle: http://docs.jquery.com/UI/Dialog redirects to http://docs.jquery.com/UI/API/1.8/Dialog
+[13:13:50] <Krinkle> http://swarm.jquery.org/clients?mode=names
+[13:13:55] <scott_gonzalez> So it will get logged as the versioned URL, right?
+[13:14:12] <Krinkle> scott_gonzalez: logged?
+[13:14:31] <scott_gonzalez> For example in Special:PopularPages
+[13:14:34] <Krinkle> Aha
+[13:14:48] <Krinkle> I think so yes, let me verify for you
+[13:15:01] <scott_gonzalez> I'm thinking we'll just point these at the unversioned URLs for the new redirects.
+[13:15:37] <scott_gonzalez> We *could* change the redirct for the unversioned and then add a redirect from the versioned page to the new versioned page.
+[13:15:45] <scott_gonzalez> But that's only going to work for 1.8 docs anyway.
+[13:15:50] <scott_gonzalez> We're not porting <1.8 docs for UI.
+[13:16:14] <scott_gonzalez> So I think at this point the best option is to redirect all UI API docs pages to unversioned docs.
+[13:18:00] <Krinkle> scott_gonzalez: Yes, it records a hit for the target of the redirect
+[13:18:34] <scott_gonzalez> Ok, I'll just point everything at unversioned docs.
+[13:18:52] <Krinkle> scott_gonzalez: I noticed that right now the unversioned urls show 1.8, not 1.9
+[13:19:07] <scott_gonzalez> Because 1.9 was never on MediaWiki.
+[13:19:27] <Krinkle> scott_gonzalez: I'm not talking about MediaWiki
+[13:19:29] <scott_gonzalez> docs.jquery.com has been deprecated for a VERY long time :-)
+[13:19:37] <scott_gonzalez> You mean api.jqueryui.com?
+[13:19:38] <Krinkle> I know
+[13:19:40] <Krinkle> yes
+[13:19:50] <scott_gonzalez> That shows 1.10.
+[13:19:53] <Krinkle> http://api.jqueryui.com/button/ == http://api.jqueryui.com/1.8/button/
+[13:20:12] <scott_gonzalez> nope
+[13:20:16] <Krinkle> Yes
+[13:20:21] <Krinkle> both have ?p=15 as short url
+[13:20:22] <Krinkle> the same page id
+[13:20:42] <Krinkle> http://api.jqueryui.com/1.9/button/ has ?p=8 for example
+[13:20:50] <Krinkle> postid-8
+[13:20:51] <scott_gonzalez> That doesn't mean anything.
+[13:20:51] <Krinkle> postid-15
+[13:20:54] <scott_gonzalez> They're different sites.
+[13:21:10] <Krinkle> scott_gonzalez: It means everything, I can see the content is 100% equal.
+[13:21:24] <scott_gonzalez> That just means there have been no API changes.
+[13:21:29] <Krinkle> I don't know how it is implemented but right now unversioned is showing 1.8, not 1.9
+[13:21:40] <Krinkle> wait, different sites?
+[13:21:51] <Krinkle> "http://api.jqueryui.com/1.9/wp-includes/"
+[13:22:01] <Krinkle> aha
+[13:22:18] <scott_gonzalez> api.jqueryui.com is a different WordPress site than api.jqueryui.com/1.8/
+[13:23:03] <scott_gonzalez> Compare http://api.jqueryui.com/tabs/ and http://api.jqueryui.com/1.8/tabs/
+[13:23:04] <Krinkle> I see the difference now, for example 'Themeable' vs. 'Themable'
+[13:23:19] <Krinkle> button and 1.10/button says Themeable, 1.8 different
+[13:23:20] <Krinkle> OK
+[13:23:24] <Krinkle> nvm, they just looked similar
+[13:23:38] <eddiemonge> when is the test/readywait.html test run? Is it automated somehow?
+[13:23:49] <Krinkle> scott_gonzalez: Perhaps the unversioned ones should indicate more clearly what version they are for?
+[13:24:02] <Krinkle> Not in a way that affects the permanent linkability, but at least to the user
+[13:24:11] <Krinkle> and as well for anything that caches it (just in case)
+[13:24:49] <scott_gonzalez> It'd need to be done for all entries on all versions.
+[13:25:01] <scott_gonzalez> There's nothing special about the unversioned site.
+[13:25:04] <Krinkle> Not in the content of course
+[13:26:09] <Krinkle> the versioned one mention the version in 1 place: site name (reflected in document.title and search box placeholder)
+[13:28:32] <Krinkle> especially since it is a root level distinction (entire "site") some less subtle indication would be useful. Perhaps in the header or footer.
+[13:28:32] <Krinkle> I was also looking for a dropdown to switch versions, but I understand why that is controversial
+[13:28:38] <Krinkle> since not every page exists in every version
+[13:31:41] <scott_gonzalez> Yeah, there was a discussion about this before.
+[13:33:34] <scott_gonzalez> hmm...can't seem to find it.
+[13:35:26] <Krinkle> TestSwarm now also allows closer inspection of individual clients: http://swarm.jquery.org/client/19645
+[13:48:10] <jqcommit> [13jquery] 15eddiemonge opened pull request #1269: If module is defined as null before jQuery, an error is thrown (06master...06bug_13789)  02http://git.io/28aULA
+[14:13:32] <scott_gonzalez> "JobQueueDB::doAck". Database returned error "1205: Lock wait timeout exceeded; try restarting transaction (localhost)".
+[14:13:41] <scott_gonzalez> Krikle: ^
+[14:13:44] <scott_gonzalez> Krinkle: ^
+[14:13:53] <scott_gonzalez> Man, it's annoying that you're not showing up as online for me.
+[14:14:01] <Krinkle> scott_gonzalez: How so?
+[14:14:02] <scott_gonzalez> I think the net splits wreaked havoc on IRC.
+[14:14:10] <Krinkle> scott_gonzalez: Where are you seeing that error?
+[14:14:29] <scott_gonzalez> docs.jquery.com
+[14:15:13] <scott_gonzalez> I'm going to restart my IRC client, maybe then you'll show up :-)
+[14:15:46] <scott_gonzalez> There you are!
+[14:15:51] <Krinkle> scott_gonzalez: What were you doing when you got that error?
+[14:16:18] <Krinkle> I'm going to update it to the latest master of MediaWiki.
+[14:16:44] <scott_gonzalez> I had either just clicked the edit link or just clicked the save page button.
+[14:17:05] <scott_gonzalez> The pages are taking so long to render, that I don't remember which step I was one for that particular page.
+[14:17:51] <Krinkle> Indeed, everything is fucked
+[14:21:02] <eddiemonge> scott_gonzalez: omg you agreed with me on something for a change
+[14:22:00] <Krinkle> scott_gonzalez: I've upgraded to latest MediaWiki 1.22alpha and purged the caches
+[14:22:16] <Krinkle> I visisited a few pages to populate internal caches (that are shared for all pages)
+[14:22:18] <Krinkle> should be better now
+[14:22:23] <Krinkle> Let me know if you run into other issues
+[14:22:53] <scott_gonzalez> Thanks.
+[14:24:11] <Krinkle> Meh, it is being slow again for me.
+[14:24:18] <scott_gonzalez> me too
+[14:25:12] <Krinkle> It is trying to use Accel for cache
+[14:25:21] <Krinkle> Perhaps that has been broken on eol3.jq?
+[14:25:25] <Krinkle> Thus timing out
+[14:25:39] <Krinkle> http://stage.docs.jquery.com/Special:RecentChanges has the same slow ness
+[14:33:09] <Krinkle> scott_gonzalez: There's like a gazillion "/usr/sbin/apache2 -k start " processes on that server
+[14:33:11] <Krinkle> makes no sense
+[14:33:46] <snover> i thought you were getting rid of docs.jquery.com
+[14:33:51] <snover> :)
+[14:34:08] <scott_gonzalez> I'm working on part of that right now...
+[14:34:14] <scott_gonzalez> Step 1 is creating redirects to the new pages.
+[14:34:27] <scott_gonzalez> And it's terribly painful to do right now because it's so slow.
+[14:35:26] <Krinkle> scott_gonzalez: I just killed apache and started it again, but I immediately see a whole bunchof processes again
+[14:35:35] <scott_gonzalez> weird
+[14:35:46] <scott_gonzalez> I have no idea how the servers are setup or what's running on them.
+[14:35:46] <Krinkle> can you hold off for a moment? Just in case you're making http requests :)
+[14:35:50] <scott_gonzalez> sure
+[14:36:07] <scott_gonzalez> I just finished the page that I was on, so I'm going to take a break for a while anyway.
+[14:37:08] <Krinkle> This is weird, I've restarted apache, and it instnatly goes from 0 to dozens of '/usr/sbin/apache2 -k start ' processes each taking up between 5 and 10 % of CPU (!)
+[14:37:13] <Krinkle> and no http requests that I know of
+[14:37:32] <Krinkle> besides '/usr/sbin/apache2 -k start ' isn't a proces spawned from an http request anyway
+[14:37:39] <Krinkle> looks like it is replicating itself somehow
+[14:37:55] <Krinkle> We might need to contact the SG-1 for this one :) 
+[14:40:23] <Krinkle> Even when logging out it is still slow
+[14:40:48] <Krinkle> that seems almost impossible, since anonymous hits (the majority) is served from static html cache
+[14:41:00] <Krinkle> Incognito mode: view-source:http://docs.jquery.com/Main_Page
+[14:41:04] <Krinkle> <!-- Cached/compressed 20130510154537 --> 
+[14:41:07] <Krinkle> looks fine
+[14:41:56] <Krinkle> curl 'http://docs.jquery.com/' is slow as well, not related to browser or anything
+[14:42:02] <Krinkle> though curl 'http://docs.jquery.com' from eol3 itself is super fast
+[14:42:17] <Krinkle> So I'm guessing this is something external?
+[14:43:55] <scott_gonzalez> hmm...
+[14:44:55] <scott_gonzalez> ping docs.jquery.com takes about 20ms.
+[14:45:02] <scott_gonzalez> Not sure where this delay is coming from.
+[14:48:07] <m_gol> traceroute to the rescue? ;)
+[14:49:15] <Krinkle> traceroute wouldn't help I guess, the ping is only 20ms (I have about equal pings for wikipedia.org and google.com)
+[14:53:52] <Krinkle> scott_gonzalez: "Expires:Thu, 01 Jan 1970 00:00:00 GMT"
+[14:53:54] <Krinkle> that's weird
+[14:54:19] <Krinkle> I wonder why it is serving max-age=0
+[15:12:18] <m_gol> DaveMethvin: I see sth moved on about @ -> # change in source maps, cool!
+[15:33:59] <m_gol> guys, does jQuery Foundation have any address/telephone/contact?
+[15:34:08] <m_gol> I struggle with my visa application...
+[15:46:49] <scott_gonzalez> m_gol: Perhaps the address on https://jquery.org/donate/
+[15:46:58] <scott_gonzalez> rworth would know for sure
+[15:47:33] <scott_gonzalez> Oh, I'll just check the most recently written contract. That'll have an address on it.
+[15:47:44] <m_gol> scott_gonzalez: Dave suggested that I enter the Oregon Conference Center address
+[15:47:58] <DaveMethvin> it asks who you're gonna visit
+[15:48:15] <DaveMethvin> so we're not sure if they'll wonder about a Boston company and a Portland visit
+[15:48:24] <DaveMethvin> these silly governments
+[15:48:35] <DaveMethvin> don't they know we're using the power of the INTERNETS!
+[15:48:37] <m_gol> to be precise
+[15:48:39] <m_gol> "Your U.S. Point of Contact can be any individual in the U.S. who knows you and can verify, if necessary, your identity. If you do not personally know anyone in the U.S., you may enter the name of the store, company, or organization you plan to visit during your trip."
+[15:48:46] <scott_gonzalez> 355 Congress Street, Second Floor, Boston, MA 02210
+[15:48:56] <DaveMethvin> you can use my name
+[15:49:03] <scott_gonzalez> Yeah, in that case, use a person.
+[15:49:08] <m_gol> and when I choose the organization it asks for: "Address and Phone Number of Point of Contact"
+[15:49:10] <m_gol> ok, thx
+[15:49:27] <DaveMethvin> don't worry we will visit you in jail m_gol
+[15:49:31] <m_gol> :D
+[15:49:41] <m_gol> but they still ask for a full address & phone
+[15:50:01] <m_gol> either the person's data or the organization's
+[15:50:23] <DaveMethvin> (i sent my data)
+[15:56:14] <snover> barak obamo, 123 fake st
+[15:56:47] <DaveMethvin> @cia ^^potential terrrist^^
+[15:59:40] <m_gol> yeah, they now ask about all my education with addresses
+[15:59:51] <m_gol> and all my employers, present & past
+[15:59:59] <m_gol> together with monthly income
+[15:59:59] <m_gol> ...
+[16:00:11] <DaveMethvin> it's worth it m_gol, because when you get to Portland you get a T-SHIRT
+[16:00:19] <m_gol> :D
+[16:00:32] <DaveMethvin> and the plain only takes an hour anyway
+[16:00:39] <m_gol> ;)
+[16:00:48] <m_gol> but the plane back!
+[16:00:52] <m_gol> the whole day!
+[16:01:01] <DaveMethvin> good thing you broke it up to go to nyc
+[16:01:05] <DaveMethvin> that will help
+[16:01:17] <DaveMethvin> i'm going out for a while but leave me a message if you need anything
+[16:03:21] <m_gol> DaveMethvin: ok, thx a lot for all the help :)
+[16:12:33] <m_gol> haha, now they're asking if I want to come to USA to spy or engage in prostitution
+[16:21:45] <snover> m_gol: just wait until you learn what the phrase moral turpitude is
+[16:25:29] <m_gol> and they order me to use some payment system that requires me to give my login and password to my bank account on some site not belonging to this bank
+[16:25:33] <m_gol> security FTW!
+[17:56:36] <jqcommit> 01[13docs.jquery.com01] 15Krinkle pushed 1 new commit to 06master: 02http://git.io/hYpcBw
+[17:56:36] <jqcommit> 13docs.jquery.com/06master 1446334ed 15Timo Tijhof: InitialiseSettings: Enable wgSessionsInObjectCache
+[18:22:20] <jqcommit> 01[13docs.jquery.com01] 15Krinkle pushed 1 new commit to 06master: 02http://git.io/d_f_DQ
+[18:22:20] <jqcommit> 13docs.jquery.com/06master 14a460c45 15Timo Tijhof: Update README.md
+[18:24:06] <jqcommit> 01[13docs.jquery.com01] 15none pushed 3 new commits to 06master: 02https://github.com/Krinkle/docs.jquery.com/compare/a8dd55787c1e...a460c456b754
+[18:24:07] <jqcommit> 13docs.jquery.com/06master 14d6b55f2 15Timo Tijhof: InitialiseSettings: Enable Memcached again...
+[18:24:07] <jqcommit> 13docs.jquery.com/06master 1446334ed 15Timo Tijhof: InitialiseSettings: Enable wgSessionsInObjectCache
+[18:24:07] <jqcommit> 13docs.jquery.com/06master 14a460c45 15Timo Tijhof: Update README.md
+[18:24:18] * Krinkle did a test payload
+[18:29:03] <Krinkle> scott_gonzalez: Oh LàLà! Hard problems by John Resig, anno 2007
+[18:29:04] <Krinkle> :D
+[18:29:08] <Krinkle> http://docs.jquery.com/HardProblems
+[18:29:10] <Krinkle> http://docs.jquery.com/history/HardProblems
+[18:29:57] <scott_gonzalez> :-)
+[18:30:08] <scott_gonzalez> You saw my tweet?
+[18:30:42] <Krinkle> I did not
+[18:30:58] <scott_gonzalez> Oh, heh. I just tweeted that, almost word-for-word 15 minutes ago :-P
+[18:31:02] <Krinkle> lol
+[18:31:02] <scott_gonzalez> http://twitter.com/scott_gonzalez/status/334114436241563648
+[18:31:03] <b-ot> scott_gonzalez: @scott_gonzalez: Hard Problems by @jeresig (Feb 2007) http://t.co/DFjfitaMT7
+[18:31:40] <Krinkle> scott_gonzalez: Twitter says you wrote it in Danish and offers to translate to English xD
+[18:31:47] <scott_gonzalez> hahaha
+[18:32:04] <Krinkle> http://cl.ly/image/0L0v251v422x
+[18:32:22] <scott_gonzalez> I like "Hard problems town"
+[18:32:59] <scott_gonzalez> Welcome to hard problems town. Population 9.
+[18:33:06] <Krinkle> scott_gonzalez: https://twitter.com/scott_gonzalez/status/331425170076078080 made me laugh a bit. You're not welcome but your friends are :P
+[18:33:11] <b-ot> Krinkle: @scott_gonzalez: I'm starting a JS meetup in York, PA. If you have friends in the area, let them know! http://t.co/QssAmZmoB6
+[18:33:56] <Krinkle> I know I know, you didn't mean it that way. Gotta love the ambiguity in short phrases though
+[18:34:11] <scott_gonzalez> Heh, my assumption is that 99% of people following me don't live in my city.
+[18:35:05] <Krinkle> A, York, not New York
+[18:35:21] <Krinkle> I was going to same "Same here, though my town is much smaller than New York"
+[18:35:31] <Krinkle> Looks like my town is actually bigger than York
+[18:35:38] <Krinkle> https://en.wikipedia.org/wiki/York,_Pennsylvania ; 43.718
+[18:35:45] <Krinkle> https://en.wikipedia.org/wiki/Enschede 157.943
+[18:35:49] <scott_gonzalez> Yeah, York is pretty small.
+[18:36:43] <scott_gonzalez> Your town is ~4x larger (land wise)
+[18:36:56] <scott_gonzalez> So ~4x population makes sense.
+[18:37:01] <scott_gonzalez> About the same density.
+[18:38:02] <scott_gonzalez> Oh, they list the density
+[18:38:41] <Krinkle> 2,900 vs 3,000 sq/mi
+[18:39:41] <scott_gonzalez> hmmm...it actually says that York is much more dense.
+[18:39:48] <scott_gonzalez> 8,300 sq/mi
+[18:39:54] <scott_gonzalez>  /sq mi
+[18:40:00] <scott_gonzalez> no squares per mile :-P
+[18:40:05] <Krinkle> You're right
+[18:40:17] <Krinkle> the articles denote it inconsistently
+[18:40:35] <Krinkle> they both show both but one prefers km™ the other sqmi
+[18:40:39] <scott_gonzalez> Oh, you're 10x larger landwise.
+[18:43:30] <Krinkle> scott_gonzalez: http://docs.jquery.com/Special:Statistics
+[18:43:33] <Krinkle> content pages 669
+[18:43:39] <Krinkle> getting closer :)
+[18:44:14] <Krinkle> scott_gonzalez: btw, linked from the sidebar is http://docs.jquery.com/Special:SpecialPages
+[18:44:25] <Krinkle> which shows all these report pages
+[18:45:54] <Krinkle> http://docs.jquery.com/Special:BrokenRedirects is a nice one
+[18:46:12] <Krinkle> scott_gonzalez: When you deleted http://docs.jquery.com/edit/UI/Tree just now, it caused a broken redirect
+[18:46:25] <scott_gonzalez> From where?
+[18:46:30] <Krinkle> Before deleting (or afterwards) check the "What links here" page in the sidebar
+[18:46:37] <scott_gonzalez> That page should never have existed.
+[18:46:40] <Krinkle> http://docs.jquery.com/Special:WhatLinksHere/UI/Tree
+[18:47:00] <scott_gonzalez> Thanks.
+[18:47:04] <Krinkle> Though I wouldn't bother checking it and simply using Special:BrokenRedirects afterwards to find problems.
+[18:47:05] <scott_gonzalez> Just deleted that one too :-P
+[18:47:08] <Krinkle> yeah
+[18:50:45] <Krinkle> scott_gonzalez: As you might already know, wiki actions have accesskeys (ctrl-alt-h, history, d, delete, e,edit), hover the wiki: section links in the sidebar for the accesskey.
+[18:51:01] <scott_gonzalez> oh, thanks
+[18:51:05] <Krinkle> speeds up things a bit (I noticed my self using them while fixing a few redirects just now)
+[18:51:18] <Krinkle> especially since we have a big sidebar
+[18:51:44] <Krinkle> (though I suspect you might be changing the url manually, not sure how you access the delete form)
+[18:51:54] <scott_gonzalez> I've been using the links.
+[18:52:06] <Krinkle> k
+[18:52:12] <scott_gonzalez> ctrl+alt = awkward
+[18:56:22] <jqcommit> 01[13jquery01] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/T4EpLQ
+[18:56:22] <jqcommit> 13jquery/06master 14d8a3501 15Richard Gibson: Fix #13835: classes separated by form feed
+[18:56:44] <jqcommit> 01[13jquery01] 15gibson042 pushed 1 new commit to 061.x-master: 02http://git.io/H4tKpg
+[18:56:44] <jqcommit> 13jquery/061.x-master 14a7f42d9 15Richard Gibson: Fix #13835: classes separated by form feed...
+[18:59:09] <Krinkle> scott_gonzalez: This isn't a MediaWiki invention though. It doesn't use event listeners or anything
+[18:59:17] <Krinkle> scott_gonzalez: it uses whatever the accesskey is in your browser
+[18:59:21] <Krinkle> for Chrome I know its ctrl+alt
+[18:59:37] <scott_gonzalez> Yeah, I know. It's just awkward.
+[18:59:41] <Krinkle> I agree
+[19:01:42] <scott_gonzalez> Do you know what's up with /Types?
+[19:01:47] <scott_gonzalez> First page listed on http://docs.jquery.com/Special:DeadendPages
+[19:05:20] <Krinkle> scott_gonzalez: MediaWiki messes up linkage
+[19:05:23] <Krinkle> relative link from the root
+[19:05:33] <Krinkle>  href="/{title-escaped}"
+[19:05:37] <Krinkle> title being /Types
+[19:05:46] <Krinkle> browser sees a protocol-relative url
+[19:05:49] <Krinkle>  //Types
+[19:06:04] <Krinkle> I deleted it
+[19:06:08] <scott_gonzalez> thanks
+[19:06:19] <scott_gonzalez> Still shows up in that list for me.
+[19:06:21] <Krinkle> http://docs.jquery.com//Types
+[19:06:59] <scott_gonzalez> Now it's gone.
+[19:07:24] <scott_gonzalez> Is http://docs.jquery.com/Special:Statistics realtime?
+[19:14:31] <Krinkle> scott_gonzalez: Sort of
+[19:16:32] <jqcommit> 01[13testswarm01] 15Krinkle pushed 1 new commit to 06master: 02http://git.io/4ZznWg
+[19:16:32] <jqcommit> 13testswarm/06master 14082b37d 15Timo Tijhof: ProjectsPage: Fix alignment of .swarm-result-date...
+[19:24:01] <jqcommit> 01[13testswarm01] 15Krinkle 04deleted 06projects-4 at 149538786: 02http://git.io/5vmMXg
+[22:02:07] <JamesMGreene> DaveMethvin|away gnarf ajpiano mikesherov kswedberg ralphholzmann rwaldron scott_gonzalez snover (et al): did jQuery ever run into this old WebKit issue with focus being reported incorrectly? https://github.com/ariya/phantomjs/issues/10427  If so, was there a possible workaround, or did we just get by because Chrome and Safari patched it?
+[22:02:46] <snover> i have no idea, sorry
+[22:18:05] <JamesMGreene> DaveMethvin|away gnarf ajpiano mikesherov kswedberg ralphholzmann rwaldron scott_gonzalez snover (et al): Looks like a "yes": http://bugs.jquery.com/ticket/12492

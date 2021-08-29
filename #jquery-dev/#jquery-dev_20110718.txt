@@ -1,0 +1,231 @@
+[05:29:16] <jaubourg> yop!
+[05:29:16] <bot-t> (2 hours 27 mins ago) <gnarf> tell jaubourg thanks for the review, i implemented some of those thoughts already
+[06:29:29] <DaveMethvin> i hate positional selectors. http://jsfiddle.net/eJ4yd/3/
+[06:35:29] <kswedberg> DaveMethvin: whoa. that's crazy. :'(
+[06:43:43] <gnarf> :first-child
+[06:44:24] <gnarf> :first is just [0] in the jQuery set
+[06:45:50] <gnarf> :first doesn't make much sense within a .is()
+[06:56:07] <timmywil> .
+[07:04:12] <gnarf> hey timmywil
+[07:04:19] <timmywil> hey gnarf
+[07:04:52] <gnarf> did you see https://github.com/gnarf37/jquery/compare/jquery:master...ticket_9381_2 ?
+[07:05:07] <gnarf> jaubourg kinda suggested this sort of implementation
+[07:05:14] <gnarf> and I kinda agree
+[07:08:09] <timmywil> gnarf: hmm, probably dumb question. what's the expiredOnly?
+[07:08:16] <gnarf> boolean
+[07:08:24] <gnarf> just a flag
+[07:08:26] <timmywil> yea, but why?
+[07:08:43] <gnarf> well, since rAF is taking care of the main "loop"
+[07:09:03] <gnarf> you also setup an interval that only checks for expired timers
+[07:09:34] <timmywil> hmm, so an interval next to requestAnimationFrame?
+[07:09:38] <gnarf> which basically "ends" any animation running
+[07:09:39] <gnarf> yeah
+[07:09:44] <timmywil> ahhh
+[07:09:52] <gnarf> the "cleanup"
+[07:10:54] <gnarf> basically, it will only run calculations / set css for the frame and the last frame when backgrounded
+[07:11:02] <gnarf> first*
+[07:11:04] <timmywil> so I'm wondering how the continue stops the raf
+[07:11:36] <gnarf> it doesn't -- it just runs any timers that are past their duration
+[07:12:13] <gnarf> the continue when "expiredOnly" skips any non-expired timers
+[07:12:42] <timmywil> ok, sorry im slow. i get it now
+[07:12:45] <gnarf> :)
+[07:13:38] <gnarf> i mean, i'm not sure how much perf hit looping the 'timers' is
+[07:14:54] <timmywil> yea, that's worrysome.  another timer next to raf will increase the cpu load, but idk how much
+[07:15:36] <timmywil> and if there are 10 property animations going on, that's 10 extra timers
+[07:15:43] <timmywil> oh wait no its not
+[07:15:46] <timmywil> it's only one
+[07:15:49] <timmywil> well that's good
+[07:15:49] <gnarf> its just one interval
+[07:15:55] <gnarf> just like the old interval
+[07:16:01] <timmywil> yea cool
+[07:16:13] <gnarf> rather than actually lifting any calculations / setting css it just skips everything most of the time
+[07:16:27] <gnarf> *shrug*
+[07:16:30] <timmywil> ok, but animating different elements will have multiple intervals
+[07:19:55] <timmywil> gnarf: can we perf test it?
+[07:20:12] <timmywil> if this is all moot, I say do it
+[07:20:17] <gnarf> timmywil: nope, one interval (just like the old one)
+[07:20:37] <gnarf> one global interval, running on the same interval as our non-raf implementation
+[07:20:49] <gnarf> just with the specific job of only looking for "expired" timers to "finish"
+[07:21:10] <gnarf> i mean, i'm not sure how you perf something like this
+[07:21:37] <gnarf> but its going to be using "more cpu" - at least 1 function call every 13 ms + a loop over all the timers
+[07:21:51] <gnarf> the loop doesn't actually do anything with the timer unless its expired though
+[07:21:59] <gnarf> but
+[07:22:12] <gnarf> it enforces our timing issues that are cropping up with 9381
+[07:22:36] <gnarf> im gonna have to take off
+[07:22:46] <gnarf> i might be a tad late for -meeting today
+[07:22:50] <gnarf> but should be back in ~ 2 hrs
+[07:23:01] <timmywil> ok cyl
+[07:29:43] <timmywil> ok, idk why I always thought another raf ran if animate was called again
+[07:30:02] <timmywil> timerId makes sense now lol
+[07:31:00] <timmywil> it was the new fx() that threw me
+[07:45:10] <jqcommit> [jquery] timmywil pushed 1 new commit to 1.7/enhancement_8685: http://bit.ly/q3frih
+[07:45:10] <jqcommit> [jquery/1.7/enhancement_8685] Revert "Show an element before starting an animation to account for duration 0 or fx.off animations. Fixes #8892." - timmywil
+[08:39:29] <jaubourg> re
+[08:46:59] <jaubourg> meeting today?
+[08:50:37] <jaubourg> ajpiano: ping
+[08:59:39] <timmywil> brb
+[09:04:29] <gnarf> back
+[09:05:57] <gnarf> ?tell davemethvin RE http://jsfiddle.net/eJ4yd/3/ - did you maybe mean :first-child ???
+[09:05:58] <bot-t> gnarf, Okay.
+[09:18:44] <jaubourg> ?tell ajpiano jsconf.eu proposal rejected, I'll be in Boston earlier
+[09:18:44] <bot-t> jaubourg, Okay.
+[09:20:47] <jzaefferer> jaubourg, you planned to attend both confs?
+[09:21:25] <jaubourg> yep
+[09:21:43] <gnarf> that kinda sucks that both are same weeend
+[09:21:53] <jaubourg> Berlin on the 1st, Boston on the 2nd, I had organizers of both confs informed
+[09:22:08] <jaubourg> I feel all rejected now
+[09:22:10] <jaubourg> ;)
+[09:22:22] <gnarf> but i suppose you don't get a large # of trans-atlantic guests to them
+[09:23:03] <jaubourg> bah, I'm pretty sure crockford will be there... I just hope his talk will be better then the web directions one :/
+[09:29:30] <timmywil>  gnarf: what about a setTimeout that runs after duration and checks if animation isn't finished yet?
+[09:30:07] <gnarf> timmywil: then you end up with multiple setTimeouts when animating multiple elements, but that idea was also solid...
+[09:30:23] <gnarf> but don't bother "checking if not done"
+[09:30:38] <jaubourg> timmywil: how do you handle stop() with the setTimeout per animation solution?
+[09:30:58] <jaubourg> you just leave the timer run?
+[09:31:17] <gnarf> you'd write fx.tick( element
+[09:31:20] <gnarf> :)
+[09:31:48] <gnarf> or fx.tick( element, onlyExpired )
+[09:31:56] <timmywil> jaubourg: basically, but with stop, no more rafs will run either
+[09:32:28] <gnarf> timmywil: .stop() is just bad idea there imo
+[09:32:44] <gnarf> too much other bullshit with .stop()
+[09:32:45] <jaubourg> yeah, and you have to make sure you don't try and access structures that were since removed
+[09:32:55] <timmywil> tru nuff
+[09:33:10] <gnarf> also timmywil fx.tick() calls stop() if it empties
+[09:33:48] <jaubourg> we were too hasty to remove the global timer in favor of raf... raf is perfect for rendering, but to schedule the animations and callbacks, we still need the timer
+[09:34:23] <timmywil> gnarf: different stop though
+[09:34:33] <gnarf> jaubourg: good word choices, that should be written down somewhere "raf is perfect for rendering, but to schedule the animations and callbacks, we still need the timer"
+[09:35:13] <timmywil> yea i suppose we do
+[09:35:41] <jaubourg> I wish raf would be called with some argument saying "no need to update display"
+[09:35:48] <timmywil> sounds unfortunate for those who don't need it tho
+[09:36:21] <timmywil> depending on the overhead of another timer
+[09:36:23] <jaubourg> well, thing is everybody needs it actually... since most people use animations as some means to sync callbacks
+[09:36:25] <gnarf> its only unfortunate if they are running a large number of property animations while the browser is hidden :)
+[09:37:01] <gnarf> although looping across timers() twice per "frame" still seems bogus
+[09:37:07] <gnarf> even if you aren't using it
+[09:37:12] <jaubourg> if you run an animation for say 2000ms and call a function after a 2500 timeout, you expect the animation to be finished when the function is called
+[09:37:32] <jaubourg> gnarf: the timer structure is meh imo but that's another story
+[09:37:36] <necromancer> jaubourg: why would you do that?
+[09:37:43] <gnarf> i guess for (i=0;i<1000;i++) if (something[i].value < something) continue;
+[09:37:47] <necromancer> javascript time is not to be trusted dude
+[09:37:49] <necromancer> =)
+[09:38:00] <jaubourg> with a 500ms diff? you bet it is
+[09:38:02] <timmywil> jaubourg: or you use callbacks cause you might understand the advantages of cpu downtime in raf
+[09:38:18] <timmywil> timeout 500 in the callback instead that is
+[09:38:22] <gnarf> timmywil: even using callbacks, things behave strangely ;)
+[09:38:24] <necromancer> jaubourg: i still don't understand why you can't put that setTimeout in the animate callback and just have it be set for 500
+[09:38:58] <gnarf> necromancer/timmywil approach is the "fix" -- but you still might expect it to be done in 2500ms, not 500000000ms
+[09:39:30] <jaubourg> do you? what about you need to make something like this: $.when( $( "#elem" ), $.ajax(... ) ).pipe(function( _, rep ){ return $.ajax( rep.url, ... ); })
+[09:39:49] <necromancer> it's not a "fix", it's the proper way to do things when you're in callback hell
+[09:39:50] <jaubourg> currently, the second ajax call will never ever occur if the tab is not focussed
+[09:40:12] <necromancer> javascript isn't executed procedurally, it doesn't wait for .animate() to be done before setTimeout()
+[09:40:25] <gnarf> necromancer: i think we are all beyond that line ;)
+[09:40:43] <necromancer> gnarf: i would have figured since this is #jquery-de
+[09:40:45] <necromancer> dev*
+[09:40:46] <necromancer> lol
+[09:41:33] <necromancer> jaubourg: if .animate() hiccups and doesn't start until 200ms later than it was supposed to, that setTimeout is gonna be out of sync even though it might not be apparent
+[09:42:02] <gnarf> skip the "hiccup" and just add "has another animation already that is longer than 500ms"
+[09:42:31] <jaubourg> necromancer: I think you're missing the point entirely: the point is, we don't wanna force-halt an application because animate refuses to render an animation. js timers are unreliable but that's not a reason to have this kind of side-effects. If people wanna halt their app when tab is inactive, they can use raf themselves to detect this (of win.blur(), win.focus() )
+[09:42:52] <necromancer> ahh ok
+[09:42:53] <necromancer> hehe
+[09:42:59] <gnarf> I'm not really sure blur/focus work
+[09:43:01] <jaubourg> we broke existing apps by blocking them
+[09:43:07] <jaubourg> gnarf: afaik, it should
+[09:43:22] <gnarf> In fact I'm pretty sure they don't work in all the cases where raf refuses to give frames
+[09:43:31] <gnarf> but
+[09:43:35] <gnarf> i could be wrong
+[09:43:35] <necromancer> does an exception get thrown if .animate() refuses to render an animation right now?
+[09:43:53] <jaubourg> why should it?
+[09:43:55] <gnarf> necromancer: nope, but the first frame renders, then watis for browser focus
+[09:44:08] <necromancer> oh ok
+[09:44:09] <gnarf> once browser focus comes back, animate completes and begins playing the rest of the queue
+[09:44:13] <gnarf> docs#9381
+[09:44:15] <bot-t> [#9381] animations halt when the browser is out of focus due to requestAnimationFrame (open bug) - http://jqbug.com/9381
+[09:44:19] <jaubourg> yeah, I don't even know why we render the first frame, we should wait for raf ;)
+[09:44:40] <gnarf> jaubourg: it sets the initial state css
+[09:44:48] <necromancer> sorta like how flash stuff doesn't get played in Safari if you tab away from it
+[09:44:58] <necromancer> (or else it used to, i haven't used Safari in a long time)
+[09:45:17] <gnarf> necromancer: sorta like you can make pandora take 90% less cpu by opening a different tab ? :)
+[09:45:29] <jaubourg> gnarf: yes, because animate start code is full of special cases, sadly (hide/show, I look at you)
+[09:45:47] <necromancer> really gnarf?
+[09:46:01] <necromancer> i never tried it with the new HTML5 layout
+[09:46:09] <gnarf> necromancer: i'm talking the old flash shit
+[09:46:19] <necromancer> oh yeah
+[09:46:30] <necromancer> i used pandora MAYBE once on the web. every other time it's been on my phone
+[09:46:42] <gnarf> i haven't used pandora since rewardjs gave me grooveshark
+[09:46:42] <necromancer> i think i used it again on the web to check out the new JS layout
+[09:48:01] <necromancer> i wish grooveshark had a mac app
+[09:48:11] <necromancer> and i wish spotify's mac app worked with AirPlay
+[09:49:00] <gnarf> why need an app? the web page pinned tab works pretty hot for me :)
+[09:49:14] <gnarf> although i have a bitch about chrome pins
+[09:49:34] <danheberden> necromancer maybe it'd work with airfoil?
+[09:49:37] <gnarf> i don't think FF does it either, but why don't the "pinned" tabs follow you from window to window? :)
+[09:49:46] <gnarf> oh
+[09:49:49] <gnarf> thats why you want the app
+[09:49:57] <gnarf> just run it in another browser :)
+[09:50:06] <gnarf> airfoil it
+[09:50:31] <danheberden> scott_gonzalez showd me prism which is pretty neat
+[09:50:38] <danheberden> to make apps out of web pages
+[09:51:45] <jaubourg> dan: I was rejected from jsonf.eu :/
+[09:51:48] <necromancer> it does work with airfoil
+[09:51:49] <jaubourg> and hi
+[09:51:55] <necromancer> but i'm not gonna pay for a hack
+[09:52:09] <necromancer> that's just stupid
+[09:52:17] <timmywil> jaubourg: they're loss
+[09:52:21] <timmywil> their*
+[09:52:51] <gnarf> i paid for airfoil
+[09:52:56] <gnarf> its awesome
+[09:52:59] <JohnResig> uhhh, hey guys, really sorry I missed the meeting today - I once again forgot that oh hey, I'll be commuting on the caltrain at the same time as the meeting
+[09:52:59] <bot-t> (37 hours 9 mins ago) <jaubourg> tell JohnResig https://github.com/jquery/jquery/pull/371#issuecomment-1589018 this madness has to stop, I mean it. Still love you though ;)
+[09:53:08] <jaubourg> hi John
+[09:53:43] <jaubourg> meeting didn't take place, no John, no ajpiano, no decisions "takenable"
+[09:53:46] <danheberden> jaubourg :(
+[09:53:49] <danheberden> but also :)
+[09:53:52] <JohnResig> oh fuuu
+[09:53:54] <JohnResig> hmm
+[09:54:04] <ajpiano> heh, yeah, i was having connection craziness, and generally busy afternoon
+[09:54:24] <jaubourg> happens ;)
+[09:54:43] <gnarf> jaubourg and I were lonely
+[09:54:44] <jaubourg> would be nice to have some kind of contingencies in place for this scenario though
+[09:55:00] <danheberden> like a resig teleporter?
+[09:55:10] <gnarf> resigram?
+[09:55:11] <jaubourg> like I dunno what to do if that happens... especially given I don't feel like taking decisions on my own :P
+[09:55:23] <jaubourg> avacadaresig
+[09:55:34] <jaubourg> *pshit*
+[09:56:12] <gnarf> whenever we have the next meeting, i think we need to talk bout docs#9381 tho ;)
+[09:56:14] <bot-t> [#9381] animations halt when the browser is out of focus due to requestAnimationFrame (open bug) - http://jqbug.com/9381
+[09:56:23] <jaubourg> yep
+[09:56:27] <jaubourg> what is this sentence again?
+[09:56:48] <gnarf> jaubourg: good word choices, that should be written down somewhere "raf is perfect for rendering, but to schedule the animations and callbacks, we still need the timer"
+[09:56:55] <jaubourg> "we were too hasty to remove the global timer in favor of raf... raf is perfect for rendering, but to schedule the animations and callbacks, we still need the timer"
+[09:56:57] <jaubourg> heh
+[09:57:50] <jaubourg> the timer could be optimized to only fire when the closest animation is supposed to end (revisit that when stop is called)
+[09:58:05] <jaubourg> now that would be a saver
+[09:58:10] <gnarf> jaubourg: hrm
+[09:58:23] <jaubourg> rather than a setTimeout(..., fx.tick)
+[09:58:52] <gnarf> jaubourg: have the "cleanup" code set the timeout for itself again based on fxNow vs endTime?
+[09:59:05] <jaubourg> yep
+[09:59:22] <gnarf> i think I could hack a mock into my _2 branch
+[10:01:26] <gnarf> jaubourg: how to deal with one inserted in the middle that ends before the current tho
+[10:02:15] <jaubourg> you'd need to kill the timer and restart it
+[10:02:21] <jaubourg> same when stopping
+[10:02:40] <jaubourg> but that could all be done within the timer cleanup code imo
+[10:07:38] <jaubourg> dang, gotta fly
+[10:07:41] <gnarf> i don't think you necessarily "need" to kill the timer on stop
+[10:07:43] <jaubourg> bbl guys
+[10:07:53] <gnarf> obviously on full stop
+[10:07:58] <gnarf> hrm
+[10:08:10] <jaubourg> you need to kill it if you stop the closest anim ;)
+[10:08:12] <gnarf> the more i look at patching in a good solution to this the more i feel like i'm hacking hacks
+[10:08:16] <jaubourg> anyway, away for real
+[10:09:03] <gnarf> jaubourg: don't forget to write that sentence somewhere :)
+[10:09:20] <gnarf> danheberden: yt still?
+[10:09:28] <gnarf> check yer skype and get back to me? :)
+[14:55:12] <jaubourg> re
+[19:33:54] <gnarf> i dunno why
+[19:34:00] <gnarf> but i have katamari stuck in my head
+[19:34:16] <gnarf> (channel was too quiet for too long)
+[22:47:11] <Aakash> Hey guys, I have this code http://pastebin.com/2sfECwEk which works fine on chrome for mac, but no other browser, even the date picker quits workng when i add in the validation code on other browsers
+[22:47:18] <Aakash> Does it look like im doing something obviously wrong?
+[22:47:41] <Aakash> (the code is just for a datepicker and form vaidation)
+[22:47:50] <Aakash> s/vaidiation/validation
+[22:49:56] <Aakash> Also - the datepicker works fine on other browsers after removing the validation code

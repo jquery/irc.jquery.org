@@ -1,0 +1,182 @@
+[00:09:32] <jqmobilecommit> [13jquery-mobile] 15jaspermdegroot closed issue #8130: Overwrite data-transition globally 02http://git.io/vU2cs
+[00:12:02] <jqmobilecommit> [13jquery-mobile] 15jaspermdegroot closed issue #6301: Why does $.mobile.maxTransitionWidth exist? 02http://git.io/vYw4z
+[00:38:24] <jqmobilecommit> [13jquery-mobile] 15jaspermdegroot opened issue #8244: 1.5 Controlgroup: data-mini and data-theme don't work 02http://git.io/vYwa4
+[00:58:29] <jqmobilecommit> [13jquery-mobile] 15jaspermdegroot opened issue #8245: 1.5 Demos: various issues 02http://git.io/vYwoV
+[01:13:43] <jqmobilecommit> [13jquery-mobile] 15jaspermdegroot opened issue #8246: Remove vendor prefixed properties from CSS based on 1.5 browser support 02http://git.io/vYwXY
+[04:44:19] <jquicommit> [13jquery-ui] 15braedsjaa opened pull request #1581: sortable IDs to use separator char (06master...06serialize-regex) 02http://git.io/vYoqT
+[06:02:54] <gabrielschulhof> arschmitz: Ping!
+[06:03:04] <arschmitz> gabrielschulhof: Pong!
+[06:03:09] <gabrielschulhof> Hey!
+[06:03:20] <gabrielschulhof> There's a race condition during init between enhancer and init itself.
+[06:03:42] <gabrielschulhof> If the initial page has options, they may not be respected, because _getCreateOptions() is not yet overridden.
+[06:03:50] <gabrielschulhof> may not yet be
+[06:04:05] <gabrielschulhof> I just experienced that with tests/unit/dialog.
+[06:04:15] <arschmitz> how page depends on enhancer
+[06:04:16] <gabrielschulhof> Sometimes it's instantiated as a dialog, sometimes as a page.
+[06:04:25] <arschmitz> so enhancer has to run first
+[06:04:30] <gabrielschulhof> I dunno ... I'll check.
+[06:04:37] <gabrielschulhof> It's weird.
+[06:04:49] <gabrielschulhof> Maybe I messed something up.
+[06:05:06] <arschmitz> i dont see how a page could be init'ed before enhnacer exists if page depends on enhancer
+[06:05:50] <arschmitz> gabrielschulhof: never mind i know how
+[06:06:01] <gabrielschulhof> How?
+[06:06:04] <arschmitz> wait no i dont
+[06:06:19] <arschmitz> i was thinking if all you had was page 
+[06:06:28] <arschmitz> that it has both widget and enhancer as deps
+[06:06:35] <gabrielschulhof> I know that .page() is called explicitly from init, but it should still load enhancer.
+[06:06:43] <arschmitz> but enhancer does not depend on widget
+[06:06:53] <arschmitz> but for the hook to install widget must be there
+[06:07:00] <arschmitz> it looks for widget on ever execution
+[06:07:04] <arschmitz> but if you call directly
+[06:07:52] <gabrielschulhof> Right ... it needs to look for widget from the inner IIFE as well.
+[06:08:01] <gabrielschulhof> Or, I mean, from the outermost IIFE.
+[06:08:06] <arschmitz> no
+[06:08:07] <gabrielschulhof> One more call during load.
+[06:08:22] <arschmitz> it does that but if widget loads AFTER enhancer
+[06:08:49] <gabrielschulhof> Ohm right ...
+[06:08:51] <gabrielschulhof> Hmmm ...
+[06:08:52] <arschmitz> init needs to depend on enhancer not page
+[06:09:22] <arschmitz> and init can explicitly install the hook
+[06:09:37] <arschmitz> i thought of this already in the more general case just didnt think it would effect the library
+[06:10:07] <arschmitz> gabrielschulhof: https://github.com/jquery/jquery-mobile/blob/1.5-dev/js/widgets/enhancer.js#L151
+[06:11:45] <gabrielschulhof> Will this work though if you have just enhancer + a widget and you instantiate the widget explicitly?
+[06:12:01] <arschmitz> as long as you load enhancer first
+[06:12:09] <arschmitz> or install the hook your self
+[06:12:19] <arschmitz> also this only effects the options not the calling of the widget
+[06:12:29] <gabrielschulhof> OK, so we may need to document this, because this load order dependency was not present in 1.4.
+[06:12:43] <arschmitz> yes it was
+[06:12:50] <arschmitz> because it was part of page
+[06:12:57] <arschmitz> anything else is new
+[06:13:30] <arschmitz> and if your using the full lib you will see no difference
+[06:14:05] <arschmitz> this just needs to be part of the new enhancer docs when using with widgets
+[06:14:39] <gabrielschulhof> Actually, in 1.4.5, explicit instantiation from a custom build of a widget with non-default option values always worked, because all widgets depended on jquery.mobile.widget, which overrode _getCreateOptions
+[06:15:15] <gabrielschulhof> So, we've essentially moved the processing of data attributes from the widget base class into the enhancer.
+[06:15:30] <gabrielschulhof> So, in 1.5.0, you won't get processing of data attributes if you only build with widgets.
+[06:15:40] <arschmitz> ah true
+[06:16:03] <gabrielschulhof> So, if I request a build that includes only popup, I can't pass options as data attributes at all.
+[06:16:14] <gabrielschulhof> Ummm ... this is bad, right?
+[06:16:23] <arschmitz> no
+[06:16:29] <arschmitz> thats exactly how it should be
+[06:16:35] <arschmitz> im not sure why it was not always that way
+[06:16:55] <arschmitz> data-attributes are an optional add on not part of the widgets
+[06:17:02] <arschmitz> they NEVER should have depended on that 
+[06:17:08] <gabrielschulhof> I didn't mean that it's bad because that's not how it should be. I meant it was bad because we didn't provide backcompat where it's still that way.
+[06:17:48] <arschmitz> im not sure it was basicly a bug that it ever depended on it
+[06:17:53] <arschmitz> because it never depended on
+[06:17:53] <arschmitz>  it
+[06:18:01] <arschmitz> there was never a dependency
+[06:18:08] <gabrielschulhof> Between what and what?
+[06:18:16] <arschmitz> any widget and mobile.widget
+[06:18:38] <arschmitz> you could always use widgets without mobile.widget
+[06:19:28] <arschmitz> infact page never used mobile.widget for dialog before for this reason
+[06:19:36] <arschmitz> its directly checked the attribute
+[06:20:29] <gabrielschulhof> Hmmm ... In 1.4.5 most widgets depend on jquery.mobile.widge.
+[06:20:44] <arschmitz> which they should not have
+[06:20:50] <arschmitz> becuse they didnt
+[06:21:02] <gabrielschulhof> The change we made in 1.4.5 was that we no longer had a namespace for the mobile widget base class. Instead, we extended $.Widget.
+[06:21:20] <arschmitz> we did that in 1.
+[06:21:21] <arschmitz> 4
+[06:21:23] <arschmitz> .0
+[06:21:30] <arschmitz> and that has nothing to do with this
+[06:22:17] <gabrielschulhof> Well, the bottom line is that 1.5.0 will be the first version where data-attribute-awareness is guaranteed to be *absent* in widget-only builds, whereas in all previous versions it was guaranteed to be *present* in widget-only builds.
+[06:22:41] <gabrielschulhof> Now, I grant you that 1.5.0 is where we get it right for the first time, but doesn't such a transition require backcompat?
+[06:23:57] <gabrielschulhof> Wait, did someone say backcompat? Couldn't we simply slap a dependency on enhancer into widget.backcompat? *cringe*
+[06:24:25] <arschmitz> sure
+[06:25:20] <gabrielschulhof> Wait, that /still/ wouldn't guarantee load order, unless we add a call to _installWidget() into the outermost IIFE of widget.backcompat.
+[06:25:22] <arschmitz> but you still wont get it in widget only builds
+[06:25:37] <arschmitz> unless you include backcompat
+[06:25:40] <gabrielschulhof> RIght.
+[06:26:24] <arschmitz> wait this is a non issue
+[06:26:31] <gabrielschulhof> If we declare that by-default data-attribute-awareness is deprecated as of 1.5.0 and will be removed in 1.6.0, we can require that, if people wish to retain it, they must now include widget.backcompat.
+[06:26:33] <arschmitz> there is / will be a backompat for every widget wont there?
+[06:26:47] <arschmitz> just make thoes depend on it
+[06:27:14] <gabrielschulhof> Well, there will be a backcompat for those widgets that have style options.
+[06:27:48] <gabrielschulhof> ... because the scope of backcompat is currently limited to style-option-to-classes-option synching.
+[06:28:13] <gabrielschulhof> So, is that all widgets?
+[06:28:25] <arschmitz> probably not
+[06:28:34] <gabrielschulhof> Toolbar's not in that group.
+[06:28:35] <arschmitz> well
+[06:28:43] <arschmitz> yup
+[06:29:04] <gabrielschulhof> We could rename widget.backcompat to widget.style.backcompat *shrug*
+[06:29:27] <gabrielschulhof> ... and then have a widget.backcompat that introduces the dependency on enhancer.
+[06:29:58] <gabrielschulhof> Wait a sec ... that won't solve anything!
+[06:30:22] <arschmitz> nope
+[06:30:35] <gabrielschulhof> *sigh* ...
+[06:30:47] <gabrielschulhof> We simply have to document that you need to install the hook before you instantiate anything.
+[06:30:54] <arschmitz> no
+[06:31:03] <arschmitz> you just need to load enhancer first
+[06:31:18] <arschmitz> i mean last
+[06:31:29] <gabrielschulhof> Right. Last.
+[06:32:49] <gabrielschulhof> So, is this enough backcompat? Can it even be called backcompat?
+[06:33:33] <arschmitz> gabrielschulhof: to be clear this will work in the builder because it does not compile asyncronously
+[06:33:46] <arschmitz> simply putting it last in the list will work
+[06:33:57] <arschmitz> this only effect single widget loading via amd
+[06:34:45] <arschmitz> the builder's order never changes 
+[06:37:26] <gabrielschulhof> Yes, I know, so we need to multiply this whole discussion by the percentage of people who don't use the CDN. Still, we're supposed to be encouraging custom builds.
+[06:37:43] <arschmitz> no
+[06:37:58] <arschmitz> this does not effect people using custom builds from the builder or from the command line
+[06:38:05] <arschmitz> this only effects actual amd loading
+[06:38:45] <arschmitz> if you make backcompat depend on enhancer and they include backcompat it will always work
+[06:38:51] <arschmitz> unless amd loading in the browser
+[06:38:59] <gabrielschulhof> Widgets don't depend on enhancer, so people using the builder can forego including the enhancer, thinking that they'll still get data-attribute-awareness, but they won't.
+[06:39:10] <gabrielschulhof> Aha, OK.
+[06:39:16] <gabrielschulhof> Understood.
+[06:39:41] <gabrielschulhof> So, before we release, we need to make sure every widget's backcompat ultimately depends on enhancer.
+[06:39:57] <arschmitz> or just widget.backcompat
+[06:40:42] <arschmitz> individual is probably better
+[06:41:04] <gabrielschulhof> Yeah, because people may choose to build only toolbar.
+[06:41:23] <arschmitz> yup
+[06:42:17] <arschmitz> we will also make sure to put in blog upgrade guide etc
+[06:43:42] <gabrielschulhof> Well, if this is the situation, then for the failing dialog tests, I will simply asyncLoad enhancer after page.dialog and call it a day.
+[06:56:47] <gabrielschulhof> arschmitz: OK, this is super-weird. I have enhancer asyncLoad()ing after page.dialog in a different bracket, which presumably means in order, and still I'm getting the race condition. WTF?!
+[06:57:12] <arschmitz> i think maybe you have something else going on
+[06:58:02] <gabrielschulhof> ... and the worst part is, I can't debug this, because if I turn on devtools, it stops happening. So, I'm down to $( "#console" ).text( $( "#console" ).text() + message + "\n" )
+[06:58:20] <gabrielschulhof> Where <pre><code id="console"></code></pre>
+[06:58:34] <arschmitz> gabrielschulhof: use chrome to simulate network conditions
+[06:58:44] <arschmitz> set it to like 3g or something
+[06:59:08] <gabrielschulhof> Where'd you do that?
+[06:59:08] <arschmitz> maybe not that slow require itself might time otu lol
+[06:59:19] <gabrielschulhof> Yeag.
+[06:59:39] <arschmitz> click the little phont to the left of the elements tab
+[06:59:57] <arschmitz> at the very top of the page is a network select menu now
+[07:00:19] <gabrielschulhof> Got it.
+[07:00:22] <gabrielschulhof> Thanks!
+[07:00:35] <arschmitz> that should reproduce race conditions pretty well
+[07:01:32] <gabrielschulhof> Well, not this race condition it seems. Very strange. I'll try different network settings.
+[07:02:08] <gabrielschulhof> It doesn't happen all the time even with devtools off, but without devtools, you can refresh easily enough. The flipside, of course, is you can't debug.
+[07:02:29] <gabrielschulhof> Yaaay! Wifi did it!
+[07:06:17] <gabrielschulhof> No good :) page.dialog depends on page which depends on enhancer and widget in parallel, so even if I load enhancer after page.dialog, enhancer will have been loaded in parallel with widget as a dependency of page.
+[07:06:27] <gabrielschulhof> Already.
+[07:07:13] <gabrielschulhof> So, that means that the invocation of _installWidget() that happened in the outer IIFE of enhancer will have happened in parallel with the loading of widget, meaning sometimes it may happen before the loading of widget :)
+[07:07:55] <gabrielschulhof> ... but this problem is particular to page, because it depends on enhancer.
+[07:09:56] <gabrielschulhof> So, wait a sec ... if page depends on enhancer and widget in parallel, how can DB load enhancer after page, even if it has explicit instructions to load enhancer last?
+[07:14:02] <gabrielschulhof> *sigh* ... this is a bit of a hack. enhancer provides functionality which can also be used via explicit invocation of a widget. So, now we're trying to coax enhancer into loading itself so we can have this functionality without actually using the enhancer :/
+[07:18:57] <gabrielschulhof> OK, I think I have a solution.
+[07:20:15] <gabrielschulhof> enhancer provides data-attribute awareness, right? So, if you want data-attribute awareness, you must depend on enhancer and use .enhance(), rather than calling the plugin directly.
+[07:21:01] <gabrielschulhof> So, when pagecontainer instantiates a page, it must do so via thePage.enhance() rather than thePage.page()
+[07:21:25] <gabrielschulhof> The only problem with this solution is that it will unconditionally enhance the content of the page, whereas we wanted to provide an option to turn that off.
+[07:21:51] <gabrielschulhof> Nevertheless, this option we wanted to add would have been a new feature in 1.5.0, so we can still forego it.
+[07:22:00] <gabrielschulhof> arschmitz: Whaddya think?
+[07:32:11] <arschmitz> no thats not correct
+[07:32:27] <arschmitz> gabrielschulhof: like i said before
+[07:32:34] <arschmitz> init should depend on enhancer not page
+[07:32:48] <arschmitz> and init will call the installhook directly before calling page
+[07:42:13] <gabrielschulhof> arschmitz: AFAICT init no longer calls page: window.consoleLog( "Installing widget" );
+[07:42:21] <gabrielschulhof> Oh, sorry! Wrong paste.
+[07:42:32] <gabrielschulhof> arschmitz: find js -type f | xargs grep -niH '\.page('
+[07:42:44] <arschmitz> oh right its page container
+[07:42:54] <arschmitz> so /init/pagecontainer/
+[07:43:24] <arschmitz> or we have never supported options on the pagecontainer but if we wanted to
+[07:43:38] <arschmitz> do it in init before pagecontainer
+[07:45:29] <gabrielschulhof> OK, but init doesn't explicitly depend on enhancer. I guess this means it should.
+[07:45:42] <arschmitz> yes thats what i was saying
+[07:45:48] <arschmitz> is init should depend on enhancer
+[07:46:18] <gabrielschulhof> Yes, but that's not enough. It needs to depend on it and call _installWidget() before instantiating pagecontainer.
+[07:46:51] <arschmitz> arschmitz:  init should depend on enhancer not page
+[07:46:51] <arschmitz> arschmitz:  
+[07:46:51] <arschmitz> and init will call the installhook directly before calling page
+[07:47:19] <gabrielschulhof> Well, before calling pagecontainer(), but yeah.
+[07:47:19] <arschmitz> just pagecontainer not page
+[07:47:25] <gabrielschulhof> Right.
+[07:47:26] <gabrielschulhof> OK.
+[07:47:31] <gabrielschulhof> /o

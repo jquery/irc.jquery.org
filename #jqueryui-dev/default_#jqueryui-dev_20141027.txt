@@ -1,0 +1,157 @@
+[00:06:40] <doesallmagic2> Project jQuery UI - 1.8.x core build #624: STILL UNSTABLE in 10 min: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.8.x%20core/624/
+[04:27:04] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof created 067739-external-panel-rendering (+1 new commit): 02http://git.io/SLjzcQ
+[04:27:04] <jqmobilecommit> 13jquery-mobile/067739-external-panel-rendering 1484871e8 15Gabriel Schulhof: Helpers: Exclude fixed toolbars from resetActivePageHeight()...
+[04:27:44] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof opened pull request #7802: Helpers: Exclude fixed toolbars from resetActivePageHeight() (06master...067739-external-panel-rendering) 02http://git.io/4o6Tcw
+[06:24:13] <scott_gonzalez> Has anyone seen this before? https://github.com/simeydotme/jQuery-ui-Slider-Pips
+[06:33:56] <jquicommit> [13jquery-ui] 15scottgonzalez closed pull request #1352: Calendar rebase (2) (06datepicker...06calendar-value-pr2) 02http://git.io/yMXiUA
+[06:36:40] <arschmitz> scott_gonzalez: we have that on the mobile slider
+[06:37:16] <arschmitz> scott_gonzalez: http://demos.jquerymobile.com/1.4.4/slider-tooltip/
+[06:38:57] <arschmitz> oh thats has a lot of style stuff not just the the value popup
+[06:42:36] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 06master: 02http://git.io/gRA05Q
+[06:42:36] <jqmobilecommit> 13jquery-mobile/06master 145f622de 15Gabriel Schulhof: Pagecontainer: Honor both reload and reloadPage during load...
+[06:42:44] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof 04deleted 067769-pagecontainer-reload at 14bede67a: 02http://git.io/mXS73Q
+[06:44:12] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 061.4-stable: 02http://git.io/9v-Juw
+[06:44:12] <jqmobilecommit> 13jquery-mobile/061.4-stable 147b97a67 15Gabriel Schulhof: Pagecontainer: Honor both reload and reloadPage during load...
+[06:46:23] <scott_gonzalez> arschmitz: I'm asking specifically about that implementation. Not the concept, which is very popular.
+[06:52:56] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof pushed 1 new commit to 067739-external-panel-rendering: 02http://git.io/0pWVrw
+[06:52:56] <jqmobilecommit> 13jquery-mobile/067739-external-panel-rendering 140ccfbff 15Gabriel Schulhof: Toolbar: Initialize external toolbar before page init for test
+[06:56:22] <gabriel_1chulhof> arschmitz: Ping! I'm looking into a fix for https://github.com/jquery/jquery-mobile/issues/7739. It's easy enough: Update resetActivePageHeight to not subtract the height of external fixed toolbars with option updatePagePadding set to true, because those toolbars take care of themselves by updating the page padding.
+[06:56:46] <gabriel_1chulhof> arschmitz: The problem is, in order to exclude them from the list, I need to check whether they have position fixed and whether they have updatePagePadding set to true.
+[06:56:56] <gabriel_1chulhof> arschmitz: In order to do that, I need to access the toolbar widget.
+[06:57:11] <gabriel_1chulhof> arschmitz: Now, it turns out that we're very sloppy about computing coordinates.
+[06:57:29] <gabriel_1chulhof> arschmitz: We collect toolbars via .children( ":jqmData(role='header')" ) and the same with footer.
+[06:57:50] <gabriel_1chulhof> arschmitz: That's bad, because we may be subtracting the height of an unenhanced toolbar.
+[06:58:04] <gabriel_1chulhof> arschmitz: In fact, we have a 6px discrepancy because of this.
+[06:58:51] <gabriel_1chulhof> arschmitz: OTOH, if I assume that the toolbar is instantiated, I get errors about calling methods before the widget is instantiated.
+[06:59:35] <gabriel_1chulhof> So, which way should I go? Should I assume that the toolbar widget is instantiated? Should I select via .children( ":mobile-toolbar" ) to make sure I only get instantiated toolbars?
+[07:00:22] <gabriel_1chulhof> Or should I continue to select via :jqmData(role='header') and footer and only examine the element if it has data at mobile-toolbar?
+[07:01:11] <gabriel_1chulhof> This has implications for devs: If they have external toolbars, they must instantiate them during pagecontainerBEFOREshow, because resetActivePageHeight gets called in response to pagecontainershow.
+[07:01:12] <arschmitz> gabriel_1chulhof: im not completely following
+[07:01:55] <gabriel_1chulhof> arschmitz: Currently, in resetActivePageHeight we subtract the height of external toolbars when calculating the desired page height, to make sure the page fits exactly between the external header(s) and the footer(s).
+[07:02:19] <gabriel_1chulhof> arschmitz: The problem is, fixed toolbars with updatePagePadding true create padding on the page to compensate for their height.
+[07:02:44] <gabriel_1chulhof> arschmitz: So, when we subtract their height from the desired page height during resetActivePageHeight, we're double-counting, resulting in https://github.com/jquery/jquery-mobile/issues/7739.
+[07:03:12] <gabriel_1chulhof> arschmitz: So, as we loop over our external toolbars, we need to skip over external fixed toolbars with updatePagePadding set to true.
+[07:04:58] <gabriel_1chulhof> arschmitz: In addition, for resetActivePageHeight to work correctly, the toolbars must already be enhanced when it starts subtracting their heights from the desired page height, because the styling we apply during instantiation changes their height.
+[07:05:18] <gabriel_1chulhof> I mean the external toolbars must already be enhanced.
+[07:06:17] <gabriel_1chulhof> This, in turn, requires that you enhance external toolbars during pagecontainerbeforeshow, because resetActivePageHeight gets called during pagecontainershow.
+[07:11:38] <gabriel_1chulhof> arschmitz: So, I need to decide how to handle non-instantiated toolbars in resetActivePageHeight: Should I check whether there's a toolbar instance on them and skip over them if there isn't, should I assume they are instantiated (and throw the calling-a-method-before-instantiation error if they're not), or should I check data-attributes for position and updatePagePadding instead of checking widget options?
+[07:15:01] <gabriel_1chulhof> arschmitz: The most correct solution IMO would be to select via $( ":mobile-toolbar" ) and then keep only those that are either not fixed or have updatePagePadding set to false.
+[07:16:09] <gabriel_1chulhof> arschmitz: However, as we currently select via $( ":jqmData(role='header')" ) and $( ":jqmData(role='footer')" ), modifying the selector may break backcompat.
+[07:17:10] <arschmitz> gabriel_1chulhof: how would it break backcompat?
+[07:18:03] <gabriel_1chulhof> arschmitz: Because if people have external toolbars that get instantiated after resetActivePageHeight runs, they currently get picked up, but won't get picked up with the modification.
+[07:18:10] <gabriel_1chulhof> arschmitz: So it may break their pages.
+[07:18:53] <gabriel_1chulhof> arschmitz: We should really stop assuming that the presence of data-role="widgetname" is equivalent to a widget having been instantiated on the element.
+[07:19:32] <gabriel_1chulhof> arschmitz: If we want to collect toolbar /widgets/ we should select them via :mobile-toolbar.
+[07:19:43] <arschmitz> gabriel_1chulhof: thats correct
+[07:20:09] <arschmitz> data-roles shuld not be checked via selector other then for instantiation 
+[07:20:36] <arschmitz> gabriel_1chulhof: header and footer are a werid one though
+[07:20:45] <arschmitz> the toolbar widget hadnles them completely incorrectly
+[07:20:49] <gabriel_1chulhof> arschmitz: Yes. We should really turn those into full-fledged options.
+[07:21:07] <arschmitz> they MUST be present currently for it to function properly
+[07:21:14] <gabriel_1chulhof> Yes.
+[07:21:42] <gabriel_1chulhof> Bad API. Maybe we should deprecate that in 1.5.0.
+[07:21:55] <arschmitz> gabriel_1chulhof: theres nothing to deprecate
+[07:22:08] <arschmitz> its essentially a bug 
+[07:22:29] <arschmitz> we just need to make them options and handle them properly
+[07:22:34] <gabriel_1chulhof> Yep,
+[07:23:05] <gabriel_1chulhof> Either way - what do you think for https://github.com/jquery/jquery-mobile/issues/7739? Should I move from selecting via .children( ":jqmData(...)" ) to selecting via $( ":mobile-toolbar" )?
+[07:23:21] <gabriel_1chulhof> I mean selecting via .children( ":mobile-toolbar" )?
+[07:23:57] <gabriel_1chulhof> arschmitz: Talking about https://github.com/jquery/jquery-mobile/blob/f02420e178e4a036bf037fa5e9c48d0861f2ba51/js/helpers.js#L17-L20
+[07:24:20] <arschmitz> for 1.5 you should do both
+[07:24:28] <gabriel_1chulhof> What about 1.4.5?
+[07:24:44] <gabriel_1chulhof> I'd really like to provide a fix for 1.4.5, because our demo looks bad.
+[07:25:00] <gabriel_1chulhof> ... and any and all pages having external fixed toolbars will have such glitches.
+[07:25:14] <arschmitz> yeah sorry i meant 1.4.5
+[07:25:27] <arschmitz> and in 1.5 we should make them options to fix this
+[07:25:35] <arschmitz> properly
+[07:25:55] <gabriel_1chulhof> arschmitz: OK. I'll be gentle in 1.4.5. I'll check if there's an instance and if there is, I'll use the options, otherwise I'll use the attributes.
+[07:26:16] <gabriel_1chulhof> arschmitz: If people still have glitches, it'll be because they're instantiating their toolbars too late.
+[07:26:42] <gabriel_1chulhof> arschmitz: For 1.5 I'll file an issue to update the API, and I'll mention that we should fix up resetActivePageHeight to only consider instantiated toolbars.
+[07:27:34] <gabriel_1chulhof> arschmitz: Is that a good plan?
+[07:44:50] <arschmitz> gabriel_1chulhof: sure
+[07:49:30] <gabriel_1chulhof> OK. I'll do this.
+[07:54:33] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof opened issue #7803: Toolbar: data-role="header" and data-role="footer" should be replaced with data-role="toolbar" 02http://git.io/F6RFfw
+[07:57:10] <travis-ci> jquery/jquery-mobile#2155 (master - 5f622de : Gabriel Schulhof): The build passed.
+[07:57:10] <travis-ci> Change view : https://github.com/jquery/jquery-mobile/compare/87d2b9c13ae1...5f622de9d301
+[07:57:10] <travis-ci> Build details : http://travis-ci.org/jquery/jquery-mobile/builds/39151983
+[09:22:45] <lisa_deluca> arschmitz: What do we do about cases like this: https://github.com/jquery/jquery-mobile/issues/6933
+[09:23:06] <lisa_deluca> just close and ask them to reopen when they provide reproduceable code?  I tried to reproduce and couldn't based on the details in the issue.
+[09:23:13] <arschmitz> yup
+[09:23:23] <arschmitz> ill close it
+[09:23:53] <arschmitz> if they dont have a reproducable test case we close as incomplete and re open when they provide a test case
+[09:25:36] <arschmitz> lisa_deluca: ^^
+[09:25:47] <jqmobilecommit> [13jquery-mobile] 15arschmitz closed issue #6933: Custom Select Menu does not display 02http://git.io/LVaWGQ
+[09:26:37] <lisa_deluca> arschmitz: this one is a similar boat then: https://github.com/jquery/jquery-mobile/issues/6790
+[09:31:27] <arschmitz> lisa_deluca: be carefull putting code in issues its better to use a gist or jsbin or something
+[09:31:47] <arschmitz> lisa_deluca: it tried to render your code sample
+[09:31:59] <lisa_deluca> arschmitz: ah, i see that
+[10:09:37] <lisa_deluca> arschmitz: looks like we can close this one: https://github.com/jquery/jquery-mobile/issues/6880
+[10:10:32] <arschmitz> lisa_deluca: lol not sure why they didnt close them selves it also does not tell us when someone updates only when they comment
+[10:10:51] <lisa_deluca> arschmitz: :)  That was a funny one to find
+[10:10:52] <jqmobilecommit> [13jquery-mobile] 15arschmitz closed issue #6880: Fixed: Ajax page navigation not working Android 4.3 (Chrome/WebView) 02http://git.io/lJxP0A
+[10:11:16] <arschmitz> lisa_deluca: i want to try to get under 300 before this weeks meeting
+[10:11:31] <arschmitz> we have not been under 300 since before 1.4 was released
+[10:11:31] <lisa_deluca> arschmitz: okay, I'll see what I can do on my end :)
+[10:11:46] <lisa_deluca> arschmitz: what's the typical queue like for you guys?  Is 300 normal?
+[10:11:59] <arschmitz> yeah its pretty normal 
+[10:12:10] <arschmitz> the lowest i have ever seen mobile is 240
+[10:12:21] <arschmitz> which was right before we released 1.4
+[10:13:54] <lisa_deluca> arschmitz: looks like this is a close: https://github.com/jquery/jquery-mobile/issues/6867
+[10:14:59] <lisa_deluca> arschmitz: is this a jquery contributor that opened this one?  https://github.com/jquery/jquery-mobile/issues/6761
+[10:15:32] <jqmobilecommit> [13jquery-mobile] 15arschmitz closed issue #6867: due to firefox cache panel cant be used using the back button 02http://git.io/ERyTkA
+[10:15:49] <arschmitz> lisa_deluca: no they are not a contributor i have no idea who they are. 
+[10:16:04] <lisa_deluca> arschmitz: okay, let me respond then
+[10:16:38] <arschmitz> lisa_deluca: i already closed it
+[10:16:39] <jqmobilecommit> [13jquery-mobile] 15arschmitz closed issue #6761: Slider extreme lag on Android Tablet- Galaxy Tablet 10 Jelly Bean 4.2.2 - jQuery UI Touch Punch marry jQuery ?? 02http://git.io/OjoHkg
+[10:39:22] <travis-ci> jquery/jquery-mobile#2156 (1.4-stable - 7b97a67 : Gabriel Schulhof): The build passed.
+[10:39:22] <travis-ci> Change view : https://github.com/jquery/jquery-mobile/compare/198e5d244335...7b97a67a0d7b
+[10:39:22] <travis-ci> Build details : http://travis-ci.org/jquery/jquery-mobile/builds/39152232
+[11:32:24] <arschmitz> lisa_deluca: looks like John Resig has a cordova request :) https://twitter.com/jeresig/status/526773618374877184
+[11:38:41] <lisa_deluca> arschmitz: :)
+[15:29:01] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof 04force-pushed 067739-external-panel-rendering from 140ccfbff to 14dfa3ed4: 02http://git.io/UWaZYw
+[15:29:01] <jqmobilecommit> 13jquery-mobile/067739-external-panel-rendering 14dfa3ed4 15Gabriel Schulhof: Helpers: resetActivePageHeight() ignores fixed toolbars...
+[15:31:22] <gabriel_schulhof> arschmitz: Ping!
+[15:32:17] <arschmitz> gabriel_schulhof: hi
+[15:35:04] <gabriel_schulhof> arschmitz: Hey! Should I grab https://github.com/jquery/jquery-mobile/pull/7774/, make the code style changes and land it?
+[15:35:43] <arschmitz> lets give him some more time
+[15:35:46] <gabriel_schulhof> OK.
+[15:35:53] <arschmitz> till like wed morning
+[15:36:09] <gabriel_schulhof> arschmitz: Gotcha.
+[15:36:55] <gabriel_schulhof> arschmitz: I made those changes to resetActivePageHeight() ... I'm also working on a unit test for it. It's quite involved, because you have to generate a whole page with toolbars and all that, but it's mockable. ... and the funny thing is, we've had zeeeeero testing for it so far.
+[15:37:20] <arschmitz> gabriel_schulhof: yeah
+[15:37:36] <gabriel_schulhof> ... and now with all the skip-this-but-don't-skip-that, I figured I should make sure the code runs correctly under various scenarios.
+[15:37:45] <arschmitz> yeah
+[15:39:16] <gabriel_schulhof> arschmitz: I haven't pushed the unit test yet, because I'm not sure I can do it in time for 1.4.5. I'll leave you to make the call based on the code in the PR as to whether fixing https://github.com/jquery/jquery-mobile/issues/7739 is worth foregoing the tests for 1.4.5.
+[15:39:39] <arschmitz> ok ill try and take a look later
+[15:39:50] <gabriel_schulhof> ... in case I can't finish the test by, say, oh, I dunno, Wednesday morning (your time).
+[15:39:58] <arschmitz> yeah
+[15:40:09] <gabriel_schulhof> arschmitz: I guess if I have even a single scenario tested, that's one more scenario than we have tested so far.
+[15:40:20] <arschmitz> its funny i dont think we will have many bug fixes in 1.5 at all 
+[15:40:41] <gabriel_schulhof> Well, I remember at least a couple that we bumped up to 1.5.0.
+[15:41:08] <gabriel_schulhof> For example, there's that panel bug where it's supposed to honour default-prevented on one of the events (swipe, I think), but doesn't.
+[15:41:20] <gabriel_schulhof> For some reason we decided the fix for that to go into 1.5.0, and not 1.4.x.
+[15:41:49] <arschmitz> gabriel_schulhof: yeah there will be some but not as many as previous releases
+[15:41:57] <arschmitz> because we have done so many in 1.4
+[15:42:09] <gabriel_schulhof> https://github.com/jquery/jquery-mobile/pull/6947
+[15:42:14] <arschmitz> and 1.5 will be so soon
+[15:42:23] <gabriel_schulhof> Fixes https://github.com/jquery/jquery-mobile/issues/6925, which the OP closed :)
+[15:42:35] <gabriel_schulhof> I gave him a workaround, so he closed the issue O_o
+[15:43:01] <arschmitz> gabriel_schulhof: you can re open it
+[15:43:02] <gabriel_schulhof> Or rather, he used the code from the PR, it sounds like.
+[15:43:12] <gabriel_schulhof> Of course! It's just weird ... :)
+[15:43:31] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof reopened issue #6925: Panel: Automatically hide with a mouse gesture on it. 02http://git.io/6nTo-g
+[15:43:31] <arschmitz> gabriel_schulhof: also im changing how backcompat works for whole lib so have fun updating all your prs :-)
+[15:44:05] <gabriel_schulhof> arschmitz: You mean for classes?
+[15:44:13] <arschmitz> adding a flag $.mobileBackcompat which will wrap all backcompat 
+[15:44:35] <arschmitz> and if you set it to false it will disable all bckcompat code
+[15:45:16] <gabriel_schulhof> That's certainly a good thing. In fact, I can see entire AMD modules wrapped in it.
+[15:45:19] <arschmitz> gabriel_schulhof: ui has done this since 1.8
+[15:45:41] <gabriel_schulhof> That's an excellent way to test your stuff when you migrate.
+[15:45:52] <gabriel_schulhof> I made use of such a flag in GTK+ as well.
+[15:48:00] <gabriel_schulhof> Anyhoo ... I think I'm'na call it a day. Have fun!
+[18:03:54] <jquicommit> [13jquery-ui] 15arschmitz 04force-pushed 06button from 1438e6032 to 14dc6ed3f: 02http://git.io/6ZNqvg
+[18:03:54] <jquicommit> 13jquery-ui/06button 14eedb458 15David Petersen: Tooltip: use the _classes method....
+[18:03:54] <jquicommit> 13jquery-ui/06button 148a85c39 15David Petersen: Selectmenu: use the _classes method....
+[18:03:54] <jquicommit> 13jquery-ui/06button 1452d26e4 15Gabriel Schulhof: Widget: Process "classes" option during _setOption()
+[19:09:33] <jquicommit> [13jquery-ui] 15arschmitz pushed 1 new commit to 06button: 02http://git.io/8ubLpA
+[19:09:33] <jquicommit> 13jquery-ui/06button 1493ed8ae 15Alexander Schmitz: Checkboxradio: fixup

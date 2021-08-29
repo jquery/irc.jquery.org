@@ -1,0 +1,106 @@
+[08:28:35] <toddmparker_> morning all
+[08:29:13] <toddmparker_> good that docs info was added - thanks mauriceG and _|Nix|_
+[08:29:39] <toddmparker_> _|Nix|_: if you disable the history listening via option, that would nix the back button behavior too
+[08:29:43] <toddmparker_> be more modal then
+[08:29:50] <_|Nix|_> toddmparker_: That's true.
+[08:30:47] <_|Nix|_> toddmparker_: That was actually the suggestion in one of the issue this has fixed.
+[08:30:57] <toddmparker_> thanks for landing that
+[08:31:18] <toddmparker_> we can mention that in the docs - how to combine both of these features to make these modal
+[08:31:19] <_|Nix|_> toddmparker_: ... and we ended up arriving at the disable-history option independently, because of the WP7 bugginess.
+[08:31:21] <toddmparker_> maybe even do a demo
+[08:31:38] <toddmparker_> right, it was a workaround for a bug, but we turned it into a feature :)
+[08:31:45] <toddmparker_> lemon > lemonaide
+[08:32:03] <_|Nix|_> toddmparker_: I commented on https://github.com/jquery/jquery-mobile/issues/5130 ...
+[08:32:17] <_|Nix|_> toddmparker_: (focus restriction)
+[08:32:26] <_|Nix|_> toddmparker_: It's pretty complicated, actually.
+[08:32:38] <toddmparker_> yeah
+[08:32:52] <toddmparker_> be good to coordinate with the UI guys on this
+[08:33:00] <toddmparker_> as you suggested
+[08:33:28] <toddmparker_> jzaefferer and scott_gonzalez would be good people to chat with on this utility
+[08:33:37] <_|Nix|_> toddmparker_: ... and I've been reading in the W3C docs that the focusin/focusout events are actually supposed to have a member that tells us where the focus is going/coming from, so theoretically we should be able to implement focus restriction without hooking into keydown.
+[08:34:39] <_|Nix|_> toddmparker_: Before I do that, I'd like to study the focusin/focusout implementations a bit more, and check how they're different from the spec.
+[08:35:12] <_|Nix|_> toddmparker_: http://www.w3.org/TR/DOM-Level-3-Events/#event-type-focusIn
+[08:35:24] <toddmparker_> mat: +1
+[08:35:34] <toddmparker_> oops, wrong window :)
+[08:35:34] <_|Nix|_> toddmparker_: ... and companion focusout ...
+[08:35:47] <toddmparker_> _|Nix|_: sounds like a good idea
+[08:35:58] <_|Nix|_> toddmparker_: Assuming it's implemented anywhere ...
+[08:36:05] <toddmparker_> in general, i always like the idea of making small utils we can re-use
+[08:36:24] <toddmparker_> a walled focus doodad
+[08:36:41] <_|Nix|_> toddmparker_: I'm thinking $.fn.restrictFocus() ...
+[08:37:13] <_|Nix|_> toddmparker_: More specifically, $.fn.restrictFocus( true/false )
+[08:37:53] <scott_gonzalez> toddmparker_, _|Nix|_: I commented on that issue.
+[08:38:05] <toddmparker_> should it be a selector of where to keep focus within?
+[08:38:13] <toddmparker_> pop-foo
+[08:38:20] <toddmparker_> thanks scott_gonzalez!
+[08:38:57] <toddmparker_> yeah, that's why I wanted you opinion on this, I know how hard this is to do
+[08:39:07] <_|Nix|_> scott_gonzalez: So, I take it the theoretical FocusEvent.relatedTarget that's specced for the focusin and focusout events is of no use, eh?
+[08:39:13] <toddmparker_> esp. on mobile where tab index and such aren't always respected
+[08:39:56] <toddmparker_> that supported?
+[08:40:31] <scott_gonzalez> _|Nix|_: I haven't actually researched that. Would be good to look into.
+[08:41:33] <_|Nix|_> scott_gonzalez: I can do that. I'd love to find a solution that relies exclusively on focus events.
+[08:41:59] <scott_gonzalez> The first place I'd look is IE7 :-P
+[08:42:12] <scott_gonzalez> Well, probably second.
+[08:42:20] <scott_gonzalez> I'd start in Chrome and see if it works.
+[08:42:37] <_|Nix|_> scott_gonzalez: My initial result is not promising. I dumped a focusout event to the console, and the originalEvent member is blank. No trace of any "relatedTarget" ...
+[08:42:46] <_|Nix|_> scott_gonzalez: I did the above in Chrome.
+[08:44:16] <scott_gonzalez> Yeah, I just tested focusin and got nothing.
+[08:44:22] <scott_gonzalez> http://jsbin.com/otowuy/1/edit
+[08:44:33] <toddmparker_> hrm
+[08:46:42] <toddmparker_> could we just inject an element at the end of the popup/dialog that pops focus back to the top when it gets focused?
+[08:47:42] <scott_gonzalez> toddmparker_: Nope. That excludes the possibility of dynamic content.
+[08:47:53] <toddmparker_> true
+[08:48:15] <scott_gonzalez> Dynamic content is a perf killer too.
+[08:48:39] <scott_gonzalez> Because right now for UI dialogs we're querying for all tabbable elements on every tab.
+[08:48:49] <toddmparker_> eesh
+[08:48:54] <scott_gonzalez> And :tabbable is fairly expensive.
+[08:48:56] <toddmparker_> can see how that gets heavy
+[08:51:24] <toddmparker_> scott jehl was just explaining a barebones approach we did in our book
+[08:51:24] <toddmparker_> bind a focusout event to the dialog itself, and if the target is the last focusable item in the dialog, set focus to the dialog itself and return true (which should move the next focus to the first focusable element in the dialog)
+[08:51:31] <toddmparker_> You could bind to the document and throw focus back to the dialog any time it lands outside it
+[08:51:34] <_|Nix|_> That's why a focus-only solution would be preferable. I guess we need to ask ourselves how many browsers have implemented DOM Level 3 events *shrug*
+[08:52:14] <_|Nix|_> toddmparker_: That latter approach is bad, because it can result in page jumps.
+[08:52:14] <toddmparker_> at least focus is well supported
+[08:52:44] <toddmparker_> right, because you let the focus hop out, then push it back
+[08:52:51] <_|Nix|_> Yep.
+[08:53:14] <_|Nix|_> toddmparker_: The former approach doesn't sound too bad.
+[08:56:57] <toddmparker_> _|Nix|_: do you remember if we return focus to the popup once you close it?
+[08:57:17] <toddmparker_> i know we did, wasn't sure if it felt odd to scroll you back up
+[09:00:46] <toddmparker_> _|Nix|_: all good stuff to look at as refinements
+[09:01:08] <toddmparker_> maybe we can just do prototyping to get a sense of what feels right and works
+[09:30:00] <_|Nix|_> toddmparker_: We don't return focus to the button that opens the popup when we return from the popup. However, the page will scroll back to where the popup was opened from, because it's a different history entry.
+[09:31:57] <toddmparker_> I see. I think we'd want to return focus too
+[09:32:44] <_|Nix|_> toddmparker_: I think we had that at some point ... I'll check where and why we removed it.
+[09:34:27] <toddmparker_> yeah, be good to revisit that
+[09:35:39] <_|Nix|_> toddmparker_: I suppose I can add it back to handleLink and see what happens. It's kinda hard to find, especially since I can't remember whether we've ever had that or not.
+[09:37:30] <_|Nix|_> Wait ... we had that before the refactor.
+[09:37:36] <_|Nix|_> I just noticed.
+[09:38:00] <_|Nix|_> It used to be that the popup manager would emit "done", and then the link that launched the popup would regain the focus.
+[09:39:10] <_|Nix|_> Yeah, so we lost that functionality ...
+[09:42:26] <_|Nix|_> toddmparker_: ... although this may be gone so as to avoid the stale highlights in WP7 ...
+[09:44:22] <_|Nix|_> I'll fire up the WP7 phone and see if it's causing that.
+[09:45:02] <toddmparker_> ok, thanks
+[09:50:23] <_|Nix|_> toddmparker_: Yeah, it's because of WP7 ... that POS doesn't remove the active button class when we tell it.
+[09:50:45] <toddmparker_> riiight
+[09:51:01] <toddmparker_> now that we have internals to deal with WP7, we could target this away from them
+[09:51:15] <_|Nix|_> What does that mean?
+[09:51:30] <_|Nix|_> "internals"? "target away"?
+[09:53:23] <toddmparker_> we have a way now in popup to detect WP7 to kick them out of the history stuff, right?
+[09:53:41] <toddmparker_> we could use that same detect to also exclude them from the re-focus
+[09:53:56] <toddmparker_> if we add re-focus back in
+[09:55:36] <_|Nix|_> Yeah ... we're gonna have a pile of if ( !$.mobile.browser.ie ) { ... }
+[09:56:19] <arschmitz> Sorry to jump in but couldent you do something like this http://jsfiddle.net/arschmitz/7XzBJ/16/ when you open a popup (but with ui-popup-active instead of #wrapper) and then remove it when you close the pop up it seems to work in everything iv tried with no scroll jump
+[10:00:59] <toddmparker_> arschmitz: that does seem like a simple approach
+[10:01:41] <toddmparker_> _|Nix|_: we should tweak that to be something more generic anyway
+[10:01:49] <_|Nix|_> The problem is we'd need $( document ).on( 'focus', '*', function() {
+[10:01:53] <_|Nix|_> });
+[10:01:55] <toddmparker_> we may have other browsers that can't handle history or re-focus
+[10:02:26] <toddmparker_> i'd imagine that might be slow on a larger page
+[10:02:33] <_|Nix|_> No doubt.
+[10:02:44] <arschmitz> yeah i wasent sure if there might be a better selector that was the problem i had thought of with it
+[10:04:57] <arschmitz> to make it better then using * though couldent you just list all the normal focusable selectors?
+[10:05:11] <arschmitz> input,select,textarea, etc...
+[10:05:39] <toddmparker_> yeah, but can't be bind events to pretty much anything
+[11:14:58] <_|Nix|_> OK, so FF12 doesn't even support events "focusin" and "focusout" ... that pretty much rules out doing the focus restriction The Right Way™ ...
+[11:16:22] <_|Nix|_> OK, so FF12 might be old. WP7 supports focusin and focusout.
+[11:16:32] <_|Nix|_> So does Chrome.

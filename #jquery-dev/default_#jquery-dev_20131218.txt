@@ -1,0 +1,176 @@
+[06:11:02] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 06master: 02http://git.io/nJSjcg
+[06:11:02] <jqcommit> 13jquery/06master 14fd0bce0 15Michał Gołębiowski: Ajax: don’t test jQuery.ajax() on beforeunload in Chrome 31...
+[06:11:38] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 061.x-master: 02http://git.io/zyRFIw
+[06:11:38] <jqcommit> 13jquery/061.x-master 14c536e7e 15Michał Gołębiowski: Ajax: don’t test jQuery.ajax() on beforeunload in Chrome 31...
+[06:16:57] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 06master: 02http://git.io/AR2_Og
+[06:16:57] <jqcommit> 13jquery/06master 142d73150 15Michał Gołębiowski: Build: Use absolute paths in .gitignore and .npmignore....
+[06:17:47] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 061.x-master: 02http://git.io/OismQA
+[06:17:47] <jqcommit> 13jquery/061.x-master 1415d245f 15Michał Gołębiowski: Build: Use absolute paths in .gitignore and .npmignore....
+[06:24:55] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 06master: 02http://git.io/9skEkw
+[06:24:55] <jqcommit> 13jquery/06master 147deee6a 15Michał Gołębiowski: Build: Upgrade to grunt-contrib-jshint 0.7.1 and squash subtasks...
+[06:25:55] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 061.x-master: 02http://git.io/dZWupg
+[06:25:55] <jqcommit> 13jquery/061.x-master 14c4e8808 15Michał Gołębiowski: Build: Upgrade to grunt-contrib-jshint 0.7.1 and squash subtasks...
+[06:26:40] <doesallmagic2> Project jQuery Core build #1025: STILL FAILING in 15 min: http://jenkins.jquery.com/job/jQuery%20Core/1025/
+[06:26:40] <doesallmagic2> m.goleb: Ajax: don’t test jQuery.ajax() on beforeunload in Chrome 31
+[06:33:46] <m_gol> we're failing only in the effects module: http://swarm.jquery.org/job/2151
+[06:33:54] <m_gol> that's where Sinon is used
+[06:34:07] <m_gol> we have to either fix it asap or revert the Sinon patch
+[06:34:31] <DaveMethvin> m_gol strange that it doesn't happen repeatably
+[06:35:22] <DaveMethvin> or can you repro locally?
+[06:35:27] <DaveMethvin> this run went fine http://swarm.jquery.org/job/2066
+[06:37:53] <m_gol> yeah, works fine for me locally :/
+[06:37:56] <m_gol> like, always
+[06:38:32] <m_gol> there are two issues here: one Chrome failure (separate to investigate) and others that pass everything but just don't finish
+[06:38:53] <m_gol> I guess I wouldn't be able to reproduce it locally as it runs and finishes
+[06:38:58] <m_gol> and you can see that on the module output
+[06:39:04] <m_gol> in swarm
+[06:39:11] <DaveMethvin> it must be some interaction with the injected code
+[06:39:22] <m_gol> yep
+[06:39:43] <m_gol> race conditions with injected code are my favorites :D
+[06:39:45] <DaveMethvin> so fun to debug
+[06:40:00] <DaveMethvin> lemme look at what's injected
+[06:40:33] <DaveMethvin> https://github.com/jquery/testswarm/blob/master/js/inject.js
+[06:40:38] <DaveMethvin> hmm, does use setTimeout
+[06:41:40] <DaveMethvin> just wondering whether we're confusing this code with a fake setTimeout
+[06:41:56] <m_gol> is there any way to inspect this code during running?
+[06:42:04] <m_gol> we could dump setTimeout and see if it's real
+[06:42:07] <m_gol> that could be the cause
+[06:42:25] <doesallmagic2> Project jQuery Core build #1026: STILL FAILING in 15 min: http://jenkins.jquery.com/job/jQuery%20Core/1026/
+[06:42:26] <doesallmagic2> * m.goleb: Build: Use absolute paths in .gitignore and .npmignore.
+[06:42:26] <doesallmagic2> * m.goleb: Build: Upgrade to grunt-contrib-jshint 0.7.1 and squash subtasks
+[06:42:30] <m_gol> maybe we could cache real setTimeout before injectin Sinon stuff and use it if available in the injected code
+[06:42:52] <DaveMethvin> we can join the swarm with our own box and debug it that way
+[06:43:06] <m_gol> this time it failed because of this Chrome issue ;)
+[06:43:28] <m_gol> only Chrome 31, 30 never fails on that
+[06:43:28] <DaveMethvin> i've only done that once, about two years ago so i'd need to put out a Krinkle|detached-shaped signal light
+[06:43:34] <m_gol> such a happy release
+[06:43:38] <m_gol> :)
+[06:44:22] <DaveMethvin> it does seem like this would break things
+[06:44:46] <DaveMethvin> window.TestSwarm.heartbeat uses setTimeout and would fire during the module's tests
+[06:45:07] <m_gol> yeah, that explains a lot
+[06:45:21] <m_gol> as for that other effects Chrome bug... can't reproduce it on localhost either :/
+[06:45:23] <DaveMethvin> using a test setup/teardown would fix it except for tests where we use start/stop
+[06:45:46] <DaveMethvin> in other words, really wouldn't fix it ;)
+[06:45:50] <m_gol> I wish we had Chrome 32 there to test as well
+[06:45:51] <m_gol> ;)
+[06:46:06] <DaveMethvin> it would be nice if browserstack had chrome canary
+[06:46:14] <m_gol> it has Chrome beta
+[06:46:17] <m_gol> good enough for us
+[06:46:27] <m_gol> but since currently it's so not easy to add new browsers...
+[06:46:49] <m_gol> I wish Krinkle was not the only one able to do it ;)
+[06:50:58] <jqcommit> [13jquery] 15djgilcrease opened pull request #1462: Make jQuery.Defered / promise closer to conforming to the specification ... (06master...06issue-14510) 02http://git.io/TlPWxA
+[06:54:40] <DaveMethvin> m_gol let's see if we can get Krinkle|detached to weigh in on this ... it's probably an easy fix so I'd prefer not to back out the Sinon stuff, especially if we should be fixing Testswarm to work with Sinon in general
+[06:54:53] <m_gol> yeah, true
+[06:55:19] <m_gol> DaveMethvin: any idea what that Chrome effects failure might be caused by?
+[06:55:25] <m_gol> can you reproduce it on your machine?
+[06:55:29] <DaveMethvin> nope
+[06:55:43] <DaveMethvin> all works fine for me
+[06:56:35] <m_gol> hmm, and we have some data failures in IE6-7 http://swarm.jquery.org/job/2153
+[06:57:16] <DaveMethvin> has anything been messed with there for a while? I didn't think so
+[06:58:10] <doesallmagic2> Project jQuery Core 1.x build #322: STILL FAILING in 15 min: http://jenkins.jquery.com/job/jQuery%20Core%201.x/322/
+[06:58:10] <doesallmagic2> * m.goleb: Ajax: don’t test jQuery.ajax() on beforeunload in Chrome 31
+[06:58:11] <doesallmagic2> * m.goleb: Build: Use absolute paths in .gitignore and .npmignore.
+[06:58:11] <doesallmagic2> * m.goleb: Build: Upgrade to grunt-contrib-jshint 0.7.1 and squash subtasks
+[06:58:44] <m_gol> worked fine a few commits ago
+[06:58:53] <m_gol> unless this is non-deterministic as well
+[07:00:00] <m_gol> Chrome 31 is definitely not my favorite version...
+[07:00:05] <DaveMethvin> let's get the fake timers fixed first and see if any of this goes away
+[07:00:13] <m_gol> ok
+[07:00:20] <DaveMethvin> definitely some random failures the past few weeks
+[07:00:44] <m_gol> I won't have enough time during holidays, unfortunately, but I'd like to try to make iOS7 pass in January
+[07:01:04] <m_gol> we could then subsequently handle iOS6.1 & 5.1
+[07:01:22] <m_gol> Android will be next, we'll see ;)
+[07:01:44] <DaveMethvin> usually i have more time over the holidays so i am hoping to get a bunch of stuff cleaned up
+[07:04:06] <scott_gonzalez> I inlined the CLA and added basic validation. Hopefully that'll help keep the submissions clean.
+[07:04:22] <DaveMethvin> yay!
+[07:05:03] <scott_gonzalez> The page looks a lot better without the iframe.
+[07:08:47] <jqcommit> [13jquery] 15dmethvin closed pull request #1462: Make jQuery.Defered / promise closer to conforming to the specification ... (06master...06issue-14510) 02http://git.io/TlPWxA
+[08:32:20] <JamesMGreene> jzaefferer Krinkle|detached: QUnit mtg
+[09:08:54] <miketaylr> DaveMethvin: imma try to collect all the firefox focus/blur bugs i can in bugzilla and trac
+[09:09:00] <miketaylr> something is obviously messed up
+[09:09:36] <DaveMethvin> miketaylr thanks, focus/blur in general is a mess in all browsers because it's such a messy concept
+[09:09:47] <DaveMethvin> but these do appear to be firefox specific
+[09:10:27] <DaveMethvin> i think it's because of that problem i mentioned where firefox won't focus the element unless the browser/page/window/something-nearby has focus
+[09:10:46] <miketaylr> hmm, ok
+[09:10:47] <miketaylr> noted
+[09:12:47] <miketaylr> also a good distraction becuase i should be writing, but writing is the worst
+[09:13:34] <DaveMethvin> yeah i know the feeling, do anything but what you started out to do!
+[09:14:40] <scott_gonzalez> miketaylr: Is it the worst because it's so hard to focus?
+[09:14:52] <miketaylr> ?boom
+[09:14:52] <b-ot> miketaylr: "Did you are unimpressed? and now?"
+[09:16:26] <DaveMethvin> the whole day went by, it was just a blur
+[09:18:00] <scott_gonzalez> Maybe you can write a BLURb for miketaylr.
+[09:18:10] <miketaylr> oh man
+[09:18:16] <miketaylr> terrible
+[09:18:21] <m_gol> I love you
+[09:20:53] <DaveMethvin> i think scott_gonzalez is trying too hard https://www.youtube.com/watch?v=Ts1-3JqrG4A#t=1m10s
+[10:13:52] <Krinkle> DaveMethvin: m_gol: Hi
+[10:14:05] <DaveMethvin> hey Krinkle
+[10:15:12] <Krinkle> I didn't quite get the context from the buffer, but there's something with testswarm joining I hear?
+[10:15:45] <DaveMethvin> we're now using Sinon fake timers in part of our unit tests
+[10:15:56] <jqcommit> [13jquery] 15AurelioDeRosa opened pull request #1463: Update offset.js (06master...06patch-1) 02http://git.io/Vjvz6g
+[10:15:57] <DaveMethvin> and suspect it's breaking the swarm injected code
+[10:16:04] <DaveMethvin> which uses setTimeout
+[10:16:46] <DaveMethvin> so we were trying to figure out the best way to deal with that
+[10:16:57] <Krinkle> DaveMethvin: Since when rougly? in jquery/jquery master? last few days?
+[10:17:29] <Krinkle> Swarm doesn't show any regression, other than failure in Chrome 31, which happened as soon as it first ran in Chrome 31, so wasn't immediately obvious that it was cuased by a jquery code change.
+[10:17:37] <DaveMethvin> https://github.com/jquery/jquery/commit/b407bddea2ae65200df0802bef7cf06c16b5e524
+[10:17:54] <Krinkle> thx
+[10:18:13] <DaveMethvin> e.g http://swarm.jquery.org/job/2065
+[10:18:28] <Krinkle> http://swarm.jquery.org/project/jquery?offset=2005
+[10:18:33] <Krinkle> starting at b407bddea2 
+[10:18:35] <DaveMethvin> seems flakey, but i would be flakey too if setTimeout was changed from underneath me
+[10:19:29] <DaveMethvin> ignore the ajax stuff, it's unrelated
+[10:19:50] <Krinkle> OK
+[10:20:39] <DaveMethvin> so i think we may be giving testswarm a heart attack, literally https://github.com/jquery/testswarm/blob/master/js/inject.js#L209
+[10:23:53] <Krinkle> Right
+[10:24:19] <Krinkle> So the main thing (which I think is in our favour right now, looking at that commit) is that sinon should only be active between setup and teardown, not globally outside the test suite
+[10:24:40] <Krinkle> If that's the case, I should be able to add a local var setTimeout = window.setTimeout and have it be safe
+[10:24:50] <Krinkle> similar to what we do with var Date in QUnit already, for similar reasons.
+[10:25:02] <DaveMethvin> yeah that's what I was thinking as well
+[10:25:47] <Krinkle> So the other thing I read in the buffer is joining the swarm for testing, can you elaborate on that?
+[10:26:01] <DaveMethvin> oh that was in case we had to debug
+[10:26:10] <DaveMethvin> but i think we've identifed the problem
+[10:26:15] <Krinkle> ok
+[10:27:38] <Krinkle> in any case, it's probably easiest to join by logging into browserstack and joining the swarm from there. Alternatively you can do the same from your local browser, but in that case make sure to keep the window focussed while running tests and close it before switching contexts.
+[10:27:59] <Krinkle> It might also be difficult to get a grip on it when joining for real because the tests come and go quite quickly.
+[10:28:08] <DaveMethvin> right, i just didn't recall the process for getting a token to join
+[10:28:14] <Krinkle> So I'm joining a local testswarm install now to debug it, and confirm the bug.
+[10:28:19] <DaveMethvin> ok thanks
+[10:29:24] <Krinkle> DaveMethvin: The token is stored on the jq03 server and only in encrypted form, to get it in plain text you'd have to run the 'invalidate token' util script, which will give it to you once, but will invalidate the current one (so only do that if you know how to update the browerstack deamon, too)
+[10:55:52] <Krinkle> Could someone add a http://api.qunitjs.com url to this repo's meta data? https://github.com/jquery/api.qunitjs.com
+[11:08:28] <scott_gonzalez> Krinkle: done
+[11:08:35] <scott_gonzalez> I'll go update the rest of the site repos too.
+[11:08:42] <Krinkle> Thx
+[12:53:51] <jqcommit> [13jquery] 15lazwah opened pull request #1464: 1.x master (06master...061.x-master) 02http://git.io/tY6byQ
+[12:55:18] <jqcommit> [13jquery] 15scottgonzalez closed pull request #1464: 1.x master (06master...061.x-master) 02http://git.io/tY6byQ
+[13:46:00] <JamesMGreene> Heeeey kborchers: did you see my reimbursement email?
+[13:46:24] <JamesMGreene> particularly w.r.e. making sure my address is up-to-date?
+[14:00:14] <kborchers> JamesMGreene: hmmm, i did not see that.
+[14:22:28] <Krinkle> JamesMGreene: DaveMethvin: jzaefferer: scott_gonzalez: https://github.com/jquery/testswarm/issues/205#issuecomment-30887060
+[14:22:48] <Krinkle> Via the < 1 year link from https://github.com/blog/1721-the-ghost-of-issues-past I discovered that issue, kind of evolved from a small reply to a blog post.
+[14:23:09] <Krinkle> Maybe worth spreading further in some further formatted fashion? Let me know if this sounds like blog material.
+[17:45:14] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/LQH9hw
+[17:45:14] <jqcommit> 13jquery/06master 148419010 15Dave Methvin: Readme: Fix typo, thanks @tcort
+[17:47:21] <jqcommit> [13jquery] 15dmethvin closed pull request #1455: README.md: fix typo. (06master...06spelling) 02http://git.io/foFzbA
+[17:52:33] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/vgh1Ow
+[17:52:33] <jqcommit> 13jquery/06master 14bb3fff9 15Dave Methvin: Offset: Fix comment typo, thanks @AurelioDeRosa
+[17:54:45] <jqcommit> 01[13jquery01] 15dmethvin pushed 2 new commits to 061.x-master: 02http://git.io/Vs7OiQ
+[17:54:45] <jqcommit> 13jquery/061.x-master 1404a652a 15Dave Methvin: Readme: Fix typo, thanks @tcort...
+[17:54:45] <jqcommit> 13jquery/061.x-master 14b876352 15Dave Methvin: Offset: Fix comment typo, thanks @AurelioDeRosa
+[17:55:30] <jqcommit> [13jquery] 15dmethvin closed pull request #1463: Update offset.js (06master...06patch-1) 02http://git.io/Vjvz6g
+[17:57:46] <doesallmagic2> Project jQuery Core build #1027: STILL FAILING in 12 min: http://jenkins.jquery.com/job/jQuery%20Core/1027/
+[17:57:47] <doesallmagic2> Dave Methvin: Readme: Fix typo, thanks @tcort
+[18:05:31] <doesallmagic2> Project jQuery Core build #1028: STILL FAILING in 7 min 43 sec: http://jenkins.jquery.com/job/jQuery%20Core/1028/
+[18:05:32] <doesallmagic2> Dave Methvin: Offset: Fix comment typo, thanks @AurelioDeRosa
+[18:17:01] <jqcommit> [13jquery] 15dmethvin closed pull request #1384: Keep copyright year up-to-date (06master...06copyright-year-up-to-date) 02http://git.io/aE6rvA
+[18:19:14] <doesallmagic2> Project jQuery Core 1.x build #323: STILL FAILING in 13 min: http://jenkins.jquery.com/job/jQuery%20Core%201.x/323/
+[18:19:14] <doesallmagic2> * Dave Methvin: Readme: Fix typo, thanks @tcort
+[18:19:15] <doesallmagic2> * Dave Methvin: Offset: Fix comment typo, thanks @AurelioDeRosa
+[20:55:42] <jqcommit> [13jquery] 15markelog closed pull request #1458: Use the exact versions dependencies (06master...06devDependencies) 02http://git.io/aMBfVQ
+[20:55:44] <doesallmagic2> Project jQuery Core build #1029: STILL FAILING in 15 sec: http://jenkins.jquery.com/job/jQuery%20Core/1029/
+[20:55:44] <doesallmagic2> markelog: Use the exact versions dependencies
+[20:56:16] <doesallmagic2> Project jQuery Core 1.x build #324: STILL FAILING in 5 sec: http://jenkins.jquery.com/job/jQuery%20Core%201.x/324/
+[20:56:16] <doesallmagic2> markelog: Use the exact versions dependencies
+[20:56:23] <jqcommit> 01[13jquery01] 15markelog pushed 1 new commit to 061.x-master: 02http://git.io/vJaiXw
+[20:56:23] <jqcommit> 13jquery/061.x-master 140e89df5 15Oleg: Use the exact versions dependencies...

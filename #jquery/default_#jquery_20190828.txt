@@ -1,0 +1,361 @@
+[02:41:19] <eoli3n> Hi
+[02:41:30] <eoli3n> i want to access to php vars in my jquery script
+[02:41:38] <Cork> you can't
+[02:41:45] <eoli3n> http://ix.io/1TFz
+[02:41:49] <Cork> php run server side, js runs in the browser
+[02:41:51] <eoli3n> https://stackoverflow.com/questions/10668311/use-a-php-variable-in-jquery
+[02:42:01] <Cork> you have to send the data to the browser if you want to have access to it
+[02:42:07] <eoli3n> hm
+[02:42:19] <Cork> so either set the data as an attribute on an element
+[02:42:29] <Cork> or send it as a response to an ajax request
+[02:42:50] <Cork> data-vname="data" is my recommendation
+[02:42:53] <eoli3n> which kind of attribue ?
+[02:42:58] <eoli3n> te
+[02:43:01] <Cork> any
+[02:43:08] <Cork> you will have to query it from js later
+[02:43:09] <eoli3n> i don't understand which one
+[02:43:42] <Cork> the only thing is it is better to prefix it with data-
+[02:43:50] <Cork> so it doesn't conflict with default attribute names
+[02:44:06] <Cork> (current and future)
+[02:44:40] <eoli3n> sorry but i don't get what is an "attribute" here
+[02:45:15] <Cork> https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes
+[02:45:26] <Cork> time to read up on the basics then
+[02:45:48] <eoli3n> thx
+[02:48:05] <eoli3n> maybe the ajax solution is better for me, because i need those vars to run some other ajax requests
+[02:48:26] <eoli3n> i need to get an userid, to test it with a webservice
+[02:51:11] <eoli3n> hmm
+[02:53:51] <eoli3n> your first solution is to embed <script>u = document.querySelector(#element); u.setAttribute("userid", "<?php echo $var; ?>"</script> in html ?
+[02:55:01] <eoli3n> <script>u = document.querySelector(#element); u.setAttribute("data-userid", "<?php echo $userid; ?>"</script>
+[02:57:17] <Cork> no
+[02:57:25] <Cork> that would store ""
+[02:57:31] <eoli3n> why that ?
+[02:57:37] <Cork> cause you set the value in js
+[02:57:40] <eoli3n> php will render the var before js to set the var
+[02:57:47] <Cork> you need to run php in the html as you render it
+[02:57:55] <Cork> and then fetch the stored value in js
+[02:58:08] <Cork> ya, but dynamic js is normally a bad idea
+[02:58:33] <Cork> it is better to just do <html userid="<?php echo $var; ?>"> for example
+[02:58:34] <eoli3n> i need to understand why its not working
+[02:58:45] <eoli3n> just a sec
+[02:58:51] <Cork> opps i meant data-userid=""
+[02:59:09] <Cork> then you can just do var userid = $('html').data('userid
+[02:59:13] <Cork> * then you can just do var userid = $('html').data('userid');
+[02:59:25] <Cork> when you need the value
+[02:59:49] <Cork> (if the userid exist when you render the original html page that is)
+[03:00:12] <Cork> if you get it later you will have to return it as json from the ajax call
+[03:01:13] <eoli3n> in my exemple : html is running, php render the file so js read <script>u = document.querySelector(#element); u.setAttribute("data-userid", "renderer_var_value"</script>
+[03:01:26] <Cork> uh "html is running"
+[03:01:34] <eoli3n> i don't know how to tell it
+[03:01:35] <Cork> that doesn't make any sense
+[03:01:37] <eoli3n> html is asked
+[03:01:45] <eoli3n> the file is opened
+[03:01:48] <Cork> the page is requested from the server
+[03:01:52] <eoli3n> yeah :)
+[03:01:55] <eoli3n> better
+[03:01:59] <eoli3n> so why its not working
+[03:02:25] <Cork> the flow is: 1. the page is requested by the browser, 2. the web server requests the file relative to the resource
+[03:02:40] <Cork> 3. the webserver sees that it is a php resource and executes php
+[03:02:59] <Cork> 4. php evaluates the file and replaces <?php ?> blocks with the result of the execution
+[03:03:14] <Cork> 5. the webserver responds with the generated response
+[03:03:34] <Cork> 6. the browser parses the response and looks for <script> blocks
+[03:03:52] <Cork> 7. the browser hands over the text content from the <script> block to the javascript parser
+[03:04:03] <Cork> 8. the javascript engine executes the javascript code
+[03:04:21] <eoli3n> thx, so i don't see why my exemple doesnt work
+[03:04:25] <eoli3n> it fits the flow
+[03:04:27] <Cork> after point 4 there are no trace of php what so ever
+[03:04:53] <eoli3n> point 1 -> <script>u = document.querySelector(#element); u.setAttribute("data-userid", "<?php echo $userid; ?>"</script>
+[03:05:11] <eoli3n> point 4 -> <script>u = document.querySelector(#element); u.setAttribute("data-userid", "renderer_value"</script>
+[03:05:20] <Cork> again, that will just dynamically generate a script block
+[03:05:29] <Cork> it is better to NOT have dynamic js
+[03:05:34] <eoli3n> ahhh ok
+[03:05:38] <eoli3n> but it should work yes ?
+[03:05:45] <eoli3n> i try, and the var is "undefined"
+[03:05:45] <Cork> leave the js static and preferably not inline
+[03:05:49] <eoli3n> ok ok
+[03:05:52] <Cork> and leave the data in the html
+[03:05:55] <eoli3n> just wanted to understand
+[03:05:59] <Cork> or as json responses
+[03:06:14] <Cork> if the script block isn't in a .php file it won't have the variables
+[03:06:35] <Cork> if the variable isn't set when the blocks is generated it won't have the value
+[03:06:35] <eoli3n> ok i think i get the problem
+[03:06:38] <Cork> and so on
+[03:07:00] <Cork> also document.querySelector(#element); is invalid js
+[03:12:28] <eoli3n> <div class="container" id="userid" data-userid="<?php echo $userid;?>">
+[03:12:31] <eoli3n> html
+[03:12:45] <eoli3n> jquery -> var user = $('#userid').data('data-userid')
+[03:12:48] <eoli3n> var is undefined...
+[03:13:35] <Cork> not data- in .data()
+[03:13:43] <Cork> .data only reads data- attributes
+[03:13:47] <eoli3n> ohhh ok
+[03:14:05] <eoli3n> still undefined
+[03:14:11] <eoli3n> var user = $('#userid').data('userid')
+[03:14:16] <Cork> look in the html what is in the element
+[03:14:37] <Cork> -element +tag
+[03:14:37] <eoli3n> its good
+[03:14:54] <Cork> then open a console and try the same code: $('#userid').data('userid')
+[03:16:21] <eoli3n> strange, its works in console
+[03:16:39] <eoli3n> oh i knoxw
+[03:17:01] <eoli3n> <script> which run jquery is before where i set the var in html ?
+[03:17:29] <eoli3n> where should jquery script call be on my html page ?
+[03:17:31] <eoli3n> bottom ?
+[03:17:41] <Cork> $(function() {})
+[03:17:46] <Cork> run the code inside that
+[03:17:56] <Cork> you should always do that
+[03:18:01] <eoli3n> why that ?
+[03:18:14] <Cork> https://learn.jquery.com/using-jquery-core/document-ready/
+[03:18:20] <eoli3n> thx
+[03:18:26] <Cork> (you most likely want to read much of the rest of that page too)
+[03:19:04] <eoli3n> that's what i does
+[03:19:15] <eoli3n> but i define my var outside of it, lets include in
+[03:19:55] <eoli3n> it works inside
+[03:20:04] <eoli3n> thx a lot Cork, you're a precious help
+[03:20:15] <Cork> yw
+[03:47:36] <eoli3n> if i do an ajax call to a php script in my jquery
+[03:48:07] <eoli3n> does php script access to vars and functions of initial php run ?
+[03:48:08] <Cork> you can't make an ajax call to a script, it needs to be to a url
+[03:48:35] <Cork> so the php response need to be a separate resource
+[03:48:37] <eoli3n> so it answer
+[03:48:49] <eoli3n> i need to pass every vars i need to php
+[03:49:01] <eoli3n> to url call i mean
+[03:49:13] <Cork> ya, normally if you have them when you render the page it is better to just set attributes with it
+[03:49:22] <Cork> you can render json and set it as one attribute
+[03:49:27] <eoli3n> i finished that part, i'm on the next thing
+[03:49:50] <Cork> well the answer is the same
+[03:49:59] <Cork> php is inaccessable directly from js
+[03:50:02] <eoli3n> now i'm creating php page, which will take as arguments php vars we passed to jquery
+[03:50:05] <Cork> you have to transfer the data from the server to js
+[03:50:10] <eoli3n> yep
+[03:50:26] <eoli3n> problem is now inverse
+[03:50:29] <eoli3n> pass js to php
+[03:50:35] <eoli3n> but i will add this to the query
+[03:50:36] <Cork> also if you plan to return json, don't forget the Content-Type header
+[03:50:48] <Cork> wait what?
+[03:50:49] <eoli3n> ?var1=value&var2=value2
+[03:50:53] <Cork> pass js to php??
+[03:51:01] <eoli3n> pass js vars to ajax call
+[03:51:11] <Cork> that isn't what you do
+[03:51:22] <eoli3n> you don't get the full flow i need :)
+[03:51:23] <Cork> you generate a request you don't pass anything
+[03:51:28] <eoli3n> yeah
+[03:51:33] <eoli3n> i do not have good terms
+[03:51:37] <eoli3n> words
+[03:51:46] <eoli3n> i will use get method
+[03:51:53] <Cork> pass a variable means you make a memory transfer in one way or another
+[03:52:11] <Cork> as there is a network inbetween and a trust barier
+[03:52:13] <eoli3n> yep, my bad
+[03:52:23] <Cork> you don't do that for webserver <=> front end
+[03:52:55] <Cork> never EVER trust data that comes from the browser/js/similar
+[03:53:07] <Cork> always ALWAYS treat it as if it is malissious
+[03:53:28] <Cork> you don't have any real control of what happens there, you can only provide defaults
+[03:53:57] <eoli3n> ok
+[04:22:32] <CorsairX> Evening all
+[04:22:42] <CorsairX> I'm working with an input that has an associated datalist
+[04:23:25] <CorsairX> I'm wondering if it is possible to, onblur (i.e. the user has hit tab) to get the first item that was being suggested at the time the user hit blur
+[04:23:56] <CorsairX> Could anyone steer me in the right direction? I've been digging through StackExchange and Jquery's own docs without much luck
+[04:25:48] <Cork> i don't remeber if you get focus event from datalist options
+[04:25:52] <Cork> if you don't then no
+[04:26:16] <Cork> opps i meant mousemove
+[04:26:31] <Cork> datalist in them self don't provide an autoselect feature
+[04:26:39] <CorsairX> Aye
+[04:26:40] <Cork> so you will have to find the highlighted element
+[04:26:49] <Cork> if you find that the rest is fairly easy
+[04:27:37] <CorsairX> What I'm trying to implement is a poor mans auto select; so there user can be entering text, hit tab, and I can then have the closest item selected without them having to actually select the text
+[04:27:58] <CorsairX> By selected, I mean replace the text in the input box
+[04:28:40] <Cork> well then you will have to loop over the option elements and check the text content
+[04:29:34] <CorsairX> I was afraid of that
+[04:29:36] <CorsairX> Ah well
+[04:30:08] <CorsairX> If I could get the list of items being suggested at the time the user hit tab, it'd trivial to just grab the first item
+[05:09:04] <eoli3n> I have a weird thing
+[05:09:11] <eoli3n> in a function i return true;
+[05:09:24] <eoli3n> i'm sure it returns true, no pb on that
+[05:09:53] <eoli3n> but http://ix.io/1TG1
+[05:10:06] <eoli3n> the second function is not triggered and here2 doesnt appears in the console
+[05:10:16] <eoli3n> i don't get what the problem is
+[05:13:17] <eoli3n> https://jsfiddle.net/La7cbev3/
+[05:13:19] <eoli3n> here it works
+[05:16:08] <eoli3n> https://jsfiddle.net/La7cbev3/1/ with jquery working
+[05:17:46] <eoli3n> there was missing ";" but still ...
+[05:17:55] <eoli3n> here the complete code : http://ix.io/1TG4
+[05:23:52] <eoli3n> var passchecker = syscheckpass(checkpassurl, user); console.log(passchecker)
+[05:23:56] <eoli3n> undefined
+[05:24:25] <eoli3n> but in my function : if i console.log("ok") just before return true; its prints ok
+[05:25:26] <eoli3n> here's the function-> http://ix.io/1TG9
+[06:02:43] <clover4> Hello
+[06:03:40] <clover4> Is there a more concise way to write this? $('#id').val($('#id').get(0).defaultValue);
+[06:05:06] <clover4> I thought I could write $('#id').val(this.defaultValue); but it doesn't work. I'm confused by "this" in jQuery sometimes. I just started using it about a week ago.
+[07:20:21] <Cork> clover4: i think $('#id').val(function() { return this.defaultValue; }); works
+[07:21:30] <Cork> clover4: your example doesn't work cause it uses this from the context where you run the command, not from .val
+[07:25:00] <Cork> eoli3n: wait, you have a syncronous url call?
+[07:25:23] <Cork> what does the syscheckpass function look like?
+[11:57:40] <DreamStiffler> hi guys im looking at https://api.jquery.com/jQuery.getJSON/ , my json is on another path which this sample is almost the same. My problem is that my json has var in it, I am not sure what to google to get a sample of it. If you look at this: https://stackoverflow.com/questions/12979335/creating-json-object-with-variables the jsonObject iis similar
+[11:57:41] <DreamStiffler>  with mine. Just that instead of all scripts in one file, i need to import my json.
+[11:59:03] <robertmaxrees> "my json has var in it" - can you show us what you mean?
+[12:00:39] <DreamStiffler> robertmaxrees : hi, if you see sample here : https://api.jquery.com/jQuery.getJSON/ the json is pretty straight forward. As most tutorial samples are. But instead of like that my json returns :
+[12:00:41] <DreamStiffler> var jsonObject =
+[12:00:46] <robertmaxrees> that's not JSON
+[12:00:55] <robertmaxrees> that's a javascript object, which is different/
+[12:01:07] <robertmaxrees> you need to remove the var jsonObject =
+[12:01:12] <DreamStiffler> ok but the path is /sample.json
+[12:01:12] <robertmaxrees> and just leave the object itself.
+[12:01:23] <robertmaxrees> ok?
+[12:01:32] <robertmaxrees> that doesn't change that your data is invalid.
+[12:01:38] <DreamStiffler> i cant, as im stuck with it
+[12:01:48] <robertmaxrees> then you can't use getJSON
+[12:01:59] <DreamStiffler> what would you suggest then
+[12:02:16] <robertmaxrees> you need to change the extension to .js and then import it like any other JS file.
+[12:02:47] <DreamStiffler> can i import .json as any other js file?
+[12:02:55] <robertmaxrees> again
+[12:02:56] <DreamStiffler> as i have no control over the json
+[12:02:59] <robertmaxrees> what you have right now is not JSON
+[12:03:01] <robertmaxrees> it's JS.
+[12:03:10] <DreamStiffler> import it and treat it as js
+[12:03:14] <DreamStiffler> is it possible?
+[12:03:21] <robertmaxrees> it IS js
+[12:03:26] <DreamStiffler> ok
+[12:03:29] <robertmaxrees> var foo = { means it's JS>
+[12:03:47] <DreamStiffler> ok but again i have no control over this
+[12:03:52] <robertmaxrees> why not?
+[12:03:53] <DreamStiffler> is there a work around
+[12:03:57] <robertmaxrees> what's outputting the file?
+[12:04:03] <DreamStiffler> not me
+[12:04:06] <robertmaxrees> who?
+[12:04:09] <DreamStiffler> im just grabbing the data
+[12:04:22] <robertmaxrees> is it made by a coworker?  a 3rd party api?  something else?
+[12:04:30] <DreamStiffler> 3rd party
+[12:04:35] <robertmaxrees> which one?
+[12:05:08] <DreamStiffler> what you mean which one? 3rd party that i dont know of
+[12:05:12] <robertmaxrees> huh?
+[12:05:34] <robertmaxrees> you need to read the docs of whatever is supplying that data.
+[12:05:38] <robertmaxrees> because right now it's invalid.
+[12:05:51] <DreamStiffler> ok
+[12:05:57] <DreamStiffler> thanks maxrees
+[12:06:03] <robertmaxrees> it's not JSON.  so either a: you misunderstood their docs, or b: there's something else fishy going on.
+[12:06:38] <DreamStiffler> its in the wee hours of the morning here and i guess im ***t
+[12:07:05] <robertmaxrees> also: asking the same question in multiple channels at the same time is kind of a no-no :)
+[12:07:19] <DreamStiffler> oh
+[12:08:54] <DreamStiffler> i figured i get ideas from both channels
+[12:09:00] <DreamStiffler> point of views
+[12:09:04] <DreamStiffler> kinds of thing
+[12:09:08] <robertmaxrees> that's really counterproductive.
+[12:09:11] <DreamStiffler> beggars cant be choosy kind of thing
+[12:09:16] <robertmaxrees> erm
+[12:09:40] <robertmaxrees> it usually devoles into you playing telephone between the two channels and confusing all of us.
+[12:09:47] <robertmaxrees> keep it in one channel or the other :)
+[12:34:55] <DreamStiffler> robertmaxrees i guess ill have to get the third party to fix, thanks man
+[12:35:03] <robertmaxrees> who's the third party?
+[12:35:12] <robertmaxrees> i have a feeling there might be a misunderstanding here
+[12:42:45] <DreamStiffler> robertmaxrees : a friend of a friend, what do you mean u mean misunderstanding? He should've either sent me a correct json format or a js file, right?
+[12:44:00] <DreamStiffler> if its a js i should just import it on my html and run the rest of my script right?
+[12:45:02] <DreamStiffler> did you read my reply robertmaxrees or do i need to resend?
+[12:45:06] <robertmaxrees> DreamStiffler super confused - did they just send you a file?
+[12:45:16] <DreamStiffler> they sent me a link
+[12:45:26] <robertmaxrees> and they expect you to just call that URL?
+[12:45:35] <DreamStiffler> yes
+[12:45:41] <robertmaxrees> then yeah, they need to fix it.
+[12:45:50] <DreamStiffler> intra link , like /xxx/abc.json
+[12:45:58] <robertmaxrees> huh?
+[12:46:11] <DreamStiffler> fix it as in rename it to js or make a proper .json syntax right
+[12:46:17] <robertmaxrees> make it json.
+[12:46:23] <robertmaxrees> don't rename it.
+[12:46:30] <robertmaxrees> that's a gross hack.  make it valid JSON.
+[12:46:40] <robertmaxrees> with double-quoted strings and property names and all that.
+[12:46:47] <DreamStiffler> got it
+[12:47:44] <DreamStiffler> ok another question not directly related, but related. If i could just receive it in js, like as per what they gave me (instead of .json use .js) , why the need of json ?
+[12:48:00] <robertmaxrees> becuase that'll declare a global var.
+[12:48:04] <robertmaxrees> and global vars are bad.
+[12:48:10] <DreamStiffler> thats it?
+[12:48:23] <robertmaxrees> lmao
+[12:48:38] <robertmaxrees> global vars are something you shoudl always avoid.
+[12:48:43] <robertmaxrees> *should
+[12:48:47] <DreamStiffler> why so?
+[12:49:01] <robertmaxrees> they're a great way to introduce really hard to track down bugs.
+[12:49:42] <DreamStiffler> so whats a good way to pass variables between functions
+[12:49:49] <robertmaxrees> you... pass the data.
+[12:49:55] <robertmaxrees> foo(theData)
+[12:55:35] <rocketmagnet> hi everyone, when i load jQuery with an external script in my header the jQuery object is not available in the other .js files i include in my header - how can i overcome this issue ??
+[12:58:07] <robertmaxrees> rocketmagnet are you including jquery before or after your other scripts?
+[12:59:47] <rocketmagnet> before
+[12:59:55] <robertmaxrees> getting a 404 for the script?
+[13:00:13] <robertmaxrees> is noCOnflict getting run at some point?
+[13:00:18] <robertmaxrees> are you loading it more than once?
+[13:05:06] <robertmaxrees> rocketmagnet ^
+[13:43:13] <rocketmagnet> robertmaxrees: no
+[13:44:29] <robertmaxrees> lol
+[13:44:37] <robertmaxrees> there were three question - that a "no" to all three rocketmagnet?
+[13:44:47] <robertmaxrees> *questions
+[18:49:41] <nug700> So, I can get the scroll position with scrollTop(), but it's in pixels. How can I get the normalized position in the range 0 through 1?
+[21:37:24] <Mandy> Hello, I have a question about adding the copyright information into an app I'm building.  I am linking to this jquery in my code: http://code.jquery.com/jquery-2.1.1.min.js  It appears in my code like this:  <script src="http://code.jquery.com/jquery-2.1.1.min.js"></script>How do I properly add in the copyright?  Thank you for your time.
+[21:38:17] <robertmaxrees> Mandy check out https://jquery.org/license/
+[21:39:31] <Mandy> How do I identify the copyright header?
+[21:40:45] <Mandy> Or do I need to add one?  I'm not sure whether I'm using Source Code or Sample Code.
+[21:43:14] <robertmaxrees> look in the file
+[21:43:23] <robertmaxrees> is there copyright info at the top?
+[21:45:24] <Mandy> In my website html, or in the link I'm using?  There's some in the link, am I supposed to copy and paste that into my html somewhere?
+[21:45:53] <robertmaxrees> the jquery file.
+[21:46:12] <robertmaxrees> notice the very first line in the jquery file that says: /*! jQuery v2.1.1 | (c) 2005, 2014 jQuery Foundation, Inc. | jquery.org/license */
+[21:46:59] <Mandy> Yes, where do I want to put that in my html?  Is that the only line I need?
+[21:47:33] <robertmaxrees> you need to leave that line in the jquery file.
+[21:47:40] <robertmaxrees> so long as that's there, you'
+[21:47:43] <robertmaxrees> *you're fine
+[21:49:00] <Mandy> I'm not editing the jquery file directly,  just linking to it.  Do I still need to put that notice somewhere in my html?
+[21:49:15] <robertmaxrees> did you read the license page?
+[21:49:22] <robertmaxrees> it says "
+[21:49:22] <robertmaxrees> You are free to use the Project in any other project (even commercial projects) as long as the copyright header is left intact.
+[21:49:23] <robertmaxrees> "
+[21:49:41] <robertmaxrees> so long as you leave that comment at the top of the jquery library file itself, you're fine.
+[21:49:51] <robertmaxrees> so if you don't edit the file, you're fine.
+[21:51:26] <Mandy> So it's basically saying that the copyright notice is already provided for you, and you're just responsible for leaving it there?
+[21:53:14] <robertmaxrees> yes
+[21:53:57] <Mandy> And I'm not required to add a comment about it in my html document?
+[21:54:13] <robertmaxrees> lol
+[21:54:35] <robertmaxrees> did you read the license page at all?
+[21:57:38] <Mandy> I know, I'm technologically challenged.  I've read it briefly, but was having trouble figuring out what it meant.  I'm a novice with this kind of thing, and was just trying to make sure I wasn't doing anything illegal.
+[21:58:15] <robertmaxrees> let's try this from a different angle: read that page, and you tell me what you think it requires.
+[22:20:57] <Mandy> Sorry for the wait.  I think what the page is saying, is that the jquery I was referencing is under the MIT license, because it gives a link to that license page.  The MIT license requires me to include  the copyright and license.  The CC0 license doesn't require any copyright and license into.  Samples provided by the Jquery Foundation may give li
+[22:20:58] <Mandy> censing information to be included or be under CC0.
+[22:22:07] <Mandy> *licenses info
+[22:22:40] <robertmaxrees> Almost.
+[22:22:59] <Mandy> What did I miss?
+[22:23:01] <robertmaxrees> Long story short - just so long as the copyright notice at the top of the jquery library itself remains intact, you're golden.
+[22:27:35] <Mandy> Does jquery library mean any and all jquery there is out there, whether found through the jquery site, or on another website?  Basically, does it still count as a jquery library item, if I found it through another website?
+[22:27:45] <robertmaxrees> erm.
+[22:27:50] <robertmaxrees> you're conflating terms.,
+[22:28:04] <Mandy> Which ones?
+[22:28:09] <robertmaxrees> "library" just means "the jquery file"./
+[22:28:14] <robertmaxrees> as in - the singular file that is jquery.
+[22:28:19] <robertmaxrees> that's it.
+[22:29:10] <robertmaxrees> so basically, if you're linking to http://code.jquery.com/jquery-2.1.1.min.js and not hosting it yourself, you're fine.
+[22:29:22] <robertmaxrees> literally no action need be taken on your side.
+[22:31:03] <Mandy> By hosting it myself, do you mean, trying to claim/distribute it as my own? Or does that have to do with web hosting?
+[22:31:11] <robertmaxrees> lol
+[22:31:18] <robertmaxrees> that means if you copy that file to your own server.
+[22:31:31] <robertmaxrees> if you do that, just gotta make sure that copyright notice at the top stays put.
+[22:34:06] <robertmaxrees> so basically, don't edit the main jquery file and you're fine.
+[22:34:08] <robertmaxrees> make sense?
+[22:35:00] <Mandy> Yes.  Does that still stand, if it's not going to be me that publishes my app, but someone else?
+[22:36:10] <robertmaxrees> check out https://tldrlegal.com/license/mit-license for info on that.
+[22:37:55] <Mandy> If I'm having someone else publish my app, does that fall under "distributing" the code then?
+[22:38:05] <robertmaxrees> are you just building a side or what
+[22:38:06] <robertmaxrees> ?
+[22:38:13] <robertmaxrees> gimme the full context here
+[22:38:29] <robertmaxrees> otherwise i'm playing 20 questions and i'm not a particular fan of doin' that.
+[22:39:34] <robertmaxrees> *building a site
+[22:45:57] <Mandy> I'm building an app that's a kinetic novel, basically a visual novel, only without the branching plot lines.  Put simply, it's in the form of a slide show, with pictures and a storyline.  It's built using html, css, and some jquery.  I'm using the jquery to give my app a full screen option, although there's also some in there to operate the slide s
+[22:45:58] <Mandy> how as well, which I learned from a YouTube video.  Eventually, I'm going to send this around to app publishers, and I'm assuming they'd be the ones distributing my app.  I am not sure yet how this will be monetized, whether being offered for free, making its money off of ads, or whether it would be a paid app.
+[22:46:28] <robertmaxrees> erm
+[22:46:44] <robertmaxrees> you keep throwing around the term "app"
+[22:46:51] <robertmaxrees> what are you envisioning here?
+[22:47:46] <robertmaxrees> you mean, like, an app on a phone?
+[22:48:59] <Mandy> It's supposed to be an app that functions through a browser.  It behaves like a website.  Yes, this would be something accessible on a phone, as well as through a tablet, or computer.
+[22:49:11] <robertmaxrees> so it's a website.
+[22:49:31] <robertmaxrees> when people say "app", that usually means an app like what you install on a device.
+[22:49:37] <robertmaxrees> but you aren't doing that.
+[22:49:38] <robertmaxrees> it's a site.
+[22:49:51] <robertmaxrees> so long as the "publisher" keeps the jquery comment at the top of the jquery file, you're fine.
+[22:49:54] <Mandy> It might be a site then.
+[22:50:00] <robertmaxrees> lol
+[22:50:03] <robertmaxrees> it IS a site.
+[22:50:04] <robertmaxrees> that's all.
+[22:50:17] <robertmaxrees> so the license comment just needs to stay at the top of the jquery file.
+[22:50:18] <robertmaxrees> g2g then.
+[22:50:54] <Mandy> Okay.  Thank you.  I really appreciate the help.

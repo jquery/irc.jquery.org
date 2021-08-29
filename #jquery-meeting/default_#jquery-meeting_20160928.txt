@@ -1,0 +1,156 @@
+[12:00:01] <scott_gonzalez> ?uiteam
+[12:00:06] <scott_gonzalez> OH NO
+[12:00:10] <scott_gonzalez> Where's b-ot?
+[12:00:28] <scott_gonzalez> awayrxaviers fnagel  jzaefferer
+[12:00:46] <fnagel> hi
+[12:01:03] <scott_gonzalez> hey fnagel
+[12:01:16] <scott_gonzalez> So I thought your PR was much bigger than it actually was.
+[12:01:21] <scott_gonzalez> I should have reviewed that a long time ago :-(
+[12:01:32] <fnagel> np
+[12:01:40] <fnagel> I will go trough your comments asap
+[12:01:46] <arschmitz> hi
+[12:01:53] <scott_gonzalez> I had gotten used to massive datepicker PRs that required a lot of dedicated time for review.
+[12:02:05] <scott_gonzalez> I guess we're finally passed that stage, which is great.
+[12:02:51] <fnagel> classes option related element creation in the current PR, but that's it hopefully
+[12:06:31] <scott_gonzalez> Speaking of datepicker, we still need to investigate the strange iOS 10 bug with the current datepicker.
+[12:06:31] <scott_gonzalez> https://bugs.jqueryui.com/ticket/15050
+[12:09:00] <scott_gonzalez> The selectable performance issues with the `classes` options hasn't been confirmed.
+[12:09:02] <scott_gonzalez> https://bugs.jqueryui.com/ticket/15049
+[12:09:18] <scott_gonzalez> arschmitz created a perf test for it and the results show consistent performance.
+[12:09:29] <arschmitz> yeah the first run is the slowest
+[12:09:37] <arschmitz> and it kinda levels out from there
+[12:09:48] <arschmitz> which makes sense the first is slowest
+[12:10:17] <scott_gonzalez> I created a simpler perf test that just uses `console.time()` and calls `refresh()` 100 times. Got the same results as well.
+[12:11:59] <scott_gonzalez> I finally got to the bottom of the autocomplete demo XSS issue.
+[12:12:00] <scott_gonzalez> https://bugs.jqueryui.com/ticket/15048
+[12:12:10] <scott_gonzalez> The concern was not about XSS via autocomplete.
+[12:12:18] <scott_gonzalez> The concern was about loading search.php directly.
+[12:12:23] <scott_gonzalez> And providing HTML as the callback.
+[12:12:32] <scott_gonzalez> So that the output would be the user-provided HTML.
+[12:12:46] <scott_gonzalez> Making it look like you loaded a real page from jqueryui.com.
+[12:13:03] <arschmitz> makes much more sense
+[12:13:24] <scott_gonzalez> I addressed that concern by just escaping the angle brackets since those aren't valid characters in a function name.
+[12:13:28] <scott_gonzalez> https://github.com/jquery/jquery-ui/commit/69e66ea6556584c39621c184f8f790a1011408ce
+[12:14:09] <fnagel> looks good to me!
+[12:14:20] <arschmitz> looks good
+[12:14:24] <scott_gonzalez> We have a request to add a new event to tooltip for when a delayed tooltip gets shown.
+[12:14:24] <scott_gonzalez> https://bugs.jqueryui.com/ticket/15051
+[12:15:31] <arschmitz> makes sense you would want to know when it actually shows
+[12:16:04] <scott_gonzalez> Well, there are three discrete phases here.
+[12:16:52] <scott_gonzalez> 1) The tooltip is triggered to open; 2) The delay has completed and the showing actually starts; 3) Any potential animation has completed and the tooltip is fully visible.
+[12:17:11] <scott_gonzalez> It's not clear if they want an event fired at 2 or 3.
+[12:17:18] <arschmitz> right 2 does not seem super important 1 and 3 do
+[12:17:29] <arschmitz> i had assumed 3 but i could be wrong
+[12:17:31] <scott_gonzalez> 3 is easy, because the `_show()` method supports it already.
+[12:17:53] <scott_gonzalez> And in the provided code, 2 and 3 happen at the same time, because it's just a delay, no animation.
+[12:18:02] <arschmitz> right
+[12:18:05] <scott_gonzalez> What would that even be called?
+[12:18:36] <arschmitz> in mobile we do
+[12:18:39] <arschmitz> beforeshow and show
+[12:18:40] <scott_gonzalez> In dialog, we trigger `open` at 1 and `focus` at 3
+[12:18:57] <arschmitz> focus would work
+[12:19:07] <arschmitz> or show complete
+[12:19:15] <arschmitz> or maybe visible
+[12:19:39] <scott_gonzalez> In accordion, we trigger `activate` at 3.
+[12:19:51] <arschmitz> so we are pretty inconsistent
+[12:20:39] <scott_gonzalez> And we have `beforeActivate` at 1
+[12:20:48] <scott_gonzalez> We're consistent.
+[12:20:57] <scott_gonzalez> Things that open fire `open` at 1.
+[12:21:27] <scott_gonzalez> Things that activate, fire `beforeActivate` at 1 and `activate` at 3.
+[12:21:50] <arschmitz> so focus then for tooltip?
+[12:21:55] <scott_gonzalez> Tabs is another example of a widget that activates as opposed to opening.
+[12:22:00] <scott_gonzalez> Tooltips don't get focus.
+[12:22:22] <arschmitz> right
+[12:22:44] <arschmitz> so there is really nothing we can be consistent with here?
+[12:22:54] <scott_gonzalez> Dialogs can fire focus besides being opened as well.
+[12:23:03] <scott_gonzalez> So whatever we add to tooltip would also be added to dialog.
+[12:23:17] <scott_gonzalez> And focus and the new event will both happen during opening.
+[12:23:23] <arschmitz> visible makes sense for 3 to me in this case
+[12:23:40] <scott_gonzalez> I think visible would be 2.
+[12:23:54] <scott_gonzalez> If you're running an animation, the element is visible as soon as the delay is done.
+[12:24:12] <scott_gonzalez> We actually detect that case on tooltip.
+[12:24:30] <scott_gonzalez> So we know when to start doing pointer tracking if that's enabled.
+[12:25:35] <scott_gonzalez> On one hand, I want to say `opened`, but on the other hand we never use past tense.
+[12:25:51] <arschmitz> Well it is technically visible but if your trying to do anythign where the visibility maters (getting dimensions) you need to wait until animation is complete
+[12:26:07] <scott_gonzalez> Dialog does have `beforeClose` and `close`.
+[12:26:18] <scott_gonzalez> And those are fired at 1 and 3 (of course for hiding, instead of showing).
+[12:26:20] <arschmitz> but open is already #1
+[12:26:40] <arschmitz> so unless we change that a before event wont work
+[12:26:55] <scott_gonzalez> Yeah, so this would be a breaking change, but I wonder if it would actually break anything.
+[12:27:02] <scott_gonzalez> We're just delaying the event a bit.
+[12:27:05] <arschmitz> we could do `afterOpen` i guess
+[12:27:27] <arschmitz> i would prefer a before event
+[12:27:31] <scott_gonzalez> me too
+[12:27:36] <arschmitz> it makes the most sense and is also what we do in mobile
+[12:27:49] <arschmitz> so makes things a little more in sync when we pull this in
+[12:28:05] <scott_gonzalez> Autocomplete and selectmenu both have `open` events, but neither supports animations.
+[12:28:25] <scott_gonzalez> So we're talking about dialog and tooltip as the only widgets that would be affected by moving `open` from 1 to 3.
+[12:28:27] <arschmitz> im suprised we have not had request for it
+[12:28:54] <scott_gonzalez> Generally, our before* events are cancelable.
+[12:29:07] <arschmitz> same in mobile
+[12:30:29] <scott_gonzalez> Ok, so we can make this change, but it has to wait until 1.13.0.
+[12:30:48] <arschmitz> yup
+[12:31:01] <arschmitz> and there is no way to do a true backcompat
+[12:31:05] <scott_gonzalez> I'd like to get buy in from jzaefferer as well.
+[12:31:10] <arschmitz> since we are re-using the event name
+[12:31:16] <scott_gonzalez> right
+[12:31:31] <scott_gonzalez> Well, back compat would just change when the event occurs.
+[12:31:33] <arschmitz> Yeah make sure hes ok with it
+[12:31:58] <arschmitz> Right but if someone depends on that could make things weird though onlikely to break
+[12:32:39] <arschmitz> like if someone is doing setTimeout(func..,600) to try to account for it
+[12:33:26] <arschmitz> so there is a way to do this today we could respond as a work around too
+[12:33:26] <scott_gonzalez> The one thing that sucks about this is that by default we always maintain back compat.
+[12:33:34] <arschmitz> correct
+[12:33:41] <scott_gonzalez> So we'll document the 1.13 behavior, but by default you will get the current behavior.
+[12:33:53] <scott_gonzalez> You have to opt-out of back compat to get the new behavior.
+[12:35:10] <arschmitz> jQuery uses the same queue unless explicitly changed, so if you use an animation method like .delay(0,func) in you callback on the animated element func will run when the animation complete
+[12:36:14] <arschmitz> and this change would not break it since there will be no active queue on the element it will run immediately
+[12:38:28] <scott_gonzalez> Ok, I'll add a note about that when I say that this will have to wait for 1.13.
+[12:38:50] <scott_gonzalez> Next topic is GitHub branch cleanup.
+[12:38:58] <scott_gonzalez> fnagel wants to delete datepicker-globalize-1.x and selectmenu-native-menu
+[12:39:06] <fnagel> old and outdated
+[12:39:11] <scott_gonzalez> Sounds fine to me.
+[12:39:28] <arschmitz> fnagel: the native is not worth saving for when we finally do that?
+[12:40:08] <fnagel> https://github.com/fnagel/jquery-ui-extensions/tree/selectmenu is more up to date
+[12:40:27] <fnagel> idea is the same, branch is built in not an extension
+[12:41:04] <scott_gonzalez> Looks like spinner-globalize-1.x can probably also be deleted.
+[12:41:12] <scott_gonzalez> We're going down a different path for spinner.
+[12:41:24] <scott_gonzalez> It won't use Globalize directly, instead it will expose formatter and parser options.
+[12:41:48] <scott_gonzalez> I'll wait for Rafael to say it's ok to delete that branch though.
+[12:41:51] <arschmitz> I think i cleaned up all my branches a few weeks ago
+[12:42:18] <scott_gonzalez> And then you made a new one!
+[12:42:18] <scott_gonzalez> https://github.com/jquery/jquery-ui/tree/classes-auto-cleanup
+[12:42:34] <arschmitz> i just deleted that
+[12:43:28] <scott_gonzalez> So fnagel, sounds like you're ok to delete those branches.
+[12:43:59] <fnagel> yep
+[12:44:32] <fnagel> not ok?
+[12:44:43] <fnagel> sorry, thought I should go ahead
+[12:44:53] <fnagel> Tab is still open. restore?
+[12:45:23] <scott_gonzalez> No, you're fine. I said you ARE ok to delete :-)
+[12:45:53] <fnagel> sure, I've added  that to the list
+[12:46:04] <scott_gonzalez> And that brings us to some checkboxradio style issues.
+[12:46:04] <scott_gonzalez> https://github.com/jquery/download.jqueryui.com/issues/335
+[12:46:07] <scott_gonzalez> https://forum.jquery.com/topic/checkboxradio-widget-checkbox-click-doesn-t-work-with-ui-lightness-theme-22-9-2016
+[12:48:39] <arschmitz> looks like the color is the same for lightness for the checkbox and the icon
+[12:50:53] <scott_gonzalez> Hmm....aren't we just reusing existing colors though?
+[12:51:02] <scott_gonzalez> How do we end up with the same color for these?
+[12:51:26] <arschmitz> yes we are
+[12:51:29] <arschmitz> im not sure
+[12:52:31] <arschmitz> it only seems to be on those 2 themess
+[12:53:25] <arschmitz> something there is weird
+[12:53:54] <arschmitz> ill need to look into it im not sure whats going on
+[12:54:02] <scott_gonzalez> The download bug says a line of CSS is missing.
+[12:54:08] <scott_gonzalez> I haven't confirmed that though.
+[12:54:22] <arschmitz> that would be weird since it works in the gui with all the other themes
+[12:54:26] <scott_gonzalez> Looks similar to what you removed recently :-P
+[12:54:28] <arschmitz> but not those 2
+[12:54:43] <scott_gonzalez> Could be a rule that effectively exists in two places.
+[12:54:49] <arschmitz> maybe
+[12:54:52] <scott_gonzalez> And we removed one.
+[12:55:06] <arschmitz> very possible im going to investigate this afternoon
+[12:55:17] <scott_gonzalez> ok
+[12:55:34] <scott_gonzalez> Does anyone have anything else to discuss today?
+[12:55:39] <arschmitz> i wish i could change version in themeroller to see if this happened before that
+[12:55:42] <arschmitz> nothing from me
+[12:58:06] <fnagel> no
+[13:02:23] <scott_gonzalez> Thanks everyone.

@@ -1,0 +1,100 @@
+[12:00:07] <scott_gonzalez> hey bethge
+[12:01:03] <bethge> hi!
+[12:01:46] <bethge> Sry, I didn't get a change to look into https://github.com/jquery/PEP/pull/338
+[12:02:20] <scott_gonzalez> No problem. We can always finish that after the release.
+[12:02:38] <scott_gonzalez> Though I have to admit to not remember which specific things we were blocking on.
+[12:02:46] <bethge> Yes, that is true
+[12:04:56] <scott_gonzalez> Do you remember what we wanted to get into this release?
+[12:05:54] <bethge> I think this one: https://github.com/jquery/PEP/pull/339
+[12:06:06] <scott_gonzalez> perfect
+[12:06:17] <scott_gonzalez> So I'll work on the release then.
+[12:06:40] <bethge> Ok, great!
+[12:07:16] <scott_gonzalez> For `hasPointerCapture()`, we just need to look into whether IE supported it.
+[12:07:20] <scott_gonzalez> I assume it did.
+[12:12:16] <scott_gonzalez> hmm...seems like it does not.
+[12:12:43] <bethge> yeah, i couldnt find it
+[12:14:12] <scott_gonzalez> So it looks like you can probably just copy https://github.com/jquery/PEP/pull/338/files#diff-9f079f11e099e8a5ea5861c364d00c4aR48 into the MS block as well.
+[12:15:01] <scott_gonzalez> Oh, you have this outside of the conditional.
+[12:15:09] <scott_gonzalez> So this should actually work as is.
+[12:16:03] <scott_gonzalez> Re-reading my comment in the PR, I see that I did realize this was out of the conditional.
+[12:16:04] <scott_gonzalez> I think my comment is wrong though.
+[12:16:19] <scott_gonzalez> Because the dispatcher does track elements even for ms*, right?
+[12:16:31] <scott_gonzalez> https://github.com/jquery/PEP/blob/master/src/ms.js#L41-L44
+[12:17:10] <scott_gonzalez> We can test to confirm, but I think the PR is actually correct.
+[12:18:27] <scott_gonzalez> I'll try to go through all the old test update PRs as well.
+[12:19:09] <scott_gonzalez> Is there anything you need to discuss today?
+[12:19:45] <bethge> Your comment was correct
+[12:19:46] <bethge> I tested it
+[12:19:53] <bethge> and afaik do we not track for ms
+[12:20:11] <bethge> we just convert ie10's pe's
+[12:23:04] <scott_gonzalez> But the conversion hits this code, right? https://github.com/jquery/PEP/blob/master/src/ms.js#L41-L45
+[12:24:21] <scott_gonzalez> Oh, but that's not tracking capture at all, just whether the pointers are active.
+[12:25:49] <bethge> yeah
+[12:30:57] <bethge> Sorry, I was half way in a meeting, now fully present.
+[12:31:44] <bethge> I wonder if there is any way to polyfill the behaviour
+[12:31:53] <bethge> Though I am not sure if it is worth the effort
+[12:32:55] <scott_gonzalez> So do we really want to call `dispatcher.setCapture()` and have it do everything except for dispatch the event?
+[12:33:08] <scott_gonzalez> https://github.com/jquery/PEP/blob/master/src/dispatcher.js#L334-L346
+[12:33:32] <scott_gonzalez> We'd need to pass a flag to not trigger the event.
+[12:34:02] <scott_gonzalez> That flag would get passed to `releaseCapture()` on L341.
+[12:34:14] <scott_gonzalez> And it'd be used to suppress L345 and L356.
+[12:37:03] <bethge> Sorry, you kind of lost me
+[12:37:06] <scott_gonzalez> Untested, but this is the concept: https://gist.github.com/scottgonzalez/d9471b14db0a6b4b60c4cf336cbd1f54
+[12:38:03] <scott_gonzalez> Oy, let me make a smaller diff version of that.
+[12:38:45] <scott_gonzalez> https://gist.github.com/scottgonzalez/52d6716a14d46c557816af4fb73c12a8
+[12:40:02] <bethge> Ah, i see
+[12:40:18] <scott_gonzalez> And we'd make this change for capture: https://gist.github.com/scottgonzalez/568aa54d134c8c518806d5234ee8c43f
+[12:40:42] <scott_gonzalez> I *think* that would work.
+[12:41:01] <scott_gonzalez> That first diff just reorganizes the code to make it clearer what's happening.
+[12:41:18] <scott_gonzalez> But the diff obfuscated the important part for the discussion.
+[12:42:01] <bethge> hmm... I feel like my bouncer dropped something. Did you write between 12:28 and 12:30?
+[12:42:51] <scott_gonzalez> nope
+[12:42:57] <scott_gonzalez> But just to be safe...
+[12:43:17] <scott_gonzalez> https://gist.github.com/scottgonzalez/7fd41c5b090880d71daefdb160c6ef64
+[12:43:52] <bethge> Ah ok :D
+[12:44:50] <scott_gonzalez> I appreciate the time zone conversion ;-)
+[12:45:11] <bethge> :-)
+[12:45:19] <scott_gonzalez> So, that's something to try out.
+[12:45:58] <bethge> Ok, stupid question (long meeting day): when would we want to skip dispatching the event?
+[12:46:34] <scott_gonzalez> Just for MS, because when we call `msSetPointerCapture()`, it's going to fire `MSGointPointerCapture`.
+[12:46:50] <scott_gonzalez> And we're going to catch that and fire `gotpointercapture`
+[12:47:20] <scott_gonzalez> Because it's going to happen natively and we're going to polyfill from the native event, we want to skip our initial dispatch.
+[12:53:18] <bethge> wow, brain lag
+[12:53:19] <bethge> of course
+[12:53:26] <bethge> nice
+[12:54:16] <scott_gonzalez> Want to apply that to your PR and test it out?
+[12:54:51] <bethge> yeah, i will try that out
+[12:54:56] <scott_gonzalez> ok
+[12:55:10] <scott_gonzalez> I guess that's all for today.
+[12:55:31] <scott_gonzalez> Thanks.
+[12:55:53] <bethge> yeah. Thank you :)
+[12:56:23] <scott_gonzalez> I'll work on getting the release out and looking over those test PRs.
+[12:56:41] <scott_gonzalez> And now, time for lunch :-)
+[14:04:31] <arschmitz> apsdehal: cogwurx: meeting time
+[14:04:36] <cogwurx> Hello!
+[14:04:57] <arschmitz> my only update is that infrastructure is working on the issue
+[14:05:03] <arschmitz> they hope to have it fixed tonight
+[14:05:35] <cogwurx> cool.
+[14:06:06] <cogwurx> I've not had anything to contribute in a while...so my lurking has been exceptional and will continue to do so
+[14:07:59] <arschmitz> was going to work on a plan for 1.6 today but no apsedehal
+[14:09:47] <apsdehal> Hi
+[14:09:53] <apsdehal> Sorry got a little
+[14:09:54] <cogwurx> hello!
+[14:09:55] <apsdehal> late
+[14:09:56] <cogwurx> no worries
+[14:11:48] <apsdehal> arschmitz: let's discuss then
+[14:17:15] <arschmitz> cool
+[14:17:39] <arschmitz> ok so what do we want in 1.6
+[14:18:29] <arschmitz> my thoughts were switch to hammer for eventing
+[14:18:38] <arschmitz> and remove all the deprecated code
+[14:18:41] <arschmitz> and thats it
+[14:18:56] <apsdehal> Yes, deprecated code would be one of that .
+[14:19:19] <apsdehal> Is everything else shifting to hammer for eventing?
+[14:19:40] <arschmitz> just the gestures
+[14:19:47] <arschmitz> all the normal stuff is unchanged
+[14:21:34] <apsdehal> Ok
+[14:21:57] <arschmitz> internally we dont even use gestures execpt in a couple places
+[14:22:11] <arschmitz> so the switch is fairly easy
+[14:23:16] <apsdehal> Alright
+[14:23:38] <apsdehal> Let's start on 1.6 and fixing 1.5 bugs after we launch
+[14:24:19] <arschmitz> i agree

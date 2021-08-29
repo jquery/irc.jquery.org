@@ -1,0 +1,567 @@
+[05:53:59] <anissaa> didi anyone see this error befor?==>uncaught exception: Neither data nor ajax settings supplied.
+[07:34:12] <rwaldron> timmywil that ticket you reopened and assigned
+[07:34:20] <rwaldron> thats a dup of the one i accepted last night
+[07:34:36] <timmywil> oh is it? ok
+[07:34:38] <rwaldron> Anyway, the dude closed the PR
+[07:34:48] <rwaldron> oh... in favor of another
+[07:35:15] <rwaldron> i'm going to review his patch
+[07:35:22] <rwaldron> by the looks of it... um..
+[07:35:23] <timmywil> kk
+[07:37:33] <rwaldron> fuck
+[07:37:39] <rwaldron> this dude is doing everything on his master
+[07:37:46] <rwaldron> he has another commit after it
+[07:38:04] <timmywil> separate pulls from the same branch?
+[07:38:38] <timmywil> no wait, not shghs
+[07:39:07] <rwaldron> i'm confused
+[07:39:22] <rwaldron> because the PR _has_ a named branch
+[07:39:30] <rwaldron> that doesnt seem to exist in his branch list
+[08:13:51] <jaubourg> rwaldron: you around?
+[08:14:06] <rwaldron> sort of, one min
+[08:15:01] <jaubourg> rwaldron: just wanted to ping you with this: https://github.com/jquery/jquery/commit/96b0089c9ce5c65f9d002966256d90e778345a2a (publish/subscribe channels using jQuery.Callbacks)
+[08:17:33] <tbranyen> ooh
+[08:20:15] <rwaldron> jaubourg you're a goddamn wizard
+[08:20:35] <rwaldron> allow me to save you some bytes?
+[08:20:42] <jaubourg> feel free to
+[08:21:06] <rwaldron> [].slice.call
+[08:21:10] <jaubourg> heh
+[08:21:11] <rwaldron> vs. Array.prototype
+[08:21:15] * rwaldron shrugs
+[08:21:49] <jaubourg> I could set it a var... god I wish we had a way to have jslint not bother same var names defined with the same value in the main closure
+[08:21:57] <rwaldron> yeah
+[08:21:59] <rwaldron> same here
+[08:27:12] <tbranyen> jaubourg: that callbacks stuff looks sexy
+[08:27:33] <jqcommit> jquery: 1.7/callbacks jaubourg * 8c39fc8 (1 files in 1 dirs): Shortens slice expression in channel helpers as per rwaldron's suggestion. - http://bit.ly/jxgavs
+[08:27:52] <jaubourg> tbranyen: kind of a very generic base for anything callbacks lists related
+[08:27:52] <rwaldron> <3
+[08:28:37] <jaubourg> anyway, anytime I thought about a publish/subscribe implementation, it always bothers me you couldn't handle channels in some kind of a generic way
+[08:28:55] <jaubourg> with the $.Channel approach, you can give a plugin or module a channel and have the application decide of its name
+[08:29:47] <jaubourg> app1: myPlugin.init( $.Channel( "rick" ) ); app2: myPlugin.init( $.Channel( "julian" ) );
+[08:29:58] <jaubourg> and inside, you just publish onto the channel directly
+[08:35:45] <jaubourg> anyway, laundry really calling
+[09:02:21] <rwaldron> timmywil_  yt?
+[09:02:40] <timmywil_> rwaldron: yo
+[09:02:57] <rwaldron> so, this is totally speculation, because who the hell knows...
+[09:03:09] <rwaldron> when i look at that patch i think...
+[09:03:45] <rwaldron> "this is band-aid, we need a field amputation"
+[09:03:47] <timmywil_> rwaldron: which patch?
+[09:03:51] <rwaldron> oh sorry
+[09:03:52] <rwaldron> 388
+[09:03:57] <rwaldron>  https://github.com/shghs/jquery-patches/commit/abc34c4ea59121e08a60e2a17768143bfedb1ee9
+[09:04:22] <rwaldron> the way it was handled in the past was basically, null the outerHTML and then null the var
+[09:04:30] <rwaldron> at the end of the support module
+[09:04:47] <rwaldron> you see that difference that implies right?
+[09:05:30] <timmywil_> rwaldron: kind of
+[09:06:31] <timmywil_> rwaldron: I've seen this before though.  Can't really do named functions as arguments in IE6/7
+[09:06:37] <rwaldron> timmywil_ this is the commit that removed the nulling
+[09:06:38] <rwaldron> https://github.com/jquery/jquery/commit/ad4152709cd7c7b7fdafd2dc0b266fd273aff5d5#src/support.js
+[09:07:26] <timmywil_> ah, so you think we may have presented multiple leaks
+[09:07:40] <rwaldron> right, something like that
+[09:07:56] <rwaldron> thing is, as soon as this happened, we started getting memory leak tickets
+[09:08:02] <timmywil_> either way, the patch should land
+[09:08:31] <rwaldron> so
+[09:08:32] <timmywil_> but I see the point.  maybe we should add the nulls back.
+[09:08:36] <rwaldron> this method did not change
+[09:09:32] <rwaldron> i think the right path is to just null anything that has been created
+[09:09:55] <rwaldron> (with events, etc)
+[09:09:58] <rwaldron> ie. div
+[09:10:18] <timmywil_> would probably be good.  we should do some testing
+[09:10:27] <rwaldron> ugh
+[09:10:30] * rwaldron runs
+[09:10:33] <timmywil_> hehe
+[09:16:15] <rwaldron> timmywil_ unrelated... do you think docs#9381 and docs#9411 are related?
+[09:16:17] <bot-t> [#9381] setTimeout and fadeIn/fadeOut blocking in Chrome (open bug) - http://jqbug.com/9381
+[09:16:17] <bot-t> [#9411] animation stacks when chrome window is minimized or tab is inactive (closed bug: cantfix) - http://jqbug.com/9411
+[09:17:09] <timmywil_> rwaldron: yea
+[09:18:23] <timmywil_> rwaldron: but it's just the way the browser deals with the frames.  We could switch back to setInterval, but ....
+[09:22:26] <timmywil_> I'll mark it a dupe
+[09:24:07] <rwaldron> word
+[09:37:08] <rwaldron> timmywil_ when/if you have a chance, can you run the IEs with this? https://github.com/rwldrn/jquery/commit/34e6c0637bb8ac9420761232078ccfcc15ca74ad
+[09:37:41] <timmywil_> rwaldron: sure, will have to be later though
+[09:38:39] <rwaldron> thats fine
+[09:38:42] <rwaldron> should i PR this?
+[09:39:42] <timmywil_> rwaldron: I could just commit it
+[09:39:55] <rwaldron> it will zero side effects
+[09:39:58] <rwaldron> have*
+[09:40:04] <rwaldron> accept where nec.
+[09:40:30] <timmywil_> yea, I'll see if it solves our leaks
+[09:40:51] <rwaldron> that dudes patch for 9341 is passing in the IEs but I'm interested in seeing performance info
+[09:41:11] <rwaldron> when i re-wrote the clone stuff, i did so because it was slooowwww
+[09:41:29] <rwaldron> and using those native dom querying functions made it fast
+[09:41:42] <rwaldron> now dude is sending it through another function
+[09:42:15] <timmywil_> rwaldron: yea, good concern
+[09:43:52] <rwaldron> annoying that i have to be logged in to see that msdn memory leak report
+[09:48:35] <gnarf> hrm
+[09:48:38] <gnarf> jsfiddle being slow?
+[09:49:01] <rwaldron> dude
+[09:49:03] <rwaldron> the worst
+[09:50:15] <gnarf> and yeah... 9381 / 9411 are definately related :)
+[09:50:56] <gnarf> docs#8515 could use a look again, i unassisgned myself
+[09:50:57] <bot-t> [#8515] Animate hiding contained borders (open bug) - http://jqbug.com/8515
+[09:52:24] <timmywil_> gnarf: looks like a matter of border-box like you said
+[09:55:48] <gnarf> aye - i was gonna just wontfix it
+[09:56:17] <gnarf> but figured I'd leave it up to someone with more confidence in saying that then me
+[09:58:48] <gnarf> is there a way of finding all posts on wordpress that use a particular note --- kswedberg??
+[09:59:20] <gnarf> also, is it possible to render more than one bullet point in that "Additional Notes" section?
+[10:02:47] <gnarf> because I'd like to add something like "Because of the nature of <a href="..."><code>requestAnimationFrame()</code></a>, you should never queue animations using a <code>setInterval</code> or <code>setTimeout</code> loop.  Animations in browsers that support <code>requestAnimationFrame</code> will not update when the window/tab is not displayed.  Instead, use the callback of one of your last animation in the loop to set the timeout for the
+[10:02:47] <gnarf>  next animation." to all animation functions, seems that there is already a jQuery.fx.off note there...
+[10:02:55] <gnarf> woah, that was longer than I thought
+[10:02:56] <gnarf> sry
+[10:02:57] <kswedberg> gnarf: I don't know how to find all posts using a note other than looking at the db table
+[10:04:11] <kswedberg> It is possible to render more than one bullet point.
+[10:04:44] <kswedberg> http://swedberg.us/grab/multi-notes-20110524-130435.png
+[10:04:47] <gnarf> does that bullet point make sense? timmywil_?
+[10:04:59] <gnarf> kswedberg: cool!
+[10:05:06] <kswedberg> :)
+[10:05:22] <gnarf> timmywil_: why do you have a tail?
+[10:05:49] <timmywil_> gnarf: I'm mystical
+[10:06:06] <timmywil_> and that sounds good to me :)
+[10:06:43] <gnarf> what do you think i should link to for requestAnimationFrame
+[10:07:05] <timmywil> .
+[10:07:08] <kswedberg> gnarf: not sure. someone else have an idea?
+[10:07:08] <gnarf> https://developer.mozilla.org/en/DOM/window.mozRequestAnimationFrame ?? http://paulirish.com/2011/requestanimationframe-for-smart-animating/ ??
+[10:07:21] <gnarf> timmywil: trying to find a good target for that "a"
+[10:08:34] <kswedberg> gnarf: re "Animations in browsers that support <code>requestAnimationFrame</code> will not update when the window/tab is not displayed" — is that a good thing or a bad thing? and how does that relate to the sentence before it?
+[10:08:59] <timmywil> I vote for the mdc link
+[10:09:16] <gnarf> wordsmithing in http://oksoclap.com/77c11E0Q8W
+[10:09:39] <gnarf> kswedberg: docs#9381
+[10:09:41] <bot-t> kswedberg, [#9381] setTimeout and fadeIn/fadeOut blocking in Chrome (open bug) - http://jqbug.com/9381
+[10:09:57] <timmywil> kswedberg: in terms of cpu friendly, it's a good thing.  If animations are forced to stack without checking for frames, it doesn't look good.
+[10:11:27] <gnarf> "This makes the animations much more CPU friendly, however, if you continute to queue animations via <code>setInterval</code> or <code>setTimeout</code>, once the window/tab regains focus, you will have a really large queue full of old animations."
+[10:12:06] <kswedberg> ah right.
+[10:13:15] <gnarf> that clap seem okay? cuz if so, I'm gonna make the requestAnimationFrame reusable
+[10:13:41] <gnarf> any random grammar / word changes are appreciated if they make it easier to read ;)
+[10:30:04] <gnarf> http://api.jquery.com/animate/ and the fadeIn/out/toggle slideIn/out/toggle etc have a new note now
+[10:30:19] <kswedberg> thanks, gnarf!
+[10:31:25] <gnarf> satisfy the needsdocs on docs#9381 ?
+[10:31:26] <bot-t> [#9381] setTimeout and fadeIn/fadeOut blocking in Chrome (open bug) - http://jqbug.com/9381
+[10:36:55] <jaubourg> gnarf: that's funny, I was working on this anim mockup the other day and I actually was going for not implementing delay using a timeout ;)
+[10:37:21] <gnarf> jaubourg: you can animate a non-property like _
+[10:37:33] <gnarf> i think i commented on a ticket about that
+[10:38:03] <jaubourg> heh, that's what I was looking into actually, weird :)
+[10:38:36] <jaubourg> how to you get the timing info with requestAnimationFrame?
+[10:39:05] <gnarf> jaubourg: you don't... ;)
+[10:39:12] <jaubourg> I suppose jQuery.now() would return completely wrong values in the sense the clock won't tick faster than the frames?
+[10:39:18] <gnarf> calc diff based on the now()
+[10:39:20] <jaubourg> wont' = would
+[10:39:22] <timmywil> isn't it passed to the callback?
+[10:39:28] <timmywil> as an argument
+[10:39:30] <gnarf> timmywil: yeah, but unreliably
+[10:39:35] <timmywil> we don't use it tho
+[10:39:43] <gnarf> easier to diff fxNow vs this.start
+[10:39:44] <jaubourg> gnarf: then we have a problem... because .now() will be incremented too fast
+[10:39:56] <gnarf> jaubourg: or will it?
+[10:40:07] <jaubourg> well, it's an absolute time
+[10:40:22] <gnarf> jaubourg: it will just be like fastfowarded in time, and then the animation "ends" and the next one starts at the new frame
+[10:40:47] <jaubourg> heh
+[10:40:52] <jaubourg> ok, we're on the page then
+[10:40:56] <jaubourg> same
+[10:41:18] <danheberden> but doesn't the time passed to the callback compensate for function calls?
+[10:41:32] <danheberden> like - it may be ahead of time so that when the function is called it's on time?
+[10:41:52] <gnarf> jaubourg: http://bugs.jquery.com/ticket/6150
+[10:42:07] <gnarf> jaubourg: that would be a lot sexier if we had a .fail(function() { }) ;)
+[10:42:23] <gnarf> http://bugs.jquery.com/ticket/6150#comment:10 to be more exact
+[10:42:26] <danheberden> keyword being "timestamp when teh animation frame is scheduled to occur"
+[10:44:26] <jaubourg> gnarf: oh yeah
+[10:44:33] <gnarf> the stop hooks is something I was thinking about for a while..
+[10:44:43] <gnarf> because like explode can
+[10:44:47] <gnarf> can't be .stop()
+[10:44:56] <gnarf> because it isn't even animating the original element
+[10:46:25] <jaubourg> well, animate is element centric, we have to stop (pun pun) at one point ;)
+[10:46:45] <jaubourg> chaning stops though could be achieved with deferreds
+[10:46:54] <jaubourg> chaining
+[10:48:01] <jaubourg> completly off-topic, gnarf, danheberden, saw my pub/sub imp using $.Callbacks? https://github.com/jquery/jquery/commit/96b0089c9ce5c65f9d002966256d90e778345a2a
+[10:48:47] <jaubourg> and dan, no, jQuery.now would be called when the frame callback is called (rather just "after" since it's in the callback) so there's no compensation
+[10:48:52] <gnarf> jaubourg: nice!
+[10:49:19] <jaubourg> =)
+[10:49:22] <gnarf> $.Channel( "eventName" ).subscribe(function() { }).publish()?
+[10:49:38] <jaubourg> yep
+[10:49:50] <jaubourg> automatic chainability like Deferreds
+[10:50:02] <jaubourg> still have $.publish( "eventName", data )
+[10:50:13] <jaubourg> non-chainable these helpers though
+[10:53:56] <jaubourg> and you can do crazy stuff like $.Deferred( initFunc ).done( $.Channel( "myEvent" ).publish );
+[10:54:55] <jaubourg> or even $.Deferred( initFunc ).progress( $.Channel( "myEvent" ).publish );
+[10:56:58] <rwaldron> jaubourg this is realllly nitpicky of me
+[10:57:03] <rwaldron> but i think you'
+[10:57:05] <rwaldron> ack
+[10:57:20] <jaubourg> rick?
+[10:57:20] <rwaldron> i think you'll understand... there is a var called "object"
+[10:57:43] <jaubourg> in $.Callbacks?
+[10:57:48] <rwaldron> yes
+[10:58:00] <jaubourg> well, it's just a matter of renaming it if it's an issue
+[10:58:04] <rwaldron> ok
+[10:58:08] <jaubourg> is object to be a reserved word?
+[10:58:11] <rwaldron> i'm not trying to be a pain in the ass
+[10:58:17] <rwaldron> not that I know of
+[10:58:19] <jaubourg> I could call it self really
+[10:58:24] <rwaldron> I'm thinking from a maintence POV
+[10:58:29] <rwaldron> and the future of the lib
+[10:58:31] <rwaldron> ya know?
+[10:58:40] <jaubourg> yeah yeah, I hear you, don't worry
+[10:58:46] <rwaldron> btw, this shit is BADASS
+[10:59:08] <jaubourg> thanks :)
+[10:59:38] <jaubourg> and a lot of pair of eyes should look into it and criticize, that's the point of having a team, really
+[11:00:30] <timmywil> I like how much shorter it makes deferred.  Anywhere else this will be useful internally?
+[11:00:41] <rwaldron> jaubourg i'm going to be committing back tests
+[11:00:48] <rwaldron> :)
+[11:01:31] <jaubourg> timmywil: well, it makes it very easy to define pub/sub channels for one. I thoughed about using $.Callbacks for events, but function are directly bound to the dom element so heh
+[11:01:42] <rwaldron> jaubourg you're MENTAL
+[11:01:48] <rwaldron> hahahaha
+[11:01:59] <rwaldron> looking at test/unit/callbacks.js
+[11:02:04] <jaubourg> hahaha
+[11:02:07] <rwaldron> ya know in the movie Ghostbusters...
+[11:02:11] <rwaldron> when they're in jail
+[11:02:26] <jaubourg> I wanted to cover my bases :P
+[11:02:27] <rwaldron> and they're talking about the architecture of Dana Barrett's apartment building...
+[11:02:52] <jaubourg> the woman who sleeps 1 feet above her bed?
+[11:02:54] <rwaldron> " the architect had to be a certified genius or an authentic wacko"
+[11:03:07] <jaubourg> man I love this movie
+[11:03:11] <rwaldron> me too
+[11:03:14] <rwaldron> its my favorite
+[11:03:16] <rwaldron> of all time
+[11:03:36] <jaubourg> yeah, I went a bit over the top but, hell, it's like a fundation to deferreds to I wanted to be sure it acted correctly
+[11:03:45] <rwaldron> yeah dude
+[11:03:50] <rwaldron> i'm just really exited
+[11:03:52] <rwaldron> excited*
+[11:04:15] <jaubourg> in the end, it's just an over-charged _Deferred, really
+[11:04:21] <rwaldron> i'm looking at deferreds getting an upgrade _AND_ a publisher subscriber system for basically free.
+[11:04:35] <jaubourg> but man, did it feel good to implement pub/sub that easily
+[11:04:49] <jaubourg> AND a generic callbacks lists system
+[11:05:06] <jaubourg> still need to add a queue flag and it can pretty much do anything
+[11:05:48] <jaubourg> rick: what I'm proud of is $.when handling progress
+[11:05:51] <rwaldron> so, i just told guys in the office about this
+[11:05:54] <jaubourg> was really anxious about this one
+[11:06:00] <rwaldron> and boaz wanted me to remind you about this fall
+[11:06:28] <jaubourg> yeah, I need to clear things at Creative Area but my intend is to come for all of October if that's possible
+[11:06:46] <rwaldron> so, with regard to $.when... I'm not sure how i lived without that before
+[11:06:53] <rwaldron> and this is just genious
+[11:06:59] <rwaldron> this supports the progress stuff?
+[11:07:02] <jaubourg> yes
+[11:07:09] <rwaldron> fuck yeah dude
+[11:07:13] <rwaldron> The whole month?
+[11:07:21] <rwaldron> we'll go trick or treating together!
+[11:07:26] <jaubourg> $.when( a, b ).progress( function ( pA, pB ) {} )
+[11:07:32] <jaubourg> def! :)
+[11:08:29] <rwaldron> I'm going through the tests now
+[11:08:37] <rwaldron> so impressive
+[11:08:39] <jaubourg> progress are implemented with the "memory" flag so if progress already occured, a newly attached progress callbacks would be called right away. I wondered, about this, asked Krys Zip and we agreed it made sense
+[11:09:33] <jaubourg> yeah, it worked out quite all right I think... still need to have everyone's opinion on all the different flags though
+[11:09:45] <rwaldron> 836 tests for the callbacks module
+[11:09:54] <rwaldron> goal: i want to make it 1000
+[11:09:58] <jaubourg> lol
+[11:10:08] <rwaldron> so i need 164 really weird tests
+[11:10:41] <jaubourg> if I add a queue flag, then we'll get there, since I purposedly try every combination of 2 flags
+[11:11:09] <jaubourg> thought about testing every combination of 3 flags but man, my head started to hurt
+[11:11:35] <jaubourg> hey louisremi :)
+[11:11:38] <rwaldron> hahah
+[11:11:52] <louisremi> hey jaubourg :)
+[11:12:09] <louisremi> and everybody else
+[11:12:27] <jaubourg> who's this Mr Else, everybody's talking about?
+[11:12:49] <jaubourg> louisremi: home or still at Mozilla's?
+[11:12:51] <rwaldron> ?
+[11:13:13] <gnarf> i wanna make it up to jqcon
+[11:13:20] <jaubourg> rick: silly humor... your excitement is getting on me :P
+[11:13:36] <rwaldron> :)
+[11:13:38] <louisremi> :D jaubourg: Still at Mozilla, not for long, I'm going to swimming pool this evening (6 months i haven't done any sport)
+[11:14:46] <jaubourg> better than the 20 years I haven't :P
+[11:15:03] <louisremi> :)
+[11:15:24] <jaubourg> oh btw, rwaldron: guess who's gonna make the introduction for Crockford at his talk in London this week?
+[11:15:39] <jaubourg> \o/
+[11:15:44] <louisremi> jaubourg: You!?!
+[11:15:47] <jaubourg> yep
+[11:15:52] <louisremi> congrats
+[11:16:04] <jaubourg> just been asked by the guys who organize the conf
+[11:16:13] <jaubourg> will introduce Addy too :) :)
+[11:16:18] <louisremi> what conf?
+[11:16:35] <rwaldron> whoa, thats mega
+[11:16:53] <jaubourg> http://atmedia11.webdirections.org/
+[11:17:16] <jaubourg> I just entered data in a survey once and... I won a ticket to the conf
+[11:17:20] <jaubourg> I was all "wtf?"
+[11:17:36] <louisremi> coool
+[11:17:38] <jaubourg> and now I'll introduce Crockford and Addy
+[11:17:47] <jaubourg> life is crazy
+[11:18:04] <gnarf> jaubourg: you must own many leather bound books
+[11:18:35] <jaubourg> gnarf: I think I'll go straight to Hell for having sucked up all of luck in Northern Europe
+[11:19:26] <jaubourg> can't wait to see Addy... and, man, Crockford
+[11:19:40] <rwaldron> jaubourg got something here
+[11:19:46] <rwaldron> in dojo, you can do this..
+[11:19:56] <rwaldron> var handle = jQuery.subscribe( "test", callback );
+[11:20:12] <jaubourg> ok, so I need to return the channel?
+[11:20:20] <rwaldron> and handle is a reference to the "topic"
+[11:20:24] <rwaldron> topic === channel
+[11:20:33] <rwaldron> I'd say yeah
+[11:20:46] <gnarf> id say its more useful than no return
+[11:20:51] <rwaldron> gnarf +1
+[11:21:00] <jaubourg> maybe I should rename Channel into Topic? man I wish rmurphey was around for this kind of naming thingies
+[11:21:10] <rwaldron> prepare for flood...
+[11:21:11] <rwaldron>  var handle = dojo.subscribe("/foo/bar", function(message){
+[11:21:11] <rwaldron>      // only runs once in this case:
+[11:21:11] <rwaldron>      dojo.unsubscribe(handle);
+[11:21:11] <rwaldron>  });
+[11:21:24] <rwaldron> see that it allows me to unsubscribe with the handle?
+[11:21:40] <jaubourg> oh, I see
+[11:21:46] <gnarf> hrm... thats not the topic itself, thats more than that it seems
+[11:21:47] <rwaldron> what do you think?
+[11:21:59] <rwaldron> gnarf, you're right
+[11:22:01] <gnarf> a reference to the function on the topic
+[11:22:05] <jaubourg> I think it's weird
+[11:22:05] <rwaldron> initially i was over simplifying
+[11:22:31] <rwaldron> jaubourg weird, maybe.. but I think some folks will expect it?
+[11:22:50] <timmywil> jaubourg: what about live events?
+[11:22:51] <rwaldron> i'm just throwing it out there, not that my word is law obviously :D
+[11:23:44] <jaubourg> timmywil?
+[11:24:00] <timmywil> sry, I left and came back.  could $.Callback help with live events?
+[11:24:29] <timmywil> not that I've delved into event, just wondering
+[11:24:35] <jaubourg> timmywil: I dunno how live events callbacks are bound, but if there's a callback list, then yes, it can
+[11:24:52] <timmywil> cause I imagine they aren't attached to the element
+[11:25:08] <jaubourg> I'd expect them not to be, yes
+[11:25:57] <jaubourg> what I'd like to know more about is how well we support mixing jQuery.bind and addEventHandler, especially when one returns false
+[11:26:12] <jaubourg> especially in the context of live events
+[11:26:47] <jaubourg> rwaldron: on one hand I see the interest of this handle, on the other I find it very confusing
+[11:28:47] <boaz> ewsrf
+[11:28:55] <boaz> o
+[11:28:57] <boaz> nvm'
+[11:28:58] <jaubourg> hello to you too boaz
+[11:29:10] <boaz> yo what up jaubourg
+[11:29:26] <jaubourg> nm, happy to see people seem to like this whole $.Callbacks thingy
+[11:29:33] <boaz> I herd yer in mai subscriberz processin my publicashions
+[11:29:50] <jaubourg> I ARE 4 SHURE
+[11:30:08] <boaz> ICANHAZ PUBSUB
+[11:30:20] <boaz> wycats is gonna be so happy
+[11:30:34] <boaz> i am so happy
+[11:30:44] <boaz> jaubourg: you are a gangster!
+[11:30:45] <jaubourg> still need to iron out stuff in regard to how it's done in Dojo though
+[11:31:16] <rwaldron> jaubourg i'm already poking this to see if it can be used to store dom events ;)
+[11:31:18] <jaubourg> I know people hated the fact Deferreds' then was not Promise/A compliant and we added pipe instead
+[11:31:56] <jaubourg> rwaldron: hehehe
+[11:33:14] <gnarf> rwaldron / jaubourg: I imagine the "return false" behavior is the biggest lynchpin to supporting event handles with a $.Callbacks
+[11:34:00] <jaubourg> $.Callbacks( "stopOnFalse" )
+[11:34:07] <jaubourg> done
+[11:34:28] <jaubourg> problem is, natively attached handlers
+[11:35:48] <jaubourg> hi there
+[11:35:51] <timmywil> don't think stopPropagation works on live events anyway
+[11:35:51] <rmurphey> hey
+[11:35:53] <rmurphey> give me just a few
+[11:36:06] <jaubourg> np
+[11:36:25] <timmywil> and I imagine preventDefault is modular
+[11:36:54] <timmywil> but don't quote me
+[11:36:56] <jaubourg> oh preventDefault would be a big problem
+[11:37:18] <rmurphey> jaubourg: so what is the question?
+[11:37:39] <jaubourg> rmurphey: so to unsubscribe, you need a subscription object?
+[11:37:43] <rmurphey> yes
+[11:37:55] <rwaldron> or the topic/channel name?
+[11:37:55] <jaubourg> you cannot unsubscribe( "topic", fn )?
+[11:37:59] <rmurphey> .subscribe returns a subscription object
+[11:38:21] <rmurphey> tbh i don't know, the only way i've ever done it is to unsubscribe the subscription object
+[11:38:30] <jaubourg> k
+[11:38:41] <jaubourg> just want to make sure here ;)
+[11:38:57] <rwaldron> jaubourg i'm trying to get peter higgins to weigh in
+[11:39:06] <rwaldron> I'm sure his insight is _valuable_
+[11:39:19] <jaubourg> rmurphey: and since you're my go-to gal for this kind of things ;)
+[11:39:28] <jaubourg> I bother you, you, you, YOU
+[11:39:33] <jaubourg> :P
+[11:39:43] <louisremi> I'm preparing a blog and am hesitating for the title: "Size doesn't matter, it's how you load it" or "Loading jQuery from Google like a pro"
+[11:40:00] <louisremi> Which one do you prefer?
+[11:40:02] <rwaldron> so, jaubourg i have tests written that fail
+[11:40:06] <rwaldron> for this discussion
+[11:40:15] <rwaldron> do you want towrit your own, or use mine?
+[11:40:40] <jaubourg> louisremi: former
+[11:40:40] <rwaldron> actually, fuck it
+[11:40:44] <rwaldron> i dont
+[11:40:54] <rwaldron> you need to sort out how the api will work
+[11:41:04] <jaubourg> we can have both
+[11:41:18] <jaubourg> we just can't generate the API with an each that's all
+[11:41:37] <rwaldron> UM
+[11:41:40] <louisremi> Alright gottago, ciao
+[11:41:47] <rwaldron> this might be easier then i thought
+[11:41:50] <rwaldron> one sec
+[11:42:25] <jaubourg> just have subscribe return an object with { channel: theChannel, args: theArgs /* can subscribe several methods */ }
+[11:42:35] <jaubourg> then handle that in unsubscribe
+[11:42:50] <gnarf> JohnResig: was sep 9, 2007 the release of the original jQuery.color??? http://plugins.jquery.com/project/color
+[11:43:03] <gnarf> trying to draft a blog post
+[11:43:05] <jaubourg> would need to have $.Callbacks.remove handle multiple args though
+[11:43:08] <rwaldron> jaubourg thats where i was going with it
+[11:43:13] <rwaldron> so, you're more familiar
+[11:43:21] <rwaldron> i defer back to you
+[11:43:28] <jaubourg> yeah, I'll do that right now
+[11:44:13] <ajpiano> at some point we should probably discuss the current resolution of docs#7547
+[11:44:14] <bot-t> [#7547] Adding pub/sub into jQuery core? ( handle );) - http://jqbug.com/7547
+[11:45:55] <jaubourg> ajpiano: agreed
+[11:46:42] <ajpiano> i understand that it's like "we're getting it for free"
+[11:47:48] <timmywil> there should be another ticket for it for 1.7
+[11:49:20] <timmywil> separate from $.Callbacks that is
+[11:49:31] <timmywil> but I would +1
+[11:51:56] <timmywil> DaveMethvin: how's .on coming?
+[11:52:16] <timmywil> excited about that one
+[11:53:10] <timmywil> too soon?
+[11:53:15] <ajpiano> i can't seem to find one timmywil
+[11:54:05] <timmywil> ajpiano: I was thinking we should make one.  Something like "Implement pub/sub with the new $.Callbacks"
+[11:54:20] <ajpiano> otherwise it's kind of weird for so much thought to be going into it
+[11:54:31] <ajpiano> if the current resolution on it is like, "we are not going to do this unless it's in a plugin first"
+[11:55:12] <jaubourg> ajpiano: worse case scenario, I take it out of the branch and publish (pun pun) it as a plugin
+[11:55:24] <timmywil> agreed, I think we all just saw it as messy without jaubourg's new stuff
+[11:55:33] <timmywil> not seeing what he had in store
+[11:55:38] <ajpiano> jaubourg: yea totes
+[11:56:28] <wycats> boaz: lol
+[11:56:40] <boaz> totes mgoats
+[11:58:55] <timmywil> $.Callbacks is unanimous.  There may be more disagreement on putting pub/sub into core.  So I was thinking a separate ticket to vote on for 1.7 would be helpful in deciding whether it should start out as a plugin.  The other pub/sub ticket is a different beast imho.
+[12:00:03] <ajpiano> yeah, definitely
+[12:05:04] <timmywil> jrburke: have you already put require on a cdn anywhere?
+[12:06:14] <timmywil> I guess some of the url stuff wouldn't work by default
+[12:14:26] <gnarf> danheberden / anyone who cares: http://oksoclap.com/WMe70bf9pg -- starting to draft up some random things to say about jQuery.Color v2 beta for a blog post... Any ideas / thoughts?
+[12:18:47] <jqcommit> jquery: 1.7/callbacks jaubourg * 4dce543 (2 files in 2 dirs): $.Callbacks.remove now accepts multiple parameters (Unit test amended). Changed the variable name of the main object from "object" to "self" as per rwaldron's suggestions.
+[12:18:47] <jqcommit> jquery: 1.7/callbacks jaubourg * 55df216 (2 files in 2 dirs): jQuery.subscribe now returns a handle that can be passed to jQuery.unsubscribe to... well... unsubscribe. Unit test amended.
+[12:18:47] <jqcommit> jquery: 1.7/callbacks commits 8c39fc8...55df216 - http://bit.ly/iMEo0Z
+[12:18:50] <jaubourg> rwaldron: ^^
+[12:20:47] <rwaldron> sorry, was out chatting with boaz
+[12:20:56] <rwaldron> pulling
+[12:24:50] <gnarf> jaubourg: https://github.com/jquery/jquery/compare/8c39fc8...55df216#L3R58 nice unit test
+[12:25:15] * Alse is away: Auto-Away after 15 mins idle Alse[1.4]
+[12:27:40] <jaubourg> gnarf: that's the unit test you can use as proof that jaubourg is completely mental
+[12:28:20] <jrburke> timmywil: i think someone put it on the cdnjs thing but i have not personally used it. It should work fine on a cdn though, was designed with that in mind.
+[12:28:38] <timmywil> jrburke: ok thanks!
+[12:29:32] <jaubourg> what's the git command to rename a file again? I'm renamming Channel into Topic for consistency with existing implementations
+[12:29:44] <jaubourg> and also, it's shorter :P
+[12:29:50] <jaubourg> hi jrburke :)
+[12:30:00] <jrburke> hi jaubourg!
+[12:32:52] <gnarf> git mv ?
+[12:33:37] <jaubourg> yeah, found it as soon as I put the lazyness aside and googled it ;P
+[12:34:00] <gnarf> jaubourg: sorry i wasn't faster than your lazyness tolerance
+[12:34:04] <rwaldron> hey dudes...
+[12:34:05] <rwaldron> support: body background is not lost if set prior to loading jQuery (#9238) (1, 1, 2)Rerun
+[12:34:08] <rwaldron> failing
+[12:34:35] <jaubourg> yeah, saw that
+[12:34:50] <jaubourg> we must have changed something in the support department
+[12:34:57] <timmywil> browser?
+[12:35:05] <timmywil> Opera?
+[12:35:16] <jaubourg> I see the failure in Chrome
+[12:35:22] <rwaldron> chrome, but its 13 dev-m
+[12:35:28] <jaubourg> chrome stable here
+[12:35:37] <rwaldron> ok, not the browser then
+[12:35:49] <timmywil> strange, I don't see it
+[12:36:13] <jaubourg> rwaldron: can you reproduce on master?
+[12:36:24] <jaubourg> maybe I did something wrong in the branch
+[12:37:58] <rwaldron> one sec
+[12:38:03] <jqcommit> jquery: 1.7/callbacks jaubourg * 3e7c04e (2 files in 2 dirs): Renames $.Channel as $.Topic to be on par with usual terminology of existing pub/sub implementations. - http://bit.ly/lWorWd
+[12:39:13] <jaubourg> well, git mv worked on the unit test, not the src file, weird
+[12:43:57] <jaubourg> k, gotta grab something to eat
+[12:44:31] <rwaldron> jaubourg when you get back, i have some _complex_ test cases...
+[12:44:33] <rwaldron> passing.
+[12:44:42] <jaubourg> btw, rwaldron, boaz, what are the prices if I intend to rent a place for October in Boston?
+[12:44:51] <jaubourg> tell me, I can't resists passing tests :P
+[12:45:33] <rwaldron> well, go eat and I'll have them pushed up for you to pull and run locally
+[12:46:53] <jaubourg> k
+[12:50:58] <JohnResig> gnarf: I suspect that's when it got moved into the plugins repo - it may have been created before then
+[12:55:10] * gnarf is reviewing color issues and has a strange one
+[12:55:52] <gnarf> so $("<div><p></p></div>").css("color", "red").find("p").css("color"); behaves different if the element hasn't been added to the DOM
+[12:56:14] <gnarf> i imagine because of lack of getComputedStyle / whatever
+[12:56:55] <gnarf> that .css() returns "" -- so $.Color is returning the _default (white)
+[12:57:42] <gnarf> I'm wondering if I should try to build in the inheritance for "color" / return "transparent" for other color properties in docfrags
+[13:01:13] <gnarf> oh, and how can I set up testswarm to hit jquery-color?
+[13:04:13] <gnarf> https://github.com/jquery/jquery-color/issues/8
+[13:18:31] <rwaldron> jaubourg there?
+[13:21:22] <jaubourg> yep
+[13:21:40] <jaubourg> rwaldron: ping
+[13:21:44] <rwaldron> yo
+[13:21:47] <rwaldron> so...
+[13:21:56] <rwaldron> i'm way confused i think
+[13:22:28] <rwaldron> and the tests appear to have changed again?
+[13:22:52] <jaubourg> about what part? where?
+[13:22:59] <jaubourg> :)
+[13:23:13] <JohnResig> gnarf: I don't think I'd worry too much about inherited computed colors on disconnected nodes
+[13:23:28] <JohnResig> gnarf: the process for hooking it in to testswarm is... substantial
+[13:23:36] <gnarf> JohnResig: thats where I was leaning too
+[13:24:08] <jaubourg> +1 John, animating disconnected node... wtf?
+[13:24:37] <gnarf> JohnResig: so long as it doesn't explode with an exception, the "_default" color is the best you can expect from a disconnected node
+[13:25:54] <rwaldron> jaubourg basically, i'm not sure how to even describe what i tried to do
+[13:25:56] <boaz> jaubourg: I pay $1600 per month for a 3 bed with a yard and a view in east boston
+[13:26:14] <rwaldron> but i thought we were getting instances or somthing
+[13:26:24] <rwaldron> my tests are rubbish
+[13:26:38] <rwaldron> like,
+[13:26:38] <boaz> you could expect to pay $1800 for a one bed downtown, or $800 for a one bed a 30 min commute away
+[13:26:53] <rwaldron> handle.publish() <-- note, there is not string topic
+[13:27:14] <gnarf> JohnResig: substantial enough that i shouldn't bother asking someone to undertake it? because I'd love to be able to see browsers I don't have for testing
+[13:27:18] <jaubourg> boaz: oki, thanks
+[13:27:19] <rwaldron> but its weird because handle.channel.publish() DOES work
+[13:27:38] <jaubourg> rick: the handle is just to be able to unsubscribe
+[13:27:43] <rwaldron> but then handle.channel.unsubscribe() doesnt unsub that handle
+[13:28:00] <rwaldron> my tests where intentionally complex
+[13:28:01] <jaubourg> supposed to be an opaque structure sortof
+[13:28:03] <rwaldron> they _work_
+[13:28:30] <rwaldron> how the hell do i unsubscribe?
+[13:28:45] <jaubourg> $.unsubscribe( handle )
+[13:31:30] <rwaldron> jaubourg and? jQuery.publish( handle );
+[13:32:09] <jaubourg> the handle is not here so that you can publish on it... it's just a reference to a subscription
+[13:32:54] <jaubourg> you can $.publish( "topicName", data )
+[13:32:55] <rwaldron> hm
+[13:33:07] <rwaldron> var h = subscribe("foo", fn )
+[13:33:22] <rwaldron> h.channel.publish() <-- this works
+[13:33:34] <rwaldron> it might be unintended
+[13:33:56] <jaubourg> well, rename h as subscription and look how it reads ;)
+[13:34:13] <jaubourg> subscription.channel.publish()
+[13:34:19] <rwaldron> right
+[13:34:21] <rwaldron> i get that
+[13:34:25] <rwaldron> now...
+[13:34:42] <rwaldron> fuck.
+[13:34:44] <rwaldron> i dont know
+[13:34:53] <rwaldron> i'm not getting something
+[13:35:00] <jaubourg> subscription.publish() doesn't make sense to me
+[13:35:26] <jaubourg> ok, do you wanna skype about it?
+[13:35:36] <jaubourg> maybe it would be simpler if we could just talk ;)
+[13:36:38] <rwaldron> no skype on this machine
+[13:36:54] <rwaldron> but aybe I'll take the laptop to the other room
+[13:36:59] <rwaldron> give me one more try at something
+[13:37:55] <jaubourg> k
+[13:38:12] <rwaldron> i think i got it
+[13:38:30] <rwaldron> so like, the final publish in my tests _should_not_ happen
+[13:38:39] <rwaldron> ... it appears they did not
+[13:39:04] <jaubourg> do you have a gist so that I'm not too blind ;)
+[13:42:46] <rwaldron> WOOOOOOW
+[13:42:51] <rwaldron> !!!!!!!!!!!!!!!!
+[13:42:58] <jaubourg> Oo
+[13:43:00] <rwaldron> wait til you see this lunacy
+[13:43:04] <jaubourg> hahahaha
+[13:46:12] <rwaldron> one more thing and I'll push
+[13:46:16] <rwaldron> dude
+[13:46:23] <rwaldron> this is a mindfuck
+[13:46:57] <jaubourg> lol, can't wait
+[13:47:42] <rwaldron> https://github.com/rwldrn/jquery/blob/2295bd19349ea9ee2692fc99bf76d893f62bf711/test/unit/topic.js#L70-119
+[13:48:00] <rwaldron> the branch is called: 1.7-callback-tests
+[13:48:05] <rwaldron> if you wanna just pull it local
+[13:49:46] <jaubourg> I don't event understand what it does... looks like Inception to me :P
+[13:50:06] <rwaldron> notice the name of the commit
+[13:50:09] <rwaldron> Callback Inception
+[13:50:16] <rwaldron> ok, so there are 11 tests
+[13:50:22] <rwaldron> that have 3 outcomes
+[13:50:25] <rwaldron> 33 tests
+[13:51:37] <jaubourg> k
+[13:52:35] <rwaldron> 1. declare a callback to be reused by all subscriptions, this will increment a counter that keeps track of # of executions. 2. iterate through tests creating subscriptions to each test, in the subscription callback, apply the universal callback with the subscription as context and an array containing info about the test subscription
+[13:52:50] <rwaldron> 3. publish to the subscription
+[13:53:34] <rwaldron> 4. (inside the universal callback) increment the execution counter for this topic, record a passing test
+[13:54:18] <rwaldron> if the increment is 1 ( identifying that 1 execution has been recorded and 1 passing test)...
+[13:55:07] <rwaldron> 5. unsubscribe this topic by handler (that was provided as the scope of this callback execution)
+[13:55:11] <rwaldron> aka this
+[13:55:50] <jaubourg> k
+[13:56:06] <rwaldron> 6. execute the callback that was passed to the unversal callback, passing: argument, id, and the _last_ callback
+[13:56:28] <rwaldron> 7. the last call back will attempt to REPUBLISH
+[13:56:44] <rwaldron> 8. Success is measured if this _does_not_ occur
+[13:57:09] <rwaldron> 9. After all of this nonsense, check that the important data argument is still what we expected it to be
+[13:57:26] <rwaldron> 0-11, any of the following: [ "string", "", 1, 0, true, false, null, undefined, {}, [], function() { return "win!" } ]
+[13:57:42] <rwaldron> /fin
+[13:57:51] <jaubourg> nice
+[13:57:58] <jaubourg> as in crazy nice
+[13:58:16] <rwaldron> its an overly complicated bullshit example
+[13:58:30] <rwaldron> that i'd like to think is indicative of dumb user stuff
+[13:58:36] <jaubourg> haha
+[13:58:37] <rwaldron> rolled into one
+[14:05:30] <jaubourg> you sure as Hell don't help improve my eyesight with this kind of code :P
+[14:06:10] * jaubourg spanks rwaldron
+[14:12:14] <sbisbee> jaubourg: rwaldron doesn't code for people's eyes and readability. he just has stock in white spaces. ;)
+[14:13:00] <jaubourg> hehe
+[14:13:01] <sbisbee> jaubourg: And I owe you a Skype about ajax, but I've been crushed by house buying.
+[14:13:15] <jaubourg> np, man, whenever you can and whenever you want
+[15:27:35] <astropirate> I am going through the jQuery code but can't seem to be able to find where jQuery.support.ajax is set. Anyone point me to a direction?
+[15:32:37] <rwaldron> astropirate where do you see that?
+[15:34:01] <astropirate> rwaldron, give or take at line 7774 of unminified source   "if ( jQuery.support.ajax ) {"
+[15:34:16] <astropirate> incase you are wondering i am trying to get it's ajax capabilities to work under node.js
+[15:34:55] <astropirate> with a "fake" XMLHttpRequest object
+[15:35:20] <rwaldron> astropirate src/ajax/xhr.js

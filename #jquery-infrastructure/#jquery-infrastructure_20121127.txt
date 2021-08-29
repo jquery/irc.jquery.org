@@ -1,0 +1,143 @@
+[11:54:18] <Krinkle> gnarf: jzaefferer: browserstack is becoming more unreliable by the day, this is unacceptable
+[11:54:24] <Krinkle> not a single build completed over the last 2 days.
+[11:54:36] <Krinkle> * http://cl.ly/image/0m0g370N2r2T
+[11:54:36] <Krinkle> * http://cl.ly/image/2m0r131L361e
+[11:54:38] <Krinkle> check those
+[11:55:12] <Krinkle> 229/236 safari 6 dead
+[11:55:17] <Krinkle> 89/119 ie7 dead
+[11:55:33] <Krinkle> do they have tests for their API, or are we just doing it wrong !?
+[13:09:36] <Krinkle> clarkbox: regarding GUID, that's something for TestSwarm Nodejs/Next. Doesn't make sense yet in the current model as there is no way to enforce it to be retreived first.
+[13:09:46] <Krinkle> Unless you want to do it the milky way
+[13:10:28] <Krinkle> as in, append meaningless parameters to the run page url, unbeknownst to TestSwarm. 
+[13:10:46] <Krinkle> clarkbox: As for current correlation, we use swarmstate
+[13:11:01] <Krinkle> I thought you know, I mean, that's what we use to terminate the workers.
+[13:11:09] <Krinkle> onlineClients===0, status===running
+[13:11:25] <Krinkle> As soon as the run page is hit, inlineClients !== 0
+[13:11:32] <Krinkle> online*
+[13:12:27] <Krinkle> if you suspect that might be inaccurate, I guess all we can use is raw nginx access logs for swarm.jquery.org/run/browserstack*
+[13:13:30] <Krinkle> gnarf: gnarf: HP Notice:  session_start(): ps_files_cleanup_dir: opendir(/var/lib/php5) failed: Permission denied (13) in /var/www/swarm/index.ph
+[13:18:47] <Krinkle> clarkbox: Hm.. Why is https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20source%3D%22%2Fvar%2Flog%2Fnginx%2Fswarm.jquery.org.access.log%22 not indexed?
+[13:59:01] <clarkbox> crinkle, the guid will let us track the status of a spawned worker
+[14:03:33] <clarkbox> krinkle
+[14:04:23] <clarkbox> i had a feeling we were not indexing that
+[14:04:46] <clarkbox> we had to trim out some stuff, as we were getting too much noise. i need to whitelist hosts that we index
+[14:05:05] <clarkbox> so i will add swarm.jquery 
+[14:05:45] <clarkbox> back to the guid… its lets us know that a worker we spawned hit the run page
+[14:06:41] <clarkbox> if browserstack inserted the workerID in a host header - we could use that
+[14:07:07] <clarkbox> i mean, "request header" not "host header"
+[14:15:58] <gnarf> yeah, we could add that to the nginx access log too
+[14:20:33] <clarkbox> gnarf: can you elaborate?
+[14:20:51] <gnarf> the guid /client id
+[14:21:20] <clarkbox> we have o do something to get it to log a querystring value? or you mean pull it out of the header?
+[14:21:31] <gnarf> if it's a request header, i'm pretty sure we could add it to the nginx access log
+[14:21:36] <clarkbox> ahh
+[14:22:12] <clarkbox> ya that would be ideal. but i don't think browserstack will be able to -easily- add that to a req header
+[14:26:22] <gnarf> well, we could add it to the query string for the run page, and from there add it to the headers
+[14:32:02] <clarkbox> well from inside the browser, we do not know the worker ID
+[14:32:09] <clarkbox> but we could propagate the GUID
+[14:32:32] <clarkbox> but from splunks prospective its all the same.
+[14:32:58] <clarkbox> we can get the GUID from the referer header
+[15:45:39] <clarkbox> ok we now have access logs for swarm.jquery.org in splunk
+[15:49:19] <clarkbox> gnarf krinkle ^
+[15:49:35] <Krinkle> clarkbox: isn't that auto discovered?
+[15:49:42] <clarkbox> no
+[15:49:52] <clarkbox> by default it is
+[15:49:58] <clarkbox> but we have set up a whitelist
+[16:16:28] <Krinkle> clarkbox: ok
+[16:16:29] <Krinkle> clarkbox: https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20source%3D%22%2Fvar%2Flog%2Fnginx%2Fswarm.jquery.org.access.log%22%20%22GET%20%2Frun%2Fbrowserstack%3Frun_token%3D*%22
+[16:16:32] <Krinkle> Nice
+[16:16:46] <clarkbox> ya
+[16:16:53] <Krinkle> ua-parser in splunk ?
+[16:16:54] <Krinkle> :P
+[16:16:56] <clarkbox> also found a 404 for a css file (not a big deal)
+[16:17:04] <clarkbox> you can build an app for that :)
+[16:17:10] <Krinkle> no thanks
+[16:17:24] <Krinkle> anyhow, general numbers is enough I imagine
+[16:17:35] <Krinkle> now we need to correlate that to action=spawn
+[16:17:44] <Krinkle> clarkbox: Do you know how to do that between different sources?
+[16:18:28] <Krinkle> the graph that should follow is two lines on 1 chart, one a few seconds/minutes behind the other (one for spawns, the other the hits)
+[16:18:42] <clarkbox> ya
+[16:19:02] <clarkbox> we will need to add that guid to the querystring (and ts-bs log)
+[16:19:09] <clarkbox> to make it easier
+[16:20:19] <Krinkle> We don't need to match individual ones
+[16:20:23] <Krinkle> the script already does that
+[16:20:28] <Krinkle> by terminiating ghosted workers
+[16:20:38] <Krinkle> we just need the overal count of spawns and run page hits
+[16:20:43] <clarkbox> sure
+[16:20:59] <clarkbox> i gotta run for now
+[16:21:02] <Krinkle> ok
+[16:21:20] <Krinkle> ah [join]
+[16:21:22] <Krinkle> interesting
+[16:21:28] <clarkbox> will be back on later tonight - ill see if i can find some time to work on this
+[16:21:36] <clarkbox> however, i think its on BS side
+[16:21:40] <clarkbox> look at status codes
+[16:21:41] <clarkbox> 499
+[16:21:59] <clarkbox> thats nginx client terminate status
+[16:22:35] <clarkbox> guess what browsers are giving that?
+[16:22:36] <Krinkle> yeah
+[16:22:59] <Krinkle> but those are for referring requests though, not the initial hit
+[16:23:00] <clarkbox> oh… i see at least one chrome in there
+[16:23:09] <Krinkle> yeah, all of them have ghosts
+[16:23:13] <clarkbox> anyway
+[16:23:15] <Krinkle> some more than others
+[16:23:20] <clarkbox> I'm out for now
+[16:23:22] <Krinkle> k
+[16:33:04] <Krinkle> gnarf: I fixed the "ps_files_cleanup_dir: opendir(/var/lib/php5) failed:" errors by setting session.gc_probability = 0 (instead of 1) in etc/php5/fpm/php.ini
+[16:33:13] <Krinkle> Looks like it was misset or copied from elsewhere
+[16:33:26] <Krinkle> on Ubuntu only the cronjob has permission to clean it up
+[16:33:48] <Krinkle> session.gc_probability is a way for php to do it in 1/1000 requests instead, but we should disable that since we have the cron already
+[16:33:54] <Krinkle> http://somethingemporium.com/2007/06/obscure-error-with-php5-on-debian-ubuntu-session-phpini-garbage
+[16:33:55] <Krinkle> fixed now
+[16:33:56] <gnarf> yeah
+[16:34:01] <gnarf> makes sense
+[16:34:24] <gnarf> add it to the session.ini rather than edit the php.ini
+[16:34:25] <gnarf> safer
+[16:34:42] <Krinkle> hm.. ok
+[16:34:50] <Krinkle> can you explain?
+[16:35:18] <gnarf> i use the conf.d because then we can just puppet that file to everything
+[16:35:26] <Krinkle> right
+[16:35:27] <gnarf> and not worry about editing the php.ini
+[16:35:31] <Krinkle> in which order is it included
+[16:35:37] <Krinkle> is it puppetized now?
+[16:35:39] <gnarf> no
+[16:35:43] <gnarf> not session.ini
+[16:35:46] <gnarf> i haven't added it yet
+[16:35:52] <gnarf> going to tho, and sync it to everything
+[16:36:08] <gnarf> i think the last line of php.ini includes the conf.d
+[16:36:10] <gnarf> just look
+[16:38:01] <gnarf> i don't know where its defined
+[16:38:02] <gnarf> sorry
+[16:38:04] <Krinkle> added to session.ini
+[16:38:09] <gnarf> pretty sure the conf.d comes after tho
+[16:38:16] <Krinkle> it better
+[16:38:37] <gnarf> might even be compiled in
+[16:39:07] <Krinkle> I don't see it mentioned anywhere
+[16:39:15] <Krinkle> 0 matches in /etc/php5
+[16:39:20] <gnarf> Configuration File (php.ini) Path => /etc/php5/cli
+[16:39:20] <gnarf> Loaded Configuration File => /etc/php5/cli/php.ini
+[16:39:20] <gnarf> Scan this dir for additional .ini files => /etc/php5/cli/conf.d
+[16:39:25] <Krinkle> yeah
+[16:39:26] <gnarf> from phpinfo()
+[16:39:44] <Krinkle> wait, /cli/conf.d ?
+[16:39:53] <gnarf> its a symlink back to conf.d
+[16:39:56] <Krinkle> ah, i see
+[17:28:43] <Krinkle> clarkbox: easier than I thought: (source=... ... ) OR (source=... ... ) | timechart count by source
+[17:29:01] <Krinkle> there is also an explicit join command, but this seems much simpler
+[17:29:02] <Krinkle> https://splunk.jquery.com:8000/en-US/app/search/browserstack
+[17:29:35] <Krinkle> "Spawns and TestSwarm clients" so far it matches up with the access logs (from the part where there is data)
+[22:14:57] <clarkbox> krinke that is beautiful 
+[22:16:25] <Krinkle> thx
+[22:16:34] <clarkbox> i think a bar chart is better viz
+[22:16:52] <clarkbox> line you can't easily see, and the interface won't let you mouse pver to see
+[22:17:00] <Krinkle> i agree
+[22:17:03] <clarkbox> with side by side bars, per day, its clear
+[22:17:06] <clarkbox> ill change it
+[22:17:10] <Krinkle> ok
+[22:17:22] <Krinkle> btw, see trending errors
+[22:17:25] <Krinkle> there's a few odd errors
+[22:17:29] <Krinkle> probably on the browserstack side
+[22:17:39] <Krinkle> since we don't have an events.js file
+[22:17:53] <Krinkle> their api even served html at some point
+[22:18:21] <clarkbox> done. i meant column.
+[22:18:31] <clarkbox> not bar chart
+[22:18:39] <clarkbox> brb

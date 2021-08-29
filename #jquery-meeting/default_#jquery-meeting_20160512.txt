@@ -1,0 +1,197 @@
+[12:00:12] <scott_gonzalez> ?pepteam
+[12:00:12] <b-ot> arschmitz bethge jdalton jrossi jrossi1 jrossi2 jrossi3 jrossi9billion M4rius scott_gonzalez snover
+[12:00:17] <arschmitz> hi
+[12:02:39] <bethge> Hi
+[12:03:26] <scott_gonzalez> Let's start with bethge's PRs.
+[12:03:33] <scott_gonzalez> I reviewed all three.
+[12:03:39] <scott_gonzalez> Just some very minor changes needed.
+[12:04:06] <scott_gonzalez> ensuring mouse is always an active pointer (https://github.com/jquery/PEP/pull/282)
+[12:04:43] <bethge> Nice! Just saw, I will go over them this weekend.
+[12:05:29] <scott_gonzalez> assert that the capturing node is connected to the DOM (https://github.com/jquery/PEP/pull/283)
+[12:05:38] <scott_gonzalez> add more tests (https://github.com/jquery/PEP/pull/281)
+[12:06:16] <bethge> about new MouseEvent, I was using it to modify the value buttons, I will check if I can just modify the `buttons` property directly on the event.
+[12:07:50] <scott_gonzalez> Hopefully you can. I know some properties you can't touch.
+[12:08:31] <scott_gonzalez> If not, we can detect if MouseEvent is supported and use it where we can, then fall back to document.createEvent()
+[12:08:54] <bethge> Ah, good idea.
+[12:09:17] <scott_gonzalez> But it'll be pretty shitty if we have to tell users that `buttons` won't work in IE.
+[12:10:28] <bethge> That part is just for the unit test though
+[12:15:25] <scott_gonzalez> Doesn't look like you can change it.
+[12:15:29] <scott_gonzalez> I just tested in IE11.
+[12:17:41] <bethge> darn
+[12:20:41] <scott_gonzalez> I'll ping someone from Microsoft and see if they have any ideas.
+[12:21:14] <bethge> sweet, thx
+[12:21:57] <scott_gonzalez> Regarding the boundary events during capture.
+[12:22:10] <scott_gonzalez> This is still an ongoing discussion in W3C.
+[12:22:42] <scott_gonzalez> But people are generally on board with getting rid of them.
+[12:22:56] <arschmitz>  yeah iv been following that
+[12:23:03] <arschmitz> seems like they are going to be removed
+[12:23:24] <scott_gonzalez> To make this sane, there will be some extra work.
+[12:23:46] <scott_gonzalez> Assuming that at the time setPointerCapture() is called, the pointer is over a different element, then:
+[12:24:05] <scott_gonzalez> We'll walk the DOM to find the common ancestor of the currently hovered element and the capturing element.
+[12:24:19] <scott_gonzalez> Fire pointerleave from the currently hovered element up to the common ancestor.
+[12:24:36] <scott_gonzalez> Then fire pointerenter from the common ancestor down to the capturing element.
+[12:24:52] <scott_gonzalez> This will make it seem like the pointer just moved to the capturing element, in terms of events and CSS :hover.
+[12:25:08] <bethge> That sounds good, makes sense.
+[12:25:09] <scott_gonzalez> Then during capture, there are no boundary events, and :hover will be stuck on the capturing element.
+[12:25:21] <scott_gonzalez> We'll do the reverse during release.
+[12:25:50] <scott_gonzalez> The Chrome team wants to go ahead and implement this now, even though the spec hasn't changed.
+[12:26:00] <scott_gonzalez> Then see if there are any web compat issues.
+[12:26:20] <scott_gonzalez> Since I think this is a sane model, I'd like to propose that we do so as well.
+[12:26:28] <scott_gonzalez> What do you think?
+[12:27:10] <bethge> I agree. Sounds simple enough, without many(any?) edge cases.
+[12:27:43] <arschmitz> sounds goot to me
+[12:27:55] <scott_gonzalez> Cool. I'll file an issue for that.
+[12:28:52] <bethge> Are there any signals from IE yet, as to whether they would also adapt their behaviour?
+[12:28:52] <scott_gonzalez> Is there anything else to discuss today?
+[12:29:43] <scott_gonzalez> There were IE reps on yesterday's call, but Jacob wasn't there, and he's the one that would know the history behind Edge's current implementation.
+[12:30:16] <scott_gonzalez> There's a pretty strong case that Edge's current implementation is wrong though, because they fire pointerenter and pointerleave all the way up the document during capture.
+[12:30:39] <scott_gonzalez> And the one scenario that he brought up to say why boundary events were important actually doesn't make sense.
+[12:30:47] <scott_gonzalez> The use case was implicit capture on native buttons.
+[12:31:23] <scott_gonzalez> But buttons don't actually have an implicit capture. I verified this by placing an anchor next to a button and then pressing down on the button and moving my mouse over the anchor.
+[12:31:38] <scott_gonzalez> The anchor showed hover state.
+[12:31:59] <scott_gonzalez> Also, if you were to build a custom button in JavaScript, you wouldn't want capture because that would make styling much harder.
+[12:32:08] <arschmitz> right
+[12:32:08] <scott_gonzalez> And it would make detecting clicks much harder.
+[12:32:22] <scott_gonzalez> Because instead of relying on the browser's hit testing, you'd now be stuck doing bounds checks.
+[12:32:34] <scott_gonzalez> To determine if the pointer is still over the button.
+[12:33:28] <bethge> Makes sense
+[12:34:11] <scott_gonzalez> So we're waiting on feedback from Jacob before we make any changes to the spec.
+[12:35:13] <bethge> Maybe while at it you could clarify: https://github.com/w3c/pointerevents/issues/15
+[12:35:52] <scott_gonzalez> Yup, that's related but orthogonal. The behavior is tightly coupled to the resolution of this, but the timing issue is not.
+[12:36:22] <scott_gonzalez> We did discuss it on the call though.
+[12:36:33] <scott_gonzalez> But again, we're waiting for feedback on Edge's implementation. Because while it doesn't match the spec currently, it does seem like better logic.
+[12:36:50] <scott_gonzalez> And the spec is based on Edge's implementation, but we think Jacob just missed some details when explaining it.
+[12:37:38] <bethge> Right, would be really great if all browsers could have the same behaviour for capture.
+[12:37:47] <scott_gonzalez> yup
+[12:37:50] <scott_gonzalez> We'll get there.
+[12:37:59] <bethge> \o/
+[12:38:00] <scott_gonzalez> It's just taking a lot of time ;-)
+[12:38:10] <bethge> :)
+[12:38:25] <scott_gonzalez> Chrome's implementation is still behind a flag, which is what allows them to try deviating.
+[12:38:48] <scott_gonzalez> Is there anything else to discuss?
+[12:40:53] <scott_gonzalez> I guess that's all for today.
+[12:40:55] <scott_gonzalez> Thanks everyone.
+[14:02:27] <arschmitz> apsdehal: agcolom: sfrisk: gabrielschulhof: jasperdegroot: cgack: cogwurx: meeting time
+[14:02:35] <cogwurx> YAY!
+[14:02:35] <cgack> howdy
+[14:02:39] <apsdehal> Hey
+[14:02:48] <jasperdegroot> hi
+[14:03:18] <sfrisk> hi
+[14:04:34] <arschmitz> lets get started
+[14:04:39] <arschmitz> the main thing is selectmenu
+[14:04:50] <arschmitz> but looks like we dont have gabrielschulhof
+[14:05:12] <arschmitz> and thats just waiting on some questions i had for him now and how it relates to a ticket on ui he opened
+[14:08:55] <arschmitz> does any one have any updates or anything to discuss
+[14:08:59] <apsdehal> In the meantime, I have some questions for each of you regarding various old issues.
+[14:09:28] <apsdehal> cgack: Can we close this now? https://github.com/jquery/jquery-mobile/issues/7360
+[14:10:20] <apsdehal> jasperdegroot: I was looking into https://github.com/jquery/jquery-mobile/issues/8260 , as of now theming is still not supported, what is our final take on this?
+[14:10:51] <jasperdegroot> let me check
+[14:11:04] <arschmitz> by the way apsdehal great job on the issues
+[14:11:22] <apsdehal> arschmitz: :)
+[14:11:22] <arschmitz> and semi related for anyone who does not know already
+[14:11:28] <arschmitz> we lost our second GSoC student
+[14:11:33] <arschmitz> the one working on hammer integration
+[14:11:46] <apsdehal> arschmitz: https://github.com/jquery/jquery-mobile/issues/5987 , there is a comment for you in this.
+[14:11:48] <jasperdegroot> yeah, awesome job on triage apsdehal
+[14:11:50] <arschmitz> he decided to after acceptance take another internship and dropped out of GSoC
+[14:12:06] <jasperdegroot> oh too bad
+[14:12:38] <arschmitz> yes
+[14:12:39] <cgack> apsdehal: I think we could, but there are some items there in the checklist that might be useful for documentation/api/upgrade guide work
+[14:12:54] <arschmitz> since we cant replace him since he did it a week after the deadline
+[14:13:01] <apsdehal> I am not sure about this one, there hasn't been any discussion on this: https://github.com/jquery/jquery-mobile/issues/7233 . If this issue is still relevant.
+[14:13:32] <apsdehal> cgack: Then let's keep that open till 1.5 launch
+[14:13:41] <arschmitz> apsdehal: which gabrielschulhof was here for that one
+[14:13:45] <cgack> apsdehal: probably best.  thanks!
+[14:13:47] <arschmitz> but i think thats something we would like to happen
+[14:14:03] <arschmitz> we have implmented preventDefault handling in many other places
+[14:14:52] <apsdehal> jasperdegroot: Was there any updates on this: https://github.com/jquery/jquery-mobile/issues/5822
+[14:15:03] <apsdehal> arschmitz: So I will leave the ticket open for now
+[14:15:06] <jasperdegroot> apsdehal: Re:  https://github.com/jquery/jquery-mobile/issues/8260 ... I have to see if that's still an issue with pages styled as dialog now dialogs themselves are deprecated. Assigning the ticket to myself and will comment
+[14:15:48] <apsdehal> jasperdegroot: Issue is still there. I was asking if we need to fix it, since dialog is deprecated.
+[14:16:09] <arschmitz> apsdehal: dialog is but page styled as a dialog is not
+[14:16:24] <arschmitz> there is now a dialog option on the page widget which styles a page as a dialog
+[14:16:30] <jasperdegroot> apsdehal: that what arschmitz said
+[14:16:35] <arschmitz> the difference is dialog had special naviagation handling
+[14:16:41] <apsdehal> So we will have to provide theme option for page styled as dialog
+[14:16:58] <arschmitz> it *should* just be the theme option on the page widget
+[14:17:33] <apsdehal> And dialog should inherit it?
+[14:17:41] <arschmitz> dialog is just an option
+[14:17:52] <arschmitz> its just a different style of page its purely visual
+[14:18:32] <arschmitz> normal pages have no real style a dialog page shows the page contents in what "looks like" a dialog
+[14:18:35] <jasperdegroot> maybe the theming option for page is enough and this is not an issue anymore, but have to check that
+[14:18:35] <apsdehal> Ok, so probably we should reconfirm the issue and see its title can be changed
+[14:18:45] <arschmitz> yup
+[14:18:56] <arschmitz> we need to check and figure out from there
+[14:18:57] <apsdehal> jasperdegroot: Thanks, kindly check that and close accordingly
+[14:19:06] <apsdehal> arschmitz: https://github.com/jquery/jquery-mobile/issues/6298
+[14:19:12] <jasperdegroot> apsdehal: will do, assigned ticket to myself
+[14:19:18] <apsdehal> Thanks
+[14:19:20] <arschmitz> there may be something to fix because there is extra wrapper etc
+[14:19:46] <arschmitz> @apsdehal thats very relevant still
+[14:20:01] <arschmitz> something we hoped to do for 1.5 but didnt make it
+[14:20:07] <apsdehal> Description isn't good, couldnot really understand what the issue is about
+[14:20:10] <arschmitz> was start a nav review
+[14:20:38] <arschmitz> all ways of configuing or turning on or off ajax nav basicly
+[14:20:50] <arschmitz> and the point is there are way too many ways
+[14:21:00] <arschmitz> thats its madness to make them all work and make sense together
+[14:21:05] <arschmitz> so we need to clean that up
+[14:21:21] <apsdehal> So I will leave that open for now
+[14:21:37] <apsdehal> arschmitz: https://github.com/jquery/jquery-mobile/issues/5293
+[14:21:39] <arschmitz> yeah feel free to update the description to clairify
+[14:21:43] <apsdehal> A comment for you again :)
+[14:21:45] <arschmitz> i can see why it was confusing
+[14:22:13] <arschmitz> apsdehal: short answer yes
+[14:22:23] <arschmitz> slightly longer answer some of those may no longer need it
+[14:22:49] <arschmitz> since classes and events are automagicly removed by the facotry in the root destroy method
+[14:22:49] <apsdehal> Ok, I will discuss that later
+[14:23:03] <apsdehal> https://github.com/jquery/jquery-mobile/issues/8399
+[14:23:10] <jasperdegroot> arschmitz did you see https://github.com/jquery/jquery-mobile/issues/5822?
+[14:23:39] <jasperdegroot> I suggest to leave it open for now and look into this for 1.6
+[14:23:42] <arschmitz> thats an oldie ill have to look at it more
+[14:23:47] <jasperdegroot> yeah
+[14:23:50] <apsdehal> I confirmed the issue 8399, and it is really bad
+[14:23:54] <arschmitz> its not an issue im familiar with off the top of my head
+[14:24:07] <arschmitz> apsdehal: ok
+[14:24:23] <arschmitz> sounds like something we should try to get fixed before 1.5 final
+[14:24:59] <apsdehal> Last one: https://github.com/jquery/jquery-mobile/issues/7039
+[14:25:14] <apsdehal> I can have a look at it again once selectmenu is on 1.5
+[14:25:57] <arschmitz> sounds good
+[14:26:13] <arschmitz> hopefully that can land soon i mostly just have questions for gabrielschulhof
+[14:26:22] <apsdehal> Rest issues were for gabrielschulhof, but he isn't here. So I don't have anything more except for
+[14:26:26] <arschmitz> based on an email / issue he opened about controlgroup
+[14:26:35] <arschmitz> on jquery-ui
+[14:26:42] <apsdehal> https://github.com/jquery/jquery-mobile/pull/8431
+[14:26:46] <jasperdegroot> https://github.com/jquery/jquery-mobile/issues/8399 is missing a JS Bin test page
+[14:26:47] <arschmitz> im not sure if 1 hes depedning on a fix for that
+[14:26:50] <apsdehal> Phantomjs upgrade
+[14:27:06] <arschmitz> and 2 if the way i fixed it will mess with what he was doing
+[14:28:56] <arschmitz> apsdehal: for 8399
+[14:29:05] <arschmitz> you shoudl copy that to a jsbin
+[14:29:16] <apsdehal> Tests are passing for phantomjs version 2 and we can land it after a review
+[14:29:21] <arschmitz> because he has some css in there i think is causing it potentially
+[14:29:31] <apsdehal> Sure!
+[14:29:46] <arschmitz> [data-role="header"]{ position: fixed; top:0px; width:100%;}
+[14:29:46] <arschmitz>     [role="main"] {margin-top: 32px;}
+[14:29:46] <arschmitz>     .ui-content {overflow-y: scroll; position:fixed; top: 44px; bottom: 40px; -webkit-overflow-scrolling:touch;}
+[14:29:48] <arschmitz>     [data-role="footer"] {position: fixed; bottom:0px; width:100%;}
+[14:30:06] <arschmitz> thats like completely changing how we layout a page
+[14:30:08] <apsdehal> Yes, just saw that
+[14:30:21] <arschmitz> and
+[14:30:25] <arschmitz> -webkit-overflow-scrolling:touch;
+[14:30:32] <arschmitz> is known to be super buggy
+[14:30:46] <jasperdegroot> just commented
+[14:30:50] <arschmitz> and may cause this all on its own
+[14:30:58] <jasperdegroot> because I was thinking the same
+[14:31:56] <arschmitz> yeah simple to test though
+[14:31:58] <apsdehal> http://jsbin.com/vucahibayu/1/edit?html,output
+[14:32:22] <arschmitz> can you reproduce with that
+[14:32:42] <arschmitz> might be worth just for fun to make the header and footer fixed the right way too
+[14:32:46] <arschmitz> bysetting the options
+[14:32:59] <arschmitz> and see if either of them reproduce
+[14:33:12] <arschmitz> if not id just comment and close
+[14:33:39] <apsdehal> Yeah, looking into it. Except that, that is all I have for today
+[14:34:06] <arschmitz> ok
+[14:34:26] <arschmitz> well unless someone has anything else i think we can call it a wrap then
+[14:34:44] <arschmitz> ill try to catch up with gabrielschulhof before the next meeting and get selectmenu figured out
+[14:38:26] <arschmitz> ok see everyone back on dev
+[14:39:37] <jasperdegroot> later all

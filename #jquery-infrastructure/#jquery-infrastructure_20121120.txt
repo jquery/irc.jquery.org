@@ -1,0 +1,78 @@
+[15:08:07] <Krinkle> clarkbox: this is nice: https://splunk.jquery.com:8000/en-US/app/search/flashtimeline?q=search%20sourcetype%3D%22apache_error%22%20host%3D%22jq03.jquery.com%22%20source%3D%22%2Fvar%2Flog%2Fnginx%2Fswarm.jquery.org.error.log%22&earliest=0
+[15:08:44] <Krinkle> clarkbox: question, can I sort them by frequency? e.g. how many occurrences a certain error has (basically unique-sort-counting the line without the timestamp in front)
+[15:08:57] <Krinkle> say, in the last 24 hours the most common error
+[15:09:20] <Krinkle> I imagine it is possible to track trending errors, or even filter only for errors that were new and not there before.
+[15:42:47] <clarkbox> what field is the error contained in?
+[15:42:53] <clarkbox> krinkle^
+[15:43:11] <clarkbox> "stderr"?
+[15:43:23] <Krinkle> clarkbox: the line in the file
+[15:43:32] <Krinkle> a line in *.error.log
+[15:43:45] <Krinkle> e.g.
+[15:43:46] <Krinkle> 2012/11/20 14:54:37 [error] 7185#0: *11058245 FastCGI sent in stderr: "PHP message: PHP Warning:  preg_match(): Unknown modifier '\' in /var/www/swarm/inc/libs/ua-parser/php/UAParser.php on line 253" while reading response header from upstream, client: 46.20.45.18, server: swarm.jquery.com, request: "GET / HTTP/1.0", upstream: "fastcgi://unix:/var/run/php5-swarm.sock:", host: "swarm.jquery.org"
+[15:43:57] <clarkbox> yes, but each line has multiple keys? 
+[15:43:59] <Krinkle> The part after "FastCGI" is the actual error message
+[15:44:24] <Krinkle> clarkbox: I don't know, afaik the entire line is just one string
+[15:44:35] <Krinkle> I haven't set this up, does it split it into key-value pairs?
+[15:44:37] <clarkbox> yes, but splunk extracts fields
+[15:44:42] <Krinkle> you tell me :)
+[15:44:43] <clarkbox> yes
+[15:45:27] <clarkbox> well… it could at least
+[15:45:50] <clarkbox> we can add filed extraction using regex
+[15:46:07] <clarkbox> ill play with it and make up a dashboard with what you asked for
+[15:46:21] <Krinkle> I see now that the <key>:<value> parts of the string are recognized in the sidebar on the left 
+[15:46:25] <Krinkle> client, server, require, host
+[15:46:30] <clarkbox> yes
+[15:47:05] <Krinkle> would be nice to get a fix on the arbitrary value inbetween "timestamp [error]" and the first key (client)
+[15:47:29] <clarkbox> not all fields are contained in the "raw event"… the raw event is the actual line in the file
+[15:48:01] <clarkbox> ya ill have to build some field extractions
+[15:48:15] <Krinkle> yeah, but the raw line as a whole isn't useful to count occurrences by since they are too variable (due to timestamp, request path and IP address)
+[15:48:18] <clarkbox> in the middle of some other stuff. ill build up a dashboard for you today
+[15:48:28] <Krinkle> awesome
+[15:48:59] <Krinkle> I mean, I could care less about the errors by client IP or request path (I understand why those are extracted now, since those are easy to catch, probably the default).
+[15:49:19] <Krinkle> I'll be here for another 4-5 hours, so just ping me. 
+[15:49:36] <Krinkle> Will check out some other stuff on splunk now :) Lots of information here, fixed various random errors today.
+[15:50:22] <clarkbox> ya, its a great bug identification tool :)
+[15:52:04] <Krinkle> clarkbox: btw, is there a way to adjust the timestamp ? Right now it doesn't tell me what which timezone is in.
+[15:52:18] <Krinkle> I happen to know the timezone setting on jq03
+[15:52:22] <clarkbox> ya click on your username on top right
+[15:52:34] <clarkbox> its relative
+[15:52:43] <Krinkle> ah, nice
+[15:52:57] <Krinkle> perfect, everything adapts
+[15:53:50] <Krinkle> clarkbox: as you may notice swarm.jquery.org.error.log has gone silent as of 00:02 +01:00 (50 minutes ago)
+[15:53:54] <Krinkle> error free since :)
+[15:54:01] <clarkbox> nice work
+[15:54:04] <Krinkle> yeah
+[15:54:14] <Krinkle> pending merges upstream on github, but local for now.
+[15:54:27] <Krinkle> (ua-parser)
+[15:57:48] <Krinkle> clarkbox: btw, any idea why there are blank lines in testswarm-browserstack cli.log
+[15:58:15] <Krinkle> it is consistent, though not for each message.
+[15:58:21] <clarkbox> not sure
+[15:58:32] <clarkbox> must be a \n some place
+[15:58:35] <Krinkle> in that it is the same messages that have them before/afte
+[15:58:47] <Krinkle> 				util.log({
+[15:58:47] <Krinkle> 					action: 'notice',
+[15:58:47] <Krinkle> 					message: 'Neediness exhausted, done!'
+[15:58:49] <Krinkle> 				});
+[15:58:53] <Krinkle> that one has it for example
+[15:59:06] <clarkbox> unsure
+[15:59:17] <clarkbox> ill look into that
+[16:00:33] <Krinkle> however it doesn't happen for me locally
+[16:00:38] <Krinkle> that's the weird part
+[16:02:15] <clarkbox> do you see the blank lines in the actual file? or just in splunk?
+[16:06:18] <clarkbox> krinkle^
+[16:06:28] <Krinkle> actual file
+[16:07:10] <clarkbox> i blame it on debian ;)
+[16:34:01] <Krinkle> clarkbox: ah, it does happen locally
+[16:34:06] <Krinkle> clarkbox: but only with --run-loop
+[16:34:19] <clarkbox> ah that makes sense
+[16:35:33] <Krinkle> which does console.log(data)
+[16:35:45] <Krinkle> and I'm guessing data is what the child console.log's
+[16:36:00] <Krinkle> and console.log -> process.stdout.write (msg + '\n' )
+[16:36:56] <Krinkle> so it gets that treatment twice
+[16:36:58] <Krinkle> will fix
+[16:50:28] <Krinkle> clarkbox: I've logged notable action=terminate with a action=warning now so that we can catch them 
+[16:50:35] <Krinkle> e.g. "Disconnected worker from swarm"
+[16:50:49] <Krinkle> (which happens often in mobile browsers, browserstack is facing a bug where the browser won't go to the url)
+[16:51:08] <Krinkle> previously these were logged directly without the util.log formatter
+[16:52:13] <Krinkle> clarkbox: fix for the line breaks: https://github.com/clarkbox/testswarm-browserstack/commit/a6417cb0bb6a9b1d59818ffaf586c8d6b5049cf1#L0L39
+[17:33:28] <Krinkle> clarkbox: Could you enable the irc service hook for testswarm-browserstack (to #jquery-dev, like qunit and testwarm)

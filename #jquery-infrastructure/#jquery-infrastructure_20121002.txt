@@ -1,0 +1,513 @@
+[13:58:47] <Krinkle> Can we move sess_ in /tmp on jq03 to a subdirectory?
+[13:59:01] <Krinkle> Not sure if its just php or more
+[14:05:42] <gnarf> Krinkle: I think thats a php.ini setting
+[14:05:56] <gnarf> Krinkle: I was thinking about doing that too, cuz its really spammy :)
+[14:06:17] <gnarf> there is also I think some script that supposedly cleans those up in the crons somewhere
+[14:06:29] <gnarf> (default debian installs)
+[14:08:43] <Krinkle> afaik php does it itself, periodically
+[14:08:47] <Krinkle> based on some kind of limit
+[14:10:05] <Krinkle> gnarf: btw, what's the status on umask
+[14:10:09] <Krinkle> did we do that?
+[14:10:20] <Krinkle> (so that stuff from us is writable by group by default)
+[14:10:25] <Krinkle> on jq03 in particular
+[14:11:58] <Krinkle> on wmf we did it with /etc/profile.d/umask-wmdev.sh
+[14:12:15] <Krinkle> if groups | grep -w -q wmdev; then
+[14:12:15] <Krinkle> 	  umask 0002
+[14:12:15] <Krinkle> fi
+[14:12:27] <Krinkle> (its in the public puppet repo)
+[14:13:15] <Krinkle> I'm asking since I still can't do git pull without sudo in /var/www/swarm, eventhough I just re-created it as jqadmin/wheel
+[14:15:27] <Krinkle> ah, under 'sudo -u jqadmin bash' that doesn't apply
+[14:15:36] <Krinkle> I wonder if it does apply when puppet creates it as that user
+[14:20:29] <gnarf> I'm not sure that it does
+[14:20:46] <gnarf> I haven't done much with the umask, but i think on jq03 i tweaked it in /etc/profile
+[14:21:16] <Krinkle> yeah, my umask is 002 as it should be
+[14:31:27] <Krinkle> gnarf: you (or someone else) mentioned I can test this on jq03 stage. Can you briefly walk me through how I would test a puppet change in stage (which is in a pull request)
+[14:31:47] <Krinkle> I don't have puppet locally (I have the bins so I can do `puppet parser validate`, but that's it)
+[14:31:54] <gnarf> Krinkle: I test locally on my VM
+[14:32:06] <gnarf> Krinkle: one of the reasons I was suggesting vagrant
+[14:32:19] <gnarf> you could make a temp jq03 vm and make sure it does whatever you want it too
+[14:32:30] <gnarf> testing >on< stage is basically, merge the branch into puppet-stage
+[14:32:39] <gnarf> push it
+[14:32:56] <gnarf> then puppet agent --test it on jq03.stage
+[14:33:13] <Krinkle> in what state is the stage?
+[14:33:25] <Krinkle> I mean, if it is already there, it won't do anything, so hard to confirm it works.
+[14:33:36] <gnarf> Krinkle: it's stage... rm -rf it first
+[14:33:36] <Krinkle> I suppose I can just nuke stuff there though
+[14:33:39] <Krinkle> yeah
+[14:33:57] <gnarf> still, i suggest takin a few mins to install vagrant/virtualbox
+[14:34:02] <Krinkle> will do
+[14:34:11] <gnarf> then you can actually test locally without pushing
+[14:34:20] <Krinkle> Can you give me a few pointers? I have virtualbox installed with an old winxp vm.
+[14:34:31] <gnarf> vagrant does most of the work for you
+[14:34:32] <gnarf> so far
+[14:34:38] <Krinkle> http://downloads.vagrantup.com/tags/v1.0.5
+[14:34:39] <gnarf> ryanneufeld: how do you spin up a jq03 ?
+[14:34:46] <gnarf> ryanneufeld: is it vagrant up jq03 ?
+[14:34:55] <Krinkle> downloading now
+[14:35:25] <ryanneufeld> yes
+[14:35:40] <ryanneufeld> gnarf: vagrant up jq03 or jq03.stage depending on what you're doing
+[14:36:20] <gnarf> ryanneufeld: the difference?
+[14:36:24] <gnarf> one thinks its live
+[14:36:28] <gnarf> the other thinks its stage?
+[14:36:32] <ryanneufeld> I suppose so
+[14:36:35] <Krinkle> I assume vagrant doesn't come with our names and configs preinstalled
+[14:36:35] <ryanneufeld> check the yaml file
+[14:36:50] <ryanneufeld> Krinkle: if you're using the infra repo
+[14:36:51] <ryanneufeld> yes it does
+[14:37:00] <ryanneufeld> it uses puppet to configure the machines
+[14:37:04] <Krinkle> well, I'd have to plug that in some how
+[14:37:08] <Krinkle> I know that much
+[14:37:19] <gnarf> Krinkle: once you spin up a jq03.stage, puppet creates all the users
+[14:37:31] <gnarf> should have your key/password
+[14:38:01] <ryanneufeld> ^^^
+[14:39:18] <gnarf> Krinkle: cd vagrant ; vagrant up jq03.stage
+[14:40:07] <Krinkle> $ which vagrant
+[14:40:07] <gnarf> ryanneufeld: once you vagrant up
+[14:40:07] <Krinkle> /usr/bin/vagrant
+[14:40:09] <Krinkle> installed
+[14:40:19] <gnarf> do you need vagrant destroy jq03.stage ?
+[14:40:27] <gnarf> also, can you spin up two machines at once?
+[14:40:55] <gnarf> Krinkle: goto infrastructure/vagrant and vagrant up jq03.stage
+[14:41:03] <gnarf> it should download the squeeze64 image and cache it for you
+[14:41:20] <gnarf> then it should start up a machine and provision it
+[14:42:08] <gnarf> just `vagrant` and it should give you a quick list of commands you can use
+[14:42:55] <gnarf> once you've "up"ed you can "vagrant provision"
+[14:43:05] <gnarf> ryanneufeld: ^^^ I hope you're catching some of this for your README :)
+[14:43:26] <gnarf> a lot of its already here: https://github.com/jquery/infrastructure/tree/puppet-master/vagrant
+[14:43:28] <gnarf> thanks johnbender
+[14:43:46] <Krinkle> hold on, not so fast :)
+[14:43:58] <Krinkle> gnarf: so it uses my working copy files?
+[14:44:04] <gnarf> Krinkle: correct
+[14:44:09] <gnarf> you run it from your working dir
+[14:44:25] <gnarf> ryanneufeld: can you SSH into these VMs?
+[14:44:31] <Krinkle> (I know that one, yes)
+[14:44:36] <ryanneufeld> vagrant ssh
+[14:44:45] <Krinkle> vagrant has ssh, so says their promo :D
+[14:44:50] <ryanneufeld> so if you have jq03 running
+[14:45:02] <ryanneufeld> then you woudl `vagrant ssh jq03`
+[14:45:05] <Krinkle> and what if I make a change to the pp file in the repo, do need to re-create the entire vm, or can it clean itself to a fresh one
+[14:45:14] <ryanneufeld> vagrant --provision
+[14:45:21] <gnarf> Krinkle: you can just provision to make it re-run
+[14:45:29] <gnarf> but you can also "destroy" then "up" again
+[14:45:32] <gnarf> to test fresh
+[14:45:50] <Krinkle> ok, it is fetching squeeze64 now
+[14:47:13] <ryanneufeld> gnarf: is this channel logged yet?
+[14:47:20] <gnarf> johnbender: if we wanted to remove the `cd vagrant` portion of this
+[14:47:24] <gnarf> ryanneufeld: see jqlog
+[14:47:25] <gnarf> :)
+[14:47:35] <ryanneufeld> ?jqlog
+[14:47:36] <gnarf> clarkbox: did you add it to the indexer yet?
+[14:47:46] <gnarf> ryanneufeld: like the guy named "jqlog" is the logger
+[14:47:52] <gnarf> it might not be on the irc.jquery.com index page yet
+[14:47:54] <gnarf> but its being logged
+[14:47:55] <ryanneufeld> oh
+[14:47:57] <ryanneufeld> coolbeans
+[14:48:02] <clarkbox> ya its getting logged
+[14:48:07] <clarkbox> i am setting up the HTML today
+[14:48:09] <gnarf> clark has an open issue about the indexer
+[14:50:44] <gnarf> johnbender: if we want to remove the need to `cd vagrant` we just need the .yml and the Vagrantfile to move to the root right? we can leave the vagrant/bin folder where it is?
+[14:52:00] <gnarf> or actually, just the Vagrantfile
+[14:52:06] <gnarf> we could include the others from vagrant/
+[14:52:37] <ryanneufeld> gnarf: what benefit would that be?
+[14:52:54] <gnarf> ryanneufeld: commands working from the root of the checkout
+[14:53:31] <gnarf> like the same folder i just subl . from, or git commands
+[14:53:32] <gnarf> :)
+[14:53:33] <ryanneufeld> yeah, that's how my php54 repo works
+[14:53:40] <ryanneufeld> I don't see a problem with that
+[14:54:02] <gnarf> ryanneufeld: have you tried a vagrant up jq03.stage recently?
+[14:54:15] <ryanneufeld> Also, I have some tricks for the shell scripts so they don't run every time you provision
+[14:54:17] <ryanneufeld> and no. I have not
+[14:54:41] <ryanneufeld> I've been pretty busy, my wife insists that I pay attention to her.
+[14:54:45] <gnarf> ryanneufeld: :)
+[14:54:47] <ryanneufeld> lol
+[14:55:03] <gnarf> ryanneufeld: I'm running into a whole lot of red shit when I vagrant up jq03.stage
+[14:55:28] * ryanneufeld runs it
+[14:55:33] <gnarf> on the puppet-stage branch
+[14:55:53] <ryanneufeld> yeah, that's what I'm on
+[14:55:53] <gnarf>  /tmp/vagrant-shell: line 21: [: 1.0-5: unary operator expected
+[14:55:57] <ryanneufeld> yeah
+[14:55:58] <Krinkle|detached> well, that's a first. My macbook pro crashed on that command
+[14:56:04] <Krinkle> 20% into the fetch of squeeze
+[14:56:05] <gnarf> someone not hashbanging bash ?
+[14:56:06] <ryanneufeld> that's the puppet install shell script
+[14:56:12] <Krinkle> it rebooted out of nothing
+[14:56:16] <ryanneufeld> gnarf: no, it's the test
+[14:56:20] <Krinkle> with a kernal panic reporter on startup
+[14:56:20] <ryanneufeld> I can fix it
+[14:56:22] <ryanneufeld> tonight
+[14:56:35] <ryanneufeld> gnarf: they all do that
+[14:56:45] <gnarf> Krinkle: boo - if it was mid download, i doubt its related to the vagrant
+[14:56:52] <ryanneufeld> indeed
+[14:56:57] <Krinkle> trying again
+[14:57:01] <Krinkle> [jq03] VM already created. Booting if it's not already running...
+[14:57:01] <Krinkle> Your VM has become "inaccessible." Unfortunately, this is a critical error
+[14:57:01] <Krinkle> with VirtualBox that Vagrant can not cleanly recover from. Please open VirtualBox
+[14:57:02] <Krinkle> and clear out your inaccessible virtual machines or find a way to fix
+[14:57:04] <Krinkle> them.
+[14:57:10] <Krinkle> wait jq03 or jq03.stage ?
+[14:57:26] <ryanneufeld> depends on what you're trying to do
+[14:57:26] <Krinkle> why would there be a stage in the repo
+[14:57:36] <ryanneufeld> I think they have the same configs
+[14:57:37] <Krinkle> insn't that a different branch of the repo?
+[14:57:43] <gnarf> ryanneufeld: http://cl.ly/image/1I3K1M1A0q1Y
+[14:58:00] <gnarf> Krinkle: both machines use the "same" config
+[14:58:03] <ryanneufeld> gnarf I asked you about those \. before
+[14:58:06] <ryanneufeld> you said you had no idea
+[14:58:16] <Krinkle> I fixed that
+[14:58:18] <Krinkle> in my working copy
+[14:58:19] <ryanneufeld> oh
+[14:58:23] <ryanneufeld> \\. ?
+[14:58:25] <Krinkle> double escape \. in the nginx
+[14:58:30] <Krinkle> double quotes :)
+[14:58:32] <ryanneufeld> \\\.
+[14:58:33] <ryanneufeld> ah
+[14:58:38] <Krinkle> \\. is sufficient
+[14:58:49] <Krinkle> afaik
+[14:58:50] <gnarf> cuz . doesn't mean anything in puppet doubles
+[14:58:55] <ryanneufeld> ah
+[14:59:00] <gnarf> its the puppet doubles issue then
+[14:59:05] <gnarf> Krinkle: is that its own commit?
+[14:59:24] <gnarf> i'd cherry pick that right now :)
+[14:59:26] <ryanneufeld> gnarf: I'm getting the same error on my machine
+[14:59:29] <Krinkle> there isnt a commit yet (the one I pulled up earlier is outdated)
+[14:59:40] <ryanneufeld> git add -p
+[14:59:49] <ryanneufeld> and commit just that hunk
+[14:59:50] <Krinkle> as soon as I got testswarm puppetized I'll push them
+[15:01:01] <gnarf> Krinkle: mind if i push that fix right now and have you rebase it?
+[15:01:11] <Krinkle> don't have nothing to rebase yet
+[15:01:15] <Krinkle> go ahead
+[15:01:30] <gnarf> ryanneufeld / clarkbox -- hiera.yaml ?
+[15:02:07] <Krinkle> wtf, can't install virtualbox
+[15:02:37] <Krinkle> "Oracle does not allow installation in any of these 3 locations"
+[15:02:42] <jqcommit> [infrastructure] gnarf37 pushed 1 new commit to puppet-stage: https://github.com/jquery/infrastructure/commit/a5d4368c3e1117f0eae377d1ade38da68bef3034
+[15:02:42] <jqcommit> [infrastructure/puppet-stage] Fixing escaping issue, need extra-backslash because we are inside puppet doubles - Corey Frang
+[15:03:01] <Krinkle> right, "Note: The Mac OS X 10.8.2 release includes some incompatible changes which require adaptions in VirtualBox. Therefore the original 4.2 build was replaced by a 4.2.1 build. "
+[15:03:04] <Krinkle> grr
+[15:03:21] <ryanneufeld> you must be on a Macbook air
+[15:03:22] <jqcommit> [infrastructure] gnarf37 pushed 1 new commit to puppet-master: https://github.com/jquery/infrastructure/commit/46704069eb98d8a5430ee018a67cfb6ef6369f47
+[15:03:22] <jqcommit> [infrastructure/puppet-master] Fixing escaping issue, need extra-backslash because we are inside puppet doubles - Corey Frang
+[15:03:31] <Krinkle> ryanneufeld: nope
+[15:03:34] <Krinkle> mbp
+[15:03:34] <clarkbox> gnarf? hiera.yaml?
+[15:04:04] <gnarf> clarkbox: see http://cl.ly/image/1I3K1M1A0q1Y
+[15:04:14] <ryanneufeld> Krinkle: really? I haven't had that problem with mine.
+[15:04:40] <Krinkle> I last installed VirtualBox when I was on Snow Leopard
+[15:04:46] <Krinkle> time for an update :)
+[15:05:10] <gnarf> clarkbox: i got no clue what it is either
+[15:05:25] <ryanneufeld> Krinkle: Ahh, i see
+[15:05:38] <clarkbox> ya i am not sure. i see something about puppy.conf neat the top (last white line)
+[15:05:48] <clarkbox> but i think its innocuous
+[15:05:56] <ryanneufeld> the other thing that's annoying is the box we're using is using an outdated set of vbox utils
+[15:06:10] <clarkbox> that is a module that i added for splunk puppetization
+[15:06:39] <ryanneufeld> puppi/
+[15:06:40] <ryanneufeld> ?
+[15:06:57] <gnarf> ryanneufeld: no fn clue
+[15:07:03] <gnarf> ryanneufeld: you seein the same thing?
+[15:07:06] <ryanneufeld> yes
+[15:07:09] <ryanneufeld> I am
+[15:07:30] <ryanneufeld> I'm in the middle of preparing a production launch though, so I'm semi afk for a bit
+[15:07:39] <gnarf> ryanneufeld: k
+[15:08:13] <clarkbox> puppy is a requirement for the splunk module i am using. its some higher level lib form some dude… example42.com
+[15:08:19] <clarkbox> i am not convinced of its quality
+[15:08:39] <clarkbox> puppy * puppi
+[15:09:02] <clarkbox> i may try to find a lighter weight replacement
+[15:11:51] <Krinkle> I see quite a few red lines in the cli output when "up" is running, not sure I like that
+[15:13:06] <Krinkle> http://cl.ly/image/291f1F413V2w
+[15:13:15] <Krinkle> http://cl.ly/image/2j1K0h272n0b
+[15:13:40] <Krinkle> Error: Could not parse for environment production: No file(s) found for import of 'augeas' at /tmp/vagrant-puppet/manifests/modules.pp:2 on node jq03.jquery.com
+[15:13:40] <Krinkle> Error: Could not parse for environment production: No file(s) found for import of 'augeas' at /tmp/vagrant-puppet/manifests/modules.pp:2 on node jq03.jquery.com
+[15:13:40] <Krinkle> The following SSH command responded with a non-zero exit status.
+[15:13:42] <Krinkle> Vagrant assumes that this means the command failed!
+[15:13:44] <Krinkle> cd /tmp/vagrant-puppet/manifests && puppet apply --modulepath='/vagrant/modules' /tmp/vagrant-puppet/manifests/site.pp
+[15:14:04] <gnarf> Krinkle: git submodule update --init ?
+[15:14:32] <Krinkle> right
+[15:15:36] <Krinkle> why is the nodejs submodule requesting my key password
+[15:15:37] <Krinkle> 	url = git@github.com:danheberden/puppet-nodejs.git
+[15:15:46] <Krinkle> is there are reason for it not to be anonymous?
+[15:15:56] <gnarf> um
+[15:15:58] <gnarf> no
+[15:16:02] <Krinkle> 	url = git@github.com:gnarf37/puppet-zabbix.git
+[15:16:03] <Krinkle> that one too
+[15:16:09] <gnarf> it is just cuz its git@
+[15:16:23] <gnarf> instead of https://
+[15:16:26] <Krinkle> yeah
+[15:16:32] <gnarf> in the submodule
+[15:16:39] <gnarf> but i think its cuz we push to those
+[15:16:50] <gnarf> submodules are painful
+[15:16:59] <gnarf> they are public repos
+[15:17:06] <gnarf> but git wants your key for a git@ repo
+[15:17:15] <Krinkle> to push to them, just have a different clone locally,right ?
+[15:17:32] <gnarf> Krinkle: you can just setup a remote in the submodule folder
+[15:17:32] <Krinkle> I mean, they can be anonymous for the submodule
+[15:17:37] <gnarf> but yeah
+[15:17:43] <Krinkle> anyway, moving on
+[15:17:43] <gnarf> they prolly should be
+[15:17:50] <gnarf> its just a real pain to fix now
+[15:18:15] <gnarf> this bug is insane
+[15:19:05] <jqcommit> [infrastructure] Krinkle force-pushed testswarm-browserstack from 1c55e47 to 643672f: https://github.com/jquery/infrastructure/commits/testswarm-browserstack
+[15:19:05] <jqcommit> [infrastructure/testswarm-browserstack] WIP - services.pp: Puppetize testswarm stuff - Timo Tijhof
+[15:20:29] <Krinkle> I'm going to test in a bit, meanwhile maybe some of you can take a look for some general feedback?
+[15:20:39] <Krinkle> yay, vagrant is done biulding
+[15:20:46] <ajpiano> scott_gonzalez: right now there's no build step for web-base-template whatsoever correct?
+[15:20:56] <scott_gonzalez> correct
+[15:20:57] <gnarf> Krinkle: the commit looked solid from my review
+[15:21:00] <ajpiano> k
+[15:21:02] <scott_gonzalez> It's just pure content for WordPress.
+[15:21:22] <ajpiano> are we eventualyl going to add something so we're serving concatted/min'd js in production
+[15:21:44] <scott_gonzalez> Possibly, but certainly nothing required during development.
+[15:21:47] <ajpiano> yea
+[15:21:57] <gnarf> Krinkle: right now there is some weird issue with this erb
+[15:22:10] <Krinkle>  /tmp/vagrant-shell: line 21: [: 1.0-5: unary operator expected
+[15:22:11] <scott_gonzalez> The truth is that all of our sites should be examples of good ways to accomplish tasks.
+[15:22:13] <Krinkle> yeah, I get it too
+[15:22:26] <ajpiano> scott_gonzalez: yeah
+[15:22:28] <scott_gonzalez> Exposing the original source easily from view-source is ideal.
+[15:22:36] <ajpiano> in development
+[15:22:50] <gnarf> this debug message is a pain
+[15:22:58] <scott_gonzalez> So unless our js size gets large, I'm not sure that minifying is necessary.
+[15:23:00] <gnarf> doesn't tell me what line of the erb is failing
+[15:23:10] <scott_gonzalez> Right now our JS across all sites is pretty small and can be a single file.
+[15:23:27] <scott_gonzalez> Of course I have no idea how that will grow over time.
+[15:23:38] <ajpiano> confirm
+[15:23:50] <ajpiano> i can hear the mocking now though if we don't minify the js we serve
+[15:23:56] <ajpiano> in production
+[15:24:02] <scott_gonzalez> But yeah, if we start concating/minifying js, that should be an optional step.
+[15:24:07] <ajpiano> confirm on optional
+[15:24:16] <scott_gonzalez> And we should have a flag for whether the source or production files are used.
+[15:24:24] <scott_gonzalez> And stage should always use production at that point.
+[15:24:34] <scott_gonzalez> And the script that updates stage should run the task to build the production files.
+[15:24:39] <Krinkle> or chrome sourcemaps ?
+[15:24:48] <scott_gonzalez> Then you can can flip that switch locally during dev, but you wouldn't need to.
+[15:24:58] <scott_gonzalez> Adding a build step for local dev sucks.
+[15:25:00] <ajpiano> scott_gonzalez: i'm replying to this thread, being like, yeah, ok these are fair points, but they take time and you can't show up and then be mad that your half-complete implementation that doesn't meet project requirements hasn't been landed within 2 days
+[15:25:26] <Krinkle> Warning: Config file /etc/puppet/hiera.yaml not found, using Hiera defaults
+[15:25:38] <scott_gonzalez> ajpiano: Have fun with that. I've decided not to respond anymore.
+[15:25:44] <ajpiano> yeah
+[15:25:55] <jqcommit> [infrastructure] gnarf37 pushed 1 new commit to puppet-master: https://github.com/jquery/infrastructure/commit/de5641abd40c5fefe5754bcd0763938a32bd5167
+[15:25:55] <jqcommit> [infrastructure/puppet-master] Fixing issue with erb in nginx module - Corey Frang
+[15:25:57] <Krinkle> gnarf: so ahm. is this blocking, or can I test anyway?
+[15:26:01] <ajpiano> i'm perfectly happy if he decides to take his toys and go home
+[15:26:09] <jqcommit> [infrastructure] gnarf37 pushed 1 new commit to puppet-stage: https://github.com/jquery/infrastructure/commit/cc13a6d271285cf8cdd81cd426b4acdd48db6d30
+[15:26:09] <jqcommit> [infrastructure/puppet-stage] Fixing issue with erb in nginx module - Corey Frang
+[15:26:24] <gnarf> Krinkle: grab that commit and pull
+[15:26:28] <gnarf> it was blocking
+[15:26:30] <gnarf> but i tracked it down
+[15:26:34] <gnarf> er submodule update
+[15:27:28] <Krinkle> can we get rid of the master branch, it is throwing me off
+[15:28:36] <gnarf> you can delete it yerself
+[15:28:44] <gnarf> the "default" branch is set to puppet-master on the github repo
+[15:28:57] <Krinkle> yeah
+[15:29:00] <Krinkle> ok
+[15:29:14] <Krinkle> gnarf: do I need to destroy/up again, or can I reuse it to some degree
+[15:29:25] <gnarf> Krinkle: vagrant provision jq03.stage
+[15:29:29] <gnarf> should be fine
+[15:29:38] <Krinkle> stage
+[15:29:40] <gnarf> it was just a tweak in the erb
+[15:29:46] <gnarf> stage is optional
+[15:29:59] <Krinkle> ok
+[15:30:00] <gnarf> it just sets an "environment" in puppet
+[15:30:30] <Krinkle> Hm.. interesting
+[15:30:44] <Krinkle> so does it consider the dot as some kind of separator?
+[15:30:55] <Krinkle> because I don't see any pp references in https://github.com/jquery/infrastructure/blob/puppet-master/vagrant/config.yml
+[15:31:08] <Krinkle> I expected something like jq03 => services.pp jq03.stage => services.pp
+[15:31:39] <gnarf> Krinkle: its the hostname
+[15:31:43] <gnarf> its in site.pp
+[15:31:58] <gnarf> the switch you are looking for
+[15:31:59] <Krinkle> very well
+[15:32:02] <Krinkle> Thx
+[15:32:09] <Krinkle> now it makes sense
+[15:32:28] <gnarf> johnbender / ryanneufeld - does jq03.stage vagrant machine actually set the puppet environment to stage?
+[15:33:22] <gnarf> there are a few "environment" switches - like which hostname the builder pushes to, etc
+[15:33:45] <ryanneufeld> gnarf: I dunno, johnbender cc me on the answer plz
+[15:34:04] <gnarf> ryanneufeld: i might test this tomorrow
+[15:34:13] <Krinkle> still failing for me
+[15:34:20] <gnarf> Krinkle: whats the error?
+[15:34:28] <gnarf> Mine is still provisioning
+[15:34:30] <gnarf> :)
+[15:35:04] <gnarf> i get some error about apt locks
+[15:35:07] <gnarf> it seems
+[15:35:08] <Krinkle> I've already provisioned 3 times
+[15:35:14] <gnarf> so im gonna destroy and try again :)
+[15:35:16] <Krinkle> (fixing small errors in my pp change)
+[15:35:17] <Krinkle> http://cl.ly/image/3F2L3I0x342S
+[15:35:20] <Krinkle> ^ errors
+[15:35:47] <Krinkle> don't mind the /var/www
+[15:35:49] <Krinkle> Warning: Config file /etc/puppet/hiera.yaml not found, using Hiera defaults
+[15:35:54] <Krinkle> that seems to be the persistent one
+[15:36:02] <Krinkle> or not
+[15:36:10] <Krinkle> I think I'll figure it out
+[15:36:29] <gnarf> warning, unphased by it
+[15:36:29] <Krinkle> so ahm.. does it run it vm in the background? I rather not have a vm in the background all the time
+[15:36:33] <gnarf> whats with the /var/www ?
+[15:36:38] <gnarf> Krinkle: it does
+[15:36:44] <gnarf> Krinkle: destroying it gets rid of it
+[15:36:49] <Krinkle> k
+[15:37:10] <gnarf> also deletes the drive
+[15:39:05] <Krinkle> so after up it is also booted?
+[15:39:22] <Krinkle> or is that just installing and then back into hybernation
+[15:39:33] * Krinkle reads documetnation instead
+[15:39:36] <Krinkle> noob alert :P
+[15:40:03] <gnarf> up = turn on then provision
+[15:40:15] <gnarf> dunno why there isn't a "down"
+[15:40:20] <gnarf> but there should be /cc johnbender
+[15:41:12] <Krinkle> Why is the whole " apt.puppetlabs.com...  " part in red?
+[15:41:53] <gnarf> Krinkle: cuz its on stderr *shrug*
+[15:42:05] <Krinkle> it seems in provision everything is prefixed with /Stage
+[15:42:09] <Krinkle>  /Stage[main]/Mysql::Common/Group[mysql-admin]/ensure: created
+[15:42:13] <gnarf> Krinkle: so.. the /var/www one - what was up with that
+[15:42:20] <Krinkle> I already fixed that
+[15:42:20] <gnarf> Krinkle: thats the puppet run "stage"
+[15:42:30] <Krinkle> just be being silly
+[15:42:32] <Krinkle> ah, a different stage
+[15:42:37] <gnarf> thats the path to the puppet resource
+[15:42:58] <gnarf>  /Stage[main] includes /Mysql::Common includes /Group[mysql-admin
+[15:44:09] <Krinkle> okay, I see why it takes longer now
+[15:44:17] <Krinkle> the error about /var/www was very early on
+[15:44:31] <gnarf> Krinkle: yeah, parse errors are quick
+[15:45:04] <Krinkle> gnarf: does it have max cpu/mem limits ?
+[15:45:11] <Krinkle> I don't want it to eat up my laptop
+[15:45:34] <Krinkle> I have 4gb ddr3, and 2 Ghz i7.
+[15:45:36] <gnarf> Krinkle: I'm not sure how it sets up those things, but i imagine its on these ".box" files
+[15:45:44] <gnarf> I wanna see if jQuery can make its own
+[15:45:45] <Krinkle> k
+[15:45:59] <gnarf> that has pwgen/puppet/etc already installed
+[15:46:47] <Krinkle> meh, its setting up a lot of other stuff. including stuff that does run on jq03 but isn't related to jenkins/testswarm
+[15:47:34] <Krinkle> I guess we could have an integration.pp and then jq03 inherits from multiple classes instead of all in 1
+[15:47:53] <Krinkle> then I imagine there will be a way to set up a vm with just one of them
+[15:48:12] <Krinkle> e.g. jq03 can be "integration", "webhost" and "misc"
+[15:50:43] <gnarf> Krinkle: thats what modules are for basically
+[15:50:51] <gnarf> there is a jquery/ module where i've started to abstract some of it
+[15:51:18] <Krinkle> Error: Could not set 'directory' on ensure: Could not find user jqadmin at 125:/tmp/vagrant-puppet/manifests/nodes/services.pp
+[15:51:24] <Krinkle> jqadmin is not puppetized?
+[15:51:38] <gnarf> Krinkle: nope
+[15:51:51] <Krinkle> should be puppetize it and/or what user should I use for generic stuff that I want to be writable by wheel
+[15:52:34] <gnarf> Krinkle: we haven't decided/conformed on anything yet - I want to make a jqadmin group, and get rid of the user for the most part, then make everyone members of jqadmin group by default
+[15:52:52] <gnarf> and get the umask setup
+[15:52:57] <Krinkle> can the owner be wheel?
+[15:53:15] <Krinkle> if so , then then would be effectively the same, I just need this for now
+[15:53:21] <Krinkle> then that*
+[15:53:39] <Krinkle> (since wheel is the current jqadmin-ish group)
+[15:53:45] <gnarf> right
+[15:53:49] <gnarf> thats all in the user module tho
+[15:53:54] <gnarf> easy enough to change
+[15:54:11] <Krinkle> well, the owner is going to be mentioned in services.pp
+[15:54:31] <gnarf> any reason not to leave it be root?
+[15:54:46] <Krinkle> https://github.com/jquery/infrastructure/commit/643672f83e565b9f6892fa9a120da64a9e8178f7#L0R114
+[15:54:58] <Krinkle> owner root and group wheel?
+[15:55:24] <gnarf> Krinkle: www-data
+[15:55:25] <gnarf> ?
+[15:55:36] <gnarf> the debian default "web" host
+[15:55:47] <gnarf> also
+[15:55:51] <Krinkle> i don't care about owner, I just want it to be writable by wheel so we can do git pull
+[15:55:53] <gnarf> all of that is abstracted in jquery::gitclone
+[15:56:08] <gnarf> Krinkle: root is fine then
+[15:56:29] <gnarf> Krinkle: also
+[15:56:31] <Krinkle> maybe, I wrote it based on what the rest does. if the rest uses jquery::gitclone, I'll use it.
+[15:56:36] <gnarf> why not setup the auto-pull stuff
+[15:56:49] <Krinkle> one thing at a time
+[15:56:51] <gnarf> jquery::gitclone abstracts that
+[15:56:52] <gnarf> also
+[15:56:53] <Krinkle> right now its nothing, I want it to work
+[15:59:14] <gnarf> jquery::gitclone{ "swarm.jquery.org": repo => "https://github.com/jquery/testswarm.git" }
+[15:59:28] <gnarf> Krinkle: ^^^ that should check it out, as root in /var/www/swarm.jquery.org
+[15:59:39] <gnarf> and also set up the post-receive hooks
+[15:59:50] <gnarf> to update stage on a push to master
+[15:59:57] <gnarf> and update live on the push of a semver tag
+[16:00:22] <Krinkle> I'd like the directory to be 775 wheel grouped, and the git clone executed by wheel so that the rest is like that too
+[16:00:51] <gnarf> why do you want anyone to write to it?
+[16:00:57] <gnarf> root can pull it
+[16:01:00] <gnarf> whats the issue?
+[16:01:14] <Krinkle> well, I suppose not, if we auto pull
+[16:01:23] <Krinkle> It just seems annoying that everything is in root
+[16:01:33] <Krinkle> we might as well go back to sharing a jqadmin account and passwordless root
+[16:01:56] <gnarf> Krinkle: except that this way i have a log of who logged in when
+[16:02:10] <Krinkle> right
+[16:02:21] <gnarf> Krinkle: root can own it, or so can www-data
+[16:02:28] <gnarf> www-data is having npm issues atm tho
+[16:02:29] <gnarf> sadly
+[16:03:04] <Krinkle> so what about cron and stuff, execute as root as well? I don't like the sound of that.
+[16:03:20] <Krinkle> (e.g. running browserstack cli.js  and curl )
+[16:03:30] <gnarf> www-data can exec anonymous stuff
+[16:03:39] <gnarf> jenkins user was doing browserstack cli
+[16:03:44] <Krinkle> exactly
+[16:03:52] <gnarf> makes sense with jenkins too
+[16:04:05] <gnarf> its a part of "jenkins" proccess
+[16:04:29] <gnarf> root can curl a url and pipe it to /tmp --- why not?
+[16:04:52] <gnarf> if you're worried about privilege, stick it on www-data or jenkins -- both are 'system' users
+[16:05:15] <gnarf> the jquery::gitclone can take user => www-data
+[16:06:09] <gnarf> and the auto-pull correctly pulls as that user
+[16:07:54] <ryanneufeld> gnarf: vagrant halt === vagrant down
+[16:09:24] <jqcommit> [infrastructure] Krinkle force-pushed testswarm-browserstack from 643672f to bd0c48e: https://github.com/jquery/infrastructure/commits/testswarm-browserstack
+[16:09:24] <jqcommit> [infrastructure/testswarm-browserstack] WIP - services.pp: Puppetize testswarm stuff - Timo Tijhof
+[16:09:35] <Krinkle> okay, updated a bunch of stuff
+[16:11:33] <jqcommit> [infrastructure] Krinkle force-pushed testswarm-browserstack from bd0c48e to f4fc076: https://github.com/jquery/infrastructure/commits/testswarm-browserstack
+[16:11:33] <jqcommit> [infrastructure/testswarm-browserstack] WIP - services.pp: Puppetize testswarm stuff - Timo Tijhof
+[16:12:06] <Krinkle> err, I need to remove push from my shortcut
+[16:12:09] <jqcommit> [infrastructure] Krinkle force-pushed testswarm-browserstack from f4fc076 to 156f755: https://github.com/jquery/infrastructure/commits/testswarm-browserstack
+[16:12:09] <jqcommit> [infrastructure/testswarm-browserstack] WIP - services.pp: Puppetize testswarm stuff - Timo Tijhof
+[16:12:17] <Krinkle> no need to put up every incarnation
+[16:15:29] <Krinkle> gnarf: can I put all file {} together? (even parts that have require on something below that)
+[16:15:42] <gnarf> Krinkle: yeah ;
+[16:15:50] <Krinkle> validator doesn't warn about it, but rather not find out after 20 minutes provision
+[16:15:52] <Krinkle> coo
+[16:15:53] <Krinkle> cool
+[16:15:59] <gnarf> file { "...": some=>"thing",other=>"thing"; "...": ....
+[16:18:31] <Krinkle> yeah, I see the pattern there, but wasn't sure whether I had to seperate out the file {} that required one the clone {}
+[16:18:56] <jqcommit> [infrastructure] Krinkle force-pushed testswarm-browserstack from 156f755 to 3f1595b: https://github.com/jquery/infrastructure/commits/testswarm-browserstack
+[16:18:56] <jqcommit> [infrastructure/testswarm-browserstack] WIP - services.pp: Puppetize testswarm stuff - Timo Tijhof
+[16:21:43] <Krinkle> gnarf: hm.. testswarm mysql isn't puppetized either, is it
+[16:25:13] <gnarf> nope - sql data will NEVER be in puppet
+[16:25:21] <gnarf> the database/user could be
+[16:25:26] <gnarf> but the data shouldn't be
+[16:27:36] <ryanneufeld> even then, that stuff should come from a repo somewhere
+[16:27:44] <ryanneufeld> the db schema shouldn't it?
+[16:29:18] <gnarf> generally, you'll have a backup to restore
+[16:29:23] <gnarf> to get that data
+[16:29:37] <gnarf> or the software itself should have a .sql file you can just pipe to setup default data
+[16:30:38] <gnarf> I mean, if there is a "testswarm.sql" you could use the mysql stuff to ensure users/passwords ( check wordpress i think for an example ) -- then exec mysql database < template.sql
+[16:30:43] <gnarf> but the issue there
+[16:30:50] <gnarf> is making sure it only happens once
+[16:32:15] <gnarf> which is why i kinda fell back to "no data in puppet, just configs and users"
+[16:32:29] <gnarf> and "software can and should set itself up"
+[16:32:55] <gnarf> like with wordpress you can just goto install.php and get a new db
+[16:43:18] <ryanneufeld> yeah
+[16:43:29] <ryanneufeld> which is why I don't like the update-puppet.sh shell provisioner
+[16:43:55] <ryanneufeld> it runs every time you provision. Why don't we just build our own box to base things off of that has that already?
+[16:45:01] <Krinkle> gnarf: I don't mean the data
+[16:45:19] <Krinkle> I just noticed that there was no mention of tables.sql anywhere
+[16:45:27] <Krinkle> or the database user for that matter
+[16:55:43] <Krinkle> gnarf: vm is doing pretty good, 11% cpu, 24 threads, 300 mb ram. not bad at all
+[16:56:04] <Krinkle> not like its doing anything special right now, but still
+[17:31:40] <gnarf> Krinkle: i think the wordpress stuff has an example of setting up a db / user
+[18:38:27] <Krinkle> gnarf: its taking like 40 minutes this time for the provision.
+[18:38:39] <Krinkle> it seems stuck after or on "Building dependency tree... "
+[18:39:04] <Krinkle> http://cl.ly/image/2J2k0j2U1S1l
+[18:39:09] <gnarf> Krinkle: probably installing node
+[18:39:22] <gnarf> or something really early in the deps
+[18:39:25] <Krinkle> I already provisioned it a few times before this
+[18:39:32] <Krinkle> wondering why it is taking so long now
+[18:39:41] <gnarf> because its not printing anything for any of the check commands
+[18:39:46] <gnarf> i kinda wanna add --test
+[18:39:52] <Krinkle> I just made a few minor changes in services.pp
+[18:39:59] <Krinkle> k, will do
+[18:41:01] <gnarf> if you can add --test to the apply command it uses if it isn't already there
+[18:41:07] <gnarf> it gives you a lot more info as puppet runs
+[18:43:07] <Krinkle> vagrant provision jq03 --test
+[18:43:07] <Krinkle> An invalid option was specified. The help for this command
+[18:43:07] <Krinkle> is available below.
+[18:43:27] <gnarf> it runs puppet apply
+[18:43:37] <gnarf> if you can add --test to that it gives more info
+[18:44:14] <Krinkle> Usage: vagrant provision [vm-name]
+[18:44:14] <Krinkle>     -h, --help                       Print this help
+[18:44:17] <Krinkle> I doesn't take --test
+[18:44:45] <gnarf> the command that that runs
+[18:44:54] <Krinkle> not sure I understan
+[18:45:01] <gnarf> it runs "puppet apply ......." on the vagrant machine
+[18:45:07] <Krinkle> Right
+[18:45:08] <gnarf> I'm unsure where the command line for that is set though
+[18:45:18] <gnarf> i'm saying if it had --test on it, it gives some extra info
+[18:45:52] <Krinkle> trying to ssh into the machine now
+[18:46:23] <Krinkle> gnarf: btw, it keeps creating 'manifests/dotdeb.gpg'
+[18:46:25] <gnarf> it gives you the command line for it
+[18:46:26] <Krinkle> should that be in gitignore?
+[18:46:40] <gnarf> Krinkle: probably

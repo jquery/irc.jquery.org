@@ -1,0 +1,405 @@
+[07:29:44] <timmywil> dammit fiddle, you take forever sometimes
+[07:44:28] <timmywil> i'm not sure why, but the term "heavily document" is annoying.  It's like, "as long as we write a bunch about it, it's ok if we do something that may be stupid".  And how many degrees of documentation are there for one item?  Something specific is either documented or it's not.
+[07:45:43] <timmywil> ok, i'm all vented :P
+[07:46:51] <jzaefferer> hey timmywil, what other projects are using Sizzle?
+[07:48:07] <timmywil> it used to be used in dojo and mootools.  I'm not sure about now
+[07:48:54] <DaveMethvin> timmywil: it's like the difference between petting and heavy petting ... which do YOU prefer?
+[07:48:54] <timmywil> someone adapted it for npm, but I haven't seen usage statistics there yet
+[07:49:18] <timmywil> DaveMethvin: haha, that depends
+[07:49:24] <DaveMethvin> true
+[07:50:00] <danheberden> jzaefferer prototype also uses it
+[07:50:30] <DaveMethvin> well i think i recall that but the point is that some little footnote on .load() or .show() api page may not be sufficient to warn people that they are pulling in say 10K of compressed/gzipped code when they coudl avoid it
+[07:50:56] <DaveMethvin> so we'll probably need some overview doc explaining how to get the most out of a CC build
+[07:51:07] <DaveMethvin> with warnings about what to do and what to avoid
+[07:51:18] <timmywil> danheberden, jzaefferer: not so much anymore I don't think
+[07:51:35] <danheberden> i thought that was the big deal in 1.7
+[07:51:44] <danheberden> oh well, it's not like it matters ;p
+[07:52:21] <timmywil> danheberden: prototype tries to be selector engine agnostic
+[07:52:33] <danheberden> ah
+[07:52:46] <danheberden> http://prototypejs.org/2010/4/5/prototype-1-7-rc1-sizzle-layout-dimensions-api-event-delegation-and-more
+[07:52:55] <danheberden> "we've finally realized our long-held goal of moving to Sizzle, the middleware selector engine used by jQuery and others"
+[07:52:57] <danheberden> is what i was thinking of
+[07:53:25] <timmywil> oh ok, yea i remember reading that now
+[07:53:41] <danheberden> though ya, you can easily rake with NWMatcher or legacy or whatevs
+[07:53:47] <danheberden> that's kinda neat
+[07:54:15] <timmywil> true
+[07:56:26] <timmywil> diego also had a plugin to make nwmatcher work for jQuery.
+[09:06:33] <scott_gonzalez> can someone unmute #jquery-meeting?
+[09:15:21] <gibson042> .
+[11:52:07] <scott_gonzalez> Anyone have a contact on the WordPress team?
+[12:35:11] <DaveMethvin> .
+[12:53:50] <danheberden> ?tell jaubourg https://github.com/danheberden/jquery-whenSet
+[12:53:50] <bot-t> danheberden, Okay.
+[13:28:35] <johnbender> DaveMethvin: I have a quick question about https://github.com/jquery/jquery/blob/master/src/event.js#L360
+[13:28:44] <johnbender> if you have a moment
+[13:29:02] <DaveMethvin> sure
+[13:29:46] <DaveMethvin> johnbender: ^
+[13:30:25] <johnbender> DaveMethvin: we have a bug report that deals with the hidden element focus issue in ie < 9
+[13:30:34] <johnbender> https://github.com/jquery/jquery-mobile/issues/2965
+[13:30:34] <socialhapy> ★ Issue #2965 on jquery-mobile, reported by laurentboileau (1m, 5d ago): JQuery Mobile 1.0RC2 is currently incompatible with JQuery 1.7 under IE8
+[13:30:49] <johnbender> jsfiddle there for your enjoyment if you want to take a look
+[13:31:45] <johnbender> anyway that conditional appears to permit the call to elem[ "focus" ] if the target offsetWidth is not 0
+[13:32:38] <johnbender> I was curious how those two things are related, and if I need to fix this on our side. That is, watch out for focusing hidden elements
+[13:33:19] <DaveMethvin> it's ie being ie i guess, we used to have a try/catch around the whole thing but that caused reports b/c it hid bugs
+[13:33:29] <DaveMethvin> any error in a handler was just silently ignored
+[13:33:55] <DaveMethvin> usually an element that has offsetwidth 0 will be invisible
+[13:34:02] <johnbender> cool so the decision was to move the trycatch downstream
+[13:34:11] <DaveMethvin> no, shouldn't need it at all
+[13:34:11] <johnbender> ahh!
+[13:34:15] <johnbender> hmm
+[13:34:28] <DaveMethvin> so i a not sure why it is trying to run .focus() there
+[13:34:29] <johnbender> I'll store that offsetwidth tidbit
+[13:34:39] <DaveMethvin> well don't, there are exceptions! :P
+[13:34:50] <kborchers> DaveMethvin: http://bugs.jquery.com/ticket/6705
+[13:34:53] <DaveMethvin> it doesn't work for td elements i think in ie, but you shouldn't be tryhing to focus those
+[13:34:55] <kborchers> fix it :P
+[13:35:03] <DaveMethvin> i tried
+[13:35:06] <kborchers> i know
+[13:35:14] <kborchers> driving me nuts right now
+[13:35:25] <DaveMethvin> i thought gnarf had a very long piece of code to fix it
+[13:35:33] <kborchers> oh yeah???
+[13:35:45] <DaveMethvin> it's all because native code doesn't fire focus events if the element is already focused
+[13:35:49] <DaveMethvin> which makes perfect sense
+[13:35:54] <kborchers> right
+[13:35:58] <DaveMethvin> but you guys always want the evnet to fire
+[13:36:16] <DaveMethvin> so there is a big lump o code to fire the event, see if it called the handler, and call it if not
+[13:36:18] <gnarf> kborchers: scott and i wrote that wrapper in the units
+[13:36:45] <gnarf> it deals with all sorts of browser weirdness too to make things more browser testable
+[13:36:49] <gnarf> i think it got added to simulate
+[13:36:52] <DaveMethvin> in core i'd prefer to do what the  native code does and only fire the focus if it's not already focused
+[13:37:09] <kborchers> gnarf: hmm, ok
+[13:37:13] <kborchers> i'll look at that
+[13:37:30] <kborchers> issue is i'm getting two focuses and two blurs when i fire a click in IE
+[13:37:42] <gnarf> https://github.com/jquery/jquery-ui/blob/master/tests/jquery.simulate.js#L164-214
+[13:37:47] <DaveMethvin> we just need to decide what the focus event means
+[13:37:58] <gnarf> its all "unit" issues for us
+[13:38:03] <DaveMethvin> does it mean the element is being focused? then it shoudln't fire on re-focus
+[13:38:05] <gnarf> are you seeing it in testing?
+[13:38:12] <kborchers> yes, it's in a unit test
+[13:38:22] <DaveMethvin> if i had a unit test for that, it would be failing :)
+[13:39:03] <DaveMethvin> johnbender: we still don't know why that element is hidden yet offsetWidth!=0
+[13:39:24] <DaveMethvin> what kind of element is it btw?
+[13:39:43] <DaveMethvin> oh a button?
+[13:40:19] <kborchers> ok, i'll have to look at it more later. thanks for pointing those things out guys. gotta head to my son's holiday show thing.
+[13:40:21] <kborchers> thanks!
+[13:41:02] <johnbender> DaveMethvin: in ie8 the element that's  causing the issue has the type DispHTMLHeaderElement??
+[13:41:23] <johnbender> DaveMethvin: had that typed up and ready for when you finished your other convo :D
+[13:41:28] <DaveMethvin> lol
+[13:42:02] <DaveMethvin> hmmm, what kinda element is that, google will konw
+[13:42:09] <johnbender> it doesn't know for me
+[13:42:37] <johnbender> there's some shady content farm site that seems to suggest it's an interface implemented by HTMLHeaderElement
+[13:43:00] <DaveMethvin> Could you be focusing an H1 or something?
+[13:43:10] <johnbender> DaveMethvin: we are in this case yes
+[13:43:13] <johnbender> the page title
+[13:43:23] <DaveMethvin> and it's visible?
+[13:43:29] <DaveMethvin> at the time it's focused?
+[13:43:30] <johnbender> no
+[13:43:36] <johnbender> it shouldn't be
+[13:43:57] <DaveMethvin> ok well when we fix this it won't be focused, is that a problem?
+[13:44:21] <johnbender> if it is, at least it's our problem :D
+[13:44:24] <DaveMethvin> that is, ie just won't focus invisible elements no matter what
+[13:44:31] <johnbender> yep
+[13:44:41] <johnbender> the exception is quite clear on that fact :D
+[13:44:51] <DaveMethvin> yeah damn comments gave it away
+[13:44:53] <DaveMethvin> :P
+[13:45:17] <johnbender> DaveMethvin: this is interesting though
+[13:45:19] <DaveMethvin> let me play with ie7 a sec
+[13:45:24] <johnbender> it is something of a bug for us
+[13:45:33] <johnbender> well
+[13:45:54] <johnbender> just _really_ low priority one since wp 7.5 is ie 9
+[13:47:48] <DaveMethvin> http://jsfiddle.net/5Zdea/ johnbender
+[13:48:00] <DaveMethvin> offsetWidth is 0 after i hide it'
+[13:48:41] <johnbender> hmm so it's "visible" in the offsetWidth sense but no in the "I'm ie and I decide how your reality is percieved" sense
+[13:48:55] <DaveMethvin> I'm not seeing an error otu of this: http://jsfiddle.net/5Zdea/1/
+[13:49:00] <DaveMethvin> that's focusing after it's hidden
+[13:49:12] <DaveMethvin> oh which version was it that has trouble?
+[13:49:17] <DaveMethvin> i am testing ie7
+[13:49:29] <johnbender> ie 8 is the one I tested but the bug references other versions
+[13:49:42] <johnbender> nevermind
+[13:49:48] <johnbender> it *only* references 8
+[13:49:49] <DaveMethvin> is there some styling on it?
+[13:49:51] <johnbender> my appologies
+[13:49:52] <DaveMethvin> oh
+[13:49:58] <DaveMethvin> lemme try that one
+[13:50:50] <DaveMethvin> http://jsfiddle.net/5Zdea/1/ seems to work there as well johnbender
+[13:50:59] <DaveMethvin> shows offsetWidth 0
+[13:51:13] <DaveMethvin> is it wrapped in a table or something?
+[13:51:45] <johnbender> doubt it
+[13:51:50] <DaveMethvin> sometimes in ie tables have offsetwidth>0 when hidden but i thought it was only table elements
+[13:52:00] <johnbender> DaveMethvin: I'll have to play around and find out what the difference is then
+[13:52:27] <DaveMethvin> ok in some ways it's better that its ie8 since we have a debugger there
+[13:52:34] <johnbender> DaveMethvin: indeed
+[13:52:48] <johnbender> DaveMethvin: I'll get back to you and let you know when I've got more info
+[13:52:51] <johnbender> thanks for your help!
+[13:52:59] <DaveMethvin> k, i shoudl be around here tonight
+[13:55:07] <DaveMethvin> yeah and i was guessing that it was a header
+[13:55:16] <DaveMethvin> nm
+[14:10:59] <DaveMethvin> oh johnbender, maybe that really is a <header> element? I just assumed it couldn't be, emphasis on the ass
+[14:15:58] <DaveMethvin> no, that's just a div and an h1 so it's not that
+[14:16:21] <johnbender> DaveMethvin: yah
+[14:16:30] <johnbender> DaveMethvin: at the point that focus is called it is visible
+[14:16:35] <johnbender> based on my debugging
+[14:17:01] <DaveMethvin> well that would explain the offsetwidth
+[14:17:11] <johnbender> DaveMethvin: I think it's just offscreen
+[14:17:21] <DaveMethvin> oh, mmmm
+[14:17:25] <johnbender> DaveMethvin: give me a minute to verify this
+[14:20:00] <johnbender> DaveMethvin: yah sorry I had that backwards the focus is called after the page transition has completed
+[14:21:03] <DaveMethvin> puzzling ...
+[14:24:17] <DaveMethvin> johnbender: do you have a fiddle with the latest test?
+[14:24:19] <johnbender> DaveMethvin: .ui-mobile-rendering > * { visibility: hidden; }
+[14:24:30] <DaveMethvin> oh.
+[14:24:31] <johnbender> that might be a clue
+[14:24:33] <DaveMethvin> yeah
+[14:24:37] <johnbender> :/
+[14:24:51] <DaveMethvin> if it was display none it would work
+[14:24:57] <DaveMethvin> hmmm
+[14:25:01] <johnbender> that's placed on the html element
+[14:25:11] <DaveMethvin> so is it removed at some point?
+[14:25:14] <johnbender> yah
+[14:25:21] <johnbender> after the focus call is made
+[14:25:24] <DaveMethvin> just not soon enough :)
+[14:25:27] <johnbender> indeed
+[14:26:10] <DaveMethvin> so can you reverse the order?
+[14:26:24] <johnbender> DaveMethvin: I
+[14:26:29] <johnbender> I'll have to take a look
+[14:26:51] <johnbender> either way at least we've sorted out what's going on so I can take some meaningful action
+[14:26:57] <johnbender> DaveMethvin: seriously appreciate the help
+[14:27:01] <DaveMethvin> sure np
+[14:36:04] <johnbender> DaveMethvin: the fix is trivial on this end
+[14:36:17] <DaveMethvin> good to hear!
+[14:36:29] <johnbender> is a more complex visibility check in core a performance concern?
+[14:37:00] <DaveMethvin> well it definitely would be nice to avoid
+[14:37:07] <johnbender> yah
+[14:37:13] <DaveMethvin> i got the feeling the try/catch was put there to stop people from complaining
+[14:37:14] <johnbender> in trigger :D
+[14:37:21] <DaveMethvin> b/c it isn't really setting the focus no matter what
+[14:37:41] <DaveMethvin> so the goal is not accomplished, it's jsut that no error occurs to indicate the goal was not accomplished
+[14:37:51] <DaveMethvin> so, WIN, somehow
+[14:37:56] <johnbender> lol
+[14:38:17] <DaveMethvin> the check there is already a cheat
+[14:38:18] <johnbender> I'm a fan of loud failure myself so seems like a smart decision to move away from swalling the exceptioin
+[14:38:34] <johnbender> s/swalling/swallowing/
+[14:38:41] <DaveMethvin> yeah but like you noticed if exceptions pop up suddenly it's always a bug :/
+[14:39:10] <johnbender> indeed
+[14:39:11] <DaveMethvin> if you have something that works for 1.7.1 i'm okay with keeping it as is
+[14:39:17] <DaveMethvin> otherwise we'd need a more complex check
+[14:39:23] <DaveMethvin> like visibility
+[14:39:24] <johnbender> works fine for me
+[14:39:41] <DaveMethvin> quick, let's declare victory and get the heck out of here
+[14:39:50] * johnbender slinks away
+[14:39:58] <DaveMethvin> lol
+[19:38:23] <mikesherov> I'm started to think that .width() always returning content-wdith regardless of box-sizing is a bad idea...
+[19:38:24] <bot-t> (36 hours 20 mins ago) <rwaldron> tell mikesherov nice one.
+[19:38:38] <mikesherov> http://bugs.jquery.com/ticket/11004#comment:11
+[19:39:04] <mikesherov> timmywil: you here?
+[19:39:45] <mikesherov> bot-t: tell timmywil please read this comment about 10413: http://bugs.jquery.com/ticket/10413#comment:17
+[19:39:46] <bot-t> mikesherov, Okay.
+[19:41:02] <DaveMethvin> mikesherov: i agree
+[19:41:18] <mikesherov> DaveMethvin: about .width()?
+[19:41:41] <DaveMethvin> yeah but the core problem is that box-sizing is an earthshaking change
+[19:41:49] <DaveMethvin> fortunatley it's not used much YET
+[19:41:57] <mikesherov> Well, I can actually handle it just fine
+[19:42:02] <DaveMethvin> i mean, they call it a box MODEL
+[19:42:03] <mikesherov> I know where all the changes need to be made
+[19:42:30] <DaveMethvin> it's just a pain to have to deal with it
+[19:42:38] <mikesherov> yeah
+[19:42:45] <DaveMethvin> but given that people are gonna do it we will have to deal with it
+[19:42:58] <mikesherov> I would argue that the dimension stuff should always return the corresponding pieces
+[19:43:18] <mikesherov> .width() = content-width, innerWidth() = content + padding... etc
+[19:43:37] <mikesherov> however, the problem is that doing css('width') maps to content-width regardless
+[19:44:29] <mikesherov> like right now, css('width') always returns a px computed value, the same as .width()
+[19:44:37] <DaveMethvin> see that's the "benefit" of defining all these things above and beyond css, we can get them all out of sync with the spec over time
+[19:44:55] <mikesherov> I would argue that css('width') should return the box-sizing adjusted value
+[19:45:05] <mikesherov> and .width() won't
+[19:45:15] <DaveMethvin> yes they can/should be different
+[19:45:24] <mikesherov> but they currently arent'
+[19:45:42] <DaveMethvin> we've been through a few iterations on that over the years
+[19:45:45] <mikesherov> there is literally no way currently in jQuery to get .css('width') = "10%";
+[19:45:51] <DaveMethvin> right
+[19:46:21] <DaveMethvin> the problem is that relative and "auto" are a pain to deal with
+[19:46:29] <mikesherov> sure
+[19:46:33] <mikesherov> 100%
+[19:46:40] <DaveMethvin> er, lol
+[19:46:56] <mikesherov> HA, I actually didn't mean the pun that was there
+[19:47:02] <mikesherov> I meant I agree with you 100%
+[19:47:06] <DaveMethvin> oh yeah, right! :D
+[19:47:51] <DaveMethvin> man i was trying to kill docs#9777 tonight and it's kicking my ass
+[19:47:51] <mikesherov> So, anyway, I'm resubmitting that PR about CSS3 vendor prefixes and box-sizing children
+[19:47:52] <bot-t> [#9777] .attr() changing wrong element on cloned elements (IE7 only) ( newName);) - http://jqbug.com/9777
+[19:48:07] <mikesherov> ugh
+[19:48:19] <DaveMethvin> i have a really nice unit test but no solution
+[19:48:38] <mikesherov> isn't that the way!
+[19:48:52] <DaveMethvin> and I think the prob is in .cloneAttributes() which is barely documented anyway
+[19:48:57] <mikesherov> The unit test is a beauty, but the fix is elusive garbage
+[19:49:06] <DaveMethvin> sorry .mergeAttributes
+[19:49:25] <mikesherov> need another pair of eyes?
+[19:49:29] <DaveMethvin> i think what must be happening is that the attribute nodes are not being copied
+[19:49:29] <mikesherov> by the way, did you see: https://github.com/jquery/jquery/pull/630 ?
+[19:49:30] <socialhapy> ★ Pull request on jquery by mikesherov (4d, 7h ago): fixes #7986, Bug in $.support.boxModel if page has DIV-element CSS
+[19:49:52] <DaveMethvin> yeah
+[19:50:04] <DaveMethvin> i'll land some more stuff soon if timmywil doesn't do it first
+[19:50:24] <rwaldron> DaveMethvin I've worked on 9777 before
+[19:50:25] <bot-t> (1 hour 52 mins ago) <divya> tell rwaldron should congratulations be in order?!
+[19:50:32] <DaveMethvin> ohai
+[19:50:34] <rwaldron> cloned node attributes
+[19:50:45] <rwaldron> its a serious wtf
+[19:50:52] <DaveMethvin> right, and it looks like the attribute nodes may be shared across the clones
+[19:50:55] <DaveMethvin> all i can figure
+[19:51:19] <DaveMethvin> but the solution would seem to involve removing .mergeAttributes and going to a manual loop over .attributres
+[19:51:29] <rwaldron> the thing is, they're acting like pass-by-ref
+[19:51:34] <DaveMethvin> exactly
+[19:51:47] <rwaldron> even though they are definitely scalar (that i can tell???)
+[19:51:56] <rwaldron> and should pass by value
+[19:52:03] <DaveMethvin> well attributes are always really attributeNode
+[19:52:03] <rwaldron> not pass... but copy
+[19:52:16] <DaveMethvin> so even tho it looks like a string it's an object
+[19:53:32] <DaveMethvin> the bug arose when we moved away from using outerHTML to clone ... out of one frying pan and into another fire
+[19:53:47] <rwaldron> yeah
+[19:54:03] <DaveMethvin> i am pretty sure we can fix it by manually copying each attribute but that's kind of slow
+[19:54:16] <DaveMethvin> outerHTML is faster but it has its own bugs
+[19:54:45] <mikesherov> sounds like fun
+[19:55:00] <DaveMethvin> imma try to do the ugly manual loop and see how that fares
+[19:55:17] <DaveMethvin> i mean, can't IE just DIE???
+[19:55:22] <rwaldron> basically, dig into cloneFixAttributes
+[19:55:59] <rwaldron> it's only used for IE
+[19:56:16] <DaveMethvin> now that's a piece of code that i'd love to chop out
+[19:56:49] <DaveMethvin> dunno if you saw this ticket docs#11014
+[19:56:50] <bot-t> [#11014] .Clone Behaviour Changes in IE7 After Installing KB2497640 (closed bug: worksforme) - http://jqbug.com/11014
+[19:56:54] <DaveMethvin> so the guy
+[19:57:02] <rwaldron> if you make the changes in there, they will apply to deeply
+[19:57:10] <rwaldron> (for node cloning)
+[19:57:25] <DaveMethvin> wat, in cloneFixAttrbutes?
+[19:57:34] <rwaldron> yeah
+[19:57:54] <rwaldron> thats where snover and I worked out the cloning business for IE
+[19:57:59] <DaveMethvin> i think we need them to go deep?
+[19:58:05] <rwaldron> yessit
+[19:58:07] <rwaldron> yessir
+[19:58:43] <rwaldron> so, make changes in that function and you will cover the entire node tree being cloned
+[19:59:22] <DaveMethvin> right which i think i do need to do
+[19:59:58] <rwaldron> yes you do
+[20:00:00] <rwaldron> :)
+[20:00:28] <DaveMethvin> i have another miserable bug related to cloning and events
+[20:00:42] <DaveMethvin> i now have a data flag that says whether the node needs a fixup or not
+[20:00:50] <DaveMethvin> and when ppl clone them the flag gets cloned too
+[20:00:58] <DaveMethvin> so i have to clear that
+[20:01:11] <rwaldron> syuck
+[20:01:13] <DaveMethvin> but i really don't want to clear that specific flag by name in manipulation
+[20:01:23] <DaveMethvin> and there are a couple of them
+[20:01:33] <DaveMethvin> it's like I need a way to specify data that isn't cloned
+[20:01:43] <rwaldron> hm
+[20:01:53] <rwaldron> i think you're right about mergeAttributes
+[20:02:09] <rwaldron> ave you tried removing that and replacing with a loop?
+[20:02:21] <DaveMethvin> that's tomorrow's project i think
+[20:02:39] <rwaldron> it's a shame... this will only affect performance on shitty browsers
+[20:02:48] <rwaldron> making shitty browsers shittier
+[20:02:56] <rwaldron> ironically
+[20:02:57] <DaveMethvin> yeah, the shitty get shittier
+[20:03:01] <rwaldron> Taco just farted.
+[20:03:19] <DaveMethvin> my dog doesn't seem to fart
+[20:03:41] <DaveMethvin> but i haven't investigated deeply
+[20:04:03] <rwaldron> it's a french bulldog thing
+[20:05:05] <DaveMethvin> ok, i gotta go
+[20:05:12] <mikesherov> Hey, so, can w drop safari3 support?
+[20:05:14] <rwaldron> alright, goodnight
+[20:05:32] <DaveMethvin> mikesherov: is it used in orig iphone maybe?
+[20:05:40] <mikesherov> ios1
+[20:05:48] <rwaldron> mikesherov yeah, thats the only reason i think
+[20:05:55] <mikesherov> I'm looking to support desktop safari4
+[20:06:00] <mikesherov> and safari io2 +
+[20:06:00] <rwaldron> best to check with the jquery mobile guys
+[20:06:01] <DaveMethvin> damn mobile browsers
+[20:06:17] <mikesherov> well, if we dropped safari3 desktop
+[20:06:18] <rwaldron> before we start pulling code out
+[20:06:19] <mikesherov> and ios1
+[20:06:22] <DaveMethvin> if they don't have A-level support it may be possible to punt on any real patches
+[20:06:45] <DaveMethvin> ok, gotta go, cya guys later
+[20:06:50] <mikesherov> http://bugs.jquery.com/ticket/10996#comment:6
+[20:07:25] <mikesherov> we can get rid of 4 support tests
+[20:07:31] <rwaldron> so, vendor prefix things are bad news
+[20:07:33] <mikesherov> and a big hunk of offset code
+[20:07:50] <rwaldron> and if jQuery sets a precedent for accepting them, hell _will_ break loose
+[20:08:10] <mikesherov> Yeah, they're bad news, but the only browser that we support that doesn't support getBoundingClientRect is safari3
+[20:08:24] <mikesherov> oops
+[20:08:26] <rwaldron> note that jQuery also doesnt use IE conditional comments for the same reason
+[20:08:35] <rwaldron> it might be worthwhile to drop it
+[20:08:38] <mikesherov> yeah, I mean, I hear you
+[20:08:44] <mikesherov> we don't want to set a precedent
+[20:08:48] <rwaldron> who the fuck names this shit
+[20:08:50] <rwaldron> "webkitConvertPointFromNodeToPage"
+[20:08:52] <rwaldron> assholes.
+[20:08:57] <mikesherov> but it's 4, count em, 4 support test
+[20:09:25] <rwaldron> did you see the bug filed against "webkitCancelRequestAnimationFrame"
+[20:09:37] <mikesherov> no
+[20:09:45] <rwaldron> how did it even get that far???
+[20:09:53] <mikesherov> but rick, it's also about 50 beefy LOC gone from offset
+[20:10:10] <mikesherov> I'm all for not setting bad precedents, but in all practicality
+[20:10:23] <mikesherov> I'd argue it's the right thing to do
+[20:11:04] <rwaldron> I already gave it +1
+[20:11:22] <rwaldron> because "it's the right thing to do"
+[20:11:31] <rwaldron> I dont have to like it.
+[20:11:36] <mikesherov> haha
+[20:11:38] <mikesherov> ok, cool
+[20:11:39] <rwaldron> it's science
+[20:11:46] <rwaldron> not religion
+[20:11:51] <mikesherov> yeah, that's true
+[20:11:53] <rwaldron> there is only fact
+[20:12:05] <mikesherov> where did I read that recently?
+[20:12:10] <mikesherov> smbc?
+[20:12:12] <mikesherov> xkcd?
+[20:12:15] <rwaldron> it's the _right_ thing to do, this is a fact, that will afford us reduced code
+[20:12:22] <rwaldron> and maybe better performance
+[20:12:29] <rwaldron> improved maintainability
+[20:12:31] <mikesherov> and 4 less support tests!
+[20:12:39] <rwaldron> so it's what we should do
+[20:12:44] <mikesherov> shitty shitty support tests
+[20:12:52] <rwaldron> yeah they're awful
+[20:13:09] <rwaldron> i dont know what smbc is
+[20:13:21] <rwaldron> and i havent looked at xkcd in a year
+[20:13:31] <rwaldron> shame on me
+[20:13:33] <mikesherov> http://www.smbc-comics.com/index.php?db=comics&id=2458#comic
+[20:13:51] <mikesherov> "Is there truth?" "No, there are facts."
+[20:16:02] <rwaldron> ahahah
+[20:16:05] <rwaldron> that's good stuff
+[20:16:37] <mikesherov> smbc is amazing
+[20:18:28] <mikesherov> for the love of god, why hasn't anyone merged your JSHint PR request yet?
+[20:19:40] <rwaldron> i have no idea
+[20:19:52] <rwaldron> timmywil, yt?
+[20:20:43] <rwaldron> ?tell timmywil Can you land the JSHint tweaks PR: https://github.com/jquery/jquery/pull/627 kthx <3
+[20:20:44] <bot-t> rwaldron, Okay.
+[20:20:44] <socialhapy> ★ Pull request on jquery by rwldrn (6d, 34m ago): Reformat jshint errors to be readable
+[20:22:39] <mikesherov> hey, quick question I've never really figure out yet
+[20:22:55] <mikesherov> if I want to add css using a style sheet in the unit tests, where do I put it?
+[20:29:33] <rwaldron> test/data/testsuite.css
+[20:32:10] <mikesherov> k, thanks
+[20:32:41] <rwaldron> browserstack was awesome until it stopped working
+[20:32:50] <rwaldron> also, glad bocoup is fucking paying for this
+[20:32:56] <rwaldron> >:|
+[20:33:12] <mikesherov> when did it stop working?
+[20:33:22] <rwaldron> "Finding nearest cloud location"
+[20:33:27] <rwaldron> hangs
+[20:33:43] <mikesherov> oh yeah?
+[20:33:48] <mikesherov> It's working fine for me atm
+[20:33:53] <rwaldron> well
+[20:33:57] <rwaldron> aren't you specifal
+[20:34:01] <rwaldron> special even
+[20:34:10] <mikesherov> church lady?
+[20:34:13] <rwaldron> ahahaha
+[20:34:15] <rwaldron> i guess
+[20:34:21] <rwaldron> i havent seen that in ages
+[20:34:23] <rwaldron> YOUTUBE.
+[20:36:00] <mikesherov> SNL is hard to find on youtube
+[20:36:11] <rwaldron> i just learned this
+[20:36:14] <rwaldron> hulu!
+[20:37:28] <rwaldron> phil hartman
+[20:37:36] <rwaldron> he does the voice over
+[20:37:48] <rwaldron> can you believe his wife SHOT him
+[20:37:49] <rwaldron> wt
+[20:37:51] <rwaldron> wtf*
+[20:39:20] <mikesherov> yeah
+[20:39:25] <mikesherov> and killed the kid too
+[20:40:49] <rwaldron> ok, i'm off for the night
+[20:41:00] <rwaldron> i think i got this 9777 thing
+[20:41:06] <mikesherov> nice
+[20:41:07] <rwaldron> but i'm going to relook tomorrow
+[20:41:15] <rwaldron> when i'm not so tired.
+[20:41:20] <rwaldron> good night dude

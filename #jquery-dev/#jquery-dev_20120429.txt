@@ -1,0 +1,148 @@
+[08:45:44] <DaveMethvin> .
+[11:42:09] <jzaefferer> ?tell davemethvin http://bugs.jquery.com/ticket/6724#comment:17
+[11:42:10] <bot-t> jzaefferer, Okay.
+[11:42:54] <jzaefferer> ?tell davemethvin also do you see any way to make this more efficient? Its a critical path: https://github.com/jzaefferer/jquery-validation/pull/399/files
+[11:42:54] <bot-t> jzaefferer, Okay.
+[11:42:55] <socialhapy> ★ Pull request on jquery-validation by mlynch (4d, 4h ago): Moved to jQuery [name] lookup for findByName. Fixes #82
+[12:48:42] <Krinkle> .
+[12:48:50] <Krinkle> jzaefferer: got your message, you there?
+[12:49:56] <jzaefferer> hey Krinkle
+[12:52:14] <Krinkle> Reading your gist now
+[12:52:33] <Krinkle> I don't have any experience with yum, so can't be of help there
+[12:52:37] <Krinkle> but upgrade should work fine
+[12:52:52] <Krinkle> PHP 5.3 has been out for a while now, so 5.2.x to 5.3 should work fine
+[12:52:55] <Krinkle> 5.4 is out already
+[12:53:14] <Krinkle> I'm running it locally as well (came with MacOSX)
+[12:53:42] <Krinkle> jzaefferer: Any progress or updates since the gist dump?
+[12:53:44] <jzaefferer> So you're using __DIR__ which was added in 5.3, and the server has 5.2
+[12:53:57] <Krinkle> yeah, I'm updating the phpversion() check now to reflect this
+[12:54:12] <jzaefferer> Wasn't obvious how to replace that, so I figured upgrading would avoid similar issues
+[12:54:14] <Krinkle> it isn't just __DIR__ that we use that is new in 5.3, otherwise we could just replace __DIR__ with dirname(__FILE__)
+[12:54:38] <Krinkle> right now it is failing on the cache dir check, which isn't very helpful in debugging
+[12:54:41] <jzaefferer> But the upgrade didn't work. gnarf suggested to move this to a new box, which was apparently the plan anyway
+[12:54:44] <Krinkle> anyway, that doesn't solve our problem
+[12:55:10] <jzaefferer> He started giving me access to some new server, but there's nothing running yet.
+[12:55:29] <jzaefferer> the cache dir check fails because the $swarmDir var isn't set properly, due to __DIR__
+[12:56:34] <Krinkle> yeah
+[12:56:53] <jzaefferer> I saw that clarkbox merged your PR, so once we've got TestSwarm running again, we can focus on the node-testswarm module… that's pretty easy to test locally, doesn't need a jenkins install
+[12:56:55] <Krinkle> I am updating the phpversion() check now, to require a higher version, so that it fails earlier with a more descriptive error message
+[12:57:12] <Krinkle> yeah, I'm reading through node-testswarm now
+[12:57:19] <jzaefferer> My implementation so far already does most of what the jenkins plugin did, the output is probably a lot better already, more readable
+[12:57:40] <jzaefferer> the result evaluation is where there's still a good chunk of work
+[12:57:47] <Krinkle> Hm... I see you're using the 404 error response of index.php action=job to see if it is successful ?
+[12:57:57] <jzaefferer> though it can get hardly worse compared to the existing jenkins plugin
+[12:58:05] <jzaefferer> I do?
+[12:58:05] <Krinkle> yeah, it can't get worse than that :)
+[12:58:11] <Krinkle> I think so, not sure
+[12:58:18] <jzaefferer> what line are you looking at?
+[12:59:08] <jzaefferer> well, no, there's no explicit check for 404
+[12:59:35] <jzaefferer> if any of the requests produces an error, it'll stop, but there's no explicit error handling yet
+[13:00:51] <jzaefferer> Krinkle: with yum failing to update PHP, what's a good way to install/build that from source or something? I'd rather not way to a complete new server to get this working...
+[13:01:45] <Krinkle> Is the PHP on the newer server already on a higher version?
+[13:02:58] <jzaefferer> Yeah, that one had 5.3
+[13:04:26] <Krinkle> I haven't updated PHP many times, it's one of those things that I do less than once a year and I never remember how I did it
+[13:04:56] <jzaefferer> okay
+[13:04:57] <Krinkle> so I'm leaning towards going with the new server
+[13:05:24] <Krinkle> is it only a matter of software configuration? or is the new server not in the right place yet to be able to be used for serving swarm.jquery.org?
+[13:08:38] <jzaefferer> I just went back to the blog post about the php 5.3 yum install
+[13:08:51] <jzaefferer> it had a "depsolving problems" section :/
+[13:09:16] <jzaefferer> I have no idea where the new server is, but it looks like I can get PHP updated after all
+[13:09:52] <jzaefferer> 5.3.11 :-)
+[13:10:09] <Krinkle> okay!
+[13:10:50] <Krinkle> I see (ssh, php --version)
+[13:10:54] <jzaefferer> no idea if that's also what Apache will use… still getting the same cache dir error
+[13:11:07] <gnarf> we will be using nginx i think
+[13:11:12] <jzaefferer> also https://gist.github.com/79a69f3d4373752f5e85
+[13:12:41] <Krinkle> you need to restart apache
+[13:12:47] <Krinkle> or whatever webserver
+[13:13:15] <gnarf> Krinkle: if you can send me your ssh pubkey - and a shadow hash password in a PM I can make sure you have access to the new swarm stage server to help
+[13:13:25] <gnarf> if you want it
+[13:13:43] <gnarf> but the general rule at this point is DOCUMENT ALL CHANGES / INSTALLS :)
+[13:13:45] <Krinkle> no, I won't have time for that in the coming 1-2 weeks
+[13:14:52] <Krinkle> jzaefferer: want me to restart apache?
+[13:15:09] <jzaefferer> Krinkle: yeah, I don't know how to do that on this machine
+[13:15:17] <jzaefferer> no apachectrl, no /etc/init.d/apache
+[13:15:40] <Krinkle> clarkbox: http://swarm.jquery.org/?state=run&user=clarkbox just so you know, that url won't work anymore after the upgrade (I noticed it in the error logs just now)
+[13:15:51] <Krinkle> use /run/<name> instead, works with all versions
+[13:16:08] <Krinkle> jzaefferer: ok
+[13:16:11] <Krinkle> hm..
+[13:16:25] <jzaefferer> Krinkle: once we only allow browserstack clients, that shouldn't matter anymore
+[13:16:32] <Krinkle> yeah
+[13:19:42] <jzaefferer> Krinkle: any idea whats with the missing posix_isatty method? Can we just remove that check?
+[13:19:50] <Krinkle> No
+[13:20:08] <Krinkle> httpd (apache) is still referring to the old php version
+[13:20:18] <jzaefferer> There are other checks in place, like SWARM_ENTRY !== 'SCRIPT'
+[13:20:19] <Krinkle> wth, I can't find any command to kill it
+[13:20:29] <Krinkle> that isn't what it is for
+[13:20:45] <Krinkle> it is to check against running it from another script or piped etc.
+[13:21:12] <Krinkle> neither https://httpd.apache.org/docs/2.2/programs/apachectl.html nor https://httpd.apache.org/docs/2.2/programs/httpd.html works
+[13:21:39] <jzaefferer> Krinkle: try /etc/init.d/httpd
+[13:22:07] <jzaefferer> trying that right now
+[13:22:20] <Krinkle>  /usr/sbin/apachectl
+[13:22:21] <Krinkle> found it
+[13:22:27] <Krinkle> it isn't in the PATH apparanelty, but it exists
+[13:22:46] <jzaefferer> `sudo /etc/init.d/httpd restart` claims to have worked
+[13:23:36] <Krinkle> indeed
+[13:23:41] <Krinkle> php error about __DIR__ is gone
+[13:23:54] <Krinkle> (cd /var/log/httpd; tail swarm-error.log;)
+[13:24:51] <jzaefferer> still seeing the same error
+[13:24:58] <jzaefferer> and the dpUpdate script doesn't work...
+[13:25:21] <jzaefferer> that is, the same error on swarm.jquery.org
+[13:30:20] <Krinkle> my local mysql server is no longer responding, testing something with testswarm but can't. fixing bug, brb
+[13:44:59] <jzaefferer> changed owner of the cache dir to the apache user
+[13:47:39] <jzaefferer> job submitted and running :-)
+[13:47:43] <Krinkle> I have to restart for a bit, brb
+[13:48:13] <jzaefferer> success: http://swarm.jquery.org:8080/job/jQuery%20UI%20grunt-testswarm/5/console
+[14:09:08] <jzaefferer> ?tell Krinkle for a start this is pretty good: http://swarm.jquery.org:8080/job/jQuery%20UI%20grunt-testswarm/7/console
+[14:09:09] <bot-t> jzaefferer, Okay.
+[14:11:02] <gnarf> jzaefferer: nice
+[14:12:51] <jzaefferer> gnarf: being able to move to configuration into grunt.js is so much better then maintaining that inside jenkins
+[14:14:01] <jzaefferer> gnarf: would make it much more possible to run with Travis. Though as long as we need the git-checkout files, I don't think thats a real option. But maybe we can figure out something for that as well
+[14:15:30] <jzaefferer> ?tell Krinkle I'll be working on improving node-testswarm - check all UAs, log job URL, global timeout, fix result URL (localhost:82…) - once that is done, update and active browserstack integration again, then see what's still missing
+[14:15:31] <bot-t> jzaefferer, Okay.
+[14:53:34] <Krinkle> jzaefferer: The Mac OS X 10.7.3 Combo update screwed up my macbook pro pretty bad, reinstalling Lion now from the recovery mode (hopefully preserving data, otherwise will do a TimeMachine restore)
+[14:53:34] <bot-t> (44 mins 20 secs ago) <jzaefferer> tell Krinkle for a start this is pretty good: http://swarm.jquery.org:8080/job/jQuery%20UI%20grunt-testswarm/7/console
+[14:53:34] <bot-t> (38 mins 3 secs ago) <jzaefferer> tell Krinkle I'll be working on improving node-testswarm - check all UAs, log job URL, global timeout, fix result URL (localhost:82…) - once that is done, update and active browserstack integration again, then see what's still missing
+[14:53:49] <Krinkle> anyway, chatting from a temporarily machine now
+[14:58:14] <Krinkle> jzaefferer: looks like something is wrong with the database, acccording to HomePage, no clients are online, but when checking /user/Krinkle you can see I got a client online
+[14:58:17] <Krinkle> and it is running file
+[14:58:19] <Krinkle> fine
+[14:58:20] <Krinkle> weird..
+[14:58:57] <Krinkle> looks like people are having 10.7.3 issues all over, google is full of it ("moving files into place hung", "moving files into place 10.7.3")
+[15:21:23] <Krinkle> reinstalling macosx, 37 minutes remaining, decreasing with 1 minute every 10 minutes..
+[16:38:07] <Krinkle> (back, laptop fixed)
+[16:54:52] <jqcommit> [testswarm] Krinkle pushed 2 new commits to master: http://git.io/7D1Cfg
+[16:54:52] <jqcommit> [testswarm/master] Raise phpversion() check to 5.3.0 - Timo Tijhof
+[16:54:52] <jqcommit> [testswarm/master] Fix require paths - Timo Tijhof
+[17:12:33] <jqcommit> [testswarm] Krinkle pushed 1 new commit to master: http://git.io/BP2ZFw
+[17:12:33] <jqcommit> [testswarm/master] Update .gitignore: Adding favicon.ico - Timo Tijhof
+[17:14:09] <Krinkle> !log swarm: archived pre-1.0.0 testswarm stuff to /src/swarm.jquery.org/archive
+[17:14:22] <Krinkle> ?log swarm: archived pre-1.0.0 testswarm stuff to /src/swarm.jquery.org/archive
+[17:14:24] <bot-t> Krinkle, Couldn't find "log swarm: archived pre-1.0.0 testswarm stuff to /src/swarm.jquery.org/archive" in jQuery Docs.
+[17:14:28] <Krinkle> Hm..
+[17:36:23] <jqcommit> [testswarm] Krinkle pushed 1 new commit to master: http://git.io/Bar3Mg
+[17:36:23] <jqcommit> [testswarm/master] Fix bug: Use %s instead of %u for timestamps - Timo Tijhof
+[17:40:56] <Krinkle> gnarf: clarkbox jzaefferer: Where should I log changes then? Somewhere in the internal repo?
+[18:01:30] <gnarf> Krinkle: if its code changes, no need - its server config changes that we need to worry about
+[18:01:50] <Krinkle> yeah, like moving stuff around in /srv/swarm.jquery.org or fixing a cronjob?
+[18:05:31] <jqcommit> [jquery] jaubourg pushed 1 new commit to 1.8pre: http://git.io/mDnFzw
+[18:05:31] <jqcommit> [jquery/1.8pre] Gandalf the Grey says you shall not leak globals, even in the depths of Unit Tests. So fly, you fools! - jaubourg
+[18:08:51] <gnarf> Krinkle: yeah
+[18:11:23] <Krinkle> gnarf: so where do I log that?
+[18:11:59] <Krinkle> gnarf: btw, executing a first test run of the new testswarm + browserstack now, (manually from cli, not in cron yet)
+[18:12:00] <Krinkle> http://swarm.jquery.org/
+[18:12:07] <Krinkle> http://swarm.jquery.org/job/4
+[18:12:15] <Krinkle> http://swarm.jquery.org/user/browserstack
+[18:12:17] <Krinkle> works nice :)
+[18:34:13] <Krinkle> gnarf: btw, not sure if you asked it or someone else, but I created an account on Jenkins@swarm.jquery.org just now
+[18:34:20] <Krinkle> http://swarm.jquery.org:8080/user/Krinkle/?
+[19:14:32] <Krinkle> ?tell jzaefferer issue with php-posix @ swarm01 solved, https://gist.github.com/3972c96b702ee3124a25.
+[19:14:33] <bot-t> Krinkle, Okay.
+[19:28:56] <Krinkle> ?ttell jzaefferer swarm01: clean working copy, maintenance scripts are working now
+[19:29:33] <Krinkle> ?ttell jzaefferer swarm: set client.require_run_token=1 and ran scripts/refreshRunToken.php and put it in testswarm-browserstack.run.sh and enabled it in crontab. working nicely
+[19:29:38] <Krinkle> ?tell jzaefferer swarm01: clean working copy, maintenance scripts are working now
+[19:29:42] <Krinkle> ?tell jzaefferer swarm: set client.require_run_token=1 and ran scripts/refreshRunToken.php and put it in testswarm-browserstack.run.sh and enabled it in crontab. working nicely
+[20:42:34] <jqcommit> [testswarm] Krinkle pushed 4 new commits to master: http://git.io/H_FXpw
+[20:42:34] <jqcommit> [testswarm/master] delete config/reset.sql - Timo Tijhof
+[20:42:34] <jqcommit> [testswarm/master] fix: use https for github - Timo Tijhof
+[20:42:34] <jqcommit> [testswarm/master] job.js: 2 bug fixes in refresh check - Timo Tijhof

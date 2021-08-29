@@ -1,0 +1,92 @@
+[00:04:33] <doesallmagic2> Project jQuery UI - 1.8.x core build #672: STILL UNSTABLE in 8 min 32 sec: http://jenkins.jquery.com/job/jQuery%20UI%20-%201.8.x%20core/672/
+[03:05:50] <Omar-> good morning
+[03:07:50] <Omar-> theme of persistant toolbars should be updated prior to pageshow. https://github.com/jquery/jquery-mobile/blob/master/js/widgets/fixedToolbar.js#L139-L140
+[03:08:03] <Omar-> toolbars theme
+[03:08:29] <Omar-> should be inherited either from toolbar's or page's theme
+[03:09:40] <Omar-> if you check this demo, the footer/navbar looks unstyled (without theme) for a second and then it gets updated http://plnkr.co/edit/feD8wFxE2EQmajinZihU?p=preview
+[03:12:36] <Omar-> ping gabriel_schulhof arschmitz
+[03:35:15] <gabriel_schulhof> Omar-: I believe this is a known problem. The way to avoid it, AFAIK, is to use external toolbars, where the theme has to be specified explicitly.
+[03:37:33] <Omar-> gabriel_schulhof I haven't checked issues yet. I will have a look now
+[03:37:40] <Omar-> thanks for replying :)
+[03:39:41] <gabriel_schulhof> NP!
+[04:09:49] <Omar-> gabriel_schulhof: here is a quick fix. but I'm trying to understand why it works only on 2nd navigation
+[04:09:51] <Omar-> http://plnkr.co/edit/a8YEATrv4Io5pXb5VC5O?p=preview
+[04:10:27] <Omar-> home => second page (doesnt work) => third page or back to home (works here)
+[05:08:55] <Omar-> nevermind, mistakenly I wrapped code in ready
+[05:19:03] <gabriel_schulhof> arschmitz: Ping!
+[05:20:47] <arschmitz> gabriel_schulhof: Pong
+[05:21:08] <gabriel_schulhof> arschmitz: Hey!
+[05:21:33] <gabriel_schulhof> arschmitz: Got a few observations about classes, as I try to implement the option for listview and textinput ...
+[05:22:17] <gabriel_schulhof> 1. You can't use it with enhanced, because you never call this._addClass(), so the element doesn't become tracked and so if you subsequently set one of the keys, it doesn't automatically apply it to the element.
+[05:22:17] <Omar-> gabriel_schulhof arschmitz: shall I open a PR for this fix? http://plnkr.co/edit/a8YEATrv4Io5pXb5VC5O?p=preview
+[05:23:16] <gabriel_schulhof> Omar-: By all means, but remove the || "a", because we can't have hard-coded defaults.
+[05:23:17] <arschmitz> Omar-: no because thats a deprecated feature
+[05:23:24] <gabriel_schulhof> Oh, wait, it is?
+[05:23:35] <arschmitz> persistent toolbars yes
+[05:24:22] <arschmitz> http://jquerymobile.com/changelog/1.4.0/#toolbar
+[05:24:52] <gabriel_schulhof> Oh, right, because now we have external toolbars which are truly persistent, right?
+[05:24:57] <arschmitz> yes
+[05:25:32] <gabriel_schulhof> Omar-: Sorry! arschmitz is right. Just use external toolbars and adjust the theme if you wish.
+[05:26:33] <Omar-> gabriel_schulhof arschmitz thanks a lot!
+[05:31:17] <gabriel_schulhof> arschmitz: So what do you think about the enhanced issue?
+[05:31:51] <gabriel_schulhof> arschmitz: The way around it would be to add API to "just track".
+[05:32:07] <arschmitz> gabriel_schulhof: there is no use for that outside mobile
+[05:32:23] <arschmitz> so if we did do that we would have to add it outselves
+[05:33:02] <gabriel_schulhof> I suppose we could _addClass(), and since all the classes are already added (presumably) it should have no effect, right?
+[05:33:17] <arschmitz> true
+[05:34:16] <gabriel_schulhof> So, this basically renders enhanced vs. non-enhanced a simple matter of this.abc = this.children( ".abc" ) vs. this.abc = $( "<div>" ); this._addClass( this.abc", "abc" );
+[05:34:20] <arschmitz> gabriel_schulhof: or we could just say you cant change the classes option with enhanced
+[05:34:47] <gabriel_schulhof> :/
+[05:35:43] <arschmitz> gabriel_schulhof: well if your adding the markup yourself
+[05:35:58] <arschmitz> why wouldn't you just put what you want there to begin with? 
+[05:36:35] <gabriel_schulhof> OK. Then, I guess documentation is the cheapest way forward.
+[05:36:44] <gabriel_schulhof> We'll see how it resonates.
+[05:37:12] <arschmitz> gabriel_schulhof: because anything that changes aside from explicit setOption
+[05:37:31] <arschmitz> gabriel_schulhof: it will still work fine anything that changes will still get the right tracking and classes
+[05:37:39] <arschmitz> because the elements are always passed
+[05:38:21] <gabriel_schulhof> Well, if you call a widget's API which is implemented as a call to this._addClass(), then starting with that API call, that particular part of the widget will start becoming responsive to classes option setting. Is this what you mean?
+[05:38:54] <arschmitz> gabriel_schulhof: i mean that if you call setOption with classes
+[05:39:01] <arschmitz> gabriel_schulhof: nothing would change right that second
+[05:39:14] <arschmitz> but it would work fine with updates
+[05:39:22] <arschmitz> for example a selectmenu
+[05:39:31] <arschmitz> where you toggle corner classes on open/close
+[05:39:44] <arschmitz> would update the classes based on the new option
+[05:40:22] <gabriel_schulhof> Right. It would start to take effect the next time the widget calls _addClass(), whether in response to an event, or in response to a public API call.
+[05:40:32] <arschmitz> yes
+[05:41:14] <gabriel_schulhof> This is kinda not-so-clean ... not much we can do about it though, I guess.
+[05:41:21] <arschmitz> gabriel_schulhof: ill have to think about this i'm not really sure the best way to handle it. 
+[05:42:20] <arschmitz> gabriel_schulhof: truth is tracking api of some sort is the right answer
+[05:42:29] <arschmitz> because then evrything works as the user would expect
+[05:42:32] <gabriel_schulhof> Oh, and some more food for your thoughts: If you're thinking that calling .refresh() after the classes option change should make it take effect, think again. For example, in case of a listview, refresh() updates only newly discovered entries, not all entries. So, if the class key for a list item has changed, old entries will still have the old classes.
+[05:43:08] <gabriel_schulhof> So, while refresh() may be the answer for some widgets, it's not for all widgets.
+[05:43:18] <arschmitz> and there is essentially no perf issue since your just setting refrences
+[05:43:48] <arschmitz> refresh is widget specific so i would not assume anything there
+[05:44:09] <arschmitz> not all widgets even have a refresh
+[05:44:14] <gabriel_schulhof> Right.
+[05:45:12] <gabriel_schulhof> OK, so the other observation I'd like to get across is this: With tracked elements, you can't simply call .remove() (like you would with listview items, for example), because then old items will remain tracked, and the cache will become littered with no-longer-present items.
+[05:45:33] <arschmitz> gabriel_schulhof: thats not new
+[05:45:38] <arschmitz> just call remove class first
+[05:45:45] <arschmitz> _removeClass
+[05:45:57] <arschmitz> you brought that up a long time ago
+[05:46:00] <gabriel_schulhof> Yes, but users of listview do not have access to that.
+[05:46:18] <gabriel_schulhof> ... so I need to provide them with an API that removes items from a listview.
+[05:46:34] <gabriel_schulhof> ... and document that they must no longer use core's .remove(), because that results in leaks.
+[05:46:38] <arschmitz> gabriel_schulhof: why dont you just store a refrence to the items
+[05:46:54] <arschmitz> and any that have been removed in refresh call _removeClass
+[05:47:56] <gabriel_schulhof> Actually, I already have a reference ... this.classesElementLookup[ "ui-listview-item" ] ...
+[05:48:19] <gabriel_schulhof> I can check if any in there have been rendered parentless and remove them.
+[05:48:46] <arschmitz> this.oldItems.each(function(){ if ( that.element.contains( this ) ) { that._removeClass( this, "classes" ) } });
+[05:48:49] <arschmitz> gabriel_schulhof: ^^
+[05:49:02] <arschmitz> the contains will only go up one level so its super fast
+[05:49:51] <gabriel_schulhof> arschmitz: Wait a sec ... what's wrong with simply this.classesElementLookup[ "ui-listview-item" ] = newItems; ?
+[05:50:31] <arschmitz> well that would work i guess but widgets should not be accessing this.classesElementLookup
+[05:50:34] <gabriel_schulhof> I understand that it breaks containment and that I should be going through the classes API, but this is much faster.
+[05:51:02] <gabriel_schulhof> I mean, it's asymptotically faster too, being constant time, vs. linear in the number of old list items.
+[05:53:49] <gabriel_schulhof> Wait a sec ... I /can/ go through the API, except I will say this._removeClass( this.oldItems.not( function() { return that.element.contains( this ); } ), "ui-listview-item" );
+[05:54:08] <gabriel_schulhof> That way I'm only making one call to this._removeClass()
+[05:55:00] <gabriel_schulhof> I've already tried this in a jsbin and it correctly updates the list of tracked elements.
+[05:55:32] <gabriel_schulhof> OK. I think I have some leads I can work with. I'll head home now and work on this a bit later.
+[05:55:35] <gabriel_schulhof> BBIAB
+[05:56:14] <arschmitz> gabriel_schulhof: ok sounds good
+[08:38:15] <jqcommit> [13api.jquerymobile.com] 15cfjedimaster opened issue #361: External toolbars 02http://git.io/NQTw
+[08:39:05] <jqcommit> [13api.jquerymobile.com] 15cfjedimaster opened issue #362: External panels are not documented 02http://git.io/NQkk

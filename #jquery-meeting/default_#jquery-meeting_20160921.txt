@@ -1,0 +1,103 @@
+[12:01:29] <scott_gonzalez> ?uiteam
+[12:01:29] <b-ot> arschmitz fnagel jzaefferer mikesherov rxaviers_ scott_gonzalez tjvantoll
+[12:01:33] <arschmitz> hi
+[12:01:33] <fnagel> hi
+[12:02:45] <scott_gonzalez> Just need another minute to finish putting the agenda together.
+[12:04:48] <scott_gonzalez> Ok, let's get started.
+[12:05:01] <scott_gonzalez> The sortable regression for cancel() was fixed.
+[12:05:04] <scott_gonzalez> https://bugs.jqueryui.com/ticket/15042
+[12:05:08] <scott_gonzalez> https://github.com/jquery/jquery-ui/pull/1746
+[12:05:22] <scott_gonzalez> And that fix was included in 1.12.1 which was finally released!
+[12:06:22] <scott_gonzalez> We do still have some performance problems from the new `classes` option.
+[12:06:32] <scott_gonzalez> We got this bug filed against selectable: https://bugs.jqueryui.com/ticket/15049
+[12:07:08] <scott_gonzalez> So this is a different problem than the one we already fixed that was filed against autocomplete: https://bugs.jqueryui.com/ticket/15043
+[12:08:01] <arschmitz> hrm
+[12:08:09] <arschmitz> ill have to look into that im not sure why that would happen
+[12:09:01] <scott_gonzalez> Yeah, I haven't had a chance to look into it yet, but it sounds like something that we tried to address in the initial implementation.
+[12:09:04] <arschmitz> maybe something with how we are attaching the remove handler now
+[12:09:33] <arschmitz> what do you mean by that?
+[12:10:11] <scott_gonzalez> Since it's in refresh, I would think this would be handled by the merging and deduping that we already do.
+[12:10:54] <arschmitz> the handler is done any time _classes is called
+[12:11:15] <arschmitz> which happens as part of _addClass
+[12:12:12] <scott_gonzalez> I don't think this is about new elements every time like autocomplete.
+[12:12:20] <scott_gonzalez> Selectable should be using the same elements each time, right?
+[12:12:32] <arschmitz> right i dont think it is either i think its a side effect of the fix potentially
+[12:12:56] <arschmitz> they dont say if this was 1.12.0 or 1.12.1
+[12:13:06] <arschmitz> oh no they do sorry
+[12:13:14] <arschmitz> they say it was in 1.12.0 so its not that
+[12:14:30] <arschmitz> ill look into this though
+[12:15:51] <scott_gonzalez> I wonder why they set the version to 1.11.2.
+[12:15:56] <scott_gonzalez> It obviously didn't exist in that version.
+[12:16:06] <arschmitz> i dont know that confused me at first too
+[12:16:15] <scott_gonzalez> Maybe they meant to choose 1.12.1 and got the numbers jumbled.
+[12:16:48] <arschmitz> maybe
+[12:17:22] <arschmitz> something must be failing when it de-dups
+[12:17:41] <scott_gonzalez> yeah
+[12:18:02] <scott_gonzalez> There's also a bug about an XSS vulnerability in the updated autocomplete JSONP demo: https://bugs.jqueryui.com/ticket/15048
+[12:18:10] <scott_gonzalez> I don't think there's an actual vulnerability on our site though.
+[12:18:19] <scott_gonzalez> But the PR looks fine: https://github.com/jquery/jquery-ui/pull/1747
+[12:18:22] <arschmitz> yeah i saw this one
+[12:18:49] <scott_gonzalez> There's no actual attack vector because we don't accept user data for the callback on our site.
+[12:19:06] <arschmitz> right but best just to demonstrate best practices
+[12:19:12] <scott_gonzalez> And if you can modify the JS on the site to change the call, you can just modify the JS on the site to run your malicious code directly.
+[12:19:22] <scott_gonzalez> yup
+[12:20:01] <fnagel> I don't think the PR endors best practice
+[12:20:23] <scott_gonzalez> why not?
+[12:20:41] <fnagel> some strip tags or htmlentities seems easier to understand for beginners
+[12:21:46] <scott_gonzalez> We don't care about HTML though. This is JS that we're returning.
+[12:23:09] <scott_gonzalez> I don't really think that validating the callback name does much for us.
+[12:23:26] <scott_gonzalez> I'd honestly be fine closing the PR.
+[12:23:43] <arschmitz> no if you were some how intercepting the call and passing fake data you could just match the callback name
+[12:24:00] <scott_gonzalez> huh?
+[12:24:12] <arschmitz> validating the call back name
+[12:24:26] <scott_gonzalez> This isn't about intercepting or faking data.
+[12:24:30] <fnagel> agree, but shouldn't the echo $ouput be escaped as the callback name could contain anything?
+[12:24:36] <scott_gonzalez> This is about providing random JS to execute on response.
+[12:24:46] <scott_gonzalez> Like `callback=alert('hello');foo`
+[12:25:09] <scott_gonzalez> The PR prevents that from being accepted because it contains actual commands, not just a function name.
+[12:25:48] <fnagel> right, but not pretty in my opinion
+[12:26:12] <scott_gonzalez> So it doesn't do anything for us, but it does mean that anyone who learns how JSONP can work by looking at our demos would hopefully build a JSONP resource that isn't vulnerable to those attacks.
+[12:26:19] <scott_gonzalez> Why not?
+[12:26:30] <scott_gonzalez> It's validating if the provided data is of a valid form.
+[12:28:34] <fnagel> True. I just don't like regex for examples. Beginers do not understand whats happening. Comment?
+[12:29:36] <arschmitz> fnagel: what would you suggest to replace it with the same functionality that didn't use a regex?
+[12:32:04] <fnagel> Is every char in the regex needed?
+[12:32:12] <fnagel> what'S the possible input?
+[12:33:21] <scott_gonzalez> Any valid JS function name.
+[12:34:17] <scott_gonzalez> So there are more valid characters actually.
+[12:34:18] <scott_gonzalez> $
+[12:34:33] <fnagel> best practice would be a whitelist. but I'm fine with the regex if we explain why
+[12:34:46] <scott_gonzalez> and probably a bunch of others that nobody ever thinks of.
+[12:34:54] <scott_gonzalez> Whitelist isn't possible.
+[12:35:18] <scott_gonzalez> And actually, pretty much all utf-8, right?
+[12:36:23] <scott_gonzalez> Yeah, so this regex is too limiting.
+[12:36:37] <scott_gonzalez> And I think validating this would be too large.
+[12:38:00] <scott_gonzalez> Oy
+[12:38:01] <scott_gonzalez> "if you were to summarize all these rules in a single ASCII-only regular expression for JavaScript, it would be 11,236 characters long (for ECMAScript 5.1 / Unicode 6.1.0)"
+[12:38:48] <scott_gonzalez> In that case, any objections to closing the PR because there's no actual exploit and this is too limiting to be shown as a good idea?
+[12:41:00] <scott_gonzalez> Hearing no objections, I'll close the ticket and the PR after the meeting.
+[12:41:08] <arschmitz> wow
+[12:41:20] <arschmitz> yeah close
+[12:41:24] <arschmitz> that would be insane
+[12:41:32] <fnagel> yea, that PR is not a good solution but having some escaping on that $ouput and perhaps a comment that one should validate the callback name sounds like a good idea to me
+[12:41:45] <arschmitz> i think best we could do is add a comment warning of potential attack vectors in real code
+[12:41:51] <scott_gonzalez> There's nothing to escape though.
+[12:42:01] <fnagel> +1 what arschnmitz said
+[12:42:19] <fnagel> not in our demo but people use copy pasta
+[12:46:53] <scott_gonzalez> Ok, so this brings us to the very odd datepicker bug in iOS 10.
+[12:46:55] <scott_gonzalez> https://bugs.jqueryui.com/ticket/15050
+[12:47:09] <scott_gonzalez> Interacting with basically anything in the provided fiddle causes the dropdowns to open.
+[12:47:37] <scott_gonzalez> Seems like a major bug in iOS. I've confirmed the bug, but have not reduced it yet to figure out what triggers it.
+[12:47:56] <arschmitz> i need to try that one
+[12:48:17] <arschmitz> i have 9 and 10 phones so maybe i can figure out what changed
+[12:52:19] <scott_gonzalez> Let's try to get these bugs fixed soon. The performance issue for classes seems pretty important.
+[12:52:27] <scott_gonzalez> I'd like to get 1.12.2 out in a month or so.
+[12:52:29] <arschmitz> yeah im going to look into that today
+[12:52:38] <scott_gonzalez> And then hopefully we won't need a 1.12.3, we'll just go straight to 1.13.0.
+[12:52:55] <scott_gonzalez> I did notice some intermittent problems with download builder this morning.
+[12:56:49] <scott_gonzalez> Does anyone have anything else to discuss?
+[12:59:05] <scott_gonzalez> I guess that's all for today.
+[12:59:06] <scott_gonzalez> Thanks everyone.
+[12:59:16] <fnagel> Any chance to get the datepicker PR merged soon?
+[13:03:11] <scott_gonzalez> I'll be able to look at that as soon as I can finish my current task at work.
+[13:03:19] <fnagel> :-)

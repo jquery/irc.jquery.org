@@ -1,0 +1,241 @@
+[08:58:58] <gseguin> Good morning
+[09:20:10] <kinblas> StevenBlack: ping
+[09:20:37] <StevenBlack> Good morning!  er... afternoon (yawn!)
+[09:20:52] <kinblas> StevenBlack: one question before I press the green button
+[09:20:55] <kinblas> on the removePage
+[09:21:34] <kinblas> why not just take a selector and forget the "try data-url" and try selector logic
+[09:22:34] <StevenBlack> I see data-url as a use case for removePage usage.  It is, after all, how we address pages.
+[09:23:11] <kinblas> yeah, but why wouldn't the caller just pass in the :jqmData(url ...
+[09:23:20] <kinblas> my concern is the 2 searches
+[09:23:28] <kinblas> which brings me to question #2 (sorry)
+[09:23:41] <kinblas> can we limit the scope of the search to the page container
+[09:23:45] <kinblas> rather than the whole document?
+[09:23:53] <StevenBlack> Yes, and that crashes jQuery Mobile because :jqmData isn't re-entrant.  Hence the try...catch.
+[09:24:11] <kinblas> ew
+[09:24:30] <kinblas> re-entrant?
+[09:24:54] <StevenBlack> calling jqmData() with a ":jqmData(...)" parameter.
+[09:26:14] <kinblas> Not sure I'm following you, I was thinking the caller (your cleanup on hide listener) would just call removePage(":jqmData(url=" + url + ")"
+[09:26:15] <StevenBlack> IOW, someone could call $.mobile.removePage( jqmData("something").  This deals with that.
+[09:26:33] <StevenBlack> Try it :-)
+[09:27:11] <kinblas> where something returns a selector or an url?
+[09:27:19] <kinblas> "something"
+[09:27:23] <StevenBlack> Sorry, let's back up.
+[09:27:35] <StevenBlack> removePage() takes one parameter right now.
+[09:27:52] <StevenBlack> If someone passes total garbage, removePage() works.  See tests.
+[09:28:28] <StevenBlack> BUT if that "garbage" happens to be the string ":jqmData(....)" it crashes like a stuffed pig.
+[09:29:17] <StevenBlack> I found that in testing and put a try...catch around this obvious crashing scenario.
+[09:30:22] <StevenBlack> Note that ":" selectors in jQuery are commonplace and that should not crash.  Unfortunately, our jqmData implementation appears to be weak in this respect.
+[09:31:11] <kinblas_> you are talking about use of the pseudo-selector :jqmData right?
+[09:31:13] <StevenBlack> I didn't go down the path of debugging the :jqmData selector or the jqmData() function.
+[09:31:27] <StevenBlack> pseudo-selector, right.
+[09:31:55] <StevenBlack> I don't know if other pseudo-selectors crash.  Regardless, try...catch deals with that.
+[09:32:12] <kinblas_> I'm not questioning the selector, but rather the fact that the code tries the selector twice in 2 different contexts ... one as an url and one as a selector
+[09:32:52] <kinblas> I meant I'm not questioning the  try/catch deal
+[09:32:59] <kinblas> but rather the 2 queries
+[09:33:15] <kinblas> why not just tell folks pass in a selector or a collection
+[09:33:31] <kinblas> and we just run the selector and make sure it is actually a page with whatever matches
+[09:34:22] <StevenBlack> See tests.
+[09:34:36] <StevenBlack> This currently works in all situations that I can imagine.
+[09:35:43] <StevenBlack> If dude passes a URL, that's not a selector.
+[09:35:53] <StevenBlack> If dude passes a pseudo-selector, that crashes.
+[09:36:19] <StevenBlack> So removePage takes a side-route to deal with the crashing pseudo-selector.
+[09:36:57] <StevenBlack> The second selection will not add anything to an existing collection, or will add to an empty collection, in all scenarios which logically is what we want.
+[09:37:26] <kinblas> so lets walk through this
+[09:38:27] <kinblas> when I see this:
+[09:38:29] <kinblas>  toRemove= $( ":jqmData(url='" + selector + "')");
+[09:38:42] <kinblas> that tells me that the method is expecting a URL to be passed in
+[09:38:55] <StevenBlack> Crashes, stuffed pig, without the try...catch
+[09:39:10] <kinblas> it is immediately followed by
+[09:39:12] <kinblas>  toRemove.add( selector );
+[09:39:22] <kinblas> add performs a query correct?
+[09:39:42] <StevenBlack> Adds nothing if selector is a URL.
+[09:40:00] <kinblas> but it still performs a walk of the entire document to figure that out
+[09:40:12] <StevenBlack> Ah.
+[09:40:14] <kinblas> it treats that URL as a selector
+[09:40:19] <kinblas> a bad one
+[09:40:22] <kinblas> but nonetheless
+[09:40:33] <StevenBlack> So does probably several hundred other instances of JS in jQuery Mobile
+[09:40:45] <kinblas> ??
+[09:41:21] <StevenBlack> Are you saying that, because we walk the document, we can't do it?  If so, then we have a few thousand lines of jQuery Mobile to discuss also.
+[09:41:31] <kinblas> lol
+[09:41:49] <kinblas> hey I'm all for targeted querying ... reducing the number of times we walk the entire tree
+[09:41:58] <kinblas> if you see something, file it or fix it
+[09:42:12] <StevenBlack> I mean, really.  Let's quibble.  I'm all for improving code, but c'mon, there is such a thing as premature optimization.
+[09:42:16] <kinblas> I personally try not to do more work than we need to
+[09:42:27] <StevenBlack> Understood, and agreed.
+[09:43:03] <kinblas> so what, land as is?
+[09:43:06] <kinblas> are you going to fix it?
+[09:43:12] <kinblas> or try to improve it?
+[09:43:27] <StevenBlack> We *could* do toRemove.add( ".ui-page").filter( selector )
+[09:43:57] <StevenBlack> I see no barriers to landing this now because a refactor may be required depending on what we do with nested lists.
+[09:46:29] <kinblas> I'm sorry if you think my questions are quibling, but as a reviewer those are the types of things we're supposed to ask before something hits the tree. Granted no one is calling this yet so there's no harm, but still, we're supposed to flag and question things
+[09:47:24] <StevenBlack> There are currently two known use cases for RemovePage.  One is upon pagehide for cache="false" situations and that's definitely not a problem because we're passing an object, the page to expire.
+[09:47:42] <StevenBlack> The other known use case is a DOM cleanup and that's a big job anyway.
+[09:48:37] <StevenBlack> Understood.  Those are good questions.  I agree.
+[09:51:08] <StevenBlack> One issue remains undecided: where does the responsibility for coordinating cleanup lie?  I would argue that removePage should do one thing well: remove pages.  The logic for handling sublists of other pages, that may (or may not) go into removePage().
+[09:52:22] <StevenBlack> My vision for dom cleanup is a page iterator that receives function as a parameter.  When function returns true, that page is toast.  In this scenario, removePage() is dumb.
+[09:53:47] <StevenBlack> Other possible scenario is removePage gets the function, and applies that to whatever is in its toRemove collection.  In this case, removePage() is smarter.
+[09:54:30] <StevenBlack> This is something gseguin will talk about soon because our edge-case, the acid test, is nested lists.
+[09:54:46] <kinblas> StevenBlack: so the test case for the try/catch are the ones where you are doing this:
+[09:54:47] <kinblas>        same( numPages, numPages= $( ":jqmData(role='page')" ).length, "Passing unrelated jQuery collections to $.mobile.removePage() does nothing" );
+[09:54:57] <kinblas> ??
+[09:55:18] * gseguin is catching with the conversation
+[09:55:50] <kinblas> if so it probably throws an error because it translates to :jqmData(url=':jqmData(role='page')')
+[09:55:58] <kinblas> notice the single quites
+[09:56:01] <kinblas> quotes
+[09:56:18] <kinblas> so this is another reason why I think we should just make it simple
+[09:56:28] <kinblas> the function takes a selector or a collection
+[09:56:29] <StevenBlack> I dickered with this seven-ways til Sunday.  Trust me.
+[09:56:33] <kinblas> we don't do any funny business
+[09:56:46] <kinblas> of adding what they pass in, to a selector we create
+[09:57:08] <StevenBlack> I don't think this trumps my hours of dealing with this.
+[09:57:19] <StevenBlack> It's just not that simple.
+[09:58:47] <StevenBlack> I want to support passing-in a data-url value.
+[09:59:33] <StevenBlack> The risk is, dude passes in :jqmData(something)
+[10:00:59] * StevenBlack is back in 15-20 minutes...
+[10:04:16] <scottjehl> hi folks :)
+[10:04:24] <scottjehl> sorry, been quite busy with client work
+[10:10:32] <scottjehl> what's going on? any discussion I can contribute to here?
+[10:10:39] <kinblas> heh
+[10:10:49] <kinblas> we were discussing https://github.com/jquery/jquery-mobile/pull/1761/files
+[10:10:59] <scottjehl> ah cool ok
+[10:11:56] <scottjehl> so yeah, quick recap for me: any reason this is public? Seems we'd save on code and edge cases if we were the ones passing the argument internally?
+[10:12:29] <kinblas> I think the intent is that it is a generic utility function
+[10:12:40] <kinblas> that allows folks to remove pages without screwing up the book keepig
+[10:12:42] <scottjehl> I mean, if people asked for it, public makes sense. I thought we were just creating an internal dom cleanup after pagehide that people could opt into
+[10:13:08] <kinblas> the intent is that cleanup you mention would call this too
+[10:14:25] <kinblas> my main "quible" with it was the 2 tries with the selector
+[10:14:43] <kinblas> once treating as an url, the 2nd treating as a real selector
+[10:15:24] <kinblas> I'm of the opinion we should just pick one ... for me treat it as a selector and let the caller decide whether to look up a page by id or by :jqmData(url)
+[10:16:19] <kinblas> Steven said the try/catch was necessary because :jqmData wasn't re-entrant, but from the tests, it looks like the function is building up a selector where the single quotes clash
+[10:16:38] <kinblas> :jqmData(url=':jqmData(role='page')')
+[10:16:45] <kinblas> note the single quotes
+[10:18:09] <scottjehl> yeah the try/catch part didn't quite make sense to me. A quick explanation on why jqmData wouldn't fail safely on its own would be great.
+[10:23:30] <StevenBlack> Creatine an issue for the :jqmData() pseudo-selector crash is on my list.
+[10:24:13] <scottjehl> okay cool. If the problem is with jqmData, should a workaround be there instead?
+[10:24:14] <StevenBlack> kinblas: removePage cannot just take a selector.  Pages are, on balance, completely non-determinate except for the data-url.
+[10:24:45] <StevenBlack> Right now we have a workaround.  It's a try...catch in removePage.
+[10:24:48] <kinblas> is ":jqmData(" + url + ")" not a selector?
+[10:25:06] * StevenBlack sighs.
+[10:25:46] <scottjehl> right. but other places call jqmData. it's a public helper
+[10:26:34] <scottjehl> if try/catch is needed for it, maybe we should place it within the jqmdata monkeypatch?
+[10:26:40] <scottjehl> just wondering is all
+[10:26:46] <kinblas> in the embedded page case, if my page has an @id on it, why would I want to go searching through all pages data-url to find it?
+[10:27:09] <kinblas> your function would also create :jqmData(url="#myID")
+[10:27:35] * kinblas notes he has to get cranking on his own stuff
+[10:29:41] <StevenBlack> is thinking, fuck it.
+[10:30:02] <scottjehl> Kin, can you push that stuff into a branch pretty soon? It'd be great to take a look at it
+[10:31:24] <kinblas> on it
+[10:31:25] <scottjehl> Steven, what's up? Do you disagree that it's a problem with jqmData? Just trying to quickly evaluate pull requests is all
+[10:32:08] <kinblas> scottjehl: give me a few minutes, I'm transfering trees across computers (new machine)
+[10:32:43] <scottjehl> I had 2 questions about it whenever you get a chance. That one above, and also whether we'd save on logic by not immediately exposing removePage on $.mobile, since afaik we're only adding it now to address the data-cache feature request. Thoughts on those?
+[10:32:53] <StevenBlack> You are talking to a guy who routinely has code-standard whitespace cleanups rot on-the-vine, unpulled for several days.  This rotted on the vine for several days.  So I re-do the pull to avoid a merge nightmare for kinblas and now I'm getting pushback on a try...catch.
+[10:33:57] <StevenBlack> I think you guys talk a good game about people, the community, getting involved in jQuery-related projects.
+[10:34:50] <StevenBlack> This is about moving forward.  I don't want to wait for a patch on :jqmData().  That's what the try-catch isolates.
+[10:35:05] <StevenBlack> Fix :jqmData and *then* we can remove the try-catch.
+[10:35:49] <scottjehl> sure. My question was just whether it makes sense to put the fix there, if anywhere. If you make that change, I'm happy to pull it in :)
+[10:35:53] <StevenBlack> I need removePage() for issues 1554 and 1555.
+[10:36:48] <StevenBlack> It mase so much sense to have a working (if embryonic) removePage() so we can go forward.
+[10:37:02] <StevenBlack> mase=makes ^^^
+[10:37:08] <scottjehl> okay cool. That was the answer I was looking for, thanks
+[10:37:19] <scottjehl> re: whitespace. Those changes are obviously great and much appreciated. Kin wondered a few days ago whether whitespace pulls could perhaps wait until refactors are done. That seemed reasonable to me... but I guess we can discuss that too if needed.
+[10:38:20] <StevenBlack> Well, in the case of dialog.js, here was a file that hadn't been committed in over a month.  So I fixed it.  Then guys who didn't git pull or git fetch get burned.  Well, I'm sorry.
+[10:38:29] <gseguin> scottjehl: have you had time to look at kinblas email regarding the nested lists?
+[10:39:08] <scottjehl> hey! Hadn't but I'll look at it now.
+[10:39:20] <gseguin> thanks
+[10:39:26] <StevenBlack> I fixed dialog because dialog is oing to be involved with 1554 and 1555.  That whitespace pull requests gets ignored for over a week.  tl:dr: I can't even use the file I took the time to remediate to move forward.
+[10:41:03] <scottjehl> okay. if a whitespace change is that critical (a file is unusable without it), I guess we can consider it a bug. Seems like a good idea to wait on them whenever we can though.
+[10:41:36] <scottjehl> anyway, that's an old topic at this point. Seems Kin was able to pull that one in. So, gseguin: checking on that email now
+[10:42:15] <StevenBlack> It's a better idea to educate guys with commit access about code standards.  kinblas was unaware of them as late as two days ago.
+[10:42:43] <StevenBlack> Quality starts at the top.
+[10:42:46] <scottjehl> hey now. Can we get a little more friendly conduct around here. This tone is not at all necessary
+[10:42:48] <scottjehl> thanks
+[10:43:26] <StevenBlack> Problems just go away if you ignore them.
+[10:44:03] <kinblas> StevenBlack: I didn't say I wasn't aware of them 2 days ago
+[10:44:24] <kinblas> I was aware of them when you started doing pull requests for them a few months back?
+[10:46:32] <kinblas> scottjehl: so yeah, if you could read that email and reply, we could land gseguin's changes
+[10:47:46] <gseguin> scottjehl: the pull request that goes with this is https://github.com/jquery/jquery-mobile/pull/1701
+[10:48:22] <gseguin> although I think it's not compliant with the coding standards
+[10:48:37] <gseguin> so I'll submit a new on
+[10:48:39] <gseguin> e
+[10:52:38] <scottjehl> I'd prefer not having to say this again folks. Every time I log into this channel I spend 70% of my time mediating vitriolic comments. It's really unhelpful.We're here because we want to make a great framework. Let's not discount the efforts of those helping out on that.
+[10:53:01] <scottjehl> gseguin: reading now, thanks!
+[11:16:05] <StevenBlack> scottjehl: jQuery Mobile's jquery.ui.widget.js is ancient.  By any measure, we're far out of sync with its original, which is now at tag 1.8.13.  My opinion is, at this point, that we should rename it $.jquery.mobile.widget.js so to not bum-steer anybody.  Thoughts?
+[11:16:25] <scottjehl> hmm. valid point
+[11:16:47] <StevenBlack> I have it in branch here and the apps work well.  This is mostly about tests that use the old API.
+[11:16:51] <scottjehl> my hesitation is that it's in our best interest to get closer in sync with the UI project, rather than diverge further
+[11:17:04] <StevenBlack> Ya, do it now, if ever.
+[11:17:05] <scottjehl> as in, what's involved in updating ours ?
+[11:17:24] <StevenBlack> It's all about tests that call the old API.
+[11:17:37] <scottjehl> just widget tests?
+[11:17:42] <StevenBlack> I haven't found any operational issues yet.
+[11:17:46] <scottjehl> ...because we don't have many in that category
+[11:17:47] <StevenBlack> All tests.
+[11:17:49] <scottjehl> I think anyway
+[11:17:50] <scottjehl> oh
+[11:18:15] <StevenBlack> between half and three quarters of all unit tests fail, depending on the module.
+[11:19:41] <StevenBlack> This is a very easy thing to set up.  Crate branch, swap in 1.8.13, run tests.
+[11:20:15] <StevenBlack> The demo app looks and works perfectly fine, in an eyeballing-it kinda context.
+[11:20:48] <StevenBlack> Need a Seal Team 6 for this one....
+[11:24:19] <StevenBlack> A diff between the two widgets is interesting too.  Interesting to see what was moved into widget, like hoverable, enabling/disabling, and a few others.
+[11:25:19] <scottjehl> hmm ok
+[11:25:31] <scottjehl> it'd be good to get Scott G involved
+[11:53:18] <scottjehl> so gseguin
+[11:53:25] <gseguin> yep
+[11:53:29] <scottjehl> the $.expando part is to address this issue yes? https://github.com/jquery/jquery-mobile/issues/1756
+[11:53:42] <gseguin> yes
+[11:53:49] <scottjehl> k
+[11:54:05] <gseguin> it's only for the "default" page in case it doesn't have an id
+[11:54:28] <gseguin> to avoid using "undefined" as a key in our hash
+[11:55:17] <scottjehl> k
+[11:55:49] <gseguin> actually the issue you sent is solved by ( parentUrl ? ( parentUrl + "&") : "" )
+[11:55:53] <gseguin> in the id generation
+[11:58:35] <gseguin> scottjehl: I have to run, can you send the rest of your comments by email?
+[11:58:52] <scottjehl> sure I'll just drop into the message box beneath the pull
+[11:59:19] <gseguin> sounds good
+[11:59:44] <scottjehl> thanks!
+[12:16:33] <eddiemonge> wow this page seems pretty good
+[12:17:30] <scottjehl> page?
+[12:17:50] <eddiemonge> web page. site.
+[12:18:46] <eddiemonge> todays the first time ive looked at The M-Project too
+[12:19:16] <scottjehl> I think I missed the first link you were referring to?
+[12:19:22] <eddiemonge> http://www.elated.com/articles/jquery-mobile-what-can-it-do-for-you/\
+[12:19:28] <eddiemonge> oh sorry, thought i pasted it
+[12:19:34] <scottjehl> thx
+[12:20:09] <scottjehl> oh yes, that was good
+[12:20:22] <scottjehl> it's a bit outdated now I'm guessing, but well done!
+[12:20:53] <eddiemonge> yeah im doing a bit of research for a talk im giving tonight
+[12:21:01] <scottjehl> oh awesome, where at?
+[12:21:20] <eddiemonge> a small tech meetup in Oakland. i think about 30-40 people
+[12:22:31] <scottjehl> cool
+[12:23:20] <eddiemonge> about why people should use a mobile framework in general and then an intro to jqm
+[12:27:29] <scottjehl> hope it goes well for you!
+[12:28:16] <eddiemonge> me too.
+[12:28:23] <eddiemonge> so back to the M-project. heard of it?
+[12:28:50] <scottjehl> yeah, I haven't been following it but I saw it early in the year
+[12:54:17] <gseguin> kinblas: I'll integrate your comments, test and submit another pull request hopefully by the end of the day
+[12:55:42] <scottjehl> thanks gseguin!
+[12:55:42] <bot-t> (24 hours 20 mins ago) <necolas> tell scottjehl would be good to get your thoughts on Peter's idea to defer Respond - https://github.com/paulirish/html5-boilerplate/issues/542 - as I think I remember you talking about "FOUC" in old IE and benefit of Respond in mobile browsers without MQ support.
+[13:15:32] <eddiemonge>  scottjehl can you merge https://github.com/jquery/jquery-mobile/pull/1771 please?
+[13:18:54] <kinblas> eddiemonge: ping
+[13:19:02] <eddiemonge> pong
+[13:19:06] <kinblas> eddiemonge: did you see this new issue?
+[13:19:07] <kinblas> https://github.com/jquery/jquery-mobile/issues/1770
+[13:19:30] <eddiemonge> yeah i told that person to file it since they were trying to do it in the comments on the commit
+[13:19:38] <eddiemonge> i cant reproduce the problem
+[13:19:53] <eddiemonge> well i dont see a difference between that and the version before the commit
+[13:20:10] <kinblas> do you see blinky transitions on an actual iOS device?
+[13:20:16] <eddiemonge> i think it might be their network connection. i should ask that
+[13:20:39] <kinblas> hmm, but the transition isn't happening until after network factors have finished
+[13:22:39] <eddiemonge> i dont think thats because of the css change
+[13:55:38] <StevenBlack> ------------
+[13:56:12] <StevenBlack> Looks like line 892 in navigation could be a useful hotspot.  https://github.com/jquery/jquery-mobile/blob/master/js/jquery.mobile.navigation.js#L892
+[13:56:29] <StevenBlack> This from ? m1613
+[13:56:45] <StevenBlack> docs#m1613
+[13:56:46] <bot-t> [#1613] Links with target="_self" open in new window (open) - https://github.com/jquery/jquery-mobile/issues/1613
+[14:41:13] <eddiemonge> kinblas: thanks for pulling that
+[15:10:48] <ldleworker> My site is utterly broken on Android. Beta release on Monday. Woe is me.
+[15:15:10] <ldleworker> Is anyone in here familiar with a problem on android where the page snaps to the top of the page on scroll?
+[18:23:03] <StevenBlack> toddparker, you there?
+[18:30:30] <StevenBlack> ?tell toddparker:  Todd, I've been working form a plan you OK'ed.  Here is the plan: https://github.com/jquery/jquery-mobile/wiki/Temporary-page:-Feature-spec-for-$.mobile.removePage  I am in-limbo at Step-1 which is, "Create a stand-alone function named $.mobile.removePage() packaged in jquery.mobile.navigation.js along with unit tests packaged with the navigation unit tests.".   Please advise.
+[18:30:31] <bot-t> StevenBlack, Okay.

@@ -1,0 +1,210 @@
+[06:27:00] <toddparker> morning all
+[08:10:46] <gseguin> morning
+[08:15:15] <gseguin> toddparker: quick status
+[08:15:49] <gseguin> I'm still waiting for kinblas to review my monkey patch for the nested list issue
+[08:16:09] <gseguin> This week is going to be a short one for me
+[08:16:27] <gseguin> I'm in training today and will probably take Friday off
+[08:19:12] <toddparker> ok, thanks for the update.
+[08:19:31] <toddparker> do you have enough new stuff to work on the rest of the week?
+[08:19:41] <toddparker> i can assign a few more items if you want
+[08:19:49] <toddparker> sorry again we're behind on pull reviews
+[08:25:16] <gseguin> yep I definitely have enough for this week
+[08:25:26] <gseguin> no worries on the pull requests
+[08:59:08] <toddparker> cool!
+[10:54:53] <toddparker> kinblas and _nickel - any new info on that last bug?
+[10:55:01] <toddparker> ...in tests
+[10:55:25] <kinblas> toddparker: looking into it, I'm instrumenting to figure out why preceding it with another test causes it to fail
+[10:55:53] <toddparker> yeah, really odd that one
+[10:56:04] <toddparker> didn't know if _nickel had any theories
+[10:58:07] <kinblas> toddparker: anyways, I'm on it right now
+[10:58:14] <kinblas> I'll fill you guys in when I figure it out
+[11:05:49] <_nickel> kinblas: I'm going to look into it too here for the next half hour or so
+[11:08:05] <_nickel> kinblas: one thing I did notice was that when it fails the url local variable in loadPage is sort of doubled up
+[11:08:25] <_nickel> kinblas: line 424
+[11:09:23] <kinblas> yeah Noticed the double request
+[11:10:09] <_nickel> kinblas: sorry I didn't sort it out myself :( I did about 12 hours of hacking this weekend and I needed a break
+[11:11:08] <kinblas> oh you're talking about the query params?
+[11:11:27] <kinblas> that was code that was always there ... I just flagged it with a comment to make sure we fix that
+[11:12:17] <kinblas> I just meant that if I instrument changePage, I see 2 consecutive calls to changePage() made
+[11:12:33] <kinblas> I'm trying to figure out if hashchange is getting fired twice or not?
+[11:13:42] <kinblas> _nickel: also, I was wondering if setting the hash to #/url-test/blah.html
+[11:13:44] <kinblas> is kosher
+[11:13:56] <kinblas> I thought we were expecting site relative
+[11:14:02] <kinblas> in the hash
+[11:16:07] <_nickel> kinblas: when I made the change I attempted to support the previous links for existing sites
+[11:16:21] <_nickel> but thats a decisison we should make I suppose
+[11:16:28] <_nickel> one sec
+[11:16:32] <_nickel> screenshot incoming
+[11:17:06] <kinblas> _nickel: I'm not sure I can get files via IRC, you might want to use AIM
+[11:18:21] <_nickel> kinblas: http://i.imgur.com/CWspG.png
+[11:18:26] <_nickel> no need :D
+[11:19:19] <_nickel> kinblas: I don't have any idea if thats relevant but certainly seems odd
+[11:19:23] <_nickel> going to keep looking
+[11:20:57] <kinblas> _nickel: hmmm that is odd
+[11:29:56] <_nickel> kinblas: better screens
+[11:29:57] <_nickel> http://i.imgur.com/3Ismh.png
+[11:30:03] <_nickel> http://i.imgur.com/3Ismh.png
+[11:30:11] <_nickel> ugh
+[11:30:12] <_nickel> http://i.imgur.com/XaaOg.png
+[11:30:13] <_nickel> first one
+[11:30:27] <_nickel> second one: http://i.imgur.com/3Ismh.png
+[11:33:11] <kinblas> _nickel: I'm assuming the 2nd one is where it succeeds?
+[11:33:19] <_nickel> kinblas: also some of the locals are globals from the semicolon on 399
+[11:33:24] <kinblas> like i said when it doesn't work, something is firing off 2 changePage requests in a row
+[11:33:26] <kinblas> for the same URL
+[11:33:37] <_nickel> same execution just showing the two breakpoints
+[11:33:42] <_nickel> all failing
+[11:34:36] <_nickel> kinblas: I'm getting one call to loadPage for each click in the sequence
+[11:35:03] <kinblas> _nickel: if you comment out every test before that one
+[11:35:03] <_nickel> not sure if thats what you mean
+[11:35:06] <kinblas> does it work for you?
+[11:35:30] <kinblas> every test before the async test in question (leave all of the sequence in that test active)
+[11:36:19] <_nickel> kinblas: it runs as the fist test in the suite once it fails so it doesn't mater what I comment out
+[11:36:37] <kinblas> oh I'm starting a new page each time
+[11:36:55] <kinblas> I sometimes see the same tests faile first time and work the 2nd time so I always start a new page
+[11:39:14] <kinblas> ok I just confirmed
+[11:39:21] <kinblas> the hashchange event is firing twice
+[11:39:47] <kinblas> this is is on Safari on windows
+[11:40:03] <kinblas> oh heh I get why
+[11:40:15] <kinblas> we're clearing the location hash between tests right?
+[11:43:30] <_nickel> kinblas: it succeeds when there isn't a page in the dom with that url
+[11:43:35] <_nickel> data-url that is
+[11:45:57] <_nickel> kinblas: so if the cached page is there it doesn't alter the hash?
+[11:46:11] <kinblas> it does
+[11:46:23] <kinblas> I think the problem is that hashchange is firing off 2 changePage requests
+[11:46:28] <kinblas> for the same page
+[11:46:51] <kinblas> I think the first hashchange is fired from us clearing the hash
+[11:46:54] <kinblas> in setup
+[11:47:00] <kinblas> between the tests
+[11:47:07] <kinblas> the 2nd is the real request from the test
+[11:47:43] <kinblas> I'm trying to get stack trace from the first hashchange firing to see if the change is triggered off a timer (from the hashchange plugin) or from the OS
+[11:48:36] <_nickel> kinblas: cool, I have to step away :(
+[13:38:14] <StevenBlack> FYI, user comment in ?docs#m1694 correctly points out an error in this blog post: http://jquerymobile.com/blog/ -- it's "data-add-back-button" not "data-auto-back-btn".
+[13:38:15] <bot-t> FYI, [#1694] autoBackBtn option not working, addBackBtn works instead  (closed) - https://github.com/jquery/jquery-mobile/issues/1694
+[13:38:44] <StevenBlack> toddparker: ^^^
+[13:51:28] <kinblas> _nickel: ping
+[13:57:04] <kinblas> _nickel: ping
+[13:57:15] * kinblas waits for _nickel to timeout again :-)
+[13:58:46] * kinblas sees green for all navigation tests
+[14:00:19] <_nickel> kinblas: hey :D
+[14:00:23] <_nickel> hell yah
+[14:00:29] <_nickel> what was it?
+[14:01:32] <kinblas> a couple of things
+[14:02:23] <kinblas> pageSequence() fires off the next test while in the midst of the changepage notifictation for the previous test
+[14:02:58] <kinblas> module teardown() clears the hash and generates a haschange message
+[14:03:13] <kinblas> but before hashchange event is sent, the next test changes the location
+[14:03:19] <kinblas> so things don't match < sigh >
+[14:03:40] <kinblas> changePage() wasn't setting the isPageTransitioning flag soon enough
+[14:03:50] <kinblas> I guess that's more than a couple
+[14:03:53] <kinblas> :-)
+[14:04:09] <kinblas> so I didn't fix the 2nd one (teardown clearing location hash)
+[14:04:38] <kinblas> but I made things more predictable by moving the isPageTransitioning flag up to the point right after it checks to see if it should queue things.
+[14:04:40] <kinblas> next
+[14:05:07] <kinblas> I changed the pageSequence() code to fire off the next function in sequence, after the current stack unwinds (setTimeout(..., 0))
+[14:05:18] <kinblas> that gets things doing predictable things
+[14:05:35] <kinblas> especially when async means things are sometimes synchronous, and sometimes asynchronous
+[14:05:47] <kinblas> the latter change makes sure everything is async
+[14:05:52] <kinblas> so things are simpler
+[14:06:12] <kinblas> I"m currently stripping out my instrumentation to make sure I didn't miss any other changes I made
+[14:14:16] <kinblas> _nickel: So I'm going to check in my 2 changes so you can take a look. ok?
+[14:15:03] <_nickel> kinblas: sounds great
+[14:15:07] <_nickel> not sure how much time I'll have
+[14:15:22] <_nickel> if we're trying to get it in today and the tests are passing
+[14:15:26] <_nickel> I say go for it
+[14:15:41] <_nickel> I'll want to see the changes anyway to understand what i did wrong with the page sequence helper
+[14:15:58] <_nickel> although your explanation above is pretty clear
+[14:19:46] <kinblas> _nickel: the change I made to pageSequence was this:
+[14:19:50] <kinblas> 			// bind the recursive call to the event
+[14:19:51] <kinblas> 			$.mobile.pageContainer.one(event, function(){
+[14:19:51] <kinblas> 				clearTimeout(warnTimer);
+[14:19:51] <kinblas> 				// Let the current stack unwind before we fire off the next item in the sequence.
+[14:19:51] <kinblas> 				setTimeout(function(){ self.pageSequence(fns, event); }, 0);
+[14:19:51] <kinblas> 			});
+[14:22:12] <kinblas> _nickel: oooh is the unit/init test supposed to be blue?
+[14:22:17] <kinblas> er green
+[14:22:20] <kinblas> ??
+[14:22:37] <kinblas> I'm looking at it on /test/ and its all red
+[14:22:38] <kinblas> http://jquerymobile.com/test/tests/unit/init/
+[14:27:30] <kinblas> grr, all tests are green except init and listview on the branch
+[14:27:42] <kinblas> there are a couple more listview tsts failing than on the head
+[14:27:47] <kinblas> looking into it
+[15:20:07] <_nickel> kinblas: yah we have outstanding test failures one of which was put in on purpose
+[15:20:20] <_nickel> kinblas: in listview
+[15:23:26] <kinblas> _nickel: put in on purpose on HEAD?
+[15:23:36] <kinblas> I'm just trying to get the head and branch to fail in the same wa
+[15:23:37] <kinblas> way
+[15:23:46] <kinblas> or all be fixed
+[16:11:47] <_nickel> kinblas: yes the listview has a failing test thats meant to fail
+[16:11:52] <_nickel> i commented on the commit
+[16:12:29] <kinblas> _nickel: hmm, ok, I'll have to look at which one ... the other tests that are failing need to be converted to pageSequence which is what I'm doing righ tnow
+[16:12:51] <_nickel> kinblas: https://github.com/jquery/jquery-mobile/commit/68142beba70e543fb62b39a2815e1fefa6611201#comments
+[16:14:27] <kinblas> _nickel: not sure I follow ( i read the comments)
+[16:14:49] <kinblas> what's the label on the test I should leave alone?
+[16:15:16] <kinblas> _nickel: sorry I'm slow today :-)
+[16:15:20] <_nickel> kinblas: find the test in the listview tests that references #nested-lists-test
+[16:15:30] <_nickel> actually let me look real quick
+[16:15:54] <kinblas> _nickel: I gotta say that the pageSequencer really makes the code easier to read/understand
+[16:16:15] <_nickel> kinblas: the tests you mean?
+[16:16:35] <_nickel> kinblas: yes when I built the original sequence helper I was quite happy with how it read
+[16:17:04] <_nickel> kinblas: the test name is "Multiple nested lists on a page"
+[16:17:57] <kinblas> _nickel: ok, so if I get everything else to pass except that one
+[16:17:59] <kinblas> we're good?
+[16:18:07] <_nickel> looks that way
+[16:18:16] <kinblas> _nickel: btw did you see my comment on the init unit test?
+[16:18:19] <kinblas> is that supposed to work?
+[16:18:27] <kinblas> it doesn't on HEAD, and its blank on the branch
+[16:18:36] <kinblas> on the HEAD everything is red
+[16:18:38] <_nickel> kinblas: its not supposed to work
+[16:18:41] <_nickel> it was added broken
+[16:18:45] <kinblas> whew
+[16:18:58] <kinblas> who added it?
+[16:18:58] <_nickel> that test specifically
+[16:23:37] <_nickel> kinblas: I'm going to find a jslint pre commit hook
+[16:23:42] <_nickel> so many missing semi's and globals
+[16:24:59] <_nickel> kinblas: the only failing test I see on latest master is that one thats broken on purpose
+[16:25:13] <kinblas> unit/init?
+[16:25:39] <_nickel> unit/listview
+[16:25:43] <_nickel> haven't looked at init ll
+[16:25:57] <_nickel> yap all red
+[16:25:58] <_nickel> lol
+[16:26:01] <kinblas> heh
+[16:26:06] <kinblas> imagine my shock and horror
+[16:26:07] <_nickel> teardown failure though
+[16:26:12] <_nickel> the tests are passing
+[16:26:36] <kinblas> _nickel: so the big problem I see right now with tests
+[16:26:43] <kinblas> is the setup/teardown resetting of the page
+[16:26:58] <kinblas> we need some way of waiting till the reset is done (changepage notification) before proceeding to the next test
+[16:27:09] <kinblas> otherwise, the async nature of loading interferes with the next test
+[16:27:14] <kinblas> I haven't been able to fix that
+[16:27:18] <kinblas> yet
+[16:33:44] <_nickel> hmm I'll have a noodle on that
+[16:35:00] * kinblas starts seeing green in listview tests ... whew
+[16:36:36] <_nickel> yeeehaw
+[16:36:50] <_nickel> yah when you see broad failures like that its most often something silly
+[16:37:33] <kinblas> _nickel: so I'm doing a sweep conversion to pageSequence in listview
+[16:37:37] <kinblas> even for tests that aren't failing
+[16:38:14] <_nickel> kinblas: sounds fine to me
+[16:38:47] <kinblas> _nickel: I just want to get rid of all these setTimeout calls ...
+[16:38:55] * kinblas is luvin' _nickel's pageSequencer
+[16:39:05] <_nickel> kinblas: lol you fixed it - its yours!
+[16:39:32] <_nickel> in my dreams I went back to change all those to the vanilla sequence at some point
+[16:39:50] <_nickel> though obviousy with the new changepage event this is infinitely better
+[17:05:32] <_nickel> kinblas: how goes It/
+[17:05:37] <_nickel> it?
+[17:05:44] <kinblas> _nickel: it has gone
+[17:05:55] <_nickel> kinblas: pushed?
+[17:05:56] <kinblas> the branch is green and everything is in sync with HEAD
+[17:05:57] <_nickel> sick
+[17:06:06] <kinblas> nah, I need to push when I can babysit
+[17:06:11] <kinblas> I sent you guys a message
+[17:06:25] <kinblas> I'll land tomorrow morning unless you want to land it tonight? :-)
+[17:06:32] <kinblas> I can't promise I'll be on tonight
+[17:06:51] <kinblas> anyways, if you're obliged feel free ;-)
+[17:07:39] <kinblas> I gotta run ... shoot me email if you need something
+[17:08:01] <_nickel> kinblas: cool
+[17:08:16] <kinblas> _nickel: so if you want to play the branch is up to date
+[17:08:33] <_nickel> kinblas: yah I'll try and fix those other tests  tonight if I can scrape together some time
+[17:08:51] <kinblas> tests are in good shape except for unit/init
+[17:09:00] <_nickel> kinblas: yah I'll take a look
+[17:09:05] <kinblas> ok lates
+[17:09:12] <kinblas> laters

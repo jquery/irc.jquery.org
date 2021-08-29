@@ -1,0 +1,405 @@
+[07:31:37] <kborchers> should serializeArray() include the submit button of the form if it is being called in the submit event handler for the form?
+[07:31:52] <kborchers> the docs for serializeArray() say "No submit button value is serialized since the form was not submitted using a button."
+[07:32:11] <kborchers> but the form was submitted using a button and the submit button is not in the array
+[07:33:36] <kborchers> using the same handler with jQuery Mobile does include the submit button in the array so I am trying to figure out where to file the issue :)
+[07:34:10] <kborchers> http://jsfiddle.net/kborchers/Amf5x/3/ vs http://jsfiddle.net/kborchers/Amf5x/4/
+[07:44:28] <kborchers> i filed the issue on mobile since it differs from core but i would appreciate any thoughts you folks have
+[08:15:38] <jqcommit> [qunit] jzaefferer pushed 1 new commit to master: http://git.io/yofujA
+[08:15:38] <jqcommit> [qunit/master] Modify "Running..." to display test name. Fixes #220 - Rick Waldron waldron.rick@gmail.com
+[08:26:04] <jq-jenkins> Project QUnit build #98: STILL FAILING in 10 min: http://swarm.jquery.org:8080/job/QUnit/98/
+[08:26:04] <jq-jenkins> joern.zaefferer: Modify "Running..." to display test name. Fixes #220
+[08:52:21] <Krinkle> .
+[08:53:20] <Krinkle> jzaefferer: Is the browserstack thing not working?
+[08:53:32] <Krinkle> I thought it would populate the swarm with needed browsers
+[08:55:36] <jzaefferer> Krinkle: Can't tell, I need to dig into that whole setup
+[08:56:18] <Krinkle> I'm nearing completion at mediawiki with some bug fixes so that mediawiki can move into the next phase with its js-testing
+[08:56:41] <Krinkle> that phase includes 1) integrating testswarm with Jenkins , 2) using browerstack
+[08:56:57] <Krinkle> I would like to not duplicate efforts that you (plural you) have already done on jQuery
+[08:57:14] <Krinkle> are those 2 things up to date and in a public repo?
+[08:57:20] <Krinkle> (wether they work properly or not)
+[08:57:33] <jzaefferer> Krinkle: Yeah, its all in repos
+[08:58:16] <Krinkle> ij
+[08:58:18] <Krinkle> ok :)
+[08:58:20] <jzaefferer> Jenkins plugin: https://github.com/appendto/jenkins-testswarm - Justin Obara (Justin_o) is working on that, see http://jquerytesting.pbworks.com/w/page/47944122/Hot%20Deploy%20Jenkins-Testswarm%20Plugin
+[08:58:56] <jzaefferer> testswarm-browserstack: https://github.com/clarkbox/testswarm-browserstack
+[08:59:16] <jzaefferer> there's one more piece, the cronjob
+[09:01:54] <Krinkle> ok
+[09:02:26] <Krinkle> jzaefferer: btw, looking at prettyDate. Looks like the repo you have has progressed a lot from the version JohnResig released in 2007 and 2011 respectively
+[09:03:21] <Krinkle> There seems to be 2 (or more) versions of the ISO format out there. Looks like the one you use in the tests and the on PHP outputs don't match entirely
+[09:03:37] <Krinkle> there's a suddle difference, I'll see if I can get more details
+[09:04:22] <jzaefferer> Okay, that would help
+[09:04:32] <jzaefferer> I didn't know there was a 2011-Resig release
+[09:05:12] <Krinkle> me neither
+[09:05:23] <Krinkle> when I opened the url from his blog post to update
+[09:05:26] <Krinkle> it showed © 2011
+[09:05:40] <Krinkle> the 2007 version is only in the testswarm archive
+[09:05:44] <Krinkle> I simply updated it from source
+[09:06:10] <Krinkle> http://ejohn.org/files/pretty.js
+[09:06:20] <Krinkle> http://ejohn.org/blog/javascript-pretty-date/
+[09:07:08] <mack____> hi
+[09:08:10] <mack____> I think I found a regression between jQuery 1.7.1 and 1.7.2.
+[09:08:13] <mack____> The simplest code that triggers it is: $(function() { console.log("result of data", $("<div/>").data("non_existent_key", undefined)  );  });
+[09:08:16] <mack____> it says result of data undefined in jQuery 1.7.1
+[09:08:18] <mack____> and result of data [div] in jQuery 1.7.2
+[09:08:21] <mack____> can someone check it to see if they can duplicate ?
+[09:11:38] <Krinkle> hm..
+[09:11:55] <Krinkle> I think that is not a bug, it is a bug fixed
+[09:12:05] <Krinkle> Imagine you have var x = getValFromSomewhere()
+[09:12:18] <Krinkle> and you do $(…).date("foo", x).css(.., ..).addClass(...);
+[09:12:26] <Krinkle> undefined is treated like a value not as a missing argument
+[09:12:35] <Krinkle> so it should return the jQuery collection set, not the new value
+[09:12:42] <Krinkle> [div]
+[09:12:49] <Krinkle> does that make sense?
+[09:13:58] <gnarf> i don't remember seeing a ticket on that, lemme hunt
+[09:14:19] <mack____> 1 sec to parse
+[09:15:54] <Krinkle> previously only .css() did this, now all get/set do it
+[09:15:59] <Krinkle> I remember reading about it in the release notes
+[09:16:01] <mack____> hmm, I suppose it makes sense. If you want to set the data propery you would use data("foo", '') and that would return ''
+[09:16:33] <Krinkle> it should return the jQuery object, not ''. so that you can chain more calls, just like that's possible with other set-methods
+[09:16:50] <Krinkle> e.g. $(..).attr('foo', 'bar') returns the jQuery array as well
+[09:17:45] <gnarf> https://github.com/jquery/jquery/commit/6c2a501de40a5f6b3ad382e2d309e5a10fce04d0
+[09:17:47] <socialhapy> ★ Commit on jquery by dmethvin (3m, 2w ago): Fix #5571. Setters should treat `undefined` as a no-op and be chainable.
+[09:18:01] <mack____> I guess it makes sense. I found this is a plugin that stopped working with 1.7.2
+[09:18:13] <Krinkle> I would expect it fixes more things then it brakes
+[09:18:18] <Krinkle> how could it brake something?
+[09:18:25] <mack____> also, when I was reading the docs I read http://api.jquery.com/jQuery.data/
+[09:18:32] <mack____> and it says " Returns the value that was set."
+[09:18:43] <Krinkle> Yes
+[09:18:46] <Krinkle> when you give it 1 argument
+[09:18:52] <Krinkle> not when you give it two
+[09:19:04] <Krinkle> $(…).data('key') will give the value (and undefined if there is none)
+[09:19:07] <Krinkle> that is still the case, right?
+[09:19:34] <Krinkle> mack____: ah, no, this is something else
+[09:19:41] <Krinkle> mack____: that documentation if for jQuery.data
+[09:19:45] <Krinkle> not $.fn.data
+[09:19:48] <mack____> well, it was returning undefined
+[09:19:50] <Krinkle> jQuery.data( element, key, value )
+[09:19:54] <Krinkle> yes and still does
+[09:20:05] <mack____> yeah, that got me too, the difference in docs
+[09:20:06] <Krinkle> jQuery( element ).data( key, value )
+[09:20:28] <Krinkle> jQuery.data should not return the [div]
+[09:20:37] <Krinkle> $.fn.data should always return the elements
+[09:21:55] <mack____> I think that's what the bug fixed, that it wasn't returning the elements
+[09:22:03] <Krinkle> yep
+[09:22:09] <mack____> and a plugin was depending on the undefined result
+[09:22:21] <Krinkle> mack____: link?
+[09:22:26] <ajpiano> mack____: http://bugs.jquery.com/ticket/5571
+[09:22:32] <mack____> http://rateit.codeplex.com/
+[09:23:14] <mack____> var itemdata = function (key, value) { return item.data('rateit' + capitaliseFirstLetter(key), value); };
+[09:23:19] <mack____> around line 39
+[09:24:01] <mack____> and it checks for undefined for initialization at line 68 : if (!itemdata('init')) {
+[09:24:13] <mack____> ajpiano: thanks
+[09:24:21] <gnarf> http://bugs.jquery.com/ticket/5571
+[09:24:44] <Krinkle> mack____: Then this code will have been broken before 1.7.2 as well
+[09:24:59] <Krinkle> because if value was anything other than 'undefined' it would have return the jQuery set
+[09:25:23] <Krinkle> the bug fixed in 1.7 was that if .data() was called to set an undefined value, it didn't return the elements
+[09:25:26] <mack____> hmm, actually it works with 1.7.1
+[09:25:37] <Krinkle> it may be a different bug
+[09:26:10] <Krinkle> or conidencence if 'init' is never defined
+[09:26:19] <Krinkle> coincidence*
+[09:26:49] <Krinkle> mack____: it looks like "itemdata" is a function that needs two arguments
+[09:26:53] <Krinkle> to set data, not to get data
+[09:27:19] <gnarf> mack____: just fyi 'rateit-'+key should camelCase the property name automatically
+[09:27:37] <mack____> Krinkle: indeed. And when it's cheking if it's already initialized it's checking with itemdata("init")
+[09:27:49] <mack____> and that means the second parameter to itemdata and to data is undefined
+[09:28:03] <mack____> I think it's bug #5571
+[09:28:09] <Krinkle> indeed
+[09:28:27] <Krinkle> but I don't think the writer of this code meant for that behavior, just forgotten to fix and it didn't fail due to #5571
+[09:28:45] <Krinkle> easily fixed by using data() as getter to check the value
+[09:29:12] <mack____> or maybe he read the documetation for http://api.jquery.com/jQuery.data/ instead of http://api.jquery.com/data/ ? :)
+[09:29:12] <Krinkle> Or forward the logic of jQuery
+[09:29:32] <Krinkle> No
+[09:29:43] <Krinkle> because .data(.., ..) never returns the value set
+[09:29:48] <Krinkle> never did, not even before that bug was fixed
+[09:30:43] <mack____> yes, but http://api.jquery.com/jQuery.data/ does
+[09:30:46] <gnarf> https://github.com/jquery/jquery/pull/608/files#L9R225
+[09:30:47] <socialhapy> ★ Pull request on jquery by gibson042 (4m, 1w ago): Setter methods chainable with value=undefined. Fixes #5571.
+[09:30:49] <mack____> http://api.jquery.com/jQuery.data/  "Store arbitrary data associated with the specified element. Returns the value that was set."
+[09:31:00] <Krinkle> anyway, the easiest solution is to either create a separate function for get and for set, or copy the jQuery logic (i.e. inside itemdata-function, check if ( arguments.length === 2 ) { .data( … + '', .. ); } else { return .data( '' + '');
+[09:31:41] <mack____> so maybe he misread the docs. Anyways, that's what I did, just wanted to know if it's a regression in jQuery or a bug in the plugin
+[09:31:52] <mack____> seems the plugin needs an update :)
+[09:32:02] <Krinkle> mack____: I know, but if he really did read the wrong documentation, it doesn't make sense. Because if he would call itemdata('anything', 'foo') and then itemdata('anything') it would NOT return 'foo'.
+[09:32:21] <Krinkle> but alright, issue solved
+[09:32:53] <mack____> Krinkle: that's how I misread it at first, that's why I wondered ;)
+[09:32:58] <mack____> thanks for your help
+[10:05:33] <deAtog> I think I found a bug in jQuery 1.7.2 .. $.isPlainObject will return false for any object that has a nodeType attribute IE: $.isPlainObject({nodeType:'leaf'}) will return false. The only solution I can come up with is checking !obj.hasOwnProperty || (obj.nodeType && !obj.hasOwnProperty('nodeType'))
+[10:09:19] <gnarf> rwaldron: you got an opinion on that one? ^^^
+[10:10:10] <ajpiano> that's def kind of a weird thing
+[10:10:19] <ajpiano> cause it's like, a duck test, and you're deliberately defeating it
+[10:11:31] <deAtog> ajpiano: what are you referring to ?
+[10:11:54] <ajpiano> do you know what a duck test is
+[10:11:59] <gnarf> {nodeType:'leaf'} --- it looks like a duck
+[10:12:11] <gnarf> aka a HTMLElement
+[10:12:43] <deAtog> right.. but it's not.. just because it looks like a duck doesn't make it a duck
+[10:12:48] <gnarf> or whatever the baseclass of that is
+[10:13:04] <Eviltwin> String({nodeType:'leaf'}) produces "[object Object]" while String(document.body) produces "[object HTMLBodyElement]"
+[10:13:10] <Eviltwin> Could that be used as a test perhaps?
+[10:13:28] <Eviltwin> I guess I should say it produces those in the two browsers I tested here
+[10:13:32] <Eviltwin> Neither of which is IE
+[10:13:51] <gnarf> Eviltwin / deAtog - either method is going to be tricky to cover across all of the browsers we support I'm thinking
+[10:14:41] <deAtog> gnarf: from what I've read, IE < 9 doesn't support calling hasOwnProperty on DOM objects.. thus the first test..
+[10:15:04] <Eviltwin> deAtog: There's already a try-catch involved there
+[10:15:14] <Eviltwin> Maybe it's justified doing another for hasOwnProperty?
+[10:16:12] <deAtog> Eviltwin: that's a good point, the test for hasOwnProperty could be ignored then and simply do obj.nodeType && !obj.hasOwnProperty('nodeType')
+[10:18:18] <deAtog> for the above case, hasOwnProperty would return true for the object I gave while false for DOM objects as nodeType is inherited.. but it remains to be seen if that's true in all browsers
+[10:18:50] <gnarf> deAtog: http://cl.ly/1q0U313Y3k0L2n2A2G2A
+[10:19:11] <gnarf> deAtog: sorry to burst that bubble
+[10:20:12] <deAtog> gnarf:what browser?
+[10:20:16] <gnarf> deAtog: Chrome
+[10:21:06] <gnarf> test yourself in whatever: http://jsconsole.com/?document.createElement(%22div%22).hasOwnProperty(%22nodeType%22)%3B
+[10:23:20] <gnarf> also safari: http://cl.ly/3z1v390x40342o033l3z and opera http://cl.ly/3z1v390x40342o033l3z
+[10:23:26] <gnarf> so basically, everything but firefox
+[10:24:11] <deAtog> gnarf: hrm.. I guess it'll just remain broken then..'
+[10:25:39] <Eviltwin> deAtog: Or you could look at the string test
+[10:27:55] <deAtog> Eviltwin: yes, but it's something that should be addressed in $.isPlainObject as it affects other things like $.extend with deep cloning
+[10:31:09] <rwaldron> gnarf $.isPlainObject wasn't intended to handle weird corner cases where users are checking against cases we can't account for
+[10:31:26] <rwaldron> "nodeType" is a special property name
+[10:31:30] <rwaldron> with special meaning
+[10:31:41] <gyzmodo> hello ladies and gentlemen
+[10:32:25] <rwaldron> if it's messing up your program, I suggest not using something that has an existing meaning
+[10:32:26] <gyzmodo> I've translated jQuery UI datepicker plugin
+[10:32:41] <rwaldron> also, this is def not a bug if we're intentionally looking for it
+[10:32:42] <rwaldron> if ( !obj || jQuery.type(obj) !== "object" || obj.nodeType || jQuery.isWindow( obj ) ) {
+[10:32:59] <gyzmodo> Now how can i upload that to official jQuery UI website
+[10:33:03] <rwaldron> gyzmodo please see #jqueryui-dev
+[10:33:44] <gyzmodo> thanks a lot
+[10:34:16] <deAtog> rwaldron: then maybe it should be documented that $.extend will produce unexpected results for objects containing a "nodeType" property
+[10:49:26] <deAtog> gnarf: what about obj instanceof HTMLElement ?
+[10:50:01] <gnarf> deAtog: do you have browserstack ?
+[10:50:24] <gnarf> deAtog: or have you ever signed up for their trial? if not - get a trial, and throw a jsconsole url in and go hog wild testing :)
+[10:50:50] <Eviltwin> Do you know about the cross-frame issue with instanceof?
+[10:52:28] <rwaldron> deAtog why?
+[10:53:05] <rwaldron> why should jQuery concern itself with documenting every single property that devs should know better then to use?
+[10:54:01] <rwaldron> I can't imagine a program that _required_ a custom property named "nodeType"
+[10:55:44] <deAtog> it's not whether or not it requires a custom property named "nodeType" but whether an object with such a property is handled correctly
+[10:56:17] <ajpiano> i can see that a brief note in the docs would be useful
+[10:56:22] <ajpiano> but i can't see us changing the test, realistically
+[10:56:35] <ajpiano> it's much easier to have people just use a different property name :p
+[11:01:59] <Krinkle> nodeType is pretty much the defacto standard way to check if an object is a Node object. If changed here it should probably be fixed centrally
+[11:02:10] <Krinkle> perhaps an isNodeObject method?
+[11:02:23] <Krinkle> (HTMLElement  >Element > Node >  … > Object)
+[11:02:57] <Krinkle> I think it is a fair point that a plain object can contain a nodeType property. "node" is fairly generic
+[11:03:12] <rwaldron> Krinkle host objects are almost guaranteed to be undetectable on at least one platform
+[11:03:21] <rwaldron> i wasted a week of my life with this
+[11:03:32] <Krinkle> I can imagine  a web application to manage VMs or "nodes" and an AJAX JSON request responding with { "nodeName" : .. , "nodeType" .. }
+[11:03:43] <gnarf> Krinkle: also, +1 fn call per loop on a lot of .nodeType tests...
+[11:04:19] <gnarf> lapgnarf:src gnarf$ grep nodeType *.js | wc
+[11:04:19] <gnarf>       74     762    5031
+[11:04:23] <Krinkle> gnarf: if you rather repeat the logic everywhere
+[11:04:26] <Krinkle> I don't care
+[11:04:30] <gnarf> 74 lines of code contain .nodeType
+[11:04:34] <Krinkle> but !!obj.nodeType is too generic imho
+[11:05:01] <gnarf> most are just .nodeType === 1
+[11:05:04] <Krinkle> its too generic in both cases, both to decide it is an element and to decide it is a plain object
+[11:05:08] <gnarf> because jQuery is picky about its node type
+[11:05:31] <gnarf> Krinkle: its the jQuery standard... we've been using it since like 1.3 at a minimum to detect elements
+[11:05:38] <Krinkle> isn't instanceof an object?
+[11:05:42] <Krinkle> isn't instanceof an option?
+[11:05:53] <Krinkle> hm.. or not, IE issues
+[11:05:57] <gnarf> Krinkle: cross window sucks, and also what rwaldron said
+[11:06:02] <rwaldron> Krinkle i'd argue that that { "nodeName" : .. , "nodeType" .. } is shitty data
+[11:06:10] <Krinkle> what?
+[11:06:12] <rwaldron> if i know an object is a :node"
+[11:06:15] <rwaldron> "node"
+[11:06:25] <gnarf> "rwaldron: Krinkle host objects are almost guaranteed to be undetectable on at least one platform"
+[11:06:29] <rwaldron> then i dont need to prefix all properties with the word "node"
+[11:06:37] <rwaldron> { name: "", type: "" }
+[11:06:41] <rwaldron> much better
+[11:07:00] <gnarf> { node: {name: "" , type: "" } }
+[11:07:04] <rwaldron> gnarf also wasted about a week of his life on this same shit
+[11:07:11] <Krinkle> I didn't invent it
+[11:07:12] <rwaldron> we're not making it up
+[11:07:21] <Krinkle> but discussing peoples naming conventions is not something I want to talk about
+[11:07:22] <rwaldron> nor are we trying to ruin someone's day
+[11:07:44] <gnarf> obj.nodeType is about the best "node detect" out there
+[11:07:50] <Krinkle> what if you have an object with both nodeInfo and something else? Well, yes, one "should" create a 2 level object, or whatever, the possibilities are endless
+[11:07:55] <rwaldron> gnarf +9001
+[11:08:15] <Krinkle> gnarf: Aren't there other properties? Perhaps test for 2 properties instead of just nodeType
+[11:08:29] <Krinkle> ones that are unlikely to appear in the same host object
+[11:08:30] <rwaldron> Krinkle this falls under the "Object.prototype won't fix"
+[11:08:56] <Krinkle> rwaldron: I disagree. A valid AJAX response could contain a plain object with a nodeType property
+[11:08:57] <rwaldron> jQuery wants to make the DOM, Ajax etc manageable
+[11:09:02] <Krinkle> how is this related to prototype?
+[11:09:13] <gnarf> Krinkle: then what happens when another deAtog shows up with a complaint that his { "nodeType": ..., "otherProp": .... } object acts weird ?
+[11:09:18] <gnarf> http://stackoverflow.com/questions/384286/javascript-isdom-how-do-you-check-if-a-javascript-object-is-a-dom-object btw
+[11:09:22] <rwaldron> Krinkle conceptually, I'm saying - this isn't jQuery's problem
+[11:09:37] <Krinkle> rwaldron: k
+[11:10:02] <gnarf> typeof o.nodeType === "number" is a bit more "secure"
+[11:10:06] <rwaldron> There are very few things the jQuery can safely use across all platforms
+[11:10:12] <rwaldron> gnarf nice one
+[11:10:17] <rwaldron> that's pretty good
+[11:10:18] <gnarf> but like - really?
+[11:10:22] <Krinkle> rwaldron: I think in cases where an element is expected a nodeType check could suffice, but perhaps just in isPlainObject a more elaborate check would be justified?
+[11:10:39] <rwaldron> gnarf I could get behind that patch
+[11:10:42] <gnarf> then { nodeType: 1 } still fails
+[11:10:52] <gnarf> which may or may not be deAtog's issue
+[11:10:54] <rwaldron> at least we tried thoguh
+[11:10:57] <rwaldron> we can't win em all
+[11:11:07] <Krinkle> yeah, nodeType in an AJAX app would likely be a numerical ID or a key phrase.
+[11:11:26] <rwaldron> Krinkle i dont want to slow down isPlainObject with another chack
+[11:11:27] <rwaldron> check*
+[11:11:34] <rwaldron> gnarf's suggestion may actually be faster
+[11:11:47] <rwaldron> because an explicit typeof check is highly optimized
+[11:11:51] <Eviltwin> Any idea if the String test works?
+[11:12:05] <Krinkle> typeof + string comparison is somewhat slow though, not?
+[11:12:12] <Krinkle> 2 operations instead of 1
+[11:12:17] <rwaldron> whereas a coerced (foo.nodeType) check has more hoops to jump through internally
+[11:12:19] <ajpiano> the average webapp that is being developed today and running into this bug, would still be early enough in its dev cycle that they could easily change the naming convention
+[11:12:30] <Krinkle> right
+[11:12:33] <rwaldron> Krinkle naw, timmywil proved to me the very same
+[11:12:35] <Krinkle> Ah, I see what you mean
+[11:12:39] <rwaldron> I also thought it wpuld be slower
+[11:13:02] <rwaldron> but the typeof operator only has a table of values to respond with
+[11:13:14] <Krinkle> ajpiano: I was thinking more along the lines of a jQuery user getting data from an existing, mature, API and checking isPlainObject at some point later on
+[11:13:34] <ajpiano> are there existing mature apis that *actually* use "nodeType" to describe arbitrary data
+[11:13:42] * rwaldron shrugs
+[11:13:52] <ajpiano> sure, it's "possible" but like
+[11:14:07] <Krinkle> lets keep it as is, or improve it for performance reason but not the existence of "nodeType" being a problem. I rest my case
+[11:14:07] <rwaldron> ajpiano I think we can mitigate the most egregious circumstances with gnarf's suggestion
+[11:14:16] <ajpiano> nodeType is so strongly associated with dom elements that if i were designing an API i would probably steer clear of using known dom properties to describe arbitrary data
+[11:14:17] <rwaldron> which I hope is becoming a patch as we spea
+[11:14:25] <rwaldron> ajpiano +1
+[11:14:27] <Eviltwin> Currently the test starts with !obj || jQuery.type(obj) !== "object" || obj.nodeType || jQuery.isWindow( obj ), right?
+[11:14:30] <ajpiano> rwaldron: throw a typeof number and number < 12 in there :p
+[11:14:42] <rwaldron> gnarf ^^ hahah
+[11:14:52] <gnarf> Eviltwin: http://cl.ly/0N3s3h2h2A3C0n372j36
+[11:15:08] <gnarf> deAtog: did you ever make a bug for this?
+[11:15:10] <Eviltwin> Grr
+[11:15:16] <Eviltwin> Hmm
+[11:16:12] <gnarf> Eviltwin: http://cl.ly/2a3f0x1S2t1O1G0T1Q2F at least String({}) is [object Object]
+[11:16:25] <gnarf> oh and <3 <3 <3 browserstak
+[11:16:37] <Eviltwin> Huh
+[11:16:38] <Eviltwin> Well
+[11:16:43] <Eviltwin> That could work, I guess
+[11:16:50] <Eviltwin> Store String({}) in a var
+[11:17:03] <Eviltwin> Then strictly compare String(obj) to it?
+[11:17:17] <gnarf> Eviltwin: i still think thats going to be about 100* more prone to edge cases in rare browsers than typeof obj.nodeType === "number"
+[11:17:42] <gnarf> jQuery.type( obj ) should already check [object Object]
+[11:17:54] <Eviltwin> But it falls back to "object" if it's not in the table
+[11:18:55] <gnarf> which it should ;)
+[11:19:08] <Eviltwin> But the table doesn't include every type of DOM element
+[11:19:30] <gnarf> (they are all objects after all)
+[11:19:36] <Eviltwin> Well yeah
+[11:20:17] <Eviltwin> But we're trying to detect plain objects
+[11:20:37] <gnarf> which requires ruling out nodes and windows
+[11:21:16] <Eviltwin> But we want to rule out nodes and windows, not objects that share a few properties with nodes and windows, right?
+[11:21:31] <gnarf> Eviltwin: ducks are ducks
+[11:21:33] <gnarf> :)
+[11:22:17] <gnarf> hrm
+[11:22:27] <gnarf> do textnodes have o.nodeName?
+[11:22:44] <Eviltwin> Assuming String(obj) === "[object Object]" is a good test
+[11:23:25] <Eviltwin> Replacing the jQuery.type test with that wouldn't be a performance hit, right?
+[11:23:51] <gnarf> replacing obj.nodeType with ( typeof obj.nodeType === "number" && typeof obj.nodeName === "string" ) makes it a little more discerning of its ducks
+[11:24:40] <gnarf> but like { nodeType: 1, nodeName: "string" } still looks like that duck
+[11:25:17] <gnarf> deAtog: its a shame you aren't more vocal in this chat.... I'm gonna wait for you to let me know what this object looks like :)
+[11:25:33] <Eviltwin> It usually has these: {}
+[11:25:37] <Eviltwin> :Dd
+[11:27:42] <gnarf> hrm
+[11:27:48] <gnarf> that last #jquery message was meant for here
+[11:28:32] <gnarf> danheberden: is bugs.jquery.com still using the "trac daemon" mode i set up, or is it back to cgi?
+[11:28:37] <deAtog> gnarf: sorry I was busy testing and working with browserstack
+[11:29:13] <gnarf> deAtog: would your "object" pass/fail for  ( typeof obj.nodeType === "number" && typeof obj.nodeName === "string" )
+[11:29:23] <danheberden> gnarf i think so? it was failing for me before
+[11:29:27] <danheberden> and still fails for ui
+[11:29:41] <danheberden> i think mike might have fixed it tho
+[11:30:12] <rwaldron> gnarf I can get behind ( typeof obj.nodeType === "number" && typeof obj.nodeName === "string" )
+[11:32:13] <deAtog> gnarf: I don't have an object to actually work with.. it's more hypothetical than anything.. I just thought testing for obj.nodeType was odd behavior and could easily cause someone a lot of headaches
+[11:32:32] <rwaldron> "testing for obj.nodeType was odd behavior " ... which it's not
+[11:32:36] <rwaldron> at all.
+[11:32:55] <gnarf> and i mean - this "bug" has been there for a long long time... not sure if its worth the +3 gzip bytes or whatever...  specially if deAtog doesn't actually have a "real world" case
+[11:33:02] <rwaldron> hunting for corner case bugs is a great way to waste my time.
+[11:33:14] <gnarf> isPlain was heavily redone in 1.6 right?
+[11:33:50] <gnarf> rwaldron: at least its only an hour and half of our time instead of weeks ;)
+[11:34:13] <rwaldron> ugh no kidding
+[11:34:22] <rwaldron> as for isPlainObject changes
+[11:34:54] <rwaldron> no changes aside from when i wrapped the potentially throwing condition in try/catch
+[11:34:59] <rwaldron> not since... 2009?
+[11:35:11] <rwaldron> snover cleaned up some whitespace in there
+[11:35:18] <rwaldron> but its all rkatic's original work
+[11:35:29] <gnarf> thats old...
+[11:35:30] <gnarf> so yeah
+[11:35:49] <gnarf> no legit (real world) complaints yet - i say we leave it
+[11:35:50] <rwaldron> except for when john added checks for nodeType, later the same day
+[11:36:05] <rwaldron> (same day as rkatic's commit was landed)
+[11:36:21] <rwaldron> so yeah
+[11:36:24] <rwaldron> gnarf +1
+[11:36:26] <rwaldron> to leaving it
+[11:37:00] <rwaldron> gnarf spoke and said "the shed will be is green" and it was green.
+[11:37:15] <rwaldron> be is = be
+[11:37:17] <rwaldron> duh
+[11:39:30] <snover> rwaldron: i never fixed anything, be realistic
+[11:39:33] <snover> oops
+[11:39:34] <snover> I mean
+[11:39:36] <snover> “cleaned” anything
+[11:41:58] <rwaldron> snover lies https://github.com/jquery/jquery/commit/3e0cc815043c2425819743e907a0ce263a7ce164
+[11:41:59] <socialhapy> ★ Commit on jquery by csnover (1y, 2m ago): Clean trailing whitespace from all files.
+[11:42:27] <snover> I don’t contribute positively like that, give me a break :)
+[11:43:09] <rwaldron> ...weird... I could've sworn I learned this lunatic obsession over whitespace and style guides from __someone__
+[11:43:16] <rwaldron> (hint: it was snover)
+[11:43:35] <snover> nah.
+[11:46:31] <ajpiano> lol just stumbled across this: http://david.heinemeierhansson.com/posts/44-rookies-in-the-bike-shed
+[11:46:35] <ajpiano> relevant to our recent discussion :)
+[11:52:48] <rwaldron> ajpiano i did a double take on the published date
+[11:52:50] <rwaldron> weird...
+[11:52:51] <deAtog> gnarf: After further examination, isPlainObject does: jQuery.type(obj) which calls Object.toString on the object and checks to see if it's in the class2type array, if not it returns "object".. so maybe rather than doing jQuery.type(obj) || obj.nodeType why not explicitly check toString.call(obj) == "[object Object]" surely that must be faster and safer than what currently exists?
+[11:53:06] <ajpiano> rwaldron: haha, yeah. now.
+[11:53:50] <rwaldron> deAtog its not reliable.
+[11:53:56] <rwaldron> we've been through this many times.
+[11:53:59] <rwaldron> please.
+[11:54:35] <Eviltwin> rwaldron: Where doesn't it work?
+[11:54:49] <rwaldron> fml.
+[12:01:45] <deAtog> rwaldron: I'm curious as well.. do you know a case where document.createElement('div').toString() would return "[object Object]"?
+[12:01:52] <rwaldron> Eviltwin deAtog http://jsfiddle.net/rwaldron/YCGYS/
+[12:03:10] <gnarf> rwaldron: actually, from what i can see its just [object]
+[12:03:37] <rwaldron> gnarf i literally copy/pasted from the output
+[12:03:48] <gnarf> http://cl.ly/2L3F0Z2J2p2l3U2C1n3z
+[12:03:53] <gnarf> rwaldron: maybe its a console.log issue?
+[12:04:05] <rwaldron> in the 7 minutes between Eviltwin asking me and me responding
+[12:04:11] <rwaldron> i checked all browser
+[12:04:13] <rwaldron> s
+[12:05:49] <rwaldron> gnarf Object.prototype.toString returns the string representation of an object's internal  [[Class]]
+[12:06:17] <rwaldron> String({})  does little more then call the the built-in toString() method of {}
+[12:06:40] <rwaldron> one can be modified, the other cannot
+[12:08:07] <rwaldron> gnarf: http://jsfiddle.net/rwaldron/CWUsw/show/light
+[12:09:07] <rwaldron> IE8 http://gyazo.com/df6d54ba7d90023127c42baad743f36e.png
+[12:09:55] <rwaldron> IE6 http://gyazo.com/660e8cadbac58a836b12ddd9bc1e8613.png
+[12:10:14] <rwaldron> Chrome http://gyazo.com/a075f534df6503a942739428b0d219ff.png
+[12:11:02] <rwaldron> Yes, I've also tried: valueOf and toSource
+[12:15:40] <gnarf> rwaldron: strangleys
+[12:20:18] <deAtog> yup.. that was a little unexpected.. but I can see the implications of it.. document.createElement('div').toString() doesn't give "[object Object]", but Object.prototype.toString.call(document.createElement('div')) does.. I concede it's a difficult problem to which there is no perfect
+[12:20:32] <deAtog> solution
+[12:20:35] <rwaldron> yay
+[12:20:45] <rwaldron> now, let's never speak of this again
+[12:20:52] * rwaldron runs away
+[12:20:57] <ajpiano> maybe we should file a ticket to document this discussion
+[12:21:00] <ajpiano> .... or a storify :x
+[12:21:07] <rwaldron> storify stinks
+[12:21:21] <rwaldron> they need to be less crashy
+[12:21:26] <rwaldron> and then i will love them
+[12:21:36] <ajpiano> i've never made one, just consumed
+[12:22:00] <rwaldron> i'll consume you!
+[12:22:03] <rwaldron> ok, brb
+[12:26:43] <gnarf> ajpiano: if storify had the ability to quote irc channels....
+[12:26:44] <gnarf> :)
+[12:44:40] <Krinkle> don't tell me the subject is still nodeType on plain objects?
+[12:44:53] <Krinkle> yikes
+[12:44:59] <Krinkle> what did I miss?
+[12:47:40] <Eviltwin> Apparently it's not a good idea to have a nodeType key in objects that aren't DOM elements :D
+[13:10:38] <danheberden> Eviltwin i'm going to start putting a nodeType property on every object i ever make
+[13:11:46] <Eviltwin> I'm going to add it to my Object prototype
+[13:12:40] <miketaylr> rwaldron: that getBoundingClientRect bug just had its priority bumped, i'll comment on the bug when i find out more.
+[13:12:45] <miketaylr> (bumped up, that is)
+[13:14:25] <rwaldron> miketaylr thank you sir
+[13:15:34] <miketaylr> from the bug "That puts this entire bug in a different light - if we can buy some jQuery-kudos by fixing this we probably should."
+[13:15:35] <miketaylr> :D
+[13:15:44] <miketaylr> mmm kudos
+[13:16:11] <rwaldron> whoa rad
+[13:16:54] <sindresorhus_> miketaylr:  Thanks :D
+[13:17:13] <miketaylr> oh hey, didn't see you here :)
+[13:17:21] <danheberden> twss
+[13:17:35] <miketaylr> no promises, etc. but i'll keep you guys updated.
+[13:21:25] <sindresorhus_> :)
+[14:57:55] <gnarf> jQuery protip: Object.prototype.nodeType = 1; <-- destroy everything!
+[15:11:23] <socialhapy> ★ Tweet from jquerymobile: Example of Autocomplete in jQuery Mobile by @cfjedimaster - http://t.co/cm2Tbbrj ★ http://bit.ly/GWdyFD
+[15:12:29] <socialhapy> ★ Tweet from jquerymobile: Developing mobile applications with PhoneGap and JQuery Mobile - http://t.co/TeztXbQG ★ http://bit.ly/GWdENH
+[19:44:35] <mikesherov> .

@@ -1,0 +1,108 @@
+[07:54:35] <kborchers_> rworth: ping
+[07:54:45] <rworth> kborchers_ pong
+[07:56:00] <kborchers_> so, when i'm updating these ui event props, should i be going off of what is in master or 1-8-stable. looking at accordion for example, the events listed are what's in master, not 1-8-stable
+[07:56:02] <kborchers_> just want to make sure
+[07:56:24] <rworth> master for master and 1-8-stable for 1-8
+[07:56:40] <kborchers_> gotcha
+[07:56:41] <kborchers_> thanks
+[07:56:43] <rworth> np
+[07:56:49] <kborchers_> from 35000 feet :)
+[07:57:13] <rworth> :)
+[07:57:27] * rworth hopes he has wifi on his flight
+[07:57:49] <kborchers_> crossing my fingers worked for me  ;)
+[10:25:28] <gnarf> kborchers: are you on a plane too?
+[10:52:39] <gnarf> nacin: sorry I didn't get a chance to get online from the airport to check on things
+[10:53:06] <gnarf> the lines were a little intense
+[12:27:29] <kborchers> gnarf: you on a plane now?
+[18:42:13] <scott_gonzalez> https://gist.github.com/b1d14201e247ad60409a
+[18:49:59] <gnarf> nacin: you lurking?
+[18:50:28] <gnarf> we are getting an odd error message trying to deply qunitjs.com and I'm not really sure where to start tracing it, nor is scott_gonzalez
+[18:50:29] <jzaefferer> getting this trying to deploy qunitjs.com to the live server:
+[18:50:29] <jzaefferer> Running "wordpress-sync" task
+[18:50:29] <jzaefferer> >> Error publishing example-cookbook-1-basics.html.
+[18:50:29] <jzaefferer> >> Error: XML-RPC fault: Unable to create directory /var/www/wordpress/web-base-template/blogs.dir/10/files/2012/06. Is its parent directory writable by the server?
+[18:50:35] <nacin> heard the ping
+[18:50:48] <jzaefferer> woohoo, hello nacin
+[18:51:05] <nacin> it's trying to upload a file, and via normal WP means, rather than gw-resources means
+[18:51:11] <gnarf> btw, this hotel squid proxies, which totally fucks up our game :)
+[18:51:24] <gnarf> but like, switch to "stage.qunitjs.com" instead of "qunitjs.com" and it works
+[18:51:38] <gnarf> but richard didn't have an issue pushing jquery.com
+[18:51:45] <nacin> well, one thing we can do is just create the directory and see what it uploads :-)
+[18:52:15] <gnarf> maybe it has something to do with being on legacy web-base-template?
+[18:52:28] <nacin> same code otherwise
+[18:52:30] <gnarf> and rworth is on the plane now....
+[18:52:31] <gnarf> ;)
+[18:53:12] <nacin> maybe we can figure out where wp_upload_dir() is getting called
+[18:53:32] <nacin> I can stick an error_log() into core to track it, if puppet doesn't overwrite me
+[18:54:00] <gnarf> heh
+[18:54:09] <gnarf> puppet will only overwrite wp-config
+[18:54:20] <gnarf> and nginx/conf.d/vhost-autogen or whatever
+[18:54:33] <gnarf> if you ever wonder if puppet will overwrite you
+[18:54:39] <gnarf> puppet agent --test after making your change
+[18:54:42] <gnarf> and it will yell at you
+[18:54:43] <gnarf> ;)
+[18:54:44] <nacin> nice
+[18:54:56] <gnarf> as well as show you a diff of what it did
+[18:55:00] <gnarf> afk a bit
+[18:57:14] <nacin> gnarf: try the sync again?
+[18:58:27] <nacin> jzaefferer: ^
+[18:58:40] <jzaefferer> nacin: did you change something?
+[18:58:47] <nacin> I added some logging
+[18:58:49] <jzaefferer> gnarf is out for a smoke, but I can try again
+[18:58:54] <jzaefferer> okay, deploying
+[18:59:16] <jzaefferer> seeing something useful?
+[18:59:39] <nacin> did it error yet?
+[18:59:53] <jzaefferer> yeah
+[19:02:29] <gnarf> nacin: when do you get here? :)
+[19:02:43] <nacin> I don't, but koopersmith has my proxy :)
+[19:02:51] <gnarf> awww
+[19:02:56] <nacin> almost. next time for sure.
+[19:03:15] <gnarf> ergo proxy?
+[19:03:46] <nacin> gnarf: so the difference between stage and jq01 is
+[19:03:47] <nacin> ls -la /var/www/wordpress/web-base-template/ | grep blogs.dir
+[19:03:49] <jzaefferer> nacin: can I help you set things up so that you can test it yourself? Might be a lot more efficient then me deploying from here without knowing what to do with that
+[19:04:04] <nacin> stage: drwxrwxr-x  8 root www-data 4096 Jun 24 14:48 blogs.dir
+[19:04:12] <nacin> prod: drwxr-xr-x  3 root root 4096 Jun 27 18:52 blogs.dir
+[19:04:16] <jzaefferer> also, should "blogs.dir" even be a literal value? Instead of a variable that's missing or something?
+[19:04:25] <nacin> jzaefferer: sadly, yes, that's a literal value.
+[19:04:28] <jzaefferer> or its just lack of write permission
+[19:04:37] <nacin> lack of write permission for a directory that you guys don't need.
+[19:04:46] <jzaefferer> okay, that's still odd
+[19:04:48] <nacin> but if you make it writable now, it'll work, and i'll remove the dependency later.
+[19:05:15] <jzaefferer> just noticed that the last attempt had a different error message
+[19:05:19] <jzaefferer> very slightly different:
+[19:05:20] <jzaefferer> Running "wordpress-sync" task
+[19:05:20] <jzaefferer> >> Error publishing example-cookbook-1-basics.html.
+[19:05:20] <jzaefferer> >> Error: XML-RPC fault: Could not write file /var/www/wordpress/web-base-template/blogs.dir/10/files/2012/06/gw-resource.html
+[19:05:36] <nacin> yeah, that's cause I made things somewhat writable but not fully
+[19:05:42] <jzaefferer> okay
+[19:05:43] <nacin> let me just chown this thing
+[19:06:18] <nacin> gnarf: what user is PHP running under?
+[19:06:40] <gnarf> nacin: it should be www-data
+[19:08:03] <nacin> 0770 on the directory, owned by root, group is www-data
+[19:08:07] <nacin> see if it works now.
+[19:08:21] <nacin> either way, you can tell the permissions and ownership are different from blogs.dir on stage to prod.
+[19:08:29] <nacin> make them the same and things will work.
+[19:08:42] <nacin> I'll remove the dependency in the morning.
+[19:08:51] <nacin> dinner calls. I'll come back over in a bit.
+[19:09:38] <jzaefferer> deploying
+[19:09:53] <jzaefferer> nacin gnarf: new error
+[19:09:53] <jzaefferer> Running "wordpress-sync" task
+[19:09:53] <jzaefferer> >> Error publishing example-cookbook-1-basics.html.
+[19:09:53] <jzaefferer> >> Error: XML-RPC fault: Unable to create directory /var/www/wordpress/gw-resources/qunitjs.com. Is its parent directory writable by the server?
+[19:10:05] <jzaefferer> now we're getting to some more interesting permission issue
+[19:10:07] <gnarf> hrm
+[19:10:26] <gnarf> nacin: roger
+[19:11:03] <nacin> jzaefferer: same deal. gw-resources needs to be created and writeable by the server. this is one of those rare error messages that are verbose and accurate :-)
+[19:11:16] <jzaefferer> ha, yeah
+[19:11:21] <jzaefferer> Corey is on that now
+[19:11:29] <jzaefferer> puppeteering even
+[20:19:48] <kswedberg> .
+[23:32:34] <jquicommit> [jquery-ui] scottgonzalez pushed 3 new commits to master: http://git.io/zczBRg
+[23:32:34] <jquicommit> [jquery-ui/master] Datepicker: Remove styles specifically for IE5. - Scott González
+[23:32:34] <jquicommit> [jquery-ui/master] Menu tests: Cleanup. - Scott González
+[23:32:34] <jquicommit> [jquery-ui/master] Tests: Enable QUnit.config.requireExpects. - Scott González
+[23:40:55] <jq-jenkins> Project jQuery UI build #555: SUCCESS in 8 min 10 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/555/
+[23:40:55] <jq-jenkins> * Scott González: Datepicker: Remove styles specifically for IE5.
+[23:40:56] <jq-jenkins> * Scott González: Menu tests: Cleanup.
+[23:40:56] <jq-jenkins> * Scott González: Tests: Enable QUnit.config.requireExpects.

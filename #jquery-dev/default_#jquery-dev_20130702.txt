@@ -1,0 +1,141 @@
+[05:11:22] <scott_gonzalez> The last meeting that was posted to meetings.jquery.org was June 3.
+[05:19:21] <m_gol> duh, is it impossible to shadow fields from frozen prototype in an object? :/ if I freeze Object.prototype and define a = {} the substitution a.toString = 4 doesn't work
+[05:21:49] <m_gol> but if I do Object.defineProperty(a, 'toString', {value: 4}) it works
+[05:22:26] <m_gol> checked both in Fx & Chrome... weird :/
+[06:56:16] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/JmNf2A
+[06:56:16] <jqcommit> 13jquery/06master 14d53ddc9 15Dave Methvin: Fix #13983. Switch to //# for sourcemaps....
+[06:59:04] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 061.x-master: 02http://git.io/1qip5w
+[06:59:04] <jqcommit> 13jquery/061.x-master 14cfa0035 15Dave Methvin: Fix #13983. Switch to //# for sourcemaps....
+[06:59:13] <m_gol> so it's done
+[06:59:48] <DaveMethvin> yeah, i really wish chrome would have waited a bit on those deprecation warnings
+[07:00:11] <DaveMethvin> because i just know we're gonna get a bunch of complaints about that
+[07:00:30] <m_gol> hopefully we won't get complaints about source maps stopping working
+[07:00:37] <m_gol> since current Chrome stable supports only //@
+[07:00:54] <DaveMethvin> i actually think that is much less likely,
+[07:01:06] <DaveMethvin> but everyone will get the warning
+[07:01:10] <m_gol> they are throwing a deprecation warning but they didn't backport the change, talk about consequences :P
+[07:01:16] <timmywil> DaveMethvin: I think we should wait on that
+[07:01:34] <timmywil> DaveMethvin: warnings in Canary are less important than working in as many browsers as possible
+[07:01:44] <DaveMethvin> it's gonna be a lot of complaining if we don't move soon though
+[07:01:45] <timmywil> it needs to land in stable browsers
+[07:01:58] <DaveMethvin> the second it does we're gonna get lots of tickets
+[07:02:23] <DaveMethvin> maybe we can get paul_irish to have them remove the deprecation warning for a cycle or two
+[07:02:40] <DaveMethvin> but if we can't I just know we're gonna be swamped with complaints
+[07:03:14] <DaveMethvin> and not that many people use sourcemaps, but everyone will get the warnings
+[07:04:05] <m_gol> yeah, but after this change source maps for jQuery don't work in Chrome stable
+[07:04:35] <DaveMethvin> they work as soon as you change # to @ ... and how long before canary is stable?
+[07:05:11] <DaveMethvin> just looking at chromiumbugs to see if any ticket is opne
+[07:05:13] <DaveMethvin> open
+[07:05:48] <timmywil> DaveMethvin: we've punted firebug warnings. 
+[07:06:10] <DaveMethvin> yeah those were fun
+[07:06:20] <m_gol> IIRC the change was made in Chrome 29, current version is 27
+[07:06:28] <m_gol> so it's at least a month or two
+[07:06:37] <DaveMethvin> making a ticket now
+[07:07:00] <m_gol> I've asked them to backport the change on the original bug report but I got no response
+[07:07:28] <DaveMethvin> i wouldn't bother with a backport, just provide some breathing room on the deprecation spewage
+[07:08:23] <m_gol> it doesn't seem to be a problem in Firefox
+[07:08:42] <m_gol> just checked, Fx <24 don't support source maps in JS at all, Fx >=25 support both //@ & //#
+[07:08:44] <DaveMethvin> does ff even support sourcemaps yet?
+[07:08:52] <DaveMethvin> ah ok
+[07:09:19] <m_gol> with Safari it's similar, I believe the current version has no support (would've to check, though), WebKit nightly has both
+[07:09:27] <m_gol> IE doesn't support it at all
+[07:09:31] <m_gol> so it's only Chrome 27-28
+[07:10:42] <m_gol> and Opera 15, since it uses Chromium 28
+[07:11:54] <m_gol> seems Opera 15 is now stable
+[07:12:09] <m_gol> but they still plan to release 12.16, obviously
+[07:12:10] <DaveMethvin> yeah so we support 12 and 15 at this point
+[07:12:23] <DaveMethvin> not 11, which has some issues
+[07:12:46] <m_gol> well, 11 is not 12.1x minus 1, the previous one was 12.0 ;)
+[07:12:50] <m_gol> we might have to support 12.x a little longer than usual
+[07:13:11] <m_gol> people might not want to update to a completely different browser too fast
+[07:15:20] <m_gol> http://my.opera.com/desktopteam/blog/2013/07/02/opera-15
+[07:16:46] <DaveMethvin> opera 15 is definitely a different animal
+[07:16:50] <DaveMethvin> https://code.google.com/p/chromium/issues/detail?id=256636
+[07:18:52] <DaveMethvin> mkwst paul_irish perhaps you can help with ^^ ?
+[07:23:34] <DaveMethvin> I think i've got all the fixes in now, so I'll run unit tests here locally and do the other release prep while waiting for some feedback on that
+[07:25:26] <m_gol> k, great :)
+[11:30:03] <m_gol> DaveMethvin: you wrote here: https://code.google.com/p/chromium/issues/detail?id=256636 that users are already reporting source map deprecation warnings to jQuery but the report you linked to is yours :P
+[11:30:19] <DaveMethvin> there are two dups listed there
+[11:30:19] <b-ot> DaveMethvin: You have 1 new message, use `read when you wish to read it.
+[11:30:25] <DaveMethvin> `read 
+[11:30:25] <b-ot> DaveMethvin: From m_gol, 2w 5d ago: (cc about what I wrote to rwaldron) As for the 2.x data & defineProperty, the thing is that not only the defineProperty method is slow but accessing fields defined this way is slow, too, even if they just return a plain value. Check this test: http://jsperf.com/object-defineproperty-access (especially in Firefox it's dead slow)
+[11:30:36] <DaveMethvin> mmmm, fresh
+[11:30:39] <m_gol> :D
+[11:30:50] <m_gol> one week in Portland ;)
+[11:31:04] <DaveMethvin> i figured that if i linked to my ticket we could track all the dups from there
+[11:31:11] <m_gol> I didn't know bots have summer dreams :P
+[11:31:15] <m_gol> ah, right
+[11:31:27] <DaveMethvin> clearly the bot took off more time than even me
+[11:32:20] <m_gol> ;)
+[11:32:59] <m_gol> DaveMethvin, do you maybe know why isn't it possible to shadow properties from frozen prototypes? seems silly but it seems it's this way
+[11:33:28] <m_gol> I mean, you can do it but only via Object.defineProperty, usual a = {}; a.toString = 4 doesn't work if Object.prototype is frozen
+[11:33:28] <DaveMethvin> you mean that it silently ignores assignment?
+[11:33:54] <m_gol> no, I mean why a.toString = 4 doesn't just create a toString field directly on a as usual
+[11:34:01] <m_gol> if Object.prototype is frozen
+[11:34:19] <DaveMethvin> i'm sure they had some use case in mind
+[11:34:27] <DaveMethvin> but it broke at least one thing I've wanted to do
+[11:34:30] <m_gol> it has just bite me because some library was creating an object with a toString field and it broke
+[11:34:38] <m_gol> * bitten
+[11:34:58] <DaveMethvin> did someone freeze Object.prototype?
+[11:35:01] <m_gol> and I hoped to prevent silly stuff in out recent project by freezing Object.prototype...
+[11:35:04] <DaveMethvin> or is it that way in "use strict"
+[11:35:07] <m_gol> yes, me :D
+[11:35:08] <DaveMethvin> oh
+[11:35:42] <m_gol> a.toString = 4 doesn't work (silent error in sloppy, error in strict) but Object.defineProperty(a, 'toString', {value: 4}) works
+[11:35:44] <DaveMethvin> yeah i noticed that it doesn't let you do that, but i am not sure why
+[11:37:04] <snover> m_gol: because [[CanPut]] is checked
+[11:37:19] <snover> and [[CanPut]] looks to see if the property exists and then checks to see if the object it exists on is frozen
+[11:37:43] <snover> so if it is looked up from the prototype and an object in the prototype is frozen then you cannot put to it even though you would be shadowing the prototype object’s property
+[11:37:50] <m_gol> snover: so is there any way to freeze just the prototype while allowing to shadow properties?
+[11:37:59] <snover> Object.defineProperty
+[11:38:10] <snover> is the only way
+[11:38:19] <snover> es5 frozen stuff sucks
+[11:38:23] <m_gol> yeah, but the use case is I have the code I can't easily modify
+[11:38:36] <snover> the remaining option is do not freeze objects
+[11:38:39] <m_gol> like some library I don't want to mess with because then upgrading to newer versions would suck
+[11:38:50] <m_gol> I just wanted to prevent silly Object.prototype extensions that affects all the objects
+[11:39:02] <m_gol> shadowing a property doesn't cause such issues
+[11:39:03] <snover> unfortunately there’s nothing to be done about it, it’s in the spec
+[11:39:12] <snover> i think the spec is dumb but it is what it is
+[11:39:14] <m_gol> it sucks :(
+[11:39:25] <m_gol> but thx for info
+[11:39:39] <m_gol> I figured it might be sth standardized since both Chrome & Firefox behave this way
+[11:41:33] <m_gol> and Object.freeze(Object.prototype); var a = {toString: 4} works
+[11:42:03] <m_gol> so the following: `var a = {}; a.toString = 4;` is not equivalent to `var a = {toString: 4};`, wtf
+[11:42:49] <snover> because you are not calling [[Put]] (. =)
+[11:42:58] <m_gol> yeah
+[11:43:34] <m_gol> I now know why, I just think it's ridiculous :P
+[11:44:29] <DaveMethvin> sorry, some lady wanted to spray my house for termites
+[11:44:32] <DaveMethvin> anyway
+[11:44:57] <snover> ANYHOO
+[11:45:26] <DaveMethvin> this bit me when i wanted to extend the `event` object as well
+[11:45:40] <DaveMethvin> it's sealed so you can't extend any built-in property
+[11:45:56] <snover> you can, sort of kind of
+[11:46:07] <snover> webidl is in flux badly enough that it is totally inconsistent between browsers though
+[11:46:13] <DaveMethvin> using defineProperty?
+[11:46:16] <snover> yes
+[11:46:21] <DaveMethvin> unfortunately it seems very slow
+[11:46:38] <snover> function invocations are expensive!
+[11:46:40] <DaveMethvin> we're gonna have to rethink our new 2.x data implementation because of that
+[11:46:55] <DaveMethvin> definitely slower than just a fn call tho
+[11:47:14] <snover> being a web developer is expensive
+[11:47:19] <snover> the web is a terrible platform
+[11:47:48] <DaveMethvin> it's the ugliest baby evar!
+[11:52:34] <m_gol> snover: so why are you one? ;)
+[11:52:58] <DaveMethvin> takes one to know one
+[13:13:13] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/Mempkw
+[13:13:13] <jqcommit> 13jquery/06master 14a44202d 15Dave Methvin: Change the changelog header style
+[14:01:41] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/7vvPUg
+[14:01:41] <jqcommit> 13jquery/06master 146e630fb 15Dave Methvin: Revert "Fix #13983. Switch to //# for sourcemaps."...
+[14:02:26] <jqcommit> 01[13jquery01] 15dmethvin pushed 2 new commits to 061.x-master: 02http://git.io/clR_Yg
+[14:02:26] <jqcommit> 13jquery/061.x-master 145f2b586 15Dave Methvin: Revert "Fix #13983. Switch to //# for sourcemaps."...
+[14:02:26] <jqcommit> 13jquery/061.x-master 1498980d8 15Dave Methvin: Change the changelog header style...
+[14:23:34] <DaveMethvin> btw paul_irish thanks again for your help on the sourcemaps issue, you've saved the internets and my sanity
+[14:23:52] <DaveMethvin> actually my sanity is still in doubt
+[21:09:40] <ryanneufeld> Anyone wanna help me convert a plugin I wrote to use the UI Widget?
+[23:09:54] <paul_irish> DaveMethvin|away: :)
+[23:10:31] <paul_irish> lol i didn't see this chat until now. happy that i intuited what you guys were thinking :)
+[23:11:39] <paul_irish> m_gol, DaveMethvin|away: a new chrome stable will ship probably next week.. assuming the traditional release train holds up
+[23:12:05] <paul_irish> that said i dont know what the current beta is like WRT sourcemap @ or # ... i think it's still @
+[23:12:12] <paul_irish> not 100%
+[23:12:38] <paul_irish> oh. /me keeps reading. yup. another 7 weeks until # is in stable.

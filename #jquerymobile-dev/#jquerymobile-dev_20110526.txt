@@ -1,0 +1,191 @@
+[07:53:33] <gseguin> Good morning!
+[07:55:01] <StevenBlack> Salut!
+[08:23:06] <StevenBlack> kinblas: we desperately need a hook right here https://github.com/StevenBlack/jquery-mobile/blob/master/js/jquery.mobile.navigation.js#L460
+[08:23:24] <StevenBlack> Here's what Backbone.js does: https://github.com/documentcloud/backbone/blob/master/backbone.js#L327-329
+[08:23:55] * StevenBlack hates to beat a dead horse but feels like he's not being heard on extensibility.
+[08:32:05] <kinblas> StevenBlack: I hope you're not implying that I don't listen ... things are just moving slow because I've got several things going concurrently
+[08:33:17] <kinblas> I'm all about extensibility.
+[08:34:34] <StevenBlack> Then how about I'll advance a few idea implementations -- pull requests -- to get progress here.  Cool?
+[08:35:50] <kinblas> sure, or you can help me with the navigation plan document
+[08:35:56] <kinblas> where I'm trying to write down thoughts for comments
+[08:36:07] * kinblas notes he's in a meeting at the moment
+[08:39:08] <kinblas> Also, if you recall in the meeting I was mentioning that we don't necessarily want to assume everything is loaded via $.ajax() ... that's not to say our default load handler can't fire off hooks itself, but I want to make it so that folks can plug in their entire loading mechanism so they can do whatever number of loads, merges, transformations they want
+[08:40:03] <kinblas> and have it work synchronous or asynchronous
+[08:49:36] * StevenBlack is also in a meeting, in a distracted way.
+[08:51:18] <StevenBlack> ... point being, if something is loaded by Ajax, step 1 is to offer a hook to pre-process the "html" because that's a very critical and easily identifiable (and therefore usable) juncture.
+[08:52:02] <StevenBlack> Hey, if the "html" is JSON then this is exactly where a dev will want to build HTML and wrap it in a data-role="page"...
+[09:05:27] <kinblas> StevenBlack: right I get that
+[09:05:50] <kinblas> step 1 is also to allow them to specify the correct content type to be loaded
+[09:06:08] <kinblas> step 2 is the hook after its loaded
+[09:08:11] <StevenBlack> I'm talking about the success callback here.  But yeah, I understand what you are saying,
+[10:45:26] <todd_> hey guys
+[10:45:33] <todd_> still in meetings?
+[10:55:37] <StevenBlack> Todd_: sup?
+[11:00:11] <StevenBlack> todd_ ^^^
+[11:12:50] <toddparker> not much, just seeing who was around
+[11:31:14] <StevenBlack> todd_ or kinblas have you seen ?docs?m1712 ?
+[11:31:31] <StevenBlack> ?docs#m1712
+[11:31:33] <bot-t> [#1712] $.mobile.changePage broken in latest (open) - https://github.com/jquery/jquery-mobile/issues/1712
+[11:35:53] <kinblas> yeah that's because the signature changed
+[11:36:27] <kinblas> I should proabably update the WIKI plan document and describe the new changePage signature
+[11:36:34] <kinblas> then point him at that
+[11:37:15] <kinblas> We decided we were going to have a temporary plugin that monkey patches things for folks that insist on using the old signature?
+[11:52:22] <StevenBlack> Or a few lines at the top of changePage() to trigger a mapping if arguments[1] isn't an object.
+[11:53:16] <StevenBlack> btw, it's not "folks who insist on using the old signature" but rather, "every developer who invested time in jQuery Mobile to this point".
+[11:54:00] <StevenBlack> (How did we not cover this at the meeting this week?)
+[11:54:52] <StevenBlack> The other breaking/crashing change is pageLoading().
+[11:55:12] <StevenBlack> https://github.com/jquery/jquery-mobile/wiki/Beta-1:-List-of-deprecations-and-breaking-changes
+[11:58:00] <StevenBlack> ?tell temp01 how can we get GitHub jQuery Mobile commits to echo here in #jquerymobile-dev?  Might be good to see the jQuery commits echoed here too.  Thoughts?
+[11:58:00] <bot-t> StevenBlack, Okay.
+[12:02:41] <kinblas> I updated https://github.com/jquery/jquery-mobile/wiki/Refactor:-Navigation-Plan I will comment in the issue after lunch
+[13:02:16] <kinblas> how is the pageLoading() change a breaking/crashing change? I left the original pageLoad() method in there?
+[13:10:24] <toddparker> I set #1712 as a blocker and assigned to kinblas. changepage can't stay broken for long
+[13:11:59] <toddparker> yeah kinblas - we do need to monkey patch that up this week
+[13:12:09] <kinblas> toddparker: as an external add in?
+[13:12:11] <toddparker> agree it's important
+[13:12:38] <toddparker> dunno - what do people prefer? i think it should just work so what's best?
+[13:13:04] <toddparker> it's the mapping will be clean, i think that may be preferable
+[13:13:28] <kinblas> Here's the thing I don't want to encourage folks in beta 1 to use the old signature
+[13:13:35] <kinblas> it was too hard to maintain because of all the typeof
+[13:13:43] <kinblas> "typeof" checks we were doing
+[13:13:50] <kinblas> now its clean, we know what is passed in
+[13:14:08] <kinblas> so that said
+[13:14:28] <kinblas> I prefer an add-in monkey patch file that folks can drop in
+[13:16:01] * kinblas tries to gather the signatures for the old version
+[13:16:29] <toddparker> looping scottjehl in
+[13:16:42] <toddparker> just emailed him the relevant history so he can catch up
+[13:16:43] <scottjehl> hey
+[13:17:51] <scottjehl> "Or a few lines at the top of changePage() to trigger a mapping if arguments[1] isn't an object."
+[13:17:53] <scottjehl> I like this idea
+[13:21:54] <kinblas> problem is the new style takes an object or a url
+[13:21:59] <kinblas> that object is a jQuery collection
+[13:22:21] * kinblas caves ok I'll do what it takes
+[13:22:21] <scottjehl> we're talking about the second arg tho
+[13:22:24] <kinblas> but can we rip it out?
+[13:22:33] <scottjehl> used to be a string
+[13:22:43] <kinblas> the first arg was either a url or an object (form submit)
+[13:23:11] <scottjehl> right, second arg tells us which signature they think they're interfacing with
+[13:23:37] <kinblas> 2nd arg was a string (transition)
+[13:23:41] <kinblas> which was optional
+[13:23:52] <kinblas> in the new scheme the 2nd arg is also optional
+[13:23:57] <scottjehl> right
+[13:24:50] <kinblas> let me whip something up ... I'll run it past you guys before I check it in
+[13:28:55] * kinblas wonders if it is just cleaner to come up with a new method name for the new changePage()
+[13:28:58] <scottjehl> something along the lines of this maybe? https://gist.github.com/5e9cd8444f2e004b8bae
+[13:29:39] <toddparker> anyone want to pick up this issue about broken radiobuttons. it's a blocker and we need to fix it for beta. bender doesn't have time
+[13:29:39] <toddparker> https://github.com/jquery/jquery-mobile/issues/1532#comment_1240487
+[13:29:55] <kinblas> it's not that simple
+[13:30:00] <scottjehl> no?
+[13:30:10] <kinblas> the fact that the args beyond the first one are optional
+[13:30:25] <kinblas> give me a sec
+[13:30:30] <scottjehl> only looping through what's defined though
+[13:30:39] <kinblas> the first arg can be an object
+[13:30:47] <kinblas> for form submit
+[13:30:49] <scottjehl> in either case though, right?
+[13:30:51] <scottjehl> or on
+[13:30:52] <scottjehl> no
+[13:31:11] <kinblas> so yes, it's a matter of mapping to the current options object
+[13:31:31] <kinblas> but there's more than mapping the args 2-5
+[13:31:39] <scottjehl> Ok I'll let you work it out.
+[13:31:42] <scottjehl> thanks Kin
+[13:31:59] <kinblas> np :-) I just need to get my head around it
+[13:32:04] <kinblas> was in another mode today
+[13:33:46] <scottjehl> :)
+[13:36:45] <gseguin> I can look into #1532
+[13:37:15] <gseguin> toddparker: when do you need that fixed by?
+[13:46:32] <eddiemonge> gseguin: yesterday
+[13:46:37] <eddiemonge> ?m1532
+[13:46:39] <bot-t> [#1532] Radiobuttons can't be selected once they are selected, then de-selected (open, 6 - Blocker) - https://github.com/jquery/jquery-mobile/issues/1532
+[13:47:11] <gseguin> why did I even ask?
+[13:48:14] <gseguin> Well, I'll start working on it after I'm done with my Jive tasks today
+[13:49:59] <toddparker> awesome, thanks gseguin
+[13:50:33] <toddparker> eddiemonge, you looking for bugs? i got 'em
+[13:50:58] <eddiemonge> not yet im not. next month maybe
+[13:51:08] <toddparker> k
+[13:51:20] <gseguin> I was actually looking into ?m1507
+[13:51:25] <gseguin> ?m1507
+[13:51:26] <bot-t> [#1507] page change css error (open, 6 - Blocker, Ghislain) - https://github.com/jquery/jquery-mobile/issues/1507
+[13:51:46] * gseguin feels less stupid now that he managed to talk to bot-t
+[13:56:17] <eddiemonge> gseguin: seems like it should be an easy bug fix
+[13:56:56] <gseguin> eddiemonge: which one?
+[13:57:04] <eddiemonge> 1507
+[13:58:05] <gseguin> I've edited css class .ui-btn-inner in jquery.mobile.button.css
+[13:58:19] <gseguin> and basically removed the height: 100%
+[13:58:45] <eddiemonge> hmm not sure thats a giid idea
+[13:58:49] <eddiemonge> *good
+[13:58:55] <gseguin> and that seems to work, though I'm not sure that height was not there on purpose
+[13:59:05] <gseguin> yeah I figured it can't be that simple
+[13:59:20] <eddiemonge> im assuming thats for IE or some other browser
+[13:59:42] <gseguin> but that's basically the problem
+[14:00:32] <gseguin> the container of the .ui-btn-inner becomes 100% of the page and then the ui-btn-inner grows to fill 100%
+[14:00:59] <eddiemonge> how about just removing the ui-btn.inner class right before the page animation is fired?
+[14:01:16] <gseguin> I'll try that
+[14:01:28] <eddiemonge> actually what makes it become 100% of the page? it doesnt change until the animation starts
+[14:01:30] <eddiemonge> ?
+[14:01:57] <gseguin> it's when the animation is running
+[14:02:12] <eddiemonge> does a class get added or something?
+[14:02:31] <gseguin> I've switched context, I don't remember right now
+[14:03:41] <gseguin> I'll probably look at it again later today
+[14:04:13] <scottjehl> "how about just removing the ui-btn.inner class right before.." not sure I want to go there
+[14:04:31] <scottjehl> hmm. so are the positioning contexts changing during transition?
+[14:05:03] <scottjehl> that's a weird one :)
+[14:05:07] <gseguin> scottjehl: I don't know
+[14:06:09] <gseguin> I've gotta run, I'll be back around 3pm PST
+[14:06:34] <gseguin> scottjehl or eddiemonge will you still be online?
+[14:08:51] <eddiemonge> probably
+[14:09:31] <eddiemonge> scottjehl: yeah thats why i backtracked. removing the class is a bad idea. i havent actually looked to see what makes it change height all of a sudden
+[14:12:58] <scottjehl> the height was there for some good reason
+[14:15:29] <eddiemonge> scottjehl: but the actual height of the button doesnt change until the page changes
+[14:15:54] <scottjehl> right. seems the 100% of WHAT is what changes
+[14:15:55] <scottjehl> not sure why
+[14:18:23] <eddiemonge> weird, doesnt show it here;
+[14:18:25] <eddiemonge> http://jsfiddle.net/eddiemonge/uzu3S/show
+[14:24:44] <eddiemonge> ah its because of the rule for:  ui-mobile-viewport-transitioning, .ui-mobile-viewport-transitioning .ui-page
+[14:26:30] <eddiemonge> i think this part: ui-mobile-viewport-transitioning .ui-page  should be dropped
+[14:27:46] <eddiemonge> or else height: 100% should be added to .ui-page without the transitioning. it has min-height but min-height doesnt work everywhere
+[14:28:30] <scottjehl> hmm. maybe buttons just need an explicit height
+[14:28:33] <scottjehl> height: auto
+[14:28:35] <scottjehl> or something
+[14:29:43] <eddiemonge> probably but that ui-page rule will affect other things to since the height changes on transitions. that could affect users custom styling
+[14:30:04] <scottjehl> it's necessary for smoother transitions
+[14:30:28] <scottjehl> the page changes to absolute positioning and its height needs to stretch
+[14:30:52] <scottjehl> otherwise you get pages that show through to the other page coming in or out
+[14:32:40] <eddiemonge> it will also affect any child element that has height set to 100%. thats why i think .ui-page should always be set to 100% with min-height set to it as well
+[14:36:42] <eddiemonge> i also use this: http://www.dustindiaz.com/min-height-fast-hack/  and i think it would work here
+[14:59:27] * gseguin is catching up
+[15:02:27] <eddiemonge> it would affect some sites but i think the number would be small and it would be a corrective fix
+[15:29:30] * StevenBlack sees $.mobile.pageLoading() in jquery.mobile.init.js ... thanks kinblas I missed that.
+[15:29:52] * kinblas has been in meetings all day < sigh >
+[16:26:01] * gseguin is really back this time
+[16:32:45] <gseguin> eddiemonge: you wanna take that issue ?
+[16:33:17] <eddiemonge> not really. i cant do all the necessary testing across all devices/browsers
+[16:33:26] <eddiemonge> ill do the fix if you do the testing
+[16:34:15] <gseguin> sure
+[16:35:31] <eddiemonge> what was the bug number again?
+[16:35:54] <gseguin> ?m1507
+[16:36:10] * gseguin where is that darn bot-t when you need him?
+[16:49:37] <eddiemonge> fixes the issue: https://github.com/jquery/jquery-mobile/pull/1723
+[16:49:44] <eddiemonge> but im not sure what else is affected
+[16:51:44] <gseguin> eddiemonge: alright I'll pull it from  your repo and do some testing
+[16:54:11] <eddiemonge> StevenBlack: you around?
+[17:02:41] <StevenBlack> Hi eddiemonge
+[17:03:26] <eddiemonge> https://github.com/jquery/jquery-mobile/pull/1716
+[17:03:47] <eddiemonge> oh should be a === too for that change
+[17:04:18] <StevenBlack> Sorry, come again?
+[17:07:13] <StevenBlack> The point of 1716 isn't to refactor at all.  It's for 1) standards and 2) so this package returns grep results as it should, which it wasn't because of wonky quote symbols, spacing, etc etc
+[17:08:09] <eddiemonge> ok then in that case line 47 is the only missed white space i see
+[17:08:16] <StevenBlack> I made one change on a var previously named targetel (the standard is that an "L" or a "1" problem) and I renamed it to target like it is in many other places.
+[17:08:37] <StevenBlack> Pull that sucker.
+[17:09:25] <eddiemonge> i actually have no idea how to pull your changes into mine
+[17:13:01] <StevenBlack> Good time to get to know git merge, or bring the code to standard in your branch...
+[17:19:26] <eddiemonge> im not sure what i just did but i think it might work
+[17:22:27] <eddiemonge> ok so that didnt work too well: https://github.com/jquery/jquery-mobile/pull/1724
+[17:22:50] <eddiemonge> its basically your changes with my changes. maybe if yours get pulled in, mine wont have so many diffs
+[17:28:13] <eddiemonge> how did i end up doing bug fixes when earlier today i said i wouldnt lol?
+[17:39:12] <_nickel> gseguin: eddiemonge: well I've got a local vm with node + jshint running as a web service - next step is to sort out what the bash/curl script looks like to alter it
+[17:39:50] <_nickel> of course I'll need to deploy it at some point too but thats mostly done already with chef scripts
+[17:40:11] <_nickel> anyway just updating you on our conversation from yesterday
+[17:40:49] <eddiemonge> symlinking would only work on *nix machines
+[17:41:00] <eddiemonge> windows user would have to have special instructions
+[17:48:09] <gseguin> _nickel: you would send the js file to your node server with curl and parse the output?
+[18:28:10] <StevenBlack> eddiemonge: hey cool how you pulled my commit into yours there.  How'd you do that, which sequence of git commands?

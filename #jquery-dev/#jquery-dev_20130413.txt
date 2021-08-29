@@ -1,0 +1,138 @@
+[03:44:01] <m_gol> gnarf: this was discussed here: http://bugs.jquery.com/ticket/11938
+[03:45:15] <m_gol> Ah, I see you commented on this bug report. :) Anyway, it was on purpose that you can't invoke css()
+[05:14:34] <mikesherov> gnarf: I think so
+[05:15:27] <mikesherov> gnarf: there is a better answer
+[05:15:59] <mikesherov> $(element).css('cssText') ;-)
+[05:16:14] <mikesherov> that's the kitchen sink
+[05:25:05] <JamesMGreene> True true, mikesherov
+[05:26:19] <mikesherov> That's if you want to copy the exact "resolved values" version
+[05:29:34] <mikesherov> if you want the "inline" cssText
+[05:29:57] <m_gol> haha, nice hack
+[05:30:13] <m_gol> mikesherov: they replied to me on bugzilla
+[05:30:18] <m_gol> apparently Firefox is correct
+[05:30:22] <mikesherov> m_gol: link?
+[05:30:46] <m_gol> https://bugzilla.mozilla.org/show_bug.cgi?id=861150
+[05:30:55] <mikesherov> this is the ways you can get inline styles too: http://jsfiddle.net/WkbVm/1/
+[05:31:14] <m_gol> though for me it means the spec is kind of weird here
+[05:31:47] <m_gol> because now it says getComputedStyle should take into account left/top/bottom/right CSS values set for non-positioned elements
+[05:34:14] <mikesherov> so, which spec?
+[05:34:17] <mikesherov> the CSSOM spec?
+[05:35:05] <mikesherov> if an element is NOT actually positioned, auto is the correct value… div2 is CORRECTLY auto
+[05:35:12] <mikesherov> the spec is unfortunate
+[05:35:25] <m_gol> Boris Zbarsky put a link in his comment
+[05:35:29] <mikesherov> and getComputedStyle is incorrectly named
+[05:35:42] <m_gol> yes, it is
+[05:36:08] <mikesherov> so, what's at play here is whether to use "used" or "computed" value
+[05:36:12] <mikesherov> a bit of history
+[05:36:22] <mikesherov> lots of value types in specs:
+[05:36:46] <mikesherov> initial, default, specified, computed, used, actual, and resolved
+[05:37:39] <mikesherov> while css2.1 was being drafted, the "computed" value changed from "computed" to "used"
+[05:38:55] <m_gol> didn't know there's a distinction between initial & default and between used & actual
+[05:39:18] <mikesherov> so, getComputedStyle was around during that time
+[05:39:30] <mikesherov> and should really be called getUsedStyle
+[05:39:40] <mikesherov> because the definition of computed changed
+[05:39:57] <mikesherov> but even then, that caused confusion, because some props returned computed, and some returned used
+[05:40:04] <mikesherov> and for backCompat, can't change
+[05:40:16] <mikesherov> so they introduced "resolved value"
+[05:40:46] <m_gol> so, the issue is:
+[05:40:46] <m_gol> 1) the computed value for left for the non-positioned element having left: 1% is 1%
+[05:40:46] <m_gol> 2) CSSOM says the resolved value for left for non-positioned elements is the computed value
+[05:41:05] <mikesherov> and so 1% is 1% for non positioned
+[05:41:11] <m_gol> yes
+[05:41:32] <mikesherov> right, so non-positioned elements just returned whatever the user specified
+[05:41:42] <mikesherov> even if it isn't the "used" value
+[05:41:52] <mikesherov> it's the "computed" value
+[05:42:05] <mikesherov> You will learn to hate CSSOM as much as I do
+[05:42:11] <mikesherov> anyone who looks into it does
+[05:42:14] <mikesherov> :-P
+[05:42:43] <m_gol> why not just create the getUsedValue rather than hack getComputedValue spec?
+[05:42:48] <mikesherov> YES
+[05:42:50] <mikesherov> why not
+[05:43:15] <m_gol> since even browser vendors seem to disagree on a lot of cases involved here...
+[05:43:36] <mikesherov> in fact, why not create element.getStyle( <initial | default | computed | used | resolved | actual ) ?
+[05:43:51] <mikesherov> so there's a proposal out there for that
+[05:43:54] <m_gol> at least you would know what it actually returns!
+[05:43:57] <mikesherov> I'm waiting till Blink
+[05:44:20] <mikesherov> The proposal I've made has some traction and some people willing to implement
+[05:44:30] <m_gol> cool :)
+[05:44:30] <mikesherov> but once Blink is up and running may be the time
+[05:44:50] <mikesherov> right now, a bit too much discord. Just wait till presto is gone
+[05:45:03] <m_gol> yeah
+[05:45:11] <mikesherov> this gives you an idea about what we're working around: https://bugs.webkit.org/show_bug.cgi?id=110007
+[05:45:21] <m_gol> though they say it'll be around until 2020 :D
+[05:45:23] <m_gol> in TVs
+[05:45:41] <m_gol> I know, I'm CC'd to this bug :)
+[05:46:42] <mikesherov> this bug is the weirdest: https://bugs.webkit.org/show_bug.cgi?id=107380
+[05:47:02] <mikesherov> btw, initial vs default:
+[05:47:14] <mikesherov> the initial "display" for any element is "inline"
+[05:47:22] <mikesherov> the default "display" for a div is "block"
+[05:48:22] <m_gol> hmm, so what's the point of initial?
+[05:48:28] <m_gol> btw, Chromium equivalent: https://code.google.com/p/chromium/issues/detail?id=176671
+[05:49:19] <m_gol> it's worth to bookmark it now that they've forked Webkit
+[05:49:29] <mikesherov> m_gol: almost no point
+[05:49:35] <m_gol> :)
+[05:49:38] <m_gol> almost?
+[05:50:11] <m_gol> default corresponds to UA stylesheets and initial is what's going on "before" applying them?
+[05:50:54] <mikesherov> right
+[05:51:09] <mikesherov> fine, COMPLETELY NO POINT
+[05:51:32] <mikesherov> used vs. actual:
+[05:51:46] <mikesherov> used style can be something like 50.4px
+[05:52:09] <mikesherov> but on a browser that doesn't display subpixels, actual is 50px
+[05:53:18] <m_gol> ah, right
+[05:54:15] <m_gol> and currently the only thing we can query is specified and computed/used depending on situation
+[05:55:17] <mikesherov> to be clear, only thing we can query is inline (whether or not it applies), and "resolved"
+[05:55:29] <mikesherov> and resolved is buggy :-P
+[05:55:33] <m_gol> ;)
+[05:55:39] <mikesherov> it's sad
+[05:55:58] <m_gol> we should really specify on api/css that it's unreliable on non-positioned elements
+[05:56:04] <mikesherov> CSSOM is really the least well specified portion of the web API at the moment
+[05:56:14] <m_gol> we can't seriously try to normalize this mess currently
+[05:56:20] <mikesherov> m_gol: sure
+[05:56:33] <mikesherov> that's a completely reasonable thing to say
+[05:56:49] <mikesherov> I'm inclined to say we should close that PR.
+[05:57:00] <mikesherov> and just document
+[05:59:17] <m_gol> but this PR was about positioned elements with left: auto set
+[05:59:34] <m_gol> the other problems was just what I checked while checking this one
+[05:59:52] <m_gol> see div 1 in http://jsfiddle.net/m_gol/QzvH5/9/
+[05:59:56] <m_gol> * div1
+[06:01:12] <mikesherov> right
+[06:01:27] <mikesherov> Oh, I was looking in FF
+[06:01:32] <mikesherov> in Chrome it's busted, yeah
+[06:01:33] <m_gol> :)
+[06:01:45] <mikesherov> hard to keep track of all the bugs
+[06:01:57] <mikesherov> yeah, then that makes sense
+[06:02:24] <mikesherov> but the bug fix should really then only apply to positioned elements
+[06:02:31] <mikesherov> the PR should address that, really.
+[06:02:34] <mikesherov> Hrm
+[06:02:59] <mikesherov> Actually, this is the thing. We may want to differ from the spec here, in that we know really what the users want
+[06:04:39] <m_gol> right
+[06:04:53] <mikesherov> in that we may want to always change auto to pixels
+[06:05:18] <m_gol> yeah, seems no one expects to get auto from css()
+[06:05:19] <mikesherov> but I feel like that's what .offset() and .position() is for
+[06:05:32] <mikesherov> position literally has code for this
+[06:05:37] <mikesherov> and that's what our hack is
+[06:05:52] <mikesherov> fall back to position if it's not a pixel value
+[06:06:08] <mikesherov> I dunno… perhaps we should back out our hacks completely!
+[06:06:19] <mikesherov> I waver so much on this stuff
+[06:06:42] <m_gol> :D
+[06:07:05] <m_gol> but it would be for 2.1/1.11 anyway, it's too much breaking
+[06:09:27] <mikesherov> sure
+[06:09:48] <mikesherov> I'm saying, maybe we shouldn't be adding more hacks, and just point people directly to .position
+[06:12:14] <mikesherov> ok, I'm fine with this landing, but only to pave over the chrome bug
+[06:14:19] <m_gol> so we should check the position there, as well
+[06:14:30] <m_gol> i.e. this PR need some work still
+[06:14:35] <m_gol> * needs
+[06:20:18] <mikesherov> yup, definitely.
+[07:03:27] <m_gol> mikesherov: we didn't ask yiminghe about CLA, where can I check if sb signed it?
+[07:03:52] <mikesherov> DaveMethvin|away needs to give you access to the google doc that shows signers
+[07:04:05] <mikesherov> you can always just ask yiminghe again
+[07:06:48] <m_gol> ah, I do have access to this spreadsheet
+[07:07:39] <m_gol> and he signed
+[07:35:57] <m_gol> mikesherov: haha, Chrome Canary has different results on the fiddle than stable: http://jsfiddle.net/m_gol/QzvH5/10/
+[07:36:11] <m_gol> div2 reports pixels, not auto
+[07:36:20] <m_gol> and according to current spec it should report 1%
+[07:36:22] <m_gol> nice mess
+[07:37:04] <m_gol> they now resolve % to px but leave auto as it is
+[08:27:55] <gnarf> m_gol: why not propose an edit to fix that answer then ;)
+[08:28:11] <gnarf> or at least add an "In jQuery 1.9 ...."
+[08:37:45] <gnarf> m_gol: welcome to the getComputedStyle FUBAR

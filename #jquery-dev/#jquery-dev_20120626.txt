@@ -1,0 +1,223 @@
+[06:04:21] <gibson042> .
+[06:24:07] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/iTO5Bg
+[06:24:07] <jqcommit> [jquery/master] Fix #10895. Reduce IE poll interval to save CPU time. - Dave Methvin
+[06:26:58] <ajpiano> DaveMethvin: would you RE READ the 1.8 announcement blog post JEEZ
+[06:27:15] <DaveMethvin> ajpiano: huh?
+[06:27:30] <ajpiano> ?11974
+[06:27:31] <bot-t> [#11974] $.parseHTML has ( lots ) of xss issues and can't be labeled as secure in its current implementation (closed bug: cantfix) - http://jqbug.com/11974
+[06:27:36] <DaveMethvin> oh yeah
+[06:27:51] <DaveMethvin> YOU DIDN'T SAVE THE WORLD, JUST A LITTLE PIECE OF IT!
+[06:31:25] <ajpiano> he might be vaguely right that you might wanna retouch that piece about being safe for any untrusted source
+[06:32:12] <ajpiano> making fake dom elements is probably *not* the right move though, yikes
+[06:54:38] <jq-jenkins> Project jQuery Core build #181: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/181/
+[06:54:38] <jq-jenkins> dave.methvin: Fix #10895. Reduce IE poll interval to save CPU time.
+[07:19:01] <scott_gonzalez> DaveMethvin: Have you looked at the Document.parse() discussions?
+[07:19:23] <scott_gonzalez> It'd be a but upsetting if we ended up not being able to use a native implementation because of API decisions that we made.
+[07:19:28] <scott_gonzalez> s/but/bit/
+[07:19:55] <scott_gonzalez> Or because we didn't communicate with the browser vendors while they were trying to solve our problems for us :-P
+[08:10:26] <ironfroggy> I'm trying to look into some IE trouble (big surprise there) and so far I'm narrowing it down to a failure of jQuery.buildFragment() when there are any tags involved.
+[08:11:03] <ironfroggy> specifically, inside clean when assigning to innerHTML of the detached DIV, i get an unhelpful "Unspecified error"
+[08:11:27] <ironfroggy> I've been digging all morning and I'm wondering if anyone is aware of any open bugs that might match this? i can't actually find what situation leads to this.
+[08:11:39] <ironfroggy> obviously it usually works (this is just an html() call afterall)
+[08:27:17] <timmywil> ironfroggy: I'm not sure. If you can reproduce it and create a test case at http://jsfiddle.net for us and submit a ticket at http://bugs.jquery.com, we will certainly look into it.
+[08:28:05] <ironfroggy> unfortunately i have not been able to reproduce it outside of our setup, and it doesn't even usually happen with the same code. it is hit and miss.
+[08:28:19] <ironfroggy> it took me two weeks to reproduce it just outside of production
+[08:28:41] <timmywil> that's one shifty bug
+[08:29:49] <ironfroggy> i've been hunting it for a month :-(
+[08:30:02] <ironfroggy> does not seem fragment related actually. document.createElement('div').innerHTML = 'x' causes the same error
+[08:30:32] <ironfroggy> also, when i hit this, IE is afterwards unsable to execute ANY js on the page, even if i reload, until i kill IE and restart it. its not a pretty bug.
+[08:30:36] <rwaldron> which browser?
+[08:30:47] <rwaldron> er version
+[08:30:59] <ironfroggy> it has manifested on IE7-9 and i'm focusing my efforts on 9 where i have the best debugging tools
+[08:31:25] <rwaldron> if you have _just_ a script tag in the document, with "document.createElement('div').innerHTML = 'x'" in it... does the same happen?
+[08:31:34] <ironfroggy> no
+[08:31:35] <rwaldron> ie. remove all the things
+[08:31:40] <rwaldron> ok
+[08:32:00] <rwaldron> if you add _just_ jQuery to this scenario... does the same happen?
+[08:32:16] <ironfroggy> there is alot going on here. its a ton of async loaded scripts through writeCapture.js and the amount of indirection and layers makes knowing exactly what lead to this just impossible. all i can do is analyze the broken pieces and try to figure out what happened.
+[08:32:28] <rwaldron> (ie now you have <script src="jquery.js"></script><script>document.createElement('div').innerHTML = 'x'</script>
+[08:32:48] <ironfroggy> no, and usually even exactly this same code works.
+[08:32:52] <rwaldron> ok, well... seems like something you should take to #jquery
+[08:32:59] <rwaldron> this is for jquery core dev
+[08:33:48] <ironfroggy> yes i hoped to find if there might be a jquery bug related to it. i can't find any evidence that i'm actually misusing jquery, so either it may be a bug there or in writecapture. i'm just tracking all leads.
+[08:33:50] <ironfroggy> thanks for the help.
+[08:34:09] <rwaldron> best of luck tracking it down
+[09:40:01] <mikesherov> One of my coworkers is trying to make a plugin on deferreds: http://jsfiddle.net/mpetrovich/yCJZF/
+[09:40:39] <mikesherov> DaveMethvin: is there anyway to extend the deferred object that gets passed around by .done() and .pipe()?
+[09:41:19] <gnarf> extend how?
+[09:41:22] <DaveMethvin> normally you'd return a new deferred mikesherov
+[09:41:36] <DaveMethvin> you mean like take the deferred you have and $.extend some new props?
+[09:41:53] <mikesherov> sure, right, if you look at the fiddle, he's implemented a deferred $.delay function
+[09:42:30] <mikesherov> which returns a function that does a setTimeout and then resolves the deferred when the timeout fires
+[09:43:16] <mikesherov> so it looks like this currently: $.Deferred().resolve().pipe(function () { console.log("Start!"); }).pipe($.delay(1000))
+[09:44:10] <mikesherov> to make it a bit more clear, currently, looks like this:
+[09:44:37] <mikesherov> $.Deferred().resolve().pipe($.delay(1000)).pipe(someAsyncFunc)
+[09:45:11] <mikesherov> the desired usage is: $.Deferred().resolve().pipeLater(someAsyncFunc, 1000);
+[09:45:19] <mikesherov> gnarf: any thoughts?
+[09:45:35] <mikesherov> or DaveMethvin:
+[09:45:39] <gnarf> so he wants to add a pipeLater?
+[09:45:43] <gnarf> to the promise?
+[09:45:43] <mikesherov> exactly
+[09:46:02] <DaveMethvin> well actually the way he has it he's using the Deferred directly
+[09:46:09] <DaveMethvin> prolly want a .promise() in there
+[09:46:15] <mikesherov> sure, that's fine
+[09:46:19] <mikesherov> it's just for the example
+[09:46:22] <DaveMethvin> right
+[09:46:34] <DaveMethvin> so someasyncfunc is any function, right?
+[09:46:55] <DaveMethvin> just tryna get my head around all the stuff
+[09:47:01] <mikesherov> sure
+[09:47:08] <mikesherov> some function that returns a promise
+[09:47:22] <gnarf> mikesherov: not possible
+[09:47:23] <mikesherov> what I'm trying to acheive is: the promise returned by resolve() would have to have a pipeLater property
+[09:47:23] <gnarf> but
+[09:47:37] <gnarf> it is possible to modify the generated promises
+[09:47:51] <gnarf> ala jQuery.Animate adds a bunch of stuff
+[09:48:28] <gnarf> there is no prototype for promise/deferred
+[09:48:37] <gnarf> but if you modify the promise, it stays modified
+[09:49:05] <mikesherov> sure, but theoretically, I could duckpunch .promise() to modify the deferred before returning it?
+[09:49:31] <DaveMethvin> my interpretation of .pipeLater() would be that it returns a new promise, like .pipe()
+[09:49:32] <mikesherov> and I could attach all my methods there, right?
+[09:49:37] <DaveMethvin> but that's the name semantics
+[09:49:52] <mikesherov> yeah, it acts just like a regular pipe
+[09:50:11] <mikesherov> except the function gets executed by a setTimeout
+[09:50:41] <DaveMethvin> then what are you adding to the promise?
+[09:51:07] <mikesherov> so this works:  $.Deferred().resolve().pipe($.delay(1000)).pipe(someAsyncFunc)
+[09:51:26] <mikesherov> I'd like it to instead look like this: the desired usage is: $.Deferred().resolve().pipeLater(someAsyncFunc, 1000);
+[09:51:46] <mikesherov> so that would mean I'd want the promise returned by resolve to have the pipeLater on it
+[09:52:03] <DaveMethvin> oh, okay
+[09:52:39] <mikesherov> which acts like regular pipe, in that it expects a function that returns a promise, except that the resolution happens in a setTimeout
+[09:53:00] <DaveMethvin> right, and thus you need to add pipeLater
+[09:53:04] <DaveMethvin> just a sec,
+[09:53:05] <mikesherov> exactly
+[09:53:23] <mikesherov> I basically want to know how to get a function onto the deferred that is returned by .promise()
+[10:01:09] <mikesherov> looks like I can pass an object to .promise() that will let me attribrately attach function
+[10:01:14] <mikesherov> functions*
+[10:01:42] <mikesherov> brb
+[10:16:30] <DaveMethvin> sorry
+[10:17:17] <DaveMethvin> mikesherov: yes, anything you pass to promise will be "promisified" so you could do it that way
+[10:25:19] <gnarf> mikesherov: ala Animation ;)
+[10:25:51] <gnarf> but you can't make the "base" promise/deferred have extra functions
+[10:26:11] <gnarf> I know how I'd code it but it requires a rewrite of jQuery.Deferred
+[10:26:43] <gnarf> but it would be theoretically possible to make the promise / deferred objects generated from a prototype chain
+[10:26:52] <gnarf> like
+[10:27:12] <gnarf> whats wrong with .pipe( later(1000) ).pipe( someAsyncFunc )
+[10:27:53] <gnarf> er rather .pipe( $.Delay(1000) )
+[10:32:31] <DaveMethvin> gnarf:  i think that's clearer ... i have done projects that augmented prototypes and it always seems to confuse less experienced developers
+[10:33:32] <gnarf> yeah
+[10:33:55] <gnarf> $.Deferred.fn.pipeLater = function( doneFn, failFn, time )
+[10:34:22] <gnarf> it could still stay "lexicaly bound"
+[10:34:40] <gnarf> but the prototype extensions would be silly hard
+[10:34:50] <gnarf> now that i think about it
+[10:35:20] <gnarf> I kinda like the fact that promise/deferred are very concrete in what they provide
+[10:41:23] <gnarf> DaveMethvin: did you see that demo i sent to @padolsey on twitter using the 11797 features?
+[10:41:40] <DaveMethvin> yeah, the one with flying boxes gnarf?
+[10:41:51] <gnarf> yeah - i updated it to be super clean
+[10:41:57] <gnarf> .tweet gnarf37
+[10:41:58] <socialhapy> ★ Tweet from gnarf37: @padolsey http://t.co/4QosFJpc - Updated with what is in git now. ★ http://bit.ly/MQhlDm
+[10:42:13] <gnarf> jQuery.fx.timer() rocks ;)
+[10:42:55] <DaveMethvin> makes my fan spin faster! :P
+[10:43:18] <gnarf> it gets your ventilation excited?
+[10:43:24] <DaveMethvin> not as bad as the first iteration tho
+[10:43:31] <DaveMethvin> makes me blow harder!
+[10:43:32] <snover> are you saying that it sucks or blows, DaveMethvin?
+[10:43:36] <gnarf> its cuz its "hawt"
+[10:43:37] <snover> oh ok
+[10:43:40] <DaveMethvin> haha inb4u
+[11:24:37] <scott_gonzalez> Just a thought, but someone might want to update the copyright year for Sizzle and jQuery ;-)
+[11:45:42] <jqcommit> [jquery] rwldrn pushed 1 new commit to master: http://git.io/JnNHDg
+[11:45:42] <jqcommit> [jquery/master] Fixes broken grunt watch task. - Rick Waldron
+[11:47:07] <jqcommit> [jquery] rwldrn pushed 1 new commit to master: http://git.io/Ced5Lg
+[11:47:07] <jqcommit> [jquery/master] Fixes broken grunt watch task. Part 2 - Rick Waldron
+[11:50:16] <jqcommit> [jquery] rwldrn pushed 1 new commit to master: http://git.io/sJ7odw
+[11:50:16] <jqcommit> [jquery/master] Clear elements to avoid leaking memory. Close gh-837. Fixes #11809 - Richard Gibson
+[12:02:16] <jq-jenkins> Project jQuery Core build #182: STILL FAILING in 16 min: http://swarm.jquery.org:8080/job/jQuery%20Core/182/
+[12:02:17] <jq-jenkins> waldron.rick: Fixes broken grunt watch task.
+[12:32:44] <jq-jenkins> Project jQuery Core build #183: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/183/
+[12:32:45] <jq-jenkins> * waldron.rick: Fixes broken grunt watch task. Part 2
+[12:32:45] <jq-jenkins> * waldron.rick: Clear elements to avoid leaking memory. Close gh-837. Fixes #11809
+[13:09:18] <Krinkle> https://github.com/jquery/qunit/issues/267
+[13:09:18] <socialhapy> ★ Issue #267 on qunit (Krinkle; 40m, 35s ago): Rename "assert.raises" to "assert.throws"
+[13:09:26] <Krinkle> Controversial? Maybe.
+[13:39:28] <sizcommit> [sizzle] timmywil pushed 1 new commit to master: http://git.io/lev32g
+[13:39:28] <sizcommit> [sizzle/master] Allow a document or document fragment to be passed to all implementations of Sizzle.contains. Fixes jQuery bug #11539. Closes gh-100. - timmywil
+[13:40:53] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/fXx1KA
+[13:40:53] <jqcommit> [jquery/master] Allow document to be passed to Sizzle.contains. Fixes #11539. - timmywil
+[13:42:10] <timmywil> gibson042: ^^
+[13:42:21] <gibson042> thanks
+[13:42:33] <timmywil> gibson042: thank you
+[13:53:02] <scott_gonzalez> timmywil: Did you see my comment about the copyright year?
+[13:53:21] <timmywil> ah, yea, I can take care of that
+[13:53:33] <timmywil> now that we're in june
+[13:53:36] <scott_gonzalez> Thanks. Only 6 months behind :-P
+[13:53:48] <scott_gonzalez> At least we'll get it right for the 1.8 final release :-)
+[13:55:32] <sizcommit> [sizzle] timmywil pushed 1 new commit to master: http://git.io/ZAQOrQ
+[13:55:32] <sizcommit> [sizzle/master] Update copyright year - timmywil
+[13:56:05] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/IIPh_w
+[13:56:05] <jqcommit> [jquery/master] Update copyright years for jQuery and Sizzle - timmywil
+[13:56:25] <timmywil> scott_gonzalez: thanks for pointing it out
+[13:56:34] <scott_gonzalez> no problem
+[14:10:05] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/x-s-yA
+[14:10:05] <jqcommit> [jquery/master] Fix #11969. Never a null moment when checking siblings. - Dave Methvin
+[14:25:01] <jq-jenkins> Project jQuery Core build #184: STILL FAILING in 24 min: http://swarm.jquery.org:8080/job/jQuery%20Core/184/
+[14:25:01] <jq-jenkins> * timmywillisn: Allow document to be passed to Sizzle.contains. Fixes #11539.
+[14:25:02] <jq-jenkins> * timmywillisn: Update copyright years for jQuery and Sizzle
+[14:33:20] <jqcommit> [testswarm] Krinkle created window-opener (+2 new commits): http://git.io/gvPiJA
+[14:33:20] <jqcommit> [testswarm/window-opener] result.js: fix comma - Timo Tijhof
+[14:33:20] <jqcommit> [testswarm/window-opener] RunPage: Create new windows instead iframes for the test suite. - Timo Tijhof
+[14:36:48] <Krinkle> scottgonzalez: https://github.com/jquery/testswarm/issues/195#issuecomment-6588529
+[14:36:48] <socialhapy> ★ Issue #195 on testswarm (Krinkle; 1w, 3d ago): RunPage should not use iframes for testing
+[14:58:00] <jqcommit> [jquery] rwldrn pushed 1 new commit to master: http://git.io/Q5QdQQ
+[14:58:00] <jqcommit> [jquery/master] As it turns out, we won't need the 'main' entry in package.json - Rick Waldron
+[14:59:12] <Krinkle> rwaldron: [citation needed] :P
+[14:59:35] <Krinkle> how else does require(..) in node knows where the entry point is?
+[14:59:45] <rwaldron> That's not a valid entry point
+[15:00:04] <rwaldron> because that file doesn't exist until you build it
+[15:00:38] <Krinkle> Sure, so one builds it
+[15:00:53] <rwaldron> That didnt exist until last week
+[15:01:06] <rwaldron> Seems like we were doing just fine with out it
+[15:01:22] <rwaldron> I spoke to jacob and he discovered that it did not, in fact, meet his needs
+[15:01:37] <rwaldron> (he was the author of the pull request)
+[15:02:26] <Krinkle> 'until last week' - the 'main' property you mean?
+[15:03:15] <Krinkle> rwaldron: well maybe it was not working until last week :)
+[15:03:22] <rwaldron> yup. that's what I meant
+[15:03:26] <rwaldron> i typed the wrong thing
+[15:03:34] <Krinkle> rwaldron: how often does someone here uses npm to install jquery and require() it from a node package?
+[15:04:00] <rwaldron> is someone actually maintaining jQuery on npm?
+[15:04:18] <rwaldron> sucks to be them.
+[15:04:25] <rwaldron> })( window ); <--- seems like a deal breaker
+[15:05:53] <Krinkle> could be changed to 'this', right?
+[15:06:22] <Krinkle> if ( typeof module !== 'undefined' && module.exports ) { module.exports = jQuery } else { global.jQuery = jQuery }
+[15:06:27] <Krinkle> that's the pattern it should use
+[15:06:39] <Krinkle> pretty much all both-npm-and-browser modules use that
+[15:06:52] <Krinkle> (global, ... ) { ... }(this, .. ))
+[15:08:05] <rwaldron> Pretty much not my problem
+[15:08:08] <rwaldron> sorry
+[15:08:12] <jq-jenkins> Project jQuery Core build #185: STILL FAILING in 24 min: http://swarm.jquery.org:8080/job/jQuery%20Core/185/
+[15:08:13] <jq-jenkins> dave.methvin: Fix #11969. Never a null moment when checking siblings.
+[15:08:22] <Krinkle> rwaldron: so.. where did the postinstall script go though?
+[15:08:32] <Krinkle> https://github.com/jquery/jquery/pull/833/files
+[15:08:33] <socialhapy> ★ Pull request on jquery by fat (1w, 1h ago): add a postinstall hook for building dist files with grunt + provide `main`
+[15:08:41] <rwaldron> but that's too much boilerplate to include for what is really an edge case
+[15:08:56] <Krinkle> rwaldron: I disagree, we already have both of those.
+[15:09:15] <rwaldron> there is junk in the exports.js file
+[15:09:30] <Krinkle> window.jQuery = window.$ = jQuery;
+[15:09:32] <rwaldron> I'm actually not interested in having this argument.
+[15:09:33] <Krinkle> 	define( "jquery", [], function () { return jQuery; } );
+[15:09:43] <Krinkle> fair enough :)
+[15:47:26] <jq-jenkins> Project jQuery Core build #186: STILL FAILING in 20 min: http://swarm.jquery.org:8080/job/jQuery%20Core/186/
+[15:47:26] <jq-jenkins> waldron.rick: As it turns out, we won't need the 'main' entry in package.json
+[16:15:41] <socialhapy> ★ Tweet from jquerymobile: Putting the final touches on jQuery Mobile 1.1.1 RC1 for the San Francisco conference. See you there. ★ http://bit.ly/OoYmDH
+[17:06:22] <timmywil> matjas: ping
+[17:07:22] <timmywil> actually nvm
+[17:07:25] <timmywil> sry
+[19:56:03] <gibson042> .
+[21:41:21] <sizcommit> [sizzle] timmywil pushed 1 new commit to master: http://git.io/ufOlgw
+[21:41:21] <sizcommit> [sizzle/master] Some optimizations for both size and performance. Remove a function call from the combinator stack. Pass lint in utilities.js. - timmywil
+[21:41:58] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/nCLU7g
+[21:41:58] <jqcommit> [jquery/master] Update Sizzle: reduced size. Add Sizzle's utilities.js to unit tests - timmywil
+[21:42:59] <timmywil> -224
+[22:04:49] <gnarf> ps
+[22:04:53] <gnarf> jquery.com is on new server now
+[22:06:08] <jq-jenkins> Project jQuery Core build #187: STILL FAILING in 24 min: http://swarm.jquery.org:8080/job/jQuery%20Core/187/
+[22:06:09] <jq-jenkins> timmywillisn: Update Sizzle: reduced size. Add Sizzle's utilities.js to unit tests
+[22:13:06] <gnarf> if there are any serious problems with jquery.com overnight - PLEASE call me - my # is on the spreadsheet all the board peeps should have access to

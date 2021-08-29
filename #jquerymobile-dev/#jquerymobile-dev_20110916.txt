@@ -1,0 +1,150 @@
+[08:07:43] <toddparker> Gseguin - was going to check out that branch but my MAMP is busted after upgrading to Lion
+[08:07:47] <toddparker> grrr
+[09:20:47] <_nickel> toddparker: toddmparker: kinblas: gseguin: so the solution we've arrived at for the pagecreate firing too early is to introduce the 'pageinit' event
+[09:21:04] <_nickel> the documentation change is sadly a find and replace for pagecreate -> pageinit
+[09:21:28] <_nickel> toddparker: we'll have some splanin to do in the blog post I thinkn
+[09:21:30] <_nickel> *think
+[09:21:35] <_nickel> maybe next weeks?
+[09:21:42] <_nickel> toddmparker: ^
+[09:29:13] <kinblas> _nickel: yes, we need to document what the events are and when they are fired. Some folks have been doing their manipulation of content on pageshow which is not the ideal place ... they should probably do it in pageinit *BEFORE* things become visible
+[09:29:45] <_nickel> kinblas: the docs say that
+[09:29:50] <_nickel> in a big bold block
+[09:30:00] <_nickel> "use pageInit for manipulation please"
+[09:30:46] <_nickel> kinblas: http://jquerymobile.com/demos/1.0b3/docs/api/events.html
+[09:31:03] <kinblas> _nickel: great!
+[09:34:29] <_nickel> kinblas: the only thing I'm adding is an alert to users of pageCreate that they most likely will want to switch
+[09:35:23] <kinblas> _nickel: so the only event I think is missing is one prior to calling _create()
+[09:35:51] <kinblas> a hook there would allow folks to be notified *BEFORE* markup is transformed
+[09:36:15] <kinblas> and allow them to extract info or perform some minor modifications to the thing about to be transformed.
+[09:37:14] <_nickel> pagecreate
+[09:37:21] <_nickel> if bound in mobile init
+[09:46:12] <toddparker> glad you're patching up the docs there kinblas
+[09:46:24] <toddparker> yeah, i can blog it
+[09:46:33] <toddparker> is there a docs explanation i can ref
+[09:46:38] <_nickel> toddparker: almost finished
+[09:46:59] <_nickel> I'm including another "warning section" about the migration to pageInit
+[09:48:24] <kinblas> _nickel: the problem with pagecreate is that it's fired after the widget is constructed ... if you look at some of the widgets they are performing markup transformations and behavior attachment before pagecreate is fired.
+[09:49:05] <_nickel> kinblas: ah you mean in reference to the "before you monkey with the dom event"
+[09:49:08] <_nickel> hmm
+[09:49:14] <_nickel> I guess we'll have to sort that out
+[09:49:28] <_nickel> should I add it and a reference to your events comment to the features wiki page?
+[09:51:50] <_nickel> kinblas: which widgets?
+[09:51:52] <gseguin> toddparker: I pushed the collapsible changes to the branch: https://github.com/jquery/jquery-mobile/tree/collapsible-redesign
+[09:52:28] <gseguin> I'm Jiving the rest of the day, feel free to merge it if you like it
+[09:56:30] <kinblas> _nickel: example would be jquery.mobile.forms.button.js
+[09:56:42] <kinblas> it does the markup injection and behavior attachment on _create()
+[10:08:15] <_nickel> kinblas: hrm
+[10:09:00] <_nickel> and pagebeforecreate doesn't satisfy this req?
+[10:09:54] <kinblas> hmmm I guess we need to reconsile naming
+[10:10:31] <kinblas> is there a pagebeforecreate?
+[10:10:36] <_nickel> kinblas: yes
+[10:10:52] <kinblas> I know there's a pagebeforechange
+[10:10:55] * kinblas looks
+[10:11:27] <kinblas> _nickel: I'm not seeing pagebeforecreate
+[10:11:44] <kinblas> there is a pagebeforechange and a pagechange
+[10:11:52] <_nickel> http://33.33.33.10/docs/api/events.html
+[10:11:54] <kinblas> but those are in reference to making a page the current page
+[10:11:57] <_nickel> search "pagebeforecreate"
+[10:12:06] <kinblas> _nickel: I searched the source
+[10:12:44] <_nickel> kinblas: https://github.com/jquery/jquery-mobile/blob/master/js/jquery.mobile.page.js#L18
+[10:13:32] <kinblas> _nickel: was that just added?
+[10:13:39] <kinblas> I swear I did a grep
+[10:13:40] <_nickel> kinblas: no its been there for a while
+[10:13:40] <kinblas> :-)
+[10:13:48] <_nickel> its the _trigger
+[10:13:52] <_nickel> it alters the event fired
+[10:13:58] <_nickel> making grep/ack annoying :(
+[10:14:07] <kinblas> perhaps that should be moved to mobile.widget
+[10:14:39] <_nickel> kinblas: now that we're monkeypatchin _createWidget anyway
+[10:14:43] <kinblas> yeah
+[10:14:43] <_nickel> it would be trivial to do so
+[10:14:50] <_nickel> and we've get all those events for "free"
+[10:15:06] <_nickel> kinblas: that would need tests though
+[10:15:16] * _nickel is wary of adding things
+[10:15:48] <kinblas> _nickel: ok, I think we're fine for page
+[10:15:53] <kinblas> this round
+[10:15:55] <kinblas> :-)
+[10:16:00] <kinblas> that is if you are hesitant
+[10:16:09] * _nickel strips off his boxing gloves
+[10:16:11] <_nickel> kinblas: I am
+[10:16:17] <kinblas> as a generic widget solution though it makes sense
+[10:16:23] <_nickel> yessir
+[10:16:23] <_nickel> it does
+[10:16:28] <kinblas> but I agree it does add some overhead
+[10:16:33] <kinblas> to *all* widgets
+[10:16:44] <_nickel> indeed
+[10:16:53] <_nickel> and we have perf problems as is
+[10:17:13] <kinblas> which btw, I've been planning on doing some perf comparisons between beta 1 and HEAD
+[10:17:25] <_nickel> kinblas: that would be good
+[10:17:30] <kinblas> to analyze the impact of the decoupling
+[10:17:32] <_nickel> I'm sure there are a ton of low hanging fruit
+[10:17:37] <kinblas> yeah
+[10:17:53] <_nickel> thats something I've not done extensively
+[10:17:57] <kinblas> _nickel: my one concern was the fact that now all widgets do a traversal through each page
+[10:18:01] <_nickel> and I'd like to learn/participate
+[10:18:16] <kinblas> _nickel: ok, I use my homegrown profilejs
+[10:18:55] <kinblas> https://github.com/jblas/profiler
+[10:20:04] <jqm-jenkins-bot> Project jqm-master build #50: STILL FAILING in 13 min: http://10.59.19.240:8080/job/jqm-master/50/
+[10:20:05] <jqm-jenkins-bot> * ghislain: Changed behavior of .jqmData() only when called with no argument. It now returns undefined as per discussion on #jquerymobile-dev
+[10:20:05] <jqm-jenkins-bot> * ghislain: Tests following .jqmData() behavior change ( commit a0ca22ae3d599dc96d7b283ac384825b48f20831 )
+[10:20:06] <jqm-jenkins-bot> * ghislain: Fix for issue #2455
+[10:20:06] <jqm-jenkins-bot> * ghislain: Fix for issue #2455
+[10:20:07] <jqm-jenkins-bot> * ghislain: Updated tests following removal of .jqmHasData() ( commit 15667eee1b59feed22f7a73ea9d4517b144066eb )
+[10:25:02] <_nickel> I'm going to work on those test failures today
+[10:25:05] <_nickel> driving me nuts
+[10:25:31] <_nickel> kinblas: nice
+[10:25:55] <_nickel> kinblas: have you used the webinspector profiler?
+[10:26:08] * _nickel assumes so
+[10:31:53] <_nickel> toddparker: gseguin: http://i.imgur.com/kp8p4.png
+[10:32:05] <_nickel> is that the expected behaviour in the doc styling?
+[10:32:10] <_nickel> looks off to me :(
+[10:32:18] <_nickel> toddmparker: ^
+[10:32:40] <_nickel> chrome 12
+[10:33:14] <_nickel> I need to snack on something
+[10:33:19] <_nickel> brb
+[10:46:43] <gseguin> _nickel: is there an issue logged for that? I'll try to take a look over the weekend
+[11:18:05] <jqm-jenkins-bot> Project jqm-master build #51: STILL FAILING in 11 min: http://10.59.19.240:8080/job/jqm-master/51/
+[11:18:06] <jqm-jenkins-bot> * john.m.bender: alter pageinit test to validate that child widgets are in fact enhanced when the event is fired. covers the previous tests case
+[11:18:06] <jqm-jenkins-bot> * john.m.bender: update docs to reflect pagecreate -> pageinit migration with examples of when to use either
+[11:21:00] <toddparker> _nickel:  that styling isn't right
+[11:21:47] <toddparker> i don't see that on chrome 14 on mac
+[11:22:13] <toddparker> but your neck beard os may be behind :)
+[11:23:29] <toddparker> gesguin - hate to be a pain but do you have that branch up on a server
+[11:23:35] <toddparker> my apache is still being crappy
+[11:26:18] <_nickel> toddparker: rawrd neck beard lol
+[11:27:26] <_nickel> gseguin: I'll log one
+[11:27:32] <_nickel> I'm going to take a look at the tests
+[11:42:02] <gseguin> toddparker: hold on one sec
+[11:43:22] <gseguin> toddparker: http://ghislain.dyndns.biz/jqm/wip/tests/test_1899.html
+[14:00:55] <kinblas> __nickel: regarding the webinspector profiler ... I've tried that and the firebug one ... but on desktop sometimes the numbers just don't look as bad as they do on the actual device
+[14:01:29] <kinblas> so I generate the profile numbers on the device ... for example, that's how I figured out why we were scrolling sooooo slow on our listview 200 item sample
+[14:01:35] <kinblas> things didn't really show up on desktop
+[14:26:11] <_nickel> kinblas: makes perfect sense
+[14:26:21] <_nickel> kinblas: that scrollTop bug is a bug I believe
+[14:26:26] <_nickel> I'm looking at it
+[15:34:48] <_nickel> kinblas_: who should I talk to about the scrolling
+[15:34:53] <_nickel> you and scott I assume
+[15:35:12] <_nickel> kinblas_: I'm able to reproduce the test failure almost every time inside my vm
+[15:39:20] <kinblas_> _nickel: when running the navigation/ directly?
+[15:43:35] <_nickel> kinblas_: yessir
+[15:43:52] <_nickel> kinblas_: one thing that sticks out is that it binds to hashchange
+[15:43:59] <_nickel> and remember we're flag twiddling
+[15:44:03] <_nickel> on hashchange events
+[15:44:09] <_nickel> with pushstate
+[15:44:21] <_nickel> wich means that might fire twice
+[15:44:55] <_nickel> kinblas_: I don't know if thats an issue here though
+[15:45:44] <_nickel> is there some reason why we bind to both?
+[15:47:12] <kinblas_> _nickel: are you talking about the scroll test in the navigaiton unit test?
+[15:47:32] <kinblas_> I don't think we're binding to the hashchange in that test?
+[15:51:56] <_nickel> kinblas_: nope we bind to hashchange in navigation
+[15:51:59] <_nickel> and changepage
+[15:52:13] <_nickel> to set the lastscroll for the page element in our history stack
+[15:52:24] <_nickel> the comment says "which ever comes first"
+[15:53:21] <_nickel> kinblas_: https://github.com/jquery/jquery-mobile/blob/master/js/jquery.mobile.navigation.js#L432
+[15:53:28] <kinblas_> _nickel: oh heh you are looking at scott's fix
+[16:25:44] <_nickel> kinblas_: this one is ugly I'll have to keep working it over the weekend
+[16:26:01] <kinblas_> _nickel: I'm not sure why beforechangepage isnt sufficient?
+[16:26:22] <kinblas_> That's where we used to do it before anyways ... in changePage
+[16:30:29] <_nickel> yah
+[16:30:33] <_nickel> thats why i was asking
+[16:30:37] <_nickel> i'll send scott an email

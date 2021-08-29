@@ -1,0 +1,272 @@
+[09:01:54] <timmywil> DaveMethvin, gibson042, markelog, m_gol, arthurvr meeting time!
+[09:02:01] <markelog> hey-hey
+[09:02:02] <DaveMethvin> here
+[09:02:28] <gibson042> ahoy
+[09:02:34] <timmywil> how's it goin
+[09:03:12] <timmywil> oh! can't start without my coffee. 2 secs
+[09:04:28] <timmywil> ok
+[09:04:30] <DaveMethvin> i'm here but doing some other stuff, so ping me if you need me
+[09:04:42] <timmywil> the big thing right now is scheduling this patch release
+[09:05:13] <timmywil> I'm thinking next Monday
+[09:05:38] <timmywil> I don't think we need anything else in there
+[09:05:57] <timmywil> I just need to get the blog post finished and ensure everything is passing.
+[09:06:30] <arthurvr> present
+[09:06:36] <arthurvr> hey everybody
+[09:07:01] <timmywil> there are some errors in Opera for 2.1-stable, but I'm thinking of just ignoring those
+[09:07:29] <timmywil> one of those "ajax requests are still active" errors
+[09:07:57] <timmywil> Hey arthurvr!
+[09:08:31] <timmywil> So, unless there are objections, I'll shoot for 1.11.3 and 2.1.4 release on the 27th
+[09:09:01] <arthurvr> sounds good
+[09:09:32] <m_gol> present
+[09:09:38] <timmywil> There are several PRs we can go through today
+[09:10:08] <timmywil> First up is https://github.com/jquery/jquery/pull/2218 (Default easing)
+[09:10:11] <m_gol> timmywil: I tried resetting it a couple of times but it errors all the time
+[09:10:53] <timmywil> m_gol: ok, I'll check it out, but I may just release without fixing that
+[09:11:17] <timmywil> I don't think it's related to the jQuery.each change
+[09:11:46] <timmywil> For the PR, I agree with gibson042. I'd rather see it set in Tween.js
+[09:11:49] <m_gol> yeah, previous build were succeeding
+[09:15:00] <gibson042> any other opinions on https://github.com/jquery/jquery/pull/2218 right now?
+[09:15:06] <timmywil> We don't usually write over user options, even if those options are invalid.
+[09:15:29] <gibson042> agreed, and we should probably _stop_ doing it with duration
+[09:15:55] <timmywil> yea
+[09:16:50] <timmywil> ok, it would be nice to get gnarf to take a look, but let's go ahead and respond to OP to keep the changes in Tween.js
+[09:17:23] <timmywil> I imagine a more controversial subject will be https://github.com/jquery/jquery/pull/2213
+[09:17:28] <timmywil> .children and .contents sorting
+[09:17:51] <timmywil> This is one of those times where we might want to give up accuracy for performance
+[09:18:22] <markelog> agreed!
+[09:18:55] <DaveMethvin> yeah it's a shame we can't have both but that seems like a very edge case
+[09:18:56] <gibson042> I'm loathe to do that
+[09:19:19] <DaveMethvin> the scary thing is that optimization was put in because some people found something too slow
+[09:19:23] <DaveMethvin> and we're taking it out
+[09:19:34] <timmywil> gibson042: you said the test to determine whether sorting is required would almost be as expensive as sorting itself. Is that true?
+[09:19:35] <gibson042> do you have the history on that?
+[09:19:43] <DaveMethvin> just the ticket
+[09:19:46] <DaveMethvin> and scott_gonzalez
+[09:19:52] <gibson042> $largeCollection.children() just seems *so* odd
+[09:20:21] <DaveMethvin> so to see if each element was a parent/child of another you're calling compareDocumentPosition
+[09:20:27] <DaveMethvin> which is what the sort does ;/
+[09:20:47] <DaveMethvin> i think $large.next() seems odd :)
+[09:20:50] <gibson042> timmywil: I'd like to explore some, but it's at least similar
+[09:21:02] <arschmitz> gibson042: not really that odd consider something like $( ".ui-list" ).children();
+[09:21:05] <gibson042> $large.next() can come up in tables/lists/etc., at least
+[09:21:06] <timmywil> DaveMethvin: heh, agreed
+[09:21:11] <arschmitz> to get all the list items
+[09:21:28] <DaveMethvin> all i can think of is that we could do the parent/child check and sort in place
+[09:21:30] <markelog> gibson042: that would be really weird if that list would be large
+[09:21:34] <DaveMethvin> but that is gonna be a lot of code
+[09:21:52] <DaveMethvin> basically duplicating unique)_
+[09:22:33] <gibson042> all we really need is to set a "sort results" flag
+[09:23:01] <gibson042> in the case of children and contents, it should be true when the set intersects with its descendants
+[09:23:27] <DaveMethvin> how will you know that :)
+[09:23:31] <gibson042> exactly
+[09:23:50] <DaveMethvin> it rather involves being on the other side of this airtight hatchway
+[09:24:14] <gibson042> the naive approach is something like `this.parents().is(this)`
+[09:26:15] <timmywil> One point on the side of not doing this change is that the OP discovered the issue by looking at source and then contriving examples to make it fail.
+[09:26:45] <timmywil> there doesn't seem to be a lot of real world troubles
+[09:27:10] <timmywil> arschmitz: have you run into this before?
+[09:27:14] <gibson042> I suppose that's true
+[09:27:56] <DaveMethvin> it seems like asking for the common children of a group that's already related doesn't have a lot of real-world applications
+[09:28:09] <DaveMethvin> in the places where it might, perhaps the dups don't cause any issues
+[09:29:03] <timmywil> yea, I'd like to see what someone would do with the collection afterwards. For instance, if it's .addClass(), an extra class setting is a lot cheaper than the sort.
+[09:29:22] <gibson042> right
+[09:29:35] <DaveMethvin> yeah you'd need an operation that wasn't idempotent
+[09:29:40] <DaveMethvin> i love using that word
+[09:29:46] <timmywil> mmmm
+[09:29:59] <gibson042> in light of the above, I think I'd like to close both the issue and the PR until a real-world problem is presented
+[09:30:09] <timmywil> I'd agree with that
+[09:30:18] <gibson042> but *not* commit to unsorted output
+[09:30:29] <gibson042> basically, just pretend that we never got the report
+[09:30:36] <DaveMethvin> WHAT REPORT?
+[09:30:47] <timmywil> fair enough. we could back ourselves into a corner if we document the behavior.
+[09:30:47] <m_gol> but if we say the set is always sorted...
+[09:31:01] <m_gol> we shouldn't lie in the docs
+[09:31:18] <markelog> we should never lie!
+[09:31:18] <markelog> )
+[09:31:26] <gibson042> I don't think we are lying
+[09:31:40] <DaveMethvin> it's edge cases that nobody seems to be encountering
+[09:31:52] <DaveMethvin> i don't think we want to document the behavior
+[09:32:08] <m_gol> ah, if we're not lying then that's ok
+[09:32:12] <markelog> we need to make we didn't already document that
+[09:32:14] <gibson042> there's no mention of sorting on http://api.jquery.com/children/
+[09:32:15] <m_gol> I had an impression we documented it somewhere
+[09:32:18] <markelog> i mean sorting stuff
+[09:32:40] <gibson042> http://api.jquery.com/add/ is explicit about it
+[09:32:41] <markelog> if we did, we would need to add a note about it
+[09:33:21] <DaveMethvin> yeah theres a blanket "dom order everywhere" assumption unless explicitly stated like in .parents()
+[09:33:27] <gibson042> and even prev/next will only preserve input sortedness
+[09:33:45] <markelog> i wounder, if we willing to give this up, should we try to do this for find()?
+[09:34:04] <markelog> it would be consistent and should increase perf by a lot
+[09:34:08] <DaveMethvin> i don't think we should change behavior there
+[09:34:21] <markelog> since contents/children has basically the same functionality
+[09:34:28] <DaveMethvin> that's another one that was reported from the real world as i recal
+[09:34:43] <timmywil> yea, .find gets so much more usage
+[09:34:56] <markelog> but does anyone need sorting stuff?
+[09:35:08] <gibson042> actually, I'd love to drop it in find
+[09:35:12] <DaveMethvin> well whether they need it or not, we're stuck doing it
+[09:35:22] <timmywil> I see that breaking a lot
+[09:35:30] <gibson042> as markelog says, it's basically the same as children
+[09:35:38] <DaveMethvin> i could have sworn i broke that in a release and had to fix it
+[09:35:51] <DaveMethvin> which was strange, we didn't have a unit test to ensure it
+[09:36:01] <gibson042> it also only matters for self-containment
+[09:36:06] <DaveMethvin> right
+[09:36:17] <DaveMethvin> which again seems like a strange thing
+[09:36:23] <arschmitz> sorry didnt see the ping and was reading something
+[09:36:27] <gibson042> and any collection can be sorted manually with .add
+[09:36:38] <arschmitz> i have never run into issues
+[09:36:41] <markelog> yeah
+[09:37:18] <markelog> we could check out if did this before
+[09:37:24] <DaveMethvin> there are so many operations where sorting and dups wouldn't really hurt anything, it's just that we've always documented that we sort and de-dupe all cases
+[09:37:53] <timmywil> thanks arschmitz
+[09:38:05] <gibson042> ah shoot, the deduping
+[09:38:10] <markelog> right
+[09:38:16] <gibson042> it's that they're intertwined
+[09:38:18] <timmywil> I'd be willing to explore, but I still think .find needs sorting
+[09:38:18] <markelog> forgot about it too
+[09:38:31] <arschmitz> iv more often had the case where i wanted to avoid the jQuery reordering and de duping for my own reasons
+[09:38:40] <DaveMethvin> hah yeah
+[09:38:44] <timmywil> lol
+[09:38:54] <timmywil> be quiet arschmitz
+[09:38:59] <markelog> so it seems we still need to explore it?
+[09:39:34] <markelog> maybe we could drop sorting but leave the de-dup
+[09:39:40] <markelog> that kind of thing
+[09:40:18] <timmywil> well, at the very least, we would need to separate dedupe, but that sounds like a major change.
+[09:40:21] <gibson042> I'd like to see a jsperf showing the size at which they diverge
+[09:40:51] <arschmitz> We have some cases where we avoid jquery methods in UI to avoid the reorder over head
+[09:40:57] <gibson042> because I suspect that sorting is very low cost over de-duping for any reasonable size
+[09:40:57] <markelog> jsperf, bytes, complexity, edge-cases, i'm talking about everything
+[09:41:31] <timmywil> they've always been intertwined and we'd be changing stuff blind to how it affects our users.
+[09:41:31] <markelog> might be
+[09:41:54] <gibson042> I guess what I'm looking for is an excuse not to add sort-free deduplication
+[09:42:23] <arschmitz> gibson042: that is exactly what i needed in ui
+[09:42:25] <timmywil> I guess there's no excuse not to explore
+[09:42:33] <markelog> timmywil: :-)
+[09:42:39] <markelog> okay, will create a ticket
+[09:42:43] <timmywil> but I'm very reticent
+[09:43:06] <markelog> we don't have a lot to go on right now, so i purpose to move on
+[09:43:20] <gibson042> arschmitz: I don't think you needed it, you just wanted something faster than jQuery.unique and were willing to sacrifice the sort... but such a thing may not exist
+[09:43:52] <arschmitz> gibson042: perhaps needed is strong
+[09:44:05] <arschmitz> but here is what we did for it https://github.com/jquery/jquery-ui/blob/master/ui/widget.js#L446
+[09:44:10] <markelog> timmywil: if that happens, it would be a major change, no one like those
+[09:44:33] <arschmitz> this was to avoid the add re order
+[09:44:38] <timmywil> Ok, let me skip to https://github.com/jquery/jquery/pull/2206 detecting no-content replaceWith
+[09:45:04] <timmywil> Related is https://github.com/jquery/jquery/pull/2203 (HTML interception)
+[09:45:08] <timmywil> blocked by the former
+[09:46:16] <timmywil> The main question is, is there a better solution. I don't think so.
+[09:46:30] <timmywil> But making buildFragment private might be good.
+[09:46:34] <DaveMethvin> yeah it seemed pretty tough to get around with some simpler process
+[09:46:42] <DaveMethvin> i agree that buildFragment should be private
+[09:46:54] <gibson042> same here
+[09:47:01] <m_gol> how many more such private exposed APIs do we have? ;)
+[09:47:03] <gibson042> do it in this pull, though, or later?
+[09:47:08] <m_gol> we should hide them all
+[09:47:11] <m_gol> like jQuery.swap
+[09:47:11] <markelog> okay, will create a ticket about it
+[09:47:18] <markelog> gibson042: i'd say yes
+[09:47:24] <gibson042> to which?
+[09:47:35] <markelog> gibson042: to do it later
+[09:47:40] <gibson042> awesome
+[09:47:43] <gibson042> we agree
+[09:47:43] <markelog> )
+[09:48:05] <markelog> m_gol: i'd say we need to go through all exposed methods check them out
+[09:48:11] <timmywil> yea, I don't mind which PR it's in that much, as long as the commits and issues are atomic.
+[09:48:20] <DaveMethvin> on the html interception i am fine with telling the puncher to call our original method, or if it's only for their own code they can do their html longhand and not need to call it
+[09:48:36] <markelog> atomicity for all!
+[09:48:46] <timmywil> markelog: ok
+[09:49:23] <m_gol> timmywil: I've checked these Opera issues on a local Opera 12.16 and it's failing for me as well
+[09:49:39] <gibson042> so it sounds like both manipulation PRs are clear to land
+[09:49:51] <timmywil> m_gol: ok, and you already checked 2.1.3?
+[09:49:55] <m_gol> so it's not just TestSwarm... but it also fails for me at commit a4a18e8 which passed on TestSwarm so not sure what to think about it
+[09:50:15] <markelog> not sure about #2203
+[09:50:22] <timmywil> it seems like some sort of race condition in our tests, which is why I'm not overly concerned.
+[09:50:26] <m_gol> timmywil: the tip of 2.1-stable. :) Or what are you asking about?
+[09:50:36] <markelog> just leaved a comment there
+[09:50:53] <timmywil> m_gol: I mean did it also fail when we released 2.1.3
+[09:50:56] <gibson042> markelog: because it leaves in the createHTMLDocument code?
+[09:51:05] <timmywil> it sounds very familiar
+[09:51:06] <markelog> right
+[09:51:18] <markelog> should talk about it somewhere else
+[09:51:23] <markelog> good to go )
+[09:51:49] <timmywil> ok, that's all the important stuff I think
+[09:51:58] <markelog> oh, but https://github.com/jquery/jquery/pull/2203#discussion_r28704023
+[09:52:26] <markelog> can we do the replace and still provide a interception point?
+[09:52:30] <m_gol> timmywil: all tests passed on the 2.1.3 commit but it fails for me locally as well now... so probably nothing important
+[09:52:47] <gibson042> I thought about that, but then you run into stacking and sequencing problems
+[09:52:50] <timmywil> ok, thanks m_gol
+[09:53:01] <markelog> gibson042: mm, meaning?
+[09:53:21] <gibson042> does user code run before or after xhtml replacement?
+[09:53:33] <gibson042> and can users provide multiple replacers?
+[09:53:33] <markelog> i'd say after
+[09:53:40] <gibson042> only sometimes
+[09:53:46] <markelog> i'd say it would be good
+[09:53:48] <gibson042> I'd rather just let them worry about it
+[09:53:52] <DaveMethvin> i think we can assume that someone who wants the interception point is an advanced user, we can have the docs make scary sounds about using it :)
+[09:53:57] <gibson042> exactly
+[09:54:12] <markelog> that would mean user would need to duplicate our replacement
+[09:54:13] <gibson042> because some cases might actually want to address flaws in our XHTML replacement
+[09:54:14] <markelog> for most cases
+[09:54:34] <DaveMethvin> they can either dup it or call it, whichever they feel is more appropriate
+[09:55:21] <markelog> like old = $.htmlPrefilter; $.htmlPrefilter = func() {old.apply}
+[09:55:26] <markelog> that kind of thing?
+[09:55:29] <DaveMethvin> yeah
+[09:55:51] <markelog> hmm, i'd say we would need to put that in the docs
+[09:56:05] <DaveMethvin> we require that for the special events interfaces too ... they're just not common enough to justify adding a bunch of management hooks
+[09:56:08] <DaveMethvin> agreed on docs
+[09:56:14] <gibson042> definitely
+[09:56:39] <markelog> although, we can provide array of functions, first would be our replace
+[09:56:50] <markelog> and user could with that all their wants
+[09:57:17] <markelog> might be easier for them
+[09:57:35] <markelog> how about i will make a proof of concept?
+[09:57:51] <gibson042> to be evaluated on what grounds, though?
+[09:58:01] <markelog> it might be better to show with some code
+[09:58:26] <gibson042> I also considered and ultimately went against that model
+[09:58:46] <markelog> why
+[09:58:47] <markelog> ?
+[09:59:24] <gibson042> because it reduces to this simpler one, except if multiple parties are adding replacers
+[09:59:33] <DaveMethvin> if i was paranoid i would probalby want to do all the processing myself anyway
+[09:59:43] <DaveMethvin> rather than trusting whatever else was on the "chain"
+[09:59:59] <gibson042> this ^
+[10:00:00] <m_gol> DaveMethvin: agreed
+[10:00:11] <markelog> DaveMethvin: if that array is exposed, you can clean it
+[10:00:21] <timmywil> what about function htmlPrefilter(html, fn) { html = html.replace(...); if (fn) html = fn(html); return html; }
+[10:00:30] <m_gol> markelog: but then you don't gain from it being present...
+[10:00:42] <timmywil> wait, nvm. half a thought
+[10:00:53] <markelog> m_gol: if you paranoid you will
+[10:00:57] <markelog> )
+[10:01:21] <markelog> if you not, then it might good enter point for plugins
+[10:01:29] <markelog> or for other code
+[10:01:36] <markelog> old = $.htmlPrefilter; $.htmlPrefilter = func() {old.apply}
+[10:01:41] <markelog> is a bit ugly
+[10:01:44] <timmywil> It seems weird to recomment duck-punching :/
+[10:01:45] <markelog> and not flexible
+[10:01:48] <DaveMethvin> but it makes you think
+[10:01:55] <DaveMethvin> and this is a place where you should think
+[10:01:57] <timmywil> true enough
+[10:02:04] <m_gol> TBH I don't think people will duck-punch, they'll rather duplicate the regex
+[10:02:12] <m_gol> and be sure it won't change under them in an update
+[10:02:20] <m_gol> that's what being paranoid means IMO ;)
+[10:02:34] <DaveMethvin> since so much of this is for security reasons, having control over all the html cleanup is a good thing
+[10:02:47] <gibson042> also, let's assume that someone wants to _prevent_ the overly-aggressive default replacement... easy to do with duckpunching, hard to do with an array of functions
+[10:03:00] <m_gol> yep
+[10:03:21] <DaveMethvin> also if there are more than 2 elements in that array i think you have lost the game
+[10:03:28] <DaveMethvin> something funny is going on at that point
+[10:03:34] <markelog> hm, then not array, but objects?
+[10:03:38] <markelog> object
+[10:03:47] <gibson042> aaaaah
+[10:03:57] <DaveMethvin> i just don't think there's a problem,
+[10:03:59] <markelog> oh, right, for..in is not guranteed
+[10:04:09] <markelog> to be sequantial
+[10:04:12] <markelog> okay-okay
+[10:04:12] <markelog> )
+[10:04:16] <markelog> i'm letting go
+[10:04:17] <timmywil> we made gibson042 scream
+[10:04:19] <gibson042> I may drop connection, gotta undock
+[10:04:30] <DaveMethvin> our work here is done, gibson042 screamed
+[10:04:34] <markelog> )))
+[10:04:40] <DaveMethvin> i have to go as well
+[10:04:44] <timmywil> On that note, let's move discussion to ticket/-dev
+[10:04:53] <timmywil> thanks everybody
+[10:04:56] <arthurvr> bye
+[10:04:59] <DaveMethvin> bye!
+[10:05:05] <markelog> see ya
+[10:05:10] <markelog> wow, hour past that fast
+[10:05:12] <m_gol> cu

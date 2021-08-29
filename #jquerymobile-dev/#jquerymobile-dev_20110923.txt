@@ -1,0 +1,440 @@
+[08:20:46] <jqm-jenkins-bot> Yippie, build fixed!
+[08:20:47] <jqm-jenkins-bot> Project jqm-master build #60: FIXED in 14 min: http://10.59.19.240:8080/job/jqm-master/60/
+[08:20:47] <jqm-jenkins-bot> * scott: when a form is submitting via post to a url that already has a page represented in the DOM, replace the current page with the response page of the same url (post params are not passed via q string, so the URLs are identical).
+[08:20:48] <jqm-jenkins-bot> * scott: linked up the self-submit demo page and added a brief explanation of what happens when post requests submit to a page already represented in the DOM
+[09:05:05] <toddparker> 'morning
+[09:07:49] <kinblas> toddparker: ping
+[09:08:07] <kinblas> toddparker: just saw your updated calendar invite ... you might want to update _nickel's email address
+[09:08:23] <kinblas> toddparker: you sent the invite to originatelabs
+[09:49:41] <toddparker> thanks kinblas - all set
+[09:50:24] <kinblas> toddparker: thanks!
+[09:50:36] <kinblas> toddparker: scottjehl: how's the builder going?
+[09:52:53] <toddparker> gseguin: you around?
+[09:53:37] <toddparker> looking at the inline button issue: https://github.com/jquery/jquery-mobile/issues/2496
+[09:53:38] <socialhapy> ★ Issue #2496 on jquery-mobile, reported by mdhari (1d, 19h ago): data-inline=true not being honored on buttons
+[09:53:56] <toddparker> regression
+[09:54:03] <toddparker> can see it on test: http://jquerymobile.com/test/docs/buttons/buttons-inline.html
+[09:54:06] <toddparker> ok in B3
+[09:54:43] <toddparker> seems like the button markup plugin isn't adding the "ui-btn-inline" class if the data-inline attribute is there
+[09:55:10] <toddparker> and I wonder if this is related to the jqmData() changes recently? https://github.com/jquery/jquery-mobile/commit/27b51c47e979917969abf3854ad9135a3704855f
+[09:55:10] <socialhapy> ★ Commit on jquery-mobile by gseguin ( ago): Fixed $.jqmData() behavior to match $.fn.jqmData()
+[09:55:57] <toddparker> all i know is the attar is in the markup: <a href="index.html" data-role="button" data-inline="true">Cancel</a>
+[10:00:09] <toddparker> looks like it's not defined as an option anymore: o = $.extend( {}, $.fn.buttonMarkup.defaults, {
+[10:00:10] <toddparker> 				icon: el.jqmData( "icon" ),
+[10:00:10] <toddparker> 				iconpos: el.jqmData( "iconpos" ),
+[10:00:10] <toddparker> 				theme: el.jqmData( "theme" )
+[10:00:10] <toddparker> 			}, options ),
+[10:21:31] <kinblas> _nickel: was that URL in your last email supposed to be valid?
+[10:29:55] <eddiemonge> is the meeting time changing or something?
+[10:32:29] <toddparker> sorry, no i changed _nickel's email address
+[10:32:36] <toddparker> eddiemonge ^^
+[10:32:56] <toddparker> scottjehl is looking at that inline issue…down the rabbit hole…
+[10:42:40] <scottjehl> hey guys
+[10:43:03] <scottjehl> okay so this change in jQuery core that makes calling data() with no args return undefined has huge ripples
+[10:43:25] <scottjehl> most of our widgets were built on the assumption that it returns a hash
+[10:43:45] <scottjehl> now we're having to call data repeatedly for each option. seems really costly
+[10:45:19] <scottjehl> davemethvin around? hmm
+[10:47:43] <scottjehl> kinblas gseguin _nickel - you around?
+[10:48:29] <kinblas> scottjehl: I'm here
+[10:48:45] <kinblas> scottjehl: this is a change made in the latest jquery core?
+[10:48:49] <scottjehl> this sort of change seems like it'll impact perf a lot. I thought there was going to be a way to opt-in to jQuery core's old way of returning data() https://github.com/jquery/jquery-mobile/commit/a908c5a6ef9d864e9fc398a31c1136abfd3008a8
+[10:48:50] <socialhapy> ★ Commit on jquery-mobile by gseguin (1w, 18h ago): Fix for issue #1361Mixin individual properties to options instead of calling .jqmData()
+[10:49:14] <scottjehl> not calling data() and jqmData() returns undefined, rather than a hash
+[10:49:37] <scottjehl> I thought when this was being discussed, we could override it back to the way it used to be (return full hash)
+[10:50:19] <kinblas> scottjehl: The issue was the fact that we'd have to do all sorts of string manipulations to the hash returned from data()
+[10:50:48] <kinblas> weighing the size of the code, versus the number of places in our code that was actually calling data() with no args
+[10:50:54] <scottjehl> ok. so you think it's actually better that we check each one through separate calls to jqmData?
+[10:50:57] <kinblas> it was less costly over all just to make the 3 calls
+[10:51:05] <scottjehl> but other plugins do this too
+[10:51:17] <scottjehl> this is like, the standard way to override options right?
+[10:51:22] <kinblas> other plugins call jqmData() with no args?
+[10:51:33] <kinblas> when gseguin and I looked, it was just button markup
+[10:52:00] <kinblas> scotjehl: btw, did you see the alternative suggested fix with all the string manipulation/
+[10:52:01] <kinblas> ??
+[10:53:42] <scottjehl> no. I may have been out at the time
+[10:53:44] <scottjehl> or missed it
+[10:54:00] <scottjehl> either way, this is a result of the jq core method's behavior change right?
+[10:55:09] <scottjehl> I guess I don't understand why it'd be helpful to return undefined instead of the hash. If we call data with no args, we know what we're looking for... right?
+[10:56:47] <eddiemonge> which is what?
+[10:58:03] <kinblas> scottjehl: the problem was that the object returned had namespaced property names
+[10:58:49] <kinblas> so there was an inconsistency in terms of how jqmData is called
+[10:58:55] <kinblas> with no namespace
+[10:59:01] <kinblas> and what the non arg call returned
+[10:59:04] <kinblas> with namespace
+[10:59:26] <kinblas> which caused things like buttonMarkup to break because it was expecting names in the object with *NO* namespace
+[10:59:53] <scottjehl> so that had nothing to do with the jq core change then?
+[11:00:03] <scottjehl> it was a preexisting issue?
+[11:00:40] <kinblas> scottjehl: so there was a patch floating around that took the object returned from data(), scanned its property names, and then did the whole strip namespace and re-camel-case the resulting name thing ...
+[11:00:51] <kinblas> scottjehl: right nothing to do with core
+[11:01:07] <kinblas> scottjehl: everything to do with our wrapper/convenience function
+[11:01:39] <kinblas> so anyways, it just seemed like alot of code to include for one case in our code ... inflicting pain on ourselves ...
+[11:03:20] <scottjehl> ok
+[11:03:47] <kinblas> scottjehl: so I suggested that if we really did want to go that root of having to strip/camelcase, we might as well split this jqmData() thing into a separate plugin that other folks can leverage for their namespaced data-* attributes.
+[11:04:06] <kinblas> and rename it nsData()
+[11:04:10] <scottjehl> okay
+[11:04:16] <scottjehl> whoa this is a problem
+[11:04:18] <scottjehl> https://github.com/jquery/jquery-mobile/blob/master/themes/default/jquery.mobile.theme.css
+[11:04:34] <scottjehl> the whole concatenated CSS suite is now in this one file
+[11:05:19] <kinblas> scottjehl: heh, was that todd's checkin?
+[11:05:41] <scottjehl> maybe, but why was the entire build file being used?
+[11:05:59] <eddiemonge> hmm that may have been what was happening
+[11:06:02] <kinblas> scottjehl: yeah it looks like he just checked in the entire file Tyler gave him from the
+[11:06:13] <kinblas> tokenization
+[11:06:14] <eddiemonge> i know part of the built file got in the header
+[11:06:18] <scottjehl> was that file up-to-date to begin with?
+[11:06:40] <scottjehl> I figured Tyler was working with theme.css in the git repo...?
+[11:06:42] <scottjehl> brb call
+[11:07:00] <kinblas> scottjehl: nope the whole shebang I guess
+[11:08:11] <eddiemonge> https://github.com/jquery/jquery-mobile/commit/2d3cbbe804fbad1c6c6338d4bf92249cc62a90c2#L0L977
+[11:08:12] <socialhapy> ★ Commit on jquery-mobile by toddparker (4d, 15h ago): Replaced theme.css with the new tokenized version that will support a future ThemeRoller tool. Each editable color or values in the theme has a comment "token" that will be replaced with the user-generated values.
+[11:08:35] <eddiemonge> its fine up until there (if you take out the header as well)
+[11:20:57] <_nickel> I'm going to land that fix if no one objects
+[11:21:11] <_nickel> kinblas: scottjehl: the one I sent the email about ^
+[11:24:44] <kinblas> _nickel: the link in that email was broken
+[11:24:56] <kinblas> _nickel: or maybe outlook munged it
+[11:26:07] <bjohn465> This has been bugging me for a little while, so I finally submitted my first pull request: https://github.com/jquery/jquery-mobile/pull/2515
+[11:26:08] <socialhapy> ★ Pull request on jquery-mobile by bjohn465 (6m, 22s ago): Style count only when list is enhanced
+[11:28:40] <eddiemonge> bjohn465: can you submit a test case for that?
+[11:30:08] <bjohn465> eddiemonge: I thought about that a little, but wasn't sure on the best way to test it. Just check the computed style of a count element?
+[11:30:55] <eddiemonge> not a unit test, but an example of what the problem is using something like jsfiddle or something else where we can see it in action
+[11:31:06] <scottjehl> anyone fixing the theme.css at the moment?
+[11:34:03] <toddparker> working on fixing that
+[11:35:06] <eddiemonge> sorry, i should have checked the whole file and not just the top of it. i had scanned a chunk of the changed to see if anything else needed changing on that
+[11:36:00] <eddiemonge> scottjehl: did you see https://github.com/jquery/jquery-mobile/issues/2502 ?
+[11:36:00] <socialhapy> ★ Issue #2502 on jquery-mobile, reported by eddiemonge (1d, 10h ago): Theme switcher is non-existent anymore
+[11:37:24] <bjohn465> Sorry, my connection was reset. Was/is there a preferred way to test for styling a list item count only when the list is enhanced?
+[11:38:05] <eddiemonge> bjohn465: nevermind. looks like todd merged your pull anyway
+[11:38:11] <scottjehl> bjohn465 there's a class you can use to style that
+[11:38:34] <scottjehl> oh. yeah .ui-listview .ui-foo
+[11:38:41] <scottjehl> that'd maybe do what you're asking?
+[11:39:25] <bjohn465> scottjehl: No, I was talking about https://github.com/jquery/jquery-mobile/pull/2515
+[11:39:26] <socialhapy> ★ Pull request on jquery-mobile by bjohn465 (19m, 40s ago): Style count only when list is enhanced
+[11:40:08] <bjohn465> eddiemonge had asked about a test case for it.
+[11:42:12] <bjohn465> I could still write a test case for it, if anyone has a preference for how to test that.
+[11:46:04] <toddparker> the css tweak for seems to make sense so it was safe to pull, testing is another matter
+[11:46:22] <toddparker> ok, i have the cleaned up theme.css tokenized and ready to go
+[11:54:24] <_nickel> kinblas: for the issue or the compare view
+[11:54:39] <_nickel> ?
+[11:54:52] <kinblas> compareview
+[11:55:03] <kinblas> it has ...jbender in it
+[11:56:24] <_nickel> kinblas: it was converted to an elipses
+[11:56:26] <_nickel> wtf
+[11:56:34] <_nickel> 3 periods should do it
+[11:56:50] <_nickel> kinblas: heading to lunch
+[11:57:37] <kinblas> _nickel: ok, was just letting you know in case you wanted us to see what it was you were doing
+[11:57:49] <kinblas> I get a page not found
+[12:05:10] <scottjehl> hey back sorry
+[12:13:08] <scottjehl> gseguin are you living in the future? y/n? https://github.com/jquery/jquery-mobile/commits/master
+[12:15:29] <toddparker> ok, the theme.css is cleaned up and pushed to master. tokens are a go.
+[12:20:44] <jqm-jenkins-bot> Project jqm-master build #61: FAILURE in 14 min: http://10.59.19.240:8080/job/jqm-master/61/
+[12:20:45] <jqm-jenkins-bot> * bjohn465: Styling count only when the list is enhanced
+[12:20:45] <jqm-jenkins-bot> * todd: Updated tokenized theme CSS to remove the widget styles that were appended at the end.
+[12:30:15] <toddparker> fixed the inline button issue
+[12:30:40] <scottjehl> _nickel - can your git fu explain gseguin's dates above? :)
+[12:31:11] <scottjehl> toddparker nice one!
+[12:31:46] <toddparker> probably my first JS change. :)
+[12:32:18] <toddparker> hey gseguin - who's gonna win the Red Sox game next Monday? I want to place a bet.
+[12:32:37] <Wilto> What an insane question, toddparker.
+[12:32:49] <toddparker> think of it guys…we can get RICH
+[12:32:56] <toddparker> we know someone living the the FUTURE
+[12:34:58] <Wilto> Oh, sweet—yeah, let us know how things turn out. Not that my confidence in the Sox has wavered.
+[12:35:55] <scottjehl> wilto http://c.o0bg.com/rf/image_960w/Boston/2011-2020/2011/09/20/BostonGlobe.com/Sports/Images/cd18redsox3-2172.jpg
+[12:36:22] <Wilto> Yeah, that’s… Sadly representative, lately.
+[12:40:48] <scottjehl> http://c.o0bg.com/rf/image_960w/Boston/2011-2020/2011/09/20/BostonGlobe.com/Sports/Images/davis_bosbalt18_spts.jpg
+[12:41:12] <scottjehl> scottjehl.com/i/WAT.gif
+[12:41:27] <Wilto> That’s known as the ol’ Outfield Superkick, Scott.
+[12:41:37] <Wilto> A highly advanced basesball technique.
+[12:41:42] <scottjehl> sorry. I don't mean to turn this channel into the Filament Group Campfire
+[12:46:25] <toddmparker> gseguin: did you get those collapsible tests in so we can push that over? no rush, just curious if you're close on that
+[12:49:25] <_nickel> scottjehl: sorry, back from lunch
+[12:50:20] <scottjehl> np
+[12:50:45] <kinblas> toddparker: scottjehl: gseguin: _nickel: I wrote a page nav logger bookmarklet for aiding with navigation debugging
+[12:50:48] <kinblas> http://goo.gl/82K4a
+[12:51:00] <kinblas> I'll extend it to hashchange and popstate logging in a bit
+[12:51:25] <_nickel> scottjehl: I don't see anything from gseguin, still looking
+[12:52:31] <scottjehl> LOOK IN THE FUTURE
+[12:53:10] <scottjehl> you don't see commits from gseguin at the top here? https://github.com/jquery/jquery-mobile/commits/
+[12:53:30] <kinblas> scottjehl: heh yeah, I mentioned it to him yesterday
+[12:53:50] <kinblas> scottjehl: he said he was messing with his clock for testing something
+[12:54:09] <scottjehl> somebody better tell him he's not gonna make it into RC1 - he's too far into the future
+[12:54:18] <kinblas> doh!
+[12:54:27] <scottjehl> in all seriousness, this really messes up the timeline
+[12:54:31] <scottjehl> anything we can do?
+[12:54:40] <kinblas> contact the git folks?
+[12:55:37] <_nickel> scottjehl: not without forcing the push
+[12:55:51] <_nickel> scottjehl: I thought you meant in irc
+[12:56:32] <_nickel> scottjehl: he could undo and redo each of those commits
+[12:56:39] <_nickel> with the clock set properly
+[12:56:46] <_nickel> and then force update the master branch
+[12:58:25] <scottjehl> huh. how many jigawatts would that take?
+[12:58:45] <scottjehl> somewhere in the 1.21 range I'm guessing
+[12:59:15] <scottjehl> wilto might know...
+[12:59:39] <_nickel> gseguin are you around?
+[13:00:03] <Wilto> Do you guys know how much effort it’s taking to resist posting a bunch of Futurama .gifs in here?
+[13:00:09] <Wilto> A *lot*.
+[13:00:57] <toddmparker> doit. i'll ban you @wilto
+[13:01:10] <Wilto> ACHIEVEMENT UNLOCKED.
+[13:02:25] <_nickel> scottjehl: toddmparker: kinblas: gseguin: lets hold off on commits if you want to fix that timestamp issue
+[13:02:34] <_nickel> actually I can do it
+[13:02:41] <_nickel> let me test something
+[13:02:49] <scottjehl> it should be fine until oct 5 right?
+[13:02:49] <kinblas> _nickel: ok ... but let us know when its clear ... I have some fixes
+[13:02:51] <scottjehl> :)
+[13:02:55] <kinblas> lol
+[13:04:39] <gseguin> _nickel: what's up?
+[13:04:52] <_nickel> hmm
+[13:04:53] <_nickel> well
+[13:04:55] <_nickel> I guess I can't
+[13:06:46] <gseguin> sorry for the time change thing
+[13:06:53] <_nickel> when I do a fetch I don't get the commits
+[13:07:03] <gseguin> oh man!
+[13:07:41] <_nickel> gseguin: so here's what I would do
+[13:08:19] <gseguin> backout in the future
+[13:08:35] <gseguin> and come back to present day and re-check in?
+[13:09:03] <_nickel> gseguin: first make a branch
+[13:09:09] <_nickel> doesn't matter what its called
+[13:09:20] <_nickel> we'll use this branch to cherry pick the commits which will hopefully fix the date
+[13:09:28] <_nickel> git branch weird-dates
+[13:09:39] <_nickel> make sure you're on master when you do it
+[13:09:51] <_nickel> git checkout weird-dates
+[13:09:53] <_nickel> git log
+[13:09:57] <gseguin> yup
+[13:10:00] <_nickel> make sure that the 3 commits are there
+[13:10:04] <_nickel> just so you don't lose them
+[13:10:13] <_nickel> git checkout master
+[13:10:32] <_nickel> git reset --soft eaf5822c6505c7bc7085a422d1ae6503616a173a
+[13:10:46] <_nickel> that will take all the changes you made in those commits and stage them
+[13:10:53] <_nickel> I think you can do a
+[13:10:56] <_nickel> git diff
+[13:11:02] <_nickel> to make sure
+[13:11:22] <_nickel> just for safty's sake we're going to stash them too
+[13:11:24] <_nickel> thats why --soft
+[13:11:42] <_nickel> gseguin: still with me?
+[13:11:59] <gseguin> I'm with you
+[13:12:04] <gseguin> but wait
+[13:12:16] <gseguin> I'm on master right now
+[13:12:25] <_nickel> yes
+[13:12:27] <gseguin> is that cool?
+[13:12:28] <_nickel> thats what we want
+[13:12:35] <gseguin> alright
+[13:12:53] <_nickel> gseguin: so now we're going to cherry pick those three commits in order
+[13:13:05] <_nickel> since cherry-picking creates a new commit
+[13:13:13] <_nickel> hopefully it will update the timestamp
+[13:13:20] <_nickel> not 100% on that
+[13:13:23] <_nickel> but we'll find out
+[13:13:24] <gseguin> but they're just staged right now
+[13:13:24] <_nickel> so
+[13:13:32] <_nickel> do a
+[13:13:33] <_nickel> git stash
+[13:13:38] <_nickel> to get them out of there
+[13:13:39] <gseguin> alright
+[13:14:03] <_nickel> alright is your master clean?
+[13:14:03] <gseguin> done
+[13:14:06] <_nickel> cool
+[13:14:11] <gseguin> yup
+[13:14:11] <_nickel> git cherry-pick 27b51c47e979917969abf3854ad9135a3704855f
+[13:14:15] <_nickel> and then
+[13:14:16] <_nickel> git log
+[13:14:21] <_nickel> to check that the timestamp is sane
+[13:14:35] <_nickel> thats the first of the three commits
+[13:15:50] <gseguin> I don't see my commits though
+[13:16:08] <_nickel> gseguin: they're in the other branch
+[13:16:16] <_nickel> thats why we created the other branch
+[13:16:23] <gseguin> oh shit
+[13:16:33] <_nickel> ?
+[13:16:41] <gseguin> didn't create the branch
+[13:16:48] <gseguin> I thought that was a false start
+[13:17:02] <_nickel> ok
+[13:17:04] <_nickel> well
+[13:17:14] <gseguin> alright give me one minute and I'll get there
+[13:17:33] <gseguin> reset --hard will get me there right?
+[13:17:46] <_nickel> gseguin: if you're looking at the reflog
+[13:17:50] <_nickel> have you used reflog
+[13:18:01] <gseguin> nope
+[13:18:33] <_nickel> gseguin: ok
+[13:18:43] <_nickel> run `git reflog` and gist the result
+[13:19:33] <gseguin> https://gist.github.com/5ae57400dff6e3d48f34
+[13:19:39] <scottjehl> flog it one more time basically
+[13:19:52] <Wilto> Error: Insufficient Flogging.
+[13:20:19] <_nickel> gseguin: git reset --hard HEAD@{1}
+[13:20:37] <jqm-jenkins-bot> Yippie, build fixed!
+[13:20:38] <jqm-jenkins-bot> Project jqm-master build #62: FIXED in 14 min: http://10.59.19.240:8080/job/jqm-master/62/
+[13:20:38] <jqm-jenkins-bot> todd: Restored button inline styling by defining inline as an option in the button markup plugin. Fixes #2496
+[13:21:09] <gseguin> new reflog: https://gist.github.com/50136044e8a6db913b4b
+[13:21:20] <_nickel> gseguin: what does your git log look like
+[13:21:25] <_nickel> you're 3 commits should be back
+[13:21:55] <gseguin> https://gist.github.com/9e88b1097bb1da9348b3
+[13:22:26] <_nickel> gseguin: ok
+[13:22:30] <_nickel> you're commits are back
+[13:22:31] <_nickel> now!
+[13:22:36] <_nickel> git branch weird-dates
+[13:22:37] <_nickel> :D
+[13:22:56] <gseguin> hmm
+[13:23:03] <_nickel> ?
+[13:23:12] <gseguin> you mean git checkout -b weird-dates ?
+[13:23:14] <Wilto> Story of my life, man.
+[13:23:31] <_nickel> gseguin: if you want to do it one command yes
+[13:23:53] <gseguin> done
+[13:24:12] <_nickel> gseguin: ok verify that that it has the three commits
+[13:24:51] <_nickel> gseguin: then checkout master
+[13:24:56] <_nickel> git checkout master
+[13:24:59] <gseguin> Switched to a new branch 'weird-dates'
+[13:24:59] <gseguin> Switched to a new branch 'weird-dates'
+[13:24:59] <gseguin> Switched to a new branch 'weird-dates'
+[13:24:59] <gseguin> yeah I see the jqmData commits
+[13:25:18] <gseguin> sorry for the flood of paste
+[13:25:36] <gseguin> Switched to branch 'master'
+[13:26:06] <gseguin> _nickel: now I pick up where we left above, right
+[13:26:17] <toddmparker> glad this didn't happen to me. i would just throw my computer out the window and hope that reflogged it
+[13:26:18] <gseguin> I mean back at the reset
+[13:26:20] <_nickel> gseguin: yah
+[13:26:27] <_nickel> gseguin: git reset --hard eaf5822c6505c7bc7085a422d1ae6503616a173a
+[13:26:29] <_nickel> from master
+[13:26:34] <gseguin> yup
+[13:26:36] <_nickel> and then cherry pick the commits
+[13:26:52] * gseguin feels really bad about this
+[13:27:17] <scottjehl> I feel bad you have to go through all this. whew
+[13:27:27] <gseguin> reset hard ?
+[13:27:32] <scottjehl> note: don't ever travel into the future and do development work!
+[13:28:12] <_nickel> gseguin: yah before we did soft to stash it
+[13:28:16] <_nickel> we've already stashed it
+[13:29:30] <_nickel> scottjehl: actually what I'm doing is pretty rudimentary
+[13:29:45] <scottjehl> many steps though
+[13:30:05] <gseguin> so to cherry pick, I switch back to the weird-dates branch to figure out the hash
+[13:30:09] <scottjehl> glad you guys have got ahold of it
+[13:30:30] <gseguin> and then come back to master and do git cherry-pick of these hash
+[13:30:40] <_nickel> gseguin: yah
+[13:30:48] <_nickel> gseguin: do them in the order in which you commited them
+[13:31:04] <gseguin> yup
+[13:31:06] <gseguin> though
+[13:31:09] <_nickel> gseguin: one sec
+[13:31:15] <gseguin> you're talking about 3 commits
+[13:31:24] <_nickel> gseguin: yes
+[13:31:33] <gseguin> do you count the merge commit ?
+[13:32:43] <_nickel> gseguin: stop
+[13:32:51] * gseguin froze
+[13:32:58] <_nickel> gseguin: so don't do anything
+[13:33:41] <_nickel> the commits ARE there
+[13:33:47] <_nickel> and we've had commits afterward
+[13:33:56] <_nickel> the github age is displaying them out of order because of the dates
+[13:34:18] * gseguin wonders if he should unplug his computer ;)
+[13:34:22] <_nickel> github *page
+[13:35:00] <gseguin> so what are you saying?
+[13:35:17] <gseguin> everything is fine?
+[13:36:26] <_nickel> gseguin: well
+[13:36:27] <_nickel> sort of
+[13:36:32] <_nickel> so the commits are there
+[13:36:40] <_nickel> what I really need to do is talk with you all about our git workflow
+[13:37:35] <_nickel> because issues like this can be avoided by using a rebase workflow
+[13:37:48] <_nickel> scottjehl: kinblas: toddmparker: ^
+[13:37:50] <_nickel> gseguin: ^
+[13:38:08] <_nickel> normally it wouldn't be an issue because the dates would be sane
+[13:38:23] <gseguin> Sure, I'd love to learn more about git
+[13:38:44] <gseguin> I usually refuse to change my computer date
+[13:38:56] <_nickel> yah
+[13:38:58] <gseguin> but we had to do some last minute testing
+[13:39:01] <toddmparker> yeah, school us obi bender
+[13:40:24] <_nickel> gseguin: if you do a `git log --graph` you can see that your commits have a parent with kin blas's commits
+[13:41:04] <gseguin> I probably need to reset --hard HEAD
+[13:41:12] <gseguin> right?
+[13:41:15] <_nickel> gseguin: nope
+[13:41:19] <gseguin> huh?
+[13:41:38] <gseguin> I stopped when you told me to
+[13:41:51] <_nickel> gseguin: you'll need to use reflog again
+[13:41:59] <gseguin> oh ok
+[13:42:00] <_nickel> or just blow away your master branch and pull again
+[13:42:20] <_nickel> kinblas: scottjehl: toddmparker: can we chat about git workflow on Monday maybe?
+[13:42:26] <_nickel> it will need to be a phone call
+[13:42:40] <_nickel> its mostly too complex for irc
+[13:42:45] <_nickel> maybe a google hangout?
+[13:42:47] <scottjehl> how bout post-launch?
+[13:42:50] <_nickel> so I can share my screen?
+[13:43:02] <_nickel> scottjehl: up to you guys
+[13:43:04] <scottjehl> I think this is a great idea, just thinking.. lots to do
+[13:43:09] <_nickel> kk
+[13:43:12] <_nickel> as long as it happens
+[13:43:19] <_nickel> it'll help everyone
+[13:43:28] <toddmparker> it should happen for sure
+[13:43:58] <toddmparker> but next week is gonna be tight
+[13:44:08] <toddmparker> i know i have a ton to learn on that front
+[13:44:14] * scottjehl backs away from DoLorean slowly
+[13:44:14] <_nickel> kk
+[13:44:22] * kinblas is up for it
+[13:44:23] <toddmparker> appreciate it _nickel
+[13:44:37] <scottjehl> yeah. that'd be great
+[13:44:55] <_nickel> so
+[13:44:57] <_nickel> end result
+[13:45:00] <_nickel> the commits are there
+[13:45:35] <eddiemonge> oh can i be on the call too?
+[13:46:00] <_nickel> github's date view is different from git log
+[13:46:02] <_nickel> eddiemonge: surely
+[13:46:21] <_nickel> and we can't fix the dates now because we have commits on top of it
+[13:47:28] <gseguin> _nickel: to blow away master I did
+[13:47:33] <kinblas> _nickel: is it ok to checkin now?
+[13:47:49] <gseguin> git branch -m master master.old
+[13:47:59] <gseguin> git checkout -b master upstream/master
+[13:48:07] <gseguin> is that correct?
+[13:48:24] <_nickel> kinblas: yah
+[13:48:36] <gseguin> just want to make sure I don't add any more problem
+[13:48:42] <_nickel> gseguin: as long as upstream is jquery/jquery-mobile
+[13:48:56] <gseguin> yeah it is
+[13:49:01] <gseguin> origin is my private one
+[13:49:29] <gseguin> _nickel: I get: error: Not tracking: ambiguous information for ref refs/remotes/upstream/master
+[13:49:32] <gseguin> Switched to a new branch 'master'
+[13:53:50] <_nickel> gseguin: git branch -t master upstream/master
+[13:53:59] <_nickel> gseguin: again assuming that upstream is the github repo
+[13:54:10] <gseguin> yeah yeah it is
+[13:54:18] <gseguin> alright!
+[13:54:24] <gseguin> back on track then
+[13:54:32] <gseguin> thanks a lot _nickel!
+[13:54:55] <_nickel> gseguin: np lots of thanks goes to my friend evan that I work with
+[13:55:05] <_nickel> I told him what was going on and he got interested
+[13:55:17] <_nickel> he spotted the commits that were already there
+[15:05:46] <toddmparker> alright guys, i'm heading out
+[15:06:02] <toddmparker> i'll be chipping away at triaging and bugs this weekend
+[15:06:09] <toddmparker> have a great weekend all!
+[15:18:04] <Wilto> Pull request away, and I’m fleeing before it turns out I blew something up by way of my lack of git skill.
+[15:18:07] <Wilto> Have a good one, guys.
+[15:20:42] <jqm-jenkins-bot> Project jqm-master build #63: SUCCESS in 14 min: http://10.59.19.240:8080/job/jqm-master/63/
+[15:20:43] <jqm-jenkins-bot> * mat: Fixes #2516 — Tightens scope of a previous fix for clicks not registering on listview buttons’ icons.
+[15:20:43] <jqm-jenkins-bot> * jblas: Fix for issue 2503 - User can't specify own error handling logic
+[16:18:42] <scottjehl> hey _nickel
+[16:19:01] <scottjehl> just landed a bugfix, looks like the timeline's still wack though. no luck? https://github.com/jquery/jquery-mobile/commits/master
+[16:20:48] <jqm-jenkins-bot> Project jqm-master build #64: FAILURE in 14 min: http://10.59.19.240:8080/job/jqm-master/64/
+[16:20:48] <jqm-jenkins-bot> * mat: Potentially addresses #1927 — Using “filter” for opacity was causing strange issues in IE, making all but the text on submit inputs click-proof. Bears further testing, if someone wouldn’t mind taking a look.
+[16:20:49] <jqm-jenkins-bot> * mat: Prevents “undefined is null or not an object” error in IE, where .scrollTop() was being called before the body was ready.
+[16:20:49] <jqm-jenkins-bot> * mat: For the sake of jQuery’s serialize, submit inputs’ values are added to the form as a hidden input—this ensures it will only happen once, and that this logic only applies to submit inputs with a name attribute.
+[16:22:47] <_nickel> scottjehl: there's no way to fix it
+[16:22:53] <_nickel> the commits are before some of todd's
+[16:22:59] <_nickel> in the actual history
+[16:23:02] <_nickel> github's page is misleading
+[16:23:08] <_nickel> because it orgs by date
+[16:23:17] <_nickel> if you do a git log you can see gseguin's commit
+[16:23:26] <_nickel> those will be at the top until october 5th
+[16:35:02] <_nickel> kinblas: scottjehl: just pushed a fix for 2493
+[16:35:04] <_nickel> intense
+[16:35:05] <_nickel> really intesnse
+[16:35:07] <_nickel> *intense
+[16:35:11] <_nickel> for something so simple
+[16:35:13] <_nickel> but necessary
+[17:20:55] <jqm-jenkins-bot> Yippie, build fixed!
+[17:20:56] <jqm-jenkins-bot> Project jqm-master build #65: FIXED in 14 min: http://10.59.19.240:8080/job/jqm-master/65/
+[17:20:56] <jqm-jenkins-bot> * scott: Fixes #2490 where IE (and WP7) were not properly degrading form inputs via the degradeinputs plugin (and search inputs were not being styled as such)
+[17:20:57] <jqm-jenkins-bot> * john.m.bender: closed tags in test redirect pages
+[17:20:57] <jqm-jenkins-bot> * john.m.bender: add dependent tracking functions for jquery mobile objects
+[17:20:58] <jqm-jenkins-bot> * john.m.bender: force close logic of custom select to run when close is clicked, centralize the binding for pagehide.remove
+[17:20:58] <jqm-jenkins-bot> * john.m.bender: fix nav test to use close button in dialog and not data rel back
+[17:20:59] <jqm-jenkins-bot> * john.m.bender: test core helpers
+[17:20:59] <jqm-jenkins-bot> * john.m.bender: quick rename to addDependents
+[17:21:00] <jqm-jenkins-bot> * john.m.bender: test for new core helpers
+[17:21:00] <jqm-jenkins-bot> * john.m.bender: handle all dialog closing cases
+[17:21:01] <jqm-jenkins-bot> * john.m.bender: test to verify removal of child menupages
+[21:20:55] <jqm-jenkins-bot> Project jqm-master build #66: SUCCESS in 14 min: http://10.59.19.240:8080/job/jqm-master/66/
+[21:20:56] <jqm-jenkins-bot> * john.m.bender: whitespace in mobile forms textinput
+[21:20:56] <jqm-jenkins-bot> * john.m.bender: add inputs without a type to the text input list Fixes #2205
+[21:20:57] <jqm-jenkins-bot> * john.m.bender: test to cover text inputs without types
+[21:20:57] <jqm-jenkins-bot> * scott: addresses issue #2415 - applying a transform gets rid of the element peekaboos for headers, and other content in the page. We'll need to monitor this one this week and see what the memory impact is before keeping it.
+[22:20:48] <jqm-jenkins-bot> Project jqm-master build #67: SUCCESS in 14 min: http://10.59.19.240:8080/job/jqm-master/67/
+[22:20:49] <jqm-jenkins-bot> * scott: adjusted the fallback heights. addresses the ios5 fixed footer alignment described in issue #2415
+[22:20:49] <jqm-jenkins-bot> * scott: better fix for the ios5 height issue with the bottom of the page.
+[22:20:50] <jqm-jenkins-bot> * scott: fixed positioning of selects in touch overflow scroll mode. Fixes #2415

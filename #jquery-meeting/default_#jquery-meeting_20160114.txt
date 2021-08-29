@@ -1,0 +1,115 @@
+[12:00:46] <scott_gonzalez> ?pepteam
+[12:00:46] <b-ot> arschmitz jdalton jrossi jrossi1 jrossi2 jrossi3 jrossi9billion M4rius scott_gonzalez snover
+[12:01:12] <arschmitz> hey here but super busy probably wont be paying attention
+[12:01:44] <scott_gonzalez> Well, nobody else is around.
+[12:01:53] <scott_gonzalez> I'll wait a few minutes and see if anyone shows up.
+[12:04:48] <bethge> Hi there
+[12:04:55] <scott_gonzalez> Hey bethge
+[12:05:40] <scott_gonzalez> Looks like it's just going to be you and me today.
+[12:06:02] <bethge> ok :)
+[12:06:24] <scott_gonzalez> What are your thoughts on documenting how to use PEP with React? https://github.com/jquery/PEP/issues/255
+[12:07:41] <scott_gonzalez> We already have a section on jQuery (https://github.com/jquery/pep#using-pep-with-jquery), so I'm not opposed to adding this.
+[12:07:58] <scott_gonzalez> And whenever we can get support for the CSS property, we can just remove this section.
+[12:08:16] <bethge> yeah, sounds reasonable, since react is super trendy right now
+[12:09:03] <scott_gonzalez> I started working on https://github.com/jquery/PEP/issues/249 for the 0.4.1 releaes
+[12:09:13] <scott_gonzalez> *release
+[12:09:56] <bethge> Sweet, how do you go about it? npm hooks?
+[12:10:01] <scott_gonzalez> I thought it'd be really simple, but this is actually a case we didn't plan for in jquery-release.
+[12:10:20] <scott_gonzalez> We have a common release script (https://github.com/jquery/jquery-release) that we use.
+[12:10:30] <scott_gonzalez> And it has a hook for generating release artifacts.
+[12:10:40] <scott_gonzalez> But the problem is that we tag from a detached head.
+[12:11:05] <scott_gonzalez> So even though we have a hook and can easily do the version change in the README, the updated file is only committed to the tag, not to the master branch.
+[12:11:33] <scott_gonzalez> Basically what happens is:
+[12:11:41] <scott_gonzalez> git checkout <branch-to-release-from>
+[12:12:03] <scott_gonzalez> git checkout -b release # create a new branch to work in for the actual release
+[12:12:21] <scott_gonzalez> do a bunch of stuff
+[12:12:23] <scott_gonzalez> commit files
+[12:12:30] <scott_gonzalez> git tag <version>
+[12:12:36] <scott_gonzalez> git checkout <branch-to-release-from>
+[12:12:50] <scott_gonzalez> update package.json with new pre-version
+[12:13:14] <scott_gonzalez> And it's in the "do a bunch of stuff" phase when the hook for generating release artifacts is called.
+[12:13:33] <scott_gonzalez> So those changes only get committed to the new branch (release), which gets thrown away after the tag.
+[12:13:59] <scott_gonzalez> We do this on purpose so we can commit files we never want in our main branch, like the dist files.
+[12:14:35] <bethge> so master is never a child of the tagged branch, right?
+[12:14:59] <scott_gonzalez> Right, master is a parent.
+[12:15:46] <scott_gonzalez> So I'll either need to add a new hook or just find a place in the release script when we can safely work on master before the release branch is created.
+[12:17:29] <bethge> Hmm ... I only noticed the npm post-version-update-hook (or something like that) but it would still need to call some script, preferably not visible
+[12:22:18] <bethge> "npm postversion" Though I am not sure if that would work well together with the release script
+[12:23:10] <scott_gonzalez> Probably not, since that happens while still in the release branch, not the master branch.
+[12:23:57] <scott_gonzalez> Yeah, there's no good place to do this right now.
+[12:24:05] <scott_gonzalez> I'll have to add a new hook to jquery-release.
+[12:24:17] <scott_gonzalez> Needs to be right before this: https://github.com/jquery/jquery-release/blob/master/release.js#L38-L39
+[12:30:41] <scott_gonzalez> Well, I'll work on that so we can finally get this release out.
+[12:30:51] <scott_gonzalez> Did you have anything else to discuss, bethge?
+[12:31:48] <bethge> Did not make any progress this week, I am afraid. Don't have anything to discuss right now. Will make time this weekend for some progress :)
+[12:32:29] <scott_gonzalez> Sounds good.
+[12:32:38] <scott_gonzalez> Enjoy the weekend :-)
+[12:32:47] <bethge> :-D
+[12:32:54] <bethge> A quick question about your issue
+[12:33:24] <bethge> we have pep 0.3 and 0.4 etc. will there be only "pep" once it is 1.0 ?
+[12:34:11] <bethge> Like the most current stable version
+[12:34:41] <bethge> I just cannot fathom how jquery, jquery-ui and jquery-mobile never ran into this issue
+[12:35:02] <scott_gonzalez> What do you mean?
+[12:35:24] <scott_gonzalez> The CDN links will always be versioned.
+[12:35:37] <bethge> Oh, I see
+[12:36:52] <bethge> Ok, I will have to look more into this, to fully understand whats going on :)
+[12:37:47] <scott_gonzalez> We have "<script src="https://code.jquery.com/pep/0.4.0/pep.js"></script>" in the README.
+[12:37:52] <scott_gonzalez> See https://github.com/jquery/pep#getting-started
+[12:38:05] <scott_gonzalez> So we want to update that to point to the new version when we release.
+[12:38:07] <bethge> And the demos are an issue as well, right?
+[12:38:53] <scott_gonzalez> The samples directory is a little different because that runs on the local dist files.
+[12:39:24] <scott_gonzalez> But we copy those over to the gh-pages branch and change the references to point to the CDN.
+[12:39:33] <scott_gonzalez> So that's a separate step that also needs to be handled.
+[12:39:47] <scott_gonzalez> But since that doesn't happen until AFTER the tag, it's fine for that to still be manual.
+[12:40:34] <bethge> Ah, ok.
+[12:41:13] <bethge> So it's that one troubling line
+[12:41:52] <scott_gonzalez> Yeah, there are actually two lines, but it's the same thing in both places.
+[12:42:07] <bethge> Oh yeah, i just saw
+[12:43:27] <scott_gonzalez> Honestly, for now I may just manually update that, do the release, then work on the automation.
+[12:43:37] <scott_gonzalez> So that it doesn't hold up this release any longer.
+[12:44:14] <bethge> Might make sense, sooner or later the release is no longer necessary ;)
+[12:44:38] <bethge> Well, in April ^^
+[12:45:18] <bethge> But, don't mean to push you there. I am always a fan of automation
+[12:46:58] <scott_gonzalez> Yeah, I'll probably just do the release now...
+[12:47:20] <scott_gonzalez> So on that note, I'll end the meeting so I can get this done before "real work" creeps back up on me :-P
+[12:47:46] <bethge> hehe, alrighty, see you in #pep
+[12:50:30] <scott_gonzalez> See ya.
+[14:08:12] <arschmitz> agcolom: apsdehal: gabrielschulhof: cgack: sfrisk: meeting time
+[14:08:17] <arschmitz> late...
+[14:08:19] <sfrisk> allo
+[14:08:23] <arschmitz> got stuck in a meeting
+[14:08:25] <cgack> howdy
+[14:08:29] <gabrielschulhof> Hey!
+[14:10:20] <arschmitz> ok lets get started
+[14:10:26] <arschmitz> blog plans got derailed
+[14:10:43] <arschmitz> ui has still not been able to deploy new api version
+[14:10:49] <arschmitz> which will effect us when we try also
+[14:10:59] <arschmitz> this is stuck in infras hands right now
+[14:11:24] <arschmitz> because we refrence UI and the beta a bunch we cant really release our blog until theirs
+[14:12:32] <gabrielschulhof> ... and we might face the same issue when trying to publish, no?
+[14:12:42] <arschmitz> we will
+[14:12:47] <arschmitz> there is no doubt
+[14:14:43] <arschmitz> i did address all the comments in the doc
+[14:14:48] <arschmitz> if any one wants to take another look
+[14:15:03] <arschmitz> and am adding a small section that would have been the browser support blog
+[14:17:47] <arschmitz> gabrielschulhof: any update on select menu?
+[14:19:08] <arschmitz> cgack: any update on table?
+[14:19:29] <cgack> yep. almost finished up reworking the tests to use hasclasses
+[14:19:34] <cgack> then i'll be ready for review
+[14:19:39] <arschmitz> execlent
+[14:22:20] <arschmitz> ok well i guess thats all i have
+[14:22:56] <gabrielschulhof> Woah! Sorry!
+[14:22:58] <gabrielschulhof> Weird.
+[14:23:09] <gabrielschulhof> I start typing and the terminal refreshes.
+[14:23:16] <arschmitz> crazy
+[14:24:01] <gabrielschulhof> I didn't have much time this week for selectmenu, but I did manage to test replacing pagehide with pagecontainerhide in the page widget.
+[14:24:09] <arschmitz> ok
+[14:24:13] <gabrielschulhof> I still need to update some tests though.
+[14:24:18] <arschmitz> cool;
+[14:25:19] <arschmitz> anything else
+[14:25:26] <arschmitz> from anyone
+[14:25:27] <gabrielschulhof> That's about it from me.
+[14:25:49] <arschmitz> ok lets call it a wrap then
+[14:25:54] <gabrielschulhof> cgack: Awesome!
+[14:26:03] <arschmitz> if any one has a chance to take another read over the blog that would be great
+[14:26:37] <arschmitz> see everyone back on -dev

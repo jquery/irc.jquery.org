@@ -1,0 +1,195 @@
+[12:03:56] <timmywil> gibson042, DaveMethvin, m_gol turkey
+[12:04:01] <m_gol> present
+[12:04:05] <timmywil> https://docs.google.com/document/d/1BadwSO6Sn91RBfr05s77r81ncEi0oMBJ5mZS-k215vg/edit#
+[12:04:18] <m_gol> I guess turkey is already gone?
+[12:04:25] <timmywil> I've still got some
+[12:05:14] <timmywil> thanksgiving leftovers are heavenly
+[12:05:18] <m_gol> :)
+[12:06:08] <timmywil> So, I didn't get to verifying 2.2-stable. Was swamped at work.
+[12:06:34] <timmywil> But i can get to it before this wed
+[12:07:34] <m_gol> same for me
+[12:07:59] <m_gol> I mean, I might not have time before Wednesday but should have this week
+[12:08:21] <timmywil> ok
+[12:08:26] <m_gol> hmm, hardly anyone is here now
+[12:08:34] <timmywil> gibson042, DaveMethvin present?
+[12:08:37] <DaveMethvin> sorry, be here in a sec
+[12:08:40] <timmywil> ok
+[12:08:44] <gibson042> I'm here
+[12:09:28] <timmywil> Other than continuing work on 1.2/2.2, there's some PRs to look at. I just submitted https://github.com/jquery/jquery/pull/2749 for review.
+[12:09:47] <timmywil> https://github.com/jquery/jquery/pull/2721 can land, which is DaveMethvin
+[12:10:17] <DaveMethvin> yep, can do that today
+[12:10:32] <timmywil> and staabm had an idea about putting our deferred rejection handler in a separate module https://github.com/jquery/jquery/pull/2737#discussion_r45905387
+[12:10:36] <timmywil> I like that
+[12:10:47] <timmywil> so we people can remove it if they want
+[12:10:51] <timmywil> -we
+[12:10:59] <DaveMethvin> sure sounds good
+[12:11:01] <DaveMethvin> i can do that too
+[12:11:30] <timmywil> DaveMethvin: also, did you already try error.stack?
+[12:11:44] <DaveMethvin> not yet but i can
+[12:11:52] <timmywil> seems like it would be a more helpful stack trace than console.trace
+[12:12:45] <m_gol> markelog had good remark that mocking console.warn can be done via sinon
+[12:12:56] <timmywil> like a spy function?
+[12:13:07] <m_gol> yep
+[12:13:11] <timmywil> good idea
+[12:13:26] <timmywil> DaveMethvin: ^^
+[12:14:09] <timmywil> without markelog here, it's hard to talk more about 1.2/2.2, but we can verify 2.2 and bug him during the week
+[12:14:14] <gibson042> so everyone else is on board with console output from our official builds as opposed to e.g. an array of unhandled rejections?
+[12:14:25] <timmywil> I'm on the fence
+[12:14:45] <timmywil> we could do a separate PR with an array and compare
+[12:15:02] <gibson042> compare based on what?
+[12:15:04] <DaveMethvin> not clear ... "array of unhandled rejections" ?
+[12:15:09] <m_gol> I have doubts
+[12:15:20] <timmywil> compare based one how it looks in code
+[12:15:23] <DaveMethvin> sorry was there a comment elsewhere?
+[12:16:04] <timmywil> I'd like to see how it easy it is to inspect said array
+[12:16:26] <gibson042> jQuery.Deferred.unhandledRejections comes to mind
+[12:16:26] <m_gol> it may be an event instead of an array as well
+[12:16:31] <DaveMethvin> wouldn't that also require us to hold on to refs?
+[12:16:38] <gibson042> yes
+[12:16:46] <m_gol> events wouldn't have this problem ;)
+[12:16:52] <gibson042> my original intention was to do something like this in a plugin
+[12:17:10] <timmywil> maybe put a cache limit on it?
+[12:17:23] <DaveMethvin> so, how would the debugging scenario go here?
+[12:17:26] <DaveMethvin> think about how it works right now
+[12:17:28] <gibson042> if I were to do so now, I'd use events per Domenic's ECMAScript proposal
+[12:17:32] <DaveMethvin> we throw, they look at console, they see errors
+[12:17:43] <DaveMethvin> now what would the process be?
+[12:18:35] <timmywil> I guess the process would be 1. expected behavior doesn't happen 2. inspect array for errors
+[12:18:37] <m_gol> yeah, events would require from them setting up a handler
+[12:19:10] <DaveMethvin> how would they know to inspect the array?
+[12:19:12] <timmywil> but if it were me, I'd add a .catch to everything and log it myself
+[12:19:19] <DaveMethvin> sure that's the way to do it
+[12:19:31] <DaveMethvin> but there's a lot of code out there today that doesn't
+[12:19:34] <DaveMethvin> and didn't need to until  now
+[12:19:37] <m_gol> the reason .done() is not in the spec is that TC39 considered it a bad idea
+[12:19:45] <m_gol> to just auto-handle everything
+[12:19:50] <m_gol> and that DevTools should cover it
+[12:20:10] <m_gol> so Dave's solution surely is closer to what DevTools are doing now
+[12:20:12] <timmywil> I think they are starting to admit the need to surface unhandled rejections
+[12:20:37] <m_gol> we could always borrow the Migrate idea of logging the warnings only in non-minified builds by default
+[12:21:17] <DaveMethvin> in the migrate case we usually fix things though, so silence is not a problem
+[12:21:18] <timmywil> I'm not a big fan of that in jQuery core. I use unminified in production, package everything, and minify it myself.
+[12:21:21] <DaveMethvin> here it would be a problem
+[12:22:05] <timmywil> s/in production/during development
+[12:22:08] <m_gol> yeah, right, that would break this scenario
+[12:22:12] <m_gol> and it's going to get more popuar
+[12:22:13] <DaveMethvin> i just don't anticipate a lot of situations where we are logging *expected* exceptions
+[12:22:19] <m_gol> k
+[12:22:32] <DaveMethvin> like, bad JSON or undefined functions are pretty rare
+[12:22:45] <DaveMethvin> in production code
+[12:22:45] <timmywil> It just feels wrong to circumvent the specced behavior like this
+[12:22:57] <timmywil> but I see your point, DaveMethvin
+[12:23:02] <DaveMethvin> circumvent?
+[12:23:14] <DaveMethvin> we're not changing observable behavior to the app
+[12:23:20] <DaveMethvin> just logging suspicious things on the condole
+[12:23:23] <DaveMethvin> console
+[12:23:40] <timmywil> as in, we're working around the fact that Promises/A+ swallows these errors on purpose
+[12:23:51] <DaveMethvin> it can still swallow the error, they'll just hear a gulping sound on the console :)
+[12:24:16] <DaveMethvin> honest if you weren't looking at the console it wouldn't be different at all
+[12:24:23] <timmywil> yes, but, I think "circumvent" still applies
+[12:24:36] <DaveMethvin> i don't think the spec addresses this
+[12:24:43] <DaveMethvin> if it did then dev tools would be breaking that same rule
+[12:24:54] <DaveMethvin> because they complain about unhandled rejections
+[12:25:02] <m_gol> circumvent === doesn't break but doesn't follow the spirit as well
+[12:25:09] <m_gol> at least that's how I understand it :-)
+[12:25:13] <timmywil> ^^
+[12:25:17] <DaveMethvin> but again dev tools do this
+[12:25:33] <DaveMethvin> they just do it for all rejections, we do it for exceptions because it's easier in our situation
+[12:25:39] <m_gol> DevTools do it only for unhandled rejections
+[12:25:47] <DaveMethvin> right unhandled
+[12:25:59] <m_gol> the difference is that handled rejections are not observable and that's the specced idea
+[12:26:04] <DaveMethvin> all unhandled rejections vs all unhanded js-oriented exceptions
+[12:26:53] <timmywil> scott_gonzalez: you were arguing for an array too, right?
+[12:26:57] <DaveMethvin> well it comes down to being able to debug given code that is already written
+[12:27:21] <DaveMethvin> and the array creates refs to stuff which i think is much more intrusive and impacts perf
+[12:27:28] <timmywil> DaveMethvin: yea, I'm finding it hard to argue with that
+[12:27:43] <DaveMethvin> plus you have to KNOW to look for the list
+[12:27:46] <DaveMethvin> which nobody does
+[12:28:11] <DaveMethvin> because we haven't documented it and even when we do it will take a LONG time before the StackOverflow answers talk about it
+[12:28:23] <DaveMethvin> it's hard enough to get people to look at the console
+[12:28:40] <DaveMethvin> but at least we can tell them to press F12
+[12:28:44] <timmywil> one point is that those who attach .catch handlers responsibly inherit this code needlessly
+[12:28:58] <DaveMethvin> that's why i want it to be small
+[12:29:09] <DaveMethvin> putting it in a separate module makes it excludable
+[12:29:32] <timmywil> true
+[12:29:35] <m_gol> timmywil: but the ES6 Promises idea is that you should only handle exceptions where you expect them to be
+[12:29:43] <gibson042> timmywil: and also inherit console noise
+[12:29:48] <m_gol> if they're not expected, they're programming errors and DevTools should tell you about them
+[12:30:08] <DaveMethvin> there will be no noise from the console unless you have a program exception like SyntaxError
+[12:30:13] <timmywil> m_gol: meh, I'd add them for unexpected errors too
+[12:30:14] <DaveMethvin> remember this doesn't affect custom thrown errors
+[12:30:24] <DaveMethvin> at least not the default handler
+[12:30:45] <m_gol> timmywil: it's like wrapping in try-catch where you don't expect an error
+[12:31:10] <DaveMethvin> yeah but in the try/catch situation you can look at the console
+[12:31:26] <DaveMethvin> in the promise case it's silent if you don't .catch()
+[12:31:30] <m_gol> yep, that's the problem
+[12:31:31] <timmywil> m_gol: it's already wrapped in a try/catch
+[12:31:46] <m_gol> timmywil: I meant in synchronous code
+[12:32:05] <timmywil> right, I'm just saying, not putting the catch is like a try without the catch
+[12:32:14] <m_gol> attaching .catch to a promise you don't expect to be rejected is like wrapping synchronous code in try-catch even if you don't expect it to throw
+[12:32:17] <m_gol> yeah
+[12:32:26] <m_gol> with respect to logging
+[12:33:02] <m_gol> I don't have a better idea than DaveMethvin's
+[12:33:05] <DaveMethvin> anyway, i think what's in the PR is the smallest and least noisy way to catch the kind of programming errors that will otherwise drive people crazy
+[12:33:13] <m_gol> not that I fully like it ;)
+[12:33:22] <timmywil> DaveMethvin: or so we speculate
+[12:33:26] <DaveMethvin> if we could use native promise then we could hand this off to dev tools
+[12:33:50] <DaveMethvin> an array of unhandled rejections seems like a bad idea since they'll stay around, plus it's not very discoverable
+[12:34:00] <DaveMethvin> and more code no doubt
+[12:34:12] <timmywil> alright, I guess I'm leaning towards your approach, DaveMethvin
+[12:34:35] <m_gol> if only we could subclass native promises...
+[12:34:39] <DaveMethvin> i will address the questions/comments in the pr and see where that leads
+[12:35:03] <gibson042> what about waiting a tick?
+[12:35:16] <gibson042> or is even that too context-breaking?
+[12:35:24] <timmywil> I do think the array idea would carry more weight in code
+[12:35:33] <m_gol> Bluebird does it
+[12:35:42] <DaveMethvin> i don't think it will make a lot of practical difference in the noise, and it will make the code bigger
+[12:35:53] <DaveMethvin> that is, most SyntaxError is unexpected
+[12:36:03] <DaveMethvin> and the code doesn't want to handle it
+[12:36:20] <gibson042> are we interested in verifying size difference, or does that matter?
+[12:36:30] <timmywil> not really
+[12:36:30] <DaveMethvin> but we could save away the info for a tick and see if it was handled, yes
+[12:36:38] <timmywil> whatever is easier to debug
+[12:37:02] <DaveMethvin> if the .stack trick works the addl code will be a lot smaller than the list but i have to verify
+[12:37:16] <timmywil> console noise is a concern, but maybe that's not an issue if it's limited to syntax errors and the like
+[12:37:24] <gibson042> it's also interesting that, from an experience perspective, adding .catch can swallow unexpected errors too
+[12:37:55] <DaveMethvin> that's why promise kind of sucks
+[12:38:15] <gibson042> TypeError and SyntaxError aren't very discriminating
+[12:38:18] <DaveMethvin> but it's a lot like the problem with try/catch for unexpected errors so meh
+[12:38:27] <gibson042> exactly analogous, in fact
+[12:39:14] <timmywil> so we'll continue with this route and regroup next week after DaveMethvin makes revisions.
+[12:39:17] <m_gol> Bluebird has guarded catches for that reason
+[12:39:23] <DaveMethvin> yep
+[12:39:29] <DaveMethvin> bluebird has some good ideas there
+[12:39:43] <m_gol> .catch(SyntaxError, handler) - although it can still catch unexpected SyntaxErrors obviously
+[12:39:58] <m_gol> like gibson042 said
+[12:40:19] <DaveMethvin> maybe i'm wrong but i don't think that case is common at all
+[12:40:41] <DaveMethvin> and again we aren't changing the semantics just adding a console message
+[12:41:04] <DaveMethvin> my scientific research has said that 95.3% of the time it is a programming error :)
+[12:41:21] <timmywil> 95.2
+[12:41:32] <DaveMethvin> damn
+[12:41:35] <m_gol> DaveMethvin: what's your sample? ;)
+[12:41:40] <DaveMethvin> me :)
+[12:41:43] <m_gol> :)
+[12:42:01] <timmywil> anything else?
+[12:42:14] <DaveMethvin> what's our schedule for these releases?
+[12:42:20] <timmywil> asap
+[12:42:22] <DaveMethvin> jdd is asking about the ie8 think
+[12:42:28] <DaveMethvin> thing
+[12:42:47] <timmywil> well, asap for 1.12/2.2
+[12:42:55] <DaveMethvin> so that means jquery 3 needs to ship on jan 14?
+[12:42:56] <timmywil> 3.0 is still slated for Jan
+[12:43:02] <gibson042> work shoved out show/hide over the past couple weeks, but I'm ready to submit a PR soon
+[12:43:12] <timmywil> gibson042: awesome
+[12:43:21] <DaveMethvin> it seems like we still should be able to do this
+[12:43:35] <timmywil> we're doing good on 3.0 progress. down to 6 issues without PRs
+[12:43:50] <timmywil> my only concern is how quickly we can release 1.12/2.2
+[12:44:01] <DaveMethvin> i have a few things to clean up with migrate but it's passing with the 1.12/2.2 build
+[12:44:35] <m_gol> DaveMethvin: IE6 behaves bad again?
+[12:44:48] <DaveMethvin> yeah, news flash :(
+[12:44:52] <timmywil> we'll probably end up doing maintenance releases (1.12.1/2.2.1) for anything we miss, but that can be after 3.0
+[12:45:04] <DaveMethvin> yeah no doubt there will be a few broken things
+[12:45:54] <timmywil> thanks everybody
+[12:45:56] <DaveMethvin> i have to run, i'll get those two prs cleaned up and land the ajax one, leave the promise one for another review
+[12:46:08] <timmywil> sounds good
+[12:46:27] <timmywil> see you in -dev

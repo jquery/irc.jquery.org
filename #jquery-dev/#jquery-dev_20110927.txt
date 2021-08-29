@@ -1,0 +1,295 @@
+[01:31:26] <gnarf> so, I think I just came up with a fix for the exception bug
+[01:31:32] <gnarf> while preping my talk
+[01:47:56] <gnarf> I can't think of ANY way this can be unit tested
+[01:48:06] <gnarf> anyone have a better idea?
+[01:55:18] <gnarf> https://github.com/jquery/jquery/pull/520
+[05:48:11] <gnarf> mornin DaveMethvin
+[05:48:27] <DaveMethvin> mornin gnarf
+[05:48:55] <gnarf> can you think of any way to unit test a thrown exception? :)
+[05:49:00] <gnarf> https://github.com/jquery/jquery/pull/520
+[05:49:44] <DaveMethvin> i have a whole bucket full of these
+[05:50:11] <DaveMethvin> yeah i guess we just have to test as we can for that kind of thing
+[05:50:27] <DaveMethvin> the ie event stuff i did just can't be unit tested either
+[05:50:32] <gnarf> i don't think we can unit it because the throw happens in the timers
+[05:51:03] <gnarf> jzaefferer: you around? does qunit have any way to expect an exception?
+[05:51:43] <gnarf> like throws( object, "Exception was thrown" );
+[05:51:55] <gnarf> or something? :)
+[06:26:34] <gnarf> timmywil: any thoughts on a unit test for docs#5684 or is this just one of those "untestables"
+[06:26:42] <bot-t> timmywil, [#5684] Effects: exception in animation callback causes endless loop (assigned enhancement) - http://jqbug.com/5684
+[06:28:17] <timmywil> gnarf: you know, we may want to consider that setTimeout
+[06:29:01] <gnarf> timmywil: thats gonna add an additional frame delay between one anim ending and the next starting
+[06:29:15] <gnarf> but i'm not opposed to it
+[06:29:58] <gnarf> might clear up the :animated being true in the callback issue too
+[06:30:01] <timmywil> gnarf: true, but it will fix a couple other issues
+[06:30:04] <timmywil> exactly
+[06:30:13] <gnarf> might create a few of its own though...
+[06:30:18] <timmywil> yea
+[06:30:21] <timmywil> that's the question
+[06:30:26] <gnarf> of course, i can't think of the exact situation that causes an issue
+[06:30:42] <timmywil> docs#8892
+[06:30:43] <bot-t> [#8892] Callback is raised before objects are shown with fadeIn() and jQuery.fx.off = true (assigned bug) - http://jqbug.com/8892
+[06:30:54] <timmywil> docs#7157
+[06:30:55] <bot-t> [#7157]  ( function() {) - http://jqbug.com/7157
+[06:31:11] <timmywil> I had a patch, but lost it in my stash somewhere
+[06:31:37] <gnarf> if we had process.nextTick() i wouldn't be so concerned
+[06:31:47] <timmywil> there is one issue to keep in mind.  If we're skipping the animation (or the interval is 0), we need to keep it synchronous
+[06:32:09] <timmywil> yea, that's another thing
+[06:32:17] <timmywil> we're rewriting effects in 1.8
+[06:32:33] <timmywil> so we might be able to fix these issues without a setTimeout
+[06:32:58] <gnarf> i'm sure i can
+[06:33:01] <timmywil> so we might want to consider waiting on these three tickets
+[06:33:25] <gnarf> 520 is simple enough... and i don't see any potential issues
+[06:33:34] <gnarf> but its an edge case like a mofo
+[06:35:41] <gnarf> timmywil: aside from a 'rewrite' to help clean it up - can you name specific goals you have in mind for 1.8 effects? jaubourg you too?
+[06:35:54] <gnarf> timmywil: I'd like to mention them in the talk I'm giving
+[06:36:35] <gnarf> as far as I can tell its the 3 of us who are interested/seem to care about it :)
+[06:36:50] <timmywil> i think there's a list somewhere
+[06:37:32] <gnarf> Right now - my short list is trying to find a way to bring more css3 transition / animation syntax/support
+[06:37:44] <gnarf> cleaning up the way we deal with our timers
+[06:38:13] <gnarf> the animation loop itself --- requestAnimationFrame et all
+[06:38:18] <timmywil> the complete callback issue obvs
+[06:38:44] <timmywil> i might disagree on the css anims
+[06:39:49] <gnarf> i might just make it a plugin then
+[06:40:04] <timmywil> we'll see how it looks
+[06:40:05] <gnarf> its still a goal for general support of it though
+[06:40:14] <timmywil> i was sure we had a doc somewhere
+[06:41:22] <gnarf> i think it was an oksoclap i started
+[06:41:30] <timmywil> yesyes
+[06:41:30] <gnarf> http://oksoclap.com/effects-proposal
+[06:41:33] <gnarf> this one
+[06:41:43] <timmywil> that's the one
+[06:41:54] <timmywil> we could keep adding our plans there
+[06:43:11] <gnarf> lets
+[06:43:28] <timmywil> im sure your patch fixes the issue. there's just a lot of code in effects we'll have to sift through later and we'll need to keep track of the things we need to duplicate and things that will be fixed without duplicating old code.
+[06:44:00] <gnarf> timmywil: its commented quite well the reasoning in the pull :)
+[06:44:18] <gnarf> timmywil: thats a pretty easy one to keep track of
+[06:44:27] <timmywil> ok then
+[06:45:04] <gnarf> timmywil: and considering I hope to be a big part of the "sift" its already in my brain at least ;)
+[06:45:12] <timmywil> true dat :)
+[06:45:36] <timmywil> dave or i will land your pulls today.  I'm still working on getText
+[06:46:26] <timmywil> but right now, i need to work on like, work
+[06:47:32] <gnarf> roger
+[06:47:37] <gnarf> I need to work on moar slides
+[06:47:38] <gnarf> ;)
+[06:51:00] <jzaefferer> gnarf: raises
+[06:51:00] <bot-t> (21 hours 40 mins ago) <timmywil> tell jzaefferer http://git.io/S1Avrg We reverted QUnit.
+[06:53:00] <gnarf> jzaefferer: i saw that after i said something
+[06:53:21] <gnarf> but the exception wont be thrown in the block
+[06:53:54] <gnarf> the exception is going to be thrown from the jQuery.fx.tick() setInterval
+[07:02:09] <jzaefferer> yeah, can't help you with that
+[07:02:30] <jzaefferer> exception handling in JS is a PITA anyway, it gets worth with async code
+[07:02:46] <jzaefferer> you could try add hook window.onerror into your test
+[07:03:37] <jzaefferer> something like this maybe:
+[07:03:38] <jzaefferer>  window.onerror = function(message, file, line) {
+[07:03:38] <jzaefferer>     if (QUnit.config.current) {
+[07:03:38] <jzaefferer>       ok( false, message + ", " + file + ":" + line );
+[07:03:38] <jzaefferer>     } else {
+[07:03:38] <jzaefferer>       test("global failure", function() {
+[07:03:39] <jzaefferer>         ok( false, message + ", " + file + ":" + line );
+[07:03:39] <jzaefferer>       });
+[07:03:40] <jzaefferer>     }
+[07:03:40] <jzaefferer>   }
+[07:05:50] <gnarf> hrm
+[07:09:51] <gnarf> I think I might be able to trick it out....
+[07:11:26] <gnarf> something like .animate( props, 1, function() { throw "yup"; });  raises( function() { jQuery.fx.tick(); }, "yup", "Exception was thrown" ); jQuery.fx.tick(); ok( true, "Test completed without raising another exception" );
+[07:11:46] <gnarf> that assumes that at least 1ms will pass tho
+[07:25:54] <gnarf> jzaefferer / timmywil: https://github.com/gnarf37/jquery/commit/6fd64e24cf59c32fc0a71eacab612b477834554d look decent?
+[07:26:10] <jaubourg> window.onerror won't work in Opera iirc
+[07:27:24] <gnarf> jaubourg: i avoided it
+[07:27:34] <gnarf> i just totally abused internal methods in animate
+[07:28:29] <timmywil> gnarf: i don't see the stop() call
+[07:28:38] <gnarf> timmywil: asyncTest
+[07:28:43] <gnarf> timmywil: calls stop automagically
+[07:28:45] <timmywil> ah yes
+[07:29:27] <timmywil> looks fine
+[07:29:41] <gnarf> jzaefferer: thanks for the inspiration to think about it again ;)
+[07:30:25] <timmywil> i think chrome changed their default antialiasing
+[07:30:34] <timmywil> fonts looks all thin
+[07:30:42] <timmywil> im on beta
+[08:20:46] <gnarf> http://xkcd.com/956/ @bugs-team
+[08:21:06] <scott_gonzalez> WTF is up with the test sutie? http://swarm.jquery.org/job/104/
+[08:22:39] <gnarf> hrm wrong one actually
+[08:23:10] <gnarf> http://xkcd.com/583/
+[08:27:52] <gnarf> scott_gonzalez: thats a really good question
+[08:27:59] <gnarf> seems to work fine non-swarm
+[08:30:02] <gnarf> think this might have something to do with it: http://cl.ly/2H1U342q1m182F0R2t1L ?
+[08:31:19] <gnarf> oh
+[08:31:57] <gnarf> is there going to be an issue becuse Sizzle needs to be git submodule update'd instead of just "make" after timmywil reverted qunit?
+[08:32:05] <gnarf> er qunit
+[08:32:09] <gnarf> re:swarm
+[08:32:49] <timmywil> maybe
+[09:59:23] * gnarf pings
+[10:49:50] <Krinkle> Anyone here with commit access to jshint/site ?
+[10:49:52] <Krinkle> https://github.com/jshint/site/issues/27
+[10:50:01] <Krinkle> html injection issue and also layout failure
+[10:50:04] <scott_gonzalez> DaveMethvin: yt?
+[10:52:06] <scott_gonzalez> bot-t1: tell DaveMethvin simulate() should be exposed for people creating their own special events https://github.com/jquery/jquery/blob/master/src/event.js#L848
+[10:52:06] <bot-t1> scott_gonzalez, Okay.
+[10:52:37] <DaveMethvin> scott_gonzalez: i agree, however i decided it might be good to defer that until the design had been tested
+[10:52:37] <bot-t1> (32 secs ago) <scott_gonzalez> tell DaveMethvin simulate() should be exposed for people creating their own special events https://github.com/jquery/jquery/blob/master/src/event.js#L848
+[10:53:12] <DaveMethvin> there are a few other internal functions like that and i agree that they can be useful for special event function writers
+[10:53:18] <scott_gonzalez> hasn't most of the logic been there for a few releases?
+[10:53:30] <scott_gonzalez> I always end up copying that code when I create special events
+[10:53:31] <DaveMethvin> it's been significantly rewritten in 1.7
+[10:53:37] <scott_gonzalez> oh
+[10:53:57] <DaveMethvin> so for example all the ie change/submit handling is different
+[10:54:10] <DaveMethvin> and the simulate() is pretty different from the old internal trigger()
+[10:54:13] <DaveMethvin> which had several bugs
+[10:54:19] <DaveMethvin> which i have replaced with new bugs no doubt
+[10:55:31] <scott_gonzalez> well, exposing != public
+[10:55:41] <scott_gonzalez> at least in the sense of supported
+[10:55:45] <DaveMethvin> lol yeah, that's what YOU say "P
+[10:55:47] <DaveMethvin> :P
+[10:55:55] <scott_gonzalez> works for us in UI :-)
+[10:56:33] <DaveMethvin> it was helpful for this refactor to be able to redo the args for some of those and change semantics, but i am  hoping what is there now is good for a while
+[10:57:02] <DaveMethvin> but if UI would be a client of this, for example, then that's basically exposing them
+[10:57:12] <DaveMethvin> and we'd need to be careful of backcompat
+[10:57:33] <DaveMethvin> but I totally agree that simulate() for example is pretty common need for special events
+[10:57:53] <DaveMethvin> so if you promise not to tell anyone I will expose it on jQuery.event.simulate?
+[10:58:55] <gnarf> lol
+[10:59:09] <DaveMethvin> oh damn gnarf was listening
+[11:00:09] <scott_gonzalez> I promise not to say anything for at least 24 hours
+[11:00:20] <tbranyen> i already tweeted it to all my relatives
+[11:00:59] <DaveMethvin> oh damn, by now my mom is on facebook blabbing about "My son wrote simulate() I am so proud"
+[11:01:08] <scott_gonzalez> haha
+[11:02:17] <ajpiano> hey, to someone out there, it's not "My Library" but rather,  "My Son's Library"
+[11:03:38] <DaveMethvin> normally i'd make scott_gonzalez file a bug on this but then someone would be more likely to see it, so i'll just sneak it in with a deceptive commit message like "fix spacing issues"
+[11:04:00] <scott_gonzalez> haha
+[11:04:05] <scott_gonzalez> "fixed a typo"
+[12:07:02] <rwaldron> jzaefferer yt?
+[12:17:03] <rwaldron> DaveMethvin i started reviewing this: https://github.com/jquery/jquery/pull/521/files
+[12:17:08] <rwaldron> but there is so much wrong with it
+[12:17:22] <rwaldron> reviewing is a waste of energy
+[12:17:46] <DaveMethvin> even the premise is one we've considered and rejected before
+[12:17:59] <rwaldron> oh well, in that case
+[12:20:26] <DaveMethvin> rwaldron: the fact that it returns 94px rather than 94% does seem like a bug, but this doesn't seem like the fix
+[12:20:52] <rwaldron> yeah...
+[12:20:59] <rwaldron> there is too much wrong here
+[12:21:48] <timmywil> woot http://jsfiddle.net/timmywil/NBkug/
+[12:21:54] <timmywil> firebug lite update
+[12:23:11] <DaveMethvin> WOO HOO! i was so tired of having to open firebug and reload
+[12:24:02] <DaveMethvin> rwaldron: jQuery(elem).parents().filter(':not(body)').filter(':not(html)');  UGH
+[12:24:27] <rwaldron> i think he replaced all the for loops with jQuery.each
+[12:24:36] <DaveMethvin> Ouch, my performance! I'm not supposed to get custom selectors in it!
+[12:25:08] <DaveMethvin> man that turns $(this).width() into a performance death trap
+[12:28:28] <timmywil> yup, this is why I never fixed it
+[12:28:56] <timmywil> there's no good way to check for it
+[12:29:02] <DaveMethvin> if you need a fix really bad, we've got a really bad fix
+[12:33:08] <timmywil> yea, there are quite a few things wrong with that pull, even if we do want to add a fix.
+[12:34:07] <timmywil> heh, jQuery.inArray('')
+[17:33:40] <DaveMethvin> temp01: what's with schitzo-bot :)
+[18:56:56] <gnarf> DaveMethvin / timmywil whats up with pulls?
+[19:02:33] <DaveMethvin> gnarf: sorry i was working on a draft of the blog post
+[19:02:57] <DaveMethvin> we were having some probs with the unit tests yesterday, did those all get fixed?
+[19:03:12] <DaveMethvin> lemme see if it passes in ie7
+[19:04:36] <gnarf> i believe the units were fix
+[19:04:40] <gnarf> my IE coverage is poor
+[19:04:55] <gnarf> so if you're whirring up IE's - Might wanna hit all 3 of my pulls
+[19:05:17] <gnarf> I really need to get a better VM setup
+[19:05:35] <gnarf> I kinda wanna build a PC for the house running a few VM's that I can remote desktop to
+[19:05:44] <gnarf> and a webserver
+[19:06:23] <DaveMethvin> yeah i need a faster machine for ie vms
+[19:06:35] <DaveMethvin> my poor laptop boils water when i get them all spun up
+[19:13:38] <gnarf> yup
+[19:13:39] <gnarf> same here
+[19:13:46] <gnarf> and i need to put the VM's on an external too
+[19:13:48] <gnarf> so extra slowness
+[19:16:57] <DaveMethvin> gnarf: holy crap there are a lot of fails
+[19:17:07] <gnarf> DaveMethvin: IE? :(
+[19:17:16] <DaveMethvin> yeah ie7
+[19:17:21] <gnarf> which pull
+[19:17:27] <DaveMethvin> master!
+[19:17:36] <gnarf> oh
+[19:17:45] <DaveMethvin> i figured i'd start with the one that should succeed :(
+[19:17:59] <gnarf> did you ever git submodule update ?
+[19:18:04] <gnarf> to get back on the "safe" qunit?
+[19:18:07] <DaveMethvin> ok lemme double check
+[19:18:36] <DaveMethvin> looks like i am on the right one
+[19:18:52] <DaveMethvin> ok let me look at the fails
+[19:19:55] <DaveMethvin> event .live/.die must be something I did, dunno what tho
+[19:19:57] * gnarf is running master on ie7 too
+[19:20:14] <DaveMethvin> selector: pseudo -- :focus doesn't match
+[19:20:26] <DaveMethvin> effects slideToggle
+[19:20:40] <DaveMethvin> two other effects fail
+[19:20:44] <gnarf> :focus is that evil you tabbed out bug
+[19:21:23] <DaveMethvin> last one is offset: body, the top and left are off by a pixel
+[19:21:43] <DaveMethvin> when did we break this?
+[19:21:48] <DaveMethvin> hmmm
+[19:22:20] <DaveMethvin> it would be easier to review the commits if i had squashed that last one :(
+[19:22:37] <DaveMethvin> i still don't  have a node that can run pulley
+[19:22:55] <gnarf> DaveMethvin: its pretty easy to merge manually
+[19:22:57] <gnarf> DaveMethvin: :)
+[19:23:05] <DaveMethvin> yeah if you --squash
+[19:23:08] <DaveMethvin> which i forgot
+[19:23:35] <gnarf> DaveMethvin: bisect worked out pretty well for finding that qunit issue btw
+[19:23:40] <gnarf> its pretty awesome
+[19:23:49] <DaveMethvin> agreed
+[19:24:02] <DaveMethvin> amazing how quickly a binary search can find things
+[19:24:08] <gnarf> this no unit tests leak memory on the .toggle().stop().toggle() is one of those things
+[19:25:58] <DaveMethvin> the hardest thing is finding the starting point for git bisect good
+[19:26:11] <DaveMethvin> especially as slow as my ie7 vm is
+[19:26:30] <gnarf> yeah
+[19:27:06] <gnarf> and by "those things" i meant to say "symptoms of that qunit problem we had"
+[19:29:01] <DaveMethvin> gnarf, yeah but i was on the most recent master and updated submodules so it's a puzzlement to me
+[19:29:22] <gnarf> agreed
+[19:29:26] <gnarf> i see the same fails
+[19:29:38] <gnarf> i wonder if my _data mighta been the culript on that one
+[19:29:56] <DaveMethvin> yeah but what about my event fail and the .offset one?
+[19:30:05] <DaveMethvin> this town is turning into shit! :P
+[19:31:46] <gnarf> how are we gonna release a beta tomorrow
+[19:32:01] <gnarf> contents() -- invalid argument?
+[19:32:11] <DaveMethvin> yeah, that's a strange one
+[19:32:15] <DaveMethvin> all we need is a miracle
+[19:32:28] <DaveMethvin> we just need to figure out which commits broke what
+[19:32:32] <DaveMethvin> and back em out
+[19:32:46] <DaveMethvin> or maybe we can drop ie7 support
+[19:34:46] <DaveMethvin> gnarf: still bad in a commit from a week ago
+[19:35:05] <DaveMethvin> let me go way back, maybe it's still qunit and we need an older one
+[19:36:16] <gnarf> i kinda wish this showed current test # when it was running...
+[19:36:40] <gnarf> or rather, i liked it before when "hide passed" didn't hide "untested"
+[19:37:04] <DaveMethvin> ok, i am going back to 1.6.4 just to be abso-frickin-lutely sure it's not something we added for 1.7
+[19:37:17] <DaveMethvin> i know i've run unit tests in ie7 recently
+[19:37:36] <gnarf> im in the middle of a bisect master 1.6.4
+[19:37:50] <gnarf> and this SHA seems alright so far
+[19:38:03] <gnarf> of course its like 10 minutes per test
+[19:38:03] <gnarf> :)
+[19:38:08] <DaveMethvin> yeah
+[19:38:17] <gnarf> k
+[19:38:18] <DaveMethvin> and who knows if it will break the same way if we run a subset
+[19:39:38] <gnarf> luckily bisect includes "grey area" marking
+[19:39:39] <gnarf> :)
+[19:39:58] <DaveMethvin> i wish it included ie7 acceleration
+[19:40:30] <DaveMethvin> ok, 1.6.4 success i guess  you got that too
+[19:42:46] <gnarf> yup
+[19:43:10] <gnarf> i've failed and wasted time like 3 times now
+[19:43:26] <gnarf> testing full suites against 1.6.4 like three times in a row
+[19:43:30] <gnarf> cuz i kept typing 1.8.4 instead
+[19:44:12] <DaveMethvin> at least we know 1.6.4 is ok, which means it's not qunit this time i guess?
+[19:44:31] <gnarf> DaveMethvin: i'm going to bed whenever I give up on tracking these units
+[19:44:39] <DaveMethvin> yeah that's cool
+[19:44:47] <DaveMethvin> i will try to get this all fixed up tomorrow
+[19:44:48] <gnarf> don't wanna miss my plane
+[19:45:00] <DaveMethvin> now THAT would suck
+[19:45:23] <gnarf> when you get to boston? or are you already there? you are coming right? :)
+[19:45:32] <DaveMethvin> yeah, coming in friday morning
+[19:45:59] <DaveMethvin> that gives me a coupla days to get this cleaned up
+[19:46:14] <DaveMethvin> it's a beta after all so we don't need it 100% solid
+[19:46:22] <DaveMethvin> i'd just like to get all the features in
+[19:46:34] <gnarf> agree
+[19:46:37] <gnarf> at least the blockers
+[19:47:18] <DaveMethvin> i really want to push ppl to test this beta, so beyond this point i'd like to avoid non-bug-fix changes
+[19:47:28] <DaveMethvin> we always bite ourselves in the ass that way :)
+[19:48:30] <gnarf> hrm - this commit gets the unit tests leaking memory on the toggles
+[19:49:00] <gnarf> thats my target right now is those two tests
+[19:55:25] <gnarf> DaveMethvin: actually, I'm giving up
+[19:55:35] <gnarf> DaveMethvin: no patience for IE7 VM
+[19:55:41] <gnarf> need sleep
+[19:55:43] <gnarf> im grumpy
+[19:55:45] * gnarf grins
+[19:55:50] <gnarf> cya tomorrow prolly
+[19:56:36] <DaveMethvin> np, cya later gnarf!
+[20:51:46] <tbranyen> jaubourg: https://github.com/documentcloud/backbone/issues/637#issuecomment-2219909
+[20:51:52] <tbranyen> if you get a moment could you weigh in on that?
+[20:51:53] <tbranyen> pls
+[23:51:30] <leelu> Hi, I am using wdcalendar from webdelicious
+[23:56:53] <leelu> How to increase the event row height in week view ?

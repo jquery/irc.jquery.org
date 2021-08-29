@@ -1,0 +1,110 @@
+[01:24:33] <jqmobilecommit> [13jquery-mobile] 15allsteady opened pull request #6735: When options of collapsibleset is changed in runtime, it should not affect to collapsibles. (06master...06collapsibleset-setoptions) 02http://git.io/g1UxCg
+[01:49:00] <jqcommit> 01[13api.jquerymobile.com01] 15agcolom pushed 1 new commit to 061-4: 02http://git.io/HYYuJQ
+[01:49:01] <jqcommit> 13api.jquerymobile.com/061-4 14bde43c3 15Anne-Gaelle Colom: checkboxradio.xml: added heigth for the final demo iframe
+[02:03:57] <jqcommit> 01[13api.jquerymobile.com01] 15agcolom pushed 1 new commit to 061-4: 02http://git.io/Zo0JYg
+[02:03:58] <jqcommit> 13api.jquerymobile.com/061-4 1494f47f5 15Anne-Gaelle Colom: widget-option-initSelector.xml: added the warning div where necessary, in-line with core and ui
+[02:17:14] <_|Nix|_> uGoMobi: Ping!
+[02:17:25] <uGoMobi> _|Nix|_: pong
+[02:17:27] <_|Nix|_> Hey!
+[02:17:39] <uGoMobi> _|Nix|_: morning
+[02:17:40] <_|Nix|_> So, I'm trying to track down the classic theme issue
+[02:18:12] <_|Nix|_> It seems that it expects jquery.mobile.icons.css to be present in the build.
+[02:18:53] <_|Nix|_> However, we only have jquery.mobile.{external-png,inline-png,inline-svg}.css in the build.
+[02:19:09] <_|Nix|_> OTOH, jquery.mobile.icons.css seems to be a concatenation of those files.
+[02:19:29] <_|Nix|_> So, we could distribute jquery.mobile.icons.css unchanged.
+[02:19:33] <_|Nix|_> Or not?
+[02:19:38] <uGoMobi> yes, jquery.mobile.icons.css combines inline SVG and external PNG
+[02:19:50] <_|Nix|_> Oh, OK ... no inline png?
+[02:19:58] <uGoMobi> no
+[02:20:10] <_|Nix|_> OK, then I also have to make sure the PNGs are distributed.
+[02:20:37] <uGoMobi> we have an inline PNG stylesheet but that's only for when you use Grunticon script
+[02:21:28] <_|Nix|_> I guess that, unlike the rest of the demos, the classic theme demo cannot include the full theme in an unmodified fashion, so it has to include the pieces. The pieces have changed, but the demo has not been updated. At least that's what it looks like to me.
+[02:22:02] <uGoMobi> _|Nix|_: I think it's a bit different
+[02:23:15] <uGoMobi> _|Nix|_: the demo was added after "the pieces have changed"
+[02:24:43] <_|Nix|_> Oh, OK ... in that case, the build has not been modified to correctly replace the paths for the pieces.
+[02:25:09] <uGoMobi> _|Nix|_: see the 404's http://view.jquerymobile.com/1.4.0-rc.1/dist/demos/theme-classic/
+[02:25:25] <_|Nix|_> uGoMobi: I can repro those locally by going to dist/demos/theme-classic
+[02:25:53] <_|Nix|_> uGoMobi: The reference to jquery.mobile.structure.css has to be changed.
+[02:26:10] <_|Nix|_> I just changed it manually, and, except for the icons, it all works now.
+[02:26:28] <uGoMobi> _|Nix|_: all demos use relative paths to CSS and JS source files but the build script change those
+[02:26:30] <_|Nix|_> So, now I just have to modify the script that performs the .replace()
+[02:26:38] <_|Nix|_> uGoMobi: Exactly.
+[02:26:50] <_|Nix|_> uGoMobi: Do any other demos include structure.css directly?
+[02:27:19] <_|Nix|_> Doesn't look like it.
+[02:27:24] <uGoMobi> _|Nix|_: no, that's why it's only an issue with this classuc theme demo
+[02:27:48] <uGoMobi> _|Nix|_: but the two files for which we get a 404 are in dist
+[02:27:57] <_|Nix|_> OK. So, I'll have to have a look at the part of the build that replaces paths and make sure it correctly replaces the path to structure.css.
+[02:28:00] <_|Nix|_> uGoMobi: I know.
+[02:28:22] <uGoMobi> it's just that the build script doesn't deal with structure and icon CSS links
+[02:28:37] <uGoMobi> because so far all demos loaded the combined file
+[02:29:46] <_|Nix|_> uGoMobi: Yes. I'm looking at the Gruntfile.js and I'm seeing that too. I think I know what I have to do.
+[02:30:20] <uGoMobi> _|Nix|_: what we can check if the demo works if we load all CSS including default theme and then load the custom classic theme
+[02:30:51] <uGoMobi> not sure if that causes problems
+[02:31:14] <uGoMobi> but would be easy solution
+[02:31:36] <_|Nix|_> uGoMobi: For sure. I mean, it is /cascading/ - technically :)
+[02:32:05] <uGoMobi> _|Nix|_: yes, but theme has to become before structure
+[02:32:31] <_|Nix|_> Yeah, in that case I bet it'll break.
+[02:33:06] <_|Nix|_> I can imagine places where it puts back the corners that the structure has turned off, for example.
+[02:33:12] <uGoMobi> _|Nix|_: and I don't know if I removed anything in the classic theme that would come back if the default theme is loaded
+[02:33:33] <_|Nix|_> Nah ... I think I'll fix it in the build.
+[02:33:33] <uGoMobi> _|Nix|_: yeah
+[02:33:53] <uGoMobi> _|Nix|_: great, thanks!
+[03:49:42] <_|Nix|_> uGoMobi: OK, I've handled structure: content = content.replace( /css\/structure\/jquery\.mobile\.structure\.css/gi, path.join( "css", "themes", "default", processedName + ".structure" + ".min.css" ) );
+[03:49:52] <_|Nix|_> uGoMobi: The problem is there's no jquery.mobile.icons.css in dist/
+[03:50:00] <_|Nix|_> uGoMobi: So handling the icons is not as straight-forward.
+[03:52:06] <uGoMobi> _|Nix|_: that would be a problem on it's own
+[03:52:11] <jquicommit> 01[13jquery-ui01] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/jWlnHQ
+[03:52:11] <jquicommit> 13jquery-ui/06master 143945a8f 15Jörn Zaefferer: Menu: Update unit test that regressed from style changes (see 9910e938aad1090339a2c7f60693093ee18aba82)
+[03:52:20] <_|Nix|_> uGoMobi: If jquery.mobile.icons.css === jquery.mobile.inline-svg + jquery.mobile.external-png.css then we should produce jquery.mobile.icons.css as part of the build.
+[03:52:38] <uGoMobi> _|Nix|_: yes
+[03:52:52] <uGoMobi> _|Nix|_: you need it when you use a custom theme
+[03:53:07] <_|Nix|_> OK. I'll see what I can do.
+[03:53:36] <_|Nix|_> uGoMobi: Can I simply copy it from css/themes/default/?
+[03:54:06] <_|Nix|_> uGoMobi: It seems like I should be able to just copy it.
+[03:54:08] <uGoMobi> don't we use @imports?
+[03:54:12] <_|Nix|_> uGoMobi: Nope.
+[03:54:16] <uGoMobi> ok
+[03:54:31] <uGoMobi> then you can copy
+[03:54:47] <jquicommit> 01[13jquery-ui01] 15jzaefferer 04deleted 06dialog-track-focus at 140e5a2e1: 02http://git.io/INy-TQ
+[03:58:11] <jzaefferer> scott_gonzalez: dialog tests all green... in IE. 3 failing assertions in Opera 15: http://swarm.jquery.org/job/1899
+[04:01:34] <scott_gonzalez> jzaefferer: Ok, let me know when you want to discuss that ticket.
+[04:02:10] <jzaefferer> scott_gonzalez: will do, finishing up something else
+[04:02:59] <_|Nix|_> uGoMobi: Bam! Fixed.
+[04:03:18] <uGoMobi> _|Nix|_: awesome, thanks1
+[04:03:20] <uGoMobi> !
+[04:05:41] <jqmobilecommit> [13jquery-mobile] 15gabrielschulhof closed issue #6677: Demos- Classic theme 02http://git.io/cRDhwg
+[04:15:07] <jqmobilecommit> [13jquery-mobile] 15scottgonzalez closed issue #6733: New `inlinePNG` and both (`inlinePNG` and `inlineSVG`) should be flags in `$.support` 02http://git.io/h4USpA
+[04:20:15] <jqmobilecommit> [13jquery-mobile] 15scottgonzalez closed issue #6732: New selector (:mobile-xxx) is very slow than (:jqmData(role='xxx') ). 02http://git.io/hEEQ4Q
+[04:26:49] <travis-ci> [travis-ci] jquery/jquery-mobile#1024 (master - 2134d2e : Gabriel Schulhof): The build was fixed.
+[04:26:49] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/41cd7b486352...2134d2e56afb
+[04:26:49] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/14019417
+[04:37:07] <_|Nix|_> scott_gonzalez: Thanks for helping with the triage!
+[05:13:56] <jquicommit> 01[13jquery-ui01] 15tjvantoll pushed 1 new commit to 06datepicker: 02http://git.io/CEAFfw
+[05:13:56] <jquicommit> 13jquery-ui/06datepicker 14b986309 15TJ VanToll: Merge branch 'master' into datepicker...
+[05:43:13] <jquicommit> 01[13jquery-ui01] 15tjvantoll pushed 2 new commits to 06datepicker: 02http://git.io/dTfLJg
+[05:43:13] <jquicommit> 13jquery-ui/06datepicker 14d32a482 15TJ VanToll: Datepicker: Saner id attribute values for the test suite.
+[05:43:13] <jquicommit> 13jquery-ui/06datepicker 141074fdd 15TJ VanToll: Datepicker: Support changing the appendTo option after init....
+[06:21:26] <jquicommit> 01[13jquery-ui01] 15tjvantoll pushed 2 new commits to 06datepicker: 02http://git.io/jUDrcQ
+[06:21:26] <jquicommit> 13jquery-ui/06datepicker 14601bf92 15TJ VanToll: Datepicker: Boilerplate for tests for additional implemented options.
+[06:21:26] <jquicommit> 13jquery-ui/06datepicker 14488665a 15TJ VanToll: Datepicker: Various changes for the showWeek option....
+[07:48:50] <jquicommit> 01[13jquery-ui01] 15jzaefferer pushed 1 new commit to 06master: 02http://git.io/2ZTQoA
+[07:48:50] <jquicommit> 13jquery-ui/06master 149fd0e86 15Jörn Zaefferer: Dialog: Update code style, adding whitespace around string arguments and array indices
+[10:11:23] <jqcommit> 01[13api.jquerymobile.com01] 15agcolom pushed 1 new commit to 061-4: 02http://git.io/hgWYoQ
+[10:11:24] <jqcommit> 13api.jquerymobile.com/061-4 14703a11e 15Anne-Gaelle Colom: filterable: changed all examples from xhtml to html
+[10:19:33] <jqcommit> 01[13api.jquerymobile.com01] 15agcolom pushed 1 new commit to 061-4: 02http://git.io/40_3Bw
+[10:19:34] <jqcommit> 13api.jquerymobile.com/061-4 14d919444 15Anne-Gaelle Colom: flipswitch: added the final example and changed from xhtml to html
+[10:47:15] <jqmobilecommit> 01[13jquery-mobile01] 15arschmitz pushed 2 new commits to 06master: 02http://git.io/jVmq0A
+[10:47:15] <jqmobilecommit> 13jquery-mobile/06master 149858387 15Alexander Schmitz: Demos: Add demo for 1.3 style nested listviews
+[10:47:15] <jqmobilecommit> 13jquery-mobile/06master 14b94795f 15Alexander Schmitz: Demos: add demo filtering a collapsible set
+[11:09:33] <travis-ci> [travis-ci] jquery/jquery-mobile#1025 (master - b94795f : Alexander Schmitz): The build was broken.
+[11:09:33] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/2134d2e56afb...b94795f8fab2
+[11:09:33] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/14037075
+[11:44:04] <travis-ci> [travis-ci] jquery/jquery-mobile#1025 (master - b94795f : Alexander Schmitz): The build was broken.
+[11:44:04] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/2134d2e56afb...b94795f8fab2
+[11:44:04] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/14037075
+[12:15:35] <jqmobilecommit> 01[13jquery-mobile01] 15arschmitz pushed 1 new commit to 06master: 02http://git.io/MIWYkQ
+[12:15:35] <jqmobilecommit> 13jquery-mobile/06master 14b3a3455 15Alexander Schmitz: Demos: Add filterable example filtering collapsible children
+[12:37:08] <travis-ci> [travis-ci] jquery/jquery-mobile#1026 (master - b3a3455 : Alexander Schmitz): The build was fixed.
+[12:37:08] <travis-ci> [travis-ci] Change view : https://github.com/jquery/jquery-mobile/compare/b94795f8fab2...b3a34553fb76
+[12:37:08] <travis-ci> [travis-ci] Build details : http://travis-ci.org/jquery/jquery-mobile/builds/14040887
+[15:01:04] <jqmobilecommit> [13jquery-mobile] 15joshross4 opened issue #6736: $.mobile.filterable.prototype.filterCallback is ignored. 02http://git.io/ulxXCw

@@ -1,0 +1,417 @@
+[17:11:56] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/2b89dc8aa036cd62d62d368a268d9b0985c31a1e
+[17:11:56] <jqcommit> 13infrastructure/06puppet-master 142b89dc8 15Corey Frang: add jquerymobile demos and themeroller to view server
+[17:12:56] <jqcommit> [13infrastructure] 15gnarf merged 06puppet-master into 06puppet-stage: 02https://github.com/jquery/infrastructure/compare/91759893148d...2b89dc8aa036
+[17:13:46] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/0c2c652f7900497f26643191a9e0e1837055e8f5
+[17:13:46] <jqcommit> 13infrastructure/06puppet-stage 140c2c652 15Corey Frang: add jquery postreceive
+[17:14:14] <jqcommit> [13infrastructure] 15gnarf merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/2b89dc8aa036...0c2c652f7900
+[17:28:22] <s5fs> Krinkle: are you back? if so, when would be a good time to get your help with moving swarm?
+[17:28:34] <Krinkle> s5fs: Yep
+[17:28:39] <s5fs> welcome back!
+[17:28:51] <Krinkle> s5fs: Let's get things moving
+[17:28:56] <Krinkle> s5fs: So what's the situation again?
+[17:29:23] <s5fs> Krinkle: the physical host on which our virtual server lives is being decomissioned. We have no option to move the virtual server to another machine, we must migrate.
+[17:30:15] <s5fs> jzaefferer: heads up, we're going to be moving swarm
+[17:36:03] <s5fs> Krinkle: looks like we have 18gigs or so of data in the mysql table 'runresults'. is there any way to clean that up thru the admin?
+[17:37:41] <Krinkle> s5fs: Hm.. let me take a look
+[17:37:48] <Krinkle> I think we can yeah
+[17:38:05] <Krinkle> jq03 still, right?
+[17:38:37] <s5fs> correct!
+[17:40:33] <Krinkle> s5fs: So there's a database maintenance script "clearJobsAndClients.php" which would purge all build-related state recursively in a way that won't confuse the application (preserving accounts and project meta data)
+[17:41:06] <s5fs> Krinkle: that sounds good
+[17:41:18] <Krinkle> Since it's been refactored it actually no longer has to tun down trees one by one.
+[17:41:27] <Krinkle> It's been simplified to simple DELETE FROM $clearTable WHERE 1
+[17:41:37] <Krinkle> the order is important, but each table can go at once
+[17:42:18] <s5fs> Krinkle: so does that empty the tables completely?
+[17:42:26] <Krinkle> Yes, a subset of the tables
+[17:42:30] <s5fs> gotcha
+[17:42:33] <Krinkle> array( 'runresults', 'run_useragent', 'runs', 'clients', 'jobs' );
+[17:42:46] <Krinkle> Let me look if there are any recenet regressions we may want to track the starting point of in swarm
+[17:42:57] <s5fs> okay
+[17:42:58] <Krinkle> because we will lose build history
+[17:43:03] <Krinkle> of .e.g http://swarm.jquery.org/project/jquery
+[17:43:03] <s5fs> right
+[17:43:14] <s5fs> we can move the whole db if necessary, but if we can clean it up, all the better
+[17:44:21] <Krinkle> Yeah, totally
+[17:44:28] <Krinkle> This isn't meant to grow forever
+[17:45:00] <Krinkle> Most external dependencies (e.g. the Jenkins build artefacts required to be able to re-run a test) are purged after 30 days already
+[17:45:15] <s5fs> oh nice
+[17:45:33] <Krinkle> so stuff < 30 days already lost some integrity in that if you click re-run it will probably result in a time-out because its resources are missing
+[17:45:46] <Krinkle> we can't have cross-server file system be a foreign key in teh database :D
+[17:46:10] <Krinkle> but it does mean those are a lot less valuable (other than theboolean pass/fail and git commit that started it)
+[17:46:22] <Krinkle> and it would take forever to paginate 30 days back.
+[17:46:32] <Krinkle> hopefully we're quicker than 30 days in repsonding to regressions :)
+[17:47:26] <Krinkle> So, jQuery actually has 2 potential regressions. And jQuery UI one. I'm recording that now elsewhere, so we can clean it in a bit.
+[17:47:44] <s5fs> awesome thanks!
+[17:47:51] <s5fs> we're building out the new host now
+[17:48:41] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/af7b75ad02158c27f36369f6eaf6048d1ecf5f52
+[17:48:41] <jqcommit> 13infrastructure/06puppet-master 14af7b75a 15Corey Frang: add swarm service
+[17:48:54] <jqcommit> [13infrastructure] 15gnarf merged 06puppet-master into 06puppet-stage: 02https://github.com/jquery/infrastructure/compare/0c2c652f7900...af7b75ad0215
+[17:52:08] <Krinkle> https://github.com/jquery/infrastructure/wiki/TestSwarm
+[17:53:08] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/09f45cc00ebf924ed2ff6803e183c797cfc17f03
+[17:53:08] <jqcommit> 13infrastructure/06puppet-stage 1409f45cc 15Corey Frang: forgot to rename node
+[17:55:16] <s5fs> Krinkle: thanks a ton!
+[17:55:26] <Krinkle> It seems browserstack isn't spawning workers
+[17:55:30] <gnarf> Krinkle: <3
+[17:55:49] <Krinkle> Splunk is looking nice :)
+[17:58:03] <s5fs> Krinkle: do you think swarm could live behind a caching service like cloudflare?
+[17:58:44] <Krinkle> s5fs: It might, but I'm skeptical of the benefit (aside from DDOS kind of benefits)
+[17:59:02] <Krinkle> s5fs: Most API calls will have to be exempted from any caching.
+[17:59:13] <Krinkle> We'd have to make sure it emits the proper no-cache headers
+[17:59:20] <Krinkle> (and for the proxy to honour that)
+[18:00:34] <Krinkle> TestSwarm usually goes in bursts. Idle and then all workers come at it, all needing the latest data. Needs to be processed in sequence. All waiting for the previous one in line to make a write and the next to read based on that. So that they don't run the same job. Like jobs.pop()
+[18:01:26] <Krinkle> For the html page views, caching would be nice. Though anything beyond 5 minutes would get annoying.
+[18:01:59] <s5fs> Krinkle: all i'm after is the ddos protection
+[18:02:04] <Krinkle> cool
+[18:02:27] <s5fs> Krinkle: there's no way to create exclusions in cloudflare from what I can tell. it appears to be all-or-nothing.
+[18:02:46] <Krinkle> s5fs: But there's a way to separate caching from rate limiting?
+[18:02:53] <Krinkle> we can just say no cache at all
+[18:03:18] <s5fs> Krinkle: not as far as i'm aware
+[18:03:26] <Krinkle> having it appear up if the backend is down isn't very useful to us.
+[18:03:33] <s5fs> LOL i agree
+[18:04:57] <s5fs> oh it appears we can exclude certain http requests, so maybe that will work?
+[18:05:06] <s5fs> https://support.cloudflare.com/hc/en-us/articles/200172316-How-do-I-exclude-a-specific-URL-from-CloudFlare-s-caching-
+[18:05:43] <Krinkle> s5fs: we can ensure our nginx is gziping html/css/js/json responses.
+[18:06:08] <Krinkle> though from experience the html and json generated by php is tricky. PHP has its own built-in compression already, but it's weird. 
+[18:06:37] <s5fs> well lets just try excluding the whole domain or something from caching, see if that gets us anything
+[18:06:40] <Krinkle> More than once spent hours trying to undo double gzipping or php undoing gzip thinking the server does it the server thinking php does it
+[18:07:14] <Krinkle> I'm not too confident about it setting the right cache headers. We know it works, but that's all.
+[18:07:41] <Krinkle> OK. So I'm debugging now why browserstack workers are not spawned, it worked this morning
+[18:07:45] <s5fs> Krinkle: is it just Jenkins that needs to ssh into testswarm? how does it resolve the hostname for Jenkins?
+[18:08:03] <s5fs> because cloudflare hijacks dns so ssh will never work if we enable it
+[18:08:03] <Krinkle> nothing ssh-es into testswarm
+[18:08:17] <Krinkle> not Jenkins either
+[18:08:28] <s5fs> okay good to go
+[18:08:47] <Krinkle> are we giving it a new subdomain name?
+[18:08:54] <s5fs> a new hostname, yes
+[18:09:02] <Krinkle> using facing as well?
+[18:09:05] <Krinkle> I'd like that actually
+[18:09:33] <s5fs> how does jenkins move files onto testswarm?
+[18:09:33] <Krinkle> like we did for Jenkins when we moved it
+[18:09:40] <Krinkle> It doesn't
+[18:09:41] <Krinkle> :)
+[18:10:14] <Krinkle> TestSwarm is a service that exposes what browsers it needs, and urls (not file paths) of where builds are that need testing. And is receptive to build results.
+[18:10:27] <s5fs> ah okay
+[18:10:34] <Krinkle> Jenkins publishes artefacts on its jenkins-static or jenkins-build whatit subdomain.
+[18:10:39] <Krinkle> And sends TestSwarm the url
+[18:11:43] <Krinkle> And testswarm-browserstack polls Testswarm api and starts browsers pointing at http://Testswarm/run
+[18:11:49] <Krinkle> </brief>
+[18:15:08] <Krinkle> !log Killed testswarm-browserstack deamon. Log file was for last 10h. Letting cron restart.
+[18:15:44] <Krinkle> OK. We've got some movement on http://swarm.jquery.org/clients now :)
+[18:18:02] <s5fs> Krinkle: nice fix, thanks
+[18:20:33] <Krinkle> Reported regressions at https://github.com/jquery/jquery/issues/2104
+[18:20:50] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/b3636a55c02e008676c9584076003f389388fa68
+[18:20:50] <jqcommit> 13infrastructure/06puppet-master 14b3636a5 15Corey Frang: add ensures for php directories
+[18:20:58] <jqcommit> [13infrastructure] 15gnarf merged 06puppet-master into 06puppet-stage: 02https://github.com/jquery/infrastructure/compare/09f45cc00ebf...b3636a55c02e
+[18:24:30] <Krinkle> OK. I'm gonna make a quick snapshot of the projects table (just in case) and run the purge.
+[18:24:45] <Krinkle> Or would a delete query removing 10+ GB of data be a bad idea?
+[18:24:57] <Krinkle>  I've actually not done this before on that data set size
+[18:25:15] <Krinkle> That is, Wikipedia is bigger, but I don't run delete queries there :P
+[18:25:36] <gnarf> i think its pretty safe
+[18:25:42] * Krinkle is not really an opsen
+[18:25:51] <Krinkle> k
+[18:27:01] <Krinkle> Alright. Here we go
+[18:27:39] <Krinkle> WARNING: This script will permanently delete all job history! You can abort now with Control-C. Starting in 6  
+[18:28:44] <gnarf> Krinkle: whats the next steps to move this?
+[18:28:56] <gnarf> Krinkle: new machine is up, should have everything cloned/setup 
+[18:28:59] <Krinkle> !log Putting TestSwarm in maintenance mode
+[18:29:06] <Krinkle> (sorry !log is a habbit)
+[18:29:38] <gnarf> need to like move db
+[18:29:44] <gnarf> and check services
+[18:30:02] <Krinkle> gnarf: it contains very little actual "state" that we want to keep.
+[18:30:06] <Krinkle> gnarf: I'd reinstall
+[18:30:16] <Krinkle> it's 9 rows in the projects table
+[18:30:19] <Krinkle> That's it!
+[18:30:44] <Krinkle> There might be something in the config file missing from puppet
+[18:31:11] <Krinkle> Ah, we've got the nodejs testswarm-browserstack deamon
+[18:33:16] <Krinkle> Can we monitor the database in some way? I'm curious what it's doing
+[18:33:56] <gnarf> Krinkle: mysql should work as root, not sure how one would monitor what you want to monitor
+[18:34:00] <s5fs> Krinkle: not really, at least w/my current understanding
+[18:34:36] <s5fs> we have a backup of the db from 4am earlier today, i think, so hopefully the script doesn't go too crazy
+[18:34:53] <Krinkle> Cool
+[18:34:59] <Krinkle> I didn't know this one was backed up
+[18:35:01] <gnarf> Krinkle: can you run through the install steps on the new server?
+[18:35:02] <Krinkle> that's sweet
+[18:35:17] <Krinkle> gnarf: I will. Gotta refresh myself
+[18:35:36] <Krinkle> I was thinking looking at current size, or nr of rows per table.
+[18:36:01] <gnarf> there are some mysql querys that give that
+[18:36:09] <gnarf> i don't remember them off the top of my head
+[18:36:10] <s5fs> gnarf: not likely if you are deleting though
+[18:36:12] <s5fs> not in real time
+[18:36:29] <s5fs> it's all inside of a single transaction proably
+[18:36:43] <Krinkle> Per table there is one delete query yeah
+[18:36:44] <s5fs> so like ,maybe there's a way to measure the undo buffer or something but i dont' know it
+[18:37:01] <Krinkle> It seems my naive select count(*) is timing out
+[18:37:16] <s5fs> table may be locked
+[18:37:30] <Krinkle> Woop, no, there is it
+[18:37:34] <s5fs> normally writers don't block readers, but i don't know mysql well
+[18:37:44] <Krinkle> count: 2337877; 1 row in set (1 min 13.27 sec)
+[18:37:49] <Krinkle> (runresults)
+[18:37:50] <s5fs> wowow
+[18:38:12] <jqcommit> [13infrastructure] 15gnarf merged 06puppet-master into 06puppet-stage: 02https://github.com/jquery/infrastructure/compare/b3636a55c02e...447a3e7532a4
+[18:38:32] <gnarf> think that fixes the bug stopping the node daemon from running
+[18:39:37] <Krinkle> runresults count: 2337877; 1 row in set (42.12 sec)
+[18:39:53] <Krinkle> Yeah, it's keeping it in the dark.
+[18:39:56] <Krinkle> As mysql should
+[18:42:16] <Krinkle> gnarf: so what's the current state of the new server (s5fs mentioned the hostname in PM)
+[18:48:45] <gnarf> Krinkle: it should have everything cloned
+[18:49:04] <gnarf> https://github.com/jquery/infrastructure/blob/puppet-master/manifests/nodes/swarm.pp
+[18:49:27] <gnarf> ^^^ thats the state
+[18:49:36] <gnarf> we haven't manually moved anything from the old server yet
+[18:52:44] <Krinkle> ok
+[18:55:13] <Krinkle> gnarf: I'm catching up with what's already done by puppet and let's roll from there
+[18:55:29] <Krinkle> I assume we'll want stuff to be puppetised while we're doing this
+[18:55:43] <Krinkle> Is the server the stage one or the target?
+[18:57:02] <Krinkle> gnarf: Perhaps we can use a new (public) hostname for the new setup? Not just because it makes testing easier (I can stub the new name in etc/hosts while seeing the old live still), but because we wanted to move it to jquery.com right?
+[18:57:57] <gnarf> we could do that whenever - whichever hostname it has we want to hide from behind cloudflare anyway
+[18:57:59] <gnarf> i'd rather focus on a move
+[18:58:04] <gnarf> then we can change hostname later?
+[18:58:14] <gnarf> shouldn't be difficult to do that right?
+[18:58:56] <Krinkle> Sure
+[18:59:10] <Krinkle> so node-testswarm runs on the jenkins server, not testswarm
+[18:59:15] <Krinkle> (it's the client interface)
+[18:59:39] <Krinkle> it's in swarm.pp, but may not be needed. I suppose more is safer for now.
+[19:01:13] <Krinkle> gnarf: Well, so the difficulty is interoperability.
+[19:01:26] <Krinkle> the testswarm-browserstack deamon is already running I see
+[19:01:36] <Krinkle> but it's using the old swarm. I can't tell for sure if it's working or not
+[19:01:46] <gnarf> yeah it ties up on dns
+[19:01:53] <gnarf> we could fake out the etc hosts for now
+[19:01:57] <Krinkle> on the server
+[19:01:58] <Krinkle> Right
+[19:02:00] <Krinkle> Good point
+[19:02:06] <gnarf> even then
+[19:02:09] <gnarf> public isn't facing
+[19:02:10] <gnarf> if you want
+[19:02:14] <gnarf> i can flip public dns
+[19:02:22] <gnarf> try behind the cloud
+[19:02:27] <gnarf> see what problems we run into
+[19:02:43] <Krinkle> What did you mean earlier by hiding from behind cloudfare
+[19:02:57] <gnarf> its a proxy server
+[19:03:00] <Krinkle> Is the new server currently allowing port 80 traffic?
+[19:03:12] <gnarf> if you have its host yeah it should
+[19:03:16] <Krinkle> k
+[19:04:01] <gnarf> so cloudflare means that swarm.jquery.org will point at cloudflare
+[19:04:05] <gnarf> who will proxy to us
+[19:04:09] <Krinkle> Yeah
+[19:04:16] <Krinkle> I just set one up for wmbug.com yesterday in fact.
+[19:04:20] <gnarf> want me to flip it to the new server?
+[19:04:23] <Krinkle> using the free cloudfare service
+[19:04:56] <Krinkle> Ah, right.
+[19:05:07] <Krinkle> so both are "public" given the right IP
+[19:05:51] <Krinkle> OK. I've got hosts set up locally getting HTTP 500.
+[19:06:23] <gnarf> PHP message: PHP Fatal error:  require_once(): Failed opening required '/var/www/swarm/external/ua-parser/php/uaparser.php' (include_path='.:/usr/share/php:/usr/share/pear') in /var/www/swarm/inc/init.php on line 122" while reading response header from upstream, client: 141.101.105.197, server: swarm.jquery.com, request: "GET / HTTP/1.1", upstream: "fastcgi://unix:/var/run/php5-swarm.sock:", host: "swarm.jquery.org"
+[19:06:27] <gnarf> first problem
+[19:06:39] <Krinkle> Yeah
+[19:06:48] <Krinkle> I'm surprised it made it that far
+[19:06:54] <Krinkle> I was going for install first (databse schema)
+[19:06:58] <gnarf> k
+[19:07:17] <Krinkle> https://github.com/jquery/testswarm#steps
+[19:07:25] <Krinkle> Current looking at step 4+
+[19:08:12] <Krinkle> Yeah, it's trivial but let's start by doing `cp config/sample-robots.txt to robots.txt`
+[19:08:24] <Krinkle> as initial data only, can be customised.
+[19:08:30] <Krinkle> so if absent
+[19:08:47] <Krinkle> Or we can subst it into puppet instead of relying on state of git. That seems cleaner.
+[19:08:56] <Krinkle> committing to files://
+[19:09:27] <Krinkle> cache is set up already by puppet, good :)
+[19:10:25] <Krinkle> chmod and nginx deny
+[19:11:40] <s5fs> Krinkle: nice, thanks so much for banging on this w/us
+[19:11:47] <Krinkle> yw :)
+[19:15:15] <Krinkle> gnarf: so missing from puppet is at least 1) robots.txt contents from puppet, 2) run install.php , only if db tables are absent or perhaps get the state from elsewhere, not sure, and 3) run `php external/ua-parser/php/uaparser-cli.php -g` if /var/www/swarm/external/ua-parser/php/resources/regexes.json does not yet exist
+[19:16:00] <s5fs> totally doable
+[19:16:19] <Krinkle> puppet ->  syntax is interesting
+[19:16:22] <Krinkle> hadn't seen that before
+[19:16:27] <s5fs> its fugly but we survive
+[19:16:47] <gnarf> easier than a bunch of requires
+[19:16:52] <Krinkle> I don't see the cron though
+[19:16:55] <Krinkle> on the server
+[19:17:02] <gnarf> crontab -l ?
+[19:17:17] <Krinkle> checked etc/crontab, etc/cron.d and etc/cron.hourly
+[19:17:27] <gnarf> `crontab -l` :)
+[19:17:40] <gnarf> edit with `crontab -e`
+[19:17:44] <Krinkle> Right
+[19:18:57] <Krinkle> nice
+[19:20:05] <Krinkle> clearing runresults...
+[19:20:05] <Krinkle> ...deleted 2337877 rows from runresults
+[19:20:05] <Krinkle> clearing run_useragent...
+[19:20:09] <Krinkle> Making progress...
+[19:20:20] <Krinkle> still running :)
+[19:22:38] <Krinkle> After those 3 steps, what's left is creating the projects (previously 'users')
+[19:23:55] <Krinkle> for which php scripts/manageProject.php can be used to either check if a project exists or create it
+[19:24:50] <Krinkle> It doesn't have a --check method, though I could add one. As it stands one would do something like `php scripts/manageProject.php --id=jquery` | contains "Unable to perform update" meaning it exists and "Project does not exist" meaning it doesn't
+[19:24:53] <Krinkle> and --create to create it.
+[19:24:58] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-stage: 02https://github.com/jquery/infrastructure/commit/e610e8673f3a014aaced1af774cb3bdd9bd15619
+[19:24:58] <jqcommit> 13infrastructure/06puppet-stage 14e610e86 15Corey Frang: generate uaparser regexp
+[19:25:05] <jqcommit> [13infrastructure] 15gnarf merged 06puppet-stage into 06puppet-master: 02https://github.com/jquery/infrastructure/compare/447a3e7532a4...e610e8673f3a
+[19:25:08] <Krinkle> Alternatively, if easier in puppet we can use db queries to check and set rows.
+[19:25:14] <Krinkle> What do you think?
+[19:26:15] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/c9e0f46d7289064b2936bcce9b894e5c76ae8360
+[19:26:15] <jqcommit> 13infrastructure/06puppet-master 14c9e0f46 15Corey Frang: require php5-cli
+[19:28:00] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/8dbd5875e3669fd31cf93c40c802f66784b3cce5
+[19:28:00] <jqcommit> 13infrastructure/06puppet-master 148dbd587 15Corey Frang: hrm...
+[19:29:00] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/f62ada69eee07b6f0ec8c906445f19247a55bb29
+[19:29:00] <jqcommit> 13infrastructure/06puppet-master 14f62ada6 15Corey Frang: aha - pcakacakaawsge
+[19:32:32] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/f0f9b8b7f1109393d113c3651a252d58be11f86c
+[19:32:32] <jqcommit> 13infrastructure/06puppet-master 14f0f9b8b 15Corey Frang: fix git submodule update part of install
+[19:33:22] <gnarf> Krinkle: hrm
+[19:33:28] <gnarf> Krinkle: maybe manual that for now
+[19:34:49] <gnarf> Krinkle: alternatively - can we have it always run the command and have the command just ensure its set to that username/password?
+[19:35:19] <Krinkle> gnarf: btw, we should create testswarm before setting up cron and deamon hitting its api
+[19:35:35] <Krinkle> Sure
+[19:35:46] <Krinkle> I'm changing the manage script now to have an --exists flag
+[19:36:10] <Krinkle> that returns true/false and then we run --create
+[19:36:53] <Krinkle> if the same incocation does it, the script would have to ensure each property is updated as well. Not just the ID existing
+[19:36:59] <Krinkle> Which is more work, but could do
+[19:37:10] <s5fs> Krinkle: could the script be updated to do the right thing if called more than once?
+[19:37:10] <Krinkle> so that we can actually use puppet to make changes as well
+[19:37:15] <Krinkle> Yeah
+[19:37:46] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/a1a532fe6248bcb8ce599c279cb852e916578fe6
+[19:37:46] <jqcommit> 13infrastructure/06puppet-master 14a1a532f 15Corey Frang: put the uaparser regexp generate on the right exec chain
+[19:40:22] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/ab8cc8f36b667cb1af51f8033f14673e3e74068c
+[19:40:22] <jqcommit> 13infrastructure/06puppet-master 14ab8cc8f 15Corey Frang: add robots.txt on swarm
+[19:40:53] <gnarf> i think most times we would do this we would probably be moving swarm database over instead of setting up a new one
+[19:40:56] <gnarf> but who knows
+[19:41:04] <gnarf> we kinda purged it anyway today
+[19:41:14] <Krinkle> still purging!
+[19:41:35] <s5fs> dang!
+[19:42:48] <Krinkle> ...deleted 2337877 rows from runresults
+[19:42:48] <Krinkle> ...deleted 1852220 rows from run_useragent
+[19:42:48] <Krinkle> ...deleted 153433 rows from runs
+[19:42:50] <Krinkle> ...deleted 235985 rows from clients
+[19:42:52] <Krinkle> ...clearing jobs table
+[19:43:28] <Krinkle> gnarf: hey, Testswarmis responding on the new server
+[19:43:31] <Krinkle> (db error, but cool)
+[19:45:44] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/56e89d3b4052dcf783a0d6df1e493d1f495955a0
+[19:45:44] <jqcommit> 13infrastructure/06puppet-master 1456e89d3 15Corey Frang: run install script if database doesnt exist
+[19:46:10] <gnarf> testing the install.php part now
+[19:46:18] <gnarf> got everything else from that first list i think
+[19:46:47] <gnarf> looks like it worked
+[19:46:53] <Krinkle> PHP Deprecated:  mysql_connect(): The mysql extension is deprecated and will be removed in the future: use mysqli or PDO instead in /Users/krinkle/Development/testswarm/inc/Database.php on line 65 
+[19:47:01] <Krinkle> Hehe, some other time :D
+[19:47:21] <s5fs> haha, always tomm
+[19:49:57] <gnarf> trying agian
+[19:49:58] <jqcommit> [13infrastructure] 15gnarf pushed 1 new commit to 06puppet-master: 02https://github.com/jquery/infrastructure/commit/1678e30d6df7676596dc508be2384296ef235a97
+[19:49:58] <jqcommit> 13infrastructure/06puppet-master 141678e30 15Corey Frang: use creates instead of mysql which needs conf files stuff
+[19:53:30] <gnarf> okay
+[19:53:33] <gnarf> got that working
+[19:56:41] <gnarf> now we need to create users?
+[19:56:47] <gnarf> s/users/projects ?
+[19:57:39] <gnarf> i'd like to wrap this move up and test and sign off in the next hour - you think we on track for that Krinkle ?
+[19:58:08] <Krinkle> gnarf: Pushing it, but I'll do my best
+[19:58:26] <gnarf> is this list out of date ow?
+[19:58:27] <gnarf> https://github.com/jquery/infrastructure/wiki/TestSwarm#create-users
+[19:59:01] <Krinkle> Oh, that reminds me. refreshProjectToken
+[19:59:09] <Krinkle> We can bypass that with puppet ensure file exists
+[20:00:15] <Krinkle> refreshRunToken * I mean
+[20:00:21] <Krinkle> we don't need new project tokens
+[20:00:24] <Krinkle> Except we do
+[20:00:30] <Krinkle> and that's why we should migrate db instead
+[20:00:39] <s5fs> lol
+[20:00:45] <gnarf> yeah it jst made a new one when i created a user
+[20:00:55] <Krinkle> the auth tokens are used in the node-testwarm-config
+[20:01:05] <Krinkle> each user has its own token
+[20:01:10] <gnarf> can i pass it one on the create?
+[20:01:19] <Krinkle> Nope
+[20:01:37] <Krinkle> it has --password though
+[20:01:39] <gnarf> id rather centralize that somewhere
+[20:01:52] <gnarf> so that puppet makes sure both side are using the same auth token
+[20:01:52] <Krinkle> But for the API an auth token is used, not password
+[20:01:54] <gnarf> but yeah
+[20:02:00] <Krinkle> password is for the GUI
+[20:02:01] <gnarf> we need to copy the db i guess
+[20:02:03] <Krinkle> whic his on the wiki page
+[20:02:13] <gnarf> is it still cleaning itself up?
+[20:02:19] <Krinkle> but for the API, we use tokens and those are hardcoded in our client config
+[20:02:23] <Krinkle> Nope,it's finished
+[20:03:28] <gnarf> okay doing a dump
+[20:03:40] <Krinkle> All tables empty except project, has 7 rows
+[20:03:50] <Krinkle> inserting those 7 rows should do it
+[20:04:22] <Krinkle> MySQL server has gone away
+[20:04:23] <Krinkle> :)
+[20:05:09] <Krinkle> Those select queries are quite slow. Even now that the table is empty each table took like 3-10 seconds to say "Empty set"
+[20:05:11] <gnarf> okay http://swarm.jquery.org/project/jquery
+[20:05:12] <Krinkle> something is up
+[20:05:27] <Krinkle> http://swarm.jquery.org/projects
+[20:05:28] <Krinkle> cool
+[20:05:58] <Krinkle> https://github.com/jquery/infrastructure/blob/puppet-master/modules/jquery/files/swarm/node-testswarm-config.json
+[20:06:02] <Krinkle> that one is being ensured already
+[20:06:11] <gnarf> http://jenkins.jquery.com/job/jQuery%20Core/1291/console
+[20:06:59] <Krinkle> Now we need the run token
+[20:07:13] <Krinkle> for authorised browserstack workers (clients) to join the swarm
+[20:07:17] <gnarf> http://swarm.jquery.org/job/1
+[20:07:42] <gnarf> those should stay the same if i did a dump right?
+[20:07:50] <Krinkle> They'renot in the db
+[20:07:57] <Krinkle> Or rather, it, not they.
+[20:08:15] <gnarf> auth_token on projects isn't it?
+[20:09:15] <Krinkle> gnarf: That's for Jenkins to authenticate and submit a job
+[20:09:25] <Krinkle> the run token is for clients to join the swarm and run/submit tests
+[20:09:26] <gnarf> okay
+[20:09:29] <gnarf> where are they stored?
+[20:09:32] <Krinkle> {swarmdir}/cache/run_token_hash.cache
+[20:09:35] <Krinkle> it's encrypted
+[20:09:38] <Krinkle> or rather, hashed
+[20:09:50] <Krinkle> But the plaintext version is in testwarm-browserstack config
+[20:09:59] <Krinkle> so we can ship that file via puppet as well I suppose
+[20:11:08] <Krinkle> Yep, the usage of the token is in puppet already
+[20:11:09] <Krinkle> https://github.com/jquery/infrastructure/blob/puppet-master/modules/jquery/files/testswarm-browserstack/config.json#L10
+[20:11:18] <Krinkle> so that can stay the same and we ship the hashed version via that file
+[20:11:58] <gnarf> seems to work? http://swarm.jquery.org/job/1
+[20:12:18] <Krinkle> O_O
+[20:12:44] <gnarf> should we fire a few more tests at it?
+[20:12:47] <gnarf> or does this look good?
+[20:13:00] <Krinkle> hold on
+[20:13:26] <s5fs> ..holding..
+[20:13:31] <Krinkle> gnarf: the file exists
+[20:13:35] <Krinkle> the cache file
+[20:13:37] <Krinkle> did you move it?
+[20:13:40] <gnarf> yeah
+[20:13:41] <gnarf> i copied it
+[20:13:42] <Krinkle> Oh, ok
+[20:13:44] <gnarf> when you said where it was
+[20:13:55] <Krinkle> now job 1 passing makes sense
+[20:14:07] <Krinkle> I thought maybe there was a failure mode where if the config says "require token" but there is none, it just lets clients in
+[20:14:14] <Krinkle> embarassing..
+[20:14:24] <Krinkle> but not the case
+[20:14:25] <Krinkle> OK :)
+[20:14:31] <s5fs> that would be a poor failure, i agree
+[20:14:43] <gnarf> oh
+[20:14:44] <Krinkle> BUT MY TESTST ARE PASSING
+[20:14:47] <Krinkle> :D
+[20:14:48] <gnarf> last time we moved something
+[20:14:56] <gnarf> splunk forgot the dashboard for it
+[20:14:58] <gnarf> because the server moved
+[20:15:01] <Krinkle> https://github.com/jquery/testswarm/blob/master/inc/Client.php#L144-L152
+[20:15:08] <gnarf> are there splunk dashboards related to this we can check?
+[20:15:19] <Krinkle> It fails with an exception if the token were to be missing
+[20:15:34] <Krinkle> gnarf: yeah, it's aggregating log files from jq03 I think
+[20:15:39] <Krinkle> not sure where that logic lives
+[20:15:51] <gnarf> lets fire off an email to clarkbox about it i guess
+[20:15:53] <Krinkle> might be passive from splunk
+[20:17:20] <s5fs> I'll email him now
+[20:19:19] <Krinkle> I like how our Jenkins responds to the github commit event, starts the job, clones, runs the job, reports to IRC, before github reports the commit to irc. 
+[20:20:00] <s5fs> that's awesome
+[20:23:00] <gnarf> seems someone didn't update the jquery-color job/config
+[20:23:01] <gnarf> >> API returned error, can't continue. Response was: {"error":{"code":"invalid-input","info":"Unknown browser set: popular."}}
+[20:23:29] <Krinkle> yeah, that job rarely gets run from a commit
+[20:24:54] <Krinkle> I'm suddenly feeling rather proud of TestSwarm, after it sort of becoming this left-behind project. It's running quite well all-in-all. Reading through the code, remembering good memories :D
+[20:25:22] <Krinkle> Like, how little maintenance it has needed.
+[20:27:28] <Krinkle> gnarf: Hm.. it doesn't say popular in the onfig
+[20:27:31] <Krinkle> https://github.com/jquery/infrastructure/blob/puppet-master/modules/jquery/files/swarm/node-testswarm-config.json
+[20:27:38] <Krinkle> I guess it's still hardcoded in the git repo's Gruntfile.
+[20:27:46] <Krinkle> instead of using the config property
+[20:27:52] <s5fs> Krinkle: i'm impressed at how nicely you documented things
+[20:27:53] <gnarf> Krinkle: maybe
+[20:28:01] <s5fs> and corey just banged out the puppet config
+[20:28:06] <s5fs> really nice job you two
+[20:28:39] * Krinkle fixed jq-color
+[20:28:42] <Krinkle> fixes*
+[20:30:04] <gnarf> Krinkle: in the repo itself?
+[20:30:34] <Krinkle> gnarf: yeah
+[20:30:57] <gnarf> do i need to land a pr or can you push it?
+[20:31:02] <Krinkle> land it
+[20:31:33] <gnarf> ping me when it's up
+[20:31:34] <gnarf> brb
+[20:35:07] <Krinkle> Aye, jquery-ui is also hardcoding it still. The config is ignored
+[20:35:08] <Krinkle> https://github.com/jquery/jquery-ui/blob/ac49929/build/tasks/testswarm.js#L62
+[20:43:25] <jqcommit> [13infrastructure] 15gnarf merged 06puppet-master into 06puppet-stage: 02https://github.com/jquery/infrastructure/compare/e610e8673f3a...1678e30d6df7
+[20:45:12] <gnarf> alright - im out
+[20:45:20] <gnarf> good work team!
+[20:45:26] <s5fs> go jqinfra!

@@ -1,0 +1,301 @@
+[09:03:16] <DaveMethvin> who's here?
+[09:03:31] <gnarf> sort of here
+[09:03:46] <mikesherov> here
+[09:03:47] <m_gol> present
+[09:03:56] <DaveMethvin> nice!
+[09:04:04] <markelog> hey
+[09:04:36] <DaveMethvin> hi guys
+[09:04:48] <DaveMethvin> i see you're fighting with the focus test markelog
+[09:04:52] <DaveMethvin> and losing! :)
+[09:05:01] <DaveMethvin> i really hate those tests
+[09:05:10] <markelog> yeah :-(, but i will win!
+[09:05:15] <markelog> me too
+[09:05:21] <m_gol> hehe
+[09:05:31] * miketaylr lurking
+[09:05:35] <DaveMethvin> i was trying to land that one focusin/out patch and it seemed so easy, but it was failing an oldIE test somewhere else
+[09:05:44] <DaveMethvin> so yeah
+[09:06:36] <m_gol> so, since mikesherov is here, how about deciding what to do with .css/getComputedStyle? ;)
+[09:06:38] <markelog> sometimes it's easy to fix something then to test it
+[09:06:47] <mikesherov> m_gol, OK
+[09:06:50] <DaveMethvin> agreed
+[09:07:13] <DaveMethvin> so did we ever get the mikesherov take on those gCS issues?
+[09:07:40] <mikesherov> oh man, gCS. I've become the internets protector of this bullshit function
+[09:07:57] <DaveMethvin> a little knowledge is a truly dangerous thing
+[09:08:15] <m_gol> ;)
+[09:08:24] <m_gol> a few links about what we need to decide about
+[09:08:24] <m_gol> https://github.com/jquery/jquery/pull/1241/files#diff-414c8f59bff0d1b63680b64763d8c529R518
+[09:08:25] <b-ot> m_gol: Pull request #1241 by yiminghe (5mon 2w ago): make left/top auto value consistent across browsers
+[09:08:32] <m_gol> specifically the guard for position static
+[09:08:34] <gibson042> I'm here... and "not it!" on the focus tests
+[09:08:45] <mikesherov> OK, can I back up a little bit?
+[09:09:13] <m_gol> :)
+[09:09:21] <DaveMethvin> sure mikesherov
+[09:10:07] <mikesherov> So .css(), IMO, should return "resolved value" as per the CSSOM definition: http://dev.w3.org/csswg/cssom/#resolved-values
+[09:10:36] <DaveMethvin> meaning this is a Chrome bug, i think there's a ticket there in their tracker already
+[09:10:45] <mikesherov> right
+[09:11:03] <mikesherov> so, abspos elements should use "used values" for top/left/bottom/right
+[09:11:06] <mikesherov> it's therefore a bug
+[09:11:19] <mikesherov> if something is "static", it should return "computed values"
+[09:11:19] <m_gol> the question is: should we really fully follow gCS?
+[09:11:30] <mikesherov> m_gol, as opposed to?
+[09:11:42] <m_gol> I mean for non-positioned elements
+[09:11:43] <mikesherov> so, I think we *should*
+[09:11:51] <m_gol> browsers don't follow the spec anyway
+[09:11:55] <m_gol> and it's broken
+[09:11:58] <mikesherov> the reason why is that that's what browser vendors will fix towards
+[09:12:03] <mikesherov> m_gol: they don
+[09:12:05] <mikesherov> they don'
+[09:12:06] <m_gol> it seems only Firefox does what it should according to the spec
+[09:12:11] <mikesherov> they don't, but they want tp
+[09:12:30] <mikesherov> they will fix these bugs eventually
+[09:12:32] <m_gol> but having {position: static; left: 1%} return '1%' on gCS(elem).left is just crazy
+[09:12:52] <mikesherov> DEPENDS
+[09:12:55] <m_gol> ;)
+[09:13:01] <DaveMethvin> i'm wearing some now!
+[09:13:01] <mikesherov> depends on how jquery uses it
+[09:13:12] <m_gol> what do you mean?
+[09:13:39] <DaveMethvin> returning "1%" isn't bad compared to returning 1
+[09:13:47] <DaveMethvin> but it's not really useful
+[09:14:23] <DaveMethvin> the question is whether we try to smooth it over and do what we say the API says we do, which is return pixels?
+[09:14:25] <mikesherov> well, I mean, it's not useful for use with .offset()
+[09:14:27] <mikesherov> That's my point
+[09:14:46] <gnarf> pixels seems sane
+[09:14:56] <mikesherov> .offset should know that static elements don't have meaningful left/top/bottom/right values
+[09:15:12] <mikesherov> What is the use case for querying left/top/bottom/right when position is static?
+[09:15:22] <DaveMethvin> yeah, true
+[09:15:23] <gnarf> ^ thats a pretty strong point
+[09:15:39] <DaveMethvin> damn that guy makes sense
+[09:15:47] <DaveMethvin> get him out of here!
+[09:15:57] <mikesherov> HAHA
+[09:16:04] <mikesherov> That's the CSSWG's point
+[09:16:08] <mikesherov> they keep making that point to ME
+[09:16:11] <m_gol> ;)
+[09:16:13] <DaveMethvin> so for those cases perhaps we just document that they make no sense, period
+[09:16:13] <mikesherov> so now I make it to YOU :-)
+[09:16:18] <mikesherov> RIGHT
+[09:16:21] <m_gol> that's fine for me
+[09:16:43] <m_gol> I just pointed to that particular code because it tries to follow the spec by explicitely guarding against position static
+[09:16:54] <mikesherov> so, the other thing is that top/left/right/bottom have issues that need to be fixed to match the spec in certain browsers
+[09:17:01] <m_gol> and since it doesn't work cross-browser anyway, I don't think we should try to make it work on static elements
+[09:17:04] <mikesherov> I don't like ymighe's fix though
+[09:17:19] <DaveMethvin> what would be a better way?
+[09:17:34] <mikesherov> I dunno
+[09:17:41] <mikesherov> but the problem is that it turns "auto" into 0px
+[09:17:46] <mikesherov> which is wrong
+[09:18:01] <mikesherov> if you have {left:0px; top:0px;}, right and bottom return auto
+[09:18:06] <mikesherov> in some cases
+[09:18:13] <mikesherov> and 0px is just "wrong" there
+[09:18:41] <mikesherov> I actually tried tackling this first, and found that right and bottom just are very thorny
+[09:18:55] <mikesherov> in fact, "resolved value" is kind of bonkers
+[09:18:58] <DaveMethvin> well unless we have a way to return the real pixels, that seems like another case where you shouldn't ask :)
+[09:19:17] <mikesherov> well, it's not even about real pixels
+[09:20:27] <mikesherov> there are other weird effects from right vs. left
+[09:20:39] <DaveMethvin> what exactly does "auto" mean there?
+[09:21:02] <mikesherov> right, I mean, css fails to specify a "resolved value" meaning not specified
+[09:21:14] <mikesherov> there is "auto", and there is "not even specified"
+[09:21:21] <mikesherov> which brings me to my final point
+[09:22:08] <mikesherov> there are new APIs (which are not implemented yet): http://dev.w3.org/csswg/cssom/#the-getstyleutils-interface
+[09:22:16] <mikesherov> that remove the ambiguity
+[09:22:33] <mikesherov> because there ARE times when you want "width: auto" vs. "width: 50%" vs. "width: 100px"
+[09:22:46] <mikesherov> these APIs I have fought hard for but are waiting for implementations
+[09:22:52] <mikesherov> that remove all the ambiguity
+[09:23:05] <DaveMethvin> definitely, sometimes you want auto or 1% and sometimes pixels
+[09:23:39] <mikesherov> by allowing low level access to all the values
+[09:23:43] <DaveMethvin> at the moment i'm inclined to just document this and close the tickets wontfix
+[09:23:43] <m_gol> ok, but what can we do about it atm?
+[09:23:52] <mikesherov> well, quite frankly, nothing
+[09:23:56] <m_gol> but we do workaround some of these behaviors
+[09:23:57] <mikesherov> get upstream to fix the bugs
+[09:24:01] <m_gol> like left/top in WebKit
+[09:24:02] <DaveMethvin> mikesherov it would be good to document what you've said here on the ticket
+[09:24:12] <m_gol> but we don't seem to have a policy of when to stop ;)
+[09:24:12] <mikesherov> we work around stuff that is against spec
+[09:24:18] <DaveMethvin> lol m_gol
+[09:24:36] <DaveMethvin> we stop when we get tired of their nonsense!
+[09:24:39] <mikesherov> I think a good policy here is:
+[09:24:42] <m_gol> ;)
+[09:24:42] <mikesherov> 1. match the spec
+[09:25:05] <mikesherov> 2. where the spec is insufficient, write to CSSWG on ww-style (you'll get a very quick education on the edge cases)
+[09:25:12] <mikesherov> 3. avdocate for change
+[09:25:15] <mikesherov> 4. ????
+[09:25:17] <mikesherov> 5. profit
+[09:25:29] <DaveMethvin> finally some profit
+[09:25:39] <mikesherov> so, there are a number of bugs that the browsers are aware of, and we should file those too
+[09:25:42] <miketaylr> step 3.1 cc miketaylr for gecko/firefox bugs
+[09:25:46] <m_gol> I'm afraid trying to match the spec too closely on edge cases will add bytes to added bytes to added bytes
+[09:25:48] <mikesherov> right miketaylr
+[09:26:06] <mikesherov> m_gol, sure, that's the tradeoff we always have to evaluate
+[09:26:10] <mikesherov> no pat answer there
+[09:26:19] <m_gol> actually, Firefox seems to follow the spec best of all from what I can tell
+[09:26:26] <mikesherov> Firefox <3
+[09:26:39] <miketaylr> (i just meant in general :P)
+[09:26:39] <m_gol> the {position: static; left: 1%} case gives different results in Fx, Chrome & IE
+[09:26:40] <mikesherov> and they care about fixing old spec issues over new hotness all the time
+[09:26:43] <m_gol> 3 different results
+[09:26:46] <mikesherov> although blink is getting better at this too
+[09:27:05] <mikesherov> m_gol, post the results to www-style
+[09:27:07] <m_gol> Blink is getting better but WebKit still exists ;)
+[09:27:10] <DaveMethvin> i'm wary of adding a lot of code to follow the spec for edge cases, esp if they have performance or size implications
+[09:27:13] <m_gol> ok, will do
+[09:27:19] <mikesherov> DaveMethvin: agreed
+[09:27:28] <mikesherov> I'm saying a cliff exists at matching spec
+[09:27:36] <mikesherov> meaning we shouldn't go beyond THAT
+[09:27:42] <mikesherov> but often we stop short of that
+[09:27:53] <mikesherov> we should try to standardize unstandardized things, I mean
+[09:27:56] <DaveMethvin> for example, if we had to temporary change static elements to get their dimensions that would let us get the info but pose a big performance hit
+[09:28:11] <mikesherov> DaveMethvin: but that changes meaning
+[09:28:32] <mikesherov> for example, I really hate that we temporarily show hidden elements to get dimensions of invsible dom elements
+[09:28:40] <DaveMethvin> amen mikesherov
+[09:28:49] <mikesherov> ANYWAY
+[09:29:02] <m_gol> ok
+[09:29:13] <m_gol> but about this {position: static; left: 1%;} case
+[09:29:17] <m_gol> we can't really workaround it
+[09:29:19] <mikesherov> I have one other reccomendation: that we at some point introduce internal helpers for .usedStyle vs. rawComputedStyle
+[09:29:26] <m_gol> if it doesn't work as it should according to the spec
+[09:29:28] <mikesherov> we can fix a lot of "auto" bugs that way
+[09:29:40] <mikesherov> m_gol, sure we can
+[09:29:52] <m_gol> how?
+[09:29:55] <mikesherov> {position: static; left: 1%;} SHOULD produce "1%"
+[09:29:58] <mikesherov> That is CORRECT
+[09:30:04] <mikesherov> unexpected, but correct
+[09:30:08] <m_gol> yes, but it gives px in IE & auto in Chrome
+[09:30:17] <mikesherov> right, but STILL non-sensical
+[09:30:17] <m_gol> so how to get this 1% in Chrome & IE?
+[09:30:28] <mikesherov> we don't gaurantee output of nonsensical input
+[09:30:38] <m_gol> what do you mean by nonsensical?
+[09:30:52] <m_gol> it's clearly specified in the spec it should return 1%
+[09:30:54] <mikesherov> asking for the "left" value of a "static" element is nonsensical
+[09:31:07] <m_gol> ok, so you don't want to follow the spec fully ;)
+[09:31:07] <mikesherov> sure, it's in the spec but doesn't REALLY matter
+[09:31:41] <mikesherov> Well, if we want to get technical, 1% or 1px for that case specifically is ambiguous
+[09:31:53] <mikesherov> "used value" is the value after resolving layout
+[09:31:55] <DaveMethvin> mikesherov i think we can mark this as wontfix if we explain why fixing it doesn't make sense
+[09:32:05] <mikesherov> "computed value" is the value before resolving layout
+[09:32:21] <mikesherov> 1% or 1px may be sufficient for both of us
+[09:32:30] <DaveMethvin> can you add comments to #13767 and #13956?
+[09:32:34] <mikesherov> sure
+[09:32:35] <m_gol> I think we still should fix right/bottom in WebKit/Blink since we do so for left/top
+[09:32:55] <mikesherov> I don't want to fix auto
+[09:33:03] <DaveMethvin> if it's not consistent everywhere it won't help much
+[09:33:04] <mikesherov> and I think we should ask www-style
+[09:33:04] <m_gol> i.e. 13956
+[09:33:23] <m_gol> what do you mean "fix auto"?
+[09:33:31] <m_gol> we do it for positioned elements wrt left/top
+[09:34:12] <mikesherov> right, but that's a heuristic
+[09:34:19] <mikesherov> people specify top/left more than right/bottom
+[09:34:28] <mikesherov> so we "fix" that
+[09:34:45] <mikesherov> but really, returning 5px for right can be ambiguous
+[09:34:53] <mikesherov> like if you never specified right, and then query right
+[09:35:11] <mikesherov> should you get auto, or the 5px?
+[09:35:14] <m_gol> and if you never specified left but only width & right? seems like the same thing
+[09:35:16] <mikesherov> used value doesn't really say
+[09:35:21] <mikesherov> m_gol
+[09:35:23] <mikesherov> sure
+[09:35:28] <mikesherov> but again, it's heurisitc
+[09:35:37] <mikesherov> the *likely* use case is left/top
+[09:35:46] <DaveMethvin> we haven't gotten a TON of bug reports about this
+[09:35:49] <m_gol> I guess I'm a little too idealistic about it :)
+[09:35:49] <mikesherov> right
+[09:35:56] <mikesherov> m_gol: I love the idealism
+[09:36:02] <m_gol> it just seems ugly to me to workaround only some cases
+[09:36:05] <mikesherov> but being right has many parts
+[09:36:09] <m_gol> but maybe there's no pretty way here
+[09:36:11] <mikesherov> m_gol, sure
+[09:36:19] <DaveMethvin> but if they're the most common cases they solve most of the problem
+[09:36:26] <mikesherov> the pretty way is task the browser vendors and CSSWG to normalize this
+[09:36:28] <DaveMethvin> without having to deal with the uncommon cases
+[09:36:30] <m_gol> we should document the brokenness under api/css
+[09:36:36] <DaveMethvin> sure
+[09:36:38] <mikesherov> sure, we should
+[09:36:50] <mikesherov> and we should ask CSSWG about this
+[09:37:08] <m_gol> I'll post this example to the list then
+[09:37:49] <DaveMethvin> okay, so mikesherov is going to add some comments in the ticket, and we'll note in .css() docs that we don't fix some of the crazy stuff
+[09:38:13] <m_gol> seems fine
+[09:38:18] <m_gol> I'll close my eyes :D
+[09:38:45] <DaveMethvin> okay, next!
+[09:38:53] <mikesherov> OK, can we also file tickets for an api to access .usedStyle and .rawcomputedStyle in the future?
+[09:38:56] <DaveMethvin> http://bugs.jquery.com/ticket/14399
+[09:39:08] <DaveMethvin> on this one i'd say let's not get into renaming events
+[09:39:14] <DaveMethvin> the OP was okay with it
+[09:39:25] <DaveMethvin> and there are clear solutions for the small number of situations
+[09:39:44] <m_gol> yeah
+[09:39:47] <m_gol> I'm surprised, actually
+[09:39:56] <DaveMethvin> otherwise we have a bunch of ugly special cases ... and it can be done with a plugin if someone really was offended
+[09:40:02] <m_gol> I thought no browser supports both unprefixed & prefixed version of one particular event
+[09:40:08] <m_gol> I thought it's limited to CSS
+[09:40:50] <DaveMethvin> i dunno if they do, i've always used document.hidden/webkitHidden like that
+[09:40:52] <m_gol> I see lots of code like .on('transitionend WebkitTransitionEnd', sth)
+[09:41:24] <m_gol> so glad those prefixes are going away
+[09:41:28] <DaveMethvin> a lot of times it won't hurt to run the code twice so who knows maybe it's running twice
+[09:41:37] <m_gol> maybe
+[09:41:46] <m_gol> too bad if those events behave differently :D
+[09:41:57] <DaveMethvin> so are we going to do something on this "inconclusive test" idea?
+[09:42:05] <DaveMethvin> anyone want to tackle it?
+[09:42:14] <m_gol> what's the IE policy on prefixing now? I only heard what the rest said: Gecko & Blink - no prefixing, WebKit - still prefixing
+[09:42:17] <DaveMethvin> or should we just skip the few that cause us trouble
+[09:42:31] <m_gol> it depends on how many of them there are
+[09:42:54] <DaveMethvin> well whoever volunteers can find out how many there are :)
+[09:42:58] <m_gol> :)
+[09:43:18] <DaveMethvin> it doesn't seem too high priority to me, so unless someone adopts it as a pet project it prob won't happen
+[09:43:27] <DaveMethvin> i just want markelog
+[09:43:32] <DaveMethvin> to fix that focus test!
+[09:43:40] <DaveMethvin> then i would be happy :)
+[09:43:54] <m_gol> ;)
+[09:44:03] <m_gol> I bumped into infra meeting
+[09:44:17] <m_gol> so they wrote it down they need to add iOS to TestSwarm
+[09:44:23] <markelog> i think i did
+[09:44:26] <gibson042> https://github.com/jquery/jquery/commit/b2f27632ebaa0f975eb70d531925129cee4014b9 looks like it might have done it
+[09:44:26] <b-ot> gibson042: Oleg (21m 5s ago): Focus on the body before running focus test
+[09:44:34] <DaveMethvin> YAY!
+[09:44:36] <m_gol> 5.1 & 6.0 for now, there's no 6.1 or 7.0 yet
+[09:44:48] <markelog> but we will know that for sure only after couple runs
+[09:44:57] <gibson042> and I found the same thing with https://github.com/jquery/jquery/pull/1367/files#diff-1 but forgot that was a PR and not a landed commit
+[09:44:57] <b-ot> gibson042: Pull request #1367 by gibson042 (1w 6d ago): Fix #13353; #13428; #14359: Better treatment of native-backed events (focus/blur/checkbox-click)
+[09:45:03] <DaveMethvin> that's the problem with flakey tests, they're like zombies
+[09:45:43] <DaveMethvin> oh yeah i meant to take a deeper look at that gibson042, sorry
+[09:45:55] <gibson042> no worries; it's low priority
+[09:46:22] <markelog> gibson042: nice, i guess we came to same conclusion
+[09:46:51] <DaveMethvin> okay, so imma do my two tix that i skipped for the beta, and m_gol is gonna remove the  oldIE tests from 2.0
+[09:46:57] <gibson042> yeah, sorry I just totally blanked on advertising it
+[09:47:14] <DaveMethvin> i'll finally get around to looking at Migrate, i think it's got a few little cleanups to be done
+[09:47:21] <m_gol> no progress on that yet but we're not in a hurry about that
+[09:47:28] <m_gol> I mean, the oldIE test removal
+[09:47:38] <DaveMethvin> any other things that need to be tackled this week?
+[09:48:03] <DaveMethvin> i'm not pushing for a quick release, i'm just glad we got a beta of the AMD stuff out there
+[09:48:36] <DaveMethvin> oh, the sourcemap thing ...
+[09:48:49] <m_gol> hahaha
+[09:48:51] <m_gol> right
+[09:48:56] <DaveMethvin> how shoudl we deal with them?
+[09:49:02] <m_gol> could we create our own version of the spec?
+[09:49:11] <m_gol> I mean, not about the source map format itself, that's fine
+[09:49:18] <m_gol> but about how to mark relations between files
+[09:49:21] <DaveMethvin> i am honestly tempted to just pull it out
+[09:49:36] <m_gol> what would be an ideal way to deal with it anyway?
+[09:49:45] <DaveMethvin> i have a feeling the feature is used by about 1% of devs
+[09:50:04] <m_gol> I was thinking a meta tag on the site that would have a link to mappings minFile: [sourceMapFile, sourceFile]
+[09:50:04] <DaveMethvin> it's only in Chrome now, right? miketaylr does FF support maps yet?
+[09:50:09] <m_gol> it does
+[09:50:29] <miketaylr> DaveMethvin: https://wiki.mozilla.org/DevTools/Features/SourceMap
+[09:50:48] <miketaylr> if you guys want i could invite fitzgen to chat about this
+[09:50:49] <m_gol> Firefox has it from v24, i.e. current
+[09:50:55] <DaveMethvin> i really like the idea that the official release of the file has a specific MD5
+[09:51:03] <DaveMethvin> that breaks when you do maps since you change the source
+[09:51:10] <m_gol> yeah
+[09:51:24] <m_gol> are these mappings a good idea?
+[09:51:32] <DaveMethvin> and if the sourcemap spec had just a LITTLE bit of flexibility it could be different
+[09:52:04] <miketaylr> fitzgen does FF devtools and co-writes the spec
+[09:52:28] <gibson042> most important for me is just breaking the cyclic dependency
+[09:52:39] <DaveMethvin> gibson042 that's a big problem too
+[09:53:13] <m_gol> that's one thing but we're being bitten by the fact the minified file references the source map as well
+[09:53:30] <m_gol> miketaylr: sure, we'd love fitzgen to modify the spec...
+[09:53:47] <DaveMethvin> let me put together a list of grievances and send it around for comment from you guys, then have miketaylr and paul_irish see what their guys think
+[09:53:54] <m_gol> great
+[09:54:04] <gibson042> m_gol: right, our ideal spec lets us host the map, which remains ignorant of compressed file names
+[09:54:09] <miketaylr> perfect. (miket@mozilla.com)
+[09:54:14] * miketaylr goes on a bike rdie
+[09:54:41] <DaveMethvin> okay, that's all for me
+[09:54:44] <m_gol> gibson042: right, and if sb moved only a few of these files to a different site, there would just be no source maps
+[09:54:44] <DaveMethvin> anything else?
+[09:54:45] <gibson042> source points to map by URI, map verifies source fingerprint but *not* source URI
+[09:54:46] <m_gol> and no 404
+[09:55:24] <DaveMethvin> ok then, see you in -dev!

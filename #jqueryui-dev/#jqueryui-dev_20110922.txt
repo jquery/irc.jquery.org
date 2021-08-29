@@ -1,0 +1,700 @@
+[05:58:11] <jquicommit> [jquery-ui] gnarf37 pushed 2 new commits to mask: http://git.io/nXGa1A
+[05:58:11] <jquicommit> [jquery-ui/mask] Timepicker: Now correctly stops you from entering invalid numbers - Corey Frang
+[05:58:11] <jquicommit> [jquery-ui/mask] Mask: Unit tests for validating multi-byte fields - Corey Frang
+[06:16:02] <kborchers> jzaefferer: you around?
+[06:16:05] <jzaefferer> yeah
+[06:16:18] <jzaefferer> right here
+[06:16:33] <kborchers> have an issue that ajpiano and i have been tracking down with popup and menu
+[06:17:27] <ajpiano> kborchers: ya know, thats what i was looking at last night
+[06:17:28] <bot-t> (8 hours 38 mins ago) <kborchers> tell ajpiano got it! the problem has to do with using _bind for our click binding on menu and popup. they step on each others toes. check out http://jsfiddle.net/kborchers/qJcvB/ which looks like your issue. Then look at http://jsfiddle.net/kborchers/VvZS4/ That fiddle uses files from 1.9m5 before we changed the menu bindings to use _bind. I also commented out your trigger override in popup cuz it caused a
+[06:17:28] <bot-t> (8 hours 35 mins ago) <kborchers> tell ajpiano one more thing, i had to create the popup before the menu again leading me to _bind and the order in which the binding are created, etc. sorry again for the text flood when you get this :P
+[06:17:42] <ajpiano> was Widget._bind
+[06:17:48] <ajpiano> but couldn't quite see how it might be conflicted
+[06:18:21] <jzaefferer> soo, what's the issue?
+[06:18:33] <kborchers> check out http://view.jqueryui.com/master/demos/popup/popup-menu-table.html
+[06:18:50] <kborchers> click on a button then select an item in the submenu
+[06:19:00] <kborchers> so like a star rating
+[06:19:11] <kborchers> nothing happens on first click
+[06:19:14] <ajpiano> sweet it's DUPED
+[06:19:15] <ajpiano> \o/
+[06:19:22] <kborchers> yep
+[06:19:29] <kborchers> second click fires select
+[06:19:34] <kborchers> but not first
+[06:19:39] <ajpiano> what is eating the click!?!?
+[06:19:48] <kborchers> then look at this http://jsfiddle.net/kborchers/HfkKe/
+[06:20:02] <kborchers> first select of submenu item works but not subsequent
+[06:20:54] <ajpiano> i ended up pulling out the trigger override as well, just as an experiment, but no dice either there
+[06:21:08] <kborchers> my guess is that it has to do with the binding order with both click events being delegated to the UL ... but just somewhat of a guess
+[06:21:28] <ajpiano> there's something weird about there being the trigger defined as this.elem.prev() when you're creating the elements on the fly
+[06:21:55] <jzaefferer> it works fine for the top level menu items, just fails on the submenu items, right?
+[06:22:04] <ajpiano> yep
+[06:23:04] <gnarf> hrm
+[06:24:42] <gnarf> jzaefferer: I'm sitting here writing some units for timepicker - thinking about your statement earlier of "what sense does a timepicker without a default make"
+[06:24:51] <gnarf> do you think it should always have a "valid" value ?
+[06:25:02] <gnarf> rather than the __:__:__ __
+[06:25:28] <gnarf> trying to dig into this click with you guys too
+[06:26:29] <jzaefferer> default could be just the current time...
+[06:27:13] <jzaefferer> so yeah, I don't see why a timepicker needs an empty value
+[06:28:19] <kborchers> something to point out about my fiddle is that all of the UI files are being pulled from 1.9m5 which is before the event handlers were switched to use _bind which is why i'm leaning in that direction as part of the issue
+[06:29:22] <gnarf> well
+[06:29:26] <ajpiano> kborchers: i'm able to select the submenu item as many times as i want, even in your fiddle
+[06:29:32] <gnarf> digging up the parent a few times from a "2 starts"
+[06:29:45] <gnarf> in the demo
+[06:29:50] <gnarf> gives me two click events
+[06:30:53] <kborchers> ajpiano: what browser? you see "Selected" in the console every time? in chrome i only see on the first time
+[06:31:12] <gnarf> one of them seems to be a "delegated" event
+[06:31:15] <gnarf> then the other a raw event
+[06:31:20] <ajpiano> selected every time, do you see the little number next to it increment??
+[06:31:25] <kborchers> nope
+[06:31:42] <gnarf> i saw it every time too ajpiano - in crome
+[06:32:26] <kborchers> hmmm, that's weird. i refreshed and it works every time now!
+[06:32:39] <ajpiano> lol it actually seems to be working *every other* time
+[06:32:49] <ajpiano> i had to throw a preventDefault() in there to stop it from being weird
+[06:32:58] <ajpiano> http://jsfiddle.net/HfkKe/13/
+[06:34:07] <kborchers> hmmm
+[06:35:47] <ajpiano> so weird.  it seems to almost be like, the number of times you've *gotten* a select event is the number of times you will then have to do it and *not* get a select event
+[06:36:36] <ajpiano> first click - select event.  second click (1 event so far) - no event.  third click - select event.  fourth click (two events so far) - no event.  fifth click- no event.  6th click - select event
+[06:36:37] <ajpiano> etc.
+[06:37:42] <gnarf> so
+[06:37:43] <gnarf> um
+[06:38:09] <gnarf> im noting that the "focus" seems to be getting applied on the click properly
+[06:38:15] <gnarf> on the demo page
+[06:38:21] <gnarf> but the select event isn't firing
+[06:39:13] <ajpiano> yeah, the next time you open it up, the last one you tried to select is still outlined
+[06:39:26] <jzaefferer> menu items shouldn't get focus, we set tabindex="-1" for that
+[06:40:36] <kborchers> jzaefferer: that's what i thought too but it is definitely focusing the menu item after the first click in the demo
+[06:42:53] <gnarf> well then improperly
+[06:42:57] <gnarf> :)
+[06:44:35] <gnarf> so - the handler on line 49
+[06:44:40] <gnarf> isn't being called on the first click
+[06:44:55] <ajpiano> yeah
+[06:45:07] <ajpiano> but i can't fathom what's *eating* it and stopping it from getting into that handler
+[06:45:22] <ajpiano> is it something to do with the focusing?
+[06:45:31] <gnarf> neither is the outer handler on 43
+[06:45:38] <gnarf> strange
+[06:45:43] <ajpiano> heh yep
+[06:46:08] <kborchers> maybe it has to do with focus https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.popup.js#L178
+[06:48:33] <gnarf> only seems to be effecting submenus too
+[06:48:58] <gnarf> whats different about a submenu click than a main dropdown click?
+[06:49:49] <kborchers> jsfiddle sucks in the a.m.!
+[06:51:27] <gnarf> hrm
+[06:51:30] <gnarf> so im not sure why
+[06:51:36] <gnarf> but check this shit out
+[06:51:46] <gnarf> add some console.log's in those event handlers i was pointing out
+[06:51:55] <gnarf> click on one of the submenu items
+[06:51:58] <gnarf> then refresh your page
+[06:52:02] <gnarf> all those calls get called
+[06:52:09] <ajpiano> OMG i noticed that too
+[06:52:14] <ajpiano> on kborcher's fiddle
+[06:52:23] <ajpiano> that when i refreshed, a whole slew of select events happened
+[06:52:27] <ajpiano> and then the page refreshed
+[06:52:47] <gnarf> hrm
+[06:52:52] <gnarf> that might be a canary bug
+[06:52:54] <gnarf> checking in stable
+[06:53:04] <gnarf> cuz it seems to be duping all the console.logs
+[06:53:12] <ajpiano> hm
+[06:53:32] <gnarf> nah, seems to happen in stable too
+[06:53:38] <gnarf> all the events are getting refired
+[06:54:02] <ajpiano> that's just bizarre
+[06:54:04] <kborchers> that is weird
+[06:55:13] <gnarf> seems a chrome bug tho
+[06:55:28] <gnarf> i just added +new Date() to the console.log
+[06:55:33] <gnarf> and the timestamps are identical
+[06:56:02] <gnarf> http://cl.ly/0X1w0f3Y2s1B3s2b2D3o
+[06:58:22] <ajpiano> seems a red herring perhaps then
+[07:00:14] <gnarf> agree
+[07:00:23] <gnarf> timeline view shows jquery handling a click
+[07:02:47] <gnarf> but nothing really useful there
+[07:03:21] <kborchers> does this seem to work every time for you guys or can you get it to fail? http://jsfiddle.net/kborchers/HfkKe/15/
+[07:04:28] <ajpiano> seems to work every time'
+[07:05:32] <kborchers> to test i just ripped out all of the focus stuff. i think that's the issue when focusing the menu https://github.com/jquery/jquery-ui/blob/master/ui/jquery.ui.popup.js#L177-194
+[07:06:39] <gnarf> what would that have to do with a click event though?
+[07:06:56] <kborchers> honestly don't know :/
+[07:07:53] <ajpiano> confirm that though kborchers
+[07:08:09] <kborchers> maybe blur is being fired instead of select at certain times?
+[07:08:57] <gnarf> kborchers: comment only line 182
+[07:08:59] <gnarf> things still work
+[07:09:03] <gnarf> and it looks right
+[07:09:18] <ajpiano> 182 is a comment
+[07:09:18] <ajpiano> :p
+[07:09:21] <kborchers> ?
+[07:09:37] <ajpiano> i did http://ajpiano.com/cap/8dd43e.png at the top of my app file and now things work as expected
+[07:09:50] <gnarf> line 182 in popup?
+[07:10:04] <gnarf> i.e. "this.element.focus()"
+[07:10:10] <kborchers> that's 180
+[07:10:17] <gnarf> 180
+[07:10:19] <gnarf> sry
+[07:10:29] <gnarf> forgot to count the two console.logs i added
+[07:10:31] <gnarf> :)
+[07:10:53] <gnarf> what purpose is that .focus() anyway?
+[07:10:55] <kborchers> i was thinking that might be what to try next. i wonder why we need that extra focus
+[07:11:12] <ajpiano> lol can confirm that gnarf
+[07:11:19] * ajpiano blames
+[07:11:54] <ajpiano> https://github.com/jquery/jquery-ui/commit/f45fc08f8638640ac30a47d9acbdb0a544a275d9
+[07:11:56] <socialhapy> ★ Commit on jquery-ui by hanshillen (3m, 4w ago): wrapping tab order for popup
+[07:12:04] <ajpiano> last time that line was touched ^^
+[07:12:10] * kborchers blames hans
+[07:12:14] <kborchers> just saw that in the blame
+[07:12:27] <gnarf> seems a new line there too
+[07:14:46] <kborchers> hmm, problem with removing that line is it breaks keyboard nav of the menu. you have to tab to it (focus) first :(
+[07:16:21] <ajpiano> hum :/
+[07:16:35] <ajpiano> i guess that's answers what the purpose of the focus is
+[07:16:41] <kborchers> yep
+[07:19:41] <gnarf> how does .focus() on the "element" which in that case is the button right?
+[07:19:51] <gnarf> how does that proxy keys to menu?
+[07:20:13] <gnarf> or is the "element" the menu
+[07:20:18] <kborchers> element is the menu
+[07:20:31] <gnarf> sry
+[07:23:32] <gnarf> hey, while im in here
+[07:23:33] <gnarf> 		if ( nested.length && ( /^mouse/.test( event.type ) ) ) {
+[07:23:37] <gnarf> in menu
+[07:23:59] <gnarf> that regexp should prolly be defined in the toplevel scope
+[07:24:16] <gnarf> but
+[07:24:28] <gnarf> event.type.indexOf( "mouse" ) === 0 might be faster too
+[07:24:34] <gnarf> and not require re
+[07:37:51] <jquicommit> [jquery-ui] gnarf37 pushed 1 new commit to mask: http://git.io/pY-nlw
+[07:37:51] <jquicommit> [jquery-ui/mask] Mask: Allow returning a 'default' value from the custom mask functions - Corey Frang
+[07:44:19] <jquicommit> [jquery-ui] gnarf37 pushed 1 new commit to mask: http://git.io/i6KJ0g
+[07:44:19] <jquicommit> [jquery-ui/mask] Timepicker: Default Values & Unit Tests - Corey Frang
+[07:44:35] <gnarf> so, timepicker no longer accepts empty values
+[07:44:40] <gnarf> it forces it to noon
+[07:46:27] <gnarf> kborchers: any luck tracking down why focusing the menu is causing it to not catch click every time?
+[07:47:11] <kborchers> nope, still working on it ... instead of "working" ;)
+[07:48:38] <gnarf> i'll dive back in a minute
+[07:52:26] <gnarf> yup
+[07:52:32] <gnarf> blur is firing before click
+[07:52:37] <gnarf> seemingly
+[07:52:47] <kborchers> right
+[07:54:10] <kborchers> ok think i got it
+[07:54:12] <gnarf> i think this blur event shouldn't be calling collapseAll directly
+[07:54:32] <gnarf> kborchers: ?
+[07:54:36] <kborchers> http://jsfiddle.net/kborchers/HfkKe/16/
+[07:54:54] <kborchers> focusing the first anchor instead of the menu in popup
+[07:55:19] <kborchers> why not call collapseAll from blur though?
+[07:55:55] <kborchers> also pulled out the dependency of menu being ul/li while i was at it
+[07:56:54] <ajpiano> kborchers: i could duck punch you in the throat right now
+[07:56:57] <ajpiano> out of affection
+[07:57:00] <ajpiano> ofc :)
+[07:57:02] <gnarf> i thought that we weren't allowing focus
+[07:57:07] <gnarf> on the anchors
+[07:57:09] <kborchers> heh
+[07:57:14] <gnarf> or is there one in there that takes focus
+[07:57:38] <gnarf> if so, maybe we should make a .focus() on the menu call .focus() on the anchor from menu
+[07:59:32] <kborchers> hmmm, yeah i forgot we were using -1 tabindex on the anchors and yet ... it still focuses
+[08:02:01] <gnarf> cuz you call it programatically
+[08:02:08] <gnarf> what is supposed to have the key focus there?
+[08:02:19] <kborchers> right, but then i can tab to the others that are also -1
+[08:02:28] <kborchers> which is not good
+[08:04:33] <gnarf> is the outer menu supposed to be the thing with key focus?
+[08:04:41] <kborchers> yes
+[08:04:56] <gnarf> then you have to expect a blur to happen b4 a click
+[08:19:14] <gnarf> okay kborchers
+[08:19:16] <gnarf> check it out
+[08:19:28] <gnarf> comment out the blur: "collapseAll" in menu's _bind
+[08:19:38] <gnarf> if that event doesn't call collapseAll, clicks are handled
+[08:19:50] <gnarf> i think its collapsing the menu before it can actually click it
+[08:20:04] <gnarf> cuz the click starts a blur before it starts a click
+[08:21:09] <gnarf> but - also that means something is getting focus
+[08:21:31] <kborchers> hmm
+[08:21:38] <kborchers> i have a solution but might be a littl icky
+[08:22:10] <kborchers> we don't want users to be ablet to focus the anchors right?
+[08:22:38] <gnarf> any focus on the anchors should probably focus the menu
+[08:23:29] <kborchers> that might make more sense ... then we still just have to deal with blur before click issue
+[08:23:53] <kborchers> what did was http://jsfiddle.net/kborchers/HfkKe/18/ if an anchor gains focus, it's selected
+[08:24:40] <gnarf> does it also offload the focus back to the keyevent trapper?
+[08:25:30] <gnarf> now i am sometimes getting a double select on yours
+[08:25:35] <gnarf> that fiddle
+[08:25:44] <kborchers> crap ... like i said, icky ;)
+[08:27:31] <kborchers> so maybe the solution is to focus menu if anchor is focused to get rid of the anchor focus thing. but how can we make sure the click is handled before blur to fix the original issue? doesn't the click trigger the blur so click should be first but it's not
+[08:28:34] <gnarf> ummm
+[08:28:35] <gnarf> hey
+[08:28:47] <gnarf> comment out the blur handler in general
+[08:29:04] <gnarf> everything still "seems" to work
+[08:31:33] <gnarf> i am not even sure you need that blur handler
+[08:32:06] <kborchers> haven't tried it but i would imagine that will break tabbing away from a menu that isn't in a popup. the submenus wouldn't collapse on blur then
+[08:32:29] <gnarf> why are they collapsing in a popup?
+[08:32:47] <kborchers> was just looking at that ... not sure
+[08:33:20] <gnarf> also
+[08:33:28] <gnarf> why are these tabindex -1 things being tabbed?
+[08:38:50] <gnarf> try this: https://gist.github.com/686d1e33369ee9e36a97
+[08:41:28] <gnarf> still lets you tab away
+[08:41:35] <gnarf> but if somehow you focus inside it doesn't collapse
+[08:43:25] <kborchers> i thought of doing that but wasn't sure how we felt about using delay there.
+[08:43:44] <kborchers> you shouldn't be able to focus inside unless you do it programmatically right?
+[08:44:18] <gnarf> apparently, clicking the a focuses it
+[08:44:40] <gnarf> also, apparently the setTimeout is running BEFORE the click
+[08:44:43] <gnarf> which is wacky
+[08:45:43] <kborchers> oh, i see. if you get rid of the popup("close") it doesn't collapse
+[08:46:42] <gnarf> which popup( "close" ) ?
+[08:46:50] <kborchers> in my fiddle
+[08:47:02] <kborchers> in the select handler
+[08:47:52] <gnarf> so
+[08:47:58] <gnarf> considering these differences
+[08:48:08] <gnarf> did this behavior change between m5 and m6?
+[08:48:13] <gnarf> with the blur?
+[08:48:55] <kborchers> hmm, not sure. that fiddle is no longer m5. sorry if i didn't make that clear
+[08:49:15] <gnarf> m5 wasn't listening to the blur event at all
+[08:49:21] <gnarf> so there is your issue
+[08:49:32] <gnarf> blur event is catching on the click
+[08:50:21] <gnarf> you might be forced to delay that
+[08:50:25] <gnarf> like in the gist
+[08:50:32] <kborchers> yep, check this one out http://jsfiddle.net/kborchers/HfkKe/19/
+[08:50:50] <kborchers> now even without the popup("close") it collapses
+[08:51:24] <gnarf> im not ever seeing the selected either
+[08:51:32] <gnarf> what is this using?
+[08:51:39] <kborchers> really?
+[08:52:19] <kborchers> this is using a branch i made to just mess with these files based on m6
+[08:52:31] <gnarf> what changes have been made?
+[08:52:42] <kborchers> i added the blur delay and also stopped prop on the anchor focus
+[08:53:01] <gnarf> are you getting selected?
+[08:53:09] <kborchers> every time
+[08:53:13] <kborchers> chrome
+[08:54:00] <gnarf> never in chrome for me
+[08:54:19] <kborchers> hmm, chrome stable?
+[08:54:24] <kborchers> latest
+[08:54:38] <gnarf> canary
+[08:54:55] <gnarf> never on stable either
+[08:54:56] <kborchers> hmm, don't get selected in FF6 though :(
+[08:55:06] <kborchers> something may be cached in my chrome
+[08:55:10] <gnarf> try just the blur change
+[08:55:37] <kborchers> i did that first and it works but then if you don't close the popup the menu doesn't collapse. i'll show you, just a sec
+[08:57:11] <kborchers> http://jsfiddle.net/kborchers/HfkKe/19/
+[08:57:34] <kborchers> keyboard select does collapse though
+[08:57:47] <gnarf> https://gist.github.com/4720f3008a339b0529af
+[08:57:52] <gnarf> that look about like your diff?
+[08:58:43] <kborchers> yep
+[08:59:40] <kborchers> gotta grab more coffee. brb
+[09:02:18] <kborchers> back
+[09:04:12] <gnarf> doesn't close the popup
+[09:04:16] <gnarf> on either
+[09:04:20] <gnarf> it closes the flyout
+[09:04:25] <gnarf> but not the popup
+[09:05:35] <kborchers> huh? on chrome and ff6 if i click Sub-1, it fires select but does not close the submenu
+[09:06:11] <gnarf> right
+[09:06:16] <kborchers> but it should
+[09:06:23] <gnarf> it should close the whole menu right?
+[09:06:55] <kborchers> no, only submenus. by default the main menu is always visible ... unless in a popup or something that would hide it
+[09:08:48] <gnarf> so, what is it thats causing it not to shut?
+[09:09:14] <gnarf> its not like you're selecting an item on focus or anything
+[09:11:36] <kborchers> i think it has to do with collapseAll deciding what menu to close. give me a minute to move this test local so i can stop pushing every change i want to try
+[09:13:43] <gnarf> ummm
+[09:14:49] <ajpiano> hmm
+[09:14:52] <ajpiano> this is actually reminding me of something
+[09:15:03] <ajpiano> there's some hacky stuff in my code
+[09:15:36] <ajpiano> to work around the fact that the menu was closing as soon as it opened or something
+[09:15:42] * ajpiano takes a look
+[09:16:15] <kborchers> ajpiano: the issue is in a very basic demo though too so i don't think it's your code. your code may not be helping but i don't think it's the root cause
+[09:16:31] <gnarf> https://gist.github.com/d897d0a933c3382a4d81
+[09:16:34] <gnarf> this code makes no sense
+[09:16:35] <ajpiano> yeah but i'm saying that i had to work around something that was being manifested by it
+[09:16:40] <kborchers> ahhh
+[09:16:44] <ajpiano> so if i rip around the workaroudn i can share some insight it hink
+[09:16:51] <kborchers> gotcha
+[09:17:04] <gnarf> why not just target.closest( ".ui-menu" )
+[09:17:34] <ajpiano> omg YES
+[09:17:36] <ajpiano> i have a *comment*
+[09:17:56] <ajpiano> i wrote that popups were getting closed as soon as they were opened via popup("open")
+[09:18:14] <gnarf> var currentMenu = $( event && event.target ).closest( ".ui-menu" );  then later the if can check .length
+[09:18:39] <ajpiano> so i had to set this flag on an open so that it would only actually destroy the menu on close if it had really opened
+[09:19:19] <kborchers> gnarf: mouseleave on the menu also calls collapse all and then the target is the .ui-menu so closest would be a menu above the one you want to close
+[09:19:43] <gnarf> nut uh
+[09:19:47] <gnarf> .closest checks self frst
+[09:19:49] <gnarf> then parents
+[09:19:54] <gnarf> ?closest
+[09:19:55] <bot-t> .closest(selector): Get the first element that matches the selector, beginning at the current element and progressing up through the DOM tree. http://api.jquery.com/closest/
+[09:20:01] <kborchers> oh, really?
+[09:20:08] <gnarf> yups
+[09:20:24] <kborchers> " the .closest() method allows us to search through these elements and their ancestors in the DOM tree"
+[09:20:31] <kborchers> huh, did not know that
+[09:20:39] <kborchers> thought it was just ancestors
+[09:20:50] <kborchers> ok, that can be changed then
+[09:21:49] <kborchers> ooohhh, i just got an e-mail from "offshore admin" and the subject is in russian ... i better go read that right now!
+[09:22:12] <gnarf> so
+[09:22:12] <gnarf> um
+[09:22:37] <kborchers> still not sure what's causing it to not collapse
+[09:22:52] * kborchers reads back through ajpiano's comments from a min ago
+[09:22:59] <gnarf> i think it might be collapsing
+[09:23:31] <ajpiano> yeah what i experienced jibes with it being collapsed when it shouldn't
+[09:25:20] <gnarf> kborchers: check it
+[09:25:23] <gnarf> its closing
+[09:25:50] <gnarf> but .find( ".ui-menu" ) is being called on the "subMenu" passed into ._close
+[09:26:48] <gnarf> so in the collapse all
+[09:26:54] <gnarf> you want to pass in the menus parent
+[09:26:56] <gnarf> not the menu
+[09:29:04] <gnarf> the _close is meant to be called on the <li> containing the menu i guess
+[09:30:26] <ajpiano> haha yeah the first thing that happens when you do popup("open") is a close event on the popup
+[09:30:27] <ajpiano> :/
+[09:30:59] <gnarf> kborchers: https://gist.github.com/bcc340b91f39fc4c8470
+[09:31:01] <ajpiano> jk
+[09:31:01] <gnarf> thats what i have now
+[09:31:17] <gnarf> seems to work
+[09:32:07] <gnarf> of course, now you have this weirdness again
+[09:32:16] <gnarf> i think i have a better idea
+[09:34:01] <gnarf> https://gist.github.com/24816b288ec8c3c98072
+[09:34:11] <gnarf> that + the blur handler
+[09:34:16] <gnarf> seems to be giving the correct behavior
+[09:34:27] <ajpiano> which blur handler
+[09:35:00] <kborchers> gnarf: the your blur with delay or original?
+[09:35:08] <gnarf> with the delay
+[09:36:25] <kborchers> ok, let me get all of that into menu and run all of the tests and see where we are
+[09:38:34] <ajpiano> gnarf: i have: https://gist.github.com/784a223e6e8e83800c22
+[09:38:42] <ajpiano> and it's broken as hell :/
+[09:38:46] <gnarf> ajpiano: https://gist.github.com/4720f3008a339b0529af  i think
+[09:39:05] <gnarf> ajpiano: you can't extend proto
+[09:39:07] <gnarf> its in the bind
+[09:39:42] <ajpiano> which bind
+[09:40:02] <ajpiano> can i see ur ui.menu.js
+[09:43:57] <kborchers> gnarf: no good. _close was working as expected. it is only to close menus below the current menu not the current menu. visual and unit tests get pretty messy with that change with stuff closing when it shouldn't
+[09:43:57] <gnarf> https://github.com/gnarf37/jquery-ui/tree/menu-tests
+[09:44:18] <gnarf> _close makes no fucking sense to me
+[09:44:19] <gnarf> sorry
+[09:44:24] <gnarf> if you say _close a menu
+[09:44:27] <gnarf> it should close that menu
+[09:44:46] <gnarf> right?
+[09:45:48] <gnarf> so the issue here is the collapseAll on the click event isn't getting the menu
+[09:46:13] <gnarf> because the click is inside the menu, and you parent up to the menu
+[09:46:18] <gnarf> so it doesn't collapse that menu
+[09:46:26] <kborchers> that sounds accurate
+[09:46:35] <gnarf> because close doesn't collapse the menu, it collapses children menus
+[09:46:54] <gnarf> this is all way too confusing
+[09:47:16] <kborchers> welcome to my life for the last few months ;)
+[09:47:31] <gnarf> so
+[09:47:38] <gnarf> _close collapses children
+[09:47:55] <gnarf> it seems its meant to be called on the <li> containing the menu
+[09:47:56] <gnarf> right?
+[09:48:29] <kborchers> yes
+[09:48:46] <kborchers> maybe collapseAll should be using collapse instead of _close?
+[09:49:14] <gnarf> except collapse is hardwired to use this.active
+[09:49:31] <kborchers> damnit, right
+[09:49:50] <gnarf> these functions have bad names imo
+[09:50:00] <gnarf> _close = _closeSubMenus
+[09:50:34] <kborchers> collapse used to be close
+[09:51:07] <kborchers> which then called _close which maybe made more sense then
+[09:51:44] <gnarf> collapose just closes the currently "active" submenu right?
+[09:51:48] <gnarf> that kinda makes sense
+[09:51:54] <kborchers> right
+[09:52:05] <gnarf> so now
+[09:52:10] <gnarf> what is collapseAll supposed to do?
+[09:52:32] <gnarf> take event.target and collapse the menu that contains it?
+[09:55:28] <gnarf> grab 329ad7e from my rep
+[09:55:29] <gnarf> repo
+[09:55:31] <gnarf> try that
+[09:55:32] <kborchers> that sounds right, it closes the menu(s) below the event.target. it's used to auto-collapse submenus on mouseout of a menu like the OSX menu system
+[09:55:37] <gnarf> against your tests
+[09:55:46] <gnarf> kborchers: below the event.target?
+[09:56:02] <gnarf> or above it?
+[09:56:11] <gnarf> because if so
+[09:56:22] <gnarf> if its meant to only be below it
+[09:57:15] <kborchers> below the event.target if it's a menu or the closest menu to it is how i think i remember it working
+[09:57:53] <gnarf> kborchers: updated the closest
+[09:58:05] <gnarf> to only allow matching submenus of the main menu
+[09:58:17] <gnarf> and then it grabs the parent of it
+[09:58:22] <gnarf> passing that to close
+[09:59:23] <gnarf> damnit
+[09:59:30] <gnarf> now keyboard presses dont cause it to happen
+[09:59:31] <gnarf> so
+[10:00:04] <gnarf> i think the logical error is in the select function
+[10:00:12] <gnarf> rather than this collapseAll
+[10:00:23] <gnarf> collapseAll( event )
+[10:00:25] <gnarf> that is
+[10:01:00] <gnarf> it might be better to just collapseAll()
+[10:04:04] <kborchers> hmmm, i broke something somewhere ... just a sec
+[10:05:16] <gnarf> pushing SHA b7c0e38 to my repo
+[10:05:36] <gnarf> that lines out that logic i just stated
+[10:06:20] <gnarf> https://github.com/gnarf37/jquery-ui/compare/menu-tests
+[10:07:46] <gnarf> kborchers: lemme know how that goes through your tests
+[10:07:48] <gnarf> afk coffee
+[10:13:50] <kborchers> hmmm, i can't figure out why the menu doesn't collapse when i select something. it even does it in master. wonder if my structures other than ul/li broke it?
+[10:19:39] <jzaefferer> 365 new messages since I last looked at this channel, holy crap
+[10:19:47] <jzaefferer> maybe you guys should get on a phone? :p
+[10:19:58] <jzaefferer> there was a highlight inbetween, something I should look at?
+[10:20:19] <kborchers> still tracing that issue. i think gnarf may be onto something.
+[10:20:53] <kborchers> also just found that this commit https://github.com/jquery/jquery-ui/commit/94317d7aa4ed439cb825d006fb461145a6d2aa5d broke closing of the menu on select
+[10:20:54] <socialhapy> ★ Commit on jquery-ui by kborchers (1w, 3d ago): Menu: Added autoCollapse as the default and added a unit test
+[10:21:10] <kborchers> gnarf's solution may fix it so going to try now
+[10:30:55] <jzaefferer> okay
+[10:31:36] <kborchers> so yeah, in select collapseAll() instead of collapseAll( event ) fixes that issue but there are still problems
+[10:32:53] <kborchers> gnarf: it actually should be passing the menu to _close, not the parent so I removed that .parent() and visually it seems ok. i'm getting some unit test failures now though so looking into those. and haven't looked at how it effects that popup issue yet
+[10:34:07] <gnarf> was fucking with some routing at my house - you say anything to me since 12:22 ? :)
+[10:34:23] <kborchers> gnarf: it actually should be passing the menu to _close, not the parent so I removed that .parent() and visually it seems ok. i'm getting some unit test failures now though so looking into those. and haven't looked at how it effects that popup issue yet
+[10:34:41] <gnarf> kborchers: if it passes the menu
+[10:34:44] <gnarf> the click doesn't work
+[10:34:59] <gnarf> because the click is on the <a>
+[10:35:06] <jzaefferer> hey gnarf, as animation expert, how would you animate $(window).scrollTop(1000)?
+[10:35:27] <kborchers> gnarf: click works fine here on the menu visual test
+[10:35:27] <jzaefferer> seems like $(window).animate({scrollTop: 1000})  doesn't work...
+[10:35:33] <gnarf> hrm
+[10:35:40] <gnarf> orly
+[10:38:03] <gnarf> jzaefferer: $( document.body ) ?
+[10:38:13] <gnarf> http://jsfiddle.net/NmLck/12/
+[10:39:18] <gnarf> i wonder if im still connected
+[10:39:21] <jzaefferer> mhm, thanks
+[10:39:33] <jzaefferer> silly that setting scrollTop on window works, but animating doesn't
+[10:40:43] <jzaefferer> well, works, whatever
+[10:40:44] <jzaefferer> thanks!
+[10:41:57] <gnarf> i think animate my shortcut out on $( window ) cuz it doesn't have styles
+[10:42:40] <gnarf> it might work with $( window ) if you made a jQuery.fx.step.scrollTop
+[10:42:43] <gnarf> that didn't use .css() to work
+[10:47:30] <gnarf> yeah jzaefferer
+[10:47:32] <gnarf> confirmed
+[10:47:39] <gnarf> $( window ) doesn't have styles
+[10:47:41] <gnarf> so it bombs
+[10:47:57] <gnarf> trying to jQuery.css( window, "scrollTop" ) fails
+[10:48:15] <jzaefferer> meh
+[10:50:43] <gnarf> jzaefferer: http://jsfiddle.net/VQSjt/
+[10:52:26] <gnarf> actually you dont need the scrollTop fx
+[10:52:30] <gnarf> bcus it already is one
+[10:53:04] <jzaefferer> well, I'm just animating document.body now, but could be useful as a fix within jQuery itself
+[10:53:13] <jzaefferer> probably tripped up a few (thousand) people already...
+[10:53:25] <jzaefferer> there's not really a need for a "scroll into view" plugin
+[10:55:59] <gnarf> scrollTop/scrollLeft methods are a mess
+[10:58:58] <gnarf> kborchers: that doesn't make any sense
+[10:59:44] <gnarf> although i agree that it works
+[10:59:47] <gnarf> it must be a different close
+[11:01:07] <gnarf> kborchers: its because i removed the event pass in select
+[11:02:13] <gnarf> kborchers: what are the units?
+[11:02:53] <gnarf> its because i removed the event
+[11:02:58] <gnarf> thats your unit fails
+[11:04:27] <gnarf> kborchers: try 0d6833a from my repo
+[11:04:31] <gnarf> i fixed those units
+[11:05:05] <gnarf> added an "all" paremeter to collapseAll
+[11:10:36] <kborchers> sorry was afk ... yeah i had tracked it to that as well then went to heat some lunch
+[11:10:39] <kborchers> i'll try that
+[11:14:44] <kborchers> that looks good in visual and units. thanks! now to look at popup
+[11:17:48] <kborchers> gnarf, ajpiano: i think we have a winner!
+[11:18:59] <ajpiano> kborchers: hoarry
+[11:19:01] <ajpiano> !!
+[11:20:44] <gnarf> kborchers: wrap it up in a pull unless its exactly my commit
+[11:20:48] <gnarf> and ill push it
+[11:21:29] <kborchers> i was just creating a pull but i think yours is exact ... let me double check first
+[11:22:29] <gnarf> i still think _close might deserve a rename to _closeSubMenus
+[11:22:42] <kborchers> yep, yours should do it
+[11:22:55] <kborchers> that sounds good to me
+[11:23:09] <kborchers> jzaefferer: thoughts on _closeSubMenus ^^^
+[11:23:14] <kborchers> if you're still around
+[11:23:48] <gnarf> we might of lost him - maybe scott_gonzalez / rworth / ajpiano have an opinion there?
+[11:25:42] <gnarf> although _open has the same problem
+[11:25:48] <gnarf> it finds child menu
+[11:25:53] <gnarf> as opposed to being passed child menu
+[11:26:04] <gnarf> oh wait
+[11:26:05] <gnarf> nvm
+[11:26:09] <gnarf> that one actually takes the menu
+[11:26:16] <gnarf> where _close takes the containing li
+[11:26:17] <scott_gonzalez> that's what open and close mean
+[11:26:33] <scott_gonzalez> open and close a child
+[11:26:40] <gnarf> scott_gonzalez: issue is, _close( refToASubmenu ) doesn't close it
+[11:26:51] <gnarf> it closes any children menus
+[11:26:53] <kborchers> gnarf: oh crap that reminds me. yours is not exact
+[11:26:58] <gnarf> you have to pass the parent
+[11:26:59] <scott_gonzalez> why are you passing a reference?
+[11:27:21] <kborchers> no, you pass the menu gnarf. i did change that in your code
+[11:27:55] <kborchers> i removed the .parent()
+[11:27:57] <kborchers> var currentMenu = all ? this.element :
+[11:27:57] <kborchers> 			$( event && event.target ).closest( this.element.find( ".ui-menu" ) );
+[11:27:57] <gnarf> kborchers: i updated that .parent() change on my branch
+[11:28:15] <gnarf> scott_gonzalez: if you pass in the actual submenu
+[11:28:18] <gnarf> it will not close
+[11:28:51] <gnarf> _close( theSubmenu ) doesn't close that submenu
+[11:28:56] <gnarf> it closes the submenus of that submenu
+[11:29:19] <scott_gonzalez> yeah, close always means close the submenus of the given menu
+[11:29:21] <jzaefferer> is that different from the active menu?
+[11:30:10] <gnarf> jzaefferer: _close() closes active submenu by assuming this.active.parent()
+[11:30:42] <gnarf> it confused me tho scott_gonzalez
+[11:30:53] <gnarf> _close( aSubmenu ) feels like it should close that submenu
+[11:30:58] <gnarf> not the submenuts of the submenu
+[11:31:09] <gnarf> especially since _open( aSubmenu ) opens it
+[11:32:16] <gnarf> which is why I was suggesting we rename it
+[11:32:32] <scott_gonzalez> jzaefferer: is there a reason that it works that way?
+[11:32:39] <jzaefferer> I don't know
+[11:32:44] <scott_gonzalez> close should have parity with open
+[11:32:50] <jzaefferer> it grew over two years or something...
+[11:33:10] <jzaefferer> yeah, should be consistent, either both need the argument, or none need it
+[11:33:47] <scott_gonzalez> well, the problem that gnarf and kborchers are talking about is that they both take an argument, but treat it differently
+[11:33:58] <gnarf> _open( submenu )
+[11:34:02] <gnarf> _close( startMenu )
+[11:34:11] <scott_gonzalez> open takes the specific menu to open and close takes the parent of the menu to close
+[11:34:28] <gnarf> nice summary
+[11:34:30] <gnarf> ++
+[11:35:55] <gnarf> if you pass the arg to _close - it looks within for menus to close
+[11:36:07] <gnarf> although it seems all the calls to _close already expect this
+[11:36:22] <gnarf> actually
+[11:36:25] <gnarf> waits
+[11:36:42] <gnarf> the only instance _close is passed a submenu is collapseAll
+[11:37:16] <gnarf> i imagine thats to handle the mouseleaves, etc
+[11:37:39] <kborchers> right, i did that to handle auto collapse stuff with mouseleaves
+[11:37:44] <gnarf> also, this is kinda a strange one kborchers
+[11:37:47] <jzaefferer> then that was introduced during the autoCollapse refactoring
+[11:37:53] <kborchers> yes
+[11:38:10] <gnarf> _mouseLeave calls collapseAll - which calls blur ; then calls blur itself
+[11:38:43] <kborchers> hmmm, that doesn't seem right does it ;p
+[11:38:53] <gnarf> no it doesn't
+[11:38:57] <gnarf> it also doesn't pass an event to blur
+[11:39:01] <gnarf> which will be buggy
+[11:40:50] <kborchers> removing that extra blur in _mouseleave is fine. not necessary. visual and unit tests still pass after removing if you want to add that to your commit gnarf
+[11:41:04] <gnarf> kborchers: removing the whole function should be okay then
+[11:41:13] <gnarf> just make it call collapseAll as the handler right?
+[11:42:10] <kborchers> that sounds right which makes me wonder why we did that to begin with. let me check the discussion in the PR
+[11:45:34] <gnarf> here's what i don't get kborchers
+[11:45:39] <gnarf> if you mouseleave a menu
+[11:45:43] <kborchers> not sure why it was there. since i pushed over top of the commit where i created that helper, i can't tell why it was there but yeah, we should be able to kill that all together. unit and visual look good with just collapseAll for those
+[11:45:44] <gnarf> it should close right?
+[11:46:17] <kborchers> if you mouseleave a menu, the submenus close in the OSX menu system which is what we modeled after
+[11:46:38] <kborchers> the menu you left stays open
+[11:47:00] <gnarf> alright
+[11:47:05] <gnarf> dig...
+[11:48:05] <gnarf> https://gist.github.com/ea53b1f8f756aa3fcb6d
+[11:48:10] <gnarf> looks right then?
+[11:48:32] <gnarf> I'm actually okay with the behavior of _close now then
+[11:48:38] <gnarf> its just not intuitive
+[11:48:41] <gnarf> gonna add a comment
+[11:49:27] <kborchers> that gist looks correct
+[11:50:02] <gnarf> if I push this on my repo, you wanna run it through some tests before I pull it?
+[11:50:35] <kborchers> i could do that
+[11:51:58] <gnarf> um
+[11:52:00] <gnarf> one more question
+[11:52:54] <gnarf> activeMenu
+[11:53:25] <gnarf> in the collapseAll
+[11:53:30] <gnarf> is forced back to the top level menu
+[11:53:50] <gnarf> this seems to not be correct
+[11:54:13] <gnarf> i.e. if in os X i mouse out of a submenu
+[11:54:20] <gnarf> up/down still start in that submenu
+[11:55:01] <kborchers> good call. should probably be currentMenu
+[11:55:11] <gnarf> okay
+[11:56:02] <gnarf> do we need a unit for that?
+[11:56:08] <kborchers> though that still doesn't address the up/down issue since a blur happens
+[11:56:44] <kborchers> once you mouseleave, even though the activeMenu is set, nothing is "focused"
+[11:57:17] <gnarf> right but down should then use activeMenu as its basis right?
+[11:57:34] <gnarf> it does
+[11:57:36] <gnarf> just confirmed
+[11:58:12] <gnarf> SHA 354c6d2 just went up in my repo
+[11:58:21] <kborchers> hmm, but i just changed to currentMenu and up/down just scroll the page
+[11:58:31] <kborchers> so something's not right somewhere
+[11:58:37] <gnarf> im on the popup demo
+[11:58:52] <gnarf> if only you could skype this man :)
+[11:58:57] <kborchers> oh, i'm using the default menu visual test
+[11:59:22] <kborchers> yeah, i could if i was at home
+[11:59:57] <gnarf> okay
+[12:00:01] <gnarf> so if you click on the menu to start
+[12:00:25] <kborchers> that's the issue
+[12:00:34] <gnarf> yeah
+[12:00:40] <kborchers> what if i don't click to start since the menu is already visible
+[12:00:52] <gnarf> if you were purely mouse navigating - up down don't seem to trigger
+[12:00:57] <kborchers> right
+[12:01:15] <gnarf> try this tho
+[12:01:21] <gnarf> hover a submenu item
+[12:01:23] <gnarf> and just down it
+[12:01:26] <gnarf> without ever clicking
+[12:01:27] <gnarf> that breaks too
+[12:01:30] <kborchers> yep
+[12:01:40] <gnarf> so im okay with the same break on mouseleave
+[12:01:43] <gnarf> i think
+[12:01:54] <kborchers> focus issue i think
+[12:02:00] <gnarf> new issue
+[12:02:13] <gnarf> i think we fixed enough issues in this one already :)
+[12:02:21] <kborchers> yeah ... i can add that one to the wiki to check later
+[12:03:41] <gnarf> im working on a unit for the mouseleave
+[12:03:54] <kborchers> cool
+[12:06:05] <kborchers> wiki updated
+[12:13:13] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/kPCqtg
+[12:13:13] <jquicommit> [jquery-ui/grid] Grid: Fix old type prototype while trying to merge it into tablesorter - Jörn Zaefferer
+[12:13:41] <gnarf> SHA 7bc4dfe - https://github.com/gnarf37/jquery-ui/compare/menu-tests
+[12:13:53] <gnarf> you agree with that test?
+[12:14:00] <gnarf> kborchers ?
+[12:16:10] <gnarf> i think that startMenu && startMenu.length might be unnessecary now
+[12:17:07] <gnarf> still passes units without it
+[12:17:33] <kborchers> that addition to the unit looks good
+[12:19:03] <kborchers> so you just do startMenu = this.active ? this.active.parent() : this.element; without the if?
+[12:20:49] <gnarf> nope
+[12:20:59] <gnarf> just back to !startMenu
+[12:21:09] <gnarf> instead of !(startMenu && startMenu.length)
+[12:21:33] <gnarf> ecd2822
+[12:21:40] <kborchers> right, was wondering how that would work. that makes sense.
+[12:21:55] <gnarf> just before i was being lazier in collapseAll
+[12:21:59] <gnarf> thats when I added that
+[12:22:43] <kborchers> units and visual look good with just !startMenu
+[12:23:22] <kborchers> i've only been testing in chrome but once you push all of these changes to your repo i will test all browsers
+[12:23:59] <gnarf> kborchers: its up on menu-tests
+[12:24:04] <gnarf> in my repo
+[12:24:07] <gnarf> ecd2822
+[12:24:13] <kborchers> cool, i'll start testing
+[12:25:07] <gnarf> thanks
+[12:25:14] <gnarf> saves me a lot of hell starting up VMs :)
+[12:25:41] <kborchers> yeah i'll have to start vm's for old ie's but what ever
+[12:27:13] <gnarf> .seen Wizywig
+[12:27:23] <gnarf> 14:27 hsbot: Wizywig was seen 2 minutes and 29 seconds ago, in #jquery, saying: so, any of u guys know, is jq ui just a deprecated bastard child of jquery?
+[12:28:10] <kborchers> wtf?
+[12:28:35] <gnarf> i'm guessing troll
+[12:29:36] <kborchers> chrome looks good
+[12:31:48] <kborchers> ff6 looks good though the right table border is messed up but i'm assuming that is unrelated to these changes
+[12:31:56] <kborchers> in the popup demo
+[12:33:49] <kborchers> IE9 looks good
+[12:37:04] <kborchers> safari looks good. some units fail but they failed before. i don't think safari likes tabindex -1 for some reason it sets them to 0. that is what fails
+[12:38:00] <gnarf> hrm
+[12:38:13] <gnarf> is that a known issue on safari's side?
+[12:38:19] <kborchers> not sure
+[12:38:39] <gnarf> might want to report it
+[12:39:06] <kborchers> yeah
+[12:40:02] <kborchers> Opera 11.51 looks good
+[12:40:11] <kborchers> now to old IE's
+[12:40:21] <kborchers> dun dun dunnnnn
+[12:41:41] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/ynoGqQ
+[12:41:41] <jquicommit> [jquery-ui/grid] Grid: Move the tbody extraction into grid, to run if no source option is specified - Jörn Zaefferer
+[12:42:31] <gnarf> heh
+[12:42:34] <gnarf> i hate the old ies
+[12:50:53] <kborchers> IE8 looks good (for being IE8) ;)
+[12:58:15] <kborchers> IE7 looks good except a few units fail for a weird reason
+[12:58:27] <kborchers> Diff:  "Aberdeen,keydown," "Aberdeen ,keydown,"
+[12:58:45] <kborchers> for some reason it adds a space after Aberdeen so I am calling that passing
+[13:01:47] <gnarf> heh
+[13:02:02] <gnarf> maybe we should $.trim() the log output
+[13:02:20] <gnarf> does adding that to the menu log function fix the unit?
+[13:02:59] <kborchers> i already closed that vm. starting my ie6 vm now so i'll let you know if that fails for same reason and if so, if that fixes it
+[13:07:46] <kborchers> ie6 does the same thing and $.trim fixes it
+[13:07:57] <kborchers> popup menu demo is broken in ie6 though
+[13:08:14] <kborchers> checking to see if it was broken before our changes
+[13:08:36] <gnarf> so 	$( "#log" ).prepend( $.trim( message ) + "," );  fixes the unit?
+[13:08:58] <kborchers> yep
+[13:09:18] <kborchers> popup menu demo was broken in ie6 before
+[13:09:20] <kborchers> basically
+[13:09:38] <kborchers> the submenus are not visible.
+[13:09:52] <kborchers> i can still navigate to them via keyboard and select items but can't see them
+[13:10:05] <kborchers> i'll note it on the wiki to fix
+[13:11:42] <kborchers> looks like all browsers are good to go from what i can tell
+[13:19:37] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/rOc48A
+[13:19:37] <jquicommit> [jquery-ui/grid] Grid: Update dataview-local to look at property definitions for globalized types - Jörn Zaefferer
+[13:30:10] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/2xG8Lg
+[13:30:10] <jquicommit> [jquery-ui/grid] Grid: extract the extract method to use it when filtering - Jörn Zaefferer
+[13:31:38] <jquicommit> [jquery-ui] gnarf37 pushed 1 new commit to master: http://git.io/0MXdHQ
+[13:31:38] <jquicommit> [jquery-ui/master] Menu: Refactoring the collapseAll to deal with some issues selecting - Updating unit tests. Thanks @kborchers - Corey Frang
+[13:32:08] <kborchers> that works
+[13:32:26] <kborchers> ajpiano: ^^^
+[13:32:44] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/oisN-A
+[13:32:44] <jquicommit> [jquery-ui/grid] Grid: Extract globalized value to fix filtering - Jörn Zaefferer
+[13:33:29] <kborchers> ajpiano: let me know when you add your other menu items back in. i'd like to see it working after all of that
+[13:34:33] <kborchers> thanks for all of your help on that gnarf!!! that was a fun one ;)
+[13:34:43] <gnarf> np
+[13:34:47] <gnarf> and agreed
+[13:34:52] <gnarf> and now i know menu somewhat
+[13:34:52] <gnarf> :)
+[13:36:04] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/q3h67g
+[13:36:04] <jquicommit> [jquery-ui/grid] Grid: Fix menugrid to output the right thing - Jörn Zaefferer
+[13:36:46] <kborchers> now back to popup
+[13:48:35] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/kj1PLw
+[13:48:35] <jquicommit> [jquery-ui/grid] Grid: Parse the filter value for better filtering - Jörn Zaefferer
+[14:00:54] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/8IjhfQ
+[14:00:54] <jquicommit> [jquery-ui/grid] Grid: Move operator parsing into dataview; still need to update other dataview implementations that are used with menugrid - Jörn Zaefferer
+[14:09:19] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/vEAksQ
+[14:09:19] <jquicommit> [jquery-ui/grid] Grid: Fix the menugrid odata demo - Jörn Zaefferer
+[14:15:25] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/4zbUzw
+[14:15:25] <jquicommit> [jquery-ui/grid] Grid: Remove grid-type, all interesting code is merged into other abstractions, mostly via grid-spf/tablesorter.html - Jörn Zaefferer
+[14:30:44] <jquicommit> [jquery-ui] rdworth pushed 1 new commit to grid: http://git.io/BHxkUw
+[14:30:44] <jquicommit> [jquery-ui/grid] Moved grid refresh selected binding to gridSelectable - Richard D. Worth
+[14:45:32] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/l3q08w
+[14:45:32] <jquicommit> [jquery-ui/grid] Grid: Remove kite dependency, while at it, refactor photoslideshows to share a custom remote dataview - Jörn Zaefferer
+[14:48:35] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/X6jpqQ
+[14:48:35] <jquicommit> [jquery-ui/grid] Grid: Update menugrid to disable text selection on column header, otherwise sorting triggers textselection - Jörn Zaefferer
+[14:54:08] <jquicommit> [jquery-ui] jzaefferer pushed 1 new commit to grid: http://git.io/fuit2A
+[14:54:08] <jquicommit> [jquery-ui/grid] Grid: Rename slideshow files for consistency - Jörn Zaefferer
+[15:11:26] <ajpiano> bot-t: tell kborchers that works just great :) thanks
+[15:11:27] <bot-t> ajpiano, Okay.
+[15:11:33] <ajpiano> gnarf: ^^ thanks also :))

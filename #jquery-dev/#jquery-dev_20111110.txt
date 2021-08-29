@@ -1,0 +1,449 @@
+[05:22:21] <mikesherov> can someone please run this perf on IE7 and IE6 if they have it handy: http://jsperf.com/each-vs-for-loop-in-css-js ?
+[05:38:48] <mikesherov> can someone please run this perf on IE7 and IE6 if they have it handy: http://jsperf.com/each-vs-for-loop-in-css-js ?
+[07:07:14] <DaveMethvin> it's never straight up and down!
+[07:16:18] <timmywil> DaveMethvin: you're never straight up and down
+[07:16:31] <DaveMethvin> i'm livin in a wiggly world
+[07:16:36] <DaveMethvin> listening to a devo album
+[07:17:26] <DaveMethvin> just as i was answering that ticket about .text(null) the lyrics got  to "it's never straight up and down"
+[07:17:31] <DaveMethvin> which seemed appropriate
+[07:17:35] <timmywil> hehe
+[07:18:04] <DaveMethvin> "please ignore my errors and do something"
+[07:18:20] <timmywil> so i think we should include yehuda's patch using contextualFragment or this iAH thing
+[07:18:26] <timmywil> but not both
+[07:18:29] <DaveMethvin> agreed
+[07:18:37] <DaveMethvin> and if possible get rid of frag cache
+[07:19:01] <timmywil> yea it would be nice not to have fragments lying around
+[07:19:04] <DaveMethvin> if iAH could avoid $.clean that would be sweet
+[07:19:09] <timmywil> but hey! 1.7 doesn't ;)
+[07:19:18] <DaveMethvin> problem solved.
+[07:19:27] <timmywil> perhaps
+[07:19:47] <timmywil> Mozilla doesn't touch existing html, but does that mean IE doesn't either?
+[07:20:05] <DaveMethvin> well that's the million dollar question, and what it does to html5 elements etc
+[07:20:34] <timmywil> im definitely interested
+[07:21:00] <DaveMethvin> i am willing to throw old ie under the performance bus if it only runs over say an arm or a leg
+[07:23:00] <timmywil> if it gets rid of the need for clean, holy shit
+[07:31:58] <jqcommit> [jquery] timmywil pushed 1 new commit to master: http://git.io/lCkLjw
+[07:31:58] <jqcommit> [jquery/master] Move clearing the support vars to before the offset doc ready call in case the offset tests are run synchronously. Fixes #10737. - timmywil
+[07:34:02] <DaveMethvin> ok jq-jenkins, do yer thang
+[07:34:25] <DaveMethvin> that damn focusin test is still borked, although i fixed the related ticket on it
+[07:35:18] <jq-jenkins> Project jQuery build #189: STILL FAILING in 3 min 6 sec: http://swarm.jquery.org:8080/job/jQuery/189/
+[07:35:19] <jq-jenkins> timmywillisn: Move clearing the support vars to before the offset doc ready call in case the offset tests are run synchronously. Fixes #10737.
+[07:35:28] <DaveMethvin> there we go...
+[07:35:29] <timmywil> yup, ff7 focusin
+[07:37:03] <DaveMethvin> i have a meeting at 1pm but will try to beat that down this afternoon or tonight at the latest ... it would be sweet to see a green screen
+[07:37:38] <DaveMethvin> the first test it fails on is trying to take focus off an element, which may not be possible in background
+[07:37:39] <timmywil> yup
+[07:38:05] <timmywil> it's possible, in IE, call focus on another element
+[07:38:15] <timmywil> like document.body.focus()
+[07:38:23] <timmywil> input.blur() won't do it tho
+[07:39:32] <DaveMethvin> that's what i am doing: https://github.com/jquery/jquery/blob/master/test/unit/event.js#L2348
+[07:40:10] <DaveMethvin> but something else must be wrong, b/c it should always fire the next two events no matter what
+[07:40:18] <DaveMethvin> even if the element isn't focused
+[07:42:05] <DaveMethvin> and in fact that was the bug i fixed and it worked in both that focusin test and in the fiddle the reporter gave
+[07:42:18] <DaveMethvin> so i dunno
+[07:42:38] <timmywil> did you point me to the right test?
+[07:43:27] <timmywil> ah, the test above?
+[07:43:53] <DaveMethvin> yeah github is acting strange, the line nubmer is right
+[07:44:07] <timmywil> i think you meant 2318
+[07:44:41] <timmywil> but i see
+[07:45:00] <DaveMethvin> the line number shows up wrong on my chrome
+[07:45:08] <DaveMethvin> been that way for a while, dunno why
+[07:45:20] <timmywil> weird
+[07:45:33] <DaveMethvin> yeah so the test is taking off the focus to see if the focus trigger still works, which we define it should
+[07:45:44] <DaveMethvin> even if the element is not focused
+[07:45:52] <timmywil> DaveMethvin: well, I think once we get that out of the way, we might just see a SUCCESS
+[07:45:54] <timmywil> http://swarm.jquery.org/job/338/
+[07:45:59] <DaveMethvin> yeah, ssoooo close
+[07:47:27] <DaveMethvin> rwaldron is the world's best dup detector!
+[07:48:34] <timmywil> is that a dup?
+[07:48:52] <timmywil> i'm a little surprised null would break chaining
+[07:48:58] <timmywil> not that I'm that concerned
+[07:49:00] <DaveMethvin> yeah i don't think it should
+[07:49:07] <DaveMethvin> .val(null) doesn't break chaining
+[07:49:44] <timmywil> looks like null would get passed to createTextNode
+[07:49:47] <timmywil> sooo
+[07:49:50] <DaveMethvin> we can set to nothing, set to "" or set to "null"
+[07:49:58] <DaveMethvin> do nothing*
+[07:50:26] <timmywil> time to follow the stack
+[07:50:39] <DaveMethvin> we should be checking for arguments.length and not looking for undefined
+[07:50:48] <timmywil> ah there it is
+[07:51:00] <timmywil> typeof text !== "object"
+[07:51:05] <timmywil> null is an object
+[07:51:37] <DaveMethvin> yes, such a cute little pathological object
+[07:51:50] <timmywil> why do we check for object there?
+[07:52:13] <DaveMethvin> hmmm, lets look at the docs
+[07:52:51] <DaveMethvin> nope
+[07:53:10] <timmywil> document.createTextNode(null) will create "null"
+[07:53:19] <timmywil> to that I'd say, ok fine
+[07:53:21] <DaveMethvin> that'll fix his ass
+[07:53:39] <DaveMethvin> if they don't want "null" they could say whatever||""
+[07:53:44] <DaveMethvin> unless they have a 0
+[07:54:37] <DaveMethvin> are you a betting man, timmy? what are the odds we'll get a ticket ".text(null) inserts 'null' string into document"
+[07:55:00] <timmywil> oh it'll happen
+[07:55:47] <timmywil> idk, we could just leave it
+[07:57:18] <timmywil> hmm, OR take out the typeof and save 5 gzip bytes
+[07:57:31] <DaveMethvin> it would be nice if we could treat them all conistently so that setters all ignored null/undefined and chained for example
+[07:57:33] <timmywil> and say deal with "null"
+[07:58:09] <timmywil> we can, but that would require changing all undefined checks to arguments.length checks
+[07:58:29] <DaveMethvin> well we have an open ticket to remind us ...
+[07:58:38] <DaveMethvin> and bigger fish to fry atm
+[07:58:47] <timmywil> we do?
+[07:58:59] <DaveMethvin> what's still open for 1.7.1
+[07:59:12] <timmywil> no i mean, where's the open ticket
+[07:59:23] <timmywil> this one just got closed as a dup of an invalid
+[07:59:53] <DaveMethvin> oh i thought the orig was open
+[08:00:11] <DaveMethvin> imma reopen that if we both think it shoudl change
+[08:00:35] <timmywil> earlier one http://bugs.jquery.com/ticket/5571
+[08:01:17] <danheberden> DaveMethvin timmywil rwaldron: currently we have jquery-1.7.js as the 1.7 release, instead of 1.7.0  - to me, this seems confusing as future versions require the .1, .2, etc - google treats 1.7 as the latest 1.7 - should we consider doing that for 1.8?
+[08:01:52] <timmywil> i'd be okay with that
+[08:02:05] <danheberden> I went ahead and renamed 1.7 and 1.7.min.js to 1.7.0 and sym-linked 1.7 and 1.7.min.js onto those
+[08:02:06] <DaveMethvin> historically we have done the original w/o the .0, although yes google requires it b/c their caching alg depends on it
+[08:02:11] <timmywil> when the hell is google gonna put up 1.7
+[08:02:19] <DaveMethvin> supposedly today
+[08:02:23] <danheberden> DaveMethvin i'm ok with not having it work that way
+[08:02:27] <danheberden> but i'd at least like to release as .0
+[08:02:32] <danheberden> even if just for the file name
+[08:02:36] <danheberden> for consistancy
+[08:02:51] <DaveMethvin> danheberden: i'll need to check the release script to see whether it needs tweaking
+[08:02:57] <danheberden> we can leave 1.8 to assume 1.8.0 - i was going to edit release.js to check for .0 and make the 1.x symlink
+[08:03:00] <DaveMethvin> from now on we'll just release with 1.x.0
+[08:03:15] <danheberden> do you want to handle the edit to release.js then?
+[08:03:27] <DaveMethvin> oh well if i can get you to do it ... :)
+[08:03:51] <danheberden> and <3z for indulging my desires for file versions
+[08:05:11] <DaveMethvin> so timmywil should i reopen 5571 as well? really should be consistent and .val(null) "works" without breaking chaining
+[08:05:50] <timmywil> depends on whether we're considering also changing the behavior of .method(undefined)
+[08:06:18] <DaveMethvin> well i'll reopen and we can vote/discuss for 1.8 how bout that
+[08:06:23] <timmywil> i'd be ok with opening it up for discussion
+[08:06:26] <timmywil> yup
+[08:22:07] <DaveMethvin> hey timmywil what email shoudl i used to share a google docs with you?
+[08:22:49] <kswedberg> use dave.methvin at gmail ;)
+[08:23:03] <DaveMethvin> lol
+[08:23:19] <DaveMethvin> not the sendin', the receeeevin!
+[08:23:49] <kswedberg> hehe. ok, no more wisecracks from me. time to burrow back into the ground.
+[08:35:04] <danheberden> DaveMethvin you probably already mentioned, but whats the delay from google all about?
+[08:35:30] <DaveMethvin> the team responsible for putting up the files was at some conference in europe
+[08:35:38] <danheberden> SLACKERSE
+[08:35:43] <danheberden> or slackers, even
+[08:36:11] <DaveMethvin> i think they'll be up today, they just asked me for md5sums on the files to be sure they had the right ones
+[08:36:43] <danheberden> sweetness
+[08:38:05] <timmywil> DaveMethvin: that's the right one. thanks :)
+[08:54:09] <DaveMethvin> wow, some nice hover effects going on here: http://tympanus.net/Tutorials/OriginalHoverEffects/
+[09:14:21] <timmywil> DaveMethvin: might want to note in that doc that google likes it when you attach the files and name them jquery.js and jquery.min.js
+[11:02:54] <JonathanNeal> Hey folks!
+[11:03:47] <JonathanNeal> jQuery(document.body).append('<section>bla <mark>bla</mark>?</section>'); fails but jQuery(document.body).append($('<div/>').html('<section>bla <mark>bla</mark>?</section>')); does not.
+[11:06:27] <JonathanNeal> This happens in IE<9 after I shim the page.
+[11:06:39] <JonathanNeal> What about these two methods is different on the backend?  I'd like to fix it.
+[11:18:14] <DaveMethvin> JonathanNeal: same behavior on jquery-git, the latest code?
+[11:27:35] <paul_irish_> http://ajax.googleapis.com/ajax/libs/jquery/1.7.0/jquery.js
+[11:27:36] <paul_irish_> ^^^^^^^^^^^^^^^^^^^^^^^
+[11:40:58] <matjas> paul_irish: FINALLY!!111
+[11:41:28] <matjas> paul_irish: is it you who manages those things, or someone else at google?
+[11:41:50] <matjas> (i’m guessing someone a little slower than you)
+[11:42:27] <paul_irish> the story is a little long for this weeks
+[11:42:31] <paul_irish> but it was someone else
+[11:42:39] <paul_irish> but 50% of the time its me
+[12:03:01] <JonathanNeal> DaveMethvin: well, i couldn't accurately test jQuery 1.7+ because you already added an html5shim of mine.
+[12:03:43] <JonathanNeal> :P but seriously, you already have the html5shim built in.
+[12:04:07] <DaveMethvin> JonathanNeal: no, we only handle the innerShim case really
+[12:05:17] <JonathanNeal> it's the same thing, but yes, you don't shim the document.
+[12:05:25] <JonathanNeal> you shim the fragment
+[12:05:42] <DaveMethvin> yeah i just wanted to make sure
+[12:05:47] <JonathanNeal> i'm trying to shim the document, and two methods, createDocumentFragment and createElement
+[12:06:01] <JonathanNeal> The results are here @ http://sandbox.thewikies.com/html5shim/
+[12:06:15] <JonathanNeal> It's like retro-actively shimming older libraries.
+[12:07:14] <JonathanNeal> someone who knows the ins and outs of jQuery might be able to tell me why the shim on appending a string fails while the shim on appending a created element works.
+[12:07:35] <DaveMethvin> you mean in 1.6.4? or in -git?
+[12:08:40] <JonathanNeal> in 1.6.4
+[12:09:01] <JonathanNeal> i would get false positives in 1.7 or -git because you have an innerShim built in.
+[12:10:00] <DaveMethvin> because when you take a string of html that starts with an  html5 tag and feed it to the innerHTML of a div, it gets eated by IE
+[12:10:23] <JonathanNeal> yes, but i'm shimming document.createElement and document.createDocumentFragment
+[12:10:52] <JonathanNeal> so somehow jQuery 1.6.4 gets around my shim.
+[12:11:39] <DaveMethvin> that's always been true though, which is why you need innerShim? i must not be understanding
+[12:11:54] <DaveMethvin> they are two different cases
+[12:12:39] <DaveMethvin> http://jdbartlett.com/innershiv/
+[12:13:21] <JonathanNeal> check out http://sandbox.thewikies.com/html5shim/html5shim.js
+[12:13:27] <JonathanNeal> just the shimDocument function
+[12:18:50] <DaveMethvin> JonathanNeal:  ok but afaik that doesn't fix div.innerHTML = "<section> ... " does it?
+[12:19:14] <JonathanNeal> it does.
+[12:19:28] <JonathanNeal> check out some of the other examples, even ones using jQuery.
+[12:20:17] <DaveMethvin> so it used to work on jquery <1.6.4?
+[12:23:07] <JonathanNeal> yea
+[12:23:13] <JonathanNeal> no no, sorry
+[12:23:23] <DaveMethvin> so it only started working on jquery
+[12:23:27] <DaveMethvin> 1.7?
+[12:23:31] <JonathanNeal> somehow jQuery is evading my shimmed document.createElement and document.createDocumentFragment
+[12:23:47] <JonathanNeal> perhaps paul_irish can explain better than I can.
+[12:28:07] <JonathanNeal> If you look @ the source of http://sandbox.thewikies.com/html5shim/test.native.3.html you can see how well this innerShiv should work.
+[12:30:22] <JonathanNeal> It protects javascript from a whole mess of circumstances where the shim would be lost in IE>
+[12:30:43] <JonathanNeal> When combined with a javascript library, it would almost makes innerShiv obsolete.
+[12:31:12] <JonathanNeal> I can't figure out how jQuery is evading my shim though, so ben_alman_ recommended I come in here and ask around.
+[12:32:06] <DaveMethvin> i'm just working on a jsfiddle so we can talk in code
+[12:37:14] <DaveMethvin> ok JonathanNeal, baseline: current jQuery-git http://jsfiddle.net/dmethvin/AmKWC/
+[12:37:39] <JonathanNeal> does that have the built in innerShiv?
+[12:38:23] <DaveMethvin> yeah
+[12:38:28] <DaveMethvin> now 1.6.4: http://jsfiddle.net/dmethvin/GHfsn/
+[12:38:48] <DaveMethvin> to see it all in context, add /show to the url
+[12:38:52] <DaveMethvin> and view source
+[12:40:17] <timmywil> JonathanNeal: we don't use createElement or a fragment in .html().  Could that be the issue?
+[12:40:59] <JonathanNeal> that could be, what do you use?
+[12:41:06] <timmywil> just innerHTML
+[12:41:17] <DaveMethvin> like i said above ...
+[12:41:31] <JonathanNeal> jQuery(document.body).append('hello');
+[12:41:33] <timmywil> yea, but it's not innerHTML onto a fragment that's appended
+[12:41:35] <JonathanNeal> you use innerHTML?
+[12:41:37] <timmywil> it's just innerHTML
+[12:41:42] <paul_irish> JonathanNeal: find the pull req that fixes the html5 issue
+[12:41:50] <timmywil> JonathanNeal: append is different
+[12:41:52] <paul_irish> and view the diff to see the exact nature of the fix
+[12:41:55] <timmywil> does append not work either?
+[12:42:02] <JonathanNeal> paul_irish: i'm not looking into the fix, i'm looking into how the old one worked.
+[12:42:05] <DaveMethvin> timmywil: you're talking about the one in .clean()?
+[12:42:12] <JonathanNeal> how does .append work when you pass in html?
+[12:42:14] <JonathanNeal> or how did it?
+[12:42:38] <timmywil> oh im sorry, .html wouldn't need a shim cause you're working on a shim'd doc
+[12:42:41] <timmywil> ignore what i siad
+[12:43:10] <timmywil> so the problem really is append, which does use a fragment and should probably work
+[12:43:30] <DaveMethvin> paul_irish: the code has changed a few times since the initial pr so that wouldn't be as good as looking at the current code
+[12:44:19] <paul_irish> k
+[12:45:09] <timmywil> ok, im wrong again.  looking at the old code, we don't use a fragment in clean.
+[12:45:16] <timmywil> that's the problem
+[12:45:28] <timmywil> that's probably what DaveMethvin said before
+[12:46:17] <DaveMethvin> and just about all the appending methods go through clean
+[12:47:56] <timmywil> hmm, except you are shimming createElement
+[12:48:12] <timmywil> so innerHTML on that should still work
+[12:48:49] <JonathanNeal> timmywil: yeap!
+[12:49:05] <JonathanNeal> and if you add an alert function into .createElement, you can see it create the div
+[12:49:12] <timmywil> right
+[12:49:24] <JonathanNeal> and you can add a test for that div to append the html and it works, but somehow when jquery does it, it fails.
+[12:49:30] <JonathanNeal> that's as far as i could narrow it down
+[12:50:00] <JonathanNeal> i'd love to release this new html5shim, but not until i know the cause of this --- so i can say for sure what the script can and can't do.  if we could fix something in my script to get around this issue, that would be even better!
+[12:53:09] <DaveMethvin> just to be clear, this problem does not occur on -git http://jsfiddle.net/dmethvin/AmKWC/
+[12:53:24] <timmywil> well, html5shim isn't needed on git tho
+[12:53:27] <DaveMethvin> only on 1.6.4: http://jsfiddle.net/dmethvin/GHfsn/3/
+[12:53:43] <DaveMethvin> right
+[12:54:15] <timmywil> I get this error on dave's 1.6.4 example http://cl.ly/270C0r3R242N2f3G263x
+[12:56:47] <DaveMethvin> well not in ie :)
+[12:57:01] <timmywil> ah ok
+[12:59:09] <DaveMethvin> is there anything more miserable than debugging in ie?
+[12:59:39] <JonathanNeal> hell, but like IE, not everyone subscribes to its existance.
+[12:59:50] <JonathanNeal> ?existence
+[12:59:51] <bot-t> JonathanNeal, :empty Selector - Select all elements that have no children (including text nodes). http://api.jquery.com/empty-selector/
+[12:59:59] <DaveMethvin> ha
+[13:00:34] <JonathanNeal> so we don't know how .append('<element>foo</element>') works in 1.6.4?
+[13:01:07] <DaveMethvin> it calls innerHTML in a div inside clean()
+[13:01:13] <DaveMethvin> assigns i shoudl say
+[13:02:16] <JonathanNeal> and clean uses a fragment?
+[13:04:02] <DaveMethvin> nope
+[13:04:54] <DaveMethvin> div = document.createElement("div")  ...  div.innerHTML = "<section..."
+[13:06:18] <DaveMethvin> looks to me like lastChild wasn't right on the div, let me go through again
+[13:07:46] <JonathanNeal> that's kinda bizarre.
+[13:07:57] <JonathanNeal> document.createElement should absolutely be shimmed.
+[13:08:16] <DaveMethvin> ok, saw the shim run, stepping
+[13:09:15] <DaveMethvin> div.innerHTML = "div<div><section>....</section></div>"
+[13:09:33] <DaveMethvin> the wrapper div around that is to get around a problem with ie eating whitespace
+[13:09:49] <timmywil> ahah!
+[13:09:53] <timmywil> the clone
+[13:13:15] <timmywil> JonathanNeal: http://jsfiddle.net/timmywil/GHfsn/4/show/
+[13:13:20] <timmywil> boosh
+[13:13:49] <JonathanNeal> checking
+[13:14:24] <DaveMethvin> yep
+[13:14:27] <JonathanNeal> Element is undefined in IE6.
+[13:14:31] <timmywil> well, Element is undef
+[13:14:33] <timmywil> yea
+[13:14:47] <timmywil> but you get the idea
+[13:14:55] <JonathanNeal> So, cloneNode is used.
+[13:15:13] <timmywil> yes, we clone in domManip
+[13:15:19] <JonathanNeal> When was Element.prototype introduced into IE? IE8?
+[13:15:25] <timmywil> ie8
+[13:15:38] <JonathanNeal> okay, well i can patch this and test it.
+[13:15:53] <JonathanNeal> i have a cloneNode replacement that fixes textnodes.
+[13:16:33] <JonathanNeal> first i'll test a basic cloneNode replacement on shimmed elements.
+[13:17:18] <timmywil> because the fragment was cached, we clone it for use
+[13:18:02] <JonathanNeal> you clone the fragment or the element?
+[13:18:20] <JonathanNeal> the element, i presume, don't know if you can clone a frag
+[13:20:18] <timmywil> well, the element, which is still attached to the fragment
+[13:20:30] <timmywil> but that's beside the point
+[13:20:34] <timmywil> ;)
+[13:21:01] <JonathanNeal> el.cloneNode = function (deep) { var xDoc = dce('x-document'); xDoc.innerHTML = el.outerHTML; if (!deep) xDoc.firstChild.innerHTML = ''; return xDoc.firstChild; }; // i can do something like this
+[13:21:30] <timmywil> yup, in createElement?
+[13:21:50] <timmywil> errr, hmm
+[13:22:12] <JonathanNeal> so i want to test cloning a node from inside a fragment?
+[13:22:14] <JonathanNeal> for the native test?
+[13:22:28] <timmywil> it'll be the same regardless
+[13:22:55] <timmywil> fixing cloneNode will fix it
+[13:23:39] <JonathanNeal> I'll test it.
+[13:23:45] <DaveMethvin> but....waitaminit, for ie6/7 there is no prot
+[13:23:48] <DaveMethvin> proto
+[13:24:09] <DaveMethvin> so the element you need to shim was picked out of the div, not created by createlement .. wasn't it?
+[13:24:27] <DaveMethvin> sorry iwas gone a bit if i missed something
+[13:24:36] <timmywil> DaveMethvin: my concern as well
+[13:24:56] <timmywil> brb
+[13:24:58] <DaveMethvin> the proto works fine, but clean will pull out the section element and it hasn't been shimmed
+[13:25:00] <JonathanNeal> var frag = document.createDocumentFragment(), fragDiv = frag.createElement('div'); fragDiv.innerHTML = '<section>foo</section>'; var fragDivClone = fragDiv.cloneNode(true); document.body.appendChild(fragDivClone);
+[13:25:04] <JonathanNeal> that would be a test?
+[13:26:32] <DaveMethvin> what i think is gonna happen tho is that fragDiv.firstChild is passed to domManip
+[13:26:34] <DaveMethvin> which clones that
+[13:26:46] <JonathanNeal> Okay, http://sandbox.thewikies.com/html5shim/test.native.4.html passes
+[13:26:47] <DaveMethvin> but firstChild (the section) hasn't been shmmed
+[13:26:54] <JonathanNeal> but the jQuery test still fails.
+[13:27:08] <JonathanNeal> Right.
+[13:27:56] <JonathanNeal> Which means the only way we could fix it would be to patch Element, which would only fix the issue in IE8.
+[13:28:01] <DaveMethvin> right
+[13:28:22] <DaveMethvin> this is why paul_irish was pushing so hard for a solution in 1.7 b/c it is hard to patch from outside
+[13:28:32] <DaveMethvin> would you agree? :D
+[13:28:53] <JonathanNeal> that's weird... wait
+[13:29:07] <JonathanNeal> so if div = shimmed
+[13:29:21] <JonathanNeal> and div is appended to a shimmed frag
+[13:29:34] <JonathanNeal> (oh, and div has cloneNode patched)
+[13:29:45] <JonathanNeal> then frag.firstChild doesn't have the cloneNode patched?
+[13:30:01] <DaveMethvin> div is not appended, div.firstChild (well actually lastChild) is appended
+[13:30:12] <DaveMethvin> we had to wrap it a few times to fix other ie probs
+[13:30:31] <DaveMethvin> like ie refusing to create li unless they're cradled in ul
+[13:30:41] <JonathanNeal> got it
+[13:30:45] <DaveMethvin> or tbodies springing from nowhere around tr
+[13:31:34] <JonathanNeal> so cloneNode is what breaks it.
+[13:31:41] <DaveMethvin> yeah
+[13:31:59] <JonathanNeal> blast.... still trying to think of aaaanyway to get around this.
+[13:32:16] <DaveMethvin> well if tehre is i wish you'd been around when we were trying to figure this out earlier
+[13:32:23] <DaveMethvin> :P
+[13:32:46] <DaveMethvin> you just don't get a shot at the guts of that div
+[13:34:18] <JonathanNeal> I was.
+[13:35:00] <JonathanNeal> but none of us have been able to figure that out
+[13:35:02] <JonathanNeal> http://bugs.jquery.com/ticket/6485 :|
+[13:36:38] <rworth> DaveMethvin: could #10704 be source of https://forum.jquery.com/topic/jquery-special-event-hoverintent-on-accordion-not-working-in-jquery-1-7 ?
+[13:36:57] <DaveMethvin> ?10704
+[13:36:58] <bot-t> [#10704] special.handle method should fire under origType name (closed bug: fixed in v1.7.1) - http://jqbug.com/10704
+[13:36:59] <rworth> hmm, must be something else because still fails against master
+[13:37:44] <rworth> tried to bisect, but submodules didn't want to play nice
+[13:38:20] <DaveMethvin> oh ok, no delay
+[13:38:25] <DaveMethvin> i was gonna say worksforme
+[13:39:44] <DaveMethvin> rworth: should those be mouseenter/leave?
+[13:39:54] <DaveMethvin> also the handler is clobbering event.type
+[13:39:57] <DaveMethvin> doesn't set it back
+[13:40:06] <DaveMethvin> not sure what might happen
+[13:40:49] <DaveMethvin> is hoverintent on github somewhere?
+[13:41:04] <rworth> this one comes from a jQuery UI accordion demo page :/
+[13:41:17] <rworth> here's a more minimal test case using 1.6.4 http://jsbin.com/uweyoc
+[13:41:19] <DaveMethvin> well  yah
+[13:41:27] <rworth> removes jQuery UI as it's not related at all
+[13:42:06] <rworth> here's the same test with 1.7.0 http://jsbin.com/uyonox
+[13:45:12] <DaveMethvin> oh rworth
+[13:45:14] <DaveMethvin> i know what it is
+[13:45:26] <DaveMethvin> it's the hover event name interfering
+[13:45:34] <DaveMethvin> man do I hate that thing
+[13:45:36] <rworth> I wondered if it wasn't something like that
+[13:45:42] <DaveMethvin> i just need to check for a word boundary
+[13:45:49] <rworth> but I tried a different name and it didn't work
+[13:45:55] <rworth> I renamed the special event to "hi"
+[13:47:32] <DaveMethvin> yeah
+[13:48:02] <rworth> ok, so the special event isn't working at all, that's why a different name doesn't work
+[13:48:05] <rworth> got it
+[13:48:29] <DaveMethvin> yeah the setup and teardown aren't called
+[13:49:43] <DaveMethvin> jsbin confuses me
+[13:49:53] <DaveMethvin> where's my special event handler code?
+[13:53:08] <rworth> I've got it manually bisected down to some commit on Sep 19, not sure which one yet
+[13:53:41] <DaveMethvin> if you get all the hoverintents right the handler does get called
+[13:53:46] <DaveMethvin> but it isn't firing
+[13:55:17] <rworth> grr, having the same errors when trying to manually bisect, fatal: '...sha1...' does not point to a commit. Unable to merge '...sha1...' in submodule path 'src/sizzle'
+[14:08:34] <paul_irish> DaveMethvin: the /1/ URI on the cdn is still 1.6.4
+[14:08:40] <paul_irish> we dont know why yet
+[14:08:41] <paul_irish> its weird.
+[14:08:54] <paul_irish> if its still like that tmw there may be a bug. and we'll fix.
+[14:09:16] <DaveMethvin> k
+[14:09:17] <paul_irish> but bitchez using that URL dont deserve it anyway
+[14:09:24] <paul_irish> bitchez.
+[14:09:27] <DaveMethvin> lol
+[14:09:38] <DaveMethvin> you can tell em not to use it but do they listen?
+[14:09:41] <DaveMethvin> nooo
+[14:14:05] <rworth> DaveMethvin: got the commit narrowed down to about one in 10-20 updated on https://forum.jquery.com/topic/jquery-special-event-hoverintent-on-accordion-not-working-in-jquery-1-7
+[14:15:14] <DaveMethvin> i think it is probably related to the mouseover/enter being special themselves
+[14:15:51] <rworth> gotta run, would love your reply on that thread when you get a chance, or let me know if we need to open a ticket
+[14:17:32] <DaveMethvin> yeah i think i know what's going on, there is a much better way to do this
+[14:31:59] <paul_irish> http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.js  1.7 or 1.6.4 ?
+[14:32:04] <paul_irish> im getting mixed reports
+[14:39:21] <DaveMethvin> paul_irish: 1.7 here ... prolly just caching no?
+[14:39:29] <paul_irish> thats good
+[15:06:08] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/T292qA
+[15:06:08] <jqcommit> [jquery/master] Ensure the hover event doesn't match hovercraft. Witchcraft, maybe. - Dave Methvin
+[15:09:26] <jq-jenkins> Project jQuery build #190: STILL FAILING in 3 min 5 sec: http://swarm.jquery.org:8080/job/jQuery/190/
+[15:09:27] <jq-jenkins> dave.methvin: Ensure the hover event doesn't match hovercraft. Witchcraft, maybe.
+[15:47:38] <clarkbox> i need to add a public key for services.jquery.com box so i can grab the web-view-jquery-org repo... who can help?
+[16:00:35] <danheberden> yo clarkbox
+[16:00:48] <clarkbox> hey
+[16:01:22] <clarkbox> im not familiar with github and organizations... how do we add a pub key so we can pull from services
+[16:01:34] <danheberden> it's a public repo, so you just pull
+[16:01:38] <danheberden> you're probably trying the priv url
+[16:01:48] <clarkbox> ahh ok
+[16:01:52] <danheberden> use https://github.com/jquery/web-view-jquery-org.git or git://github.com/jquery/web-view-jquery-org.git
+[16:02:02] <clarkbox> ah that would be why
+[16:02:13] <danheberden> ( as upposed to something like https://github.com/jquery/web-view-jquery-org)
+[16:02:13] <clarkbox> cool thanks
+[16:02:16] <danheberden> wait a minute
+[16:02:33] <clarkbox> i was using the git@github:.....
+[16:02:35] <danheberden> git@github.com:jquery/web-view-jquery-org.git
+[16:02:40] <danheberden> ya, that's the priv
+[16:02:43] <danheberden> copy/paste fail
+[16:03:05] <danheberden> cmnd-c then cmnd-v - it's just too much work!
+[16:03:12] <clarkbox> id say
+[16:03:37] <clarkbox> they really should shorten that to just "c" and "v"
+[16:05:06] <clarkbox> i guess this repo could be named to something more generic now
+[16:05:17] <danheberden> clarkbox that new template is at https://github.com/jquery/web-base-template btw
+[16:05:31] <clarkbox> cool
+[16:05:31] <gnarf> hrm
+[16:05:36] <gnarf> docs#10750
+[16:05:38] <bot-t> [#10750]  (closed bug: invalid) - http://jqbug.com/10750
+[16:05:41] <clarkbox> ah nevermind. i guess that is generic enough
+[16:06:16] <gnarf> i would think that bug would be caught by our units...
+[16:07:27] * danheberden fires up ie8
+[16:07:44] <danheberden> but yeah, that unit test would have failed all together
+[18:44:44] <JonathanNeal> i wanted to come back in and say thank you for helping me today.
+[18:46:15] <gnarf> hey clarkbox you around?
+[18:46:24] <clarkbox> yo
+[18:46:37] <gnarf> im looking at this extractGitBranches.py again
+[18:46:47] <gnarf> mind if i offer some suggestions?
+[18:46:56] <clarkbox> ya shoot. i dont know git at all
+[18:47:04] <clarkbox> so im just rolling with it
+[18:47:09] <gnarf> so, you either "pull" or "clone"
+[18:47:17] <gnarf> i assume thats just to make sure things are "up to date" ?
+[18:47:29] <gnarf> git fetch would be better than git pull in that case
+[18:47:30] <clarkbox> ya. clone will happen first run
+[18:47:40] <gnarf> fetch downloads the origin repo again (all of it)
+[18:47:47] <gnarf> (all branches, etc)
+[18:48:18] <gnarf> so that should probably be fecth, then at that point you can remove the fetch from the checkout later
+[18:48:49] <clarkbox> ok cool
+[18:48:55] <clarkbox> i will revise
+[18:48:59] <gnarf> also
+[18:49:10] <gnarf> we can get rid of the /branches and /tags subfolders
+[18:49:21] <clarkbox> you want everything in one spot?
+[18:49:22] <gnarf> and then all that code that goes for a branch or a tag should be EXACTLY the same
+[18:49:22] <clarkbox> ok
+[18:49:38] <gnarf> might be able to DRY that out somehow
+[18:49:51] <clarkbox> ya i wasnt sure about that. is there not a risk of collision?
+[18:50:12] <gnarf> there might be if we ever made a tag that was the same as a branch name
+[18:50:22] <gnarf> but our use of tags doesn't ever clash
+[18:50:59] <clarkbox> ok, ill add an option for that then
+[18:51:18] <clarkbox> so others *could use it, and not worry about collisions
+[18:54:09] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/cgE4Hw
+[18:54:09] <jqcommit> [jquery/master] Avoid collateral damage when removing bindType/delegateType special events. - Dave Methvin
+[18:54:22] <gnarf> hey DaveMethvin :)
+[18:54:28] <DaveMethvin> hey gnarf
+[18:54:46] <gnarf> i tested mike's pull on the for loop in getWH
+[18:54:49] <gnarf> looks solid
+[18:55:00] <DaveMethvin> ready for landing?
+[18:55:05] <gnarf> i think so
+[18:55:15] <gnarf> its neutral on bytes
+[18:55:22] <DaveMethvin> better than i've been doing lately
+[18:55:28] <gnarf> and a bonus on perf in non-optimized
+[18:55:31] <gnarf> browser
+[18:57:28] <jq-jenkins> Project jQuery build #191: STILL FAILING in 3 min 6 sec: http://swarm.jquery.org:8080/job/jQuery/191/
+[18:57:28] <jq-jenkins> dave.methvin: Avoid collateral damage when removing bindType/delegateType special events.
+[18:58:49] <DaveMethvin> oh boy a single commit so i can cherry pick it
+[19:01:27] <jqcommit> [jquery] dmethvin pushed 1 new commit to master: http://git.io/JoQ3ug
+[19:01:27] <jqcommit> [jquery/master] use for loop instead of jQuery.each in getWH() - Mike Sherov
+[19:03:35] <jq-jenkins> Project jQuery build #192: STILL FAILING in 1 min 52 sec: http://swarm.jquery.org:8080/job/jQuery/192/
+[19:03:35] <jq-jenkins> dave.methvin: use for loop instead of jQuery.each in getWH()
+[19:10:47] <mikesherov> hello
+[20:08:53] <mikesherov> https://github.com/jquery/jquery/pull/592
+[20:08:53] <socialhapy> ★ Pull request on jquery by mikesherov (1m, 26s ago): have jQuery.swap return the value of the callback, fixes #10754
+[20:08:59] <mikesherov> https://github.com/jquery/jquery/pull/591
+[20:08:59] <socialhapy> ★ Pull request on jquery by mikesherov (14m, 27s ago): inline evalScript as it's only used in one place, fixes #10753

@@ -1,0 +1,325 @@
+[09:01:11] <scott_gonzalez> `pepteam
+[09:01:12] <b-ot> scott_gonzalez: arschmitz asir jperrault jrossi2 scott_gonzalez snover
+[09:01:23] <arschmitz> Hi
+[09:01:27] <jperrault> hello
+[09:02:10] <scott_gonzalez> snover: Back from vacation?
+[09:02:11] <snover> hi friends of webkitforcetouchevent
+[09:02:18] <scott_gonzalez> haha
+[09:02:18] <snover> oops
+[09:02:23] <snover> webkittouchforceevent
+[09:02:27] <snover> webkitmouseforceevent
+[09:02:31] <snover> webkitwebkitwebkitevent
+[09:02:34] <snover> malkovich
+[09:02:57] <snover> i am here now yes
+[09:03:26] <arschmitz> I went and tried that on a laptop at the apple store not sure i like it...
+[09:03:27] <scott_gonzalez> First up, let's talk about ES3 support sinze jzaefferer filed an issue about it.
+[09:03:27] <scott_gonzalez> https://github.com/jquery/PEP/issues/174
+[09:04:06] <scott_gonzalez> arschmitz: I'm unfamiliar with es5-sham (re: https://github.com/jquery/PEP/issues/174#issuecomment-87511127)
+[09:04:14] <scott_gonzalez> Is that for things like Object.defineProperty()?
+[09:04:30] <arschmitz> scott_gonzalez: https://github.com/es-shims/es5-shim#shams
+[09:04:51] <snover> i’ll continue to maintain the position that it’s simply not worth it :)
+[09:05:21] <arschmitz> says the guy who still supports what ie6?
+[09:05:35] <snover> no, i only care about ie9+
+[09:05:56] <arschmitz> i thought dojo still supported 6?
+[09:06:13] <scott_gonzalez> Given that Microsoft is officially dropping support for IE8 in less than a year, I think we should continue for now with using ES5 features.
+[09:06:15] <snover> no, dojo 1 only officially supports IE8, dojo 2 will only support IE9+
+[09:06:24] <arschmitz> ah ok
+[09:06:51] <scott_gonzalez> We'll see what issues we run into with IE8 support when we get to the point of building the jQuery wrapper.
+[09:07:03] <snover> ie8 is clinging to dear life with 2.8% on statcounter
+[09:07:45] <arschmitz> yeah and personally i'm all for requiring polyfills just would like to avoid some of the sketchier ones if possible
+[09:07:54] <scott_gonzalez> We may be able to deal with the shams internally.
+[09:08:24] <arschmitz> yeah that would be fine
+[09:08:31] <scott_gonzalez> For example, we can create a defineProperties() function which normally just resolves to Object.defineProperties.
+[09:08:39] <scott_gonzalez> Then we can have a build that swaps it out for the sham.
+[09:09:04] <scott_gonzalez> So we can have a build that just doesn't use the new APIs and you'll end up with slightly different behavior.
+[09:09:28] <scott_gonzalez> That's probably better than using the sham since at least you'd end up with consistent behavior across platforms.
+[09:09:36] <arschmitz> yeah and i mean i did do basic tests with ie8 just going through demos and it does work fine
+[09:09:40] <scott_gonzalez> You're either using the real version of PEP or the sham version of PEP.
+[09:10:13] <arschmitz> yup
+[09:10:16] <scott_gonzalez> Yeah, I doubt you'd have run into cases where lack of a real defineProperties() method would affect the simple test cases.
+[09:10:35] <scott_gonzalez> Ok, I'll add something to the readme to clarify our current situation.
+[09:10:35] <arschmitz> and hopefully in the wild it will work out the same
+[09:11:43] <scott_gonzalez> Ok, on to tests.
+[09:12:01] <scott_gonzalez> I started looking into automating the W3C tests, but then I had a question for snover and he was on vacation :-P
+[09:12:17] <snover> well i am here now!
+[09:13:07] <scott_gonzalez> The W3C test runner does expose some hooks that we can use.
+[09:13:42] <scott_gonzalez> The tests include the default reporter: https://github.com/w3c/web-platform-tests/blob/master/pointerevents/pointerevent_button_attribute_mouse-manual.html#L8
+[09:14:08] <scott_gonzalez> We can inject our own reporter that just pipes everything to Intern.
+[09:14:19] <scott_gonzalez> And then automate whatever interaction is expected.
+[09:14:36] <scott_gonzalez> But I wasn't sure what the best approach is for doing that injection.
+[09:14:41] <snover> sure. though, in the case of the automation you would probably be running some `execute` to retrieve the results from that test harness reporter
+[09:14:56] <scott_gonzalez> My thought was that we can just replace that whole file with the one we want and leave the tests exactly as they are.
+[09:15:28] <snover> return this.remote.findById('foo').click().execute(getResults).then(function (testResults) { assertions here })
+[09:15:44] <snover> where getResults just calls to whatever the testharnessreport.js API is
+[09:15:49] <snover> and returns data
+[09:18:38] <scott_gonzalez> Ok, I'm not sure that the data stays around other than being output on the page. Does the idea of replacing the repoerter file with our own repoert to store the results so we can retrieve them later make sense to you?
+[09:19:10] <arschmitz> scott_gonzalez: hmm sorry to jump back for a sec but it looks like that note in the es5-shim is super outdated this has been fixed in ie8 for all but setting "configurable, enumerable, and writable"
+[09:20:35] <snover> scott_gonzalez: yeah, seems so, just call add_completion_callback i guess
+[09:20:44] <scott_gonzalez> Oh, I know we can get that much working. The shim I wrote last time did that.
+[09:21:02] <scott_gonzalez> Ok, so I'll try out that approach.
+[09:21:55] <scott_gonzalez> Last thing I have on the agenda is our first release.
+[09:22:08] <scott_gonzalez> Are we good to go ahead with that? Probably early next week.
+[09:22:43] <arschmitz> dont we have some legit failures in ie?
+[09:23:12] <scott_gonzalez> Well, those existed before. Do we plan on getting to a full green build before our first release?
+[09:23:35] <arschmitz> i guess what was my question
+[09:23:50] <scott_gonzalez> We can certainly work on that, but given we're still in the alpha phase, I'd prefer to just release early and often.
+[09:24:01] <arschmitz> thats fine with me
+[09:24:03] <scott_gonzalez> It's already been a while since we acquired the project. I'd like to get a release out even if it's buggy.
+[09:24:08] <scott_gonzalez> Hopefully we'll get more feedback that way.
+[09:24:12] <arschmitz> sure
+[09:24:26] <scott_gonzalez> And now that we have CI, we can make sure we're constantly improving.
+[09:24:27] <arschmitz> i just figured it was worth mentioning
+[09:25:05] <scott_gonzalez> I'll do some manual testing in the browsers with failures and see if there's anything serious.
+[09:25:34] <scott_gonzalez> A good amount of these tests are really testing internals as opposed to actual functionality.
+[09:26:05] <arschmitz> i should probably run through the pases on various ios / android
+[09:26:19] <arschmitz> paces*
+[09:26:50] <scott_gonzalez> Ok, let's come back to the release decision after doing some in-depth manual testing.
+[09:27:10] <scott_gonzalez> But hearing no objections, if the testing goes well, we'll plan to release after the testing.
+[09:27:18] <arschmitz> we should come up with something standard to run through for the tests
+[09:27:26] <arschmitz> *manual tests
+[09:27:33] <scott_gonzalez> Sure, let's chat tomorrow morning
+[09:27:40] <arschmitz> sounds good
+[09:27:59] <scott_gonzalez> Somewhat related to the release is https://github.com/jquery/PEP/issues/176
+[09:28:03] <scott_gonzalez> jquery/PEP vs jquery.pep.js
+[09:28:17] <scott_gonzalez> I think since PEP actually has nothing to do with jQuery, we should just close this.
+[09:28:28] <arschmitz> im inclined to agree
+[09:28:35] <scott_gonzalez> The jQuery plugin that the jQuery UI team will be working on will have to deal with the naming issues.
+[09:28:38] <arschmitz> there is a jquery plugin with every name imaginable
+[09:28:40] <scott_gonzalez> But this seems out of scope for PEP.
+[09:28:58] <arschmitz> we cant avoid everything on something unrelated to begin with
+[09:29:30] <arschmitz> though man this is going to be a pain for the plugin lol
+[09:30:08] <scott_gonzalez> We can just call it jquery-pointerevents.
+[09:30:24] <scott_gonzalez> Anyone have anything else to discuss today?
+[09:30:38] <arschmitz> https://github.com/deepsweet/jquery-pointerevents
+[09:30:56] <arschmitz> we are screwed lol
+[09:31:27] <arschmitz> oh i dont see a jquery-pointer-events!
+[09:32:38] <scott_gonzalez> Ok, I guess that's all for today.
+[09:32:40] <scott_gonzalez> Thanks everyone.
+[11:05:04] <arschmitz> `mobileteam
+[11:05:04] <b-ot> arschmitz: agcolom, arschmitz, arthurvr, cgack, gabriel_schulhof, ianmaffett, jasperdegroot, sfrisk
+[11:05:09] <arschmitz> Meeting time
+[11:05:16] <arthurvr> Hey guys!
+[11:05:17] <cgack> howdy
+[11:05:25] <jasperdegroot> helloo
+[11:05:28] <jasperdegroot> -o
+[11:06:20] <gabriel_schulhof> Ahoy!
+[11:06:26] <sfrisk> limited availability - I think I'm going to get dragged into a meeting
+[11:06:32] <sfrisk> but hello!
+[11:07:21] <jasperdegroot> hide under your desk
+[11:07:44] <arschmitz> lol
+[11:07:55] <arschmitz> ok that agenda thing sorry going 5 directions today
+[11:08:05] <gabriel_schulhof> I duplicated the sheet.
+[11:08:32] <arschmitz> thank you
+[11:08:42] <arschmitz> lets start with classes
+[11:09:33] <arschmitz> the first pr is ready to land with one super minor change!
+[11:09:34] <arschmitz> YAY!
+[11:09:49] <jasperdegroot> nice
+[11:09:50] <arthurvr> yipppeee!
+[11:10:03] <jasperdegroot> which one?
+[11:10:13] <arschmitz> textinput
+[11:10:16] <jasperdegroot> ok
+[11:10:34] <gabriel_schulhof> http://i3.kym-cdn.com/photos/images/facebook/000/162/317/2vA1a.png
+[11:10:50] <gabriel_schulhof> There should be an ASCII art version of that.
+[11:10:57] <arschmitz> gabriel_schulhof: you have like 20 other prs to land with that too
+[11:11:10] <gabriel_schulhof> Wow! 20!
+[11:11:13] <gabriel_schulhof> Insane!
+[11:11:15] <arschmitz> maybe more
+[11:11:26] <arschmitz> i reviewed all but 3 assigned to me
+[11:11:36] <gabriel_schulhof> OK. *whew* ...
+[11:11:45] <arschmitz> so if anyones pr's are waiting review and are not assigned to me please assign them
+[11:12:02] <jasperdegroot> when the textinput PR landed in 1.5-dev I will rebase 1.5-dev-css and update icon CSS for the search icon
+[11:12:25] <arschmitz> jasperdegroot: awesome
+[11:12:34] <jasperdegroot> and clear button if needed
+[11:12:41] <arschmitz> jasperdegroot: i dont think you assigned that one to me i didnt see it when reviewing
+[11:12:55] <arschmitz> dev-css that is
+[11:13:01] <jasperdegroot> arschmitz: you might be right
+[11:13:15] <arschmitz> case with yours cgack
+[11:13:19] <arschmitz> same*
+[11:13:26] <cgack> just assigned to you
+[11:13:55] <arschmitz> cgack: awesome thank you
+[11:14:16] <arschmitz> cgack: ill do yours next as i think it was also just about ready to land
+[11:14:58] <jasperdegroot> arschmitz: do you want to merge the -css branch in 1.5-dev already or wait until all classes PRs landed
+[11:15:07] <cgack> @arschmitz awesome. thats great. I'll be away the second half of next week on vacation, so hopefully I can land at least one before then
+[11:15:14] <arschmitz> jasperdegroot: ill do it right of
+[11:15:24] <arschmitz> off*
+[11:15:25] <jasperdegroot> ok
+[11:15:29] <arschmitz> since we can redbase 1.5-dev
+[11:15:38] <jasperdegroot> are tests passing now in 1.5-dev?
+[11:15:54] <jasperdegroot> because the 1.5-dev-css branch break some
+[11:16:01] <arschmitz> mostly any you should care are are lol
+[11:16:08] <gabriel_schulhof> Ummm ... if I'm gonna merge 20 PRs into master, it might be worth doing that first ... wouldn't it?
+[11:16:13] <arschmitz> there are some random timeouts on builds all over the place
+[11:16:33] <gabriel_schulhof> Yeah, I have no idea what's causing that redirect issue ever since we switched to core 2.x
+[11:16:33] <arschmitz> gabriel_schulhof: that are unrelated should not be an issue
+[11:16:47] <gabriel_schulhof> OK.
+[11:16:53] <jasperdegroot> classes PRs land in 1.5-dev first, right?
+[11:16:58] <gabriel_schulhof> YES.
+[11:16:58] <jasperdegroot> not in master
+[11:17:02] <jasperdegroot> ok
+[11:17:03] <arschmitz> gabriel_schulhof: im seeing them on all jquery versions
+[11:17:06] <gabriel_schulhof> Sorry about the caps.
+[11:17:27] <arschmitz> gabriel_schulhof: https://travis-ci.org/jquery/jquery-mobile/builds/56865980
+[11:17:41] <gabriel_schulhof> arschmitz: That's what's super weird about it. It's happening ever since we replaced external/jquery/jquery.js - whether we load it or not!
+[11:17:47] <arschmitz> i also was getting random failures local last night
+[11:17:55] <arschmitz> in select
+[11:18:16] <jasperdegroot> yeah, I saw those select failures too in 1.5-dev-css branch
+[11:18:18] <arschmitz> running in grunt fail -> fail -> pass->pass -> fail
+[11:18:26] <jasperdegroot> had no idea what could have caused it
+[11:18:29] <arschmitz> not changes at any point
+[11:18:58] <gabriel_schulhof> I dunno about the timeouts. I was talking about redirect failures with *-push-state-disabled-tests.html and the like.
+[11:19:13] <gabriel_schulhof> Where there's an outright phantomjs error rather than a timeout.
+[11:19:57] <arschmitz> anyway we have some test issues
+[11:20:20] <arschmitz> we also had some stuff break with the jquery git build but that is fixed
+[11:21:34] <arschmitz> im going to do some more to try to speed up test runs too like not building every time
+[11:22:18] <kapil21051> arschmitz: that would be great
+[11:22:59] <arschmitz> i plan to do some major grunt file cleanup and try to make it so we only run the spider once per pr too
+[11:23:18] <arschmitz> talked about this some with gabriel_schulhof its not simple but i have an idea im going to try
+[11:23:46] <kapil21051> building everytime to run the tests is really time consuming..
+[11:24:34] <arschmitz> kapil21051: its also not even needed
+[11:24:43] <arschmitz> we dont do anything with the built files just build them
+[11:24:57] <gabriel_schulhof> arschmitz: find tests -type f | xargs grep -niH dist
+[11:25:00] <gabriel_schulhof> arschmitz: No results.
+[11:25:08] <arschmitz> gabriel_schulhof: exactly
+[11:25:09] <gabriel_schulhof> So, I don't think we use the build in tests.
+[11:25:22] <gabriel_schulhof> I know we used to.
+[11:25:30] <gabriel_schulhof> But I guess that step can go.
+[11:25:41] <arschmitz> this is dependent on seperating the demo tests though
+[11:25:52] <arschmitz> as those DO use the dist
+[11:25:55] <gabriel_schulhof> arschmitz: Oh, good point.
+[11:26:09] <gabriel_schulhof> In fact, we have an entire dist version of the demos.
+[11:26:21] <arschmitz> yes we run the spider on both
+[11:26:26] <arschmitz> since one is whats on view
+[11:26:30] <arschmitz> and one is whats on demos
+[11:26:44] <gabriel_schulhof> Then can't the build be added to the crawl task rather than the test task?
+[11:26:49] <gabriel_schulhof> It would also speed up local testing.
+[11:27:02] <arschmitz> yes that was really why i want it
+[11:27:03] <gabriel_schulhof> I find myself running grunt connect:server qunit:http
+[11:27:18] <arschmitz> sick of the build taking longer then tests on single suites
+[11:27:27] <gabriel_schulhof> Exactly.
+[11:27:56] <arschmitz> and on ui grunt test does not build and its nice
+[11:28:07] <arschmitz> to build and test is just grunt
+[11:28:10] <kapil21051> arschmitz: if demos tests are not run and only the code files are tested then it won't be easy to detect the failure in core files and then correct the demos
+[11:28:27] <kapil21051> why demos tests are even run
+[11:28:33] <arschmitz> kapil21051: they will be run
+[11:28:43] <arschmitz> you can run local via grunt crawl
+[11:29:08] <arschmitz> and they will run on travis just only once not for every jquery version / test type
+[11:29:41] <arschmitz> we have never had them run by default local they take too long
+[11:30:00] <gabriel_schulhof> ... and consistently fail on my machine for some reason.
+[11:30:08] <arschmitz> gabriel_schulhof: only you...
+[11:30:18] <arschmitz> but thats your php server
+[11:30:24] <arschmitz> it hates you
+[11:30:27] <gabriel_schulhof> Why does that remind me of "Hot Shots"?
+[11:30:29] <kapil21051> lol
+[11:32:05] <arschmitz> so im going to continue working on getting our tests passing consistently again
+[11:32:22] <gabriel_schulhof> I'd ditch phantomjs ...
+[11:32:29] <arschmitz> speaking of which autoinit with some help from gabriel_schulhof is working
+[11:32:32] <arschmitz> gabriel_schulhof: some day...
+[11:33:08] <arschmitz> there has been some debate about how to implement the backcompat but aside from that its almost ready
+[11:33:27] <gabriel_schulhof> Well, to be fair, it's WebKit, with its spurious popstate, so it's a great way of testing nav in that brain-damaged environment.
+[11:33:39] <arschmitz> gabriel_schulhof: you will be happy to know after more testing and reflection im going to add a filter hook
+[11:33:49] <arschmitz> HOWEVER!!!!!
+[11:33:57] <arschmitz> it will be 100% undocumented and removed in 1.6
+[11:34:20] <gabriel_schulhof> Yes. Good! Stamped. Approved. I'll buy that for 1€. Agreed. OK. :+1:
+[11:34:26] <arschmitz> it was like a 50% difference in perf
+[11:35:09] <arschmitz> and since its happening in a tight loop on a large collection even for backcompat that too big to ignore
+[11:35:21] <gabriel_schulhof> Totally.
+[11:35:43] <gabriel_schulhof> I can't wait to have a nice, unobtrusive, won't-enhance-unless-explicitly-asked approach.
+[11:35:51] <arschmitz> i have 2 things remaining for autoinit
+[11:36:07] <arschmitz> to deprecate all non default init selectors
+[11:36:24] <arschmitz> im saving that for last as a good way to test wacky custom ones we have
+[11:36:53] <arschmitz> and to add back a plugin for degradeInputs
+[11:37:20] <gabriel_schulhof> ... and I thought 1.4.0 brought a lot of deprecation.
+[11:38:03] <arschmitz> an important thing to remember here is we are not remving anyt abilitie
+[11:38:04] <arschmitz> s
+[11:38:13] <kapil21051> arschmitz : plugin reminds me of what i was gonna say in this meeting...what about having a new loader plugin/wiidget which will also work as a progress meter
+[11:38:24] <arschmitz> everything you could do in 1.4 will still be possible in 1.6 just a different way
+[11:38:35] <arschmitz> kapil21051: already on the roadmap
+[11:38:45] <arschmitz> we will use the jQuery UI progress bar
+[11:39:09] <arschmitz> going back to my statement about 1.6 that excludes degradeInputs
+[11:39:21] <arschmitz> thats just a bad thing we should never had done in my opinion
+[11:39:53] <arschmitz> i get progressive enhnacement but this is like to the point of it being destructive
+[11:40:34] <arschmitz> and we can keep it as a plugin somewhere i guess
+[11:40:37] <gabriel_schulhof> I wouldn't even call it progressive enhancement. Visually, it is, but semantically, it's waaay too intrusive.
+[11:41:04] <gabriel_schulhof> But anyway - that's philosophical.
+[11:41:38] <arschmitz> so we will be removing ignoreContentEnabled and data-role none
+[11:42:01] <arschmitz> and everything other then data-role=widgetName
+[11:42:28] <arschmitz> gabriel_schulhof: oh that reminds me we still need to revisit making that allow a comma seperated list
+[11:42:51] <gabriel_schulhof> Yeah, we'll need that, since you can't have multiple attributes with the same name.
+[11:42:57] <arschmitz> yup
+[11:43:21] <gabriel_schulhof> I think it's a no-brainer. It's the equivalent of .widget1().widget2()
+[11:43:28] <arschmitz> yup
+[11:43:37] <arschmitz> im going to just go ahead and add it
+[11:44:07] <arschmitz> so autoinit is going to be a pretty big land
+[11:44:28] <arschmitz> lots of fun new stuff there like the ability to add hooks too
+[11:44:42] <gabriel_schulhof> I'd say it'll be very welcome.
+[11:44:48] <arschmitz> and a custom generator its a pretty robust module
+[11:44:51] <gabriel_schulhof> The current approach is, ... shall we say ... limited.
+[11:45:06] <arschmitz> yes this works for even non widget things now
+[11:45:17] <kapil21051> arschmitz: are data-filter like attributes also gonna removed ?
+[11:45:30] <gabriel_schulhof> kapil21051: That'll become unnecessary.
+[11:45:49] <arschmitz> kapil21051: basicly everything will be come data-role=""
+[11:45:52] <gabriel_schulhof> kapil21051: data-anything-but-role will be an option.
+[11:46:05] <gabriel_schulhof> kapil21051: data-role will be a list of widget types.
+[11:46:10] <kapil21051> cool
+[11:46:24] <arschmitz> i also think we need to take another look at how we parse options
+[11:46:35] <gabriel_schulhof> There may be some minor issues with two different widget types understanding the same option, but I would say super-duper minor.
+[11:46:49] <arschmitz> to allow for objects in the form of data-option-deep
+[11:47:08] <gabriel_schulhof> You mean JSON-valued options?
+[11:47:18] <arschmitz> gabriel_schulhof: and no different with what we have today useing 2 on same widget by having non roll selectors
+[11:47:23] <arschmitz> gabriel_schulhof: yes
+[11:47:27] <arschmitz> so like classes
+[11:47:52] <gabriel_schulhof> arschmitz: JSON is not a problem unless you also accept strings, right?
+[11:47:56] <arschmitz> you could do data-classes-ui-button="boom"
+[11:48:04] <gabriel_schulhof> Oh, like that!
+[11:48:35] <gabriel_schulhof> Actually, remember: It's gonna be data-ui-classes-ui-button="boom"
+[11:48:40] <arschmitz> instead of data-classes="{'ui-button': 'boom' }"
+[11:49:14] <arschmitz> this becomes a pain with large objects
+[11:49:55] <arschmitz> i also have to check if in get create options it does a recursive extend or not
+[11:49:57] <gabriel_schulhof> ... so we shouldn't paint ourselves into that particular corner if at all avoidable.
+[11:50:06] <arschmitz> otherwise you need to do the whole object no matter what in the attribute
+[11:50:23] <gabriel_schulhof> IIRC, classes does not extend.
+[11:50:40] <gabriel_schulhof> That's why you need to classes.ui-abc
+[11:50:42] <arschmitz> it does on init
+[11:50:55] <gabriel_schulhof> OK, that's a special case then.
+[11:51:03] <arschmitz> but not one button( "option", "classes"
+[11:51:24] <arschmitz> it does a deep extend on init to make it not insane to modify objects
+[11:53:14] <arschmitz> im not sure we need to worry about this before landing but im going to put some thought in and talk to tj and scott_gonzalez as well
+[11:53:42] <arschmitz> i know scott_gonzalez had previously said he thought we should allow deep option setting in the form of data-option-prop
+[11:54:13] <gabriel_schulhof> Thing is though, we're still talking about init here, because you don't read attributes subsequently.
+[11:54:53] <arschmitz> gabriel_schulhof: yes
+[11:55:22] <gabriel_schulhof> So, shouldn't we be covered by the init special-casing?
+[11:55:24] <arschmitz> but im not sure how the underling implementation treats it right now in the factory i need to check
+[11:56:14] <arschmitz> there is a difference between getCreateOptions and passing an object directly on init
+[11:56:42] <arschmitz> i dont know if we are covered or not in this case so i need to check
+[11:57:42] <arschmitz> anyway we dont need to worry about that right now
+[11:57:49] <kapil21051> arschmitz : how deep option setting is better than JSON valued options ?
+[11:58:21] <arschmitz> because putting arrays or json in an html attribute is ugly
+[11:58:37] <arschmitz> it works you could even put a function and it would actually work
+[11:58:42] <arschmitz> but its super duper ugly
+[11:59:08] <kapil21051> but won't that deep option setting be limited ?
+[11:59:31] <arschmitz> kapil21051: how so?
+[11:59:46] <kapil21051> if the number of customizations increses then the data-options attributes increases
+[12:00:20] <arschmitz> well we dont allow crazy api's for one thing so thats not a problem but also its not like these are hard coded
+[12:00:31] <arschmitz> and checking them takes essentially no time
+[12:01:02] <jasperdegroot> I have to go. Later all
+[12:01:04] <arschmitz> and you can still pass json or arrays or whatever
+[12:01:09] <gabriel_schulhof> jasperdegroot: K L8R
+[12:01:18] <arschmitz> jasperdegroot: ok thank you i will look at your pr this after noon
+[12:01:27] <jasperdegroot> ok, thanks
+[12:01:30] <kapil21051> hmm..ok then that will be flexible option
+[12:03:55] <arschmitz> so looks like we are out of time does anyone have anything to discuss
+[12:04:28] <gabriel_schulhof> arschmitz: I have something, but it's better discussed on -dev, re that initial popstate thing.
+[12:04:51] <arschmitz> gabriel_schulhof: sure im not going anywhere
+[12:04:57] <gabriel_schulhof> Excellent!
+[12:05:05] <kapil21051> arschmitz: the same thing..reminding you of my gsoc proposal ..
+[12:05:11] <kapil21051> :-D
+[12:05:43] <arschmitz> kapil21051: dont worry we have a big list lol
+[12:06:04] <kapil21051> :P
+[12:06:23] <kapil21051> big list of applicants ?
+[12:06:45] <arschmitz> kapil21051: but i'm one of the admins as well as a mentor on all but 3 of our projects and we received almost 200 proposals so i have a lot to get through
+[12:07:19] <gabriel_schulhof> D00d! Not envying you right now ... wow!
+[12:07:58] <kapil21051> arschmitz : i'll wait then for your response...:)
+[12:08:25] <arschmitz> sounds good :-)
+[12:08:35] <kapil21051> arschmitz: till the end of this world :-D
+[12:09:40] <kapil21051> arschmitz: if you come across my proposal then just make a small comment and i will discuss my idea with you
+[12:09:58] <kapil21051> i have started working on it

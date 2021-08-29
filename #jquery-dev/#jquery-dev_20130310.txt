@@ -1,0 +1,198 @@
+[14:23:10] <agcolom>  message to everyone... My understanding is the US switched to Summer time today. Europe is switching in 3 weeks. Might be worth checking everyone knows as this means meetings will take place 1h early for the next 3 weeks Europe time.
+[17:47:38] <snover> DaveMethvin: how true is http://docs.jquery.com/Won%27t_Fix#SVG.2FXML.2FVML_Bugs these days
+[17:59:02] <DaveMethvin> snover still pretty true ... there's no way we can fix all of it but if there's a simple patch we'll do it
+[17:59:23] <snover> ok, just making sure
+[17:59:55] <snover> someone was complaining about how dojo’s classList.add-alike would not work on svg
+[17:59:57] <snover> because it does not use baseVal
+[18:00:07] <DaveMethvin> ugh
+[18:00:09] <snover> and i was asked if jquery handled that condition
+[18:00:31] <DaveMethvin> we use the .className property which doesn't work on XML i know
+[18:00:47] <snover> i was pretty sure of the answer but i also saw some tickets being fixed that were about xml/svg so i didn’t know if the policy changed
+[18:00:56] <snover> since svg is finally somewhat less irrelevant these days
+[18:01:04] <DaveMethvin> but dammit that's a HTML semantic thing so they shouldn't be applying HTML semantics to SVG/XML
+[18:01:49] <DaveMethvin> "oh but they all use the angly bracketer things, how hard could it be?"
+[18:23:04] <JamesMGreene> Do shell scripts have any equivalent to Windows batch scripts' "@echo on" functionality? i.e. it echoes every command it runs
+[18:23:56] <snover> DaveMethvin: svg uses css too…
+[18:34:09] <gnarf> JamesMGreene: bash -x 
+[18:43:05] <JamesMGreene> gnarf Is there a way to set it globally for bash so that all scripts do that by default?
+[18:44:19] <DaveMethvin> JamesMGreene you can use `set -x` in the script
+[18:45:01] <DaveMethvin> http://stackoverflow.com/questions/2853803/in-a-shell-script-echo-shell-commands-as-they-are-executed
+[18:47:06] <JamesMGreene> I'm aware
+[18:47:17] <JamesMGreene> but the script is 3rd party, I'd prefer not to modify
+[18:47:29] <JamesMGreene> plus theirs start with #!/bin/sh instead of bash
+[18:47:48] <JamesMGreene> And I'm not sure that all shells support -x...? Though I know Travis is using bash so perhaps that's all I care about
+[18:48:21] <DaveMethvin> the great thing about unix/linux is that there are so many shells to choose from
+[18:48:45] <JamesMGreene> lol
+[18:48:47] <JamesMGreene> yeah, sure
+[18:50:00] <snover> Some people, when confronted with a shell, think “I know, I’ll use a different one.” Now they have 800 problems.
+[18:50:07] <snover> I think that’s how that goes anyway
+[18:51:08] <JamesMGreene> The Travis guys are suggesting that I might just trying aliasing 'sh' to 'bash -x' or something
+[18:51:16] <JamesMGreene> That might work
+[18:53:25] <snover> what are you trying to do?
+[18:59:51] <JamesMGreene> snover: Here's the wacky ass setup
+[19:00:11] <JamesMGreene> I am running a Travis build for a Node.js module. That Node.js module has a dependency on the Apache/Adobe Flex SDK. On Linux, Flex's executables are shell scripts (#!/bin/sh) that launch a Java JAR.
+[19:00:28] <JamesMGreene> The process is failing somewhere in that shell script or maaaaybe in Java, both of which are 3rd party to me
+[19:01:18] <JamesMGreene> My nodeunit test does an `execFile` which gets an error of "Error: Command failed: execvp(): No such file or directory"
+[19:01:55] <snover> oh, that sounds glorious.
+[19:02:17] <DaveMethvin> yeah that drives me crazy, i've seen that on windows where it doesn't tell you WHAT it was tryna run
+[19:02:42] <snover> no execvp could be due to the way they sandbox
+[19:02:59] <snover> i have seen some very awful VMs (like mediatemple’s)
+[19:03:42] <snover> though actually i suppose it seems to be complaining not that execvp is missing, if i bothered to like…have reading comprehension
+[19:03:54] <DaveMethvin> is it tryna say that an execvp(...) call failed with "no such file or dir" 
+[19:04:15] <DaveMethvin> so just solve for "...", DUH
+[19:04:17] <snover> try strace -e trace=open -f
+[19:04:23] <JamesMGreene> Oh, maybe DaveMethvin
+[19:04:24] <snover> strace -e trace=open -f yournodecommand
+[19:04:40] <JamesMGreene> Where do I put that?
+[19:04:44] <JamesMGreene> command line?
+[19:04:45] <snover> in place of yournodecommand
+[19:04:56] <JamesMGreene> Well it's all kicked off via grunt
+[19:05:04] <snover> that sounds like a node command
+[19:05:13] <JamesMGreene> indeed
+[19:05:34] <JamesMGreene> so replace my `grunt` with `strace -e trace=open -f grunt`?
+[19:06:23] <snover> yeap
+[19:06:42] <JamesMGreene> k
+[19:06:48] <snover> and then you will need to kind of educatedly guess at what is happening based on the thousands of lines of output
+[19:06:49] <snover> :)
+[19:06:58] <snover> but at least you will learn every file that something tries to open
+[19:07:13] <DaveMethvin> and how many of those can there be :D
+[19:17:47] <JamesMGreene> $ npm test
+[19:17:48] <JamesMGreene> flex-sdk@3.0.1 test /home/travis/build/JamesMGreene/node-flex-sdk
+[19:17:48] <JamesMGreene> strace -e trace=open -f grunt travis --verbose
+[19:17:48] <JamesMGreene> sh: 1: strace: not found
+[19:17:48] <JamesMGreene> npm ERR! Test failed.  See above for more details.
+[19:17:48] <JamesMGreene> npm ERR! not ok code 0
+[19:18:13] <JamesMGreene> Looking at you, snover :-o
+[19:18:28] <snover> JamesMGreene: so… install it…
+[19:18:55] <JamesMGreene> For all I knew it was built in :-o
+[19:21:20] <JamesMGreene> Sooooo: `sudo apt-get install -qq strace`
+[19:21:22] <JamesMGreene> Look about right?
+[19:21:36] <snover> i don’t know on travis, but that is the package name
+[19:27:24] <JamesMGreene> Looks right: http://about.travis-ci.org/docs/user/build-configuration/#Installing-Packages-Using-apt
+[19:37:15] <JamesMGreene> Ah, dirty lies
+[19:37:17] <JamesMGreene> $ ls -al /bin/sh
+[19:37:17] <JamesMGreene> lrwxrwxrwx 1 root root 4 Mar 11 02:16 /bin/sh -> dash
+[19:37:23] <JamesMGreene> dash, not bash
+[19:38:50] <snover> ubuntu sure is super.
+[19:39:31] <JamesMGreene> Anyway, that said, when it actually got to the nodeunit tests, strace didn't show me any file access
+[19:39:32] <JamesMGreene> Process 1743 attached
+[19:39:32] <JamesMGreene> Process 1743 detached
+[19:39:32] <JamesMGreene> [pid  1737] --- SIGCHLD (Child exited) @ 0 (0) ---
+[19:39:41] <JamesMGreene> Presumably because it ran in a separate process...?
+[19:40:21] <snover> that’s what -f is for
+[19:40:22] <JamesMGreene> Any flag for strace to trace into `child_process`es?
+[19:40:42] <JamesMGreene> -f is there :-\
+[19:41:12] <snover> well, you can try -ff
+[19:41:18] <snover> but -f should really be doing it for you
+[19:46:18] <JamesMGreene> Commit message: "f"
+[19:49:47] <JamesMGreene> -ff didn't get any deeper
+[19:49:54] <JamesMGreene> snover ^ :(
+[19:50:14] <snover> so it is opening no files? :)
+[19:50:28] <snover> are you running it with sudo?
+[19:51:30] <JamesMGreene> the strace?
+[19:51:34] <JamesMGreene> no, but I can
+[19:52:28] * JamesMGreene throws a `sudo rm /bin/sh && sudo ln -s /bin/bash /bin/sh` in there for good measure
+[20:01:23] <JamesMGreene> wacky o_O
+[20:01:32] <JamesMGreene> Now it can't find grunt
+[20:03:35] <JamesMGreene> why t.f. would _that_ happen? o_O
+[20:05:55] <JamesMGreene> frickin' wacky
+[20:06:12] <JamesMGreene> yaaaay Linux? :(
+[20:06:30] <JamesMGreene> Anyone using Linux here?  Want to download my tag and give it a try?
+[20:06:50] <snover> sudo -E
+[20:08:15] <JamesMGreene> ?
+[20:36:05] <JamesMGreene> Same ole crap and `strace` is not shedding any light on the subject. Any other ideas, snover? =/
+[20:36:17] <JamesMGreene> Latest: https://travis-ci.org/JamesMGreene/node-flex-sdk/builds/5400236
+[20:39:51] <snover> do you get anythin better with strace -e trace=file instead of trace=open?
+[20:41:52] <snover> i would expect not
+[20:41:58] <JamesMGreene> I'll give it a go
+[20:42:22] <snover> i am not sure how it is forking a new process and then nothing
+[20:44:38] <JamesMGreene> indeed odd
+[20:45:10] <snover> well i mean
+[20:45:14] <snover> i guess it is *not* forking the new process
+[20:45:21] <snover> becaues it cannot find the binary
+[20:45:42] <snover> you know, i bet trace=file will help
+[20:45:51] <snover> if it is just doing a stat
+[20:45:56] <snover> to find the binary
+[20:46:02] <snover> then you might be able to discover the binary
+[20:47:06] <snover> sure seems like your own fork/exec from node is the culprit
+[20:47:17] <snover> in test/flex_test
+[20:51:07] <JamesMGreene> Yeah, trace=file totally helped
+[20:51:14] <JamesMGreene> Process 1744 attached
+[20:51:14] <JamesMGreene> [pid  1744] execve("/home/travis/build/JamesMGreene/node-flex-sdk/lib/flex_sdk/bin/mxmlc", ["/home/travis/build/JamesMGreene/"..., "+configname=air", "/home/travis/build/JamesMGreene/"...], [/* 194 vars */]) = -1 ENOENT (No such file or directory)
+[20:51:14] <JamesMGreene> Process 1744 detached
+[20:51:32] <snover> oh god, duh, so sorry
+[20:51:35] <snover> i should have said that
+[20:51:36] <snover> a whillle ago
+[20:51:55] <snover> for some reason i was fixating on file opens
+[20:52:00] <snover> not file executions
+[20:52:02] <snover> dumb
+[20:52:03] <snover> sorry!
+[20:52:20] <JamesMGreene> 'sok, I'm still better off for it
+[20:52:43] <JamesMGreene> (and I still don't know what's wrong but at least I see the command (sort of o_O) now
+[20:52:44] <JamesMGreene> )
+[20:52:46] <JamesMGreene> What's up with the "..."?
+[20:53:05] <JamesMGreene> I'm hoping that truncation?
+[20:53:22] <JamesMGreene> cuz otherwise that looks really wrong
+[21:02:14] <JamesMGreene> cmd: /home/travis/build/JamesMGreene/node-flex-sdk/lib/flex_sdk/bin/mxmlc +configname=air /home/travis/build/JamesMGreene/node-flex-sdk/test/testData/testApp.as
+[21:02:21] <JamesMGreene> Looks fine....
+[21:05:29] <snover> it is truncation, yes
+[21:05:51] <JamesMGreene> Soooooooooooooo
+[21:06:04] <JamesMGreene> I have no idea what to investigate next o_O
+[21:06:16] <JamesMGreene> Both of those files definitely exist
+[21:06:41] <JamesMGreene> (and work fine if I run them in MinGW locally, too)
+[21:08:22] <snover> well obviously it doesn’t, otherwise the return would not be ENOENT :)
+[21:09:18] * JamesMGreene launches his dusty Ubuntu 12.10 VM
+[21:09:49] <JamesMGreene> snover Well, I suspect the missing file is something that the mxmlc script tries to call
+[21:09:59] <snover> no
+[21:10:04] <JamesMGreene> but I've output all the directories in my Travis log and they're all there o_O
+[21:10:13] <snover> if it was another file it would not be on that trace line
+[21:10:34] <JamesMGreene> Ohoh true
+[21:12:11] <JamesMGreene> talk about a productivity killer... thanks a lot, Linux >=(
+[21:13:05] <JamesMGreene> Does GitHub remember if a file should be +x executable?
+[21:14:05] <JamesMGreene> I would assume not...? but maybe
+[21:14:43] <snover> yes
+[21:14:51] <snover> file permissions are saved
+[21:16:03] <JamesMGreene> Platform: linux
+[21:16:03] <JamesMGreene> mxmlc: /home/travis/build/JamesMGreene/node-flex-sdk/lib/flex_sdk/bin/mxmlc
+[21:16:03] <JamesMGreene> [pid  1737] stat("/home/travis/build/JamesMGreene/node-flex-sdk/lib/flex_sdk/bin/mxmlc", {st_mode=S_IFREG|0755, st_size=1272, ...}) = 0
+[21:16:03] <JamesMGreene> mxmlc exists (expecting true): true
+[21:16:03] <JamesMGreene> TargetSource: /home/travis/build/JamesMGreene/node-flex-sdk/test/testData/testApp.as
+[21:16:03] <JamesMGreene> [pid  1737] stat("/home/travis/build/JamesMGreene/node-flex-sdk/test/testData/testApp.as", {st_mode=S_IFREG|0664, st_size=153, ...}) = 0
+[21:16:03] <JamesMGreene> TargetSource exists (expecting true): true
+[21:16:04] <JamesMGreene> Process 1743 attached
+[21:16:04] <JamesMGreene> [pid  1743] execve("/home/travis/build/JamesMGreene/node-flex-sdk/lib/flex_sdk/bin/mxmlc", ["/home/travis/build/JamesMGreene/"..., "+configname=air", "/home/travis/build/JamesMGreene/"...], [/* 194 vars */]) = -1 ENOENT (No such file or directory)
+[21:16:05] <JamesMGreene> Process 1743 detached
+[21:16:51] <JamesMGreene> ...RAWR WTF
+[21:24:41] <JamesMGreene> Oh, maybe...?
+[21:24:43] <JamesMGreene> [23:20] <deoxxa> JamesMGreene: if it's a shell file or something, you'll need to spawn /bin/sh with the shell file as an argument
+[21:26:09] <snover> sounds plausible
+[21:26:34] <snover> except execve is supposed to work with scripts
+[21:26:42] <snover> execve() executes the program pointed to by filename. filename must be either a binary executable, or a script starting with a line of the form: #! interpreter [optional-arg]
+[21:30:22] * JamesMGreene is comparing the two versions' scripts
+[21:42:47] <JamesMGreene> Scripts are identical, and both 755 chmod'd... JVM configs are identical as well
+[21:43:03] <JamesMGreene> 1 works (3.0.0), 1 doesn't (3.0.1)
+[22:20:41] <JamesMGreene> snover https://api.travis-ci.org/jobs/5401283/log.txt?deansi=true Search for "Process 1722 attached". Any ideas why it is accessing so many files?
+[22:22:32] <snover> looking through PATH for file named \r
+[22:22:50] <JamesMGreene> Why would it do that...?
+[22:23:13] <snover> because something was requesting a file named \r?
+[22:24:23] <JamesMGreene> Hrm
+[22:24:53] <JamesMGreene> I suppose Linux doesn't know how to handle \r out of the gate, eh?
+[22:25:42] <snover> if you have anything committed to git with \r\n line endings, you get what you deserve :P
+[22:29:37] <JamesMGreene> Not me
+[22:29:41] <JamesMGreene> it's in the Flex SDK scripts
+[22:29:50] <JamesMGreene> They must've been put together on Windows
+[22:33:12] <snover> sure, but still, if you’ve got the right settings on git, it will convert them. that said, i doubt that a bash script would just not run
+[22:33:17] <snover> i mean
+[22:33:30] <snover> just because it was badly authored
+[22:33:40] * JamesMGreene shrugs
+[22:33:40] <b-ot> JamesMGreene: ¯\_(ツ)_/¯
+[22:33:49] <JamesMGreene> It's all a big ball of WTF to me
+[22:34:06] <snover> i have run the flex compiler before, a long time ago
+[22:36:21] <JamesMGreene> This look about right for a recursive fix?    `find . -type f -exec dos2unix {} \;`
+[22:36:39] <snover> too many questions!
+[22:37:11] <JamesMGreene> lol
+[22:37:19] <JamesMGreene> Shouldn't have volunteered to help :-P
+[22:54:57] <JamesMGreene> `man which`, lol
+[22:55:02] <JamesMGreene> Oh Linux, you so funny
+[23:54:14] <JamesMGreene> YES! FInally
+[23:54:22] <JamesMGreene> dos2unix ftw

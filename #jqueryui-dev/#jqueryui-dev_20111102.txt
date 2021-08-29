@@ -1,0 +1,209 @@
+[05:54:08] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/yrSGHg
+[05:54:08] <jquicommit> [jquery-ui/master] Position tests: Changed DOM structure to fix dimensions of within container. - Scott González
+[05:59:48] <scott_gonzalez> jzaefferer: got Opera 11.1x?
+[05:59:57] <jq-jenkins> Project jQuery UI build #137: STILL FAILING in 5 min 43 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/137/
+[05:59:57] <jq-jenkins> Scott González: Position tests: Changed DOM structure to fix dimensions of within container.
+[06:00:38] <jzaefferer> scott_gonzalez: can boot a VM
+[06:00:52] <scott_gonzalez> sweet, can you connect to TestSwarm?
+[06:00:55] <jzaefferer> had it running on my PC at home, but that's not available right now
+[06:01:04] <scott_gonzalez> there's something really odd with my Opera 11.1x install right now
+[06:01:11] <jzaefferer> k
+[06:01:12] <scott_gonzalez> it's not loading stylesheets when I connect
+[06:01:17] <scott_gonzalez> so things are dying left and right
+[06:01:28] <scott_gonzalez> http://swarm.jquery.org/job/217/ :-)
+[06:03:13] <jzaefferer> 11.11 is okay?
+[06:04:09] <jzaefferer> well, 11.11 is running, Win XP
+[06:05:27] <scott_gonzalez> thanks
+[06:08:19] <scott_gonzalez> hmm...error in tabs
+[06:10:10] <scott_gonzalez> SO CLOSE!
+[06:10:45] <kborchers> scott_gonzalez: yeah, that's the same thing i saw yesterday ... went and ran the tabs tests independently with Opera 11.1 and they seemed to fail randomly with no error that i could see
+[06:11:01] <scott_gonzalez> ugh
+[06:11:11] <scott_gonzalez> I'll check it out when I fix my Opera 11.1x install
+[06:11:26] <kborchers> i'm firing up my vm now and i'll take another look as well
+[06:11:35] <scott_gonzalez> there's also an intermittent effects failure in IE 6
+[06:27:26] <kborchers> hmmm, if i point it at my local unit tests, tabs fails every time in Opera 11.1
+[06:27:36] <kborchers> no errors though in dragonfly
+[06:27:38] <kborchers> weird
+[06:29:09] <scott_gonzalez> some async operation must be dying
+[06:30:47] <scott_gonzalez> haha
+[06:30:54] <scott_gonzalez> I put alerts in the test and then it passed
+[06:31:17] <scott_gonzalez> fwiw, when I wrote this test I thought it was odd that it passed
+[06:31:29] <scott_gonzalez> I think this will be an easy fix
+[06:32:07] <scott_gonzalez> oh, hmm....I apparently already made it fully async
+[06:32:10] <scott_gonzalez> umm....
+[06:32:45] <scott_gonzalez> the 1ms delay is too short
+[06:32:50] <scott_gonzalez> that doesn't really make sense
+[06:33:05] <scott_gonzalez> ohh....
+[06:33:28] <scott_gonzalez> I wonder if this is from my timeout that forces deferreds to be async
+[06:34:02] <scott_gonzalez> yup
+[06:34:09] <kborchers> aahhhh
+[06:34:55] <kborchers> well if you got that one, still need someone to look into the random ie6 failure?
+[06:35:35] <scott_gonzalez> yeah, I can't reproduce it
+[06:35:41] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/XE5uqg
+[06:35:41] <jquicommit> [jquery-ui/master] Tabs test: Increase delay in load test. - Scott González
+[06:36:22] <scott_gonzalez> so the only consistent failure now is the consistent results position test in IE 9
+[06:39:34] <kborchers> hmmm, yeah, locally effects tests pass every time for me in ie6
+[06:39:48] <kborchers> connected it to swarm to see if it fails there
+[06:41:08] <jzaefferer> Opera 11.1x all green :-)
+[06:44:05] <kborchers> ie6 ... all green
+[06:44:06] <kborchers> hmmm
+[06:44:48] <scott_gonzalez> well, I guess we'll just need to keep an eye out to see if it ever fails again
+[06:44:55] <jq-jenkins> Project jQuery UI build #138: STILL FAILING in 9 min 12 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/138/
+[06:44:55] <jq-jenkins> Scott González: Tabs test: Increase delay in load test.
+[06:45:12] <scott_gonzalez> and there's our only remaining failure...
+[06:45:19] <kborchers> damn position
+[06:45:21] * scott_gonzalez boots IE 9 VM
+[06:45:49] <kborchers> oh god ... it's the fraction stuff
+[06:45:52] <jq-jenkins> Project jQuery UI build #139: STILL FAILING in 56 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/139/
+[06:45:57] <jq-jenkins> Project jQuery UI Mask build #10: STILL FAILING in 10 min: http://swarm.jquery.org:8080/job/jQuery%20UI%20Mask/10/
+[06:45:59] <scott_gonzalez> yeah
+[06:50:17] <jzaefferer> why did it run mask?
+[06:50:34] <jzaefferer> there was no change there
+[06:53:21] <scott_gonzalez> don't know
+[06:53:29] <scott_gonzalez> kborchers: looks like position is doing the right thing
+[06:53:34] <scott_gonzalez> gets left: 75.5 both times
+[06:53:42] <scott_gonzalez> looks like it's in .offset()
+[06:55:14] <kborchers> hmmm, offset is rounding?
+[06:56:28] <scott_gonzalez> https://gist.github.com/1333683
+[06:56:34] <scott_gonzalez> test passes with that
+[06:57:09] <jzaefferer> gnarf around?
+[07:04:28] <scott_gonzalez> kborchers: .offset() sets the left to 75.5, but then on the next setting, it asks the browser what the current offset is and it says it's 76
+[07:07:42] <kborchers> hmmm, not sure how we can prevent that ... offset() would have to know that what it is returning will be rounded/floored/ceilinged (i've seen them all happen i think with different broswers) before returning a val
+[07:08:58] <kborchers> maybe not ceiling but i know at least one version of IE rounded everything down
+[07:09:50] <scott_gonzalez> shit
+[07:09:54] <scott_gonzalez> fucking JavaScript math
+[07:09:58] <scott_gonzalez> 75.5 - 76 + 75.5 = 75
+[07:10:10] <kborchers> nice
+[07:10:18] <scott_gonzalez> how can it possibly be that far off?
+[07:10:41] <scott_gonzalez> oh
+[07:10:42] <scott_gonzalez> crap
+[07:10:44] <scott_gonzalez> that's right
+[07:10:51] <scott_gonzalez> I though it was going in the other direction
+[07:11:46] <kborchers> oh, right ... at first glance i thought it was wrong too
+[07:11:50] <scott_gonzalez> I was thinking that was 75.5 + 76 - 75.5
+[07:12:21] <kborchers> right
+[07:12:37] <scott_gonzalez> so yeah, I don't think we can fix that
+[07:12:46] <scott_gonzalez> well...
+[07:12:56] <scott_gonzalez> if we know that the browser doesn't support fractions...
+[07:13:16] <kborchers> i was just going to say i wonder if some version of the fraction test in 1-8-stable would help
+[07:13:49] <kborchers> if we take that and then keep track of which way it gets rounded maybe that would do it
+[07:16:11] <scott_gonzalez> gonna attempt this :-P
+[07:31:44] <scott_gonzalez> that fixes it
+[07:32:04] <scott_gonzalez> kborchers: check out my suggestion in #jquery-dev
+[07:37:26] <kborchers> fixing the detached body issue fixes that one off issue in IE9?
+[07:39:37] <kborchers> i made a modification to the fraction test that seems to fix the issue ... position tests pass in all browsers with just ie6 and 7 left to test
+[07:41:12] <scott_gonzalez> not detached body
+[07:41:17] <scott_gonzalez> just writing the faction support test
+[07:42:00] <scott_gonzalez> https://gist.github.com/1333799
+[07:44:08] <kborchers> oh, i see
+[08:09:27] <jquicommit> [jquery-ui] scottgonzalez pushed 1 new commit to master: http://git.io/oKralw
+[08:09:27] <jquicommit> [jquery-ui/master] Position: Check for fraction support. - Scott González
+[08:12:07] <jq-jenkins> Project jQuery UI build #140: STILL FAILING in 2 min 33 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/140/
+[08:12:07] <jq-jenkins> Scott González: Position: Check for fraction support.
+[08:13:54] <kborchers> uh oh ...
+[08:24:49] <scott_gonzalez> wtf just happened?
+[08:25:31] <scott_gonzalez> the tests were passing fine for me
+[08:25:41] <scott_gonzalez> and now all of a sudden tests are failing like crazy on TestSwarm
+[08:25:49] <scott_gonzalez> not even just position tests
+[08:26:50] <kborchers> yeah ... not sure
+[08:27:22] <kborchers> maybe when you update $.support.offsetFractions it is false when it would be true in other cases ... as wrong as that sounds
+[08:28:28] <kborchers> this one is weird though http://swarm.jquery.org/?state=runresults&run_id=1229&client_id=1323
+[08:29:26] <scott_gonzalez> umm...didn't the previous test runs have all passing tests for IE 9 excluding this one position test?
+[08:29:31] <scott_gonzalez> now the history shows tons of IE 9 failures
+[08:29:40] <kborchers> yes that is what i remember
+[08:29:55] <scott_gonzalez> and how is IE 8 failing effects tests now?
+[08:30:06] <kborchers> this is really strange
+[08:30:34] <scott_gonzalez> I'm gonna go kill myself
+[08:30:43] <kborchers> wait for me
+[08:30:51] <scott_gonzalez> :-P
+[08:31:49] <kborchers> do you dare pull out that last commit and run the tests again?
+[08:32:46] <scott_gonzalez> haha
+[08:32:58] <wpbest> Have you guys been working with a windows 8 metro style browser?
+[08:33:07] <scott_gonzalez> nope
+[08:33:31] <scott_gonzalez> position tests definitely pass for me in IE 9
+[08:33:34] <wpbest> Have you looked at ie 10?
+[08:33:51] <scott_gonzalez> even from TestSwarm
+[08:34:03] <scott_gonzalez> wpbest: yes, what do you want to know?
+[08:34:57] <scott_gonzalez> kborchers: connected to TestSwarm and everything's turning green
+[08:35:02] <wpbest> Do you use the Visual Studio 11 metro interface when developing metro apps?
+[08:35:04] <kborchers> wa?
+[08:35:13] <kborchers> i see that now too
+[08:35:22] <scott_gonzalez> wpbest: what are you trying to get at?
+[08:35:22] <kborchers> my head hurts
+[08:35:31] <scott_gonzalez> this is not a place to ask about windows development
+[08:36:02] <wpbest> just that the latest version of jquery ui workes in that environment.
+[08:36:23] <scott_gonzalez> are you asking or stating?
+[08:36:40] <wpbest> I've seend an example using it with Microsoft WinJS
+[08:36:45] <wpbest> askingt
+[08:36:48] <wpbest> ?
+[08:36:49] <kborchers> so now just those weird createWrapper/removeWrapper issues in effects tests in IE8
+[08:37:08] <scott_gonzalez> wpbest: yes, it should work fine
+[08:37:20] <wpbest> ok great. thanks
+[08:37:38] <scott_gonzalez> kborchers: I bet if you connect IE 8 to TestSwarm that will go away
+[08:37:46] <kborchers> doing it now
+[08:38:23] <wpbest> What kind of development tools are you using to develop jquery ui apps?
+[08:38:24] <kborchers> nope, i saw them error
+[08:38:51] <wpbest> Do you use Visual Studio?
+[08:38:55] <scott_gonzalez> wpbest: these questions aren't really appropriate here
+[08:39:10] <wpbest> ok, sorry
+[08:39:51] <kborchers> wpbest: you may get answers to those types of questions in #jquery
+[08:40:05] <scott_gonzalez> kborchers: this is odd, IE 8 wasn't failing before
+[08:40:10] <scott_gonzalez> and nothing changed
+[08:40:14] <kborchers> i know
+[08:40:27] <wpbest> ok, thank you
+[08:40:52] <kborchers> i tried reconnecting again and they still fail
+[08:41:43] <kborchers> let's just blame it on gnarf
+[08:43:01] <scott_gonzalez> weird
+[08:43:04] <scott_gonzalez> just happened in IE 6 too
+[08:43:17] <kborchers> what the?
+[08:43:44] <scott_gonzalez> I wonder if that was the intermittent failure before
+[08:44:05] <scott_gonzalez> at least it's the same failure in both browsers :-)
+[10:06:57] <jzaefferer> I think I've managed to set the weekly UI meetings in the right timezones
+[10:07:32] <jzaefferer> not sure about the rest
+[10:14:00] <kborchers> scott_gonzalez: any problem with me merging this to fix those failing effects tests in IE6 and 8? https://github.com/kborchers/jquery-ui/commit/2d617a70b248ec6fd85e318c4df4696ae6388a78
+[10:15:20] <gnarf> kborchers: do it
+[10:15:32] <kborchers> ok
+[10:18:31] <scott_gonzalez> crazy
+[10:18:32] <scott_gonzalez> drop the /
+[10:18:46] <scott_gonzalez> "<input type='text'>"
+[10:19:21] <kborchers> i think i tried that and it still didn't work ... i'll double check
+[10:21:37] <kborchers> ok, nvm
+[10:21:40] <kborchers> that does work
+[10:22:31] <scott_gonzalez> it's really strange that it matters
+[10:22:39] <scott_gonzalez> since it defaults to text anyway
+[10:26:25] <jquicommit> [jquery-ui] kborchers pushed 1 new commit to master: http://git.io/CIak1A
+[10:26:25] <jquicommit> [jquery-ui/master] Tests: Change the input in the effects test to a text input. This fixes failing tests in IE8 that could not focus the input. - kborchers
+[10:27:46] <jq-jenkins> Project jQuery UI build #141: STILL FAILING in 1 min 12 sec: http://swarm.jquery.org:8080/job/jQuery%20UI/141/
+[10:27:47] <jq-jenkins> k_borchers: Tests: Change the input in the effects test to a text input. This fixes failing tests in IE8 that could not focus the input.
+[10:28:23] <scott_gonzalez> ZOMG
+[10:28:30] <scott_gonzalez> focus failure
+[10:28:32] <kborchers> wtf!
+[10:28:38] <scott_gonzalez> WHAT IS GOING ON?!?
+[10:28:54] <kborchers> i just want one all green!
+[10:29:35] <kborchers> ok, i have to get some lunch before a meeting
+[10:29:37] <kborchers> back in a bit
+[10:29:44] <gnarf> actually
+[10:29:55] <gnarf> kborchers: input[0].focus() instead of input.focus() might help
+[10:30:20] <kborchers> sure ... now you say something :P
+[10:30:40] <gnarf> or even the new .simulate( "focus" )
+[10:31:17] <kborchers> son of a ...
+[10:31:24] <kborchers> wait now green
+[10:31:28] <gnarf> and maybe add a sanity check for the focus before the createWrapper?
+[10:31:32] <kborchers> i hate you testswarm
+[10:57:27] <jzaefferer> kborchers: you're welcome to mess around with selenium and friends
+[10:57:56] <kborchers> heh, i'd rather just complain ;)
+[11:18:49] <kborchers> guys ... GUYS!!!! http://swarm.jquery.org/job/225/
+[11:20:32] <kborchers> scott_gonzalez, jzaefferer, gnarf ^^
+[11:21:01] <gnarf> :)
+[11:21:03] <scott_gonzalez> woohoo
+[11:21:33] <kborchers> i'm screen-shotting that and making it my desktop
+[11:22:52] <scott_gonzalez> haha
+[13:57:15] <jquicommit> [jquery-ui] fnagel pushed 6 new commits to selectmenu: http://git.io/EXboLQ
+[13:57:15] <jquicommit> [jquery-ui/selectmenu] Selectmenu: fixed default.html demo - Felix Nagel
+[13:57:15] <jquicommit> [jquery-ui/selectmenu] Selectmenu: renaming of internal variable opened to isOpen - Felix Nagel
+[13:57:15] <jquicommit> [jquery-ui/selectmenu] Selectmenu: added visual tests for testing compatibility with other widgets - Felix Nagel
+[16:23:57] <jzaefferer> awesomesauce on getting testswarm all green
+[16:24:17] <jzaefferer> now we need to make that happen on the first run, otherwise jenkins job will continue to fail :-)
+[19:31:20] <pc-moon> hello , i wanna help , how i can change values of get ex: example.com/?p=home i wanna way way to change p=index
+[19:38:38] <Rwhitbeck> pc-moon please use #jquery for support questions.  #jqueryui-dev is for discussions on developing the jQuery UI library
+[19:45:43] <pc-moon> i asked there but no one told anything for me

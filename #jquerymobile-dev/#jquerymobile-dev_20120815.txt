@@ -1,0 +1,463 @@
+[00:29:06] <_|Nix|_> Wilto: The hangage happens after it exits _eatEventAndClose ...
+[00:59:04] <_|Nix|_> Works fine on a simple popup page.
+[00:59:15] <_|Nix|_> This hangage seems only to happen on the demo page.
+[01:45:53] <_|Nix|_> I figured it out - you can't this._ui.screen.bind( "vclick", anything ) or it'll freeze on Android 4.0, for some reason. You have to this._on( $( document ), { vclick: function( e ) { if ( e.target === self._ui.screen[ 0 ] ) anything; } } );
+[01:48:08] <_|Nix|_> Very strange.
+[02:04:35] <_|Nix|_> Frack! Set up this way, on WP7 when you try to click on the screen, the click makes it through to the document below and is absorbed there :( On Android (2.3.5 and 4.0 emulated) the click works, but the thing below the screen at the coordinates of the click also receives the click.
+[02:05:15] <_|Nix|_> On iOS 5.1.1 it works properly, i.e. the click has no effect on the things below the screen.
+[02:08:28] <_|Nix|_> Do we have an if ( thisIsAndroid )?
+[02:08:45] <_|Nix|_> I'd do the binding the original way everywhere except android
+[03:29:18] <_|Nix|_> Enter fixedToolbar, which has lots of wonderful Android checking ... mind if I "peruse"?
+[06:20:14] <_|Nix|_> OK. It looks like binding "vclick" to the document works everywhere except on IE. So, I'm placing the original code inside if ( $.mobile.browser.ie ) {} and having everybody else bind to $( document ).
+[06:22:50] <_|Nix|_> On droids of all ages it looks like if you click inside an input through the screen, the popup is dismissed, but focus is given to the input. This happens both when you bind to the screen and if you bind to the document. Strange, given I prevent all kinds of defaults.
+[06:37:39] <jqmobilecommit> [jquery-mobile] gabrielschulhof pushed 2 new commits to master: http://git.io/73TDHg
+[06:37:39] <jqmobilecommit> [jquery-mobile/master] [popup] On WP7, you get "" for an empty background, not undefined, like in IE8 - Gabriel Schulhof
+[06:37:39] <jqmobilecommit> [jquery-mobile/master] [popup] To implement click-on-screen-to-dismiss-popup one must bind the "vclick" handler to the document rather than the screen, in order to prevent unpleasantness on Android 4.0. WP7 nevertheless requires the code to remain as is, because handling the screen vclick after it has bubbled to the document causes text and inputs underneath the screen to handle and then swallow the event. - Gabriel Schulhof
+[06:44:14] <jqmobilecommit> [jquery-mobile] gabrielschulhof pushed 1 new commit to fix-4784: http://git.io/vxU4Aw
+[06:44:14] <jqmobilecommit> [jquery-mobile/fix-4784] Merge branch 'master' into fix-4784 - Gabriel Schulhof
+[07:05:25] <Wilto> _|Nix|_: I chucked an alert in there, and the reason it locks up the demo page is that it fires that vclick for as many times as there are popups on the page.
+[07:05:49] <_|Nix|_> Wilto: That's weird.
+[07:05:59] <Wilto> Yeah, I couldn’t figure it out either.
+[07:06:20] <_|Nix|_> Wilto: I also noticed that the performance decreased with the number of popups on the page.
+[07:06:29] <Wilto> Yep, that’s the culprit.
+[07:06:49] <_|Nix|_> Wilto: Well, there's only ever one document, or, at any rater, there oughtta be few of them around, so binding to the doc should be OK.
+[07:06:59] <Wilto> I hope the hell there’s only one.
+[07:07:14] <_|Nix|_> :)
+[07:07:56] <_|Nix|_> Wilto: I just hope we don't find any more platforms where handling the vclick at the document level will cause the elements underneath the screen to receive the event first and then swallow it (like WP7).
+[07:08:43] <_|Nix|_> Wilto: I had to keep the original code if ( $.mobile.browser.ie ), because binding to the document on WP7 caused the screen to be totally ineffective.
+[07:09:08] <Wilto> If there’s a way to do things wrong, Android’s native browser will find it.
+[07:09:33] <_|Nix|_> Wilto: The event makes it through to the widgets below on Android as well, but at least the popup get dismissed.
+[07:09:41] <_|Nix|_> Wilto: That's why I'm so worried.
+[07:09:48] <Wilto> Yeah.
+[07:10:05] <_|Nix|_> Wilto: I wonder what about other browsers on Android.
+[07:10:25] <Wilto> Is there any reason we couldn’t recycle the same backdrop for every popup on the page, and just alter attributes as the popup is invoked?
+[07:10:34] <Wilto> Seems like that’d side-step a lot of this stuff.
+[07:10:50] <_|Nix|_> Wilto: That's a good point.
+[07:11:25] <_|Nix|_> Wilto: Well, different popups can have different overlay themes and such, but I suppose the screen can be redecorated before each appearance.
+[07:12:09] <_|Nix|_> Wilto: ... and all this because of Android 4.x ...
+[07:12:23] <Wilto> Eh, I’m sure the other Androids are screwing it up too.
+[07:12:25] <_|Nix|_> Wilto: Although, I guess one div is better than many divs.
+[07:12:31] <Wilto> In any case, it’ll help with performance across the board.
+[07:12:33] <_|Nix|_> Wilto: Well, 2.3.5 was fine.
+[07:49:41] <gseguin> mornin1
+[07:49:50] * gseguin tries again
+[07:49:55] <gseguin> mornin'
+[07:57:47] <gseguin> when are we releasing RC.1 ?
+[08:07:39] <_|Nix|_> gseguin: No idea, but I'm considering having a singleton screen for all popups.
+[08:08:01] <_|Nix|_> gseguin: Not sure if that's not too destabilizing a change so close to a release ....
+[08:08:21] <gseguin> what do you mean by singleton screen?
+[08:09:34] <_|Nix|_> gseguin: Every popup has the same div for a screen.
+[08:11:31] <gseguin> _|Nix|_: What prompted the decision?
+[08:12:34] <_|Nix|_> gseguin: Wilto. He noticed that on Android 4.0 the "vclick" event is fired for every screen present on the page, not just the visible one that serves the currently active popup.
+[08:12:49] <_|Nix|_> gseguin: Very strange, but it kills performance.
+[08:13:01] <_|Nix|_> gseguin: I had to move the vclick handler up to $( document ).
+[08:13:41] <_|Nix|_> gseguin: ... but now I'm worried that by the time it bubbles up to $( document ) some other element (such as the one right below the screen) will get the event, do something undesirable, and eat it.
+[08:14:12] <_|Nix|_> gseguin: This happens on Android even now, but the event is luckily not eaten, so it keeps bubbling up to $( document ) where I eat it.
+[08:14:46] <kinblas> _|Nix|_: vclick should only fire on the hierarchy containing the original touch event, is that not the case?
+[08:14:48] <_|Nix|_> gseguin: So, for example, if there's a textinput below the screen, when you click on the screen to dismiss the popup, the popup is dismissed, but the textinput is focused, causing the input method to appear.
+[08:15:11] <_|Nix|_> kinblas: That doesn't seem to be the case.
+[08:15:20] <_|Nix|_> kinblas: At least, that's what Wilto noticed.
+[08:15:26] <kinblas> where is the test case?
+[08:16:03] <kinblas> the only way 2 clicks would fire is if something removed the original vclick target and an element underneath it recieves a click event
+[08:16:18] <kinblas> the native click event that is
+[08:16:41] <Wilto> Kiiiin. Whatup, man.
+[08:16:44] <_|Nix|_> kinblas: f2a50a111f5bde8a2bad769f280edd9993ae863f on Android 4.0. Go to docs/pages/popup/index.html, open a popup, and then click outside of its borders.
+[08:17:02] <Wilto> By “whatup, man” I of course mean “oh god please help me when are you coming back.”
+[08:17:07] <_|Nix|_> kinblas: ... and there's the man himself.
+[08:17:09] <kinblas> Wilto: whasup!
+[08:17:41] <_|Nix|_> +1 to that, Wilto!
+[08:18:03] <kinblas> heh
+[08:18:26] <kinblas> _|Nix|_: you can see this on jquerymobile.com/test?
+[08:19:52] <_|Nix|_> kinblas: Not anymore, because I moved the listener from the element in question up to the document.
+[08:20:17] <kinblas> _|Nix|_: what was the element you were placing the vclick on?
+[08:20:26] <_|Nix|_> kinblas: The popup's overlay.
+[08:20:38] <_|Nix|_> kinblas: That's a div covering the entire screen. It's a child of the page.
+[08:20:56] <kinblas> _|Nix|_: ok and vclick was firing on what?
+[08:21:00] <kinblas> all the other pages in the body?
+[08:21:10] <_|Nix|_> kinblas: All the other such divs.
+[08:21:16] <_|Nix|_> kinblas: Each popup adds such a div.
+[08:21:25] <_|Nix|_> kinblas: ... and it was firing on all of them.
+[08:21:42] <_|Nix|_> kinblas: So, effectively on all children of the page except(?) header, content, and footer.
+[08:21:48] <kinblas> _|Nix|_ what's the checkin where you moved it, I want to see your original code
+[08:22:12] <_|Nix|_> f2a50a111f5bde8a2bad769f280edd9993ae863f is the original code.
+[08:22:27] * _|Nix|_ assembles URL
+[08:22:47] * kinblas wonders it's easier to pull down 1.2
+[08:22:50] <kinblas> er 1.1
+[08:22:56] <kinblas> is it a bug in 1.1?
+[08:23:00] <gseguin> no popup in 1.1
+[08:23:04] <kinblas> doh
+[08:23:17] <kinblas> I meant the latest preview
+[08:23:28] <gseguin> alpha.1
+[08:23:32] <kinblas> I'm version challenged at the moment
+[08:23:35] <_|Nix|_> kinblas: https://github.com/jquery/jquery-mobile/blob/f2a50a111f5bde8a2bad769f280edd9993ae863f/js/widgets/popup.js#L178
+[08:23:39] <_|Nix|_> kinblas: It's on master.
+[08:24:43] <gseguin> http://jquerymobile.com/demos/1.2.0-alpha.1/
+[08:24:57] <gseguin> should have the problem
+[08:26:26] <kinblas> _|Nix|_: so that's the bind that causes the problem?
+[08:26:32] <_|Nix|_> kinblas: It is.
+[08:26:52] <_|Nix|_> kinblas: Wilto tried changing it to a "click" and no dice. Right, Wilto?
+[08:26:57] <Wilto> Yep.
+[08:27:23] <gseguin> which version of core?
+[08:27:26] <Wilto> And .one() and addEventListener. Just in case.
+[08:27:39] <_|Nix|_> gseguin: I tried all of them (1.7.2, 1.7.1, and 1.6.4).
+[08:27:41] <Wilto> gseguin: Still happens with non jQuery binding.
+[08:27:55] <gseguin> ok, just checking
+[08:28:04] <_|Nix|_> Wilto: Wow! That's insane!
+[08:28:19] <Wilto> Trust me, I threw no shortage of stuff at it.
+[08:29:09] <kinblas> _|Nix|_: Wilto: okay so if it happens without jquery binding then it's an browser bug right?
+[08:29:21] <_|Nix|_> kinblas: Almost certainly.
+[08:29:35] <Wilto> I just don’t understand why it would fire on each ui.screen.
+[08:30:07] <Wilto> (I also tried changing ui.screen to ui.[prefixed]screen just in case the word was tripping Android up.)
+[08:30:14] <Wilto> One never knows.
+[08:31:10] <_|Nix|_> Wilto: It's almost as if there's a selector deep in the browser that's sensitive to one of the screen's attributes ...
+[08:31:31] <_|Nix|_> Fire on /all/ the screens!
+[08:31:33] <kinblas> Wilto: are all the screens the same size?
+[08:31:43] <_|Nix|_> kinblas: 100%, 100% ...
+[08:31:52] <kinblas> their event code is probably enumerating all the elements the event falls within
+[08:31:54] <kinblas> bug
+[08:32:07] * kinblas crawls back into his cave
+[08:32:27] <_|Nix|_> *nod*
+[08:34:40] <Wilto> kin noooo
+[08:34:53] <kinblas> heh
+[08:35:10] <_|Nix|_> kinblas: ... the thing is, the rest of them are display: none ...
+[08:35:21] <_|Nix|_> kinblas: Might be worth moving them off to never-neverland.
+[08:35:57] <_|Nix|_> ... like, maybe, do the same thing as .ui-selectmenu-hidden { top: -99999px; left: -9999px; } ...
+[08:36:14] <kinblas> _|Nix|_: probably a good idea
+[08:36:48] <kinblas> _|Nix|_: I would create a simple test case with 3 divs stacked on top of each other and a native addEventListener call to see if the problem still persists
+[08:36:51] <Wilto> …Huh.
+[08:37:03] <kinblas> then ship it to Android team as a bug
+[08:37:06] <Wilto> _|Nix|_: Have you tried adding pointer-events: none; as well?
+[08:37:34] <_|Nix|_> Wilto: Not a bad idea ...
+[08:37:46] <Wilto> I bet that would have some effect. I know it’s supported on there.
+[08:38:13] <Wilto> I agree that it sounds like Android’s problem, but I bet we could sneak around it with something like that.
+[08:39:54] <_|Nix|_> Wilto: No dice on the pointer events.
+[08:43:55] <_|Nix|_> Wilto: Strange though - no dice, sure, but I'm not getting the kill-the-browser dialog either.
+[08:44:07] <_|Nix|_> Wilto: It just takes a loooong time to dismiss the popup.
+[08:44:07] <Wilto> It’s still firing a bunch of times?
+[08:44:30] <_|Nix|_> Wilto: I'm only judging based on the terrible performance.
+[08:44:41] <_|Nix|_> Wilto: ... amplified by the fact that it's inside the emulator.
+[08:44:41] <Wilto> Yeah, I mean, I’d assume the same.
+[08:46:22] <_|Nix|_> No dice with never-neverland either.
+[08:47:29] * _|Nix|_ give up ... I'll concentrate on the crazy-scrolling-in-WP7 issue first, and then I'll consider doing a singleton screen.
+[08:47:36] <Wilto> …_what?_
+[08:47:48] <Wilto> How the hell would the click be firing on them if they’re OFF SCREEN.
+[08:47:50] <Wilto> —wait.
+[08:48:03] <Wilto> We don’t have a typo in the markup or anything crazy, do we? Something left open?
+[08:48:22] <_|Nix|_> Wilto: No idea. Change ui-screen-hidden to ui-selectmenu-hidden in popup.js and try for yourself.
+[08:48:30] <Wilto> Madness.
+[08:48:36] <Wilto> DAMMIT, ANDROID
+[08:48:36] <_|Nix|_> Wilto: I checked in Chrome in Dev tools. It was waaay off screen.
+[08:48:48] <Wilto> That’s insane!
+[08:48:49] <_|Nix|_> Wilto: Not even display: none, or anything.
+[08:49:03] <_|Nix|_> Wilto: I've seen examples where CSS alone is not enough.
+[08:49:11] <Wilto> I mean, if the _elements_ are moved… maybe the bug is scarier than we thought. Something with the element references.
+[08:49:18] <Wilto> I’m gonna take one more crack at it, because I can’t not.
+[08:49:31] <_|Nix|_> Wilto: For example, I had s/css/offset in .css({ left: x, top: y}) for popup.
+[08:49:50] <_|Nix|_> Wilto: I had a bug where the popup would sometimes not show up on iOS.
+[08:50:05] <_|Nix|_> Wilto: The fix was to set the left,top with .offset, and not with .css ...
+[08:50:43] <_|Nix|_> Wilto: This might be the opposite problem. The screen isn't moving off the screen because css is not enough to move it.
+[08:50:50] <_|Nix|_> Wilto: /me go check now.
+[08:55:01] <toddmparker_> just catching up...wow, intense work on that bug which is great.
+[08:55:11] <toddmparker_> I was going to call an all hands on deck on that one.
+[08:55:22] <toddmparker_> the singleton would trigger a beta i think
+[08:55:28] <Wilto> Yeah, it’s a stumper.
+[08:55:37] <toddmparker_> so odd
+[08:56:03] <Wilto> I think the single backdrop is a better move anyway, really.
+[08:56:04] <_|Nix|_> toddmparker_: Completely. And the worst part is, it seems like a regression in Webkit.
+[08:56:07] <toddmparker_> seems like a really bad one
+[08:56:26] <_|Nix|_> OK, so, shall we agree on the singleton overlay?
+[08:56:33] <toddmparker_> so we'd use one backdrop and just update the classes on it as needed?
+[08:56:39] <Wilto> Yeah.
+[08:56:39] <_|Nix|_> Remember, I'm on vacation next week and the week after that :)
+[08:56:59] <toddmparker_> let's give it a try in a branch and have wilto test it like crazy
+[08:57:10] <Wilto> Sir, yes sir.
+[08:57:18] <_|Nix|_> toddmparker_: OK. I can work on that for the rest of the week.
+[08:57:25] <toddmparker_> if it checks out and we don't think it's a risky change, we may be able to stay on RC
+[08:57:36] <_|Nix|_> toddmparker_: OK.
+[08:57:37] <toddmparker_> i want to fix this and the WP7 issue before the next release
+[08:57:43] <Wilto> WP7 issue?
+[08:58:00] <toddmparker_> those are the only two things that I are blockers in my mind. Am I missing anything else?
+[08:58:03] <Wilto> Oh, wait, the one you mentioned _|Nix|_?
+[08:58:04] <_|Nix|_> toddmparker_: #4784
+[08:58:14] <toddmparker_> yeah, it scrolls all around mysteriously when closing.
+[08:58:25] <toddmparker_> ^ wilto, wanna give that a look?
+[08:58:27] <_|Nix|_> toddmparker_: Yeah ... an ugly fix is in branch fix-4784
+[08:58:34] <_|Nix|_> Wilto: ^
+[08:58:43] <toddmparker_> did you guys test 1.8 too?
+[08:58:54] <Wilto> I mean, I DID really want to work on documentation today, but I GUESS I could work on tricky jQM issues instead. I SUPPOSE.
+[08:59:12] <Wilto> Consider my arm twisted.
+[08:59:44] <_|Nix|_> Oh, and there's a stale active button class issue in WP7 as well.
+[09:00:06] <_|Nix|_> As you keep opening and closing various popups on the demo page, their corresponding buttons all acquire blue halos.
+[09:00:23] <_|Nix|_> ... but only on WP7.
+[09:02:31] <_|Nix|_> Oh, wait, that's not the active class, but the focus class, right? The active class turns the background blue.
+[09:02:59] <Wilto> Yeah, focus class.
+[09:03:24] <_|Nix|_> Wilto: So yeah, the landscape becomes littered with focused buttons.
+[09:03:45] <_|Nix|_> Wilto: ... but I think the scrolling is a much bigger problem.
+[09:03:57] <Wilto> No doubt.
+[09:04:03] <Wilto> I have a feeling this won’t be an easy one either.
+[09:04:15] <_|Nix|_> Wilto: It's like it always wants to go back to wherever you first scrolled before you opened that first popup - that, or the end of the page.
+[09:04:58] <_|Nix|_> Wilto: It might be storing the scrollTop in the history entry associated with the page. Then, when it goes back, it looks it up and scrolls to that point.
+[09:05:14] <_|Nix|_> Wilto: The problem is, it never updates the scrollTop in the history entry.
+[09:05:28] <_|Nix|_> Wilto: So, it always goes back to that initial one.
+[09:05:43] <_|Nix|_> Wilto: But then, that's not quite true either, because sometimes it goes to the bottom of the page.
+[09:06:53] <Wilto> Oof.
+[09:08:02] <_|Nix|_> Wilto: Insanity, thy name is (IE|Android) ...
+[09:08:08] <Wilto> Ain’t that the truth.
+[09:18:30] <toddmparker_> this is when we earn our keep
+[09:19:16] <toddmparker_> johnbender: is this something you'd want to look at? https://github.com/jquery/jquery-mobile/issues/4849
+[09:21:40] <_|Nix|_> toddmparker_: Ever the motivator :)
+[09:22:29] <toddmparker_> that's my job.
+[09:22:40] <toddmparker_> nobody could/would fix these
+[09:22:43] * _|Nix|_ recollects the napalm-in-the-morning scene :)
+[09:22:51] <johnbender> toddmparker_: sure
+[09:22:59] <johnbender> enterprise software
+[09:23:04] <johnbender> that's my game :D
+[09:24:24] <toddmparker_> i figured johnbender
+[09:24:30] <toddmparker_> you love that stuff
+[09:25:44] <Wilto> Enterprise®©™
+[09:28:56] <_|Nix|_> Hmmm ... 100% of body === window width and height? Not good.
+[09:29:07] <_|Nix|_> Why's that?
+[09:29:39] <Wilto> Huh. Is `html` set to height: 100% as well?
+[09:30:06] <Wilto> body will go to 100% of html, html will go to 100% of viewport. With everything involved absolute positioned, of course.
+[09:30:59] <_|Nix|_> Wilto: Really? body width and height !== the collective width and height of everything inside?
+[09:31:20] <Wilto> Oh, if not `position: absolute; height: 100%`, yeah.
+[09:39:58] <_|Nix|_> Well, slap me around and call me Suzy! The reusable screen does it on Android 4.0 ...
+[09:40:30] <_|Nix|_> Not even /that/ complicated ... so far ...
+[10:46:43] <_|Nix|_> What in the ... I go to have a bowl of porridge, and when I get back, the one-screen solution doesn't work anymore ... WTF?!
+[10:51:28] <Wilto> Windows Phone, Windows Phone, Windows Phone.
+[10:51:34] <Wilto> _|Nix|_: …wait what?
+[10:56:53] <_|Nix|_> Wilto: Yeah ...
+[10:57:25] <_|Nix|_> Wilto: Try the new branch: one-overlay-for-all-popups
+[10:57:40] <jqmobilecommit> [jquery-mobile] gabrielschulhof created one-overlay-for-all-popups (+2 new commits): http://git.io/qSCYjQ
+[10:57:40] <jqmobilecommit> [jquery-mobile/one-overlay-for-all-popups] [popup] All popups use the same screen - Gabriel Schulhof
+[10:57:40] <jqmobilecommit> [jquery-mobile/one-overlay-for-all-popups] [popup unit tests] Fixup to reflect new structure - Gabriel Schulhof
+[10:57:48] <_|Nix|_> Wilto: Maybe I'm losing my mind ...
+[11:00:01] <_|Nix|_> Wilto: 1. I checked with Chrome to make sure there's only one screen - there is. 2. I attach with .one(), because, after all, the next vclick may be for the next popup, not for me.
+[11:16:54] <jqmobilecommit> [jquery-mobile] gabrielschulhof pushed 2 new commits to one-overlay-for-all-popups: http://git.io/Oq_w8Q
+[11:16:54] <jqmobilecommit> [jquery-mobile/one-overlay-for-all-popups] [popup] Clean up "vclick" handler when closing - Gabriel Schulhof
+[11:16:54] <jqmobilecommit> [jquery-mobile/one-overlay-for-all-popups] [popup] Use ._on() and ._off() to correctly let go of screen "vclick" binding - Gabriel Schulhof
+[12:41:35] <jqmobilecommit> [jquery-mobile] johnbender pushed 1 new commit to 1.1-stable: http://git.io/qTyBSg
+[12:41:35] <jqmobilecommit> [jquery-mobile/1.1-stable] Handle urls with parens properly - John Bender
+[12:52:24] <gseguin> johnbender: you've got an idea on that jqmDataRE bug?
+[12:52:32] <johnbender> gseguin: it's fixed
+[12:52:44] <johnbender> gseguin: I don't think we can solve that without complex paren parsing
+[12:52:47] <jqmobilecommit> [jquery-mobile] johnbender pushed 1 new commit to 1.1-stable: http://git.io/dOtGNw
+[12:52:47] <jqmobilecommit> [jquery-mobile/1.1-stable] [docs] update the :jqmData selector information to warn about urls - John Bender
+[12:52:49] <johnbender> certainly can't do it with a regex
+[12:53:15] <johnbender> gseguin: I just did a strait string interpolation in the navigation code and added a warning to the selctor docs
+[12:53:19] <gseguin> oh man!
+[12:53:28] <johnbender> straight?
+[12:53:35] <johnbender> lol
+[12:53:44] * johnbender is glad spelling isn't on the GRE
+[12:53:48] <gseguin> wel cool
+[12:53:57] <johnbender> gseguin: just deciding whether or no to cherry pick to master
+[12:54:05] <johnbender> I guess we're still in alpha so it should be fine
+[12:54:11] <gseguin> yup
+[12:54:20] <gseguin> we should
+[12:55:14] <jqmobilecommit> [jquery-mobile] johnbender pushed 2 new commits to master: http://git.io/UW0myQ
+[12:55:14] <jqmobilecommit> [jquery-mobile/master] Handle urls with parens properly - John Bender
+[12:55:14] <jqmobilecommit> [jquery-mobile/master] [docs] update the :jqmData selector information to warn about urls - John Bender
+[12:57:01] <gseguin> ha! clever!
+[12:57:09] <gseguin> well done johnbender
+[12:57:29] <doesallmagic> Project jQuery Mobile Phantom Master build #564: FAILURE in 13 sec: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Phantom%20Master/564/
+[12:57:43] <gseguin> oops
+[13:16:16] <johnbender> lol
+[13:16:37] <johnbender> gseguin: git issue :P
+[13:17:44] <gseguin> DAMMIT, GIT!
+[13:40:53] <doesallmagic> Yippie, build fixed!
+[13:40:54] <doesallmagic> Project jQuery Mobile Phantom Master build #565: FIXED in 24 min: http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Phantom%20Master/565/
+[13:57:36] <toddmparker_> hey all
+[13:57:41] <toddmparker_> thanks for fixing that johnbender
+[13:57:57] <toddmparker_> so where are we at on the popup business - wilto?
+[13:58:05] <toddmparker_> (i'll go bug him)
+[13:59:11] <agcolom> Quick hello!
+[13:59:48] <agcolom> toddmparker_: Hi!
+[14:00:31] <toddmparker_> hi agcolom
+[14:00:37] <toddmparker_> how goes?
+[14:00:57] <agcolom> Good, thanks ;-) the weather is fantastic@
+[14:00:58] <agcolom> !
+[14:01:23] <agcolom> I won't be around tomorrow evening... Just some update on what I've done this week: worked closely with Scott G to ensure thenew docs are aligned with ui, etc...
+[14:01:43] <agcolom> (I'll be at an evening market...)
+[14:02:55] <agcolom> fixed a few issues on the api docs... just need to add the event parameters to the existing widget pages... then I'll be able to ad more widgets
+[14:03:03] <Wilto> oh hi
+[14:03:17] <Wilto> Got side-tracked by meetings. _|Nix|_, I dunno what the latest is in Androidtowne.
+[14:03:27] <Wilto> I’m still throwing stuff at the Windows Phone issue.
+[14:03:57] <agcolom> That was a really useful thing to do (get feedback from Scott G and fix indentation, and other issues we had....)
+[14:05:02] <agcolom> just for the record, the indentation in the api docs is a tab (I had 2spaces everywhere! so had to change that)
+[14:05:37] <agcolom> and Scott G has now produced an index page for ui, so we can do something similar for mobile...
+[14:06:17] <agcolom> toddmparker_: how's your week?
+[14:07:14] <agcolom> and do you have any news regarding the logo?
+[14:08:01] <agcolom> Also, I want to catch up with the resources page... Haven't added anything for 2 or 3 weeks so want to get that done next week...
+[14:08:49] <Wilto> CRITICAL UPDATE: The issue is not that jQM needed more trailing commas. That did not help the Windows Phone situation.
+[14:08:56] <Wilto> More as this story develops.
+[14:13:07] <toddmparker_> thanks wilto. excellent update
+[14:13:28] <toddmparker_> agcolom: resources can be updated when you get a chance. plenty of good info there already!
+[14:13:51] <Wilto> No, I mean, I know it’s that we’re programmatically firing focus() on the dialog trigger, and it’s sticking in WP IE.
+[14:14:01] <toddmparker_> no big logo updates, think i may jsut do a little cleanup on the simpler, logos and see which one sticks
+[14:14:03] <Wilto> I don’t know why, but I’m looking for other ways of handling it.
+[14:14:15] <agcolom> yes... our friend has just arrived so may be more tricky this week to get the laptop out!
+[14:14:31] <toddmparker_> wilto - i see
+[14:14:35] <toddmparker_> dumb ie
+[14:14:45] <toddmparker_> no worries agcolom!
+[14:14:48] <toddmparker_> enjoy your vacation
+[14:14:52] <Wilto> Also: the page jumping around has something to do with the way the backdrop closes; if I scratch that out, no jump.
+[14:14:55] <agcolom> thanks!
+[14:15:06] <toddmparker_> ah, very interesting wilto
+[14:15:25] <toddmparker_> so if you never open it? or just don't close the overlay
+[14:15:37] <Wilto> I’m actually not certain we really need to manage focus after the fact…
+[14:15:38] <toddmparker_> btw - did you test that new branch w/singleton?
+[14:15:43] <toddmparker_> be good to test that out
+[14:16:05] <Wilto> I gotta read back through, but _|Nix|_ was saying he was still seeing the issue with that branch.
+[14:16:16] <toddmparker_> meaning that we need to bounce focus into the popup, but after that, do nothing?
+[14:16:21] <toddmparker_> ah
+[14:16:22] <Wilto> _|Nix|_, you still kicking around in here?
+[14:20:01] <uGoMobi> hi all
+[14:22:49] <uGoMobi> toddmparker_ _|Nix|_ : it is still required to have to popup markup inside ui-page, right? shall I add that to the docs?
+[14:24:00] <toddmparker_> uGoMobi: yes, let's document that
+[14:24:15] <uGoMobi> also, the info about programmatically making use of the popup's positioning functionality should be changed/removed now we changed the method, correct?
+[14:24:18] <toddmparker_> the issue is less about the popup and more about the widgets inside (lists)
+[14:24:23] <toddmparker_> at least as i understand it
+[14:24:44] <toddmparker_> uGoMobi: yes, make sure that is up to date
+[14:24:49] <toddmparker_> when/what changed?
+[14:25:50] <uGoMobi> toddmparker_: we now have an options object
+[14:25:59] <toddmparker_> riiight
+[14:26:09] <toddmparker_> thought we already updated the docs. yes please!
+[14:26:33] <uGoMobi> so this is not longer applicable:
+[14:26:34] <uGoMobi> $( ".selector" ).popup( "open", x, y,
+[14:26:34] <uGoMobi>   $( {} )
+[14:26:34] <uGoMobi>     .jqmData( "position-to", "window" )
+[14:26:34] <uGoMobi>     .jqmData( "transition", "slide" ) );
+[14:27:05] <uGoMobi> don't have git setup yet, but I can do this on github
+[14:27:28] <toddmparker_> ok, cool
+[14:36:24] <Wilto> Any programatic focus management causes that highlight to get stuck on the focused element in Windows Phone 7.5.
+[14:36:28] <toddmparker_> johnbender and gseguin (et al) - I'm going to be off tomorrow for my son's birthday. DO you mind doing a quick update meeting w/o me?
+[14:36:35] <Wilto> Tested it completely independent of the popups.
+[14:36:39] <toddmparker_> Wilto: sweet
+[14:36:43] <Wilto> ?cc
+[14:36:43] <bot-t> CASE CLOASED >: |
+[14:36:47] <toddmparker_> so what to do?
+[14:36:49] <Wilto> Ugh, this sucks.
+[14:37:08] <gseguin> toddmparker_: sure
+[14:37:11] <Wilto> Give me one sec to make sure it’s not just our focus class getting stuck there.
+[14:37:12] <toddmparker_> could we just anchor to the popup somehow
+[14:37:17] <gseguin> happy birthday to him
+[14:37:29] <toddmparker_> he's 5. legos galore
+[14:38:12] <Wilto> Legos are dope.
+[14:38:18] <gseguin> the programmable ones ?
+[14:38:23] <Wilto> Any of ’em.
+[14:38:27] <Wilto> Especially those.
+[14:38:38] <uGoMobi> are there Legos smartphones already? :)
+[14:39:11] <gseguin> legos are awesome indeed
+[14:41:03] <uGoMobi> https://github.com/jquery/jquery-mobile/issues/4853
+[14:41:41] <uGoMobi> do you guys think that updateLayout could be the solution for that ^^
+[14:42:52] <uGoMobi> if I am not mistaken triggering updatelayout also triggers updatePagePadding
+[14:46:54] <Wilto> Okay, screw it. I vote we scratch out the manual refocusing.
+[14:47:59] <Wilto> ALL IN FAVOR
+[14:55:36] <Wilto> —wait no belay that.
+[14:55:48] <Wilto> It’s our blurring logic.
+[15:08:30] <uGoMobi> good night all
+[15:08:42] <uGoMobi> toddmparker_: enjoy your son's birthday tomorrow
+[15:08:51] <gseguin> later Jasper
+[15:09:20] <toddmparker_> thanks!
+[15:09:29] <toddmparker_> i hope we can work through these popup issues
+[15:10:11] <toddmparker_> Wilto will be chipping away
+[15:10:44] <toddmparker_> uGoMobi: if you want to help too...your brain might be helpful
+[15:10:55] <toddmparker_> anyone really - gseguin, johnbender
+[15:11:38] <gseguin> sure you've got a specific one for me ?
+[15:13:23] <gseguin> toddmparker_: ^
+[15:14:23] <toddmparker_> gseguin - the main issues are around the popup being janky
+[15:16:43] <gseguin> k
+[15:17:40] <johnbender> toddmparker_: is there an issue to catch us up on it?
+[15:17:47] * johnbender is just finishing up somethings on infra
+[15:18:14] <toddmparker_> let me do a bc post with the few issues, i'll paste 'em here
+[15:18:28] <toddmparker_> https://github.com/jquery/jquery-mobile/issues/4784#issuecomment-7684521
+[15:25:15] <toddmparker_> this issue seems to be resolved - https://github.com/jquery/jquery-mobile/issues/4797#issuecomment-7678842
+[15:25:36] <toddmparker_> but i'm waiting for confirmation. android was freaking out when the keyboard opens
+[15:25:53] <toddmparker_> if you guys can look at the form popup example of your androids and report back
+[15:27:25] <johnbender> toddmparker_: sure
+[15:28:47] <toddmparker_> thanks
+[15:28:59] <toddmparker_> there was another issue - focus class left on in WP7
+[15:29:13] <gseguin> toddmparker_: it works fine on JB
+[15:29:15] <toddmparker_> mat is looking at that so i guess we can wait for him in the morning
+[15:29:21] <toddmparker_> gseguin: nice
+[15:29:39] <toddmparker_> 4.0 - native browser?
+[15:29:44] <gseguin> it repositions the popup in the center of the screen
+[15:29:46] <gseguin> yes
+[15:30:15] * gseguin tries on Chrome
+[15:30:26] <johnbender> toddmparker_: i'm on jellybean
+[15:30:29] <johnbender> does that help?
+[15:30:35] <johnbender> toddmparker_: I also have a 2.3.5 device
+[15:30:59] <toddmparker_> test 'em all and add a comment
+[15:31:17] <toddmparker_> android seems to be...unpredictable even within a version
+[15:31:57] <toddmparker_> when _|Nix|_ gets on later he can fill us in on where he's at with these other popup issues. mat has been looking at it too
+[15:32:16] <toddmparker_> if this android issue is really 100% fixed, that is a huge one
+[15:32:19] <johnbender> toddmparker_: so just the popup index?
+[15:32:44] <toddmparker_> yes, then hit the form example and try to enter in a username/password
+[15:33:04] <toddmparker_> 2.2, 2.3 and 4 were all wonky
+[15:33:34] <toddmparker_> keyboard would open causing a re-position which would bounce focus out of the input
+[15:33:51] <toddmparker_> ...whcih would close the keyboard. repeat.
+[15:34:07] <johnbender> works fine in jellybean native
+[15:34:13] <johnbender> should be the same in chrome but I'll check
+[15:34:15] <toddmparker_> if you all can test popup on everything you've got, i'd appreciate it
+[15:35:14] <johnbender> works fine on jellybean chrome
+[15:35:44] <johnbender> firing up my 2.3 device
+[15:35:49] <johnbender> and playbook
+[15:39:18] <johnbender> toddmparker_: 2.3 appears to work with the form
+[15:39:22] <johnbender> though it doesn't reposition
+[15:39:38] <toddmparker_> so is the input visible?
+[15:39:57] <toddmparker_> these on-screen keyboard cause so much trouble
+[15:40:29] <johnbender> yah, and you can scroll to it quite easily
+[15:43:26] <johnbender> toddmparker_: playbook 1.0 seems to work fine
+[15:43:48] <johnbender> lol downloading the update to 2.0
+[15:44:04] <johnbender> pluggin my bada in
+[15:44:38] <gseguin> I only have my android today, sorry
+[15:46:55] <johnbender> toddmparker_: on bada, it disappears and then reappears but works
+[15:49:19] <johnbender> booting up my wp7.5
+[15:50:54] <toddmparker_> god enough for bada
+[15:51:06] <toddmparker_> good ^
+[15:51:19] <johnbender> toddmparker_: wp 7.5 has no issues with the form
+[15:51:28] <johnbender> waitingo on the playbook 2.0
+[15:51:58] <toddmparker_> wp7.5 is the worst. so many issues
+[15:52:20] <toddmparker_> mat was looking at why the focus styles (blue haze) aren't cleared on WP7.5
+[15:52:26] <toddmparker_> mysterious
+[15:52:59] <toddmparker_> i was looking for a ticket for that...maybe _|Nix|_ just mentioned it to wilto?
+[15:53:06] <johnbender> I saw it too
+[15:53:43] <johnbender> toddmparker_: the focus style is there on playbook too
+[15:53:48] <johnbender> just checked
+[15:53:51] * johnbender thought he saw it
+[15:53:51] <toddmparker_> here's what wilto told me a few minutes ago
+[15:53:53] <toddmparker_> The button is losing *actual focus* on blur like it should, but we’re not cleaning up the .ui-focus class correctly.
+[15:54:03] <johnbender> that sounds programatic to me
+[15:54:10] <johnbender> toddmparker_: oh
+[15:54:13] <toddmparker_> I think it’s how we’re getting the focused element.
+[15:54:16] <johnbender> you're saying ti doesn't disapear
+[15:54:25] <johnbender> that works fine on the playbook
+[15:54:27] <toddmparker_> $( closestEnabledButton( event.target ) ).removeClass( $.mobile.focusClass );
+[15:54:29] <johnbender> unfocus works fine
+[15:54:32] <toddmparker_> There are shenanigans up in there.
+[15:54:40] <toddmparker_> I’d think it would be like… $( $.mobile.focusClass ).removeClass( $.mobile.focusClass );
+[15:54:47] <toddmparker_> ^^ all wilto's comments
+[15:54:54] <johnbender> toddmparker_: that would remove all focus
+[15:54:58] <toddmparker_> only on wp7.5
+[15:55:06] <toddmparker_> you'll see it when you start tapping around
+[15:55:11] <johnbender> so if you changed focus to some other form element it would remove it there too
+[15:55:42] <johnbender> toddmparker_: that code seems like it only removes the focus class on a button click no?
+[15:55:54] <toddmparker_> for some reason focus shifts, but the class we add to make the blue glow doesn't go away on wp7
+[15:56:25] <toddmparker_> you'll see the buttons that open popups end up with the focus class. lots of 'em
+[15:56:41] <toddmparker_> so, yes, this is on buttons
+[15:56:50] <toddmparker_> dunno if you have ideas there
+[15:57:05] <toddmparker_> since you have a phone, should be easy to reproduce
+[15:57:07] <johnbender> toddmparker_: so that snippet of code wouldn't remove the focus class from an input element when another input element is focused right?
+[15:57:17] <johnbender> only when a button is clicked
+[15:57:19] <toddmparker_> don't think so
+[15:57:29] <toddmparker_> but that code was out of context for me
+[15:57:33] <johnbender> Wilto: ^
+[15:57:42] <toddmparker_> i was just dumping in his notes
+[15:57:58] <toddmparker_> issue is easy to see
+[15:58:17] <toddmparker_> the other big one is the crazy scrolling on wp7. i linked to that issue
+[15:58:27] <toddmparker_> i need to tuck in the kids!
+[15:58:45] <toddmparker_> i'll try to check in at some point tomorrow
+[15:59:04] <toddmparker_> once we tidy up these lingering popup issues, we'll be ready for that RC
+[15:59:09] <toddmparker_> looking like next week at this point
+[18:25:10] <Wilto> WHO SUMMONS WILTO
+[18:31:22] <Wilto> johnbender: Yeah, I wouldn’t actually nuke all the focus classes on blur. It doesn’t seem like a timing thing, though; I think it has to do with jumping focus when the popup appears. I’m close to getting it figured out.

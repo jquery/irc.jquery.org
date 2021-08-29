@@ -1,0 +1,115 @@
+[07:32:20] <paulcoup> mikesherov isnt here but....
+[07:32:35] <paulcoup> is there any link that essentially indicates jquery is good with box-sizing border-box
+[07:33:56] <paulcoup> i tweeted him
+[07:55:07] <gibson042> .
+[07:57:16] <timmywil> paulcoup: that is somewhat subjective
+[07:57:59] <paulcoup> timmywil: aye. mike tells me its all peachy except for .css('width')
+[07:58:07] <paulcoup> which sgtm
+[07:58:15] <timmywil> docs#11004 @ paulcoup
+[07:58:28] <timmywil> ugh, no bot
+[07:58:31] <paulcoup> go bot go
+[07:58:32] <timmywil> http://bugs.jquery.com/ticket/11004
+[07:58:36] <paulcoup> <3
+[07:58:43] <timmywil> assigned for 1.8
+[07:59:32] <timmywil> so yes, that will change, but padding/margin/border can still be manually controlled with inner/outer/width
+[08:01:29] <paulcoup> timmywil: roger that. thx for the heads up.
+[08:01:43] <timmywil> np :)
+[10:56:06] <timmywil> hey there internets
+[11:22:25] <gnarf> hey rwaldron - i think danheberden knows about the cache issue on code.jquery - and its an MT issue i think
+[11:52:57] <DaveMethvin> quack
+[19:40:53] <tbranyen> hey DaveMethvin i wrote a post on my woes the other day re: lost events
+[19:40:54] <tbranyen> http://staging.tbranyen.com/post/missing-jquery-events-while-rendering
+[19:41:00] <tbranyen> do you mind sanity checking me here?
+[19:41:14] <tbranyen> i don't want to reference you incorrectly in here
+[19:43:23] <DaveMethvin> tbranyen: looking now
+[19:44:16] <tbranyen> thanks man =)
+[19:44:55] <DaveMethvin> so how does the same element get reattached? I wasn't sure what the pattern was that caused that
+[19:45:18] <tbranyen> a dom node and view are 1:1
+[19:45:36] <tbranyen> so if your render looks like render: function() { $("body").html(this.el); }
+[19:45:39] <tbranyen> and you call that twice
+[19:45:42] <tbranyen> bam events gone
+[19:45:59] <DaveMethvin> oh like the element is the container for the view?
+[19:46:05] <tbranyen> yea
+[19:46:10] <DaveMethvin> ok
+[19:46:14] <tbranyen> you could also do render: function() { $("body").html(this.el); this.delegateEvents(); }
+[19:46:29] <tbranyen> and backbone will re-add all the events
+[19:46:41] <tbranyen> but in my case, it was easier to just use detach under the hood in my plugin
+[19:47:01] <DaveMethvin> so, i think this is another reason to avoid .html(domElement), because another interpretation of that would be to insert the html-string representation of the element
+[19:47:18] <DaveMethvin> but of course it's just .empty().append()
+[19:47:24] <tbranyen> yea
+[19:47:40] <tbranyen> i comment on the string stuff at the end
+[19:47:46] <tbranyen> i think tahts how people typically use it
+[19:48:03] <tbranyen> does it look okay to you or should i tweak stuff?
+[19:48:09] <DaveMethvin> no that looks right
+[19:48:20] <tbranyen> awesome thanks
+[19:48:33] <tbranyen> if anything it can be a post to redirect other people with the same issue to
+[19:48:34] <DaveMethvin> the other solution if possible is to use delegated events at the container element
+[19:48:52] <DaveMethvin> oh but you're reinserting the container
+[19:48:56] <tbranyen> yea
+[19:49:01] <DaveMethvin> wel hecky darn
+[19:49:12] <tbranyen> yeah i was very upset when we discussed this last
+[19:49:17] <tbranyen> i'm glad the resolution was less dramatic
+[19:49:50] <DaveMethvin> i'm just thinking about the perf implications of moving all this stuff around
+[19:50:15] <DaveMethvin> a lot of the event changes in 1.7 came from profiling mvc designs
+[19:50:27] <DaveMethvin> .live("mouseover" ... ) is a killer
+[19:50:37] <tbranyen> yeah was talking to boris smus from google about event stuff too
+[19:50:48] <tbranyen> and how in typical mvc you have lists and list items and list items have their own events
+[19:50:51] <tbranyen> which sucks
+[19:50:53] <tbranyen> those should be delegated from the list
+[19:51:11] <DaveMethvin> it just simplifies the logic if you can use the container
+[19:51:23] <DaveMethvin> no screwing around every time the content changes
+[19:51:44] <tbranyen> well... in the case of backbone it kind of complicates getting the model that is represented by the list item if you delegate from the list
+[19:52:00] <tbranyen> since you now need to maintain a data-attr on each list item with some kind of id to look up the model
+[19:52:10] <tbranyen> instead of having an event that when clicked immediately has access to the model
+[19:52:25] <DaveMethvin> yeah i could see that
+[19:52:32] <tbranyen> so its a trade off
+[19:52:57] <tbranyen> i still need to profile my layoutmanager backbone plugin in a mobile environment
+[19:53:00] <tbranyen> with like 100 items
+[19:53:02] <tbranyen> and events all over the place
+[19:53:06] <tbranyen> just too see what happens
+[19:53:10] <DaveMethvin> i would like to see that myself
+[19:53:33] <tbranyen> maybe browsers are so fast now delegating isn't necessary O_O
+[19:53:36] <tbranyen> wouldn't that blow your mind!!!
+[19:53:45] <DaveMethvin> they  have defeinitely gotten a lot faster
+[19:54:03] <tbranyen> actually one place you def need top level events are select/options
+[19:54:09] <tbranyen> you can't have a click event on an option :-/
+[19:54:19] <DaveMethvin> but mvc in particular does a lot of html slinging
+[19:54:28] <DaveMethvin> and that can be slow for large views
+[19:54:41] <DaveMethvin> but if possible you can compose stuff
+[19:54:45] <DaveMethvin> rather than having a large view
+[19:55:19] <DaveMethvin> whenever someone starts a perf complaint with "I have 300 text boxes and ... " they are in trouble
+[19:55:25] <tbranyen> haha
+[19:55:37] <DaveMethvin> that is honestly the most common complaint now
+[19:56:07] <DaveMethvin> when i perf tested the nyt skimmer app it was spending most of its time reflowing text and tracking mouse events
+[19:57:09] <DaveMethvin> they have this really crazy text reflow algorithm that tries to make it look like a newspaper  http://nytimes.com/skimmer
+[19:57:46] <tbranyen> ah crazy
+[19:57:48] <tbranyen> i haven't seen this
+[19:59:11] <DaveMethvin> so the only change i'd have to the blog there tbranyen is that one of the reasons the problem was hidden was that .html(el) has possibly surprising semantics
+[19:59:36] <DaveMethvin> if you know it's .empty().append() then it's clearer that the .empty() would remove events
+[20:00:22] <clarkbox> tbranyen... is it at all possible to delegate the events on a parent of the views el?
+[20:00:42] <clarkbox> or i guess that would require a backbone change, and not your lib?
+[20:00:42] <DaveMethvin> sure, if you added a wrapper
+[20:00:54] <tbranyen> clarkbox: yeah backbone can't do that out of the box
+[20:01:04] <tbranyen> because you typically add events before its even in the DOM
+[20:01:08] <tbranyen> so it doesn't even have a parent
+[20:01:30] <DaveMethvin> but if the element isn't changing is there any reason to reappend it anyway?
+[20:02:02] <clarkbox> there has to be a parent... even if it has to be "body" in the worst case
+[20:02:22] <DaveMethvin> but at that point you've broken the modularity clarkbox
+[20:02:31] <clarkbox> but this is a non-starter since it would require a change to backbone
+[20:02:33] <DaveMethvin> the view should contain all its own events
+[20:02:42] <DaveMethvin> imo of course
+[20:03:01] <DaveMethvin> i think sproutcore uses .live() exclusively
+[20:03:02] <DaveMethvin> ugh
+[20:03:26] <DaveMethvin> .live() is the event equivalent of global variables
+[20:03:42] <tbranyen> DaveMethvin: well i mean its a common method of rendering for some people who don't know better :-p
+[20:04:00] <DaveMethvin> well make them know better!! :D
+[20:04:15] <tbranyen> also in the case of my plugin, there isn't any other way to have consistent ensurance that the right layout is in the dom at the right route
+[20:04:32] <tbranyen> is ensurance even a word?
+[20:04:35] <DaveMethvin> .detach() is good insurance
+[20:04:49] <DaveMethvin> if it's not attached it won't brak
+[20:04:50] <DaveMethvin> break
+[20:05:36] <DaveMethvin> the thing about all these frameworks using jquery is that they are using it in ways a direct user wouldn't tend to try
+[20:05:56] <DaveMethvin> not necessarily bad but just not common use cases
+[20:06:06] <DaveMethvin> so you're in uncharted territory ...
+[20:06:41] <DaveMethvin> but the other important thing about that is that the perf may also be in uncharted territory
+[20:25:31] <tbranyen> okay cool posted it live :D

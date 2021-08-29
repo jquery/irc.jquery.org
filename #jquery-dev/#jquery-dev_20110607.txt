@@ -1,0 +1,173 @@
+[06:07:39] <louisremi> Does anyone know of a version of IE that doesn't accept null as an inline style value? (i.e. `elem.style.width = null` would throw an error)
+[08:10:22] <louisremi> Hi timmywil, in ?docs #9482 you were mentioning that some versions of IE had troubles with null values for inline style.
+[08:10:24] <louisremi> I can't find any incompatible IEs...
+[08:10:42] <timmywil> that's because you're not setting to null
+[08:11:30] <louisremi> timmywil: hmmm, what was I doing wrong?
+[08:12:20] <timmywil> louisremi: the patch has a || "", which sets to empty string instead
+[08:12:28] <timmywil> and it should
+[08:13:46] <louisremi> timmywil: yes, but in this fiddle http://jsfiddle.net/vjMgD/ I am actually setting it to null and it seems to work in all IEs, doesn't it?
+[08:16:06] <timmywil> this is what I see in IE6-8: http://grab.by/aiP2
+[08:18:59] <timmywil> yea, seems setting width doesn't throw an error
+[08:19:16] <louisremi> yes
+[08:21:20] <timmywil> however, null is not a valid value for the width property in terms of spec
+[08:23:34] <timmywil> neither is empty string really
+[08:24:02] <timmywil> but the advantage to empty string is we know it works for any property
+[08:24:38] <timmywil> so null would need to be normalized, and I'm not sure it's worth it
+[08:26:32] <louisremi> timmywil: alright. I guess I should update my patch to allow animation to "" then
+[08:28:37] <timmywil> louisremi: if I'm the only one against adding support for null, I can be overridden
+[08:29:03] <timmywil> I'd see what the team thinks before changing
+[08:29:29] <timmywil> I can be low-level and not see the advantages
+[08:31:00] <timmywil> I like the idea of adding support for animating "auto" though
+[08:32:35] <louisremi> timmywil: its basically the same as "auto", except that it respects the value previously set by CSS
+[08:37:31] <louisremi> Alright, I'm closing the bug as won't fix and updating the "auto" one to mention support for "" (empty string)
+[09:32:01] <timmywil> .
+[11:11:19] <scott_gonzalez> does anyone know if there's a way to tell Closure Compiler not to touch a specific block of code?
+[11:15:36] <rwaldron> interesting
+[11:15:55] <rwaldron> i wonder if they have any switches in their jsdoc commands?
+[11:23:00] <wkmanire> No, I don't think there is. At least I don't see anything in the documentation. They do have some methods for preserving symbols though.
+[11:28:21] <kborchers> scott_gonzalez: do you mean you want the block excluded from the compiled code? If so, would something like this work for you? http://goo.gl/FYyOS
+[11:29:13] <scott_gonzalez> I've got a line of code that gets removed by the compiler, because it doesn't do anything
+[11:29:25] <scott_gonzalez> but in reality, it fixes a browser bug
+[11:29:31] <rwaldron> scott_gonzalez link?
+[11:29:36] <rwaldron> is it in the jquery ui repo?
+[11:29:40] <kborchers> oh, i see
+[11:30:04] <rwaldron> I did a bunch of "dead code path" experiments a few weeks ago
+[11:30:24] * rwaldron needs to organize that stuff and publish it
+[11:31:21] <scott_gonzalez> getting a link, my computer's not happy with me (7 browsers, 3 VMs)
+[11:31:31] <rwaldron> :D
+[11:33:23] <scott_gonzalez> https://github.com/appendto/amplify/blob/master/store/amplify.store.js#L53
+[11:33:42] <scott_gonzalez> JSC_USELESS_CODE: Suspicious code. This code lacks side-effects. Is there a bug? at line 53 character 0
+[11:33:42] <scott_gonzalez> storage.length;
+[11:34:24] <rwaldron> scott_gonzalez try this...
+[11:34:31] <rwaldron> storage.length && storage.length;
+[11:34:40] <rwaldron> yeah, thats totally obnoxiou
+[11:34:45] <rwaldron> obnoxious
+[11:34:58] <rwaldron> but I was actually looking for ways around that _same_ warning
+[11:35:07] <rwaldron> I came up with a few fancy bits
+[11:35:20] <rwaldron> actually... give me a min
+[11:35:28] <rwaldron> i'm going ot pull your upstream :)
+[11:37:52] <scott_gonzalez> storage.length = storage.length gets kept
+[11:38:03] <rwaldron> i was _just_ typing that
+[11:38:15] <rwaldron> i had to update and so forth and the first one didnt work
+[11:38:19] <scott_gonzalez> I don't think "gets kept" is English :-/
+[11:39:07] <rwaldron> but yeah, when there are dead code paths, a few things to trick gcc include: turn statement into logical lazy evaluation
+[11:39:14] <rwaldron> re-assignment
+[11:39:18] <rwaldron> "return true"
+[11:39:25] <rwaldron> and some others
+[11:39:27] <rwaldron> like i said
+[11:39:38] <rwaldron> i think i need to organize this stuff and publish
+[11:40:37] <wkmanire> Seems like closure needs /* @squelch_JSC_USELESS_CODE */ or something.
+[11:40:52] <rwaldron> interesting
+[11:41:04] <wkmanire> ... /* @not_usless */ heh
+[11:41:08] <rwaldron> yeah
+[11:41:10] <rwaldron> was about to say
+[11:41:11] <wkmanire> useless*
+[11:41:21] <rwaldron> a global flag is likely too much
+[11:41:31] <rwaldron> i don't want real mistakes to be missed
+[11:41:40] <rwaldron> but an opt-in localized flag
+[11:41:44] <rwaldron> highly useful.
+[11:42:05] <wkmanire> Right, and doing a reassignment just to *beat* the compiler feels wrong.
+[11:43:15] <scott_gonzalez> yeah, a flag is what I'm looking for, but you'd need start and end flags
+[11:43:44] <scott_gonzalez> I guess I'll go test if setting localStorage.length causes problems in any browsers
+[11:46:50] <jaubourg> :)
+[11:51:07] <scott_gonzalez> FML, `storage.length` fixes the bug, but `storage.length = storage.length` doesn't
+[11:51:23] <kborchers> var LOG = false;
+[11:52:41] <scott_gonzalez> x = storage.length // problem solved
+[11:53:28] <kborchers> sorry about the accidental paste ... wrong window. :-/
+[11:53:55] <rwaldron> heads up, ticket closing flood is coming
+[11:54:18] <paul_irish> scott_gonzalez: ugh ff has the shittiest localstorage bugs
+[11:55:02] <rwaldron> JohnResig yt?
+[11:55:09] <scott_gonzalez> paul_irish: did you see the bug I filed this morning?
+[11:55:26] <paul_irish> nah
+[11:55:37] <scott_gonzalez> https://bugzilla.mozilla.org/show_bug.cgi?id=662511
+[11:56:01] <scott_gonzalez> localStorage.key() has stale values when multiple pages are updated localStorage at the same time
+[11:57:46] <rwaldron> ?tell JohnResig I've closed all  of the 1.7 tickets that needed to be closed, barring a few that I wasn't sure what to do with eg. "revisit 2.0"
+[11:57:46] <bot-t> rwaldron, Okay.
+[11:58:54] <paul_irish> hahha wow
+[11:59:01] <paul_irish> bummr
+[13:16:37] <Krinkle> Hey, the "selector" module is not in TestSwarm. It has two failing tests..
+[13:16:52] <Krinkle> Anyone here with access to that ?
+[13:17:09] <Krinkle> http://swarm.jquery.org/git/jquery/test/?filter=selector
+[13:17:18] <rwaldron> timmywil ^^
+[13:17:20] <Krinkle> (42 failing tests in Safari 5. )
+[13:17:24] <rwaldron> thanks Krinkle
+[13:17:32] <rwaldron> wait in new safari?
+[13:17:36] <rwaldron> 5.1
+[13:17:53] <Krinkle> 5.0.5
+[13:18:05] <Krinkle> AppleWebKit/533.21.1
+[13:19:20] <JohnResig> rwaldron: awesome, thanks!
+[13:19:21] <bot-t> (1 hour 21 mins ago) <rwaldron> tell JohnResig I've closed all of the 1.7 tickets that needed to be closed, barring a few that I wasn't sure what to do with eg. "revisit 2.0"
+[13:20:16] <Krinkle> Hi JohnResig
+[13:20:26] <JohnResig> heya
+[13:20:53] <Krinkle> Thanks for your work on TestSwarm. I'm currently in the proces of switching Wikimedia's javascript backend to use it.
+[13:21:01] <JohnResig> Krinkle: nice!
+[13:21:55] <Krinkle> There's been a few patches tho (mostly related to A) our swarm is running in a subdirectory, B) it parially depends on PHP rather than just static js files). So we're going to dynamically create the QUnit-pages.
+[13:22:16] <Krinkle> It kinda failed in a subdirectory, I believe that patch was pulled tho (gotta love github)
+[13:22:16] <JohnResig> ah, cool
+[13:23:48] <Krinkle> MediaWiki (which runs Wikipedia) 's javascript wasn't very organized until 2-3 years ago but as of MediaWiki 1.17 we've refactored eveyrthign into an object oriented approach and using object constructors. jQuery as our primary dom manipulator (ofcourse).
+[13:24:18] <Krinkle> Over the years the javascript enhancements grew from hacks upon hacks, now everything is dynamically minified and combined in a single request in the bottom of the page.
+[13:24:33] <Krinkle> So there's gonna be a lot more people loading jQuery :)
+[13:24:42] <rwaldron> JohnResig no problem, when you get a sec, ping me
+[13:25:07] <timmywil> Krinkle: rwaldron: looks fine locally
+[13:25:21] <timmywil> perhaps sizzle hasn't been updated on swarm
+[13:25:52] <timmywil> cause that's just a matter of changing #main to #qunit-fixture, which has been done in the projects
+[13:26:11] <timmywil> JohnResig: I think we're ready for a 1.6.2 release
+[13:26:24] <Krinkle> aside from sizzle, the "selector" module is not being tested at all
+[13:26:42] <Krinkle> I guess it needs to be added to the perl script that checks out from git  ?
+[13:27:00] <Krinkle> although I thought the modules were automatically detected
+[13:27:22] <Krinkle> http://i.imgur.com/vxMRv.png (git/qunit/?filter=selector in Safari 5.0.5)
+[13:27:24] <timmywil> there may be some submodule weirdness
+[13:27:57] <Krinkle> right, testswarm gets module names from the filenames. There shouldn't be more than one qunit test module() call per file.
+[13:32:12] <timmywil> ?tell JohnResig tickets related to 1.6.2 are closed. We could do RC today if we wanted to.
+[13:32:13] <bot-t> timmywil, Okay.
+[13:43:44] <Krinkle> Ah, I see. The "selector" module on the Qunit page is from /src/sizzle/tests/qunit
+[13:43:50] <Krinkle> it's not part of jquery (ofcourse)
+[14:31:25] <jqcommit> jquery: 1.7/enhancement_8685 timmywil * 51aa9c5 (2 files in 1 dirs): Style edits, code reductions, and optimizations for the effects module
+[14:31:25] <jqcommit> jquery: 1.7/enhancement_8685 timmywil * d729ef9 (2 files in 2 dirs): Animation state is tracked on toggled/stopped animations using the private data cache.  Tests added.  Fixes #8685. ...
+[14:31:25] <jqcommit> jquery: 1.7/enhancement_8685 timmywil * 5293495 (2 files in 1 dirs): Remove unnecessary var in queue.js
+[14:31:25] <jqcommit> jquery: 1.7/enhancement_8685 timmywil * 3d646c5 (1 files in 1 dirs): Remove unnecessary var in effects
+[14:31:25] <jqcommit> jquery: 1.7/enhancement_8685 commits 0000000...3d646c5 - http://bit.ly/jAk4rt
+[15:42:09] <rpflo> hey folks
+[15:42:41] <rpflo> I've been poking around looking for the jQuery docs' source, wanted to cleanup some of examples.  Is there a repository for it somewhere?
+[17:57:14] <jqcommit> jquery: master timmywil * 0a80be6 (1 files in 1 dirs): Add catch block to try/finally in deferred. Fixes #9033. Test case needed. - http://bit.ly/lBMxgj
+[18:04:05] <jqcommit> jquery: master timmywil * db437be (4 files in 3 dirs): Check classes passed for duplicates. Fixes #9499. - http://bit.ly/lLhheo
+[18:15:23] <rwaldron> good stuff timmywil
+[18:15:42] <timmywil> oh thanks :)
+[20:19:55] <rwaldron> timmywil yt?
+[20:20:11] <rwaldron> rpflo needs to know a thing or two about attrHooks
+[20:20:20] <rwaldron> are docs yet written?
+[20:20:40] <rpflo> rwaldron: No, I understand them, I read the source, just thought you said they were documented in your tweet :)
+[20:21:03] <rwaldron> whoops, my bad
+[20:21:18] <timmywil> hey there
+[20:21:25] <timmywil> they're not documented yet
+[20:21:32] <rwaldron> http://api.jquery.com/jQuery.attrHooks
+[20:21:35] <rwaldron> all you
+[20:21:37] <rwaldron> <3
+[20:22:06] <rpflo> I've been looking (and asking) where the docs repo is (if there is one)
+[20:22:23] <timmywil> hehe, yea I need to get to it, and valHooks, and propHooks.
+[20:22:35] <rwaldron> rpflo ^ there ya go
+[20:22:59] <rwaldron> rpflo, timmywil is the emcee of all things attr these days
+[20:23:06] <rpflo> Before documenting attrHooks and propHooks I'd actually write an API, we learned with Slick the hard way that just exposing the objects makes backwards compat harder
+[20:23:19] <rpflo> like $.defineProp('blah', { get: fn, set: fn })
+[20:23:31] <rpflo> $.defineAttr('foo', {})
+[20:23:49] <rpflo> then you can do whatever you need to under the hood, instead of being locked in to those object names /shrug
+[20:24:16] <rwaldron> I actually have to bounce
+[20:24:27] <timmywil> rpflo: good point, but these hooks are mainly for internal usage, which is why I haven't given documenting them a high priority
+[20:24:27] <rwaldron> time to pick Rose up from her gig
+[20:25:11] <rpflo> timmywil: wise choice.  that's why an API makes it no big deal to document them :)
+[20:26:27] <timmywil> rpflo: I don't see us adding anything like that to core, but if it would be useful to users, perhaps a plugin
+[20:27:02] <rpflo> timmywil: why not?
+[20:27:32] <rwaldron> later guys
+[20:27:43] <rwaldron> timmywil nice one on those tixkets earlier!
+[20:27:45] <timmywil> rwaldron: see ya man
+[20:27:48] <rwaldron> nighty night
+[20:27:51] <rpflo> well, nvm, I'll write the code, open a ticket, give an explanation on why it rocks my socks ... then see what folks think
+[20:27:54] <timmywil> thanks!
+[20:28:30] <timmywil> rpflo: extending hooks is pretty simple without an API and we don't want the extra space or loss of performance within core for something that not a lot of people would use
+[20:29:21] <rpflo> timmywil: sure thing, I'll still open the ticket, write some tests on jsperf, worth a discussion anyway
+[20:29:37] <timmywil> not to say it's not a good idea to give it a unified API for jQuery users to extend hooks by means of a plugin, but like I said, not something we want to add to core
+[20:30:08] <timmywil> it's worth exploring
+[20:30:40] <rpflo> timmywil: there's no point in making it a plugin, as you said, it's easy enough to just tack stuff on to the objects since they're exposed.  The only reason for it is to make backwards compat easier if/when users start using it (as well as internal stuff).  It's useless as a plugin.
+[20:33:48] <timmywil> rpflo: I see the advantage if it helps users understand using all the different hooks.  I don't think it's worth it to put it in core just for backwards compat.
+[20:38:01] <rpflo> timmywil: Perhaps I've been bitten by backwards compat more than I'd like in my projects :)  But then again, I use undocumented objects!
+[20:39:20] <rpflo> Anyway, gotta run, thanks for the discussion

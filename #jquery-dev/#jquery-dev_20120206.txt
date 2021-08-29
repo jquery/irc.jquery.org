@@ -1,0 +1,64 @@
+[01:55:02] <ggarri> hello people
+[01:55:03] <ggarri> I'd want to know if someone know how I could initialize a jquery's widget for all elements
+[01:55:16] <ggarri> anyone knows about ?
+[02:05:58] <JKarsrud> ggarri: not the right channel, try #jquery
+[02:45:26] <ggarri> ok, thxs
+[05:53:06] <scott_gonzalez> DaveMethvin: Thoughts on reducing easing equations to only accept the state parameter?
+[05:53:37] <DaveMethvin> oh man, i haven't looked much at the easing equations. link?
+[05:54:12] <scott_gonzalez> https://github.com/jquery/jquery/blob/master/src/effects.js#L578
+[05:54:55] <scott_gonzalez> Those values are: state, time into animation, start value, difference between start and end, total duration
+[05:55:09] <scott_gonzalez> We've been passing 0 and 1 for start and difference since 1.2
+[05:55:20] <scott_gonzalez> Easings were added in 1.1 and they were passed the actual start and diff values.
+[05:56:32] <scott_gonzalez> Or, perhaps less of a breaking change, what do you think about changing our defined easings to only use the state parameter?
+[05:56:44] <scott_gonzalez> https://github.com/jquery/jquery/blob/master/src/effects.js#L403
+[05:56:50] <scott_gonzalez> linear: return p;
+[05:57:01] <scott_gonzalez> swing: return ( ( -Math.cos( p*Math.PI ) / 2 ) + 0.5 );
+[05:57:04] <DaveMethvin> yeah i was thinking about whether we know what other easing equations might be used externally and what they assume
+[05:57:22] <scott_gonzalez> I rewrote every easing from the popular easing plugin using just p
+[05:57:47] <scott_gonzalez> https://gist.github.com/e18395f53ceb2e908f2b
+[05:58:31] <DaveMethvin> definitely a simplifying assumption
+[05:59:12] <scott_gonzalez> Easings are already reduced to always being on a scale from 0 to 1.
+[05:59:28] <scott_gonzalez> I feel like we may as well just go all the way and remove the notion of durations :-P
+[06:00:18] <scott_gonzalez> So the first question is can we simply our defined easings. And the second question is can we reduce what we send to easings.
+[06:00:41] <scott_gonzalez> I guess the third question would be does reducing that simplify any other animation code.
+[06:01:11] <DaveMethvin> so we can still keep the interface the same tho, your equations can just assume that only p mattters
+[06:01:21] <DaveMethvin> otherwise we will break any external easing eqs
+[06:01:28] <DaveMethvin> dunno how many there are of those
+[06:02:09] <DaveMethvin> on q3 i think gnarf may know better
+[06:03:16] <scott_gonzalez> Ok, so can I file a ticket to have linear and swing only rely on p?
+[06:05:32] <DaveMethvin> sure sounds like a good idea scott_gonzalez
+[06:39:51] <scott_gonzalez> OMG, core tests take forever to run
+[12:25:13] <clarkbox> scott_gonzalez: they do. but it may have taken longer than usually as i had browserstack down for maintenance briefly
+[12:25:37] <scott_gonzalez> I was running them locally.
+[12:26:19] <clarkbox> ahhh nevermind then. was never down ;)
+[12:26:47] <scott_gonzalez> :-)
+[12:52:13] <DaveMethvin> ajpiano: whatddya tryna do there with your reviver?
+[12:52:26] <ajpiano> DaveMethvin: nothing, actually
+[12:52:31] <ajpiano> i'm trying to understand how a reviver function works
+[12:52:39] <ajpiano> and test that it works as documented
+[12:52:59] <DaveMethvin> i've used it before, but for simple cases
+[12:53:21] <DaveMethvin> like if key=="lastTime" convert the string to a date
+[12:53:28] <ajpiano> yeah, totally
+[12:54:17] <DaveMethvin> but for example you could have a key=="myObj" with a value of a plain object, and then use a constructor to turn it back into an instanceof myObject ajpiano
+[12:54:21] <ajpiano> the notion of "every level" would mean "now that i have revived the whole object, i'll hand it back to you and clobber it"
+[12:54:27] <DaveMethvin> lol yeah
+[12:54:32] <ajpiano> is counterintuitive to me
+[12:54:50] <DaveMethvin> and afaict there is no way to tell the diff btwn the top-level call you get with key=="" and some mid-level call
+[12:55:30] <ajpiano> interesting
+[12:55:38] <ajpiano> well this is what i get for trying to write tests based on docs i gues
+[12:55:38] <DaveMethvin> but there certainly could be cases where the whole returned json object should be converted to myObject for example
+[12:55:39] <ajpiano> lol
+[12:55:54] <DaveMethvin> it's just that there isn't a "level" arg for example
+[12:56:02] <DaveMethvin> so if that was 0 you'd know it was at the top
+[12:57:10] <ajpiano> yeah but it's handed back to you at the end, not the beginning :p
+[12:57:19] <DaveMethvin> yeah not stated but as you might have figured this is a post-order traversal callback, if the value is an Object it's already been converted
+[12:58:11] <DaveMethvin> all i know ajpiano is that crockford did it so it can't be wrong
+[12:58:28] <ajpiano> no one would ever actually write a reviver the intent of which was to clobber all the data in it
+[12:58:42] <ajpiano> but if you were trying to do that, it's interesting to find out that you can't :p
+[12:59:13] <DaveMethvin> no, you might want to "clobber" it by converting it from a plain Object to your custom object via a constructor
+[12:59:18] <ajpiano> the real point i guess is that a catchall, logicless reviver is an impossibility
+[12:59:28] <ajpiano> and i thought that such a thing was possible
+[12:59:40] <DaveMethvin> yeah i would say that's so, you have to have knowledge of the object being reconstructed
+[12:59:45] <DaveMethvin> like by name!
+[13:00:04] <DaveMethvin> i guess you could implement some .data()-like type sniffer
+[13:00:09] <DaveMethvin> BUT DON'T

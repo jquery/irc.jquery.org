@@ -1,0 +1,128 @@
+[01:23:28] <doesallmagic2> Project jQuery Core 1.x Weekly build #80: STILL UNSTABLE in 53 min: http://jenkins.jquery.com/job/jQuery%20Core%201.x%20Weekly/80/
+[04:31:00] <sizcommit> [13sizzle] 15timmywil closed pull request #282: Core: Update Properties check for undefined (06master...06style-guide-properties-check-for-undefined) 02http://git.io/IPVePQ
+[05:28:20] <scott_gonzalez> mikesherov: You were too quick for me to review the style guide updates, but they all looked good.
+[05:28:23] <scott_gonzalez> Thanks.
+[07:46:36] <JamesMGreene> leobalter: Why does the HTML Reporter's `init` method set `config.semaphore` to `1` instead of `0`?
+[07:47:58] <leobalter> I don't know, will check to see if I can answer you properly.
+[07:48:03] <JamesMGreene> I also am not understanding how `config.semaphore` even gets set right now
+[07:48:25] <JamesMGreene> AFAIK, QUnit.start/stop would set it to NaN and it would be stuck there
+[07:50:22] <JamesMGreene> o_O
+[07:53:30] <leobalter> I just copied that in @113a9d5, when QUnit.init also set config.semaphore: 1
+[07:53:34] <leobalter> still searching 
+[07:55:59] <leobalter> https://github.com/jquery/qunit/commit/65ade40#diff-d7fa0cdc86a0f504134e3d7c941a3b87R686
+[07:56:02] <leobalter> JamesMGreene ^
+[08:02:49] <leobalter> JamesMGreene: https://github.com/jquery/qunit/blob/master/src/core.js#L403-L424 QUnit.load previously called QUnit.init, now it sets the semaphore itself and calls the start automatically.
+[08:03:46] <leobalter> QUnit.init may probably works without setting the semaphore, but as it is already deprecated, I would leave it as it is regarding it should be removed soon.
+[08:15:58] <jqcommit> [13qunit] 15jzaefferer reopened issue #639: Support for valid XHTML is broken because used tags like br and input aren't closed. 02http://git.io/n_VLWw
+[09:13:38] <JamesMGreene> leobalter: The difference is that `init` used to be called by `load` in that commit.  It is not any more
+[09:13:52] <JamesMGreene> So I think `QUnit.config.semaphore` is probably `NaN` all the time...? o_O
+[09:15:08] <JamesMGreene> Hmm
+[09:15:22] <JamesMGreene> Somehow gets set to 0 in `v1.15.0`... will have to debug through
+[09:17:34] <JamesMGreene> nm, found it
+[09:17:48] <JamesMGreene> QUnit.load now sets that value to 1 directly instead of calling `init`
+[09:35:06] <JamesMGreene> leobalter: Looks like `QUnit.config.current.assert.test` should be equal to `QUnit.config.current`. Is there a reason we use the former instead of the latter? e.g. backward compat
+[09:41:44] <leobalter> QUnit.config.current is a backwards compat reference to the current test. The test object comes with a ref to the assert object, which gets also a ref to the test. http://jsbin.com/xocij/1/edit
+[09:43:07] <JamesMGreene> Right, so why wouldn't we just use `QUnit.config.current` instead of `QUnit.config.current.assert.test` when we want a reference to the current test?
+[09:43:28] <JamesMGreene> https://github.com/jquery/qunit/blob/74d566f6d5d5fac6e399e0bc158d83dfd6ace4dc/src/test.js#L257
+[09:44:38] <JamesMGreene> Perhaps just an accidental holder over from when you were pushing assertions stuff to use `this.test`?
+[09:45:24] <leobalter> QUnit.config.current is still there for backwards compatibility
+[09:45:35] <JamesMGreene> Yes but won't it always be?
+[09:46:11] <leobalter> assert object is seen on the test object
+[09:46:14] <leobalter> the problem is:
+[09:46:16] <JamesMGreene> My point is if `QUnit.config.current` === `QUnit.config.current.assert.test`, then shouldn't we just use `QUnit.config.current`?  Or will that not always be equal
+[09:46:28] <leobalter> It's a recursive ref
+[09:46:42] <leobalter> I need the test ref on the assert obj
+[09:46:58] <JamesMGreene> ...why?
+[09:47:10] <JamesMGreene> Same ref
+[09:47:19] <jzaefferer> I think in that instance its unnecessary, but then QUnit.pushFailure will be replaced by assert.pushFailure, so that entire block should go away eventually
+[09:47:38] <leobalter> because of this line: https://github.com/jquery/qunit/blob/master/src/assert.js#L32
+[09:47:41] <JamesMGreene> Oh, we have an `assert.pushFailure` now?
+[09:47:46] <leobalter> I can't rely on the QUnit.config.current
+[09:48:38] <JamesMGreene> In that particular case, yes
+[09:48:44] <JamesMGreene> I mean, you _could_
+[09:48:52] <JamesMGreene> but you don't because it keeps the code more DRY
+[09:49:05] <leobalter> and yes, JamesMGreene, the line you pointed is probably wrong, it would be better to use only the QUnit.config.current there
+[09:49:16] <JamesMGreene> :+1:
+[09:49:56] <leobalter> relying on QUnit.config.current allows async leaks, pushFailure needs to attach himself into any current test
+[09:50:42] <JamesMGreene> Understood
+[09:51:05] <JamesMGreene> but QUnit.config.current.assert.test allows the same leaks if the reference isn't stored or whatever
+[09:52:10] <leobalter> I'll do some tests chaging the QUnit.config.current.assert.test usage to QUnit.config.current, if it works I send a PR
+[09:55:46] <leobalter> ok, same errors on test/stack.html. Looks like it's working.
+[09:59:02] <leobalter> https://github.com/jquery/qunit/pull/646
+[09:59:07] <jqcommit> [13qunit] 15leobalter opened pull request #646: Test: Uses the non-recursive reference to the current test (06master...06current-test) 02http://git.io/klkUhg
+[09:59:07] <leobalter> JamesMGreene ^
+[10:08:21] <jqcommit> [13jquery] 15markelog pushed 2 new commits to 061.x-master: 02http://git.io/nfNqzg
+[10:08:21] <jqcommit> 13jquery/061.x-master 14b59b819 15Aurelio De Rosa: CSS: Removed redundant "to the number" in comment...
+[10:08:21] <jqcommit> 13jquery/061.x-master 14835e8c4 15Chris Antaki: Core: Drop strundefined variable...
+[10:08:31] <jqcommit> [13jquery] 15markelog pushed 4 new commits to 06master: 02http://git.io/6xuH_A
+[10:08:31] <jqcommit> 13jquery/06master 14895ea68 15Aurelio De Rosa: CSS: Removed redundant "to the number" in comment...
+[10:08:31] <jqcommit> 13jquery/06master 1429838b6 15Chris Antaki: Core: Drop strundefined variable
+[10:08:31] <jqcommit> 13jquery/06master 144287442 15Chris Antaki: Offset: Simplified a conditional
+[10:09:48] <jqcommit> [13qunit] 15leobalter pushed 1 new commit to 06master: 02http://git.io/AOzIlg
+[10:09:48] <jqcommit> 13qunit/06master 145cbe4ec 15Leonardo Balter: Test: Uses the non-recursive reference to the current test
+[10:10:22] <jqcommit> [13jquery] 15markelog closed pull request #1628: Core: Drop strundefined variable (061.x-master...061.x-master-undefined) 02http://git.io/_Kt0pQ
+[10:16:30] <doesallmagic2> Project jQuery Core 1.x build #463: UNSTABLE in 8 min 24 sec: http://jenkins.jquery.com/job/jQuery%20Core%201.x/463/
+[10:16:30] <doesallmagic2> * markelog: CSS: Removed redundant "to the number" in comment
+[10:16:31] <doesallmagic2> * markelog: Core: Drop strundefined variable
+[10:19:51] <DaveMethvin> snover: i am replying on https://code.google.com/p/chromium/issues/detail?id=162757#c101
+[10:20:01] <snover> DaveMethvin: dear god thank you
+[10:20:04] <snover> i just about lost it
+[10:20:06] <snover> again
+[10:20:07] <snover> :)
+[10:20:13] <snover> talk about rewriting history!
+[10:21:09] <doesallmagic2> Project jQuery Core build #1176: UNSTABLE in 4 min 39 sec: http://jenkins.jquery.com/job/jQuery%20Core/1176/
+[10:21:09] <doesallmagic2> * markelog: CSS: Removed redundant "to the number" in comment
+[10:21:10] <doesallmagic2> * markelog: Core: Drop strundefined variable
+[10:21:10] <doesallmagic2> * markelog: Offset: Simplified a conditional
+[10:21:11] <doesallmagic2> * markelog: Build: Moved JSHint directives to .jshintrc file
+[10:24:43] <doesallmagic2> Yippee, build fixed!
+[10:24:43] <doesallmagic2> Project QUnit build #450: FIXED in 3 min 33 sec: http://jenkins.jquery.com/job/QUnit/450/
+[10:24:44] <doesallmagic2> leonardo.balter: Test: Uses the non-recursive reference to the current test
+[10:46:04] <Krinkle> attributes test suite has two failures in IE9 and IE10.
+[10:46:10] <Krinkle> 10. attributes: attr(String, Object) - Loaded via XML fragment (2, 0, 2)Rerun
+[10:49:02] <jqcommit> [13jquery] 15markelog pushed 1 new commit to 06master: 02http://git.io/g4t6IA
+[10:49:02] <jqcommit> 13jquery/06master 14075da30 15Oleg Gaidarenko: Attr: Use typeof check for getAttribute method...
+[10:53:31] <doesallmagic2> Project jQuery Core build #1177: STILL UNSTABLE in 4 min 44 sec: http://jenkins.jquery.com/job/jQuery%20Core/1177/
+[10:53:32] <doesallmagic2> markelog: Attr: Use typeof check for getAttribute method
+[11:26:22] <jqcommit> [13qunit] 15Krinkle labeled issue #645: Add runtime property to moduleDone event data 02http://git.io/3Jiclg
+[11:48:08] <JamesMGreene> leobalter: Interesting to see that calling `QUnit.stop()` before `QUnit.load` will cause an unhandled Error
+[11:48:56] <JamesMGreene> err
+[11:49:01] <JamesMGreene> won't cause an Error
+[11:49:22] <JamesMGreene> just sets the semaphore to NaN
+[11:50:24] <JamesMGreene> That's unfortunate, though a rare use case
+[12:30:48] <snover> DaveMethvin: where is that reply dagnabbit :]
+[12:31:16] <DaveMethvin> i sent it a while back, should be there and i saw it
+[12:32:04] <DaveMethvin> snover: https://code.google.com/p/chromium/issues/detail?id=162757#c102
+[12:32:58] <snover> weird, i guess their email server is slow. or our email server is slow.
+[12:48:59] <jqcommit> [13jquery] 15markelog pushed 1 new commit to 06master: 02http://git.io/awm6Yg
+[12:48:59] <jqcommit> 13jquery/06master 14274feb5 15Nazar Mokrynskyi: CSS: Remove use of getDefaultComputedStyle...
+[12:49:08] <jqcommit> [13jquery] 15markelog pushed 1 new commit to 061.x-master: 02http://git.io/iOtWEQ
+[12:49:08] <jqcommit> 13jquery/061.x-master 1444c9c4f 15Nazar Mokrynskyi: CSS: Remove use of getDefaultComputedStyle...
+[12:49:25] <jqcommit> [13jquery] 15markelog closed pull request #1647: Remove optimization to make jQuery compatible with Google's Polymer project (06master...06patch-1) 02http://git.io/RjlLOg
+[12:51:16] <JamesMGreene> jzaefferer Krinkle leobalter: Any chance we can get https://github.com/jquery/qunit/pull/634 merged?  It has a baring on my incoming async-done changes for https://github.com/jquery/qunit/issues/534
+[12:52:15] <JamesMGreene> bearing*
+[12:54:27] <doesallmagic2> Project jQuery Core build #1178: STILL UNSTABLE in 5 min 42 sec: http://jenkins.jquery.com/job/jQuery%20Core/1178/
+[12:54:28] <doesallmagic2> markelog: CSS: Remove use of getDefaultComputedStyle
+[13:01:16] <doesallmagic2> Project jQuery Core 1.x build #464: STILL UNSTABLE in 6 min 48 sec: http://jenkins.jquery.com/job/jQuery%20Core%201.x/464/
+[13:01:16] <doesallmagic2> markelog: CSS: Remove use of getDefaultComputedStyle
+[13:17:03] <jqcommit> [13jquery] 15markelog pushed 1 new commit to 06master: 02http://git.io/IZDE0Q
+[13:17:03] <jqcommit> 13jquery/06master 14a772418 15Oleg Gaidarenko: CSS: Use pre-defined displays for html and body...
+[13:17:13] <jqcommit> [13jquery] 15markelog pushed 1 new commit to 061.x-master: 02http://git.io/9MjwgA
+[13:17:13] <jqcommit> 13jquery/061.x-master 14b05b6a2 15Oleg Gaidarenko: CSS: Use pre-defined displays for html and body...
+[13:21:04] <jqcommit> [13jquery] 15markelog pushed 1 new commit to 061.x-master: 02http://git.io/GKYmvw
+[13:21:04] <jqcommit> 13jquery/061.x-master 14787ffbf 15Oleg Gaidarenko: CSS: Correct typo in the comment
+[13:21:14] <doesallmagic2> Yippee, build fixed!
+[13:21:15] <doesallmagic2> Project jQuery Core build #1179: FIXED in 4 min 27 sec: http://jenkins.jquery.com/job/jQuery%20Core/1179/
+[13:21:15] <doesallmagic2> markelog: CSS: Use pre-defined displays for html and body
+[13:21:22] <JamesMGreene> \o/
+[13:26:27] <doesallmagic2> Project jQuery Core 1.x build #465: STILL UNSTABLE in 5 min 12 sec: http://jenkins.jquery.com/job/jQuery%20Core%201.x/465/
+[13:26:27] <doesallmagic2> * markelog: CSS: Use pre-defined displays for html and body
+[13:26:28] <doesallmagic2> * markelog: CSS: Correct typo in the comment
+[13:28:10] <markelog> hmm, ajax tests aren't stable
+[13:28:10] <markelog> i wonder if they were ever stable?
+[13:32:13] <doesallmagic2> Project jQuery Core build #1180: UNSTABLE in 5 min 46 sec: http://jenkins.jquery.com/job/jQuery%20Core/1180/
+[13:32:13] <doesallmagic2> markelog: CSS: Correct typo in the comment
+[15:47:39] <Krinkle> We have one too many unctions in this function – jaubough.
+[15:47:46] <Krinkle> Always fun to run into it again. https://github.com/jquery/jquery/commit/3e0fe5ea3
+[16:31:51] <jqcommit> [13api.jquery.com] 15jhfrench opened issue #558: :checked selector does not work for select elements 02http://git.io/kuHVhQ
+[22:35:31] <JamesMGreene> leobalter: Concerningly, I have a few tests failing locally that have nothing to do with my changes

@@ -1,0 +1,301 @@
+[03:34:39] <peol> https://github.com/jquery/jquery/pull/825
+[03:34:40] <socialhapy> ★ Pull request on jquery by mikesherov (6h, 36m ago): fixes #9505, animate() issue when mixing percentages and pixels in WebKit
+[04:25:43] <jq-jenkins> Project jQuery Color build #18: STILL FAILING in 13 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/18/
+[04:25:44] <jq-jenkins> * Scott González: Fixed lint errors.
+[04:25:44] <jq-jenkins> * Scott González: Tests: Use equal() instead of equals().
+[04:25:45] <jq-jenkins> * Scott González: Added grunt support.
+[04:25:45] <jq-jenkins> * joern.zaefferer: Grunt: Add TestSwarm task
+[05:22:42] <gibson042> .
+[05:47:02] <DaveMethvin> .
+[05:56:22] <scott_gonzalez> .
+[06:06:38] <scott_gonzalez> DaveMethvin: Thoughts on making this less scary?
+[06:06:38] <scott_gonzalez> WARNING: Do NOT use jQuery Git in a production system or live application! It is not tested. It is not stable. It will probably blow up on you unexpectedly. You have been warned! If in doubt, stop and use the current release.
+[06:07:18] <scott_gonzalez> We should warn against using it in production, but it is tested.
+[06:07:26] <DaveMethvin> scott_gonzalez: seems like we should encourage people to pull the tagged release
+[06:07:33] <scott_gonzalez> We should.
+[06:07:47] <DaveMethvin> so that's more like "don't use jquery-git.js"
+[06:08:07] <DaveMethvin> but i agree it's ambig and excessively scary
+[06:08:32] <scott_gonzalez> Well, the whole section is a bit weird.
+[06:08:43] <scott_gonzalez> It's like "Test against WIP, but DO NOT USE THE CDN"
+[06:08:51] <scott_gonzalez> Then in Trac we're like "USE THE DAMN CDN!"
+[06:09:02] <DaveMethvin> well i think the concern is someone using jquery-git.js in production
+[06:09:10] <DaveMethvin> but that's not what it says
+[06:09:15] <DaveMethvin> i don't mind it being a little scary, mind you
+[06:09:35] <DaveMethvin> people doing custom builds should know what they are doing
+[06:09:42] <scott_gonzalez> Yeah, but the first three paragraphs are about using jquery-git to test bugs.
+[06:09:42] <DaveMethvin> and understand their dependencies
+[06:10:12] <scott_gonzalez> And it's like Test against jquery-git, but inlcude the date that you tested and don't link to the CDN since it changes.
+[06:10:12] <DaveMethvin> i'll make a run through it in a bit
+[06:10:37] <scott_gonzalez> Thanks.
+[06:18:59] <jaubourg> plop
+[06:53:26] <DaveMethvin> scott_gonzalez: would it make more sense to migrate these docs.jquery.com pages to the repo?
+[06:53:41] <DaveMethvin> i just feel like they are out of sight out of mind
+[06:53:44] <scott_gonzalez> Yup, they're moving to the jquery.com repo.
+[06:54:11] <scott_gonzalez> Well, the download page and browser support pages are moving to jquery.com.
+[06:54:16] <DaveMethvin> i was even thinking of the code repo ... but that works too
+[06:54:32] <DaveMethvin> the download page is duplicated at http://code.jquery.com/index.html essentially
+[06:54:45] <DaveMethvin> we shoudln't have big link lists on the wiki page too
+[07:11:41] <jaubourg> DaveMethvin: https://github.com/jquery/jquery/commit/a41f2406748e3113751ab1e5b5d990d9144123fc#commitcomment-1453021
+[07:11:42] <socialhapy> ★ Commit on jquery by jaubourg (2m, 1w ago): Makes Deferred implementation truly Promise/A compliant. Unit tests amended. Actually few changes required in jQuery's own source and we gained 8 bytes minified gzipped \o/.
+[07:11:50] <jaubourg> just so you see it
+[07:12:04] <DaveMethvin> great! thanks jaubourg
+[07:12:49] <DaveMethvin> the only issue we still have is the one related to promises getting "stuck" if the code throws an error, right?
+[07:13:18] <DaveMethvin> the server side impls are catching the heck out of everything, which makes sense for those applications
+[07:13:38] <DaveMethvin> jaubourg:  maybe we could add some sort of flag to allow compat with that?
+[07:14:12] <jaubourg> DaveMethvin: wouldn't solve anything, we could still have jQueryish Promises for ajax for instance
+[07:14:27] <DaveMethvin> i think the spec says Promise/A is supposed to reject if the code throws an error
+[07:14:36] <jaubourg> yep, it is
+[07:14:47] <jaubourg> all because they just have then in the spec
+[07:15:00] <jaubourg> so it needs to do all magic
+[07:15:03] <jaubourg> ;)
+[07:15:05] <DaveMethvin> lol
+[07:15:58] <jaubourg> what happend is this in the end: promiseA.then(function() {thisThrowsARuntimeException(); } ).then( function() { console.log( "not called" ); } );
+[07:16:20] <jaubourg> so your code doesn't output anything but the exception is not propagated to you
+[07:16:37] <jaubourg> go and debug this in a bigger environment
+[07:16:56] <DaveMethvin> well  you don't have a fail handler so that's expected, right?
+[07:18:16] <jaubourg> right, but what if the fail handler throws an exception?
+[07:18:23] <jaubourg> infinite then just in case?
+[07:18:42] <jaubourg> welcome to a world where all exceptions are handled
+[07:19:17] <DaveMethvin> if you fail in the fail, then that's really a problem
+[07:19:32] <jaubourg> which will be silenced
+[07:19:54] <jaubourg> you may want to do something on rejection that is a bit more complex than outputting to the console
+[07:20:23] <DaveMethvin> yeah you either have to silence it (since there is no user-defined fail for the fail handler) or rethrow ... but to where since it's async?
+[07:20:42] <jaubourg> oh, and what about modifying rejection value: promiseA.then( null, function( message ) { throw "myapp: " + message; } );
+[07:21:16] <jaubourg> DaveMethvin: it's most probably an error you need to fix in your code, so you need to be aware of it
+[07:21:24] <DaveMethvin> right
+[07:21:24] <jaubourg> and know quickly where it is
+[07:21:37] <DaveMethvin> that's the most common scenario we're dealing with here
+[07:21:39] <DaveMethvin> but
+[07:21:57] <DaveMethvin> if it's in the field, what behavior works the best?
+[07:22:12] <DaveMethvin> i dunno, the browser error is STILL my preference and not the fail function
+[07:22:14] <jaubourg> if it's in the field and you have an unhandled exception being thrown?
+[07:22:24] <DaveMethvin> yeah
+[07:22:36] <jaubourg> well, it's has to be thrown so that users can report the bug
+[07:22:41] <jaubourg> imagine if it's intermittent
+[07:22:45] <DaveMethvin> haha users report the bug
+[07:22:53] <DaveMethvin> jaubourg you so funny
+[07:23:05] <jaubourg> well, firs user if the client who ordered you the website
+[07:23:10] <jaubourg> my clients do report bugs
+[07:23:40] <scott_gonzalez> jaubourg: Promises/A is totally sane and not impossible to debug at all.
+[07:23:42] <jaubourg> they rarely tell me when "nothing happens"
+[07:23:48] <DaveMethvin> there are several remote telemetry apps that collect up bugs and send them back
+[07:24:03] <jaubourg> scott_gonzalez: you used it in a big project?
+[07:24:25] <jaubourg> that is in production, in the wild, not developped by a single dev?
+[07:24:43] <DaveMethvin> i think the confusion comes when the promise has to conflate two very different error scenarios
+[07:25:13] <DaveMethvin> one is "anticipated" failures like ajax timing out and the other is program logic errors
+[07:25:31] <DaveMethvin> so if we treat program logic errors like an anticipated error it does tend to mask the problem
+[07:25:36] <DaveMethvin> that's why i asked about a flag
+[07:25:48] <scott_gonzalez> Well, The only conceptual difference between Promises/A and node's callback pattern is that node doesn't auto-handle exceptions.
+[07:25:48] <DaveMethvin> if you want promise/a behavior that would be a way to get it
+[07:25:53] <jaubourg> well, catching exceptions and rejecting as you see fit is your flag
+[07:26:06] <scott_gonzalez> But whenever that happens, the only recommended solution is to kill your app.
+[07:26:48] <jaubourg> scott_gonzalez: yes, unlike what happens in a browser but I guess it has more to do with system-level resources mess
+[07:27:10] <DaveMethvin> if we always did what promise/a says and trap browser errors without any option to turn it off, it seems like that would be a nightmare to debug
+[07:27:36] <scott_gonzalez> We could easily have a flag to $.error() if there's not error handler on an exception.
+[07:27:56] <scott_gonzalez> I bet we wouldn't even get complaints if that was the only implementation, with no flag.
+[07:28:17] <scott_gonzalez> The complaint isn't "we should hide errors" it's "there was an error, we should invoke the error callback"
+[07:28:39] <jaubourg> I see
+[07:28:46] <DaveMethvin> but $.error() can't give the info that a raw browser error does
+[07:28:46] <jaubourg> if that's what the project wants to do, fine
+[07:29:17] <jaubourg> I said why it was a gigantic mistake and I refuse to do it.
+[07:29:40] <jaubourg> handling all exceptions by default is lazy, dangerous and only hides very real bugs
+[07:29:53] <DaveMethvin> the "if there was an error invoke the callback" also is pushing logic errors into the "anticipated error" category which again is not good for debugging
+[07:29:56] <jaubourg> it's trading short-term gain for long-term nighmare
+[07:30:19] <DaveMethvin> jaubourg: i think you can see that there *are* arguments for both sides
+[07:30:41] <jaubourg> arguments on the other side just refuse to understand all exceptions are not applicative
+[07:30:43] <DaveMethvin> so it's not helpful to simply say one side is crazy
+[07:31:34] <scott_gonzalez> Also, it's not unreasonable to just release a deferred-debug plugin that doesn't try/catch.
+[07:31:34] <DaveMethvin> like i said, I would prefer to see a raw browser error when debugging b/c that is not something that the "error" handler is necessarily prepared to deal with
+[07:31:46] <jaubourg> well,I have vocal minority telling me I have no clue what I'm saying over and over and over again... after a point, I don't feel like explaining, once more, that I've been programming with exceptions since 1992, in Ada, back in the days
+[07:32:12] <scott_gonzalez> jaubourg: Are you implying that none of these other developers have been?
+[07:32:13] <DaveMethvin> we're not questioning  your position, just your stubbornness :D
+[07:32:27] <scott_gonzalez> This is purely a debug issue.
+[07:32:38] <scott_gonzalez> It seems VERY EASY to make debugging easy.
+[07:32:43] <jaubourg> scott_gonzalez: I think most developpers have no clue how to deal with exceptions and the bug tracker should give you a good hbint about this
+[07:32:44] <scott_gonzalez> Proxy one method, done.
+[07:33:14] <scott_gonzalez> And you think that letting the error propogate fixes their inability to code properly?
+[07:33:34] <jaubourg> it makes them aware of the problem which is a huuuuge step forward
+[07:33:50] <scott_gonzalez> $.error() on errors with no handlers does the same thing.
+[07:34:04] <DaveMethvin> that's why i want to retain some way to expose the browser error, but still make us promise/a compliant
+[07:34:19] <scott_gonzalez> Why is a plugin not an acceptable solution?
+[07:34:23] <scott_gonzalez> It's purely for debugging.
+[07:34:28] <jaubourg> no it's not
+[07:34:39] <scott_gonzalez> Why is it not?
+[07:34:50] <jaubourg> but, you know what? I'm tired of this unending discussions
+[07:34:54] <jaubourg> DO IT
+[07:34:58] <jaubourg> I don't care, really
+[07:35:01] <DaveMethvin> well it might be needed for a CUSTOMER to debug for you so I would prefer something baked in
+[07:35:17] <jaubourg> just don't ask me to maintain it or make it consistant
+[07:35:27] <scott_gonzalez> jaubourg: You're being very childish right now.
+[07:35:32] <scott_gonzalez> It's not helpful.
+[07:36:14] <jaubourg> no I'm not, I'm being very very bored with the incessant bashing of the implementation we have right now... It's easy for you to barge in, say "well I don't see the problem". You didn't get the heat
+[07:37:01] <scott_gonzalez> jaubourg: I'm not barging in. I've been trying to get this resolved for a long time.
+[07:37:13] <scott_gonzalez> I don't have time to stay in the long-winded debates.
+[07:53:03] <scott_gonzalez> Does anyone know where /srv/swarm.jquery.org/tools/node-testswarm-config.json comes from?
+[08:07:47] <jzaefferer> scott_gonzalez: manually created and update right there
+[08:07:57] <jzaefferer> one more thing that would go into puppet
+[08:08:12] <jzaefferer> Krinkle and me cooked that up
+[08:08:35] <jq-jenkins> Project jQuery Color build #19: STILL FAILING in 8.8 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/19/
+[08:08:35] <jq-jenkins> Corey Frang: Updating qunit to v1.7.0
+[08:08:55] <scott_gonzalez> jzaefferer: Can you fix it? It's broken.
+[08:09:01] <scott_gonzalez> That's what's causing failures.
+[08:11:46] <jaubourg> scott_gonzalez: sorry for over-reacting, I'm really on edge regarding other matters right now (I mean other matters than this Promise/A thingy)
+[08:13:32] <gnarf> jzaefferer: thats not in the htdocs/public facing is it?
+[08:14:24] <scott_gonzalez> jaubourg: No problem, we can discuss later.
+[08:15:26] <jaubourg> scott_gonzalez: thanks and sorry again, I need to de-passionate myself sometimes... happens too often when I'm involved too deep into something
+[08:16:01] <gnarf> I'm like 80% on jaubourg's side of the fence in this debate...
+[08:17:54] <gnarf> but if its implementation is tiny and optional (even if on by default) i could be won over
+[08:20:44] <jq-jenkins> Project jQuery Color build #20: STILL FAILING in 5.5 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/20/
+[08:23:11] <jq-jenkins> Project jQuery Color build #21: STILL FAILING in 6.2 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/21/
+[08:27:42] <jq-jenkins> Project jQuery Color build #22: STILL FAILING in 4 min 8 sec: http://swarm.jquery.org:8080/job/jQuery%20Color/22/
+[08:28:05] <jzaefferer> gnarf: look, swarm results: http://swarm.jquery.org/job/7
+[08:28:38] <jzaefferer> starting a new core build, too
+[08:59:13] <jq-jenkins> Project jQuery Core build #139: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/139/
+[09:06:34] <jzaefferer> DaveMethvin: this is getting somewhere: http://swarm.jquery.org/job/8
+[09:07:09] <DaveMethvin> jzaefferer: i agree, and the offset fails are new
+[09:07:36] <DaveMethvin> the others seem to be an artifact of the qunit/jenkins/swarm setup
+[09:07:52] <DaveMethvin> so, like i have one request jzaefferer
+[09:08:07] <DaveMethvin> if there are fewer than 5% of tests failing
+[09:08:18] <DaveMethvin> change STILL FAILING to ALMOST SUCCEEDING :)
+[09:09:49] <jzaefferer> DaveMethvin: we're getting to a point where we can switch from "failing" to "unstable", which means there's just tests failing, not horrible failure
+[09:09:49] <gnarf> DaveMethvin: :)
+[09:10:08] <gnarf> whereas failing a phantomjs pass would be "failing" right?
+[09:10:09] <jzaefferer> so the Opera issues aren't reproducible?
+[09:10:38] <jzaefferer> gnarf: with John Bender's grunt-junit plugin, failing phantomjs tests can already be marked as unstable
+[09:10:41] <jzaefferer> got that almost working
+[09:10:47] <DaveMethvin> i could not repro them, let me try again
+[09:13:35] <DaveMethvin> jzaefferer: Opera 11.64, full run, totally green
+[09:13:49] <jzaefferer> 11.5 is the one failing
+[09:13:54] <jzaefferer> 11.6 is green
+[09:14:22] <DaveMethvin> oh, the last run had an 11.6 fail too
+[09:15:39] <DaveMethvin> jzaefferer: since the filter= has some overlap, the real errors are in effects
+[09:15:48] <DaveMethvin> and they are related to the error catching
+[09:15:54] <DaveMethvin> that was changed in swarm and qunit
+[09:16:29] <DaveMethvin> now as to WHY i don't know
+[11:32:04] <johnbender> DaveMethvin: ping
+[11:32:29] <DaveMethvin> present
+[11:32:32] <johnbender> DaveMethvin: https://github.com/jquery/jquery-mobile#testing
+[11:32:45] <johnbender> you can dump whichever version of jquery in there that you like
+[11:32:50] <johnbender> you'll need node installed
+[11:32:56] <johnbender> and a webserver to serve the tests
+[11:33:03] <johnbender> but other than that it should run the whole suite for you
+[11:33:08] <johnbender> and it's _fairly_ stable
+[11:33:22] <DaveMethvin> node, grunt, server no problem since we use them
+[11:33:30] <johnbender> I figured as much :D
+[11:33:34] <DaveMethvin> now, as for whether anyone tests on Windows ....
+[11:33:51] <DaveMethvin> that may be a nother story
+[11:33:52] <johnbender> :(
+[11:34:05] <DaveMethvin> i'll need to install phantomjs right
+[11:34:09] <johnbender> indeed
+[11:34:11] <DaveMethvin> i think i had it running here at one point
+[11:34:23] <johnbender> >= 1.5.0
+[11:34:25] <DaveMethvin> ok well thanks for the pointer i'll put it on the list
+[11:34:39] <johnbender> DaveMethvin: yessir, hopefully that'll save you some time :D
+[11:34:43] <DaveMethvin> the browser-based tests are pretty indicative though>
+[11:34:44] <DaveMethvin> ?
+[11:34:51] <johnbender> yes
+[11:34:52] <johnbender> same tests
+[11:35:00] <johnbender> so don't worry about this version
+[11:35:03] <DaveMethvin> ok, then all signs are good
+[11:35:03] <johnbender> if you've already done it
+[11:35:05] <johnbender> should be just fine
+[11:35:06] <johnbender> yah
+[11:35:13] <johnbender> both toddparker and I were happy to hear it
+[11:35:14] <DaveMethvin> at some point we'd like to do ci on this
+[11:35:27] <DaveMethvin> but i have to get over my differences with jenkins
+[11:35:38] <johnbender> DaveMethvin: should be easy, maybe just a simlink
+[11:35:42] <johnbender> lol
+[11:35:59] <DaveMethvin> that guy better give me a success soon
+[11:36:07] <johnbender> :D
+[11:36:11] <johnbender> he's a dick I agree
+[11:36:19] <DaveMethvin> and i thought wilto was the joker in your bunch
+[11:36:26] * johnbender grumbles about his snooty mustache
+[11:36:39] * johnbender has no comedy. none.
+[11:36:53] <johnbender> I just borrow from others
+[14:52:18] <jzaefferer> DaveMethvin: were you able to reproduce Opera failures in 11.5?
+[14:52:24] <jzaefferer> at least the timeouts are gone: http://swarm.jquery.org/job/8
+[15:00:11] <jqcommit> [qunit] jzaefferer pushed 1 new commit to master: http://git.io/Brd7ug
+[15:00:11] <jqcommit> [qunit/master] Improve window.onerror handling - Timo Tijhof
+[15:07:57] <jqcommit> [qunit] jzaefferer pushed 2 new commits to master: http://git.io/OqfWeg
+[15:07:57] <jqcommit> [qunit/master] Release 1.8.0 - Jörn Zaefferer
+[15:07:57] <jqcommit> [qunit/master] Bump post-release version - Jörn Zaefferer
+[15:17:50] <jq-jenkins> Project QUnit build #143: SUCCESS in 5 min 24 sec: http://swarm.jquery.org:8080/job/QUnit/143/
+[15:17:51] <jq-jenkins> * krinklemail: Improve window.onerror handling
+[15:17:52] <jq-jenkins> * joern.zaefferer: Release 1.8.0
+[15:17:52] <jq-jenkins> * joern.zaefferer: Bump post-release version
+[15:23:00] <Krinkle> jzaefferer: Thanks for the release, now lets use &module= in our testswarm, that should speed up tests as well (less duplication)
+[15:23:20] <jzaefferer> oh, right, good call
+[15:23:21] <Krinkle> can you update submodules ? (easier to do direct, I can do a pr, but that's double work)
+[15:23:24] <jzaefferer> didn't even think of that
+[15:23:54] <jzaefferer> I can update core, just need to know what the right incatation is - I pretty much never use them...
+[15:24:27] <Krinkle> basically just submodule update --init; then cd into the dir, set HEAD to where you want it to be, cd back up and git add
+[15:24:47] <Krinkle> e.g. pull, co v1.8.0
+[15:25:05] <jzaefferer> okay, will do that
+[15:25:17] <Krinkle> I see we have the logic of ?filter= in the grunt.js files, so you'll have to update that too
+[15:25:25] <Krinkle> 			testUrls.push( config.testUrl + commit + "/test/index.html?filter=" + test );
+[15:25:42] <jzaefferer> updating UI job first to use /build/
+[15:26:13] <Krinkle> ok
+[15:26:18] <Krinkle> does jquery-ui in jenkins build to that?
+[15:26:46] <Krinkle> ah it does; /srv/swarm.jquery.org/tools/jenkins-testswarm-static-copy.sh jquery-ui
+[15:26:55] <Krinkle> I only remember doing that for jquery core, nice :)
+[15:26:56] <jzaefferer> added that just now :-)
+[15:27:00] <Krinkle> coola
+[15:27:55] <Krinkle> doing it for qunit as well now
+[15:28:02] <Krinkle> oh wait, I wont
+[15:28:09] <Krinkle> it isn't future/backwards compatible
+[15:28:28] <jqcommit> [qunit] jzaefferer pushed 1 new commit to master: http://git.io/Njvuew
+[15:28:28] <jqcommit> [qunit/master] Grunt: Update testswarm task to use new config props - Jörn Zaefferer
+[15:28:43] <Krinkle> okay, now you can :D
+[15:28:58] <jzaefferer> and updated the job
+[15:29:36] <jzaefferer> now we should be able to kill the old /git/ folder
+[15:29:47] <jzaefferer> looking at core modules now
+[15:32:22] <jqcommit> [jquery] jzaefferer pushed 1 new commit to master: http://git.io/WQZcuw
+[15:32:22] <jqcommit> [jquery/master] Update QUnit to v1.8.0 - Jörn Zaefferer
+[15:32:28] <jzaefferer> testUrls.push( config.testUrl + commit + "/test/index.html?module=" + test );
+[15:32:34] <jzaefferer> Krinkle: ^^^ thats all we need, right?
+[15:32:41] <Krinkle> yeah
+[15:32:46] <Krinkle> you can test locally if you want to be sure
+[15:33:18] <jzaefferer> nah :p
+[15:33:27] <jqcommit> [jquery] jzaefferer pushed 1 new commit to master: http://git.io/ZDdWrg
+[15:33:27] <jqcommit> [jquery/master] Grunt: Update testswarm task to use new module filter, reduces duplication when running, should speed things up - Jörn Zaefferer
+[15:33:35] <Krinkle> jzaefferer: btw, do you know the 'open' command by default on Mac?
+[15:33:41] <jzaefferer> its rather silly that the two European guys are the ones still up already...
+[15:33:43] <Krinkle> I discovered it a few days ago by accident, pretty nice
+[15:33:48] <jzaefferer> yep :-)
+[15:34:08] <Krinkle> open 'http://'; // default browser; cd jquery-json; open src/jquery.json.js; // Opens my assigned code editor.
+[15:34:22] <Krinkle> open file -a Coda; forces an application by AppleScript name
+[15:35:03] <Krinkle> also supports multiple one, and in most application they result in 1 window with all those in tabs
+[15:35:15] <Krinkle> +s +s -s
+[15:35:57] <jzaefferer> okay, I only used it with html files so far
+[15:40:08] <Krinkle> jzaefferer: btw, I'm currently working on a node module to import issues from google code into GitHub
+[15:40:22] <Krinkle> there's about 3 major ones out there, all are either a pain to get working or outdated, or both
+[15:40:51] <Krinkle> (e.g. a perl module with a million dependencies from dozens different cpan mirrors, or a python one from all over the place)
+[15:41:15] <Krinkle> npm makes this sooo nice
+[15:41:26] <Krinkle> using node xml2object and node github
+[15:43:55] <jq-jenkins> Project QUnit build #144: SUCCESS in 4 min 17 sec: http://swarm.jquery.org:8080/job/QUnit/144/
+[15:43:55] <jq-jenkins> joern.zaefferer: Grunt: Update testswarm task to use new config props
+[15:57:48] <jq-jenkins> Project jQuery Core build #140: STILL FAILING in 13 min: http://swarm.jquery.org:8080/job/jQuery%20Core/140/
+[15:57:49] <jq-jenkins> * joern.zaefferer: Update QUnit to v1.8.0
+[15:57:49] <jq-jenkins> * joern.zaefferer: Grunt: Update testswarm task to use new module filter, reduces duplication when running, should speed things up
+[16:01:32] <Krinkle> jzaefferer: I've set IRC channel to #jquery-dev for jQuery Core
+[16:01:35] <Krinkle> (just now)
+[16:02:20] <Krinkle> defaults to global configure http://swarm.jquery.org:8080/configure which is to all three channels
+[16:03:05] <Krinkle> Woah, nice. the opera failure is fixed in jquery core
+[16:03:09] <Krinkle> there is 1 failure left
+[16:03:11] <Krinkle> a new one?
+[16:03:15] <Krinkle> http://swarm.jquery.org/result/1954
+[16:03:33] <Krinkle> lol
+[16:03:34] <Krinkle> http://swarm.jquery.org/user/jquery
+[16:03:38] <Krinkle> one leaves, another comes back
+[16:06:25] <jzaefferer> that's fine, because it just took 13 minutes to get to that result
+[16:06:30] <jzaefferer> no frickin timeout!
+[16:06:33] <jzaefferer> that's pretty awesome :-)
+[16:07:05] <jzaefferer> there's quite a massive difference in assertion per module to the previous build
+[16:07:38] <jzaefferer> though support looks suspicious just 4 assertions in most?
+[16:07:50] <jzaefferer> was 67/97 before...
+[16:23:16] <Krinkle> jzaefferer: indeed
+[16:23:35] <Krinkle> jzaefferer: but correct
+[16:23:37] <Krinkle> compare: http://swarm.jquery.org/result/425
+[16:23:41] <Krinkle> http://swarm.jquery.org/result/1942
+[16:23:48] <Krinkle> former has lots of other ones
+[16:23:57] <Krinkle> "module data: xxx supports yyy"

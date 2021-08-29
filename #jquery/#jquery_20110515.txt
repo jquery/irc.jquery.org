@@ -1,0 +1,1487 @@
+[00:00:10] <gnarf> ruby_on_tails: its really hard for me to dig much into this problem right now -- i'm pretty f'ed up
+[00:00:15] <gnarf> but
+[00:00:16] <gnarf> like
+[00:00:22] <ruby_on_tails> hmm ok np
+[00:00:38] <gnarf> there is some code in ajax / manipulation that deals with cleaning scripts
+[00:00:45] <gnarf> what version of jQuery?
+[00:01:38] <ruby_on_tails> 1.4.2
+[00:01:43] <ruby_on_tails> but i can upgrade that
+[00:02:22] <jrockjiggz> ?eval tt = (tab) || tab;
+[00:02:53] <gnarf> ruby_on_tails: https://github.com/jquery/jquery/blob/master/src/manipulation.js#L681-698 -- thats in 1.6.1
+[00:03:07] <gnarf> it pulls the script tags out of data used like $(data)
+[00:03:39] <gnarf> or pretty much any time you use html strings in jQuery functinos
+[00:04:21] <ruby_on_tails> hmm
+[00:04:25] <gnarf> now, this evals them... https://github.com/jquery/jquery/blob/master/src/manipulation.js#L337-339
+[00:04:37] <gnarf> the problem is that the data you just added isn't actually going to the dom
+[00:04:38] <ruby_on_tails> ok if i manually pull out content between script tags can i trigger it ?
+[00:04:48] <ruby_on_tails> mhmm...
+[00:05:29] <gnarf> once they are executed, it seems they are just left to disappear so you don't execute em twice
+[00:05:42] <gnarf> so, you need to a) append your html directly to the dom
+[00:05:49] <gnarf> instead of filtering it first
+[00:05:54] <ruby_on_tails> ok
+[00:05:55] <gnarf> or b) make a function inside that script
+[00:06:03] <gnarf> that you call in your callback after you inject
+[00:06:11] <ruby_on_tails> ok
+[00:06:14] <gnarf> like window.makeThatThingPretty()
+[00:06:30] <gnarf> and in your injected html, you define that function to execute the stuff
+[00:06:41] <ruby_on_tails> hmm
+[00:07:01] <gnarf> because the script IS being run
+[00:07:08] <gnarf> just before the data it needs exists
+[00:07:41] <pr0ton_> in javascript, if you've got an array of key, value pairs
+[00:07:42] <ruby_on_tails> hmm got it
+[00:07:48] <ruby_on_tails> thanks for the help
+[00:07:51] <pr0ton_> how do you check if a particular key exists? anything elegant?
+[00:07:53] <gnarf> pr0ton_: thats not an array, its an object
+[00:07:54] <ruby_on_tails> let me try this
+[00:08:02] <pr0ton_> gnarf, ok, so how do you check anyway?
+[00:08:07] <gnarf> pr0ton_: 'key' in object
+[00:08:13] <gnarf> if you want to see if its there
+[00:08:19] <pr0ton_> if ('key' in object) ?
+[00:08:22] <pr0ton_> ok, thanks
+[00:08:24] <gnarf> object.hasOwnProperty('key')
+[00:08:34] <gnarf> that means that it itself has that property, not its prototype
+[00:09:05] <gnarf> pr0ton_: also - you can just check the property if you also want falsy values to be false
+[00:09:10] <gnarf> :)
+[00:10:23] <pr0ton_> gnarf, you mean, if (object['key']) ?
+[00:10:45] <gnarf> pr0ton_: yeah
+[00:10:53] <gnarf> it will be undefined if the key doesn't exist
+[00:11:07] <gnarf> object.key === undefined
+[00:11:19] <gnarf> although, it could have been set to undefined as well
+[00:11:33] <gnarf> play with it in a fiddle
+[00:11:34] <gnarf> :)
+[00:12:25] <gnarf> ruby_on_tails: that behavior btw, was from 1.6 code - i believe it is the same in 1.5, and probably also 1.4
+[00:12:27] <pr0ton_> gnarf, in suits my purpose, thanks though
+[00:12:35] <ruby_on_tails> gnarf: hmm ok
+[00:13:57] <gnarf> ruby_on_tails: i almost think sending a flag with the request to disable the layout and only return the rendering of that box is your last hope if that window.someFunction = function() { } idea doesn't come through
+[00:14:17] <ruby_on_tails> i cannot remove the layout :(
+[00:14:22] <gnarf> ruby_on_tails: suck
+[00:14:36] <ruby_on_tails> if i manually extract the script tags and inner content i can do a globaleval right ?
+[00:15:01] <gnarf> ruby_on_tails: how are you going to extract them?
+[00:15:07] <ruby_on_tails> a regex match
+[00:15:17] <gnarf> ruby_on_tails: dangerous, but yeah
+[00:15:27] <ruby_on_tails> js = $(data).html().search('/script.*?script/');
+[00:15:30] <ruby_on_tails> doesnt seem to work
+[00:15:49] <ruby_on_tails> pretty bad at regex but because this thing is experimental i will go that way
+[00:15:53] <gnarf> because as soon as you did $(data) you lost the script
+[00:15:59] <ruby_on_tails> hmm
+[00:16:04] <gnarf> ruby_on_tails: here dude, try this sort of thing
+[00:16:39] <ruby_on_tails> js = data.search('/script.*?script/'); gives -1 blah
+[00:17:16] <gnarf> ruby_on_tails: did you try that define a function route?
+[00:17:22] <ruby_on_tails> not yet
+[00:17:37] <ruby_on_tails> i had already started the regex thing so thought of doing this first
+[00:17:46] <ruby_on_tails> if it doesnt work i will go the functon route way
+[00:18:16] <gnarf> ruby_on_tails: step 1 https://github.com/jquery/jquery/blob/master/src/manipulation.js#L337-339
+[00:18:41] <gnarf> thats what your original page looks like-- you have a function that looks for the id of the thing it needs
+[00:18:41] <ruby_on_tails> ok
+[00:18:51] <ruby_on_tails> yes
+[00:19:14] <ruby_on_tails> ok step one done
+[00:19:42] <ruby_on_tails> copied the evalscript function also
+[00:21:28] <ruby_on_tails> gnarf: umm didnt do anything
+[00:23:23] <[algo]> hi
+[00:23:42] <[algo]> ?seen juaubourg
+[00:24:04] <[algo]> ?seen jubourg
+[00:24:41] <coldhead> Lampoon: seen jaubourg
+[00:24:42] <Lampoon> jaubourg was last seen in #jquery-dev 5 hours 34 min ago saying 'work in progress really, but I like the idea of providing the underlying callbacks list as an utility objects for all to use'.
+[00:26:27] <coldhead> ftfy, [algo]
+[00:27:22] <gnarf> ruby_on_tails: hrm
+[00:27:26] <gnarf> maybe this might work for you
+[00:27:29] <gnarf> http://jsfiddle.net/D2Mu7/
+[00:27:41] <gnarf> ruby_on_tails: note, in order to get the scripts to execute you need to inject straight into the dom
+[00:27:58] <ruby_on_tails> gnarf: so replaceWith wont work ?
+[00:28:25] <gnarf> ruby_on_tails: it will, but you can't "parse" the string with jquery first
+[00:28:31] <gnarf> you have to just stick it in
+[00:28:36] <gnarf> (thats what she said)
+[00:28:41] <ruby_on_tails> hmm
+[00:28:48] <gnarf> like i said
+[00:28:52] <gnarf> disabling layout = win
+[00:29:06] <ruby_on_tails> hmm
+[00:29:19] <gnarf> plus you aren't actually using any of that data
+[00:29:30] <gnarf> you're just wasting bytes on the wire
+[00:30:36] <gnarf> if you really really needed to
+[00:30:46] <gnarf> you could prolly use html comments and some regexp
+[00:31:01] <gnarf> but like thats a bunch of wasted code for not being able to actually return the response you want :)
+[00:31:53] <gnarf> <!-- START HERE --><div>....</div><script>....</script><!-- END HERE -->
+[00:32:15] <finbrein> hi
+[00:32:42] <gnarf> data.replace(/^.*<!-- START HERE -->|<!-- END HERE -->$/g, "");
+[00:32:48] <gnarf> inject that
+[00:33:39] <gnarf> stick that shit in the dom and see how she likes it
+[00:35:39] <gnarf> oops
+[00:35:45] <gnarf> missed a .* after the END HERE
+[00:36:41] <gnarf> var usable = data.replace(/^.*<!-- START HERE -->|<!-- END HERE -->.*$/g, "");  whatever.replaceWith(usable);
+[00:36:42] <ruby_on_tails> gnarf: ok i disabled layout, should i get the script tags also removed ?
+[00:37:11] <gnarf> ruby_on_tails: anything that isn't what you're going to inject / the scripts to decorate it
+[00:37:28] <gnarf> get rid of it in the ajax request
+[00:37:34] <ruby_on_tails> how ?
+[00:37:39] <ruby_on_tails> now i just have the js
+[00:37:41] <ruby_on_tails> with the script tags
+[00:37:48] <gnarf> and the div or whatever?
+[00:37:55] <gnarf> that you needed to replace?
+[00:38:01] <ruby_on_tails> no
+[00:38:04] <ruby_on_tails> i removed the layout
+[00:38:11] <ruby_on_tails> i just get the js code now form the ajax request
+[00:38:15] <ruby_on_tails> all divs, etc removed
+[00:38:22] <ruby_on_tails> but the js code has the script tags at the start and ned
+[00:38:24] <ruby_on_tails> end*
+[00:38:27] <gnarf> and that stops you from rendering the div tho, and you need that div right?
+[00:39:09] <gnarf> because if you don't need the div. then remove <script> tags - just bare javascript, and set Content-Type: text/javascript --- and $.getScript() it
+[00:39:13] <gnarf> but if you need that div
+[00:39:22] <gnarf> leave the script tags, and also echo that div you need
+[00:39:29] <ruby_on_tails> i have the div now on the page
+[00:39:34] <gnarf> div + script right?
+[00:39:36] <gnarf> thats it?
+[00:39:43] <ruby_on_tails> no
+[00:39:44] <gnarf> try .replaceWith(data) now...
+[00:39:48] <ruby_on_tails> ok
+[00:40:06] <gnarf> what else do you have other than the div and the script?
+[00:40:15] <ruby_on_tails> the ajax request gives only the script
+[00:40:18] <ruby_on_tails> nothing else
+[00:40:20] <ruby_on_tails> no div
+[00:40:48] <gnarf> not needed?
+[00:40:50] <gnarf> only need script?
+[00:40:58] <gnarf> --> because if you don't need the div. then remove <script> tags - just bare javascript, and set Content-Type: text/javascript --- and $.getScript() it
+[00:41:43] <ruby_on_tails> ok what if i have the div ?
+[00:42:10] <ruby_on_tails> leave that
+[00:42:14] <gnarf> --> leave the script tags, and also echo that div you need and use $("#target").replaceWith(data)
+[00:42:39] <gnarf> or $("#target").html(data)
+[00:42:44] <gnarf> depending on which you want
+[00:43:04] <gnarf> the div should come before the script btw
+[00:43:13] <ruby_on_tails> ok
+[00:43:19] <gnarf> not that i think it makes a ton of difference
+[00:43:29] <ruby_on_tails> 1 sec i am confused
+[00:43:48] <gnarf> your AJAX Response should look like "<div>....<div><script>.....</script>"
+[00:44:17] <gnarf> ^^^ is data --- $("#currentPageArea").html(data) will inject the div, then execute your script
+[00:44:25] <ruby_on_tails> after the ajax request gives me pure js without any tags, i should first put that js in the div and then do a getscript ?
+[00:44:43] <gnarf> ruby_on_tails: you're confusing yourself
+[00:44:49] <ruby_on_tails> 1 sec
+[00:44:51] <ruby_on_tails> i have a page
+[00:44:54] <ruby_on_tails> i do a ajax request
+[00:44:58] <ruby_on_tails> it gives me pure js
+[00:45:02] <ruby_on_tails> what do i do now ?
+[00:45:07] <gnarf> it runs
+[00:45:08] <ruby_on_tails> #target is there on the page from before
+[00:45:10] <gnarf> end of story
+[00:45:24] <gnarf> $.getScript() it
+[00:45:30] <gnarf> instead of ajax request
+[00:45:32] <gnarf> that will execute it
+[00:45:40] <ruby_on_tails> umm but actually, what happens is this script generates a chart where it is positioned in the dom
+[00:45:50] <gnarf> ruby_on_tails: with document.write()
+[00:45:52] <gnarf> ???
+[00:45:54] <ruby_on_tails> so i want the script to be inside #target so that it can generate a chart
+[00:46:07] <gnarf> ruby_on_tails: then its a poorly written script
+[00:46:19] <ruby_on_tails> umm its from a pretty good charting solution
+[00:46:22] <ruby_on_tails> www.highcharts.com
+[00:46:32] <gnarf> ruby_on_tails: if it can only do document.writes
+[00:46:35] <ruby_on_tails> i need that js placed in the target and then execute it
+[00:46:36] <gnarf> you're basically f'ed
+[00:46:49] <gnarf> you have to like iframe it
+[00:46:52] <gnarf> or something
+[00:46:58] <ruby_on_tails> omg thats crazy
+[00:47:12] <gnarf> that script should be looking for the target you specify
+[00:47:16] <gnarf> and appending data to it
+[00:47:20] <ruby_on_tails> yes it doesnt do that way
+[00:47:32] <gnarf> if it just "dumps" (using document.write() ) then it can only be run where it lands in the dom
+[00:47:47] <ruby_on_tails> ok 1 thing
+[00:47:50] <gnarf> and once the document is "closed"
+[00:47:54] <ruby_on_tails> it basically dumps svg/html5 stuff
+[00:47:55] <gnarf> you cant write more to it
+[00:48:17] <ruby_on_tails> so when i open a page with a chart dumped with an ajax request, get the #target and put it on my original page why dont the svg elements appear ?
+[00:48:38] <gnarf> ruby_on_tails: because the scripts aren't executed in the context of a fresh document
+[00:48:47] <ruby_on_tails> hmm, anyway to do that ?
+[00:49:09] <gnarf> ruby_on_tails: probably - but all equally buggy
+[00:49:15] <ruby_on_tails> hmm
+[00:49:28] <gnarf> can you specify a target div?
+[00:49:31] <gnarf> for that script?
+[00:49:32] <gnarf> because like
+[00:49:32] <ruby_on_tails> yes
+[00:49:37] <gnarf> if you can
+[00:49:40] <gnarf> specify a target
+[00:49:42] <gnarf> and just run it
+[00:49:43] <ruby_on_tails> i can make a target area on the original page
+[00:49:59] <ruby_on_tails> it wont help, the chart js needs to be inside that div
+[00:50:00] <gnarf> no, i mean - the chart. can you tell it append your chart to #target
+[00:50:02] <ruby_on_tails> target div*
+[00:50:05] <ruby_on_tails> hmm
+[00:50:07] <ruby_on_tails> nope:(
+[00:50:17] <gnarf> ruby_on_tails: fail - feature request that like now
+[00:50:47] <gnarf> because that is basically unusable in ajax content then
+[00:51:13] <ruby_on_tails> oh its there
+[00:51:15] <ruby_on_tails> :|
+[00:51:18] <ruby_on_tails> sorry lol
+[00:51:30] <gnarf> like i said man, yer confusing yourself ;)
+[00:52:40] <ruby_on_tails> ok i guess i know now what to do
+[00:52:44] <ruby_on_tails> thanks for the help
+[00:52:48] <gnarf> np
+[00:52:58] <gnarf> im glad you got it worked out! :)
+[00:53:14] <gnarf> and that your waste of internet wires is lessened :)
+[00:53:47] <gnarf> ruby_on_tails:
+[00:53:56] <ruby_on_tails> lol
+[00:54:06] <gnarf> one more thing, is that JS dependent on any data from the server?
+[00:54:22] <gnarf> or could you just serve it up as a .js file
+[00:54:55] <gnarf> and use <script src="/whatever.js"></script> in the non-ajaxed page
+[00:54:56] <gnarf> ?
+[00:55:17] <gnarf> ya know - in the interest of DRYing it up a bit for you
+[00:58:16] <mello> how can I give a value to an input type in JQM via html/php? The value just disappears.. I only seem to be able to fill it up using jquery
+[01:03:07] <coldhead> mello: i don't see anything special about values in the docs here http://jquerymobile.com/demos/1.0a4.1/docs/about/platforms.html#../../docs/forms/forms-text.html
+[01:03:07] <sean`> mello, jqm?
+[01:03:14] <sean`> oh
+[01:03:15] <sean`> mo
+[01:03:18] <mello> yep
+[01:04:07] <coldhead> might have to poke around in the source or wait for wookiehangover or juha___ to help you out
+[01:04:50] <coldhead> it might very well require a data-something attr
+[01:04:53] <coldhead> jqm loves that shit
+[01:04:58] <mello> hmm, ok, thanks :) i will keep an eye out for those two
+[01:05:02] <mello> one sec
+[01:05:40] <coldhead> data-role="none" maybe?
+[01:05:46] <mello> yeah, it might be.. i can check up on all data-attributes
+[01:05:48] <coldhead> to make jQm leave your shit alone?
+[01:06:57] <mello> well could've been, but now the input is still empty, and the css is omitted
+[01:40:38] <slavka`> hey guys is there a wat to get jquery ui accordion component to work horizontally?
+[01:51:03] <sean`> slavka`, not easily, but there are a lot of alternatives
+[01:53:18] <webrole> hi.. i am calling load in onclick function.. working fine in google chrome.. but not in mozilla.. any idea y?
+[01:54:23] <webrole> in mozilla firefox it is showing as the page specified in load() has been called.. but response shows nthing.
+[01:54:25] <webrole>  
+[02:03:50] <oscar___> is it possible to add a callback to the animation of a slider? i'm using stop: but it seems to fire a little too soon and was wondering if i could fire the code i want when it's done animating
+[02:08:04] <Taggnostr> why the part after the comment raises an exception http://jsfiddle.net/yDC5A/23/ ?
+[02:14:27] <nail_> Taggnostr: match() returns an array if it finds something
+[02:15:29] <Taggnostr> [0] fixed it
+[02:15:31] <nail_> and after() doesn't like it
+[02:16:55] <Taggnostr> it's still eating a line somewhere, but that's quite close to what I want http://jsfiddle.net/yDC5A/28/
+[02:17:49] <ifndefx> what would be the selector for select all elements where the name attribute is populated ?
+[02:17:53] <Taggnostr> actually it's still eating all the newlines
+[02:18:36] <jrockjiggz> Taggnostr: ur still working on this hehehe
+[02:18:58] <Taggnostr> jrockjiggz, yep
+[02:21:10] <Taggnostr> http://jsfiddle.net/yDC5A/29/
+[02:22:14] <Taggnostr> I think I'll just drop .wrap and use a function to insert spans in the textnodes
+[02:22:48] <L4suicide> still no bot?
+[02:26:30] <oscar___> for some reason my vertical (range, min) slider is shows the background filling the wrong way around
+[02:26:57] <L4suicide> anyone know a way to see what a form will post when it submits?
+[02:29:51] <oscar___> L4suicide: console.log() each result?
+[02:31:28] <L4suicide> Can I prevent the form submitting and do that? I have a sneaky feeling that some js in this website i'm using modifies the form values before it sends, which is stopping me from automating what I need to do :(
+[02:32:42] <oscar___> well sure, add .click(function() {} to the button that submits the form and add the console log stuff would be a way
+[02:32:54] <oscar___> oh and make sure it doesnt do anything else with preventDefaults
+[02:33:05] <oscar___> that is one way of doing it
+[02:33:51] <L4suicide> how would I reference the data being sent?
+[02:34:19] <oscar___> get the value of each field
+[02:34:42] <oscar___> http://api.jquery.com/val/
+[02:34:48] <L4suicide> I was looking at using something like.. $('#form').submit(function9event) {...})
+[02:35:32] <oscar___> i know very little of forms
+[02:35:57] <oscar___> this channel is awfully quiet today
+[02:36:12] <L4suicide> okay :) I think i'll do a bit of testign with val :) thanks
+[02:36:20] <sokie_de> event.preventDefault() //to keep it from submitting
+[02:36:29] <jrockjiggz> Taggnostr: i dont know if this helps http://jsfiddle.net/yDC5A/30/
+[02:37:42] <oscar___> L4suicide: i mean to just test that could do but for something more serious its a bad method :p
+[02:39:14] <L4suicide> its a start :(
+[02:40:53] <oscar___> L4suicide: there might be a plugin around to do what you want, serialize a form perhaps?
+[02:41:03] <oscar___> into something you can use
+[02:41:24] <Astro-Pirate> Arg.. there be dragons!
+[02:42:03] <oscar___> WOO WOO!
+[02:42:39] <oscar___> anyone anyone know why the vertical slider is showing my css background top to bottom instead of bottom to top :[
+[02:43:01] <oscar___> $("#volumeslider").slider({ value: 0, orientation: "vertical", range: "max", animate: true, min: 0, max: 100, slide: startVolSeek, stop: endVolSeek});
+[02:43:08] <oscar___> css just background-image
+[02:43:27] <oscar___> *range > min
+[02:43:29] <Belaf> Hello everybody. I noticed a small problem when moving from 1.5.2 to 1.6.1. The release notes for 1.6.1 say "When updating from 1.5.2 to 1.6.1, you should not have to change any attribute code.", but the example http://jsfiddle.net/B7NNq/ gives different results in 1.5.2 and 1.6.1. Am I doning something wrong?
+[02:43:34] <oscar___> i was trying max but same problem just in reverse
+[02:44:09] <coldhead> min:100, max:0 ?
+[02:44:12] <oscar___> Belaf: dont add the script like that select the right framework on the left panel
+[02:44:36] <Belaf> ops, ok, let me change it...
+[02:45:00] <oscar___> coldhead: sorry my rang is min, that wont work
+[02:45:01] <jovrtn> oscar___: the css background for which part of the slider?
+[02:45:04] <oscar___> i pasted the wrong
+[02:45:22] <oscar___> #volumeslider .ui-slider-range
+[02:45:35] <oscar___> need the min or max?
+[02:45:39] <oscar___> think they got a class too
+[02:45:42] <oscar___> hmpf
+[02:45:48] <Belaf> oscar__: it looks like I can't choose jquery 1.6.1, there.
+[02:45:59] <oscar___> Belaf: oh :o
+[02:46:37] <jovrtn> oscar___: .ui-slider-vertical .ui-slider-range-min has bottom set to 0
+[02:46:53] <jovrtn> by default
+[02:47:43] <oscar___> meaning?
+[02:48:16] <jovrtn> perhaps I misunderstood what's happening
+[02:48:35] <jovrtn> the background is tiling beginning from the bottom rather than the top?
+[02:48:37] <coldhead> everything is very confusing, i agree
+[02:48:52] <oscar___> as i slide it from 0 (bottom) to the top, the background image comes in from the top instead of following the handle up
+[02:49:06] <oscar___> jovrtn: no but thats what i need it to do
+[02:49:12] <jovrtn> ah
+[02:49:18] <jovrtn> are you using a custom style?
+[02:49:23] <coldhead> live demo or it didn't happen
+[02:49:36] <oscar___> custom is a big word, i only added my background image
+[02:49:59] <jovrtn> the background image is added to .ui-widget-header
+[02:50:04] <jovrtn> not .ui-slider-range
+[02:50:08] <oscar___> oh
+[02:50:10] <oscar___> let me try
+[02:51:01] <oscar___> background still works but still appearing from top to bottom
+[02:51:32] <jovrtn> are you setting the image with only the background-image tag?
+[02:51:55] <oscar___> background:url('assets/img/player/volume_blue_bg.png') repeat-y;
+[02:52:05] <Belaf> oscar__: I changed it, the difference is present also between 1.5.2 and 1.6. It's not a big deal and easy to fix, only I didn't expect it, given what was in the release notes...
+[02:52:06] <jovrtn> you may be clobbering other useful background: settings
+[02:52:19] <jovrtn> trying just setting the BG with background-image: url('');
+[02:52:25] <oscar___> ok
+[02:52:50] <oscar___> just background-image same result
+[02:53:06] <oscar___> its just odd because my horizontal works fine and has a background image too
+[02:54:13] <jovrtn> and you haven't used any other custom styling?
+[02:54:48] <jovrtn> removing position: absolute from .ui-slider-range has an effect like what you're describing
+[02:55:50] <oscar___> no didnt touch any of the other css
+[02:57:08] <jovrtn> i suggest starting with the default stylesheet and working back from there
+[02:57:14] <jovrtn> http://ajax.googleapis.com/ajax/libs/jqueryui/1/themes/ui-lightness/jquery-ui.css
+[02:57:15] <jovrtn> cdn version there
+[02:57:41] <oscar___> alright
+[02:58:31] <jovrtn> you may be overwriting a property somewhere higher up in your stylesheet
+[02:58:35] <jovrtn> not sure what else could be causing it
+[02:58:46] <jovrtn> unless you want to link the codez
+[03:00:13] <alex87> can i add jcarousel to the end of jquery?
+[03:00:54] <jovrtn> 'the end'?
+[03:01:11] <jovrtn> you can concat the scripts together as long as jcarousel comes second
+[03:02:14] <alex87> jovrtn: i took the minified jquery and then put the minified jcarousel on the next line. doesn't seem to work, but it's probably something else i've done
+[03:02:35] <jovrtn> hmm
+[03:02:40] <ravenzz> paste an example
+[03:02:45] <ravenzz> on jsfiddle.net
+[03:02:56] <jovrtn> console probably throwing a wealth of informative errors there
+[03:04:27] <oscar___> jovrtn: found it thanks :) you were right missing something from the style
+[03:04:32] <oscar___> *phew*
+[03:04:35] <jovrtn> woot
+[03:04:42] <oscar___> i blame that its sunday
+[03:04:51] <alex87> jovrtn: missing ) after argument list in the jquery file, thanks
+[03:04:58] <alex87> ravenzz: i'll fix the errors, then paste if no luck
+[03:05:10] <ravenzz> ok;)
+[03:13:30] <L4suicide> hrm, is there a way to submit a form in ajax without having to specify the data being sent?
+[03:14:58] <L4suicide> So when I load page 1, it submits page 1 to page 2, then page 2 to page 3, and then show whatever is on page 3 inside page 1 we originally loaded?
+[03:16:02] <L4suicide> at the moment im trying to $.post and specify values to send, but I'm missing some values or something as the website im using seems to think I am not sending the right data on the second submission :/
+[03:18:31] <L4suicide> http://pastebin.com/DfXD3hi0 <-- this is the second page which is where it fails, the 'rfc' code generated by the site doesnt match when i post that data, or i'm not posting the right data along to that address
+[03:18:44] <tehOPEologist> k so #css says this pseudocode is all js, so i'll ask the jquery chan
+[03:18:56] <tehOPEologist> hover over the image, small div pops up.  link in small div toggles big div in place of small div.  link in big div toggles back to small div.  small div goes away like before upon mouseout.
+[03:19:40] <tehOPEologist> can someone guide me into writing this to work with about 30 images with different content in the small/big divs?
+[03:20:15] <tehOPEologist> just so i don't have to hardcode 30 versions of this for each image
+[03:21:18] <ravenzz> tehOPEologist i'm doing that
+[03:21:46] <tehOPEologist> mkay, thank you.
+[03:21:50] <L4suicide> where do you want to get the content from for these divs?
+[03:22:11] <tehOPEologist> inside the <div></div> i'll be adding an img and some txt
+[03:22:19] <ravenzz> wait you only need to do that 30 times
+[03:22:34] <ravenzz> or you would know how to do that from scratch
+[03:22:34] <ravenzz> ?
+[03:22:47] <tehOPEologist> like, i want to automate the script so it gathers the divs and image divs dynamically
+[03:23:13] <tehOPEologist> so instead of writing .smalldiv1, .smalldiv2, etc
+[03:23:31] <tehOPEologist> it'd just automate it so i can use one class for the small div, and one class for the big div
+[03:23:37] <ravenzz> you should assign the smalldiv class
+[03:23:51] <ravenzz> and  then select $('.smalldiv')
+[03:23:57] <L4suicide> do you have id's for each of the images?
+[03:24:11] <tehOPEologist> yeah, for example
+[03:24:17] <tehOPEologist> the first image is #aquarium
+[03:24:42] <tehOPEologist> and you hover over that image, and below it the .smalldiv pops up with "Aquarium  info -> "
+[03:24:44] <xoveax> Hi! How to unbind event from element? $('#elem').unbind('event') not work.
+[03:25:02] <tehOPEologist> the "info -> " toggles the .smalldiv with .bigdiv
+[03:25:33] <tehOPEologist> then another "close ->" in .bigdiv toggles it back to .smalldic
+[03:25:36] <tehOPEologist> *.smalldiv
+[03:25:41] <tobiassjosten> I'm firing an unknown number of AJAX requests and I want to fire a callback when they are all complete. How would I do that?
+[03:26:20] <tehOPEologist> and once you're done with the .smalldiv, it'd go back to display: none
+[03:29:53] <L4suicide> do you want to keep the data in that same page? or load it using ajax?
+[03:37:09] <solsTiCe> hi. what's the behavior of jquery when you use a non existent id in a selector like $('#nonexistentid') ? does it fail silently ? my wish. does it looop ?
+[03:39:23] <skamikaze> solsTiCe: it's still running but on an empty element set so don't mind
+[03:39:41] <solsTiCe> ok. that's what I was thinking
+[03:46:12] <ravenzz> tehOPEologist http://jsfiddle.net/9e47U/2/
+[03:47:49] <ravenzz> mh
+[03:47:52] <ravenzz> tehOPEologist http://jsfiddle.net/9e47U/3/
+[03:56:21] <ravenzz> tehOPEologist i miss an e.preventDefault(); in the last click handler
+[03:58:41] <tehOPEologist> how do i put a delay on a div so it doesn't immediately turn to display: none?
+[03:58:55] <tehOPEologist> isn't it fade: slow?
+[03:58:58] <tehOPEologist> or something?
+[03:59:30] <tehOPEologist> do i tack on .delay(300) or something to the end of the .css('display', 'none')
+[03:59:30] <tehOPEologist> ?
+[04:02:02] <skamikaze> tehOPEologist: fadeOut(400) e.g.
+[04:02:58] <tehOPEologist> kk
+[04:03:24] <tehOPEologist> no dice
+[04:03:34] <tehOPEologist> function() {
+[04:03:34] <tehOPEologist> 					jQuery('.smalltool1').css('display', 'none').fadeOut(400);
+[04:03:34] <tehOPEologist> 				});
+[04:03:40] <tehOPEologist> oops, supposed to be one line sorry
+[04:03:43] <tehOPEologist> but that's where i put it
+[04:03:45] <tehOPEologist> no dice
+[04:04:34] <tehOPEologist> any other suggestions?
+[04:09:49] <tehOPEologist> anyone awake still?
+[04:09:57] <tehOPEologist> i got the fade problem fixed
+[04:13:24] <skamikaze> tehOPEologist: jQuery('.smalltool1').css('display', 'none').fadeOut(400); => nonsense
+[04:13:44] <skamikaze> tehOPEologist: you tell jquery to hide that element and then you hide it animated in 400ms
+[04:13:46] <tehOPEologist> yeah
+[04:13:47] <tehOPEologist> i got it
+[04:13:49] <tehOPEologist> thank you :)
+[04:13:52] <skamikaze> kk
+[04:13:55] <tehOPEologist> i just replaced .css with .fadeOut
+[04:14:05] <tehOPEologist> no need to display none when it does that upon the fade
+[04:20:12] <incorrect> id like to remove all the html from below an id data
+[04:20:21] <incorrect> .remove() removes the tag too
+[04:22:27] <neology> hi.. are any apps using jquery mobile in production?
+[04:23:34] <skamikaze> ?html @ incorrect
+[04:24:03] <skamikaze> incorrect: http://api.jquery.com/html/
+[04:24:52] <skamikaze> neology: what's the real question? :)
+[04:26:33] <neology> I have a ruby on rails app.. want to build a mobile web app of it
+[04:26:37] <neology> :)
+[04:26:49] <incorrect> thanks skamikaze,
+[04:26:56] <neology> trying to find a good framework for the same
+[04:28:39] <skamikaze> neology: well it's still alpha, has some side effects (like dom-side caching,..)
+[04:29:17] <incorrect> neology, any not use it and by the time your app is ready it will have improved
+[04:29:18] <skamikaze> neology: but anyways it's nice :) just give it a try
+[04:29:52] <neology> so, what would recommend any stable framework? jqtouch?
+[04:30:12] <lucasmobile> sencha
+[04:30:16] <neology> I already tried out jquery mobile.. it is pretty cool
+[04:30:23] <neology> just worried about it's performance
+[04:32:25] <incorrect> test it, and make improvement
+[04:33:41] <skamikaze> or gitclone it and just use the modules you want
+[04:41:01] <tehOPEologist> meowwww
+[04:41:03] <tehOPEologist> i'm so close
+[04:41:03] <tehOPEologist> >_<
+[04:41:06] <tehOPEologist> i can taste it
+[04:49:17] <ifndefx> Hi I'm trying to load a tinymce object from within another Object (i.e function myObj(){...this.mysubObj = function(){ var myvar = new tinymce.Editor("#myid");};}; however when I'm getting an tinymce is not recognised...
+[05:07:59] <CasW> Hey guys, here I am again, I want to get óne specific input from a form, how to do that?
+[05:08:22] <CasW> (Like $(this "#input").val(); or something?)
+[05:10:13] <skamikaze> why putting a this into that selector CasW ?
+[05:10:26] <skamikaze> CasW: just try it out :)
+[05:10:27] <CasW> Because there are more forms
+[05:11:00] <skamikaze> CasW: then use traversing (by $(this).find (.. e.g.)
+[05:15:34] <harpal> I have variable diclared in parent's document.ready function and I want to access it from child iframe document.
+[05:15:41] <harpal> how to do that?
+[05:15:45] <lmatos> harpal: I don't think that's possible
+[05:15:56] <lmatos> I thought the whole point of an iframe was isolation?
+[05:16:28] <harpal> usind window.parent you can access parent javascript functions and all
+[05:16:47] <harpal> but not sure how to access in jquery variable defined in document.ready
+[05:21:46] <MrSamuel> I am trying to extract text nodes from an element
+[05:21:55] <MrSamuel> does element.children contain text nodes?
+[05:22:00] <MrSamuel> or only children HTMLElements?'
+[05:26:11] <CaMason> I have an array of objects, with one property being a reference to a DOM image. When I handle a 'click' event on one of those DOM images, what's the best way to access the object that originally referenced it?
+[05:30:32] <oscar__> Hi, can i have a click(function) work for more than 1 target? because i got code inside that needs to work on more than just 1 button (so more than 1button with the same code on click)
+[05:31:27] <Anitox> yes
+[05:33:00] <oscar__> also wondering how then
+[05:33:52] <amirite> whats the correct way to check or uncheck a radio with jquery
+[05:33:53] <Anitox> $('li').click(function(){ console.log('You clicked '+ $(this).text()); });
+[05:34:20] <Anitox> that will set the click function for all <li> tags in the page
+[05:34:33] <oscar__> oh of course
+[05:34:35] <oscar__> i got it
+[05:34:37] <oscar__> thanks ;D
+[05:34:38] <CasW> I have a draggable+resizable div, but when I set the html of it (with JS), it's resizableness disappears
+[05:34:40] <Anitox> np
+[05:37:13] <amirite> what do you guys think of this statement: me.parent().siblings().children().removeClass('selected').children('input').removeAttr('checked').parent().filter('[data-index='+ index +']').addClass('selected').children('input').attr({ checked: true });
+[05:38:24] <Anitox> c-c-c-combo!
+[05:43:13] <amirite> whats the correct way to check or uncheck radios
+[05:43:31] <amirite> i'm using attr({ checked: true }) but this breaks as soon as the radio is *actually* clicked on
+[05:43:51] <lmatos> I would like to launch an event shortly after text was input in an input field. What is the best way to go about this?
+[05:43:58] <Anitox> http://api.jquery.com/radio-selector/
+[05:44:08] <Anitox> lmatos, setTimeout
+[05:44:12] <drecute> hello
+[05:44:47] <drecute> How can I make a slider slide automatically
+[05:44:52] <drecute> see http://jsfiddle.net/pbv9b/17/
+[05:45:17] <amirite> that says nothing about setting the value
+[05:45:46] <drecute> what can I place in the change event to mage the slider move?
+[05:46:06] <drecute> *make
+[05:46:27] <lmatos> Anitox: I was thinking that, but I'm wondering how start the timer after the text was input... I was thinking something like waiting 2 seconds after the last keyup to launch the event, but is there a better/easier way?
+[05:46:35] <Anitox> amirite: use val() once you've selected it
+[05:46:40] <Anitox> ?
+[05:46:44] <Anitox> or attr?
+[05:46:52] <dabear> prop
+[05:47:02] <dabear> prop("checked", true)
+[05:47:33] <Anitox> .val() will select radios
+[05:47:39] <dabear> drecute: go read the docs ofr the plugin, do it your self or pay someone
+[05:48:14] <Anitox> lmatos: you could set it to wait to seconds after they enter text with setTimeout
+[05:48:20] <Anitox> two*
+[05:48:27] <drecute> dabear: i'm reading the docs and I'm trying to do it myself
+[05:48:50] <drecute> dabear: i will be willing to pay someone if I could find
+[05:49:56] <lmatos> Anitox: I don't mean to be a bother, but do you have an example of that?
+[05:50:41] <Anitox> lemme see
+[05:51:30] <CasW> Why does my resizable disappear!
+[05:53:11] <lmatos> Anitox: I'm pretty sure I just want an "auto submitter after user has entered text" but I'm not sure where I can find such an example. Most are autocomplete or fire after every key... I am going against an external API and I only have a limited amount of calls/per hour. :/
+[05:53:43] <jnlsnl_> Anyone know a solution to the "anti-aliased text problem" in IE browser, when using opacity ? I don't want to set filter :none since that will remove the fade in/out effect all together :-(
+[05:54:43] <lmatos> jnlsnl_: I'm pretty sure for fades that it's just an issue og how IE does things... but I haven't messed with IE in a long long time.
+[05:54:48] <Anitox> Can you have it run on the blur even?
+[05:54:51] <Anitox> event*
+[05:55:58] <lmatos> Anitox: When will blur fire?
+[05:56:14] <Anitox> when the focus leaves the input
+[05:56:49] <Anitox> You could have the key event set a var stating that something has been entered, then when they leave focus, it checks the value and determines whether th call the submitter
+[05:57:11] <Anitox> or, i suppose the blur event could check .val() for something, then decide to call it
+[05:57:30] <jnlsnl_> lmatos yeah its definitely one of those IE bugs that will make you #*! :) I have googled the issue quite a bit, and I don't think there is a "perfect" solution.. just thought i might ask here just in case :)
+[05:58:37] <Anitox> lmatos, You may want to put in a variable to show that it is currently submitting.  Set the var when it begins, then when it gets the response, unset the var.  Then only have it start up when the var is not set
+[05:58:49] <Anitox> that way, it doesnt fire up a whole bunch for one person
+[05:59:04] <CasW> Hmm, I want to have a div who has a max-size, and a min-size which is the size of the content (if that content isn't bigger than the max-size), and when it ís bigger than the max-size, I want to get scroll bars
+[05:59:06] <CasW> How to?
+[05:59:43] <Anitox> max-width: 500px; overflow: auto;
+[06:01:19] <lmatos> jnlsnl_: Yeah, It's been around forever.... Does IE9 have that problem? I hope not :/ I haven't even touched IE9.
+[06:01:21] <CasW> Hmm, horizontal scrollbars and draggable don't go together...
+[06:02:36] <lmatos> Anitox: for an input to "lose focus" they would have to click somewhere else correct? It doesn't lose focus until that right? I feel like this is an obious question, but I feel like I've seen what I'm trying to do before I just don't know where.
+[06:03:09] <Anitox> yeah, if something changes the focus to somewhere else, like a click, press tab, a focus() event ...
+[06:04:18] <jnlsnl_> <lmatos> I'm going to install ie9 test environment one of these days.. fingers crossed :p
+[06:04:31] <CasW> Hmm, overflow and resizable don't go together, either :p
+[06:05:08] <lmatos> jnlsnl_: :P I haven't done front-end in a while but I'm hoping IE9 fixed some of the quirks
+[06:06:24] <Goose1984> Whats the sytanx to get this working with .live http://pastebin.com/TALV2vLc
+[06:13:48] <dabear> Goose1984: read the docs, it's quite simple
+[06:16:07] <orolo> i need some JSON help. question is here: http://jsfiddle.net/orolo/DBE5n/11/
+[06:16:37] <orolo> basically, i'm trying to get the results out of a JSONP object but can't get it to return properly.
+[06:27:31] <CasW> Is it possible to dynamically set the minHeight and minWidth, the more content, the bigger it is?
+[06:27:50] <ifndefx> Anyone know of a good inplace/wysiwyg editor ? I had a look at the Ipweditor for TinyMCE hack... but that is problematic...
+[06:31:09] <m1chael> http://media.lmwblog.com/test.html # i'm using Jquery/Autocomplete, with GeoNames.org JSONP web service, i'm trying to create a drop down of countries, and have the country value be used within the autocomplete function... it will only work for whichever country was selected when the page loaded (i.e. AU is default, but when US is selected, it still uses AU)
+[06:32:26] <sean`> ifndefx, google for aloha
+[06:36:26] <lmatos> I know this is #jquery, but does anyone have any good canvas tuts that they can recommend? My next project is going to make use of arbor.js and I'm probably going to use canvas. Or if anyone has any other non-flash canvas alternativs I'm all ears :)
+[06:54:34] <Bedoskil> Hello, I followed a tutorial to jQuery tympanus.net and I would add sub-menu that appears as the menu tabs link for this tutorial is: http://tympanus.net/codrops/2011/ 03/09/animated-content-menu/comment-page-2 /  you can help me?
+[07:05:38] <ifndefx> sean`:  thanks
+[07:10:49] <adamramadhan> hello
+[07:10:53] <lmatos> hi
+[07:11:02] <adamramadhan> how can i do chaining effects ?
+[07:11:04] <adamramadhan> example $('#ajax-pull-twitter').fadeIn(40000).html(data);
+[07:11:06] <adamramadhan> is this right ?
+[07:11:22] <adamramadhan> the fadein doent effect doesnt comes in.
+[07:12:23] <CasW> I would say $('#ajax-pull-twitter').html(data).fadeIn(40000);
+[07:12:32] <CasW> (That's forty seconds, you know that?
+[07:12:34] <CasW> )
+[07:12:50] <adamramadhan> yeah.
+[07:13:03] <adamramadhan> it somehow instantly shows up
+[07:13:37] <CasW> Oh, alright, then $("#ajax-pull-twitter").html(data).hide().fadeIn(40000);
+[07:13:46] <adamramadhan> aha
+[07:13:49] <adamramadhan> that work!
+[07:13:52] <adamramadhan> thanks mate
+[07:13:53] <m1chael> http://media.lmwblog.com/test.html # i'm using Jquery/Autocomplete, with GeoNames.org JSONP web service, i'm trying to create a drop down of countries, and have the country value be used within the autocomplete function... it will only work for whichever country was selected when the page loaded (i.e. AU is default, but when US is selected, it still uses AU)
+[07:13:56] <adamramadhan> save my time
+[07:14:02] <CasW> No thanks
+[07:14:09] <skamikaze> adamramadhan: http://stackoverflow.com/questions/1058158/can-somebody-explain-jquery-queue-to-me/3314877#3314877
+[07:15:16] <adamramadhan> otw
+[07:17:00] <skamikaze> otw?
+[07:18:07] <Fjorko> Hi all
+[07:18:14] <Bedoskil> hi
+[07:18:32] <Fjorko> need some help in using jquery to refresh a php generated capthca image
+[07:18:48] <Fjorko> the php code is embedded ina <li>
+[07:20:21] <Fjorko> i was thinking along the lines of refreshing the containing div somehow using a click event on an a tag right underneith the image
+[07:21:57] <Fjorko> website ( my first ) can be found here ( still in dev ) : test.epbudgerigars.com     <---click contact and see what I mean
+[07:28:14] <Fjorko> anyone ?
+[07:51:37] <adamramadhan> on the way
+[08:01:58] <CasW> If I use $.post("/somePHP.php"), the php is executed, right?
+[08:09:41] <imanc> hey does anyone know how to make $('#form').submit() blocking?  I need it to submit, then wait until submission is complete
+[08:14:32] <sikor_sxe> hello, i am a bit puzzled: how would i use a child selector with $(this)?
+[08:14:52] <sikor_sxe> $(this)."> bla"?
+[08:15:10] <sikor_sxe> err $(this).$("> bla")
+[08:15:53] <StevenBlack> sikor_sxe: $(this).children(".bla") to go down exactly one level.
+[08:16:21] <StevenBlack> sikor_sxe: $(this).find(".bla") to find among all descendents.
+[08:16:23] <sikor_sxe> StevenBlack: that would select all of class "bla" wouldnt it?
+[08:16:31] <StevenBlack> Correct.
+[08:16:40] <sikor_sxe> i need the tagname bla
+[08:16:59] <StevenBlack> $(this).children("bla")
+[08:17:10] <sikor_sxe> ouch, that was easy :) thx
+[08:17:58] <StevenBlack> sikor_sxe: Consider donating to the jQuery project.  http://jquery.org/donate/
+[08:21:53] <oDesk> hello smart developers
+[08:22:09] <oDesk> any way to reload the style of an element ?
+[08:23:05] <StevenBlack> oDesk: $(selector).css( ... ); to SET the style of an element.  Does this help?
+[08:23:56] <StevenBlack> You could try $(selector).removeAttr("style") to remove any subsequent applied styles.
+[08:25:09] <oDesk> StevenBlack: $("#paginate").css($("#styles").html());  where <style id="styles">...css...</style>     this doesn't work
+[08:26:30] <StevenBlack> oDesk: Well, I wouldn't expect that to work :-)
+[08:26:51] <CasW> Why oh why doesn't my site work!
+[08:27:03] <CasW> It does on the apache locally installed, but it doesn
+[08:27:08] <CasW> t on my website
+[08:28:14] <StevenBlack> oDesk: .css() takes a comma delimited list of style name-value pairs, or a js object { name:value, name:value }, neither of which you get from .html().
+[08:29:23] <StevenBlack> Note that in the case of the js object, some name mangling applies to compound names.  So background-color should be backgrouncColor.
+[08:29:37] <StevenBlack> oDesk: ^^^
+[08:49:02] <hassan> I'd like to addClass() to a link after it has been clicked and the resulting page has loaded - not sure how to go about adding class to $(this) link after the resulting page has loaded.
+[08:50:44] <hassan> code: http://jsfiddle.net/uSphm/
+[08:51:35] <hassan> this does add the class as required, but makes no diff as it is wiped when the link is loaded up.
+[08:59:03] <oDesk> StevenBlack: actually the styles are so much and not just specific to this element but this element is root for other elements that lost style
+[09:14:45] <tman> how do you target just the first descendants of a list, and not the subsequent children.. i thought it was like .whatever > li
+[09:14:56] <tman> but that's targeting the nested li's to
+[09:14:56] <tman> o
+[09:24:24] <Bruce511> hi all. I'm somewhat new to jQuery, and I've been working on my first bug fix in jquery-ui. There are two possible fixes to the bug, and I'm not sure whether I should submit both fixes, with explanations, or what. Any advice?
+[09:27:48] <skylamer> gihubeca?
+[09:28:10] <hassan> nvm, solved by storing the url and writing a simple function to match and addClass.
+[09:33:02] <pwaring> Is there a particular place where users can report dead/abandoned plugins?
+[09:33:13] <pwaring> i.e. so they are removed from the jQuery website
+[09:34:05] * pwaring doesn't want to report the bug to the author if the plugin is no longer maintained
+[09:56:42] <mephux> can anyone spot why this wont work?  /\A[a-z_\-\[\]\\^{}|`][a-z0-9_\-\[\]\\^{}|`]{2,15}\z/i
+[10:02:12] <QaDeS> mephux, did yu forget to escape the | ?
+[10:03:17] <mephux> QaDeS: maybe but it still gives invalid char error.. crap
+[10:05:15] <QaDeS> what's that expression for anyway?
+[10:07:01] <mephux> QaDeS: to validate irc nicknames
+[10:12:35] <bittyx-laptop> hi, i have a bit of trouble with the :not() selector. i've got a #content div, with a bunch of other divs inside. some of them represent certain objects within the system, and each object is within it's own div with class="itemSmall ...." (more classes depending on the object). i'm trying to use isotope ( http://isotope.metafizzy.co ) to show/hide these. so when i call $('#content').isotope({ filter: ':not(.itemSmall)' }); everything that match
+[10:12:35] <bittyx-laptop> es the selector ':not(.itemSmall)' should be shown, and everything else hidden; ie. everything that matches '.itemSmall' should be hidden. however, nothing happens when i call this. can anyone provide some help?
+[10:18:54] <StevenBlack> bittyx-laptop: Try $('irc://irc.freenode.net/#content').isotope({ filter: ':not(".itemSmall")' })  -- note the quotes inside the .not()
+[10:19:06] <BinaryKitten> lol
+[10:19:22] <BinaryKitten> IRC channel there StevenBlack
+[10:20:30] <oscar__> i want to temporarily store an array (inside sets of title+an url) how can i do this best (cross browser and all)
+[10:20:48] <StevenBlack> Hmm.  IRC client shenanigans.
+[10:21:31] <bittyx-laptop> StevenBlack: meh, doesn't help, still the same. i've noticed that all my <hr />s disappear, though. i'll do some more debugging to figure out what's happening
+[10:22:10] <StevenBlack> I've used isptope... I just consult the demo code for insight...
+[10:22:27] <bittyx-laptop> StevenBlack: well i am consulting the demo code, but it isn't working as expected
+[10:23:08] <bittyx-laptop> i can't give more information right now (since i've got no idea what's happening), so i understand you can't help much at the moment
+[10:26:42] <BinaryKitten> bittyx-laptop try giving each div a class that it can use
+[10:27:26] <oscar__> i got it to work on 1 list i have, but i got 3 in total. i know that sounds weird, on the first i use sortable('toArray'); how can i add the other 2 to the same array? (array name is order)
+[10:27:46] <oscar__> that way i can just call it twice more and i'll have all of them in the array
+[10:30:15] <m1ndvirus> Is there jquery-ui-latest.js?
+[10:30:21] <m1ndvirus> *a
+[10:31:44] <BinaryKitten> m1ndvirus https://ajax.googleapis.com/ajax/libs/jqueryui/1/jquery-ui.min.js
+[10:33:51] <bittyx-laptop> StevenBlack: ouch, i've figured out what's happening. i have a very complicated layout with lots of div nesting, is what's happening. grr, gonna need to figure out a better way to do this. thanks for trying to help anyway!
+[10:34:16] <bittyx-laptop> (basically my selectors were selecting the wrong stuff)
+[10:56:48] <m1chael> http://media.lmwblog.com/test.html # i'm using Jquery/Autocomplete, with GeoNames.org JSONP web service, i'm trying to create a drop down of countries, and have the country value be used within the autocomplete function... it will only work for whichever country was selected when the page loaded (i.e. AU is default, but when US is selected, it still uses AU)
+[10:57:23] <oscar__> i got it all into an array (multi level), how can i put it back into a list (<UL>)
+[10:58:47] <BinaryKitten> m1chael  where is country defined?
+[10:59:01] <m1chael> in the select box
+[10:59:05] <BinaryKitten> country.options[country.selectdIndex]
+[10:59:10] <m1chael> take a look at the source, i'm doing that
+[10:59:13] <BinaryKitten> the var country does not exist
+[10:59:32] <m1chael> country.options[country.selectedIndex].value
+[10:59:36] <BinaryKitten> yes
+[10:59:43] <m1chael> that is what my code is doing, it still will not work
+[10:59:45] <BinaryKitten> but "country" as a variable doesn't exist
+[11:00:25] <m1chael> its as if the auto complete code will not update the variable when the select box is changed
+[11:00:35] <BinaryKitten> no there is a confusion here
+[11:00:41] <BinaryKitten> there is country param
+[11:00:46] <BinaryKitten> and country variable
+[11:00:50] <BinaryKitten> 2 are separated
+[11:01:01] <m1chael> my code is using country.options[country.selectedIndex].value
+[11:01:08] <BinaryKitten> i know
+[11:01:12] <BinaryKitten> but country is not defined
+[11:01:28] <m1chael> <select id="country" name="country">
+[11:01:35] <BinaryKitten> that's a elem
+[11:01:40] <BinaryKitten> *an element
+[11:01:43] <BinaryKitten> that's not JS
+[11:01:57] <BinaryKitten> before you do the autocomplete start
+[11:01:59] <tsiokos> hello guys, i'm trying to join in another channels and it throws me an error "you need to be identified with services"
+[11:02:10] <BinaryKitten> do var country = document.getElementById('country');
+[11:02:27] <Mysphyt> tsiokos: Check the MOTD.  You need to identify with NickServ.
+[11:03:26] <tsiokos> Mysphyt: i try using this guide http://freenode.net/faq.shtml#registering
+[11:03:36] <m1chael> BinaryKitten, I appreciate your help.. http://media.lmwblog.com/test.html # check the source: i've added what you've told me, but i'm still experienncing the same behavior
+[11:05:30] <BinaryKitten> ok m1chael testing now..
+[11:06:32] <mav> hi. i want to delay animation until image is loaded, so use $().load(function(){}) when page loads. but i want also start this same animation on this same image later, but of course load() don't work. how to determine, if image is not loaded and wait or start animation immediately?
+[11:06:51] <BinaryKitten> m1chael can you create a fiddle
+[11:07:03] <oscar__> please anyone know how to get a multi level Array (title & url) into a list?
+[11:07:31] <BinaryKitten> oscar__ create a paste of what you have and can you elabourate over what you want out
+[11:07:48] <oscar__> oh i'll make an example
+[11:07:51] <m1chael> i dont know how to make a fiddle, i'm old-school ;/
+[11:08:05] <BinaryKitten> m1chael  jsfiddle.net
+[11:08:07] <mavv> is my last words visible?
+[11:08:14] <BinaryKitten> put html in, the js in as well
+[11:08:22] <BinaryKitten> that way we can fiddle with it
+[11:08:36] <gnarf> (twss)
+[11:08:52] <Mysphyt> giggity
+[11:09:20] <BinaryKitten> gnarf (twssifiah)
+[11:09:36] <gnarf> ifiah?
+[11:09:54] <BinaryKitten> thats what she said for i am her
+[11:10:13] <gnarf> one to many i's
+[11:10:25] <BinaryKitten> nope i need two to make sure i see properly
+[11:10:33] <gnarf> fair enough
+[11:10:41] <gnarf> ?hi5 @BinaryKitten
+[11:10:43] <oscar__> not sure if this illustrates it properly, http://jsfiddle.net/P4Ft8/
+[11:10:59] <m1chael> how do i make a fiddle with external js files
+[11:11:09] <oscar__> you can add resources on the side
+[11:11:14] <gnarf> m1chael: the left hand side has a place you can "add resources"
+[11:11:23] <gnarf> just put a url to a .js file there and it will get included
+[11:12:33] <gnarf> BinaryKitten: i think i've seen you in #zftalk too right?
+[11:13:13] <BinaryKitten> right
+[11:14:18] <mavv> how to determine, if image is not loaded and wait or start animation immediately?
+[11:14:46] <gnarf> mavv: its not an easy problem to solve
+[11:14:53] <gnarf> mavv: there are some cross browser issues
+[11:15:25] <oscar__> what about http://api.jquery.com/load-event/
+[11:15:28] <gnarf> mavv: https://gist.github.com/268257
+[11:15:40] <oscar__> @ mavv
+[11:17:47] <gnarf> BinaryKitten: doin anything cool with ZF recently?
+[11:18:06] <BinaryKitten> late static binding for model abstract
+[11:18:26] <mavv> oscar__ i wrote some words before paste it again, but don't paste all - i thought it is visible, and repaste may be treated as spam :(
+[11:18:31] <BinaryKitten> and sticking my opinion in in relation to ZF2-MVC
+[11:18:38] <gnarf> nice, yeah, we've been playing with MongoDB (using Shanty) - late static is nice :)
+[11:18:46] <oscar__> mavv: dont paste, put it up on jsfiddle instead
+[11:19:13] <mavv> i wrote only question, not code ;)
+[11:19:16] <nahuel> hi people, does anyone uses jquery-datatables-editable ?
+[11:19:41] <oscar__> can anyone tell me how to turn my array with (title and url) in them into a list http://jsfiddle.net/P4Ft8/
+[11:19:52] <Dandy> Hello everybody. I'm trying to create a scrollbar/slider using jQuery, but the handle is able to escape its boundaries and I can't figure out why. It's online at http://web-das.info/dt/ - Any ideas?
+[11:20:37] <gnarf> BinaryKitten: http://epicadvice.com/user/3 -- using shanty/zf/etc - fun project :)
+[11:21:24] <m1chael> BinaryKitten: http://jsfiddle.net/pborreli/pJgyu/
+[11:21:26] <oscar__> Dandy: you sure contentsWidth is returning the right value?
+[11:21:47] <oscar__> Dandy: console.log(ontentsWidth)
+[11:21:53] <oscar__> *contentsWidth :p
+[11:22:50] <BinaryKitten> right m1chael ??
+[11:22:59] <BinaryKitten> what has that to do with te autocomplete?
+[11:23:19] <oscar__> haha
+[11:23:44] <mavv> thank You
+[11:24:28] <Dandy> I don't think that is the problem oscar__. contentsWidth has the value 4556 and it is used as the max value that the slider will return.
+[11:25:23] <oscar__> show -784 now?
+[11:25:25] <jstout> how can i upload an image on a current form that's using $.post
+[11:25:32] <m1chael> BinaryKitten: sorry, wrong URL: http://jsfiddle.net/yDA9S/
+[11:25:46] <oscar__> Dandy: you could check your css, define the width there?
+[11:27:32] <Dandy> contentsWidth shouldn't matter, it is only used to define what value it reads in the on slide event. and setting it to something else doesn't change anything
+[11:34:53] <m1chael> BinaryKitten: i dont think the problem is with country not being defined- since the code works, it just wont work when a new country is selected.. it just continues to search US cities since US was the first country selected on page load
+[11:35:24] <BinaryKitten> m1chael that was 1 problem with the code
+[11:35:32] <BinaryKitten> i'm working on a solution..
+[11:35:34] <m1chael> oh okay
+[11:35:36] <BinaryKitten> :)
+[11:35:37] <m1chael> :)
+[11:35:44] <BinaryKitten> thus the request for the fiddle
+[11:35:56] <coconutz> i got a css that uses a font  in that type: @font-face  , is there a cons to use them? or its browser-safe 100% cross browser?
+[11:36:42] <oscar__> how can i use $.each() with an array with 2 values inside, movies[].title movies[].url
+[11:37:38] <Predat0r> hi
+[11:38:19] <Predat0r> guys i want to fill a div with php code, but it doesnt show up in the html
+[11:38:25] <Predat0r> is it possible to do that?
+[11:38:57] <Predat0r> so $('<?php echo 'x';?>').appendTo('.something');
+[11:41:09] <oscar__> Predat0r: yeah dont see why not, is your page set to .php
+[11:41:41] <Predat0r> sure
+[11:41:55] <BinaryKitten> m1chael i'm close
+[11:41:58] <oscar__> though iv only used it setting it as a variable first
+[11:42:03] <BinaryKitten> just get an error from the request
+[11:42:42] <Predat0r> oscar__ trying that now
+[11:43:05] <BinaryKitten> m1chael i think it's just a fiddle issue
+[11:43:08] <sokie_de> $('<?php echo 'x';?>').appendTo('.something'); wouldnt work. since php is designed to be executed on the server bevor the page is delivered to the client
+[11:43:22] <BinaryKitten> m1chael http://jsfiddle.net/yDA9S/1/ try that
+[11:43:44] <oscar__> Predat0r: what sokie said :)
+[11:44:01] <oscar__> can anyone have a look, trying to get my array into a list http://jsfiddle.net/P4Ft8/1/
+[11:44:30] <BinaryKitten> oscar__ please give sample of your array
+[11:44:50] <BinaryKitten> movies is not defined anywhere in your sample, so we can't help you without it
+[11:44:59] <oscar__> but its just text in there
+[11:45:29] <oscar__> title: "Movie 1", url: "http://youtube.com/123/"
+[11:45:58] <Predat0r> i see sure im tired ehh
+[11:46:02] <BinaryKitten> oscar__ i don't care what it is...
+[11:46:14] <oscar__> not that im an expert but i create the array before im putting it into another list so i dont know how to fill it in the example
+[11:46:15] <BinaryKitten> without the array, object in question we can't proceed
+[11:46:47] <BinaryKitten> just past the code that gets the array then
+[11:46:55] <BinaryKitten> or however it is generated
+[11:47:02] <oscar__> sure
+[11:47:48] <oscar__> hope this helps out http://jsfiddle.net/P4Ft8/2/
+[11:47:49] <Predat0r> thx oscar__, sokie_de
+[11:50:16] <orolo> (connection crashed)
+[11:50:26] <RobSpectre> Looking to find all elements that contain a string that don't have any children...
+[11:50:45] <RobSpectre> Thinking that :contains and :only-child should be used in conjunction here - is that accurate?
+[11:51:14] <sokie_de> :only-Child find elements without siblings
+[11:51:21] <sokie_de> i guess
+[11:51:40] <orolo> (sorry if this is a double post) http://jsfiddle.net/orolo/DBE5n/14/ i'm struggling w/ JSON and jQuery; i can get a single object from JSON but if I try an array, i get undefined. see comment in jsfiddle.
+[11:51:52] <RobSpectre> sokie_de: How should multiple selectors be invoked?
+[11:51:52] <jedimind> dont single out only children any more so than they already are
+[11:51:53] <jedimind> it's sad :(
+[11:52:18] <RobSpectre> jedimind: Yup. That's going on Bnter. ;)
+[11:52:34] <sokie_de> http://api.jquery.com/empty-selector/ should be helpful
+[11:53:04] <jedimind> <3
+[11:53:09] <RobSpectre> sokie_de: I don't think that's the one I want, as it needs to have text...
+[11:53:31] <RobSpectre> sokie_de: How does one use multiple selectors?  I tried a couple combinations in the console and got errors.
+[11:53:54] <RobSpectre> jedimind: What's your Twitter so I can attribute correctly?
+[11:54:12] <jedimind> im not very twitteractive
+[11:55:15] <BinaryKitten> ok oscar__ i'm still missing data
+[11:55:17] <RobW> i just unfollowed about 300 people today too
+[11:55:23] <BinaryKitten> http://jsfiddle.net/P4Ft8/3/  can you add the code for #movie
+[11:55:54] <oscar__> oh sorry
+[11:55:55] <RobSpectre> - http://bnter.com/convo/22489
+[11:55:58] <oscar__> my bad
+[11:56:02] <jedimind> why does fadeTo mess with z-index :(
+[11:56:03] <BinaryKitten> np
+[11:57:00] <m1chael> BinaryKitten: thanks! i dont think it's perfect yet, but this helps A LOT!
+[11:57:33] <BinaryKitten> m1chael it sets the params up on each change
+[11:58:04] <BinaryKitten> otherwise it only sets it the 1st time
+[11:58:23] <BinaryKitten> and the change of the country doesn't change the extraparams
+[11:58:52] <BinaryKitten> but now it does
+[11:59:08] <c0dy> In some code I found this: $("#something1 #something2").show(); - does it make sense? I think the original coder wants to show #2 (which is a div within #1). Is the #1 there even "allowed" in terms of jquery selector rules?
+[11:59:13] <serio> hi BinaryKitten
+[11:59:19] <BinaryKitten> hello serio
+[11:59:21] <paul_irish> c0dy: yup. allowed.
+[11:59:32] * BinaryKitten pouncehuggles paul_irish
+[11:59:33] <paul_irish> there isnt many good reasons to nest #id selectors
+[11:59:39] <c0dy> paul_irish: but does it make sense?
+[11:59:43] <paul_irish> but.. you can for clarity sometimes
+[11:59:47] <paul_irish> but usually you dont want to
+[11:59:52] * RobW Pimp Slaps paul_irish
+[11:59:54] <Jayflux> c0dy theres nothing wrong with that from here
+[11:59:55] <paul_irish> hiiiiiiiiiiiiiiiiiiiiiiiii BinaryKitten
+[11:59:55] <RobW> hi paul
+[11:59:58] <paul_irish> sup
+[12:00:26] <RobW> .js
+[12:00:26] <paul_irish> c0dy: its a little slower than normal. and i'd ask the developer whyyy they did that. but its not terrible.
+[12:00:29] <RobW> !js
+[12:00:36] <c0dy> ok, and if I understand it right, if I leave out #something1 here, nothing will change?
+[12:00:43] <RobW> c0dy: nope
+[12:00:56] <paul_irish> correct
+[12:00:57] <serio> ?js
+[12:00:59] <ravenzz> /join #something1
+[12:01:00] <ravenzz> lol
+[12:01:06] <paul_irish> no bots, guys
+[12:01:08] <paul_irish> no botsssss
+[12:01:08] <serio> bot-t, #jquery is naked without you!
+[12:01:16] <c0dy> paul_irish: I think they used a class for something2 before, that could be an explaination
+[12:01:22] <paul_irish> yes.
+[12:01:37] <Jayflux> paul_irish did you have any involvement in this year's google I/O ?
+[12:01:39] <c0dy> RobW: why not? what would change?
+[12:02:06] <oscar__> BinaryKitten: hope this is more clear http://jsfiddle.net/P4Ft8/4/ what im trying to do is get the array made from the PLqueue into the target UL
+[12:02:22] <jrockjiggz> is there any html structure checker plugin for firebug?
+[12:02:32] <RobW> c0dy: i said yes as in 'nothing will change'
+[12:02:42] <RobW> ID's are unique identifiers, they should only exist once..
+[12:02:49] <c0dy> RobW: ah, ok. :-)
+[12:02:56] <BinaryKitten> oscar__ it is
+[12:02:56] <paul_irish> Jayflux: yes i spoke there and led a workshop
+[12:02:57] <RobW> maybe if it were a class, it'd be a good idea to keep the structure
+[12:03:02] <BinaryKitten> but you have a failure
+[12:03:03] <RobW> or the flow or whatever you call it
+[12:03:07] <BinaryKitten> multiple IDs
+[12:03:24] <c0dy> RobW: they only exist once, i think it's a left-over form earlier code which used classes
+[12:03:25] <oscar__> from trying to recreate it i can promise you
+[12:03:53] <oscar__> oh the movie id?
+[12:03:55] <serio> there's an easy way around the whole multiple ID's thing
+[12:03:58] <serio> don't use em
+[12:04:12] <c0dy> paul_irish, RobW, Jayflux: thanks.
+[12:04:24] <Jayflux> np!
+[12:04:42] <RobW> paul_irish: where's bot-t?
+[12:04:53] <paul_irish> sleeping
+[12:04:56] <oscar__> BinaryKitten: http://jsfiddle.net/P4Ft8/5/
+[12:05:05] <RobW> organic bot now? damn you're good.
+[12:05:11] <RobSpectre> hrm - is there something like :empty that allows for text?
+[12:05:14] <dinosaadeh> guys i wonder if http://jqueryui.com/demos/sortable/ can be used on tables? i mean it is not working
+[12:05:22] <RobW> dinosaadeh: try datatables
+[12:05:44] <RobW> iirc they have a way to sort it
+[12:06:47] <RobW> dinosaadeh: or this http://www.isocra.com/2008/02/table-drag-and-drop-jquery-plugin/
+[12:07:03] <oscar__> BinaryKitten: sorry http://jsfiddle.net/P4Ft8/6/ think that is as close as it should be
+[12:07:05] <m1chael> binaryKitten, any ideas on why it might continue to search US as well as AU ?
+[12:07:38] <m1chael> could there be any way its passing in both? or caching
+[12:07:50] <BinaryKitten> don't know
+[12:09:09] <m1chael> http://media.lmwblog.com/test2.html # here is your code in action
+[12:09:57] <rasca> I'm tring to select all inputs that aren't inside ceratin divs with class .container . How can I do this ? $(:not(.container) input') does not work..
+[12:10:01] <m1chael> doesnt work ;/
+[12:11:23] <salomonv> hi, can I implement a callback function for when $.ajaxCall is done?
+[12:11:49] <Jayflux> you have a link rasca
+[12:12:12] <sokie_de> rasca, $("input").not(".container input")
+[12:12:23] <Jayflux> ^ should work
+[12:12:47] <oscar__> salomonv: you mean .complete();?
+[12:13:11] <oscar__> salomonv: uhh nvm that one
+[12:13:16] <BinaryKitten> oscar__  http://jsfiddle.net/P4Ft8/7/
+[12:14:26] <oscar__> salomonv: if youre using ajax. that has complete: to run something i think
+[12:14:42] <oscar__> BinaryKitten: thank you, im having a look
+[12:15:01] <BinaryKitten> you were missing a couple of divs on items 2,3
+[12:15:02] <rasca> Jayflux sokie_de: thanks! That did the trick :) Can it be done in a single call? just an intelectual exercise... It works great the way you told me
+[12:15:12] <salomonv> oscar__ sorry ajaxCall is a custom function but that excecutes $.ajax(), so could you just do $.ajax().doSomethingWhenAjaxComplete()?
+[12:15:43] <oscar__> salomonv: your own function?
+[12:15:52] <sokie_de> wasn't that a single thing?
+[12:15:58] <wathek> Hi all I'm trying to hide a fancybox using $.fn.fancybox.close(); but it doesn't work I'm getting always fancybox is undefined
+[12:16:06] <salomonv> oscar__ yes ajaxCall is a custom function (working with a framework)
+[12:16:09] <wathek> I juste want to create a function that closes it
+[12:16:11] <Jayflux> that looked like a single call to me
+[12:16:16] <salomonv> oscar__ but i want to do something when the ajax call is complete
+[12:16:19] <Jayflux> it wasnt using each or anything like that
+[12:16:45] <oscar__> salomonv: dont think if its not jQuery it can detect it's done, did you check out the framework ?
+[12:17:11] <oscar__> salomonv: i might be misunderstanding
+[12:17:27] <salomonv> oscar__ wel it's a framework that uses jquery, so $.ajaxCall is a custom function that acceptes different parameters etc t comply with the framework, but that function does use jquery's $.ajax()
+[12:18:07] <rasca> I'm saying without the .not() ... just a single $()
+[12:18:09] <oscar__> ah ok
+[12:18:30] <sokie_de> rasca $("input:not('.container input')") should do the same
+[12:18:54] <dinosaadeh> RobW: this is way too sophisticated to my need.. isnt there a way to use draggable on tr?
+[12:19:03] <sokie_de> but the first is better readable
+[12:19:32] <rasca> sokie_de: ohh I see. I was misinterpreting :not
+[12:19:34] <rasca> tahnks
+[12:19:43] <sokie_de> yw
+[12:20:18] <oscar__> BinaryKitten: i got it to work in my project, thank you so much!
+[12:20:19] <salomonv> oscar__ i'm not so familiar with JS but would a function $.somefunction() {$.ajax(somearguments); } and then $.somefunction().anotherfunction() execute anotherfunction() after the ajax call is complete?
+[12:20:34] <sokie_de> http://api.jquery.com/not-selector/ and http://api.jquery.com/not/
+[12:20:39] <BinaryKitten> no problems oscar__ we got there in the end
+[12:20:44] <oscar__> :D
+[12:22:01] <oscar__> salomonv: perhaps tell us the framework, show some code? it should help you to get some help
+[12:22:03] <oscar__> ;)
+[12:23:09] <salomonv> well it's just a private framework that implements a function $.ajaxCall =  new function(arguments) { somecode; $.ajax(some arguments); } and i want to know if I could juse $.ajaxCall(arguments).someFunctionThatExecutesWhenAjaxCallIsComplete()
+[12:24:24] <Kta> hi!
+[12:24:49] <sokie_de> hi Kta
+[12:24:51] <Kta> i'm trying to use the "$(this)" object inside a function called by a callback… but i don't know how… anyone could help??
+[12:26:29] <salomonv> well anyhow, does anybody know if you have a custom function $.ajaxCall() that executes a jquery ajax call within it, and then you have $.ajaxCall().someOtherfunction(), would that .someOtherFunction() execute AFTER the ajax call is complete?
+[12:27:50] <amirite> how come jquery ui slider gives me a silly dotted line border on the handle when i create it on my page and focus/drag it but on the demo page there is no silly dotted line border
+[12:27:55] <jamey-uk> Does anyone know how I can stop this embedded Vimeo <iframe> from inheriting the transparency of its parent <div>? http://greenwoodsharps.com/video.html
+[12:27:56] <amirite> what gives, i feel cheated
+[12:29:37] <c0dy> another selector-question: I intercept all 'a' clicks in a certain area with: $("#content-area a").bind('click', myclick).attr('href', '#intercepted'); Now I need to leave out a number of 'a' which are within some <ul id="content-subset"><li><h3><a href="this_shouldn_t_be_intercepted... - can I use the :not here somehow?
+[12:29:49] <pifantastic> amirite: the <a> that is the slider handle in the docs has outline: none;
+[12:30:05] <pifantastic> amirite: check the styles on your handle, is outline: none; set?
+[12:30:15] <amirite> no, thanks pifantastic
+[12:30:22] <sokie_de> get rid of dotted line by using css (outline: none) on the element in question, amirite
+[12:30:54] <c0dy_> oops.
+[12:30:58] <c0dy_> another selector-question: I intercept all 'a' clicks in a certain area with: $("#content-area a").bind('click', myclick).attr('href', '#intercepted'); Now I need to leave out a number of 'a' which are within some <ul id="content-subset"><li><h3><a href="this_shouldn_t_be_intercepted... - can I use the :not here somehow?
+[12:31:12] <c0dy_> webirc crashed, sorry if double-post
+[12:32:18] <sokie_de> $("#content-area a").not("#content-subset a") c0dy
+[12:32:35] <Kta> anyone could help me? i've defined a function "refresh" for call it from a callback, but i need to use the "$(this)" object from the callback inside "refresh", but i don't know how… :(
+[12:33:41] <sokie_de> sorry should be .not("#content-subset h3 a")
+[12:33:50] <c0dy_> sokie_de: thanks a lot, perfect solution! I was stuck in :not within first selector..
+[12:34:01] <amirite> i feel slightly less cheated now
+[12:34:02] <amirite> thanks guys
+[12:34:37] <sokie_de> yw
+[12:35:46] <c0dy_> sometimes it seems hard to see the easy way :-)
+[12:36:05] <sokie_de> :not would've worked too
+[12:36:34] <c0dy_> sokie_de: I thought so, but with a more complicated nesting, where I got stuck
+[12:37:17] <sokie_de> with complex selector the -not() solution ist much easier to read
+[12:37:27] <amirite> now if there was only a good way to make jq-ui slider respond to mousewheel
+[12:37:57] <amirite> i don't suppose it's been done?
+[12:38:08] <c0dy_> amirite: http://plugins.jquery.com/project/mousewheel ?
+[12:38:24] <mightym> hey guys, im new to js/jquery an played arroung with autocomplete, i made a search input, when entering text the autocomplete layer appears and makes suggestions. when i click or hit enter it outs the suggestion as a value to my inputfield. is it somehow possible to call my search when hitting click/enter on the suggestions?
+[12:39:23] <amirite> why hasn't mousewheel become standard? too unstable right?
+[12:39:29] <amirite> or what exactly
+[12:55:26] <clockwize> hey, say i have a jquery object with 5 divs in it, how do i get a jquery object containing only the Xth?
+[12:56:05] <Krinkle> ?eq @ clockwize
+[12:56:16] <Krinkle> ?eq
+[12:56:29] <clockwize> lovely
+[12:56:34] <clockwize> i googled it =]
+[12:56:36] <Krinkle> http://api.jquery.com/eq/
+[12:56:37] <Krinkle> :D
+[12:56:43] <Krinkle> the bot isnt working
+[12:56:49] <clockwize> eq is an odd name..
+[12:57:10] <clockwize> i was playing with get(0) but that seems kind of annoying because it gives you back non-jquery object
+[13:12:54] <DukeDrake> hi
+[13:15:03] <oscar__> how can i make a variable inside a click function, and want to access it later inside another function. because i get undefined when i try to use one
+[13:15:30] <oscar__> the var is an array for the record
+[13:15:48] <oscar__> var trailersQ = .. (works great in the click function) but when i try to get data from it, i get undefined
+[13:16:23] <Sidnicious> oscar__: define the variable somewhere outside the click function.
+[13:16:26] <DukeDrake> oscar__: define the variable with global scope?
+[13:16:57] <oscar__> i have that too
+[13:17:04] <oscar__> at the top of <script>
+[13:17:09] <oscar__> i mean first line
+[13:17:17] <oscar__> i make the var trailersQ = [];
+[13:17:26] <DukeDrake> then there's something else wrong ;)
+[13:17:35] <oscar__> thats good to know i guess ;)
+[13:17:42] <DukeDrake> say ... did jQuery guys invent something along an actual graphical blur() yet?
+[13:17:47] <Sidnicious> oscar__: Then, don't use "var" inside the click function — that will create a new variable with the same name inside that function.
+[13:18:11] <oscar__> so just trailersQ = ?
+[13:18:12] <Sidnicious> a local variable
+[13:18:27] <Sidnicious> right, you only need var when you're defining a variable for the first time
+[13:19:14] <Sidnicious> var is *good*: if you have a variable that's only used inside a function, then do use var to make that variable local.
+[13:19:18] <oscar__> that solved it, thanks
+[13:19:23] <Sidnicious> cool
+[13:19:33] <oscar__> its been a long day, im making stupid mistakes
+[13:19:42] <Sidnicious> heh
+[13:20:01] <Sidnicious> Hey, I'm trying to focus an input on keypress, and forward that initial key press to the input. This works in WebKit, but not so much in Firefox — `$input.trigger(event)` doesn't result in text being added to the field. Is there a nice workaround for that?
+[13:20:20] <sean`> oscar__, you can use .data for that, eg. bind data to the document
+[13:21:09] <ianovak> Hey guys, I'm trying to link to an ID on a page, then stay "centered" on that location while other elements are dynamically loaded changing the page length.
+[13:21:16] <Sidnicious> sean`: In general, I don't like global variables... but how would that be better?
+[13:22:22] <sean`> Sidnicious, 'cause you can use methods to get it back
+[13:22:31] <sean`> I'm just talking in jquery scope wise
+[13:22:38] <Sidnicious> sean`: and how's that better :) ?
+[13:23:16] <sean`> but if you want to store and retreive data, just a variable is very simple and easy to be overwritten
+[13:23:43] <sean`> also, if you use functions/methods to get/set, you can make sure you can always work with the data, yuou get returned
+[13:25:44] <sean`> best example is to create an data storage instance, where you save the data to, that way you can keep creating new instances for different pieces of your app
+[13:31:15] <sean`> Sidnicious, http://jsfiddle.net/2pTRB/
+[13:31:25] <sean`> also oscar__
+[13:33:27] <Sidnicious> sean`: I'm really confused. How is that ANY better than `foo = {}` ?
+[13:33:41] <sean`> Sidnicious, it gives you an API
+[13:33:50] <sean`> and more controlability
+[13:33:52] <Sidnicious> I don't get it. JavaScript gives you an API :)
+[14:00:23] <outer_space> is there something that can take an array and generate input tags, checkbox for true/false, text input for everthing else?
+[14:00:37] <levu> hi, if i attach some onclick handler via $('a').onclick(...) and i appennd an other a tag later, will it get the onclick handler automatically?
+[14:01:29] <brianseeders> levu: it wont
+[14:01:33] <brianseeders> take a look at http://api.jquery.com/live/
+[14:01:39] <levu> brianseeders: thx
+[14:02:48] <levu> brianseeders: how does jQuery gets notified when I add an element?
+[14:04:10] <levu> brianseeders: i see, it's described later on this page, how it works :)
+[14:06:15] <blackboard> Any recommended subversion hosting that works with live web preview and php/mysql database ?
+[14:10:50] <jonee> blackboard, that is not jquery but to answer- do you need just repo hosting or a shared hosting that allows you to have subversion repositories
+[14:11:10] <blackboard> I need a shared hosting that allows me to have svn
+[14:11:24] <blackboard> So that i can use dbs etc
+[14:12:17] <blackboard> @jonee
+[14:13:07] <Jayflux> levu try to use .delegate instead of .live
+[14:13:15] <Jayflux> ?delegate @ levu
+[14:15:01] <jonee> svn as a client or also host repositories? usually just an svn client and you have to host your repo somewhere else blackboard
+[14:15:21] <Gurpartap> (The log bot and logs will be off for some hours. Sorry. :S )
+[14:15:57] <levu> Jayflux: what's the advantage of using delegate instead of live?
+[14:16:03] <blackboard> i want to use svn for development but also be able to view that directory in a web browser jonee
+[14:16:35] <levu> The context for delegate in my case would be the body and the event is the click, so there is no big difference, isn't it?
+[14:16:49] <Jayflux> .live bubbles up to the top and attatches the handler to the document
+[14:17:04] <Krinkle> Looks like someone broke the qunit tests
+[14:17:09] <Jayflux> delegate is more efficient and attatches the handler to the parent element, so its more quicker
+[14:17:22] <Jayflux> levu read this it will explain better http://net.tutsplus.com/tutorials/javascript-ajax/quick-tip-the-difference-between-live-and-delegate/
+[14:17:38] <Krinkle> boxModelIE.html:24 TypeError: Result of expression 'window.top.supportCallback' [undefined] is not a function.
+[14:17:40] <levu> Jayflux: thanks
+[14:17:52] <Jayflux> the video (if you have time) is worth watching
+[14:18:33] <jonee> ok you most likely need both client and server svn blackboard. i to have been looking for one recently and I came to the conclusion that I should buy a vps and host not only svn but also git
+[14:18:50] <blackboard> oh okay
+[14:24:48] <jonee> if you insist on shared hosting google will be of help (hostgator should be there). but be warned that some hosting just have the svn client and not allow you to host repo.
+[14:29:50] <`teh1> is there something im missing? this pops up with 3 alerts
+[14:30:15] <`teh1> https://gist.github.com/973560
+[14:39:48] <DuckyX> Im trying to implement a jquery script that uses an href name tag as a .click function... it was working... but now it doesnt seem to reach that part of the script... anyone familiar with this method?
+[14:40:42] <`teh1> oh duh
+[14:40:55] <H> Hello. I have this line of code which works fine using GET. http://pastebin.com/jgqzjMDN
+[14:41:05] <H> Is it possible to change it to use post?
+[14:41:13] <H> Is this possible using the load function?
+[14:41:21] <miketaylr> DuckyX: "Im trying to implement a jquery script that uses an href name tag as a .click function..." say what?
+[14:42:49] <miketaylr> H: pretty sure load is just a shortcut for GET
+[14:43:29] <H> miketaylr, You can do post if the data argument is done as {param1: "value", param2: "value"} however I can't seem to get this to work with an object
+[14:43:41] <H> dynamically
+[14:43:56] <Karai> Hello~ I'm trying to traverse a table using .next() and .prev(). I need to access .prev()'s children, what would be the simplest way to do this?
+[14:44:13] <walid> hi guzs! i'm using .jScrollPane(), and i get curious behaviours, maybe all from the same error
+[14:44:24] <walid> i get a g undefined error when loading the script
+[14:44:30] <mightym> hey guys, im new to js/jquery an played arroung with autocomplete, i made a search input, when entering text the autocomplete layer appears and makes suggestions. when i click or hit enter it outs the suggestion as a value to my inputfield. is it somehow possible to call my search when hitting click/enter on the suggestions?
+[14:44:43] <walid> i know it's a pretty commen error, but what does it mean exactly?
+[14:45:08] <DuckyX> miketaylr, $('a[href="#tool"]').click(function(){
+[14:58:27] <tsiokos> i'm sorry guys but i have to ask again. i try to register in freenode to get access in other channels but this guide [http://freenode.net/faq.shtml#registering] doesn't work
+[14:59:38] <Karai> If I do something like this [[ var curr = $(this).prev(); ]] how would I go about accessing a specific child in curr ? [[ $(cutt + ' > child1 > child2').click(); ]] did not work, as expected...
+[15:00:09] <Karai> curr*
+[15:03:31] <gnarf> Karai: .find()
+[15:03:43] <gnarf> curr.find("> child1 > child2")
+[15:03:55] <gnarf> http://api.jquery.com/find
+[15:04:18] <wafflesburger> or you can use better hooks so you dont' have to have inefficient paths
+[15:06:38] <H> D'oh
+[15:06:41] <Karai> gnarf: beautiful, it works! thanks you!
+[15:06:47] <H> Problem is that I am clearing the div before I serialize the form
+[15:06:51] <H> So there is nothing to serialize
+[15:06:58] <Karai> wafflesburger: That might be worth looking into
+[15:09:15] <Ichigo> I'm trying to get this: http://josh.nizu.us/js/jquery-scroll/jquery_custom_scrollbar_vertical.html   Onto here: http://josh.nizu.us/
+[15:09:20] <Ichigo> Can you tell what I'm doing wrong?
+[15:10:06] <wafflesburger> Ichigo; do you know how to use firefub
+[15:10:09] <wafflesburger> firebug*
+[15:10:20] <Ichigo> I just use inspect source
+[15:10:26] <Ichigo> Or view source
+[15:10:37] <wafflesburger> use firebug for javascript debugging
+[15:10:57] <wafflesburger> you will see helpful things such as
+[15:11:18] <wafflesburger> Uncaught Syntax error, unrecognized expression: #jquery.tools.min.js:88U
+[15:11:29] <wafflesburger> and a stack trace
+[15:11:32] <wafflesburger> showing how it go to the error
+[15:12:11] <Krinkle> nn
+[15:17:35] <sokie_de> Ichigo,you should give that entire HTML some serious thought pe.: <html><head></head><body></body></html> you shouldn't expect things to work unless the structure is in order and valid
+[15:18:43] <Ichigo> <html> comes before <head>?
+[15:19:12] <sokie_de> yes and needs to be closed at the bottom
+[15:19:41] <Ichigo> Yeah, I know it isn't closed
+[15:20:00] <Ichigo> I need to
+[15:20:37] <sokie_de> <DIV>This is nothing but a test. also seems not to have a closing tag
+[15:21:06] <sokie_de> doesn't seem to have*
+[15:21:13] <Ichigo> It does
+[15:21:17] <Ichigo> It's on the second line
+[15:21:24] <Ichigo> It does that because I'm using server-side includes
+[15:23:37] <sokie_de> well the <div CLASS="content" misses one
+[15:36:27] <dreinull_> I have this embarrassing script (http://fpaste.org/da75/) and I'd like to hear if it's hopeless or if it can, under certain circumstances, be improved.
+[15:36:51] <kris_will> doing some js framework comparisons, and seems like #prototype is languishing.  over 6 months between releases seems like death in internet time
+[15:37:21] <justin__> what's the JQuery command to stop running the current file?
+[15:37:22] <dreinull_> could also mean it's more mature.
+[15:38:46] <kris_will> @dreinull_ true that.  The place I'm working at is using it.  but it seems like people there are pining for JQuery, but such a huge existing codebase on prototype seems impossible to move
+[15:38:59] <justin__> what's the JQuery command to stop running the current file?
+[15:39:56] <kris_will> are there any protocol -> jquery porting guides out there?
+[15:43:18] <coldhead> where the fuck is bot-t
+[15:43:27] <coldhead> these are truly the last days
+[15:43:55] <gnarf> ?zalgo
+[15:44:36] <coldhead> !ZALGO
+[15:44:59] <coldhead> and lampoon is gone too
+[15:52:25] <bid> hello, i am having a problem with ajax. i sets up dataType:"json" and the code breaks but if i do dataType:"JSON" it works but returns as a string. please have a look tell me what i am doing wronge http://jsfiddle.net/thAP3/
+[16:00:29] <coldhead> bid: did you try http://jsonlint.org/ on your json?
+[16:05:28] <eightfold> howdy. i wonder if it possible to create something like this: http://pastebin.com/fJ2mFx45
+[16:05:44] <eightfold> the lines should always be 64 characters
+[16:06:46] <eightfold> the number of dots should be adjusted depending on how long the text on the end of each line is
+[16:13:12] <coldhead> eightfold: http://jsfiddle.net/beCzJ/
+[16:14:01] <eightfold> coldhead: epic! i'll give it a spin
+[16:16:42] <eightfold> coldhead: ok, i'm too stupid for this. could it be applied to an element, so that it counts the chars of the element(s)?
+[16:17:43] <coldhead> lemme show you
+[16:19:20] <Getty> someone probably know how i can get easily an event AFTER keypress? (i want to avoid hazzeling current value + keycode to get the "new upcoming value")
+[16:21:13] <eightfold> coldhead: okay
+[16:21:13] <coldhead> eightfold: http://jsfiddle.net/beCzJ/2/
+[16:21:24] <coldhead> suboptimal
+[16:24:26] <gnarf> Getty: keyup?
+[16:24:28] <Ichigo> Hmph.
+[16:24:33] <Ichigo> I'm still trying to figure this out >_>
+[16:37:29] <`teh1> hey
+[16:37:49] <`teh1> isnt returning false in a submit() handler suppost to fix it?
+[16:37:52] <`teh1> lol fix it
+[16:37:59] <`teh1> stop it* <- from submitting
+[16:40:00] <eightfold> coldhead: thanks! the use was actually something more along the lines of: http://jsfiddle.net/hWJ2f/
+[16:40:58] <eightfold> coldhead: but i just adjusted that "64" digit to fit. seems to work. i guess it excludes html tags from the calculation?
+[17:07:27] <coldhead> eightfold: i used text() to get just the text from the element, excluding tags
+[17:08:56] <coldhead> text effects like that are gonna rely on a monospaced font
+[17:11:23] <Gurpartap> this is interesting.
+[17:11:28] <Gurpartap> someone doesn't like lampoon.
+[17:11:50] <dabear> does anyone like Lampoon ?
+[17:11:52] <coldhead> who? who!
+[17:11:56] <Gurpartap> :p
+[17:12:00] <coldhead> i like Lampoon
+[17:12:03] <coldhead> he's cheering
+[17:12:09] <Gurpartap> someone's ddos'ing
+[17:12:15] <Gurpartap> http://lampoon.gurpartap.com/
+[17:12:19] <Gurpartap> at that
+[17:12:23] <dabear> coldhead: you just wanna marry Lampoon
+[17:13:13] <dabear> $.each?
+[17:13:24] <dabear> lampoon-fail
+[17:13:37] <dabear> $.each!
+[17:13:40] <Gurpartap> well. i disabled that for lampoon.
+[17:13:53] <Gurpartap> since there was bot-t for that.
+[17:13:53] <coldhead> maybe they don't want the logs online
+[17:13:56] <dabear> Gurpartap++
+[17:13:58] <`teh1> ok
+[17:14:04] <dabear> foo++
+[17:14:09] <`teh1> does textarea have a value() or is it html()
+[17:14:09] <Gurpartap> and jquery has been updated after that. and my code wasnt search algo like bot-t
+[17:14:14] <Gurpartap> rather direct mapping to jquery api
+[17:14:16] <coldhead> val()
+[17:14:18] <Gurpartap> so it's broken atm.
+[17:14:21] <`teh1> oh yeah
+[17:14:23] <`teh1> val thats right
+[17:14:24] <dabear> Lampoon: karma foo?
+[17:14:31] <Gurpartap> disabled
+[17:14:32] <Gurpartap> :|
+[17:14:38] <Gurpartap> Lampoon: help
+[17:14:41] <Gurpartap> fk
+[17:14:42] <Gurpartap> lol
+[17:14:46] <dabear> so did you ENABLE anything?
+[17:14:48] <Gurpartap> its the ddos
+[17:15:07] <Gurpartap> let me pin point
+[17:15:08] <Gurpartap> etc
+[17:15:10] <Gurpartap> sec
+[17:17:14] <Anitox> $('textarea').text("Pimpin' ain't easy.");
+[17:17:53] <Lampoon> foo has karma of 1.
+[17:17:53] <Lampoon> Detailed information is available by asking for "help <feature>" where <feature> is one of: Botagotchi, Factoids, Google, Invited, Karma, Logging, Project URLs, Seen, Tell, jQuery.
+[17:18:05] <Gurpartap> lol
+[17:18:10] <Gurpartap> dabear: ^
+[17:18:48] <Gurpartap> dabear: all that is enabled. except jquery api is broken.
+[17:18:55] <Gurpartap> used to rely on remy's xml.
+[17:19:24] <itsonlyme> I have a function that updates a div, but after the second update the div looses its style.  For instance, jquery buttons revert back into plain text links.      http://pastebin.com/jGyEURZK
+[17:20:35] <Gurpartap> either the attacker has mercy.
+[17:20:47] <Gurpartap> or he stopped for the fear of getting tracked.
+[17:20:59] <Gurpartap> he's probably watching over in #jquery
+[17:21:10] <Anitox> at least he's not wathcing in here
+[17:21:19] <Gurpartap> isnt this #jquery
+[17:21:20] <Gurpartap> :p
+[17:21:27] <Anitox> yeah, it is
+[17:21:35] <Gurpartap> this could be interesting part, if there ever comes a jquery movie
+[17:21:36] <Gurpartap> lol
+[17:21:52] <Anitox> www.jquerythemovie.com
+[17:22:10] <coldhead> yeah um i think i'm busy the night that comes out
+[17:22:14] <Anitox> "... and on this page, we show you how to implement the fade ..."
+[17:22:18] <coldhead> but enjoy, really
+[17:22:39] <Anitox> dont miss it!
+[17:23:14] <Gurpartap> lol
+[17:23:32] <Gurpartap> slidein and out
+[17:23:36] <Gurpartap> xd
+[17:23:38] <Anitox> thats what she said
+[17:23:42] <Gurpartap> xD
+[17:23:46] <Gurpartap> xD
+[17:24:46] <wolfe> :D holy crap at the amount of people
+[17:25:12] <Anitox> you mean, holy crap at the amount of people who never talk
+[17:25:29] <wolfe> :P
+[17:25:34] <Gurpartap> holy fail
+[17:25:37] <wolfe> well I'm coming over from Dojo, for now
+[17:25:41] <Gurpartap> colloquy doesnt tell you number of ppl in a chat room
+[17:25:41] <wolfe> RoR3 stuff
+[17:25:55] <wolfe> Gurpartap: 749 :)
+[17:26:00] <Gurpartap> lol
+[17:26:09] <Gurpartap> i c
+[17:26:14] <coldhead> jQuery has a shallower learning curve than Dojo is all
+[17:26:22] <coldhead> people like me can use jQuery, or try to
+[17:26:48] <coldhead> also i am banned from #dojo
+[17:27:10] <Gurpartap> im banned from #iphone. i didnt even speak. unusual hate.
+[17:27:11] <Gurpartap> lol
+[17:27:20] <coldhead> hilarious!
+[17:27:21] <Gurpartap> #iphonedev, i mena
+[17:27:22] <Gurpartap> mean
+[17:27:27] <coldhead> i'll try to get banned too
+[17:27:39] <Gurpartap> when i asked in #ipaddev, why i got banned, they banned me there too
+[17:27:41] <Gurpartap> :p
+[17:27:58] <wolfe> coldhead: no you're not
+[17:28:10] <Gurpartap> casually said that to someone one day. he responded, "i'm banned there too"
+[17:28:11] <Gurpartap> :p
+[17:28:12] <wolfe> I don't see any ban in the channel logs either
+[17:28:36] <Anitox> oh noes
+[17:28:40] <Anitox> wut happen
+[17:28:54] <Gurpartap> the movie's out
+[17:29:06] <wolfe> anyway..
+[17:29:16] <wolfe> :) jquery-uniform is nice too
+[17:29:27] <Anitox> do you wear it to work?
+[17:29:27] <wolfe> people make more stuff for jquery I think
+[17:29:32] <wolfe> :P
+[17:29:44] <wolfe> actually, reminded me, I need to find my kangaroo pin for my tie
+[17:30:27] <coldhead> hallo JusticeFries
+[17:30:31] <JusticeFries> hallo
+[17:34:55] <Gurpartap> Come on.
+[17:35:09] <Gurpartap> I'm sure you don't like the 256 days of Lampoon uptime.
+[17:35:36] <Anitox> national lampooon?
+[17:35:41] <Gurpartap> lol?
+[17:42:12] <JonathanCutrell> Hey folks.
+[17:42:18] <JonathanCutrell> Been a while since I was in this room.
+[17:42:21] <JonathanCutrell> :)
+[17:42:24] <JonathanCutrell> Hope all are well.
+[18:00:20] <shankysv87> hey. I'm having trouble with a database result not parsing correctly after being injected into a doc container via .load(). any thoughts. it parse correctly if viewed directly.
+[18:02:42] <shankysv87> its pulling results from db. puts then as options in a select style form then .load() insects the into a new container. same domain BTW. is localhost.
+[18:03:31] <coldhead> does anyone have anything i can rub into my open sores?
+[18:04:11] <astropirate> coldhead, aids
+[18:04:19] <shankysv87> pharmacist does.
+[18:05:35] <coldhead> thanks guys
+[18:05:43] <astropirate> any time
+[18:08:18] <shankysv87> nvm found it. typo lol.
+[18:13:03] <weijinn> hi, i just wanted to ask, why when i add something that uses jquery for example slider for my website, the other things that uses jquery is not showing anymore..? thanks
+[18:13:39] <mikemeyer> weijinn: code? link?
+[18:14:25] <mikemeyer> jQuery BBQ question — I’m using jQuery BBQ in a project but the plugin hasn’t been updated in almost a year.
+[18:14:29] <mikemeyer> Any suggested alternatives, or is it still the bomb-diggity?
+[18:14:49] <weijinn> could u just tell me in general what could be the reasons for that? because atm i removed the slider so it shows all ok
+[18:15:12] <mikemeyer> weijinn: no idea. I need code to look at. It could be anything. Probably malformed code.
+[18:15:28] <mikemeyer> weijinn: for starters, check the console in Chrome/Firefox
+[18:16:13] <pifantastic> mikemeyer: it's still the bomb diggity
+[18:16:15] <weijinn> kk anyways i will try to add it again, and if i still can't make it work, i will be back here and ask again, providing links/codes. ty
+[18:16:17] <Techdeck> hey guys, do you know how to make the footer sticky to the bottom of the screen in jquery mobile? I'd use something like position:fixed; but I know that it screws up in some browsers, and I'm sure the jquery mobile guys thought about it
+[18:16:57] <Techdeck> nvm, found it! :)
+[18:17:03] <Techdeck> data-position="fixed" == for the win
+[18:31:56] <aagii> hi all
+[18:32:23] <aagii> how to change javascript code on runtime
+[18:32:55] <iszak> use google chrome devtools?
+[18:33:32] <iszak> depends what you mean by runtime, but either way, whatever you're trying to do is probably wrong.
+[18:35:50] <Noob_Soup> I have that on a bumpersticker " ...either way, whatever you're trying to do is probably wrong"
+[18:36:17] <Noob_Soup> how can I make a form field automagically select all contents when it has focus?
+[18:36:27] <Noob_Soup> Thanks in advance!
+[18:44:30] <Noob_Soup> I tried this, because i really want the input to be empty upon page load/reload: $("#search_input").empty();
+[18:44:35] <Noob_Soup> but that did not work.
+[18:44:56] <iszak> .val('') perhaps
+[18:47:30] <weijinn> i am trying to add this slider to my page, but i dont really understand where i have to put this peace of code.
+[18:47:31] <weijinn>     $(function(){
+[18:47:32] <weijinn>     $('.box_skitter_large').skitter();
+[18:47:32] <weijinn>     });
+[18:47:55] <weijinn> http://thiagosf.net/projects/jquery/skitter/
+[18:48:12] <weijinn> anybody could help me out?
+[18:52:28] <aagii> http://pastie.org/1907581 please help
+[18:52:36] <aagii> its not working
+[18:52:59] <coldhead> you should try using best practices
+[18:54:09] <coldhead> aagii: get a working broken demo up on jsfiddle.net for further investigation
+[18:54:35] <myName_> I'm having an issue with tabindex - I am inserting a form into my page with jquery, and the form inputs have tabindex 0. The next tabindex on my page is 1 (elements not loaded via jquery). I press tab, and the browser focuses on the element with tabindex 1 - it ignores my elements which were added via jquery.
+[18:55:05] <myName_> Anyone come across this before/know how to resolve the issue? This is in firefox 4
+[18:55:21] <aagii> coldhead: autocomplete is working, but i need to change that companyid on change
+[18:55:27] <coldhead> weijinn: you should just be able to use $(document).ready(function () { ...skitter() }) in script tags on your page
+[18:56:15] <coldhead> ah, you probably need to reinitialize autocomplete when the change occurs, huh
+[18:56:31] <coldhead> you'll have to check the docs on that, i don't know autocomplete
+[18:56:42] <coldhead> but that's my intuition
+[18:56:52] <aagii> coldhead: ok thanks
+[18:57:53] <aagii> coldhead: do you know another autocomplete solution
+[18:58:31] <ITrace_> I've added an element to the DOM, but nothing is happening when I trigger an onChange event to the new element. Here is my code: http://jsfiddle.net/nKFA7/1/  Any suggestions?
+[18:58:33] <coldhead> i doubt there is a better one
+[18:58:47] <coldhead> you just need to find out how to make it do what you want
+[18:59:03] <aagii> ok many thanks
+[18:59:06] <coldhead> ajpiano would know
+[19:00:54] <mikemeyer> pifantastic: ah, thanks man. good to know. I was a little concerned since it's not been updated since jQ1.4
+[19:00:57] <amirite> hmm
+[19:01:27] <coldhead> anyone got any lunch suggestions?
+[19:03:21] <ITrace_> Would I need to store each input in an array, then add the new item to the array each time it's created? Then I can attached an onChange action to each new item in the array.
+[19:10:27] <coldhead> ITrace_: maybe you want http://api.jquery.com/live/ ?
+[19:12:10] <coldhead> everyone really needs to make sure they're following best practices until bot-t returns, okay?
+[19:12:14] <coldhead> please
+[19:12:36] <ITrace_> coldhead: That sounds like what I was looking for. Thanks you.
+[19:13:16] <iszak> lo coldhead
+[19:16:52] <iszak> coldhead, how's clojure going?
+[19:18:46] <coldhead> quite well, iszak
+[19:18:58] <coldhead> although i have spent the last few days on ruby unit testing for some reason
+[19:19:09] <iszak> you have taken some liking to ruby.
+[19:19:17] <iszak> abandon clojure and do ruby instead?
+[19:19:23] <coldhead> its hella employable
+[19:19:32] <iszak> clojure? so you were saying.
+[19:19:33] <coldhead> oh no i adore clojure too much
+[19:19:36] <coldhead> but i gotta pay bills
+[19:19:58] <iszak> but sometimes the language you love isn't practical to pay the bills.
+[19:20:10] <coldhead> no, that's why there are days and nights
+[19:20:15] <coldhead> ruby day, clojure nights
+[19:20:20] <coldhead> until thoughtworks hire
+[19:20:25] <coldhead> me
+[19:20:29] <coldhead> then it's all clojure all the time
+[19:20:44] <coldhead> and i can blow this pissy IRC channel off
+[19:20:47] <coldhead> SEE YOU IN HELL #JQUERY
+[19:20:53] <coldhead> oops, i wrote that too soon
+[19:20:57] <coldhead> next year!
+[19:21:01] <iszak> coldhead, living big I see.
+[19:22:20] <jrockjiggz> www.browsershots.org ftw ;)
+[19:23:28] <iszak> coldhead, so how are you paying the bills atm then?
+[19:24:00] <coldhead> pissant contracts
+[19:24:05] <coldhead> and lapdances
+[19:24:26] <iszak> i like the later.
+[19:26:29] <iszak> coldhead, why not sign up with a company for now?
+[19:26:42] <iszak> then stab them in the back 3 months later when you get a job at thoughtworks
+[19:27:12] <iszak> or 6 months, better than pissant contracts.
+[19:27:38] <coldhead> i'm trying
+[19:27:59] <coldhead> i have a lot of interpersonal and psychological issues that make it difficult to hire me
+[19:28:32] <iszak> really? I wouldn't have guessed.
+[19:34:48] <jrockjiggz> i love wireless lag
+[19:52:12] <rzen> can someone help me select every 3rd item of a given class and add another class to it? i'm feeling like an idiot...
+[19:52:28] <rzen> 	$('.flickr_photo:nth-child(3n+3)').addClass('flickr_photo_third');
+[19:52:43] <rzen> gives me bubkis
+[20:01:18] <rroelofs> rzen:  nth-child(3n+3) should select the same as nth-child(3n)
+[20:02:12] <rzen> ha, just read that part
+[20:02:24] <rzen> but, even so, i should still see that class getting appended
+[20:02:27] <rzen> and i see nothing
+[20:02:30] <rzen> right?
+[20:03:48] <rroelofs> rzen:  yes, can you put up a pastebin / jsfiddle?  I'm guessing the problem is not what you think.
+[20:04:37] <rzen> i think i may have just realized my stupidity
+[20:04:48] <rzen> that class is applied to an img, inside an anchor tag
+[20:04:56] <rzen> so it's not a successive list
+[20:05:36] <rzen> blammo, got it
+[20:05:38] <Techdeck> anyone knows in jquery mobile how do I reuse the same footer in all pages? (or in some selected ones)
+[20:05:46] <rroelofs> rzen:  It happens to all of us.
+[20:06:53] <rzen> #headdesk
+[20:24:21] <amirite> is the mousewheel plugin good/stable
+[20:26:00] <wolfe> amirite: no, you're not rite, you're rong.
+[20:37:05] <molavy> hi
+[20:38:16] <molavy> how can i after receive json data fill forn with them
+[20:38:18] <molavy> ?
+[20:42:49] <TekJess> ?DCC SEND "trolololololololololololololololol" 0 0 0
+[20:46:40] <Taggnostr> I'm doing something like $('.class').each(function(i) { if ($(this).find('.foo').length > 0) { ... } }).  Is there a way to convert that if in a .filter() ?
+[20:50:47] <Taggnostr> moving the if in a function() used by the filter works, but I wonder if it can be done with a selector instead
+[20:56:53] <iszak> ?:contains @ Taggnostr
+[20:56:59] <iszak> NOOO
+[20:57:24] <Taggnostr> http://api.jquery.com/contains-selector/ thanks :)
+[20:57:29] <iszak> Taggnostr, nah not that
+[20:57:30] <iszak> Taggnostr, see http://api.jquery.com/has-selector/
+[20:59:18] <Taggnostr> seems to work, thanks again
+[20:59:22] <iszak> no problem.
+[20:59:42] <skamikaze> bot-t still got leisure time? :(
+[21:02:09] <snowBlind_> Does anyone know if JQuery's .load works correctly in older versions of IE? More specifically something like $('#mainDiv').load('content1.html #divFromContent1') ? It works in IE9, but I remember trying it in IE8 or 7 in the past and having it not work properly.. but now that I have IE9 installed I can't install older versions to check.
+[21:05:43] <skamikaze> snowBlind_: maybe try out ietester
+[21:05:54] <skamikaze> or use virtualbox :P
+[21:06:07] <Taggnostr> http://dpaste.com/542863/ <- this is what I got so far, does anyone want to take a look and tell me if something can be improved or if I'm misusing anything?
+[21:06:48] <snowBlind_> I'll googole ietester.
+[21:07:08] <snowBlind_> google even..
+[21:11:21] <Techdeck> hey guys, anyone good with jquery mobile? I need some basic help in switching from page to page but loading the data dynamically. Anyone got experience with that?
+[21:52:23] <reedyseth> the chat where nobody chats :p
+[21:52:48] <phed__> hi, I have a matrix of buttons. and i have some problems figuring out how to address one button or handle events
+[21:53:21] <phed__> so, should I just create an array to represent it?
+[21:53:51] <phed__> i am already creating the buttons in a bunch of for loops, so i could easily store $(this) in an array, and later reference the array
+[21:53:54] <phed__> i guess i answered it myself
+[21:54:30] <skamikaze> :)
+[21:54:40] <amirite> how come jquery ui class transitions never work
+[21:54:49] <amirite> what's the magic to get them to work
+[21:56:21] <phed__> i guess data-xxx attributes are ok?
+[21:56:35] <amirite> do both classes have to have the same exact rules or what
+[21:57:59] <amirite> or perhaps the css rule has to be defined as just the .class without anything complex
+[21:58:02] <amirite> what is it that makes it work
+[22:00:44] <amirite> nope
+[22:00:46] <amirite> still doesn't work
+[22:00:47] <amirite> screw it
+[22:03:12] <necromancer> amirite: honestly i find it easier to just write my own shit for that
+[22:04:41] <ruby_on_tails> hello
+[22:05:10] <amirite> yeah me too, after prodding at it anything for ten minutes i conclude it's crap if i'm not getting anywhere
+[22:05:37] <ruby_on_tails> i am changing the value of a text field based on the keyword entered in another text field, now what kind of an event is triggered on the first text field which is bein updated automatically ? because i tried to alert something on keyup/keypress/change on the automatically updating input but it doenst alert anything
+[22:23:19] <coldhead> ruby_on_tails: there is no event for a field changed via JS
+[22:23:31] <ruby_on_tails> coldhead: hmm ok
+[22:23:35] <ruby_on_tails> i will make a manual trigger
+[22:23:41] <coldhead> you should do it with a custom event
+[22:24:08] <ruby_on_tails> yea
+[22:25:19] <silv3r_m00n> I have text fields with names like this product[1][price] product[2][price]   how to select them ?
+[22:25:44] <ruby_on_tails> give it an id also that way
+[22:26:04] <silv3r_m00n> hmm , sure
+[22:26:15] <silv3r_m00n> but I need a selector expression to select all of them
+[22:26:28] <ruby_on_tails> give it a class also
+[22:29:20] <Abjorn> coldhead i want to put my wizard staff in your mana pool
+[22:30:09] <ruby_on_tails> coldhead: i have a autosugest thing, on a keyup the suggestion is made, now how can i store that suggestion and use it on the next keup ? something like the old suggestion that was made ?
+[22:30:19] <coldhead> i have a bit of a mana drought just atm but i appreciate the thought
+[22:30:24] <ruby_on_tails> i try to save it in a variable but alerting it on the next call alerts nothing
+[22:30:33] <coldhead> ruby_on_tails: here's a thing i know nothing about: autocomplete
+[22:30:36] <silv3r_m00n> ruby_on_tails: $(elem).data
+[22:30:41] <coldhead> you talk to ajpiano or someone about that shit
+[22:30:48] <ruby_on_tails> hmm
+[22:30:49] <coldhead> you talk to silv3r_m00n about that shit*
+[22:30:51] <Abjorn> coldhead that is easily the best response I've gotten from that ever, and I've used that line a lot
+[22:31:25] <silv3r_m00n> coldhead: what's wrong with that ?
+[22:32:53] <coldhead> $('[name^="product["][name$="][price]"]')
+[22:33:00] <coldhead> that is so ugly but maybe it works
+[22:33:11] <coldhead> silv3r_m00n: nothing wrong with that! sorry for the offense
+[22:47:55] <dandaman> anyone here play with the lightbox plugin?
+[22:49:35] <Thomas`-> hey all. is there anyway to include an external .js file from another .js file, without needing a callback function to access the objects it defined?
+[22:54:17] <coldhead> these headphones are so fucking great
+[23:02:34] <charlton> hi guys, what is the difference between .filter() and find() ?
+[23:03:08] <coldhead> filter operates on stuff jQuery has already selected for you
+[23:03:20] <coldhead> find searches descendants
+[23:04:11] <charlton> so .filter() applies to all levels?
+[23:04:36] <coldhead> no it applies to whatever you've already done with jQuery
+[23:04:39] <coldhead> like up
+[23:04:40] <coldhead> um*
+[23:04:59] <coldhead> $('div,p').filter('p') would keep the divs, drop the ps
+[23:05:08] <coldhead> I MEAN KEEP THE Ps, drop the divs
+[23:05:29] <coldhead> $('div').find('input') would find all the inputs that are within divs
+[23:05:38] <charlton> oh right, got it, thanks coldhead
+[23:05:45] <coldhead> $('div').filter('input') would select all the divs and then get rid of them all
+[23:07:54] <phed__> hmmm, my matrix stuff is sorta done, but I wonder if there are better ways to structure it: http://dl.dropbox.com/u/117528/router/jquery.js
+[23:08:19] <phed__> (clicking the links will call "ajax" on the other side, ie dropbox now so it might behave weird)
+[23:08:49] <phed__> err, sorry http://dl.dropbox.com/u/117528/router/router.html
+[23:09:44] <phed__> i suspect it would be better to create "wellformed" html and annotate the div's when they are made instead of afterwards :\
+[23:12:43] <amit_usual> how can i share a global variable between two scripts being called on a page in javascript??
+[23:13:30] <skamikaze> amit_usual: abuse window or your window namespace
+[23:17:13] <Abjorn> I really don't understand how some fonts can be so damned expensive.
+[23:17:42] <innociv> ?Eval .
+[23:17:44] <innociv> ?eval ..
+[23:17:47] <innociv> No bot?
+[23:17:57] <Abjorn> where'd bot-t go? D:
+[23:18:07] <TonkaTruck> Abjorn: You probably just have expensive taste which is nothing to be ashamed of ;)
+[23:18:14] <innociv> abjorn, they are art..
+[23:18:26] <Abjorn> That's not it. I stick with the free fonts
+[23:18:31] <Abjorn> because there's some REALLY nice free fonts
+[23:18:47] <TonkaTruck> I agree but they are usually from respectable foundries.
+[23:18:47] <innociv> Those free fonts generally have bad letter spacing
+[23:18:49] <Abjorn> I just notice these fonts that are so damned expensive
+[23:18:52] <innociv> are missing characters
+[23:19:06] <innociv> don't display well at 10px, 11px, 12px
+[23:19:07] <innociv> etc
+[23:19:09] <TonkaTruck> innociv: that's called kerning but I agree.
+[23:19:18] <innociv> fontsquirrel has a lot of great free fonts
+[23:19:22] <innociv> dafont is full of garbage.
+[23:19:26] <Abjorn> depends. all exljbris' fonts are incredible though
+[23:19:45] <Abjorn> though a good number of those cost money as well, but they aren't expensive
+[23:19:49] <Abjorn> worth their price at least
+[23:20:24] <TonkaTruck> fontsquirrel is a pretty good curator of good free fonts.
+[23:20:29] <Abjorn> yeah
+[23:20:51] <TonkaTruck> A lot of open-source-anything comes down to good ol' curation.
+[23:23:46] <charlton> hi guys, just come across the filters topics and .end() function,  what  would be the difference between $('div:has('p')')   and    $('div').has('p')
+[23:27:56] <TonkaTruck> charlton: I'm curious, too.  Do they perform that differently?  I would guess that :has() in a selector maps to .has() so maybe .has() is faster?  By .000000001 ms?
+[23:28:29] <coldhead> charlton: the second is maybe slower because it has to call an extra function
+[23:28:38] <coldhead> and the first is maybe slower because the selector is more complicated
+[23:28:48] <coldhead> it depends how jquery is implemented internally for which is faster
+[23:28:56] <coldhead> and it could even vary between browsers
+[23:29:04] <coldhead> and on browsers that don't exist yet
+[23:29:15] <coldhead> so you probably want to favour readability
+[23:29:30] <coldhead> they should select the same elements
+[23:29:31] <TonkaTruck> coldhead: I would've guessed that you had to parse the first one which makes the second faster.  By virtually nothing heh.
+[23:30:30] <charlton> coldhead, tonkatruck: i would imagine .end() would probably make a difference to them, but i can't think of other diff except for the readibility or coding habbit you mentioned
+[23:31:19] <coldhead> that's a good point, end() won't affect the one that is just a selector
+[23:31:37] <coldhead> anyway you've got the right idea
+[23:32:13] <charlton> coldhead, tonkatruck: i guess this applies to :not() and .not() and so on too
+[23:32:29] <coldhead> yup!
+[23:32:35] <TonkaTruck> Still, after .end() it doesn't matter because jquery has already done the work, right?
+[23:32:46] <coldhead> you should check out jsperf if you want to compare
+[23:32:57] <coldhead> someone may already have set up a test for these
+[23:33:21] <TonkaTruck> I consider this splitting hairs...agree with coldhead...go for readability.
+[23:34:36] <mello> How do I fill up the value of a input text in jquery mobile statically using HTML? It disappears each time...
+[23:35:24] <coldhead> readability is more important because BOTH methods are likely to get faster in newer versions of jQuery
+[23:35:28] <coldhead> plus faster browsers etc
+[23:36:06] <TonkaTruck> Should .end have been called .beginning?
+[23:36:13] <TonkaTruck> haha
+[23:36:33] <coldhead> too much typing
+[23:36:51] <Abjorn> readability and maintainability >>>>> speed
+[23:37:01] <TonkaTruck> Haha but opposite?
+[23:37:23] <charlton> thanks coldhead
+[23:37:26] <TonkaTruck> there's also no .back() right?
+[23:38:01] <coldhead> jQuery.fn.back = jQuery.fn.end;
+[23:38:24] <TonkaTruck> oh good.  Could be .up() too?
+[23:38:44] <coldhead> there's a whole world of compass directions waiting for your love
+[23:38:54] <coldhead> i suggest you fork wiggleQuery
+[23:41:53] <TonkaTruck> I'm starting a JavascriptMVC project and I have yet to hear this framework mentioned here ever heh.
+[23:42:14] <coldhead> no one gives a shit about MVC here
+[23:42:23] <TonkaTruck> coldhead: Does that include you?
+[23:42:27] <coldhead> I;M KIDDING they do
+[23:42:36] <coldhead> people are using backbone here more
+[23:42:41] <DuckyX> "<coldhead> i have a lot of interpersonal and psychological issues that make it difficult to hire me"  <---- dont we all
+[23:42:49] <coldhead> but in either case this is #jQuery, not #jSFrameworks
+[23:42:59] <coldhead> DuckyX: how dare you quote me on that from hours ago
+[23:43:17] <coldhead> i'm much better now
+[23:43:19] <DuckyX> coldhead, it was stuck there...
+[23:43:23] <TonkaTruck> haha ok.  But jsmvc is very much jquery.
+[23:43:25] <coldhead> hahaha <3
+[23:43:48] <TonkaTruck> Though still haven't dove into what jqueryMX is.
+[23:45:33] <mello> How do I fill up the value of a input text in jquery mobile statically using HTML? It disappears each time...
+[23:45:57] <TonkaTruck> I wish I knew the official position on jsmvc from the yayquery folks.  Also wish I knew it from rebecca who hates jquery but is still involved in yayquery.
+[23:46:05] <Abjorn> correction, this is not #jQuery, it's #wiggleQuery
+[23:46:16] * Abjorn wiggles
+[23:47:00] <coldhead> jQuery was her gateway drug
+[23:47:22] <TonkaTruck> And so dojo is a better drug?
+[23:47:25] <Abjorn> lol
+[23:47:30] <TonkaTruck> hahaha
+[23:47:33] <Abjorn> that's all a matter of opinion tonka
+[23:47:39] <coldhead> and she doesn't hate jQuery, she just doesn't see all nails as requiring the jQuery hammer
+[23:47:39] <jeffmoss> anybody know why jQuery.ajax would call the error event handler when the apache log says a 200 was sent back?
+[23:47:43] <TonkaTruck> I have a problem with this. haha
+[23:47:46] <charlton> coldhead: is there any function or button here that can toggle filter who joined #jquery? find it a bit hard to read thats all
+[23:47:54] <Abjorn> I was about to say something to that effect, coldhead haha
+[23:47:54] <coldhead> she's still the primary authoer of jQfundamentals
+[23:48:20] <coldhead> depends on your client, charlton
+[23:48:34] <Abjorn> mine doesn't :( I wish it did
+[23:48:43] <coldhead> if you use the excellent chatzilla for firefox you can turn on conference mode
+[23:48:57] <TonkaTruck> I think I've replaced her as my best js friend with addy osmani.
+[23:48:59] <Abjorn> nice name.
+[23:49:01] <Abjorn> bonerton
+[23:49:23] <Abjorn> What? Abjorn is everyones best js friend
+[23:49:24] <bonerton> ha thanks
+[23:49:54] <charlton> thanks for the tips, i will do it now, man, everyday there is something new or plugin
+[23:50:20] <coldhead> it's terribly annoying
+[23:50:35] <coldhead> i wish they would just declare web 3.0 stable and we could use it As Is for a while
+[23:50:59] <Abjorn> brb trademarking web 3.0
+[23:51:14] <charlton> hahaha
+[23:52:26] <Abjorn> I think I'm going to abandon my V8 JavaScript game engine project. Well, not exactly abandon it, but bring it to Node on the next release when they have Windows support and that fancy new async io library made.
+[23:52:59] <TonkaTruck> Abjorn: that sounds nice but do you have a sweet looking blog I can read every day?
+[23:53:24] <Abjorn> lol idk about every day. I don't make blog posts thaaat often
+[23:53:49] <TonkaTruck> That sounded facetious but I was actually wondering. haha
+[23:54:24] <Abjorn> course, rmurphey doesn't come out with blog posts that often, but more often than most of the other js bloggers like paul irish
+[23:54:38] <TonkaTruck> Speaking of curation I think that is why I love addy osmani so much...though his application of patterns wasn't so well articulated...it could've been great.
+[23:55:11] <TonkaTruck> Also alex sexton in terms of bang/buck blogging is good.
+[23:55:29] <Abjorn> he hasn't has a new blog post since last november
+[23:56:14] <Abjorn> I never expect the yayquery guys to blog much, though. Them kiddos have shit to do
+[23:56:15] <TonkaTruck> Yeha but his object literal + crockford prototypal inheritance as jquery plugin was huge for me at least...even though it was long ago.
+[23:57:10] <Abjorn> I say kiddos but they're all older than me...lool
+[23:57:22] <coldhead> they're all younger than me
+[23:57:28] <Abjorn> old man
+[23:58:29] <TonkaTruck> Pff...I didn't even go to jquery in san francisco and I live 100 miles away...all the presenters I watched online were like 10 years younger than me. I'm glad I didn't go...would've been depressing.
+[23:58:46] <Abjorn> lol
+[23:58:51] <Abjorn> I've never been to any conf
+[23:59:06] <Abjorn> but I want to :(

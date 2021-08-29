@@ -1,0 +1,330 @@
+[05:12:42] <_|Nix|_> Hey, all! Got another weird issue running jQM unit tests against the git version of core: Cannot use 'in' operator to search for '127' in touchstart,touchmove,touchend,tap,taphold,swipe,swipeleft,swiperight,scrollstart,scrollstop,orientationchangevmouseup,vmousedown
+[05:13:06] <_|Nix|_> http://swarm.jquery.org:8080/job/jQuery%20Mobile%20Phantom%20Master%20jQuery%20Git/198/consoleFull
+[05:13:23] <_|Nix|_> Trying to build a small testcase ...
+[05:16:48] <_|Nix|_> NM. Looks like our fault ...
+[05:16:53] <_|Nix|_> Weird that it worked so far ...
+[05:17:40] <_|Nix|_> We had events = ( "touchstart touchmove touchend" ).split( " " );
+[05:18:14] <_|Nix|_> And then $.each( events + "vmouseup vmousedown".split( " " ), function( i, name ) { ... } );
+[05:18:20] <_|Nix|_> ... and that worked.
+[05:18:57] <_|Nix|_> So, either $.each was smart about its first argument, or the expression in the first argument evaluated to an array, whereas it now evaluates to a comma-separated list of strings.
+[05:19:29] <_|Nix|_> Either way, I changed it to events.concat( "vmouseup vmousedown" ).split( " " ) ) ...
+[05:20:11] <scott_gonzalez> _|Nix|_: The meaning of array-like was standandized recently.
+[05:20:24] <scott_gonzalez> s/standandized/standardized/
+[05:21:40] <_|Nix|_> scott_gonzalez: That explains it.
+[05:41:32] <gibson042> .
+[05:44:04] <gibson042> mikesherov can you restart mergeatron?
+[05:44:26] <mikesherov> gibson042: it's running
+[05:44:51] <mikesherov> is it not working for new pulls?
+[05:44:58] <mikesherov> or is just retest not working/
+[05:44:59] <gibson042> trying https://github.com/jquery/jquery/pull/1074 again...
+[05:45:22] <gibson042> submitted last night and has not yet hit TestSwarm
+[05:45:31] <mikesherov> hmm
+[05:46:56] <mikesherov> about to hit the midtown tunnel… brb
+[05:47:04] <gibson042> np
+[06:14:26] <jzaefferer> gibson042: note that testswarm-browserstack is down, so TestSwarm doesn't run any tests right now
+[06:14:41] <gibson042> ah
+[06:14:44] <gibson042> that *would* do it
+[06:25:26] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/5E3AXg
+[06:25:26] <jqcommit> 13jquery/06master 140018f77 15Dave Methvin: Fix #11230. .appendTo and pals should always stack.
+[06:26:28] <scott_gonzalez> mikesherov gibson042: TestSwarm isn't running tests right now. We're not spawning any BrowserStack clients.
+[06:29:45] <scott_gonzalez> DaveMethvin: You just broke all of my code that uses .appendTo().
+[06:29:58] <DaveMethvin> really?
+[06:30:01] <scott_gonzalez> no :-P
+[06:30:09] <DaveMethvin> GAAAH!
+[06:30:19] <scott_gonzalez> That was a big fast, is -git even rebuilt yet?
+[06:30:27] <scott_gonzalez> nope
+[06:30:55] <DaveMethvin> well i hope that stacking for that one case won't break a lot
+[06:31:04] <DaveMethvin> there are some edge cases having to do with doc fragments
+[06:31:19] <DaveMethvin> but i checked and we don't have unit tests for people passing in doc fragments
+[06:31:21] <scott_gonzalez> I have a feeling it will break someone's code, but it's gotta be pretty rare.
+[06:31:28] <DaveMethvin> i sure hope so
+[06:31:34] <DaveMethvin> it's a lot easier to document that it always stacks
+[06:31:41] <scott_gonzalez> yup
+[06:32:25] <DaveMethvin> man i just HATE fixing oldIE bugs ... it takes so long to run the unit tests
+[06:32:33] <gibson042> the other break is going to be from $set.appendTo("#doesnotexist") returning an empty collection
+[06:32:44] <DaveMethvin> but it still does now
+[06:33:44] <DaveMethvin> that's why i thought returning the original set might make more sense, it's strange to have that case return nothing but it is totally consistent with returning "all the appended elements" 
+[06:33:45] <gibson042> ah, you're right
+[06:34:09] <DaveMethvin> "we didn't append NOTHING, sucka"
+[06:35:35] <DaveMethvin> man this is like an action adventure movie, i land one change that's -31 and the next is +24 ... "will our heroes ever really shrink the size of the library? tune in next version"
+[06:36:22] <gibson042> nonsense; we're waaaay down
+[06:37:00] <gibson042> I expect 20-30 byte jitter at this point
+[06:37:09] <DaveMethvin> i want to cross the 32000 barrier!
+[06:37:18] <DaveMethvin> not likely tho
+[06:37:22] <DaveMethvin> until 2.0
+[06:37:25] <gibson042> :D
+[06:38:37] <gibson042> so, I'm really concerned about "[value]" and *especially* "[boolean]" changes
+[06:38:49] <DaveMethvin> how come?
+[06:39:11] <gibson042> there's a lot of baggage about using the prop instead of the attr
+[06:39:25] <DaveMethvin> oh, internally?
+[06:39:26] <gibson042> and browsers theirselves aren't terribly consistent, even today
+[06:39:36] <gibson042> internally and externally
+[06:39:56] <gibson042> we're going to have to be very vocal about getting people to stress test the changes
+[06:40:08] <DaveMethvin> i think part of the frustration for users is that there is no clear set of rules
+[06:40:25] <DaveMethvin> people seem to think they should .removeProp() stuff???
+[06:40:38] <gibson042> yeah, it's wild out there
+[06:40:48] <DaveMethvin> if we have some clear instructions for each one maybe that would quiet the troops
+[06:41:09] <DaveMethvin> "if you want to change tabIndex, here's how"
+[06:41:23] <gibson042> but for example: in a lot of cases doing something with the attribute is going to affect the property, and I don't think I could guard against that even if it were in scope
+[06:41:34] <gibson042> sometimes vice-versa too
+[06:41:42] <DaveMethvin> right, and those should just be documented somewhere, like id
+[06:41:57] <gibson042> we'll get the selectors right, but browser differences are going to shine through the cracks on manipulation
+[06:42:12] <DaveMethvin> they're not really "our fault" it's just the crazy way that the DOM works, especially DOM1
+[06:42:17] <gibson042> yep
+[06:45:47] <scott_gonzalez> DaveMethvin: I use the boolean rule.
+[06:46:04] <DaveMethvin> is that like the Golden Rule?
+[06:46:15] <DaveMethvin> "To thine own code be true"
+[06:46:18] <scott_gonzalez> It seems to work well.
+[06:46:33] <gibson042> the boolean rule: "it is, or it isn't"
+[06:46:39] <scott_gonzalez> boolean ? prop() : attr()
+[06:46:59] <scott_gonzalez> Do unto properties as you would have properties do unto you.
+[06:47:05] <DaveMethvin> yeah it seems clear to me, but i think some people need explicit instructions and don't understand the pattern
+[06:47:37] <scott_gonzalez> Heh, "Do unto attributes as you would have attributes do unto properties."
+[06:49:11] <DaveMethvin> Eve took the apple from the serpent, so God banished them from the Garden of Eden and gave them attroperties
+[06:50:40] <Krinkle> https://splunk.jquery.com:8000/en-US/app/search/browserstack
+[06:50:56] <gibson042> the attr commandment: "thou shalt not select against the initial configuration of form elements"
+[06:51:02] <Krinkle> jzaefferer: indeed, nothing since 8.30 PM UTC +01:00
+[06:51:23] <Krinkle> no errors logged either
+[06:51:30] <jzaefferer> Krinkle: so, any idea whats going on?
+[06:51:39] <Krinkle> not yet, but will soon
+[06:51:52] <Krinkle> krinkle@jq03:~$ ps aux | grep test
+[06:52:20] <Krinkle> it is running
+[06:52:23] <Krinkle> has been for a long time
+[06:52:34] <Krinkle> jzaefferer: why did you think it wasn't running?
+[06:52:49] <Krinkle> (as opposed to browserstack not spawning anything)
+[06:53:08] <Krinkle> last cron kickstart was Nov24
+[06:53:36] <Krinkle> Hm.. that's strange
+[06:53:49] <Krinkle> it is running, but log file hasn't been written to since [Wed, 12 Dec 2012 20:28:41 GMT]
+[06:55:58] <Krinkle> running it manually shows it is working fine
+[06:56:13] <Krinkle> I'll just kill the PID for now and let the crontab restart it
+[06:57:35] <jzaefferer> well, no entries in log file and testruns stacking up
+[06:57:50] <jzaefferer> and I didn't know how its ran and kept running
+[06:58:41] <Krinkle> ok
+[06:59:49] <Krinkle> For future reference: https://github.com/clarkbox/testswarm-browserstack/blob/master/sample-run.sh
+[06:59:56] <jzaefferer> I guess the entries in /etc/crontab for this can be moved to regular ctrontab once the whole thing is puppetized?
+[07:00:12] <Krinkle> Sure
+[07:02:01] <jzaefferer> Is it running again?
+[07:02:16] <jzaefferer> I'm not sure what exactly to look for from that ps/grep output
+[07:05:00] <jzaefferer> sad that splunk doesn't have an option for 24h time format :/
+[07:05:05] <jzaefferer> at least not a user option
+[07:05:10] <Krinkle> `ps aux | grep test`
+[07:05:22] <Krinkle> There should be 2 entries, one long-term and one on and off
+[07:05:49] <Krinkle> I killed them a few minutes ago, cron will start them on minute /5
+[07:05:51] <Krinkle> jenkins  28637 28634  0 Nov24 ?        00:01:06 node /tools/testswarm-browserstack/src/cli.js --config /tools/testswarm-browserstack/config.json --run-loop 60 
+[07:05:56] <Krinkle> that's the one started by cron
+[07:06:08] <Krinkle> which spawns these children:
+[07:06:08] <Krinkle> jenkins   8012 28637  0 Dec12 ?        00:00:00 node /usr/local/bin/tools/testswarm-browserstack/src/cli.js --run --config /tools/testswarm-browserstack/config.json   
+[07:07:00] <Krinkle> `ps aux | grep testswarm` is probably better (less noise)
+[07:07:10] <jzaefferer> ha, this works: https://splunk.jquery.com:8000/en-GB/app/search/browserstack
+[07:07:51] <Krinkle> what works?
+[07:07:59] <jzaefferer> it was running before, its running again, but no new logs, so the issue is probably elsewhere
+[07:08:01] <jzaefferer> 24h time format
+[07:08:10] <jzaefferer> en-GB gives you that, en-US doesn't
+[07:08:38] <jqcommit> 01[13jquery01] 15dmethvin pushed 2 new commits to 06master: 02http://git.io/pOZ4Kw
+[07:08:38] <jqcommit> 13jquery/06master 1413651f2 15Oleg: Fix #9646. Cloned nodes shouldn't affect original in IE7. Close gh-947.
+[07:08:38] <jqcommit> 13jquery/06master 14a270d63 15Scott González: CSS: Save some bytes. Close gh-1071.
+[07:08:44] <Krinkle> they both look the same for me, I set it in my preferences
+[07:09:06] <Krinkle> hm..
+[07:09:08] <Krinkle> or not
+[07:09:55] <DaveMethvin> gibson042: you want me to grab that pr for making QUnit run all the things?
+[07:10:41] <gibson042> I was hoping to see it run first to know that it doesn't break all the things
+[07:10:54] <Krinkle> indeed
+[07:10:59] <DaveMethvin> ok
+[07:11:06] <DaveMethvin> i'll land it
+[07:11:07] <Krinkle> jzaefferer: back up http://swarm.jquery.org/user/browserstack
+[07:11:13] <DaveMethvin> then we can enhance it
+[07:11:23] <gibson042> :+1:
+[07:11:31] <Krinkle> No idea why the process frooze, it looked like it was running fine. It didn't output a stacktrace anywhere either.
+[07:11:38] <Krinkle> It just stopped but kept running.
+[07:14:40] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/U3XFfw
+[07:14:40] <jqcommit> 13jquery/06master 14ca26d45 15Richard Gibson: Fix #13044: execute all QUnit modules in TestSwarm. Close gh-1074.
+[07:45:46] <jqcommit> 01[13jquery01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/JNAdxQ
+[07:45:46] <jqcommit> 13jquery/06master 14643ecf9 15Oleg: Ref #8908, gh-886. Avoid clone identity crisis in IE9/10. Close gh-1036.
+[07:52:17] <jzaefferer> Krinkle: can we query TestSwarm's DB and integrate a few reports into the browserstack dashboard? like "tests ran in the last 1h"?
+[07:53:05] <Krinkle> jzaefferer: It is possible, but not feasible imho. The database has no indexes for these sort of queries.
+[07:53:09] <jzaefferer> or the numbers from the testswarm frontpage?
+[07:53:14] <jzaefferer> oh, okay
+[07:53:32] <Krinkle> pending runs however are available from the API, of course, ts-bs uses these.
+[07:53:37] <jzaefferer> well, the frontpage thing could be queried every five minutes?
+[07:53:38] <Krinkle> (and also displayed on the home page)
+[07:53:43] <Krinkle> sure
+[07:54:02] <jzaefferer> would make that dashboard even better :-)
+[07:54:02] <Krinkle> query api.php?action=swarmstate, and make a sum of all pending runs. That'll give a good view.
+[07:54:24] <Krinkle> I don't know how or if splunk can process data directly from a url though.
+[07:54:54] <jzaefferer> Heh, Chrome 23 won the race to 0 runs
+[07:55:05] <Krinkle> probably easiest to set up a cron using node to make the request, parse the json, calcuate the total and overwrite a file somewhere
+[07:55:40] <Krinkle> e.g. /var/lib/testswarm/stats/pendingRuns.txt
+[08:00:15] <jzaefferer> Krinkle: maybe do that through a Splunk script? https://splunk.jquery.com:8000/en-US/manager/search/data/inputs/script
+[08:07:38] <Krinkle> jzaefferer: interesting, yeah, that sounds like it could work
+[08:55:09] <doesallmagic> Project jQuery Core build #563: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/563/
+[08:55:09] <doesallmagic> * dave.methvin: Fix #11230. .appendTo and pals should always stack.
+[08:55:10] <doesallmagic> * dave.methvin: Fix #9646. Cloned nodes shouldn't affect original in IE7. Close gh-947.
+[08:55:10] <doesallmagic> * dave.methvin: CSS: Save some bytes. Close gh-1071.
+[08:55:11] <doesallmagic> * dave.methvin: Fix #13044: execute all QUnit modules in TestSwarm. Close gh-1074.
+[08:55:11] <doesallmagic> * dave.methvin: Ref #8908, gh-886. Avoid clone identity crisis in IE9/10. Close gh-1036.
+[09:09:59] <DaveMethvin> i just want to make it perfectly clear: I HATE FOCUS
+[09:12:39] <DaveMethvin> I do not like it on a form, I do not think it obeys the norm. I do not like like it in a .box(), i do not like it in elements that are not blocks
+[09:28:42] <DaveMethvin> timmywil: ping
+[09:29:00] <timmywil> here
+[09:29:24] <DaveMethvin> are working on the ... oh darn let me get the ticket number ... the $(html) ticket
+[09:30:01] <DaveMethvin> http://bugs.jquery.com/ticket/11290
+[09:30:14] <DaveMethvin> dunno why it was so hard for me to find
+[09:31:07] <timmywil> DaveMethvin: oh yea, that's probably something I could do now
+[09:31:27] <DaveMethvin> ok, great!
+[09:31:45] <DaveMethvin> i can work on the shim to put it back in the jquery-compat plugin
+[09:33:03] <timmywil> DaveMethvin: this is the commit that was reverted in 1.8. thoughts on putting it back? https://github.com/jquery/jquery/commit/239fc86b01d52fd9df6d1963027ed37b4f6251fc
+[09:33:28] <DaveMethvin> oh that's right, we already had a fix! duh
+[09:33:29] <timmywil> oh you didn't like ignoring leading whitespace
+[09:33:35] <DaveMethvin> right that's the only change tho
+[09:33:45] <DaveMethvin> and a couple more test cases to fix
+[09:34:00] <timmywil> why don't you like ignoring leading whitespace?
+[09:34:21] <timmywil> is it just the 2 chars?
+[09:34:21] <scott_gonzalez> I thought we decided that ignoring leading whitespace is fine for $( html ) but not $.parseHtml( html )
+[09:34:37] <DaveMethvin> right
+[09:34:53] <DaveMethvin> with the idea that if someone had arbitrary text they were passing it should go into $.parseHTML
+[09:35:04] <scott_gonzalez> Right, $( html ) should only be used for hard-coded values.
+[09:35:34] <DaveMethvin> like a template should go thru $.parseHTML instead of $(), although most of the time it will be .append() or some such and still be fine in 1.9
+[09:35:40] <timmywil> People must do $(" <div/> ") sometimes. What's the harm in allowing that?
+[09:35:58] <timmywil> we even have a test for it
+[09:36:31] <DaveMethvin> if it turns out to be a real problem we know how to fix it though
+[09:36:36] <DaveMethvin> that is, let's try being strict
+[09:36:46] <DaveMethvin> and see whether a lot of people are using leading space for literal html
+[09:37:36] <timmywil> DaveMethvin: I think we need to make good predications even with beta testing.
+[09:37:55] <timmywil> in our experience, we haven't gotten notices about breaking changes until final release
+[09:38:09] <timmywil> beta isn't enough
+[09:38:27] <timmywil> also, it's 2 characters
+[09:38:55] <DaveMethvin> just checking to see if there are other impacts
+[09:40:10] <DaveMethvin> we're not actually preserving the space, so that's good
+[09:40:28] <DaveMethvin> but i don't want to run $.trim() on the html
+[09:40:40] <timmywil> true, it's just ignoring it
+[09:40:46] <timmywil> I don't think it should be ignored in parseHTML
+[09:40:54] <DaveMethvin> agreed
+[09:41:28] <DaveMethvin> and right now it is, but the comment says IE can't handle it ... :/
+[09:41:52] <jqcommit> 01[13jquery01] 15gibson042 pushed 1 new commit to 06master: 02http://git.io/c-dhkQ
+[09:41:52] <jqcommit> 13jquery/06master 14452e327 15Richard Gibson: compress -16 min+gzip
+[09:42:08] <DaveMethvin> so it seems like we'd have to trim it then
+[09:42:20] <DaveMethvin> in that case leave in the \s i guess?
+[09:43:00] <DaveMethvin> kind of sucky b/c if someone parses an 80k tempate the first thing we do is trim it, which is probably not that cheap
+[09:43:26] <DaveMethvin> wait, if we ever are able to take that out, we shouldn't be allowing spaces in $(html) then timmywil
+[09:43:44] <DaveMethvin> like, for example in 2.0
+[09:45:01] <timmywil> so you're saying, the default behavior for $(" <div/> ") should say invalid selector instead of use document.createElement?
+[09:45:28] <DaveMethvin> yeah ... why is that space there?
+[09:46:12] <timmywil> it just seems unnecessarily strict
+[09:46:53] <timmywil> I'm all for removing ambiguity, but users like flexibility
+[09:47:47] <DaveMethvin> sometimes, flexibility to the point of being a noose ... but let's lay out the options
+[09:48:07] <DaveMethvin> right now $.parseHTML trims spaces ... should it?
+[09:48:09] <DaveMethvin> if we could avoid it?
+[09:48:23] <DaveMethvin> i guess we're probably stuck trimming them forever
+[09:48:43] <DaveMethvin> otherwise we're gonna break something where someone ends up with a text node as their first elment
+[09:49:08] <DaveMethvin> SO, if we're stuck always trimming $.parseHTML i suppose we could trim $(html) too
+[09:49:23] <DaveMethvin> does that make sense?
+[09:49:55] <DaveMethvin> because we just both said $.parseHTML shouldn't trim but i suspect it will always have to now
+[09:50:14] <timmywil> I'm looking for the trim in parseHTML
+[09:50:37] <timmywil> just the rsingleTag usage?
+[09:50:44] <DaveMethvin> oh hell, i was looking at parseJSON
+[09:50:46] <timmywil> seems like clean would create a text node
+[09:50:53] <DaveMethvin> yes
+[09:51:33] <gibson042> parseHTML doesn't trim, it just gives you a leading text node
+[09:51:53] <timmywil> right, unless single tag matches, but we can edit that
+[09:52:30] <DaveMethvin> oh timmywil you're JUST talking about the rsingletag case?
+[09:52:36] <gibson042> I know I'm coming in a little late here, but why would we?
+[09:52:50] <DaveMethvin> or are you saying we should recognize all html that has leading space regardless of complexity?
+[09:53:12] <gibson042> parseHTML should never trim IMO
+[09:53:19] <DaveMethvin> agreed
+[09:53:19] <timmywil> gibson042: in our tests, we have $(" <div/> ") creating a div element
+[09:53:41] <gibson042> right, I thought that's the lax acceptance we were abandoning in 1.9
+[09:54:08] <gibson042> I believe we even deprecated it in some 1.8 release notes
+[09:54:09] <scott_gonzalez> My thoughts are that $( html ) shouldn't accept leading text and $.parseHTML() shouldn't trim.
+[09:54:17] <DaveMethvin> i think it would be confusing to let rsingletag allow space but arbitrary html to now allow space
+[09:54:22] <DaveMethvin> not*
+[09:54:24] <gibson042> +1 scott_gonzalez
+[09:54:27] <DaveMethvin> scott_gonzalez: yest
+[09:54:47] <timmywil> ok, I think I've lost this battle
+[09:54:47] <scott_gonzalez> shouldn't accept leading text = leading space -> failure.
+[09:55:17] <DaveMethvin> timmywil: you can say "i told you so" at some point :D
+[09:56:26] <timmywil> DaveMethvin: I can't do that until at least 10 years after the attroperties incident
+[09:56:48] <timmywil> oh, bbs, late for a lunch
+[09:56:49] <DaveMethvin> see, that's why you're gun shy timmywil!
+[09:56:57] <DaveMethvin> you never forget your first backcompat disaster
+[09:57:33] <scott_gonzalez> timmywil: The trick is to just overwhelm them with breaking changes :-) http://jqueryui.com/upgrade-guide/1.9/
+[09:57:52] <scott_gonzalez> Then one mistake won't stand out amongst all the other shit that's going on...
+[09:57:55] <timmywil> hehe
+[09:58:18] <DaveMethvin> i'm on it scott_gonzalez 
+[09:58:24] <timmywil> ok really gotta run, I'll take care of the ticket when I get back
+[09:58:29] <timmywil> peace
+[09:58:31] <DaveMethvin> thanks
+[09:58:35] <scott_gonzalez> And when the tickets start coming in, you can just say "Sorry, that's deprecated"
+[09:59:58] <snover> I’m coming in even later about the trimming thing, but would like to point out that many editors put a single newline at the end of a file
+[10:00:08] <snover> which would generate an empty text node
+[10:00:11] <snover> if you do not trim
+[10:00:23] <snover> if you care about that kind of thing
+[10:00:26] <DaveMethvin> that woudn't be a problem
+[10:12:44] <doesallmagic> Project jQuery Core build #564: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/564/
+[10:12:44] <doesallmagic> richard.gibson: compress -16 min+gzip
+[11:04:34] <scott_gonzalez> DaveMethvin: 1.10.0-beta.1 is out, so feel free to just go ape shit and break everything in core now.
+[11:05:04] <DaveMethvin> roger that scott_gonzalez :)
+[12:07:14] <ajpiano> DaveMethvin: wooo http://stage.contribute.jquery.com/CLA/
+[12:07:35] <DaveMethvin> nice ajpiano!
+[12:07:56] <ajpiano> i pushed that whole site to gh with some content and a lot of stubs
+[12:08:34] <DaveMethvin> i like the framework
+[12:09:05] <sizcommit> 01[13sizzle01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/W3ZulQ
+[12:09:05] <sizcommit> 13sizzle/06master 14031c00c 15Timmy Willison: Remove unused vars in speed
+[12:09:18] <ajpiano> cool
+[12:09:33] <ajpiano> so yeah, like you said yesterday, if you want to write some markdown, there's some markdowns you can do :p
+[12:10:09] <DaveMethvin> yeah, now i just need to set up a linux vm ... i know i'm not getting there with windows unfortunately
+[12:10:45] <ajpiano> i thought you had the sites building on your machine
+[12:11:00] <DaveMethvin> i did about 6 months ago i think
+[12:11:05] <DaveMethvin> but now, not so much
+[12:11:14] <DaveMethvin> grunt.utils.spawn ... won't
+[12:11:25] <DaveMethvin> it's a known bug with nodejs spawm
+[12:11:29] <DaveMethvin> spawn
+[12:11:37] <ajpiano> bummer
+[12:11:57] <DaveMethvin> https://github.com/joyent/node/issues/2318
+[12:12:10] <ajpiano> DaveMethvin: well, you don't *need* to deploy locally to just write the md
+[12:12:19] <DaveMethvin> true
+[12:12:28] <DaveMethvin> i can just edit the md and commit
+[12:12:35] <ajpiano> yep
+[12:12:54] <DaveMethvin> and push of course :D
+[12:16:24] <ajpiano> always helps
+[12:19:23] <timmywil> gibson042: I'm confused
+[12:19:43] <gibson042> me too
+[12:19:45] <timmywil> gibson042: have you ever noticed Sizzle.error being called in IE6 with no error thrown?
+[12:19:46] <gibson042> what about?
+[12:20:00] <gibson042> yes, I have
+[12:20:25] <timmywil> gibson042: what did you do?
+[12:20:27] <gibson042> I suspect it to be QUnit interference, and we have a workaround in place IIRC
+[12:20:31] <gibson042> let me check
+[12:20:46] <timmywil> oh, right, window.error
+[12:21:25] <timmywil> I bet that's why the message wasn't right in IE8 either
+[12:21:33] <timmywil> some rethrow or something
+[12:22:18] <gibson042> timmywil: https://github.com/jquery/sizzle/blob/master/test/unit/selector.js#L175
+[12:23:03] <timmywil> that bypasses window.error?
+[12:23:08] <gibson042> changing from Sizzle(foo) to Sizzle.call(null, foo) resolved it for me for some reason
+[12:23:14] <gibson042> https://github.com/jquery/sizzle/commit/eba940636b5b1f3299cefe51bb1ec2b985379182
+[12:24:33] <gibson042> I really should have commented that
+[12:24:39] <timmywil> heh
+[12:24:44] <timmywil> I can do that
+[12:26:59] <timmywil> gibson042: it worked, thx
+[12:27:08] <timmywil> I knew it looked familiar
+[12:30:51] <sizcommit> 01[13sizzle01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/3a6yPg
+[12:30:51] <sizcommit> 13sizzle/06master 148c6ed15 15Timmy Willison: Add comment about bypassing QUnit's window.error in 'broken' tests
+[12:31:34] <jqcommit> 01[13jquery01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/Cm_7wg
+[12:31:34] <jqcommit> 13jquery/06master 1405531fc 15timmywil: Adjust jQuery('html') detection to only match when html starts with '<' (not counting space characters). Fixes #11290.
+[12:43:42] <doesallmagic> Project jQuery Core build #565: STILL FAILING in 12 min: http://swarm.jquery.org:8080/job/jQuery%20Core/565/
+[12:43:42] <doesallmagic> timmywillisn: Adjust jQuery('html') detection to only match when html starts with '<' (not counting space characters). Fixes #11290.
+[12:44:08] <timmywil> oh hello event module
+[12:48:20] <timmywil> oof, we need to get on adding jQuery.parseHTML to api.jquery.com
+[12:53:19] <jqcommit> 01[13jquery01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/qU-qAw
+[12:53:19] <jqcommit> 13jquery/06master 147d61c52 15Timmy Willison: Adjust html parsing in event tests to use jQuery.parseHTML explicitly.
+[13:23:28] <doesallmagic> Project jQuery Core build #566: STILL FAILING in 30 min: http://swarm.jquery.org:8080/job/jQuery%20Core/566/
+[13:23:29] <doesallmagic> timmywillisn: Adjust html parsing in event tests to use jQuery.parseHTML explicitly.
+[15:09:23] <jqcommit> 01[13jquery.com01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/afIMaA
+[15:09:23] <jqcommit> 13jquery.com/06master 14ea5c8e1 15Dave Methvin: Add initial upgrade guide.
+[15:16:34] <jqcommit> 01[13jquery.com01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/F4wVVg
+[15:16:34] <jqcommit> 13jquery.com/06master 140277122 15Dave Methvin: Add upgrade-guide index page.
+[15:22:39] <jqcommit> 01[13jquery.com01] 15dmethvin pushed 1 new commit to 06master: 02http://git.io/Ev7sAA
+[15:22:39] <jqcommit> 13jquery.com/06master 14df3b308 15Dave Methvin: If UI can build md files, core can too.
+[17:53:52] <sizcommit> 01[13sizzle01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/6Ajv9w
+[17:53:52] <sizcommit> 13sizzle/06master 14875792c 15Timmy Willison: Update grunt lint to use jshintrc's and pass new lint rules
+[19:24:14] <jqcommit> 01[13jquery.com01] 15rdworth pushed 1 new commit to 06master: 02http://git.io/cdskxg
+[19:24:14] <jqcommit> 13jquery.com/06master 14d4bc7a7 15Richard D. Worth: updrage-guide/1.9: Added new jq-primaryContent custom field so jquery.com theme adds needed wrapper div

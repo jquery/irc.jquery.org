@@ -1,0 +1,454 @@
+[04:45:05] <m_gol> haha, minimal jQuery build is now 9041 bytes minified (before gzipping)
+[04:45:12] <m_gol> not doing much, though :P
+[06:48:21] <timmywil> m_gol: What's blocking us from landing the support PRs?
+[06:48:48] <m_gol> timmywil: there are about 3 test failures in both master & 1.x-master
+[06:48:57] <m_gol> apart from that I'm just waiting for a review :)
+[06:50:09] <timmywil> I think they look great
+[06:50:21] <timmywil> I'd like to land ASAP so I can continue breaking up modules
+[06:53:23] <timmywil> I'll take a look at the failures
+[06:53:33] <timmywil> do they fail in Chrome?
+[06:55:33] <m_gol> yep
+[06:55:38] <m_gol> it's funny
+[06:55:46] <m_gol> because I don't get the same failures on 1.x
+[06:56:03] <m_gol> so I guess it's because of the switch to documentElement which I didn't do on 1.x due to oldIE issues
+[06:56:21] <m_gol> but the switch to docElem itself (the first commit in the master pr) doesn't introduce these failures
+[06:56:24] <m_gol> only the second one
+[06:56:41] <m_gol> it'd be cool if sb figured out what's the problem exactly...
+[06:57:06] <m_gol> I'd like to land it ASAP as well, many files changed so the longer we wait the more "happy rebasing" there'll be...
+[07:01:56] <m_gol> timmywil ^^^
+[07:02:23] <m_gol> timmywil: if you found time, separate commits for switch to docElem and for breaking up support might help you with debugging the issue
+[07:02:49] <m_gol> but, tbh, this is such a big code moving around, so many files touched that it might fall into our strategy of "some errors acceptable on big rewrites"
+[07:02:55] <m_gol> we can fix them in subsequent comments later
+[07:03:19] <timmywil> yea, we may have to. I'm going to take a look and see if we can fix the errors, but I'd like to land today regardless.
+[07:03:36] <timmywil> because it's starting to block other things
+[07:05:10] <timmywil> DaveMethvin: you agree?
+[07:05:38] <DaveMethvin> timmywil m_gol http://www.youtube.com/watch?v=SmHeP9Sve48
+[07:05:43] <DaveMethvin> yeah
+[07:05:58] <timmywil> hehe
+[07:06:07] <DaveMethvin> i really appreciate you guys keeping things rolling
+[07:06:19] <DaveMethvin> sorry i've been busy with board and conference stuff
+[07:06:48] <DaveMethvin> let's land with the few bugs and figure them out so we're not blocking everything else
+[07:07:04] <timmywil> agreed, taking a look now
+[07:14:58] <m_gol> I'm actually more worried about the master bugs
+[07:15:12] <m_gol> since 1.x are probably just some minor differences to sort out, can be done after merging
+[07:15:39] <m_gol> and on master I'm not sure if they're all so simple or if switching to docElem might be a mistake at least for a couple of them
+[07:15:51] <DaveMethvin> we just don't know yet whether there is some fatal flaw with using docElem or if this is some simple fix we can do
+[07:16:14] <DaveMethvin> but m_gol you mentioned that it only showed up when you made it lazy?
+[07:17:21] <m_gol> yeah
+[07:17:25] <m_gol> but they're not on 1.x
+[07:17:41] <DaveMethvin> so it's lazy + docElem = flakey
+[07:17:44] <m_gol> yu[
+[07:17:46] <m_gol> * yup
+[07:17:50] <m_gol> that's what puzzles
+[07:17:51] <m_gol> me
+[07:18:23] <m_gol> DaveMethvin: as for PR checks, they seem to try to use this in AngularJS team (although they admit it's a little flaky currently, an alpha stage or sth): https://github.com/btford/mary-poppins
+[07:19:23] <DaveMethvin> cute
+[07:19:39] <DaveMethvin> okay so that explains where the checklist comes from
+[07:19:39] <m_gol> I suspect there will be the day when jQuery 2.x will be so small after excluding optional modules that I might be able to convince the Angular team to drop jqLite ;)
+[07:19:41] <m_gol> we'll see
+[07:20:15] <m_gol> haha. love the API: poppins.couldYouPlease('pr-checklist');
+[07:56:27] <timmywil> DaveMethvin: we don't care about supporting duck-punching core module methods like each/map/extend/isPlainObject/etc, right? I have a branch where I've split up core into it's methods and use each instead of jQuery.each everywhere. It breaks duck-punching those, but it saves 42 bytes and gives the added advantage of only including things like src/core/extend in your project without having to include jQuery.
+[07:57:40] <timmywil> duck-punching those seems like bad news anyway
+[07:58:12] <m_gol> I had an impression we do care about duck-punching methods from the public API
+[07:58:28] <timmywil> I'm just talking about core module methods
+[07:58:50] <timmywil> things where if you were to duck-punch them, you'd break everything
+[07:59:17] <m_gol> it depends on how do you do it ;)
+[07:59:27] <timmywil> but… why?
+[07:59:38] <m_gol> well, I've mostle seen monkey-patching DOM methods like remove, html etc.
+[07:59:42] <m_gol> * mostly
+[07:59:55] <timmywil> sure, I wouldn't want to change that
+[08:00:24] <m_gol> but that's true I didn't really see anyone doing it about core module methods
+[08:00:46] <m_gol> you might want to talk to gibson about that, though :)
+[08:07:35] <timmywil> m_gol: ok, actually looking now. so it's something related to testIframe, yea?
+[08:07:42] <m_gol> yup
+[08:10:41] <timmywil> ok, somehow the isReady is never true
+[08:21:30] <timmywil> m_gol: ok, I found the problem
+[08:21:58] <timmywil> m_gol: the iframes weren't kicking off the ready checks because nothing was asking for them.
+[08:22:10] <m_gol> haha
+[08:22:16] <m_gol> right, that explains a lot :)
+[08:22:50] <timmywil> when switching to lazy load, we never checked internally :)
+[08:23:43] <timmywil> I'm going to land your stuff. I've added a call to jQuery.ready.promise() in the ready module to avoid regressions and fix the tests.
+[08:23:52] <timmywil> I'll double check 1.x before landing as well
+[08:28:31] <m_gol> ok, thanks! :)
+[08:28:56] <m_gol> there is a weird traversing bug on 1.x but I suppose it should be sth simple
+[08:29:45] <jqcommit> 01[13jquery01] 15timmywil pushed 3 new commits to 06master: 02http://git.io/OPFItw
+[08:29:45] <jqcommit> 13jquery/06master 14776012b 15Michał Gołębiowski: Fix #14084: attach the test div to documentElement, not body.
+[08:29:45] <jqcommit> 13jquery/06master 14bbbdd94 15Michał Gołębiowski: Fix #10814. Make support tests lazy and broken out to components.
+[08:29:45] <jqcommit> 13jquery/06master 1473e1201 15Timmy Willison: With all of the ready calls removed internally, ready was never kicked off. Add a call in the ready module to ensure ready is checked.
+[08:29:58] <jqcommit> [13jquery] 15timmywil closed pull request #1342: Fix #10814. Make support tests lazy and broken out to components. Fix #14084: attach the test div to documentElement, not body. (06master...06lazy_support)  02http://git.io/gAh0Cg
+[08:31:25] <timmywil> I didn't have to change anything about that pull request. Thanks m_gol 
+[08:31:51] <timmywil> so refreshing
+[08:32:14] <m_gol> ;)
+[08:34:00] <timmywil> oof, this pull is +426
+[08:34:56] <m_gol> yeah, that's not so nice
+[08:35:15] <m_gol> there are some reasons for that
+[08:35:23] <m_gol> I might have made some wrong decisions
+[08:35:48] <m_gol> I didn't reuse most of objects since I needed to release them after a support test to avoid leaks in IE
+[08:35:53] <jzaefferer> lazy support tests? so they don't all run on load anymore?
+[08:36:08] <m_gol> but if these leaks would have a limited impact, maybe it's better to just leave them
+[08:36:38] <m_gol> that should save sth
+[08:36:52] <m_gol> I was too tired after making this PR to think more about that :)
+[08:37:08] <DaveMethvin> jzaefferer yep, we put it off to save load time and prevent unneeded reflows
+[08:37:23] <DaveMethvin> m_gol it's a start, we can trim it now that it works and is landed
+[08:37:58] <DaveMethvin> and really i think we all knew it would get bigger, but if someone is space sensitive they have a lot of control over what they include now
+[08:39:31] <m_gol> 2.x is smaller after the patch! :D
+[08:39:56] <m_gol> I guess this shows it's our secret team plan to move everyone to 2.x and thus make people stop using oldIE :P
+[08:39:59] <timmywil> so 2.x just doesn't have as many lazy tests?
+[08:40:12] <m_gol> timmywil: yep
+[08:40:26] <timmywil> the added functions are probably the size chunks
+[08:40:27] <m_gol> also, 2.x has these tests divs attached to docElem so less body checks
+[08:41:08] <m_gol> btw, now we really have to take that down: http://api.jquery.com/jQuery.support/
+[08:41:25] <m_gol> it's not even true at the moment since jQuery.support contains functions as well
+[08:41:28] <jzaefferer> will this land in 1.x as well?
+[08:41:43] <m_gol> jzaefferer: yup
+[08:41:53] <jzaefferer> I wonder how big of an impact this will have on shitty-cpu mobile devices
+[08:42:15] <DaveMethvin> i hope it will make them crazy fast, and we'll all be HEROES! :D
+[08:42:18] <timmywil> lemme see if I can reduce this a bit
+[08:42:22] <m_gol> :)
+[08:43:14] <m_gol> if we'd really got into reducing, maybe putting test divs/inputs/whatever to variables and including them in module/support.js would decrease the size
+[08:43:24] <m_gol> the question is, though, how far do we want to go
+[08:43:44] <m_gol> if we share too much, tests might become vulnerable to which modules we exclude and that's not nice
+[08:45:16] <doesallmagic2> Project jQuery Core build #905: STILL FAILING in 15 min: http://jenkins.jquery.com/job/jQuery%20Core/905/
+[08:45:16] <doesallmagic2> * m.goleb: Fix #14084: attach the test div to documentElement, not body.
+[08:45:17] <doesallmagic2> * m.goleb: Fix #10814. Make support tests lazy and broken out to components.
+[08:45:17] <doesallmagic2> * timmywillisn: With all of the ready calls removed internally, ready was never kicked off. Add a call in the ready module to ensure ready is checked.
+[08:45:46] <timmywil> bah, swarm isn't happy
+[08:46:17] <timmywil> seems to be my fault
+[08:47:22] <timmywil> seems to be another tests in an iframe problem
+[08:47:45] <timmywil> hmm, maybe not
+[08:48:54] <jqcommit> [13jquery] 15mzgol closed pull request #1351: Update grunt watch dependency (06master...06dependencies/updating)  02http://git.io/V-RunA
+[08:52:56] <timmywil> yea, the problem is we don't want to permanently hold on to element references and we don't know when they won't be used anymore (without some hackery)
+[08:54:01] <timmywil> I suppose a couple test divs wouldn't be too much space, but reusing them everything might break some tests
+[08:54:10] <timmywil> everywhere*
+[09:00:32] <doesallmagic2> Project jQuery Migrate Core 1.x build #106: STILL FAILING in 15 min: http://jenkins.jquery.com/job/jQuery%20Migrate%20Core%201.x/106/
+[09:08:25] <timmywil> m_gol: easy fix. one of the test elements wasn't getting removed
+[09:09:19] <jqcommit> 01[13jquery01] 15timmywil pushed 2 new commits to 061.x-master: 02http://git.io/m2q9JA
+[09:09:19] <jqcommit> 13jquery/061.x-master 14badcd1b 15Michał Gołębiowski: Fix #10814. Fix #14084. Make support tests lazy and broken out to components.
+[09:09:19] <jqcommit> 13jquery/061.x-master 143ec6af8 15Timmy Willison: Remove test element in css/support
+[09:09:26] <jqcommit> [13jquery] 15timmywil closed pull request #1353: Fix #10814. Fix #14084. Make support tests lazy and broken out to components. (061.x-master...061.x-lazy_support)  02http://git.io/loE8SQ
+[09:10:05] <m_gol> :)
+[09:10:22] <doesallmagic2> Project jQuery Core 1.x build #218: STILL FAILING in 1 min 11 sec: http://jenkins.jquery.com/job/jQuery%20Core%201.x/218/
+[09:10:23] <doesallmagic2> * m.goleb: Fix #10814. Fix #14084. Make support tests lazy and broken out to components.
+[09:10:23] <doesallmagic2> * timmywillisn: Remove test element in css/support
+[09:10:52] <timmywil> I just deleted that job
+[09:11:23] <timmywil> I'll fix swarm as soon as I can get to it. Everything's passing locally so it's something to figure out on swarm.
+[09:11:51] <m_gol> thanks timmywil for merging those 2 and for figuring out what the problems were! :)
+[09:12:01] <timmywil> np :)
+[09:12:08] <timmywil> thanks for doing all that
+[09:12:46] <timmywil> Ok, gotta run for now. bbl
+[09:17:43] <m_gol> cu
+[09:19:12] <m_gol> timmywil, DaveMethvin: btw, when I look at it... seems this pattern might be abstracted: https://github.com/jquery/jquery/blob/1.x-master/src/css.js#L549-614
+[09:19:30] <m_gol> that should save some space
+[09:30:10] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 061.x-master: 02http://git.io/BxidIw
+[09:30:10] <jqcommit> 13jquery/061.x-master 146987220 15Michał Gołębiowski: No ticket. Optimize top/left hooks: move the position check up, don't re-check it inside a hook.
+[09:34:15] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 06master: 02http://git.io/zeliHA
+[09:34:15] <jqcommit> 13jquery/06master 141f16b16 15Michał Gołębiowski: No ticket. Optimize the marginRight hook: run the support test once only.
+[09:45:45] <doesallmagic2> Project jQuery Core 1.x build #219: STILL FAILING in 15 min: http://jenkins.jquery.com/job/jQuery%20Core%201.x/219/
+[09:45:45] <doesallmagic2> m.goleb: No ticket. Optimize top/left hooks: move the position check up, don't re-check it inside a hook.
+[10:01:21] <doesallmagic2> Project jQuery Core build #906: STILL FAILING in 15 min: http://jenkins.jquery.com/job/jQuery%20Core/906/
+[10:01:21] <doesallmagic2> m.goleb: No ticket. Optimize the marginRight hook: run the support test once only.
+[10:22:00] <jqcommit> [13jquery] 15mzgol opened pull request #1354: No ticket. Abstract conditional hook definition. (06master...06registerGetHookIff)  02http://git.io/X1cLcg
+[10:33:01] <scott_gonzalez> Damn. jquery-latest is the #1, #4, #11, #18, and #20 most requested file on our CDN.
+[10:33:10] <scott_gonzalez> Good thing we have SO MANY COPIES.
+[10:33:40] <m_gol> lol
+[10:33:58] <m_gol> let's hope it's just all these jsFiddles :P
+[10:47:08] <m_gol> I loved SourceTree back in the days when this git client didn't use 750% CPU (?!)
+[11:18:27] <jqcommit> [13jquery] 15guybedford synchronize pull request #1348: Remove circular reference (06master...06master)  02http://git.io/kadZWw
+[11:31:37] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 06master: 02http://git.io/am77hA
+[11:31:37] <jqcommit> 13jquery/06master 141a25f21 15Michał Gołębiowski: No ticket. Restore checking individual src/**/*.js files by jsHint.
+[11:32:06] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 061.x-master: 02http://git.io/MrpPOA
+[11:32:06] <jqcommit> 13jquery/061.x-master 14f044622 15Michał Gołębiowski: No ticket. Restore checking individual src/**/*.js files by jsHint.
+[11:32:11] <doesallmagic2> Project jQuery Core build #907: STILL FAILING in 46 sec: http://jenkins.jquery.com/job/jQuery%20Core/907/
+[11:32:11] <doesallmagic2> m.goleb: No ticket. Restore checking individual src/**/*.js files by jsHint.
+[11:32:46] <doesallmagic2> Project jQuery Core 1.x build #220: STILL FAILING in 32 sec: http://jenkins.jquery.com/job/jQuery%20Core%201.x/220/
+[11:32:46] <doesallmagic2> m.goleb: No ticket. Restore checking individual src/**/*.js files by jsHint.
+[12:46:06] <jqcommit> 01[13jquery01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/sEn6Yg
+[12:46:06] <jqcommit> 13jquery/06master 146535cc5 15Timmy Willison: Use requirejs to load the testswarm inject script
+[12:46:25] <doesallmagic2> Project jQuery Core build #908: STILL FAILING in 30 sec: http://jenkins.jquery.com/job/jQuery%20Core/908/
+[12:46:26] <doesallmagic2> timmywillisn: Use requirejs to load the testswarm inject script
+[12:48:22] <timmywil> Krinkle: ping
+[12:48:26] <Krinkle> [L59:C5] W117: 'ok' is not defined.
+[12:48:26] <Krinkle>   ok( Sizzle.contains(document, element), "document container (positive)" );
+[12:48:26] <Krinkle> Linting src/sizzle/test/unit/utilities.js ...ERROR
+[12:48:28] <Krinkle> >> Too many errors. (37% scanned).
+[12:48:40] <Krinkle> timmywil: Hi
+[12:48:40] <timmywil> yea, that directory shouldn't exist
+[12:48:53] <timmywil> it must have not gotten removed somehow
+[12:49:01] <timmywil> in the jenkins repo
+[12:49:16] <Krinkle> bower install adds that, no?
+[12:49:26] <timmywil> it adds it to bower_components
+[12:49:30] <Krinkle> right
+[12:49:41] <Krinkle> submodules are not auto-removed when removed from the repo, it's a git thing in general
+[12:49:49] <timmywil> ah, gotcha
+[12:49:56] <timmywil> rm -rf src/sizzle should fix it
+[12:50:55] <Krinkle> done
+[12:50:59] <Krinkle> timmywil: also test/qunit/
+[12:51:00] <Krinkle> ?
+[12:51:03] <timmywil> yup
+[12:51:06] <Krinkle> shows up in git untracked
+[12:51:10] <Krinkle> we should do git clean -fd etc
+[12:51:12] <Krinkle> in jenkins
+[12:51:20] <timmywil> yea, that works
+[12:51:46] <timmywil> also please kick off another build to check
+[12:51:51] <Krinkle> sudo git clean -dfx
+[12:52:02] <Krinkle> well, not sudo for jenkins, but for me
+[12:52:32] <timmywil> right
+[12:52:37] <Krinkle> timmywil: That makes "npm prune; bower cache-clean " redundant, no?
+[12:53:03] <timmywil> no because they're ignored by git
+[12:53:13] <Krinkle> git clean ignores git ignore
+[12:53:17] <Krinkle> at least the command I used
+[12:53:21] <Krinkle> on purpose 
+[12:53:25] <timmywil> oh gotcha, cool
+[12:53:40] <timmywil> although bower cache is about bower's cache
+[12:53:48] <timmywil> there is a bower prune though
+[12:54:19] <Krinkle> # Remove cache and artefacts of npm, bower, git submodules and jenkins builds    
+[12:54:33] <Krinkle> Is bower cache-clean still needed?
+[12:54:41] <Krinkle> Isn't that only in the local repo dir? Or somewhere else as well
+[12:54:51] <timmywil> yes, but the new syntax is bower cache clean (either way works though)
+[12:55:38] <timmywil> I'm not certain where the bower cache is kept (I think it changed in 1.0)
+[12:55:43] <Krinkle> k
+[12:56:18] <timmywil> cool, thanks Krinkle 
+[12:56:51] <Krinkle> I would've expected that the Jenkins git handler takes care of this (e.g. the same thing that does "git remote, git fetch, git checkout <hash>" at the start from the github push) 
+[12:56:59] <Krinkle> too bad, we'll have to add this to all jobs
+[12:57:16] <Krinkle> ">> 65 files lint free. "
+[12:57:17] <Krinkle> :)
+[12:57:59] <timmywil> looks good :)
+[12:58:20] <timmywil> tests are running well too
+[13:00:20] <timmywil> well hmm, at least for ff 22 and opera
+[13:01:10] <Krinkle> 1 failure though
+[13:01:11] <Krinkle> http://swarm.jquery.org/result/797672
+[13:01:15] <Krinkle> jQuery.support['boxSizingReliable']: false, expected['boxSizingReliable']: true
+[13:01:38] <timmywil> yea, I suspect that was from the support refactor
+[13:01:56] <timmywil> my first concern is getting the tests to run correctly again on swarm
+[13:02:16] <Krinkle> timmywil: btw, I've got a css challenge I can't quite figure out
+[13:02:17] <Krinkle> look at http://swarm.jquery.org/project/jquery
+[13:02:23] <Krinkle> the first column has the job names and a date
+[13:02:26] <Krinkle> in chrome they're overlapping
+[13:02:47] <Krinkle> The idea is to have it floating to the right, and the column auto-expanding as needed (as tables do)
+[13:02:54] <Krinkle> for some reason whitespace nowrap makes this fail
+[13:03:16] <timmywil> maybe stick the link inside the span?
+[13:03:57] <Krinkle> basically it should look like this: http://cl.ly/image/3N2X0e2n0k0h
+[13:05:30] <timmywil> just take the float off the span
+[13:05:50] <timmywil> and switch the order
+[13:06:00] <Krinkle> that doesn't work if the text has varying lengths
+[13:06:02] <Krinkle> which it does
+[13:06:17] <Krinkle> right now most job names have the same length though
+[13:06:28] <timmywil> text-align: right?
+[13:07:24] <timmywil> You'll always get some overlaps with the float.
+[13:08:24] <timmywil> interesting other browsers are running now
+[13:11:09] <doesallmagic2> Project jQuery Core build #909: STILL FAILING in 15 min: http://jenkins.jquery.com/job/jQuery%20Core/909/
+[13:19:41] <jqcommit> 01[13testswarm01] 15Krinkle pushed 1 new commit to 06master: 02http://git.io/GaO77Q
+[13:19:41] <jqcommit> 13testswarm/06master 14bde28e9 15Timo Tijhof: Fix overlapping alignment of dates on Job and Project pages
+[13:20:09] <Krinkle> deployed
+[13:20:15] <Krinkle> not ideal, but better
+[13:20:29] <Krinkle> http://swarm.jquery.org/project/jquery
+[13:20:29] <Krinkle> Thx
+[13:23:45] <jqcommit> 01[13jquery01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/yHKQKQ
+[13:23:45] <jqcommit> 13jquery/06master 14e563cd3 15Timmy Willison: Move test loader to testinit.js. Fix race condition with dependency loading.
+[13:24:00] <doesallmagic2> Project jQuery Core build #910: STILL FAILING in 30 sec: http://jenkins.jquery.com/job/jQuery%20Core/910/
+[13:24:01] <doesallmagic2> timmywillisn: Move test loader to testinit.js. Fix race condition with dependency loading.
+[13:25:04] <timmywil> ugh
+[13:25:52] <jqcommit> 01[13jquery01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/UKjCYA
+[13:25:52] <jqcommit> 13jquery/06master 144ca5a0c 15Timmy Willison: No ticket: link testinit
+[13:41:15] <doesallmagic2> Project jQuery Core build #911: STILL FAILING in 15 min: http://jenkins.jquery.com/job/jQuery%20Core/911/
+[13:41:15] <doesallmagic2> timmywillisn: No ticket: link testinit
+[14:12:11] <jqcommit> 01[13jquery01] 15timmywil pushed 1 new commit to 06master: 02http://git.io/Egozxw
+[14:12:11] <jqcommit> 13jquery/06master 145093b89 15Timmy Willison: Convert testrunner to an AMD module and ensure jQuery is on the page when executing the testrunner (another race condition amplified by swarm)
+[14:15:49] <timmywil> ah, that's better
+[14:16:34] <timmywil> ok m_gol, swarm is working now. If you could take a look at any failures related to support that would be awesome.
+[14:18:56] <doesallmagic2> Project jQuery Core build #912: STILL FAILING in 7 min 0 sec: http://jenkins.jquery.com/job/jQuery%20Core/912/
+[14:18:56] <doesallmagic2> timmywillisn: Convert testrunner to an AMD module and ensure jQuery is on the page when executing the testrunner (another race condition amplified by swarm)
+[14:24:37] <timmywil> Krinkle: could you run the same git clean on 1.x?
+[14:25:00] <timmywil> I'm about to push so no need to create a job afterwards
+[14:25:26] <timmywil> oh wait, I have access
+[14:27:20] <timmywil> err, maybe not the same server
+[14:27:29] <timmywil> yea Krinkle, better you do that
+[14:27:52] <Krinkle> timmywil: http://jenkins.jquery.com/job/jQuery%20Core/configure
+[14:27:56] <Krinkle> it's not from the server :)
+[14:28:01] <Krinkle> (well, though web gui)
+[14:28:23] <timmywil> ah, well, I'm sure I don't have an account with the gui
+[14:29:18] <Krinkle> k
+[14:29:20] <timmywil> now I do, timmywil, but of course I don't have controle
+[14:30:27] <Krinkle> done
+[14:30:50] <doesallmagic2> Project jQuery Core 1.x build #221: STILL FAILING in 28 sec: http://jenkins.jquery.com/job/jQuery%20Core%201.x/221/
+[14:30:54] <timmywil> cool thanks
+[14:31:01] <timmywil> oh, hmm
+[14:31:15] <timmywil> didn't seem to get removed
+[14:32:31] <jqcommit> 01[13jquery01] 15timmywil pushed 3 new commits to 061.x-master: 02http://git.io/k_lnyQ
+[14:32:31] <jqcommit> 13jquery/061.x-master 14b99972d 15Timmy Willison: Use requirejs to load the testswarm inject script
+[14:32:31] <jqcommit> 13jquery/061.x-master 14d14904d 15Timmy Willison: Move test loader to testinit.js. Fix race condition with dependency loading.
+[14:32:31] <jqcommit> 13jquery/061.x-master 14be1e4ee 15Timmy Willison: Convert testrunner to an AMD module and ensure jQuery is on the page when executing the testrunner (another race condition amplified by swarm)...
+[14:32:47] <doesallmagic2> Project jQuery Core 1.x build #222: STILL FAILING in 25 sec: http://jenkins.jquery.com/job/jQuery%20Core%201.x/222/
+[14:32:48] <doesallmagic2> * Timmy Willison: Use requirejs to load the testswarm inject script
+[14:32:48] <doesallmagic2> * Timmy Willison: Move test loader to testinit.js. Fix race condition with dependency loading.
+[14:32:49] <doesallmagic2> * Timmy Willison: Convert testrunner to an AMD module and ensure jQuery is on the page when executing the testrunner (another race condition amplified by swarm)
+[14:33:05] <timmywil> Krinkle: ^^ maybe rm -rf src/sizzle is needed again
+[14:38:42] <Krinkle> timmywil: http://jenkins.jquery.com/job/jQuery%20Core%201.x/222/consoleFull
+[14:38:46] <Krinkle> "Removing src/sizzle/ "
+[14:38:49] <Krinkle> it did
+[14:38:50] <Krinkle> ..
+[14:38:51] <Krinkle> strange
+[14:41:18] <Krinkle> aha
+[14:41:29] <Krinkle> -d
+[14:41:29] <Krinkle>            Remove untracked directories in addition to untracked files. If an untracked directory is managed by a different git repository, it is not removed by default.
+[14:41:29] <Krinkle>            Use -f option twice if you really want to remove such a directory.
+[14:41:36] <Krinkle> you have to pass -f twice,
+[14:41:40] <Krinkle> ugh
+[14:58:13] <doesallmagic2> Project jQuery Core 1.x build #223: STILL FAILING in 15 min: http://jenkins.jquery.com/job/jQuery%20Core%201.x/223/
+[16:20:01] <m_gol> as for boxSizingReliable failures
+[16:20:17] <m_gol> we just should update browsers in testswarm
+[16:20:32] <m_gol> current and previous Chrome & Firefox work fine with it
+[16:20:48] <m_gol> and we don't support Safari 5.1 anymore (though we do support iOS 5.1 but they're not fully the same)
+[16:21:02] <m_gol> so Safari 5.1 shouldn't be amongst tested browsers
+[16:21:07] <m_gol> timmywil Krinkle ^^^
+[16:21:24] <Krinkle> Hm..
+[16:21:53] <Krinkle> 1.x still supports Safari 5.1 though I hope?
+[16:22:05] <m_gol> Firefox 23 & 24 have pass this test but on TestSwarm we have 21 & 22
+[16:22:08] <m_gol> nope, 1.11 will drop it
+[16:22:09] <Krinkle> I don't see why it would have to stop supporting it now?
+[16:22:18] <m_gol> the strategy is always the current & previous version
+[16:22:22] <Krinkle> I know that
+[16:22:27] <Krinkle> but we don't have to purposely break compatibility
+[16:22:28] <m_gol> and Safari 7 will be released soon
+[16:23:05] <m_gol> Krinkle: Safari 5.1 failure is caused only by a change to tests, not to code
+[16:23:05] <Krinkle> Safari 7 will likely not support older Mac OSes
+[16:23:17] <Krinkle> note that TestSwarm != official support, it is what we know works and want to know when it no longer works.
+[16:23:27] <m_gol> i.e. we were shamelessly checking if there's Safari 5.1 tested and omitted one test then
+[16:23:37] <Krinkle> We can keep Safari 5.1 in there as long as it passes (and we don't mind a little extra work to keep it passing)
+[16:23:39] <m_gol> so now when I removed this check during refactor...
+[16:23:50] <Krinkle> uh?
+[16:24:00] <Krinkle> Can you link to the line(s) in question?
+[16:24:04] <m_gol> sure
+[16:25:29] <m_gol> Krinkle: https://github.com/jquery/jquery/commit/bbbdd947256a3fcd788fb9d4f306046082a1ef1f#L169-174
+[16:25:29] <b-ot> m_gol: Michał Gołębiowski (1w 4d ago): Fix #10814. Make support tests lazy and broken out to components.
+[16:25:58] <m_gol> I can restore this line, I was just assuming we're going to remove Safari 5.1 from TestSwarm
+[16:26:14] <Krinkle> https://github.com/jquery/jquery/commit/bbbdd947256a3fcd788fb9d4f306046082a1ef1f#L34R164
+[16:26:14] <b-ot> Krinkle: Michał Gołębiowski (1w 4d ago): Fix #10814. Make support tests lazy and broken out to components.
+[16:26:16] <m_gol> and when I started this refactor I forgot about iOS 5.1 that has lots of the same bugs
+[16:26:39] <m_gol> but it doesn't have CSP at all so removing this check didn't break it
+[16:26:58] <m_gol> I think we should remove Safari 5.1 from TestSwarm but add iOS 5.1, 6 and soon 7
+[16:27:05] <Krinkle> this is not boxSizing related though, is it?
+[16:27:08] <m_gol> and we should have Android 2.3 & 4
+[16:27:10] <m_gol> no
+[16:27:37] <m_gol> because not having them in testswarm causes what's expected - lots of tests are failing in Android 2.3
+[16:27:46] <m_gol> and that's not good if we're still trying to support it
+[16:28:20] <Krinkle> It doesn't make sense to me to drop support for a browser within the 1.x branch
+[16:28:26] <Krinkle> That seems counter intuitive
+[16:28:41] <m_gol> the only difference between 1.x & 2.x is which IE versions we support
+[16:28:46] <Krinkle> I know
+[16:29:03] <Krinkle> That's not set in stone, that's intention - empty changes = reality
+[16:29:18] <Krinkle> Safari hasn't released in quite a while.
+[16:29:31] <m_gol> they do releases once a year, the same as IE
+[16:29:47] <Krinkle> Assumign Safari 7 will indeed not support some of still widely used Mac OS versions that 5.1 does use, it might make sense to continue to support it
+[16:30:22] <m_gol> can you come to the meeting on Monday? :)
+[16:30:22] <m_gol> we should discuss such things with more people
+[16:31:24] <Krinkle> 1.x represents a certain intention and audience. Those people support Windows and Mac users with slightly older browsers (e.g. IE8, Safari 5.1). Those Mac users don't magically disappear when Apple releases Safari 7.  
+[16:31:44] <Krinkle> OK
+[16:32:05] <m_gol> I understand but it'd be a change in policy, e.g. it can't be done just like that but requires discussion with more members, some decisions, changes in documentation etc.
+[16:32:10] <snover> once mavericks is released, safari 5.1 will not be available for any system still supported by apple
+[16:32:15] <m_gol> that's why I mentioned a meeting :)
+[16:32:41] <Krinkle> but even if the official support says differently, it doesn't make sense to have the test failing. We've always done best effort approach to try and support lesser known browsers that are compatible.
+[16:33:07] <Krinkle> So if 1.x is compatible with Safari 5.1 (not because we want to or support it, but because it is), I'd say it makes sense to keep it in TestSwarm so we can see how we do.
+[16:33:45] <m_gol> but one implies the other
+[16:33:59] <Krinkle> No
+[16:34:00] <m_gol> if we make any change that will break Safari 5.1, we'll have a TestSwarm failure
+[16:34:18] <m_gol> so I think we should keep there only the browsers we do actually support
+[16:34:41] <m_gol> so if we keep Safari 5.1, make it official that Safari 5.1 is still supported by us
+[16:34:56] <m_gol> or at least semi-official, i.e. so that all team members are aware of that
+[16:35:05] <Krinkle> for FF and Chrome it makes sense to have shifting browser support. For IE and Safari it simply does not make sense to drop support for the previous version the day the next version is released.
+[16:35:16] <m_gol> not the previous
+[16:35:22] <m_gol> but the previous to the previous
+[16:35:35] <Krinkle> Right now 5.1 is the previous. 6.0 is current.
+[16:35:43] <snover> i am looking at my calendar and it does not appear to be july 26, 2012
+[16:35:52] <m_gol> yes, but we won't release any jQuery version before Safari 7.0 comes out
+[16:36:04] <m_gol> so that doesn't matter that 5.1 is now previous, it won't be when we release
+[16:36:38] <m_gol> release dates matter, not dates of commits on master
+[16:37:59] <Krinkle> snover: current is 6.0.x, last update is 6.0.5 from June 2013
+[16:38:55] <Krinkle> Safari 6 is the first release to no longer support Mac OS X 10.6 and earlier.
+[16:39:08] <Krinkle> OS X 10.8 Mountain Lion  is latest
+[16:39:14] <snover> Krinkle: you said, “it simply does not make sense to drop support for the previous version the day the next version is released”
+[16:39:23] <snover> safari 6 was released july 25 2012
+[16:39:33] <Krinkle> Yes, the next version is 7. The day that is released the (now) previous version (5.1)
+[16:39:58] <Krinkle> I didn't refer to the release date of 6
+[16:39:59] <snover> ambiguous; in that context, previous version becomes 6
+[16:40:09] <Krinkle> couldn't care less
+[16:40:14] <Krinkle> I think you get my point
+[16:40:26] <snover> well i didn’t at first!
+[16:41:14] <snover> the support policy is current -1, not current -2
+[16:41:16] <snover> just saying.
+[16:41:27] <snover> obviously feel free to do whatever you want :)
+[16:42:21] <snover> but the whole “well we can’t not support the two versions old version on the day the new version is released” is silly; the point of supporting -1 is to give people time to get onto the current version, and if they can’t do that in 2 years…well
+[16:43:11] <Krinkle> The difference is that it isn't about upgrading, it is about getting a new computer. This is a case where a bunch of cut off points align.
+[16:43:58] <Krinkle> I don't think it is realistic to think that consumers of 1.x only have customers that refresh their entire stack every 2 years.
+[16:44:27] <Krinkle> sure they can stick to the previous version of jquery if needed. But is that acceptible and the policy we want to use?
+[16:45:11] <m_gol> well, it doesn't require a new computer for most of the time, only new OS X ($19). So it's not nearly as bad. But I get your point
+[16:45:50] <Krinkle> Yeah, depending on the hardware they might be able to get to OSX 10.7 or 10.8 with a OS upgrade
+[16:46:10] <m_gol> i.e. hardware not older than 4-5 years old
+[16:46:29] <snover> when was the last time apple sold i686 hardware?
+[16:46:43] <snover> i am pretty sure that was the very first revision of macbook pro
+[16:47:08] <snover> which is 6 year old hardware
+[16:47:29] <m_gol> Krinkle: I posted to jquery-devs-team about Safari 5.1 and stuff summing up our conversation, feel free to add your thoughts
+[16:47:38] <m_gol> this way it might be easier to reach most of the team
+[16:47:40] <Krinkle> Anyway, even an OS upgrade is pretty major. 10.6-10.7 or 8 is definitely not hassle free
+[16:47:47] <m_gol> I know
+[16:48:04] <snover> it isn’t?
+[16:48:19] <m_gol> some people don't like Mission Control ;)
+[16:48:24] <m_gol> though I do not understand them :P
+[16:48:29] <m_gol> Krinkle: you know, I might have a little untypical attitude
+[16:48:38] <Krinkle> I like MC too
+[16:48:58] <m_gol> Krinkle: in Poland MacBooks are way too expensive for a usual person so there are mostly 2 groups of users: rich people & developers
+[16:49:18] <m_gol> both of them don't have trouble upgrading their OS and buying a new hardware at least each 3 years
+[16:49:25] <m_gol> so I don't see the full picture
+[16:49:45] <m_gol> OS X has 1% market share here and only recenty has surpassed Linux
+[16:53:02] <snover> os x doesn’t have much market share anywhere; it is less than 10% worldwide
+[16:54:19] <snover> and, traditionally, apple users tend to upgrade their software
+[16:57:04] <m_gol> there's a difference between 1% an 9%
+[16:57:29] <m_gol> snover: http://gs.statcounter.com/#browser_version_partially_combined-ww-monthly-201208-201308
+[16:57:49] <m_gol> Safari 5.1: 1.57%, Safari 6: 2.44%
+[16:58:10] <snover> i didn’t say there was reason to support either of them ;)
+[16:58:18] <m_gol> hardly a tradition if more than 1/3 of users stays on an older version...
+[16:58:21] <m_gol> hahaha
+[16:59:03] <snover> safari 5.1 has this inexplicable thing there where its usage number is going up
+[16:59:17] <m_gol> since Safari (all versions) have, like, 0.7% in Poland, in our current project the supported browser matrix is as follows: current Fx, current Chrome, current + 12.1x Opera, IE10+ and the Safari version used by the client :P
+[17:30:39] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 06master: 02http://git.io/mflkqw
+[17:30:39] <jqcommit> 13jquery/06master 149968364 15Michał Gołębiowski: No ticket. Restore support for Safari 5.1 in test/unit/support.js for now.
+[17:31:33] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 061.x-master: 02http://git.io/ErTf8A
+[17:31:33] <jqcommit> 13jquery/061.x-master 14ac0e7a1 15Michał Gołębiowski: No ticket. Restore support for Safari 5.1 in test/unit/support.js for now. (cherry-picked from badcd1b6f301e6253405f17759c1270549a34e12)
+[17:33:45] <Krinkle> btw, you may want to revise the sniff
+[17:33:46] <Krinkle> (/ AppleWebKit\/\d.*? Version\/(\d+)/.ex
+[17:33:56] <Krinkle> that will also match other webkit browsers having a version/ clause
+[17:34:13] <Krinkle> I've seen many regexes like these, this is one of the most frafile
+[17:34:15] <Krinkle> fragile
+[17:34:49] <Krinkle> "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_8_4) AppleWebKit/536.30.1 (KHTML, like Gecko) Version/6.0.5 Safari/536.30.1"
+[17:35:26] <Krinkle> "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3) AppleWebKit/534.55.3 (KHTML, like Gecko) Version/5.1.3 Safari/534.53.10"
+[17:35:37] <Krinkle> maybe check  presence of " Safari/" instead
+[17:35:40] <Krinkle> anyhow, thanks :)
+[17:36:13] <m_gol> hm, true
+[17:36:21] <m_gol> I just restored what was there before
+[17:36:28] <Krinkle> I know, no worries :)
+[17:36:55] <m_gol> that should get us through Safari 5.1 failures but we still should update Chrome & Fx ;)
+[17:36:59] <m_gol> on TestSwarm
+[17:37:54] <m_gol> esp. that jQuery won't break on Firefox 22, it's just our tests expect Fx to pass certain tests which this version doesn't...
+[17:37:55] <doesallmagic2> Project jQuery Core build #913: STILL FAILING in 7 min 30 sec: http://jenkins.jquery.com/job/jQuery%20Core/913/
+[17:37:56] <doesallmagic2> m.goleb: No ticket. Restore support for Safari 5.1 in test/unit/support.js for now.
+[17:38:06] <Krinkle> both Chrome and Opera 15+ use their own code name (not Version/) e.g. Chrome/30.xxx and OPR/15.xxx respectively. So I think we're safe. Though Opera used to use "Opera/9.8 Version/11.20 #<-real version"
+[17:38:50] <m_gol> but without AppleWebKit then :)
+[17:39:25] <m_gol> and Opera Blink has Chrome's UA + OPR/15.x.y.z at the end
+[17:39:48] <m_gol> who can update the browsers?
+[17:40:04] <m_gol> we should get rid of those failures ASAP
+[17:47:51] <jqcommit> [13jquery] 15mzgol opened pull request #1355: Fix #14340. Remove remnants of oldIE from unit tests. (06master...06old_support)  02http://git.io/qHdWsA
+[17:53:37] <doesallmagic2> Project jQuery Core 1.x build #224: STILL FAILING in 15 min: http://jenkins.jquery.com/job/jQuery%20Core%201.x/224/
+[17:53:37] <doesallmagic2> m.goleb: No ticket. Restore support for Safari 5.1 in test/unit/support.js for now. (cherry-picked from badcd1b6f301e6253405f17759c1270549a34e12)
+[18:08:31] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 06master: 02http://git.io/F10k-g
+[18:08:31] <jqcommit> 13jquery/06master 140ed397d 15Michał Gołębiowski: No ticket. Update AUTHORS.txt.
+[18:08:38] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 061.x-master: 02http://git.io/5S3YKA
+[18:08:38] <jqcommit> 13jquery/061.x-master 1448e13e9 15Michał Gołębiowski: No ticket. Update AUTHORS.txt.
+[18:14:31] <doesallmagic2> Project jQuery Core build #914: STILL FAILING in 6 min 11 sec: http://jenkins.jquery.com/job/jQuery%20Core/914/
+[18:14:32] <doesallmagic2> m.goleb: No ticket. Update AUTHORS.txt.
+[18:15:14] <jqcommit> 01[13jquery01] 15mzgol pushed 1 new commit to 06master: 02http://git.io/BcD-2Q
+[18:15:14] <jqcommit> 13jquery/06master 14eb9cbfc 15Michał Gołębiowski: No ticket. Update support comments to reflect current state of affairs.
+[18:30:16] <doesallmagic2> Project jQuery Core 1.x build #225: STILL FAILING in 15 min: http://jenkins.jquery.com/job/jQuery%20Core%201.x/225/
+[18:30:16] <doesallmagic2> m.goleb: No ticket. Update AUTHORS.txt.
+[18:36:44] <jqcommit> [13jquery] 15mzgol opened pull request #1356: No ticket. Abstract conditional hook definition. (061.x-master...061.x-registerGetHookIff)  02http://git.io/ii0Xyw
+[18:39:07] <doesallmagic2> Project jQuery Core build #915: STILL FAILING in 8 min 51 sec: http://jenkins.jquery.com/job/jQuery%20Core/915/
+[18:39:08] <doesallmagic2> m.goleb: No ticket. Update support comments to reflect current state of affairs.

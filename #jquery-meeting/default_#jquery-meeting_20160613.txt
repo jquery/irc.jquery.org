@@ -1,0 +1,120 @@
+[12:00:29] <timmywil> DaveMethvin, gibson042, m_gol, markelog_, https://docs.google.com/document/d/1uhcW9_TlSwD8JnO1_HNnSYJAriTK9WYZ8uQNDvtAAhA/edit
+[12:00:38] <DaveMethvin> here
+[12:01:27] <timmywil> so, what's left for 3.0...oh wait!
+[12:01:49] <timmywil> it done been released
+[12:01:50] <DaveMethvin> YAY
+[12:02:12] <timmywil> thank you all for your work in getting that release out
+[12:02:30] <timmywil> hopefully, we can now focus on 1 jQuery
+[12:02:38] <DaveMethvin> i'm pushing bootstrap to make it so they'll use 3.0, there's not that much work to do
+[12:02:50] <DaveMethvin> ui and mobile should be close too
+[12:02:57] <timmywil> cool
+[12:03:12] <timmywil> I haven't looked at their notes. Can we expect ui/mobile releases soon?
+[12:03:21] <DaveMethvin> not sure
+[12:03:36] <DaveMethvin> scott said he'd been looking thru commits
+[12:03:47] <DaveMethvin> i think they got into the situation like we did with 1.12/2.2
+[12:03:54] <DaveMethvin> lots of stuff stacked up
+[12:04:17] <timmywil> ok
+[12:04:34] <DaveMethvin> i am planning to talk to the wordpress folks too
+[12:04:43] <DaveMethvin> that switch to 3.0 will be a lot harder
+[12:04:47] <DaveMethvin> with all their themes
+[12:04:49] <timmywil> I'm sure
+[12:04:57] <timmywil> do they support IE8?
+[12:04:57] <DaveMethvin> if 1.12 tripped them up i dunno what 3.0 will do
+[12:05:04] <DaveMethvin> something to ask
+[12:05:11] <DaveMethvin> yeah it may be they just can't switch yet
+[12:06:01] <timmywil> ok, on to issues. I'm down for trying setPropertyValue https://github.com/jquery/jquery/issues/3144
+[12:06:09] <jbedard> I assume WP still needs to support IE8, or at least allow some themes to
+[12:06:46] <timmywil> It'd be nice if the themes could specify which version they want, or were forced to include it themselves
+[12:06:58] <DaveMethvin> i'm good with trying as well to support vars, as long as it works on all browsers we're good
+[12:07:58] <timmywil> This is one of those browser features where I'd rather jQuery not get in the way, even if it's not supported everywhere yet.
+[12:08:08] <timmywil> kind of like the new events stuff :/
+[12:09:14] <timmywil> good segue
+[12:09:43] <DaveMethvin> tada
+[12:09:45] <timmywil> is the kicker for events changes the question of how we support bubbling special events?
+[12:10:05] <DaveMethvin> i am not sure the special events interface should even survive
+[12:10:11] <DaveMethvin> that's my next step
+[12:10:41] <DaveMethvin> if we can .trigger() a custom event that the browser bubbles for us we could eliminate all that code
+[12:10:49] <timmywil> wow
+[12:10:51] <DaveMethvin> but there are likely to be complications
+[12:11:09] <DaveMethvin> yeah would be cool if we could do it
+[12:11:36] <DaveMethvin> most of the test fails right now are things that verify internal plumbing works and not really that external
+[12:11:44] <timmywil> I see some failures with preventDefault. is that a matter of calling the native method vs calling ours?
+[12:11:52] <DaveMethvin> welll...
+[12:11:56] <DaveMethvin> that's a tricky one
+[12:12:16] <DaveMethvin> when we do delegated events we push all the delegated ones to the front of the event list for that element
+[12:12:29] <markelog> we only have unit tests, which are all about internal stuff
+[12:12:49] <markelog> so no surprises there, we need to have blackbox testing, aka e2e
+[12:12:49] <DaveMethvin> but if we do one addeventlistener per jquery event we can't push them to the front
+[12:13:14] <DaveMethvin> so we can't guarantee a delegated event can stop propagation the way it used to
+[12:13:24] <DaveMethvin> it depends on the order the events are attached to the element
+[12:13:42] <timmywil> interesting
+[12:14:04] <DaveMethvin> yeah once I get a little further down I'll write up exactly what changes
+[12:14:12] <timmywil> so, before, a delegated event could prevent a previously bound handler?
+[12:14:34] <DaveMethvin> yes, if it was bound on that element or above it
+[12:14:55] <jbedard> Other then the fact that it's a BC maybe that's ok though?
+[12:14:55] <DaveMethvin> so just like it would have been if you'd stopped prop with a direclty bound event on the child
+[12:15:00] <timmywil> and here I was meticulously ordering my bindings
+[12:15:03] <DaveMethvin> haha
+[12:15:09] <DaveMethvin> yeah well keep on doing that
+[12:15:11] <DaveMethvin> for 4.0 :)
+[12:15:40] <DaveMethvin> it used to not do that before 1.7
+[12:15:57] <DaveMethvin> my fault for adding a feature that i wish i coudl take away now
+[12:15:59] <timmywil> hmm, how will stopImmediatePropagation work? is there a native equivalent to that?
+[12:16:24] <markelog> https://developer.mozilla.org/en-US/docs/Web/API/Event/stopImmediatePropagation
+[12:16:30] <DaveMethvin> yeah it works
+[12:16:45] <timmywil> excellent. thought that was just us for some reason.
+[12:17:02] <markelog> it might have been added because of us
+[12:17:18] <timmywil> ah, well I guess we implemented it for old IE
+[12:17:32] <DaveMethvin> to jbedard's question we *might* be able to use a capturing handler to get delegated events to fire but then we're not 1:1 with native events
+[12:17:56] <DaveMethvin> we'd have to remember it happened in the capturing phase and fire it in the bubbling phase
+[12:18:48] <DaveMethvin> also i am going to experiment with throwing out special event hooks completely and just adding the code for those cases into the main line
+[12:19:02] <timmywil> this is nice "Seems to pass jQuery UI unit tests"
+[12:19:12] <DaveMethvin> yeah, i was surprised tbh
+[12:19:26] <DaveMethvin> mobile doesn't pass but they do a lot of strange things with events
+[12:19:34] <DaveMethvin> and i didn't want to track down all the problems
+[12:19:45] <DaveMethvin> right now at least
+[12:19:47] <jbedard> what if each delegated event had it's own capturing handler? then delegated handlers will still run first..?
+[12:20:07] <DaveMethvin> yes, they would but at the wrong point
+[12:20:16] <DaveMethvin> assuming they were bubbling handlers
+[12:20:39] <DaveMethvin> definitely worth experimenting with tho
+[12:20:43] <gibson042> I do not want to abuse the capturing phase, because we should have its proper use as a future option
+[12:21:01] <DaveMethvin> yeah ideally we would be neutral and could handler both phases
+[12:21:05] <DaveMethvin> handle
+[12:21:22] <jbedard> yeah
+[12:21:29] <timmywil> thanks for working on that.
+[12:21:47] <markelog> capturing is not really well defined in the spec
+[12:21:52] <DaveMethvin> jbedard i'd love to have your input on that too, take a look if you have a chance
+[12:21:56] <markelog> there is a lot differences in browser impl fyi
+[12:22:24] <DaveMethvin> yeah i dunno if for example a check box is checked when the capuring phase happens or only when it reaches the target
+[12:23:05] <markelog> or like stoping propagation in capturing phase in ff, also stops propagation for bubble events in ff
+[12:23:20] <markelog> which doesn't happen in other browsers
+[12:23:25] <DaveMethvin> wow
+[12:23:30] <DaveMethvin> i din't know that
+[12:23:56] <markelog> i was weird out about it too
+[12:25:22] <gibson042> see also https://github.com/whatwg/dom/issues/215 for delegation standardization
+[12:26:15] <timmywil> while we're working on 4.0, we have some issues slated for 3.0.1. Some of these need owners.
+[12:26:59] <timmywil> If you see an issue that you think should be added to the patch, set the milestone
+[12:28:11] <timmywil> I'd like to get 3.0.1 out in about 3-4 weeks. Don't want to do it too fast as we may get some more critical issues in.
+[12:29:05] <DaveMethvin> I'd like to know how much it's getting used ... it's awfully quiet
+[12:29:44] <markelog> we don't have cdn stats?
+[12:29:54] <timmywil> maybe it's perfect
+[12:30:08] <timmywil> Kappa
+[12:30:22] <DaveMethvin> :)
+[12:30:52] <timmywil> I'll be upgrading some OpenTable projects to 3.0 soon
+[12:31:05] <markelog> you also should receive stats on grunt builds
+[12:31:08] <DaveMethvin> yeah we have stats, maybe s5fs knows
+[12:31:25] <DaveMethvin> of course there is also npm and bower
+[12:31:34] <markelog> yep
+[12:31:54] <DaveMethvin> it's like that 1.12 bug with unquoted selectors, months went by and then wordpress upgrade, booom
+[12:32:22] <DaveMethvin> i have to run off, anything else you need from me?
+[12:32:40] <timmywil> nope, thanks DaveMethvin
+[12:32:44] <timmywil> that's about it
+[12:33:02] <timmywil> everyone take a look at 3.0.1 issues
+[12:33:11] <timmywil> good job on 3.0!
+[12:33:14] <jbedard> I also have to run now, and fyi I'll be away next week.
+[12:33:23] <timmywil> okay jbedard. thanks
+[12:33:27] <markelog> timmywil: i have send you a letter
+[12:33:34] <markelog> did you received?
+[12:33:51] <timmywil> oh right, eslint. I'll do that.
+[12:33:56] <markelog> thank you
+[12:34:04] <timmywil> see you in -dev
